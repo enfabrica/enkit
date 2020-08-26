@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "client.go",
+        "server.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/lib/client",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/grpcwebclient:go_default_library",
+        "//lib/kflags:go_default_library",
+        "//lib/khttp/kclient:go_default_library",
+        "//lib/khttp/krequest:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/progress:go_default_library",
+        "@com_github_spf13_pflag//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//metadata:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+    ],
+)

@@ -1,0 +1,27 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "arch.go",
+        "astore.go",
+        "formatter.go",
+        "note.go",
+        "publish.go",
+        "tag.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/astore/client/astore",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//astore/rpc:astore-go",
+        "//lib/client:go_default_library",
+        "//lib/grpcwebclient:go_default_library",
+        "//lib/kflags:go_default_library",
+        "//lib/multierror:go_default_library",
+        "//lib/progress:go_default_library",
+        "@com_github_go_git_go_git_v5//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+    ],
+)

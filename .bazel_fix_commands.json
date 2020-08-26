@@ -1,0 +1,20 @@
+[
+  {
+    "regex": "^Check that imports in Go sources match importpath attributes in deps.$",
+    "command": "/bin/sh",
+    "args": [ "-c", "bazelisk run //:gazelle" ]
+  },
+
+  {
+    "regex": "missing strict dependencies",
+    "command": "/bin/sh",
+    "args": [ "-c", "bazelisk run //:gazelle" ]
+  },
+
+  {
+    "regex": "No dependencies were provided",
+    "command": "/bin/sh",
+    "args": [ "-c", "bazelisk run //:gazelle" ]
+  }
+
+]

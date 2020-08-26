@@ -1,0 +1,140 @@
+syntax = "proto3";
+
+package astore;
+
+// Common concepts:
+// - sid - is a path like unique identifier, something like xx/yz/zzzzzzzzzzzz (34 bytes long)
+//         It uniquely identifies a blob of bytes in our storage.
+//
+// - uid - is a unique identifier like xxyyxxxxxxxx (32 bytes long).
+//         It uniquely identifies a name / path / element on the remote file system.
+//         One or more name / path / elements can point to the same sid.
+
+message StoreRequest {
+}
+message StoreResponse {
+  string sid = 1; // Unique identifer for the resource - storage id.
+  string url = 2; // URL for uploading the resource.
+}
+
+message CommitRequest {
+  string sid = 1;          // Unique identifier for the resource - storage id.
+  string path = 2;         // Name of the resource.
+  string architecture = 3; // Architecture of the resource.
+
+  repeated string tag = 4; // List of assigned tags.
+  string note = 5;         // User readable message assigned to the upload.
+}
+
+// Metadata associated with an artifact.
+message Artifact {
+  string sid = 1;
+  string uid = 2;
+
+  repeated string tag = 3;
+  bytes MD5 = 4;
+  int64 size = 5;
+
+  string creator = 6;
+  int64 created = 7;
+  string note = 8;
+
+  string architecture = 9;
+}
+
+// Metadata associated with the equivalent of a file or directory.
+message Element {
+  string name = 1;
+  int64  created = 2;
+  string creator = 3;
+}
+
+message CommitResponse {
+  Artifact artifact = 1;
+}
+
+message RetrieveRequest {
+  string path = 1;         // Name of the resource.
+  string uid = 2;          // Unique identifer for the resource.
+  string architecture = 3; // Architecture of the file.
+  TagSet tag = 4; 	   // Tags.
+}
+
+message RetrieveResponse {
+  string path = 1;
+  string url = 2;        // URL for downloading the resource.
+  Artifact artifact = 3; // Metadata associated with the artifact.
+}
+
+// Semantics of a ListRequest:
+// - each field is an "and".
+// - each field is optional, except for path or uid.
+// - if a set of tags is specified, the item must have all of them.
+// - if a set of tags is not specified, "latest" tag is assumed.
+//   Provide an empty list of tags to override.
+message ListRequest {
+  string path = 1;
+  string uid = 2;
+  string architecture = 3; // optiona, restricts the artifacts to those matching this architecture.
+  TagSet tag = 4;
+}
+
+message ListResponse {
+  repeated Element  element = 1;
+  repeated Artifact artifact = 2;
+}
+
+message PublishRequest {
+  string path = 1; 
+  ListRequest select = 2;
+}
+message PublishResponse {
+  string url = 1;
+}
+
+message UnpublishRequest {
+  string path = 1;
+}
+message UnpublishResponse {
+}
+
+// The reason this exists is that proto3 provides no way to test for presence
+// of any fields but messages, and oneof cannot contain repeated fields.
+message TagSet {
+  repeated string tag = 1;
+}
+
+message TagRequest {
+  string uid = 1;
+
+  // It is legal to specify all. The server processes the requests in order.
+  // (sets the tags first - if set - adds next, delete last).
+  TagSet set = 5;  // Tags to set.
+  TagSet add = 4;  // Tags to add.
+  TagSet del = 6;  // Tags to del.
+}
+
+message TagResponse {
+  repeated Artifact artifact = 1;
+}
+
+message NoteRequest {
+  string uid = 1;
+  string note = 2;
+}
+
+message NoteResponse {
+  repeated Artifact artifact = 1;
+}
+
+service Astore {
+  rpc Store(StoreRequest) returns (StoreResponse) {}
+  rpc Commit(CommitRequest) returns (CommitResponse) {}
+  rpc Retrieve(RetrieveRequest) returns (RetrieveResponse) {}
+  rpc List(ListRequest) returns (ListResponse) {}
+  rpc Tag(TagRequest) returns (TagResponse) {}
+  rpc Note(NoteRequest) returns (NoteResponse) {}
+
+  rpc Publish(PublishRequest) returns (PublishResponse) {}
+  rpc Unpublish(UnpublishRequest) returns (UnpublishResponse) {}
+}

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package auth;
+
+message AuthenticateRequest {
+  bytes key = 1; // Public key of the client, to be used to encrypt the token.
+
+  string user = 2;
+  string domain = 3;
+}
+message AuthenticateResponse {
+  bytes key = 1; // Public key of the server, to be used to decrypt the token.
+  string url = 2; // URL for the user to visit to complete the authentication request.
+}
+
+message TokenRequest {
+  string url = 1; // URL returned by server.
+}
+
+message TokenResponse {
+  bytes nonce = 1; // Nonce used for encryption.
+  bytes token = 2; // Encrypted token. Requires the private key corresponding to the public key supplied to open.
+}
+
+service Auth {
+  // Use to retrieve the url to visit to create an authentication token.
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
+  // Use to retrieve an authentication token.
+  rpc Token(TokenRequest) returns (TokenResponse) {}
+}

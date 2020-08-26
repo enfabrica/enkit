@@ -1,0 +1,63 @@
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+# Gazelle seems to not detect my existing proto_library rules, and
+# create new ones with names I don't like. So here you go, gazelle!
+# gazelle:proto disable
+
+proto_library(
+    name = "astore_proto",
+    srcs = ["astore.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+proto_library(
+    name = "auth_proto",
+    srcs = ["auth.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+load("@npm_bazel_labs//:index.bzl", "ts_proto_library")
+
+ts_proto_library(
+    name = "astore-ts",
+    proto = ":astore_proto",
+    visibility = ["//visibility:public"],
+)
+
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+go_proto_library(
+    name = "astore-proto-lib",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "github.com/enfabrica/enkit/astore/rpc/astore",
+    proto = ":astore_proto",
+    visibility = ["//visibility:public"],
+)
+
+go_proto_library(
+    name = "auth-proto-lib",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "github.com/enfabrica/enkit/astore/rpc/auth",
+    proto = ":auth_proto",
+    visibility = ["//visibility:public"],
+)
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "astore-go",
+    embed = [":astore-proto-lib"],
+    importpath = "github.com/enfabrica/enkit/astore/rpc/astore",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "auth-go",
+    embed = [":auth-proto-lib"],
+    importpath = "github.com/enfabrica/enkit/astore/rpc/auth",
+    visibility = ["//visibility:public"],
+)

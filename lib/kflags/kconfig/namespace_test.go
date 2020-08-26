@@ -1,0 +1,197 @@
+package kconfig
+
+import (
+	"flag"
+	"github.com/enfabrica/enkit/lib/cache"
+	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/khttp/downloader"
+	"github.com/enfabrica/enkit/lib/khttp/ktest"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/stretchr/testify/assert"
+	"io/ioutil"
+	"strings"
+	"testing"
+)
+
+func getNamespaces(url string, invalid bool) []Namespace {
+	namespaces := []Namespace{
+		{
+			Name: "",
+			Default: []Parameter{
+				{
+					Name:  "astore-server",
+					Value: "127.0.0.1",
+				},
+				{
+					Name:  "astore-whatever",
+					Value: "fuffa",
+				},
+				{
+					Name:     "astore-certificate",
+					Source:   SourceURL,
+					Value:    "%URL%",
+					Encoding: EncodeFile,
+				},
+			},
+		},
+		{
+			Name: "whatever",
+			Default: []Parameter{
+				{
+					Name:  "astore-whatever",
+					Value: "42",
+				},
+			},
+		},
+		{
+			Name: "astore",
+			Default: []Parameter{
+				{
+					Name:  "astore-server",
+					Value: "127.0.0.2",
+				},
+				{
+					Name:     "astore-certificate",
+					Value:    "inline-certificate",
+					Encoding: EncodeBase64,
+				},
+				{
+					// This is legal, could be an array value, with multiple sources.
+					Name:  "astore-server",
+					Value: "foo-bar",
+				},
+			},
+		},
+	}
+
+	bad := []Namespace{
+		{
+			// This is invalid, it should be ignored.
+			Name: "astore",
+			Default: []Parameter{
+				{
+					Name:  "astore-server",
+					Value: "127.0.0.3",
+				},
+			},
+		},
+		{
+			Name: "foobar",
+			Default: []Parameter{
+				{
+					// Invalid definition.
+					Value: "platipus",
+				},
+			},
+		},
+	}
+
+	for nx, namespace := range namespaces {
+		for px, parm := range namespace.Default {
+			namespaces[nx].Default[px].Value = strings.ReplaceAll(parm.Value, "%URL%", url)
+		}
+	}
+
+	if invalid {
+		namespaces = append(namespaces, bad...)
+	}
+	return namespaces
+}
+
+func TestResolverWithError(t *testing.T) {
+	tempdir, err := ioutil.TempDir("", "cache")
+	assert.Nil(t, err)
+	c := &cache.Local{Root: tempdir}
+	dl, err := downloader.New()
+	assert.Nil(t, err)
+
+	http := ktest.Capture(ktest.CachableStringHandler(message))
+	_, url, err := ktest.StartServer(http.Handle)
+	assert.Nil(t, err)
+
+	namespaces := getNamespaces(url, true)
+	_, err = NewNamespaceResolver(namespaces, NewCreator(logger.Nil, c, dl).Create)
+	assert.NotNil(t, err, "%s", err)
+}
+
+func TestResolver(t *testing.T) {
+	tempdir, err := ioutil.TempDir("", "cache")
+	assert.Nil(t, err)
+	c := &cache.Local{Root: tempdir}
+	dl, err := downloader.New()
+	assert.Nil(t, err)
+
+	http := ktest.Capture(ktest.CachableStringHandler(message))
+	_, url, err := ktest.StartServer(http.Handle)
+	assert.Nil(t, err)
+
+	namespaces := getNamespaces(url, false)
+	r, err := NewNamespaceResolver(namespaces, NewCreator(logger.Nil, c, dl).Create)
+	assert.Nil(t, err, "%s", err)
+
+	server := flag.String("astore-server", "initials", "usage")
+	sflag := flag.Lookup("astore-server")
+
+	certificate := flag.String("astore-certificate", "initialc", "usage")
+	cflag := flag.Lookup("astore-certificate")
+
+	// invalid namespace, the flag is not found.
+	found, err := r.Visit("invalid", &kflags.GoFlag{sflag})
+	derr := r.Done()
+
+	assert.Nil(t, derr)
+	assert.Nil(t, err)
+	assert.False(t, found)
+	assert.Equal(t, *server, "initials")
+
+	// Flag should be found and applied.
+	found, err = r.Visit("", &kflags.GoFlag{sflag})
+	derr = r.Done()
+
+	assert.Nil(t, derr)
+	assert.Nil(t, err)
+	assert.True(t, found)
+	assert.Equal(t, "127.0.0.1", *server)
+
+	// Same as above, the value should be set to a cached path.
+	found, err = r.Visit("", &kflags.GoFlag{cflag})
+	derr = r.Done()
+
+	assert.Nil(t, derr, "%s", derr)
+	assert.Nil(t, err, "%s", err)
+	assert.True(t, found)
+	data, err := ioutil.ReadFile(*certificate)
+	assert.Nil(t, err)
+	assert.Equal(t, message, string(data))
+
+	// Value should now be inlined.
+	found, err = r.Visit("astore", &kflags.GoFlag{cflag})
+	derr = r.Done()
+	assert.Nil(t, derr, "%s", derr)
+	assert.Nil(t, err, "%s", err)
+	assert.True(t, found)
+	assert.Equal(t, "aW5saW5lLWNlcnRpZmljYXRl", *certificate)
+
+	unknown := flag.Int("astore-whatever", 14, "usage")
+	uflag := flag.Lookup("astore-whatever")
+
+	found, err = r.Visit("astore", &kflags.GoFlag{uflag})
+	derr = r.Done()
+	assert.Nil(t, derr, "%s", derr)
+	assert.Nil(t, err, "%s", err)
+	assert.False(t, found)
+	assert.Equal(t, 14, *unknown)
+
+	found, err = r.Visit("whatever", &kflags.GoFlag{uflag})
+	derr = r.Done()
+	assert.Nil(t, derr, "%s", derr)
+	assert.Nil(t, err, "%s", err)
+	assert.True(t, found)
+	assert.Equal(t, 42, *unknown)
+
+	found, err = r.Visit("", &kflags.GoFlag{uflag})
+	derr = r.Done()
+	assert.NotNil(t, derr, "%s", derr)
+	assert.Nil(t, err, "%s", err)
+	assert.True(t, found)
+}

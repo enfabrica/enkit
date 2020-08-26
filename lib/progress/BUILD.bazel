@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["progress.go"],
+    importpath = "github.com/enfabrica/enkit/lib/progress",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_cheggaaa_pb_v3//:go_default_library",
+        "@com_github_cheggaaa_pb_v3//termutil:go_default_library",
+    ],
+)

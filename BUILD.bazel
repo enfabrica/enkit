@@ -1,0 +1,21 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+# gazelle:exclude node_modules
+# gazelle:prefix github.com/enfabrica/enkit
+gazelle(
+    name = "gazelle",
+    prefix = "github.com/enfabrica/enkit",
+)
+
+exports_files(
+    ["tsconfig.json"],
+    visibility = ["//:__subpackages__"],
+)
+
+exports_files(
+    [
+        "go.mod",
+        "go.sum",
+    ],
+    visibility = ["//:__subpackages__"],
+)

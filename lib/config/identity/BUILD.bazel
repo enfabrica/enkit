@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["identity.go"],
+    importpath = "github.com/enfabrica/enkit/lib/config/identity",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/config:go_default_library",
+        "//lib/kflags:go_default_library",
+    ],
+)

@@ -1,0 +1,44 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "interface.go",
+        "namespace.go",
+        "retriever.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/lib/kflags/kconfig",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/cache:go_default_library",
+        "//lib/config/marshal:go_default_library",
+        "//lib/config/remote:go_default_library",
+        "//lib/kflags:go_default_library",
+        "//lib/khttp/downloader:go_default_library",
+        "//lib/khttp/kcache:go_default_library",
+        "//lib/khttp/protocol:go_default_library",
+        "//lib/khttp/workpool:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/multierror:go_default_library",
+        "//lib/retry:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "config_test.go",
+        "namespace_test.go",
+        "retriever_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//lib/cache:go_default_library",
+        "//lib/kflags:go_default_library",
+        "//lib/khttp/downloader:go_default_library",
+        "//lib/khttp/ktest:go_default_library",
+        "//lib/logger:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
+)

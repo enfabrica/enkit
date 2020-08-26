@@ -1,0 +1,3 @@
+TO UPLOAD A FILE:
+
+curl --upload-file /etc/hosts 'https://storage.googleapis.com/test-onboarding/upload/0edc37244ea030da1d9e56998ef5af87?Expires=1593212002&GoogleAccessId=astore%40onboarder-281122.iam.gserviceaccount.com&Signature=rQcEAHg8wNMIJErrScDfHrJGGzhlOJP9KU%2F4wK3LBcTEhu%2BArrKb6G%2BLtl9RLAiKK1PpjhHPYKsphBQjQGlYV9Eh7Rjw7CNNkIXJfT9XA8n1OpY7KwNGjUx%2FISSsmg1LdI%2BkYeWi1oGDYh1fM2SkKq5MDlzOTuQXZTUiOMJT1AY%2FNrvjUYjF36QX9cnZtmlsQqQ24hZZY%2BwAM%2Fx8lBRXrqlwhecRDZGhPQnSzGqLP75KBkt7fcG9IdP3GuldM%2FSLpziUqb2SKqiqDtHeGAwi3IDdiYZ33T0S1NflncFjHpRhgKICA7oG8Xo9AivpWvjhnD0h1H%2BAZ%2F0nEHb1z%2BdRIA%3D%3D'

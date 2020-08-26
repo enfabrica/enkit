@@ -1,0 +1,11 @@
+bazel-*
+.*.sw[po]
+scrap/
+tags
+tmp
+dist
+bazel-out
+node_modules
+credentials*.json
+*.flag*
+*.config*

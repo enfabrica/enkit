@@ -1,0 +1,45 @@
+# gcloud datastore indexes create index.yaml
+indexes:
+
+- kind: Pel
+  ancestor: yes
+  properties:
+  - name: Parent
+  - name: Created
+    direction: desc
+
+- kind: Arch
+  ancestor: yes
+  properties:
+  - name: Parent
+  - name: Created
+    direction: desc
+
+- kind: Artifact
+  ancestor: yes
+  properties:
+  - name: Parent
+  - name: Created
+    direction: desc
+
+- kind: Artifact
+  ancestor: yes
+  properties:
+  - name: Uid
+  - name: Created
+    direction: desc
+
+- kind: Artifact
+  ancestor: yes
+  properties:
+  - name: Parent
+  - name: Tag
+  - name: Created
+    direction: desc
+
+- kind: Artifact
+  properties:
+  - name: Tag
+  - name: Uid
+  - name: Created
+    direction: desc
