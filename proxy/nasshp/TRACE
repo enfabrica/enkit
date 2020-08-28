@@ -1,0 +1,21 @@
+https://chromium.googlesource.com/apps/libapps/+/HEAD/nassh/doc/relay-protocol.md
+
+GET /cookie?ext=pnhechapfaindjhompbnflcldabbghjo&path=html/nassh_google_relay.html HTTP/1.1
+Host: 127.0.0.1:3000
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Sec-Fetch-Site: cross-site
+Sec-Fetch-Mode: navigate
+Sec-Fetch-User: ?1
+Sec-Fetch-Dest: document
+Accept-Encoding: gzip, deflate, br
+Accept-Language: en-US,en;q=0.9
+Cookie: _ga=GA1.1.1657008709.1550883275
+
+
+response:
+                response.putHeader("location", "chrome-extension://" + ext + "/" + path + "#" + gplusid + "@" + RequestHelper.getHost(request));
+		getHost just returns the ip and port of the machine itself.
+

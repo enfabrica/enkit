@@ -1,4 +1,4 @@
-package main
+package httpp
 
 import (
 	"fmt"
@@ -44,9 +44,9 @@ func TestBuild(t *testing.T) {
 		},
 	}
 
-	mux, domains, err := BuildMux(nil, nil, mapping, creator)
+	mux, dohttpps, err := BuildMux(nil, nil, mapping, creator)
 	assert.Nil(t, err)
-	assert.Equal(t, []string{}, domains)
+	assert.Equal(t, []string{}, dohttpps)
 
 	proxy := httptest.NewServer(mux)
 

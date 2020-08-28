@@ -1,75 +1,16 @@
-package main
+package httpp
 
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
+	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/kataras/muxie"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"path"
 	"strings"
 )
-
-// JoinURLQuery takes two escaped query strings (eg, what follows after the ? in a URL)
-// and joins them into one query string.
-func JoinURLQuery(q1, q2 string) string {
-	if q1 == "" || q2 == "" {
-		return q1 + q2
-	}
-
-	return q1 + "&" + q2
-}
-
-// CleanPreserve cleans an URL path (eg, eliminating .., //, useless . and so on) while
-// preserving the '/' at the end of the path (path.Clean eliminates trailing /) and
-// returning an empty string "" instead of . for an empty path.
-func CleanPreserve(urlpath string) string {
-	cleaned := path.Clean(urlpath)
-	if cleaned == "." {
-		cleaned = ""
-	}
-
-	if strings.HasSuffix(urlpath, "/") && !strings.HasSuffix(cleaned, "/") {
-		return cleaned + "/"
-	}
-	return cleaned
-}
-
-// JoinPreserve joins multiple path fragments with one another, while preserving the final '/',
-// if any. JoinPreserve internally calls path.Clean.
-func JoinPreserve(add ...string) string {
-	result := path.Join(add...)
-	if strings.HasSuffix(add[len(add)-1], "/") && !strings.HasSuffix(result, "/") {
-		return result + "/"
-	}
-	return result
-}
-
-// RequestURL approximates the URL the browser requested from an http.Request.
-//
-// Note that RequestURL can only return an approximation: it assumes that if the
-// connection was encrypted it must have been done using https, while if it wasn't,
-// it must have been done via HTTP.
-//
-// Further, most modern deployments rely on reverse proxies and load balancers.
-// Any one of those things may end up mingling with the request headers, so by
-// the time RequestURL is called, who knows what the browser actually supplied.
-func RequestURL(req *http.Request) *url.URL {
-	u := *req.URL
-	if u.Host == "" {
-		u.Host = req.Host
-	}
-
-	if req.TLS != nil {
-		u.Scheme = "https"
-	} else {
-		u.Scheme = "http"
-	}
-
-	return &u
-}
 
 func NewProxy(fromurl, tourl string, transform []*Transform) (*httputil.ReverseProxy, error) {
 	to, err := url.Parse(tourl)
@@ -93,22 +34,22 @@ func NewProxy(fromurl, tourl string, transform []*Transform) (*httputil.ReverseP
 	director := func(req *http.Request) {
 		req.URL.Scheme = to.Scheme
 		req.URL.Host = to.Host
-		req.URL.RawQuery = JoinURLQuery(toQuery, req.URL.RawQuery)
+		req.URL.RawQuery = khttp.JoinURLQuery(toQuery, req.URL.RawQuery)
 
-		maintain := false
+		httpptain := false
 		for _, t := range transform {
-			maintain = t.Apply(req) || maintain
+			httpptain = t.Apply(req) || httpptain
 		}
 
-		if !maintain {
+		if !httpptain {
 			// We have a request for /foo/bar/baz, /foo/bar is mapped to /map, resulting url should be /map/baz.
 			//
 			// Pseudo code:
 			// - Strip the From Path from the To path.
-			cleaned := CleanPreserve(req.URL.Path)
+			cleaned := khttp.CleanPreserve(req.URL.Path)
 			req.URL.Path = strings.TrimPrefix(cleaned, fromStripped)
 		}
-		req.URL.Path = JoinPreserve(to.Path, req.URL.Path)
+		req.URL.Path = khttp.JoinPreserve(to.Path, req.URL.Path)
 		req.URL.RawPath = ""
 	}
 
@@ -138,7 +79,7 @@ func BuildMux(mux *muxie.Mux, log logger.Logger, mappings []Mapping, creator Pro
 		mux.Handle(from, proxy)
 	}
 
-	domains := []string{}
+	dohttpps := []string{}
 	for host, mappings := range hosts {
 		hmux := mux
 		if host != "" {
@@ -147,7 +88,7 @@ func BuildMux(mux *muxie.Mux, log logger.Logger, mappings []Mapping, creator Pro
 		for ix, mapping := range mappings {
 			proxy, err := creator(mapping)
 			if err != nil {
-				return nil, domains, fmt.Errorf("error in mapping entry %d - %w", ix, err)
+				return nil, dohttpps, fmt.Errorf("error in mapping entry %d - %w", ix, err)
 			}
 			path := mapping.From.Path
 			if path == "" {
@@ -161,9 +102,9 @@ func BuildMux(mux *muxie.Mux, log logger.Logger, mappings []Mapping, creator Pro
 			}
 		}
 		if host != "" {
-			domains = append(domains, host)
+			dohttpps = append(dohttpps, host)
 			mux.HandleRequest(muxie.Host(host), hmux)
 		}
 	}
-	return mux, domains, multierror.New(errs)
+	return mux, dohttpps, multierror.New(errs)
 }

@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["nassh.go"],
+    importpath = "github.com/enfabrica/enkit/proxy/nasshp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/logger:go_default_library",
+        "@com_github_gorilla_websocket//:go_default_library",
+    ],
+)

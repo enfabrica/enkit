@@ -2,79 +2,30 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-	"net/http"
 
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/logger"
-	"regexp"
+	"github.com/enfabrica/enkit/lib/khttp"
+	"github.com/enfabrica/enkit/proxy/httpp"
+	"github.com/enfabrica/enkit/proxy/nasshp"
+	"net/http"
+	"log"
 )
 
-type HostPath struct {
-	Host, Path string
+type Dumper struct {
+	Real http.Handler
+	Log logger.Printer
 }
 
-type Regex struct {
-	Match, Sub string
-
-	match *regexp.Regexp
-}
-
-func (t *Regex) Compile() error {
-	var err error
-	t.match, err = regexp.Compile(t.Match)
-	return err
-}
-
-func (t *Regex) Apply(req *http.Request) {
-	t.match.ReplaceAllString(req.URL.Path, t.Sub)
-	req.URL.RawPath = req.URL.EscapedPath()
-}
-
-type Transform struct {
-	// Apply a regular expression to adapt the resulting URL.
-	Regex *Regex
-	// Maintain the original path of the proxy. Normally, it is stripped.
-	// For example: if you map "proxy.address/path/p1/" to "backend.address/path2/", a request
-	// for "proxy.address/path/p1/test" will by default land to "backend.address/path2/test".
-	// If you set Maintain to true, it will instead land on "backend.address/path2/path/p1/test".
-	Maintain bool
-}
-
-func (t *Transform) Apply(req *http.Request) bool {
-	if t.Regex != nil {
-		t.Regex.Apply(req)
+func (d *Dumper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	d.Log("REQUEST %s", r.Method)
+	d.Log(" - host %s", r.Host)
+	d.Log(" - url %s", r.URL)
+	d.Log(" - headers")
+	for key, value := range r.Header {
+	  d.Log("   - %s: %s", key, value)
 	}
-	return t.Maintain
-}
-
-func (t *Transform) Compile(fromurl, tourl string) error {
-	if t.Regex != nil {
-		return t.Regex.Compile()
-	}
-	return nil
-}
-
-type MappingAuth string
-
-const (
-	MappingAuthenticated MappingAuth = ""
-	MappingPublic        MappingAuth = "public"
-)
-
-type Mapping struct {
-	From HostPath
-	To   string
-
-	Transform []*Transform
-	Auth      MappingAuth
-}
-
-type Config struct {
-	// Which URLs to map to which other URLs.
-	Mapping []Mapping
-
-	// Extra domains for which to obtain a certificate.
-	Domains []string
+	d.Real.ServeHTTP(w, r)
 }
 
 func main() {
@@ -88,18 +39,35 @@ func main() {
 	To start a proxy mapping the urls defined in mappings.toml.`,
 	}
 
-	flags := DefaultFlags()
-	flags.Register(&kcobra.FlagSet{FlagSet: root.Flags()}, "")
+	pflags := httpp.DefaultFlags()
+	pflags.Register(&kcobra.FlagSet{FlagSet: root.Flags()}, "")
 
-	log := logger.Nil
+	hflags := khttp.DefaultFlags()
+	hflags.Register(&kcobra.FlagSet{FlagSet: root.Flags()}, "")
+
+	mylog := logger.Nil
 	root.RunE = func(cmd *cobra.Command, args []string) error {
-		proxy, err := New(FromFlags(flags), WithLogging(log))
+		hproxy, err := httpp.New(httpp.FromFlags(pflags), httpp.WithLogging(mylog))
 		if err != nil {
 			return err
 		}
 
-		return proxy.Run()
+		nasshp, err := nasshp.New(mylog)
+		if err != nil {
+			return err
+		}
+
+		mux := http.NewServeMux()
+		mux.Handle("/", hproxy)
+		nasshp.Register(mux.HandleFunc)
+
+		server, err := khttp.FromFlags(hflags)
+		if err != nil {
+			return err
+		}
+
+		return server.Run(mylog.Infof, &Dumper{Real: mux, Log: log.Printf}, hproxy.Domains...)
 	}
 
-	kcobra.RunWithDefaults(root, nil, &log)
+	kcobra.RunWithDefaults(root, nil, &mylog)
 }
