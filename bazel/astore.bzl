@@ -33,30 +33,31 @@ astore_upload = rule(
   attrs = {
     "targets": attr.label_list(allow_files=True, providers=[DefaultInfo], mandatory=True),
     "dir": attr.string(
-      doc = "",
+      doc = "All the targets outputs will be uploaded as different files in an astore directory.",
     ),
     "file": attr.string(
-      doc = "",
+      doc = "All the targets outputs will be uploaded as the same file in an astore directory. " +
+            "This is useful when you have multiple targets to build the same binary for different " +
+            "architectures or operating systems.",
     ),
     "_astore_upload_file": attr.label(
       default = Label("//bazel:astore_upload_file.sh"),
       allow_single_file = True,
-      doc = "",
     ),
     "_astore_upload_dir": attr.label(
       default = Label("//bazel:astore_upload_dir.sh"),
       allow_single_file = True,
-      doc = "",
     ),
     "_astore_client": attr.label(
       default = Label("//astore/client:astore"),
       allow_single_file = True,
       executable = True,
       cfg = "host",
-      doc = "",
     ),
   },
   executable = True,
-  doc = """
-""",
+  doc = """Uploads artifacts to an artifact store - astore.
+
+With this rule, you can easily upload the output of a build rule
+to an artifact store.""",
 )
