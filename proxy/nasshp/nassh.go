@@ -1,31 +1,100 @@
 package nasshp
 
 import (
-	"net/http"
-	"fmt"
-	"strconv"
-	"github.com/gorilla/websocket"
-	"github.com/enfabrica/enkit/lib/logger"
 	"context"
-	"strings"
+	"encoding/binary"
+	"fmt"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/token"
+	"github.com/gorilla/websocket"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"io"
+	"math/rand"
 	"net"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
-	"encoding/binary"
 )
 
-
 type NasshProxy struct {
-	log logger.Logger
-	upgrader websocket.Upgrader
+	log           logger.Logger
+	upgrader      websocket.Upgrader
+	authenticator oauth.Authenticate
+	encoder       token.BinaryEncoder
 }
 
-func New(log logger.Logger) (*NasshProxy, error) {
+type options struct {
+	symmetricSetters []token.SymmetricSetter
+	rng *rand.Rand
+}
+
+type Flags struct {
+	SymmetricKey []byte
+}
+
+func DefaultFlags() *Flags {
+	return &Flags{}
+}
+
+func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
+	set.ByteFileVar(&fl.SymmetricKey, prefix+"sid-encryption-key", "",
+		"Path of the file containing the symmetric key to use to create/process sids. "+
+			"If not supplied, a new key is generated")
+	return fl
+}
+
+type Modifier func(*NasshProxy, *options) error
+
+type Modifiers []Modifier
+
+func (mods Modifiers) Apply(np *NasshProxy, o *options) error {
+	for _, m := range mods {
+		if err := m(np, o); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func WithLogging(log logger.Logger) Modifier {
+	return func(np *NasshProxy, o *options) error {
+		np.log = log
+		return nil
+	}
+}
+
+func FromFlags(fl *Flags) Modifier {
+	return func(np *NasshProxy, o *options) error {
+		if len(fl.SymmetricKey) == 0 {
+			key, err := token.GenerateSymmetricKey(o.rng, 0)
+			if err != nil {
+				return fmt.Errorf("the world is about to end, even random nubmer generators are failing - %w", err)
+			}
+			fl.SymmetricKey = key
+		}
+		WithSymmetricOptions(token.UseSymmetricKey(fl.SymmetricKey))(np, o)
+		return nil
+	}
+}
+
+func WithSymmetricOptions(mods ...token.SymmetricSetter) Modifier {
+	return func(np *NasshProxy, o *options) error {
+		o.symmetricSetters = append(o.symmetricSetters, mods...)
+		return nil
+	}
+}
+
+func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*NasshProxy, error) {
+	o := &options{rng: rng}
 	np := &NasshProxy{
-		log: log,
+		authenticator: authenticator,
+		log:           logger.Nil,
 		upgrader: websocket.Upgrader{
-			CheckOrigin: func (r *http.Request) bool {
+			CheckOrigin: func(r *http.Request) bool {
 				origin := strings.TrimSpace(r.Header.Get("Origin"))
 				if origin == "" {
 					return false
@@ -35,10 +104,24 @@ func New(log logger.Logger) (*NasshProxy, error) {
 		},
 	}
 
+	if err := Modifiers(mods).Apply(np, o); err != nil {
+		return nil, err
+	}
+
+	if np.encoder == nil {
+		be, err := token.NewSymmetricEncoder(rng, o.symmetricSetters...)
+		if err != nil {
+			return nil, fmt.Errorf("error setting up symmetric encryption: %w", err)
+		}
+
+		ue := token.NewBase64UrlEncoder()
+
+		np.encoder = token.NewChainedEncoder(be, ue)
+	}
 	return np, nil
 }
 
-type MuxHandle func (pattern string, handler func (http.ResponseWriter, *http.Request))
+type MuxHandle func(pattern string, handler func(http.ResponseWriter, *http.Request))
 
 func (np *NasshProxy) ServeCookie(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
@@ -49,7 +132,17 @@ func (np *NasshProxy) ServeCookie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "chrome-extension://" + ext + "/" + path + "#test@norad:9999", http.StatusTemporaryRedirect)
+	target := &url.URL{
+		Scheme:   "chrome-extension",
+		Path:     ext + "/" + path,
+		Fragment: "test@norad:9999",
+	}
+
+	if np.authenticator != nil {
+		np.authenticator(w, r, target)
+	} else {
+		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+	}
 }
 
 func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +150,7 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 	host := params.Get("host")
 	port := params.Get("port")
 
-	_, err := strconv.ParseUint(port, 10, 16)
+	sp, err := strconv.ParseUint(port, 10, 16)
 	if err != nil || port == "" {
 		http.Error(w, fmt.Sprintf("invalid port requested: %s", port), http.StatusBadRequest)
 		return
@@ -73,10 +166,28 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Origin", origin)
 	}
 
-	fmt.Fprintf(w, "1234567890abcdef\n")
+	sid, err := np.encoder.Encode([]byte(fmt.Sprintf("%s:%d", host, sp)))
+	if err != nil {
+		np.log.Infof("something went wrong in generating a sid: %w", err)
+		http.Error(w, "Sorry, the world is coming to an end, there was an error generating a session id. Good Luck.", http.StatusInternalServerError)
+	}
+	fmt.Fprintln(w, string(sid))
 }
 
 func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	sid := params.Get("sid")
+	//ack := params.Get("ack")
+	//pos := params.Get("pos")
+	//try := params.Get("try")
+
+
+	hostportb, err := np.encoder.Decode([]byte(sid))
+	if err != nil {
+		http.Error(w, "invalid sid provided", http.StatusBadRequest)
+		return
+	}
+
 	c, err := np.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		np.log.Infof("failed to upgrade web socket: %s", err)
@@ -85,7 +196,7 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 
-	err = np.ProxySsh(r.Context(), c)
+	err = np.ProxySsh(r.Context(), string(hostportb), c)
 	if err != nil {
 		if err != io.EOF {
 			np.log.Infof("failed to forward connection with %v: %v", r.RemoteAddr, err)
@@ -95,9 +206,9 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 }
 
 type readWriter struct {
-	wg sync.WaitGroup
+	wg          sync.WaitGroup
 	browserRead uint32
-	log logger.Logger
+	log         logger.Logger
 }
 
 func newReadWriter(log logger.Logger) *readWriter {
@@ -147,7 +258,7 @@ func (np *readWriter) readFromBrowser(ssh io.Writer, wc *websocket.Conn) error {
 			}
 
 			readTotal += uint64(len(destBuffer))
-			atomic.StoreUint32(&np.browserRead, uint32(readTotal & 0xffffff))
+			atomic.StoreUint32(&np.browserRead, uint32(readTotal&0xffffff))
 
 			w, err := ssh.Write(destBuffer)
 			np.log.Infof("browserRead write1 %d of %d, %w", w, len(destBuffer), err)
@@ -211,8 +322,9 @@ func (np *readWriter) writeToBrowser(wc *websocket.Conn, ssh io.Reader) (err err
 	return err
 }
 
-func (np *NasshProxy) ProxySsh(ctx context.Context, c *websocket.Conn) error {
-	sshconn, err := net.Dial("tcp", "localhost:22")
+func (np *NasshProxy) ProxySsh(ctx context.Context, hostport string, c *websocket.Conn) error {
+	// FIXME: have some mechanism to validate / resolve / check the host the client asked to connect to, as it is today, 
+	sshconn, err := net.Dial("tcp", hostport)
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"time"
+	"strings"
+	"net/url"
 
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/token"
@@ -42,6 +44,23 @@ func DefaultExtractorFlags() *ExtractorFlags {
 	return &ExtractorFlags{
 		LoginTime: o.loginTime,
 	}
+}
+
+type RedirectorFlags struct {
+	*ExtractorFlags
+	AuthURL string
+}
+
+func DefaultRedirectorFlags() *RedirectorFlags {
+	return &RedirectorFlags{
+		ExtractorFlags: DefaultExtractorFlags(),
+	}
+}
+
+func (rf *RedirectorFlags) Register(set kflags.FlagSet, prefix string) *RedirectorFlags {
+	rf.ExtractorFlags.Register(set, prefix)
+	set.StringVar(&rf.AuthURL, "auth-url", "", "Where to redirect users for authentication.")
+	return rf
 }
 
 type Flags struct {
@@ -109,6 +128,13 @@ func (mods Modifiers) Apply(o *Options) error {
 		}
 	}
 	return nil
+}
+
+func WithAuthURL(url *url.URL) Modifier {
+	return func(opt *Options) error {
+		opt.authURL = url
+		return nil
+	}
 }
 
 func WithTargetURL(url string) Modifier {
@@ -223,6 +249,28 @@ func WithLoginTime(lt time.Duration) Modifier {
 	}
 }
 
+func WithRedirectorFlags(fl *RedirectorFlags) Modifier {
+	return func(o *Options) error {
+		authURL := fl.AuthURL
+		if authURL == "" {
+			return kflags.NewUsageError(fmt.Errorf("--auth-url must be supplied"))
+		}
+
+		if strings.Index(authURL, "//") < 0 {
+			authURL = "https://" + authURL
+		}
+
+		u, err := url.Parse(authURL)
+		if err != nil || u.Host == "" {
+			return kflags.NewUsageError(fmt.Errorf("invalid url %s supplied with --auth-url: %w", fl.AuthURL, err))
+		}
+
+		WithAuthURL(u)(o)
+		return WithExtractorFlags(fl.ExtractorFlags)(o)
+	}
+
+}
+
 func WithExtractorFlags(fl *ExtractorFlags) Modifier {
 	return func(o *Options) error {
 		mods := []Modifier{WithCookiePrefix(fl.BaseCookie)}
@@ -264,7 +312,7 @@ func WithFlags(fl *Flags) Modifier {
 			// 0 is the key length, causes the default length to be used.
 			key, err := token.GenerateSymmetricKey(o.rng, 0)
 			if err != nil {
-				return fmt.Errorf("no key specified with --token-encryption-key, and generating one failed with - %s", err)
+				return fmt.Errorf("no key specified with --token-encryption-key, and generating one failed with - %w", err)
 			}
 			fl.SymmetricKey = key
 		}
@@ -305,6 +353,7 @@ type Options struct {
 	conf       *oauth2.Config
 	verifier   Verifier
 	baseCookie string
+	authURL    *url.URL // Only used by the Redirector.
 
 	symmetricSetters []token.SymmetricSetter
 	signingSetters   []token.SigningSetter
@@ -319,41 +368,13 @@ func DefaultOptions(rng *rand.Rand) Options {
 	}
 }
 
-func NewExtractor(modifiers ...Modifier) (*Extractor, error) {
-	options := DefaultOptions(nil)
-	if err := Modifiers(modifiers).Apply(&options); err != nil {
-		return nil, err
-	}
-
-	be, err := token.NewSymmetricEncoder(nil, options.symmetricSetters...)
-	if err != nil {
-		return nil, fmt.Errorf("error setting up symmetric decryption: %w", err)
-	}
-
-	se, err := token.NewSigningEncoder(nil, options.signingSetters...)
-	if err != nil {
-		return nil, fmt.Errorf("error setting up signature verification: %w", err)
-	}
-
-	ue := token.NewBase64UrlEncoder()
-	return &Extractor{
-		baseCookie:   options.baseCookie,
-		loginEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, options.loginTime), be, se, ue)),
-	}, nil
-}
-
-func New(rng *rand.Rand, modifiers ...Modifier) (*Authenticator, error) {
-	options := DefaultOptions(rng)
-	if err := Modifiers(modifiers).Apply(&options); err != nil {
-		return nil, err
-	}
-
-	be, err := token.NewSymmetricEncoder(rng, options.symmetricSetters...)
+func (opt *Options) NewAuthenticator() (*Authenticator, error) {
+	be, err := token.NewSymmetricEncoder(opt.rng, opt.symmetricSetters...)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up symmetric encryption: %w", err)
 	}
 
-	se, err := token.NewSigningEncoder(rng, options.signingSetters...)
+	se, err := token.NewSigningEncoder(opt.rng, opt.signingSetters...)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up signing encryption: %w", err)
 	}
@@ -361,15 +382,15 @@ func New(rng *rand.Rand, modifiers ...Modifier) (*Authenticator, error) {
 	ue := token.NewBase64UrlEncoder()
 	authenticator := &Authenticator{
 		Extractor: Extractor{
-			loginEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, options.loginTime), be, se, ue)),
+			loginEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.loginTime), be, se, ue)),
 		},
 
-		rng: rng,
+		rng: opt.rng,
 
-		authEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, options.authTime), be, ue)),
+		authEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.authTime), be, ue)),
 
-		conf:     options.conf,
-		verifier: options.verifier,
+		conf:     opt.conf,
+		verifier: opt.verifier,
 	}
 
 	if authenticator.conf.RedirectURL == "" {
@@ -389,4 +410,64 @@ func New(rng *rand.Rand, modifiers ...Modifier) (*Authenticator, error) {
 	}
 
 	return authenticator, nil
+}
+
+func (opt *Options) NewExtractor() (*Extractor, error) {
+	be, err := token.NewSymmetricEncoder(nil, opt.symmetricSetters...)
+	if err != nil {
+		return nil, fmt.Errorf("error setting up symmetric decryption: %w", err)
+	}
+
+	se, err := token.NewSigningEncoder(nil, opt.signingSetters...)
+	if err != nil {
+		return nil, fmt.Errorf("error setting up signature verification: %w", err)
+	}
+
+	ue := token.NewBase64UrlEncoder()
+	return &Extractor{
+		baseCookie:   opt.baseCookie,
+		loginEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.loginTime), be, se, ue)),
+	}, nil
+}
+
+func (opt *Options) NewRedirector() (*Redirector, error) {
+	extractor, err := opt.NewExtractor()
+	if err != nil {
+		return nil, err
+	}
+	if opt.authURL == nil {
+		return nil, fmt.Errorf("API usage error - an authURL must be supplied with WithAuthURL")
+	}
+
+	return &Redirector{
+		Extractor: extractor,
+		AuthURL: opt.authURL,
+	}, nil
+}
+
+func NewRedirector(modifiers ...Modifier) (*Redirector, error) {
+	options := DefaultOptions(nil)
+	if err := Modifiers(modifiers).Apply(&options); err != nil {
+		return nil, err
+	}
+
+	return options.NewRedirector()
+}
+
+
+func NewExtractor(modifiers ...Modifier) (*Extractor, error) {
+	options := DefaultOptions(nil)
+	if err := Modifiers(modifiers).Apply(&options); err != nil {
+		return nil, err
+	}
+
+	return options.NewExtractor()
+}
+
+func New(rng *rand.Rand, modifiers ...Modifier) (*Authenticator, error) {
+	options := DefaultOptions(rng)
+	if err := Modifiers(modifiers).Apply(&options); err != nil {
+		return nil, err
+	}
+	return options.NewAuthenticator()
 }

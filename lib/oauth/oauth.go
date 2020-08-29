@@ -45,6 +45,7 @@ package oauth
 //
 
 import (
+	"errors"
 	"bytes"
 	"context"
 	"fmt"
@@ -53,7 +54,9 @@ import (
 	"math/rand"
 	"net/http"
 	"path/filepath"
+	"net/url"
 
+	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/enfabrica/enkit/lib/server"
@@ -63,6 +66,8 @@ import (
 type Verifier func(tok *oauth2.Token) (*Identity, error)
 type VerifierFactory func(conf *oauth2.Config) (Verifier, error)
 
+
+// Extractor is an object capable of extracting and verifying authentication information.
 type Extractor struct {
 	loginEncoder *token.TypeEncoder
 
@@ -70,6 +75,47 @@ type Extractor struct {
 	// This is necessary when multiple instances of the oauth library are used within
 	// the same application, or to ensure the uniqueness of the cookie name in a complex app.
 	baseCookie string
+}
+
+// Redirector is an extractor capable of redirecting to an authentication server for login.
+type Redirector struct {
+	*Extractor
+	AuthURL *url.URL
+}
+
+var ErrorLoops = errors.New("You have been redirected back to this url (%s) - but you still don't have an authentication token.<br />"+
+			"As a sentinent web server, I've decided that you human don't deserve any further redirect, as that would cause a loop<br />"+
+			"which would be bad for the future of the internet, my load, and your bandwidth. Hit refresh if you want, but there's likely<br />"+
+			"something wrong in your cookies, or your setup")
+var ErrorCannotAuthenticate = errors.New("Who are you? Sorry, you have no authentication cookie, and there is no authentication service configured")
+
+type Authenticate func(w http.ResponseWriter, r *http.Request, rurl *url.URL) (*CredentialsCookie, error)
+
+func CreateRedirectURL(r *http.Request) (*url.URL, error) {
+	rurl := khttp.RequestURL(r)
+	_, redirected := rurl.Query()["_redirected"]
+	if redirected {
+		return nil, ErrorLoops
+	}
+
+	rurl.RawQuery = khttp.JoinURLQuery(rurl.RawQuery, "_redirected")
+	return rurl, nil
+}
+
+func (as *Redirector) Authenticate(w http.ResponseWriter, r *http.Request, rurl *url.URL) (*CredentialsCookie, error) {
+	creds, err := as.GetCredentialsFromRequest(r)
+	if creds != nil && err == nil {
+		return creds, nil
+	}
+
+	if as.AuthURL == nil {
+		return nil, ErrorCannotAuthenticate
+	}
+
+	target := *as.AuthURL
+	target.RawQuery = khttp.JoinURLQuery(target.RawQuery, "r="+url.QueryEscape(rurl.String()))
+	http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+	return nil, nil
 }
 
 type Authenticator struct {
@@ -171,6 +217,7 @@ func SetCredentials(ctx context.Context, creds *CredentialsCookie) context.Conte
 	return context.WithValue(ctx, "creds", creds)
 }
 
+
 // ParseCredentialsCookie parses a string containing a CredentialsCookie, and returns the corresponding object.
 func (a *Extractor) ParseCredentialsCookie(cookie string) (*CredentialsCookie, error) {
 	var credentials CredentialsCookie
@@ -183,7 +230,6 @@ func (a *Extractor) ParseCredentialsCookie(cookie string) (*CredentialsCookie, e
 // GetCredentialsFromRequest will parse and validate the credentials in an http request.
 //
 // If successful, it will return a CredentialsCookie pointer.
-//
 // If no credentials, or invalid credentials, an error is returned with nil credentials.
 func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCookie, error) {
 	cookie, err := r.Cookie(a.CredentialsCookieName())

@@ -16,7 +16,7 @@ require (
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/gorilla/websocket v1.4.2
 	github.com/improbable-eng/grpc-web v0.12.0
 	github.com/kataras/muxie v1.1.1
 	github.com/kirsle/configdir v0.0.0-20170128060238-e45d2f54772f

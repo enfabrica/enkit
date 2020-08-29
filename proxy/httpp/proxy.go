@@ -3,7 +3,6 @@ package httpp
 import (
 	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/kflags"
-	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/kataras/muxie"
@@ -11,29 +10,19 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 type Flags struct {
-	*oauth.ExtractorFlags // OK
-
-	Name   string // OK
-	Config []byte // OK
-
-	AuthURL string
+	Name   string
+	Config []byte
 }
 
 func DefaultFlags() *Flags {
-	return &Flags{
-		ExtractorFlags: oauth.DefaultExtractorFlags(),
-	}
+	return &Flags{}
 }
 
 func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
-	set.StringVar(&f.AuthURL, "auth-url", "", "Where to redirect users for authentication")
 	set.ByteFileVar(&f.Config, "config", f.Name, "Default config file location.", kflags.WithFilename(&f.Name))
-
-	f.ExtractorFlags.Register(set, "")
 	return f
 }
 
@@ -43,7 +32,7 @@ type Proxy struct {
 	// List of domains for which an SSL certificate would be needed.
 	Domains []string
 
-	extractor *oauth.Extractor
+	authenticator oauth.Authenticate
 	config    *Config
 	log       logger.Logger
 
@@ -55,37 +44,26 @@ type Proxy struct {
 
 type AuthenticatedProxy struct {
 	Proxy     http.Handler
-	Extractor *oauth.Extractor
+	Authenticator oauth.Authenticate
 	AuthURL   *url.URL
 }
 
 func (as *AuthenticatedProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	creds, err := as.Extractor.GetCredentialsFromRequest(r)
-	if creds != nil && err == nil {
-		r = r.WithContext(oauth.SetCredentials(r.Context(), creds))
-		as.Proxy.ServeHTTP(w, r)
+	target, err := oauth.CreateRedirectURL(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
+	creds, err := as.Authenticator(w, r, target)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if creds == nil {
 		return
 	}
 
-	if as.AuthURL == nil {
-		http.Error(w, "Who are you? Sorry, you have no authentication cookie, and there is no authentication service configured", http.StatusUnauthorized)
-		return
-	}
-
-	rurl := khttp.RequestURL(r)
-	_, redirected := rurl.Query()["_redirected"]
-	if redirected {
-		http.Error(w, "You have been redirected back to this url (%s) - but you still don't have an authentication token.<br />"+
-			"As a sentinent web server, I've decided that you human don't deserve any further redirect, as that would cause a loop<br />"+
-			"which would be bad for the future of the internet, my load, and your bandwidth. Hit refresh if you want, but there's likely<br />"+
-			"something wrong in your cookies, or your setup", http.StatusInternalServerError)
-		return
-	}
-
-	rurl.RawQuery = khttp.JoinURLQuery(rurl.RawQuery, "_redirected")
-	target := *as.AuthURL
-	target.RawQuery = khttp.JoinURLQuery(target.RawQuery, "r="+url.QueryEscape(rurl.String()))
-	http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+	as.Proxy.ServeHTTP(w, r.WithContext(oauth.SetCredentials(r.Context(), creds)))
 }
 
 func (p *Proxy) CreateServer(mapping *Mapping) (http.Handler, error) {
@@ -96,8 +74,11 @@ func (p *Proxy) CreateServer(mapping *Mapping) (http.Handler, error) {
 	if mapping.Auth == MappingPublic {
 		return proxy, nil
 	}
+	if p.authenticator == nil {
+		return nil, fmt.Errorf("proxy for mapping %v requires authentication - but no authentication configured", *mapping)
+	}
 
-	return &AuthenticatedProxy{AuthURL: p.authURL, Proxy: proxy, Extractor: p.extractor}, nil
+	return &AuthenticatedProxy{AuthURL: p.authURL, Proxy: proxy, Authenticator: p.authenticator}, nil
 }
 
 type Modifier func(*Proxy) error
@@ -134,21 +115,15 @@ func WithAuthURL(u *url.URL) Modifier {
 	}
 }
 
-func WithExtractor(extractor *oauth.Extractor) Modifier {
+func WithAuthenticator(authenticator oauth.Authenticate) Modifier {
 	return func(p *Proxy) error {
-		p.extractor = extractor
+		p.authenticator = authenticator
 		return nil
 	}
 }
 
 func FromFlags(fl *Flags) Modifier {
 	return func(p *Proxy) error {
-		extractor, err := oauth.NewExtractor(oauth.WithExtractorFlags(fl.ExtractorFlags))
-		if err != nil {
-			return err
-		}
-		p.extractor = extractor
-
 		var config Config
 		if err := marshal.UnmarshalDefault(fl.Name, fl.Config, marshal.Json, &config); err != nil {
 			return kflags.NewUsageError(err)
@@ -158,22 +133,8 @@ func FromFlags(fl *Flags) Modifier {
 			return kflags.NewUsageError(fmt.Errorf("invalid config: it has no mappings"))
 		}
 
-		if fl.AuthURL == "" {
-			return kflags.NewUsageError(fmt.Errorf("must specify --auth-url parameter"))
-		}
-		authURL := fl.AuthURL
-		if strings.Index(authURL, "//") < 0 {
-			authURL = "https://" + authURL
-		}
-
-		u, err := url.Parse(authURL)
-		if err != nil || u.Host == "" {
-			return kflags.NewUsageError(fmt.Errorf("invalid url %s supplied with --auth-url: %w", fl.AuthURL, err))
-		}
-
 		mods := Modifiers{
 			WithConfig(&config),
-			WithAuthURL(u),
 		}
 		return mods.Apply(p)
 	}
