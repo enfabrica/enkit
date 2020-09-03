@@ -19,7 +19,18 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["window_test.go"],
+    srcs = [
+        "nassh_test.go",
+        "window_test.go",
+    ],
     embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    deps = [
+        "//lib/khttp:go_default_library",
+        "//lib/khttp/ktest:go_default_library",
+        "//lib/khttp/protocol:go_default_library",
+        "//lib/srand:go_default_library",
+        "//lib/token:go_default_library",
+        "@com_github_gorilla_websocket//:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
 )

@@ -2,7 +2,6 @@ package nasshp
 
 import (
 	"github.com/stretchr/testify/assert"
-	//	"log"
 	"testing"
 )
 
@@ -313,4 +312,115 @@ func TestReceiveWindowReset(t *testing.T) {
 	data = w.ToEmpty()
 	assert.Equal(t, quote, string(data))
 	w.Empty(len(data))
+}
+
+func TestReceiveWindowResetComplex(t *testing.T) {
+	wrong := "Wrong is wrong, no matter who does it or says it."
+
+	// Build a large buffer we can use as reference.
+	qb := []byte{}
+	for i := 0; i < 1000; i++ {
+		qb = append(qb, []byte(quote)...)
+	}
+
+	// Small buffer size used by the window library, so we stress the buffer chaining.
+	bsize := 32
+	p := NewBufferPool(bsize)
+	w := NewReceiveWindow(p)
+
+	// Fill the entire buffer with quotes.
+	loops := 0
+	for copied := 0; copied < len(qb); loops++ {
+		d := w.ToFill()
+		assert.True(t, len(d) > 0, "should never return a 0 sized buffer")
+
+		c := copy(d, qb[copied:])
+		w.Filled(c)
+		copied += c
+	}
+	assert.Equal(t, len(qb)/32+1, loops)
+
+	// Empty a part of the buffer.
+	loops = 0
+	emptied := 0
+	for ; emptied < len(qb)/2; loops++ {
+		d := w.ToEmpty()
+		assert.Equal(t, bsize, len(d))
+		assert.Equal(t, string(qb[emptied:emptied+len(d)]), string(d), "loop %d", loops)
+		emptied += len(d)
+		w.Empty(len(d))
+	}
+	err := w.Reset(53)
+	assert.Nil(t, err)
+
+	// The reset should put mechanisms in place so that any further fill of the buffer
+	// results in skipping data - it's not written in the buffer until we catch up.
+	loops = 0
+	stop := len(qb) - 53
+	copied := 0
+	res := []byte{}
+	for ; copied < stop; loops++ {
+		d := w.ToFill()
+		assert.True(t, len(d) > 0, "should never return a 0 sized buffer - loop %d", loops)
+		assert.Equal(t, bsize, len(d))
+
+		c := 0
+		c = copy(d, wrong)
+		res = append(res, wrong[:c]...)
+		w.Filled(c)
+		copied += c
+	}
+	assert.Equal(t, loops*bsize, copied)
+
+	// We emptied half the buffer earlier, but not the rest. We reset the cursor to 53.
+	// Now the data that was already filled should still be unchanged, but past that, we
+	// should have the new data. Let's check.
+	loops = 0
+	for ; emptied < len(qb); loops++ {
+		d := w.ToEmpty()
+		delta := len(qb) - emptied
+		if delta > bsize {
+			delta = bsize
+		}
+		assert.Equal(t, delta, len(d), "loop %d, emptied %d, qb %d", loops, emptied, len(qb))
+		assert.Equal(t, string(qb[emptied:emptied+len(d)]), string(d), "loop %d", loops)
+		emptied += len(d)
+		w.Empty(len(d))
+	}
+
+	d := w.ToEmpty()
+	leftover := (((len(qb)-53)/bsize)+1)*bsize - (len(qb) - 53)
+	assert.Equal(t, leftover, len(d), "wrong %d, copied %d, %d", len(wrong), copied, len(qb)-53)
+	assert.Equal(t, string(res[len(qb)-53:]), string(d), "%d", (len(qb)-53)%32)
+	w.Empty(len(d))
+	emptied += len(d)
+
+	d = w.ToEmpty()
+	assert.Equal(t, 0, len(d))
+
+	// Reset one more time.
+	err = w.Reset(57)
+	assert.Nil(t, err)
+
+	// Fill one more time.
+	loops = 0
+	stop = emptied - 57
+	copied = 0
+	res = []byte{}
+	wrong = "Facts do not cease to exist because they are ignored."
+	for ; copied < stop; loops++ {
+		d := w.ToFill()
+		assert.True(t, len(d) > 0, "should never return a 0 sized buffer - loop %d", loops)
+		assert.Equal(t, bsize, len(d))
+
+		c := 0
+		c = copy(d, wrong)
+		res = append(res, wrong[:c]...)
+		w.Filled(c)
+		copied += c
+	}
+	assert.Equal(t, loops*bsize, copied)
+
+	d = w.ToEmpty()
+	assert.Equal(t, string(res[stop:]), string(d))
 }

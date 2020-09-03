@@ -23,6 +23,12 @@ type buffer struct {
 
 type blist buffer
 
+func (bl *blist) Iterate(callback func(*buffer)) {
+	for cursor := bl.First(); cursor != nil && cursor != bl.End(); cursor = cursor.next {
+		callback(cursor)
+	}
+}
+
 func (bl *blist) Init() *blist {
 	bl.next = (*buffer)(bl)
 	bl.prev = (*buffer)(bl)
@@ -105,11 +111,20 @@ func (bp *BufferPool) Put(b *buffer) {
 type SendWindow struct {
 	filled       uint64 // Absolute counter of bytes filled.
 	acknowledged uint64 // Absolute counter of bytes acknowledged from this window.
-	emptied      uint64 // Absolute counter of bytes consumed from this window.
+	Emptied      uint64 // Absolute counter of bytes consumed from this window.
 
 	pool    *BufferPool
 	buffer  blist
 	pending blist
+}
+
+func (sw *SendWindow) Drop() {
+	sw.buffer.Iterate(func(buffer *buffer) {
+		sw.pool.Put(buffer)
+	})
+	sw.pending.Iterate(func(buffer *buffer) {
+		sw.pool.Put(buffer)
+	})
 }
 
 func NewSendWindow(pool *BufferPool) *SendWindow {
@@ -143,7 +158,7 @@ func (w *SendWindow) ToEmpty() []byte {
 }
 
 func (w *SendWindow) Empty(size int) {
-	w.emptied += uint64(size)
+	w.Emptied += uint64(size)
 	for size > 0 {
 		first := w.buffer.First()
 		filled := first.offset + size
@@ -197,11 +212,11 @@ func (w *SendWindow) Acknowledge(size int) {
 
 func (w *SendWindow) AcknowledgeUntil(trunc uint32) error {
 	value := ToAbsolute(w.acknowledged, trunc)
-	if value > w.emptied {
-		return fmt.Errorf("impossible ack: acknowledges data that was never sent")
+	if value > w.Emptied {
+		return fmt.Errorf("impossible ack: acknowledges data that was never sent (ack: %d, emptied: %d)", value, w.Emptied)
 	}
 	if value < w.acknowledged {
-		return fmt.Errorf("political ack: the data had been acked already, but this ack claims it never was - and now wants to resume from data we no longer have")
+		return fmt.Errorf("political ack: the data had been acked already (and freed), but this ack claims it never was (ack: %d, acknowledged: %d)", value, w.acknowledged)
 	}
 	w.Acknowledge(int(value - w.acknowledged))
 	return nil
@@ -209,18 +224,18 @@ func (w *SendWindow) AcknowledgeUntil(trunc uint32) error {
 
 func (w *SendWindow) Reset(trunc uint32) error {
 	value := ToAbsolute(w.acknowledged, trunc)
-	if value > w.emptied {
-		return fmt.Errorf("invalid ack, puts us past send buffer")
+	if value > w.Emptied {
+		return fmt.Errorf("invalid ack, puts us past send buffer (ack: %d, emptied: %d)", value, w.Emptied)
 	}
 	if value < w.acknowledged {
-		return fmt.Errorf("invalid ack, requires going before last ack, for which we have no buffer")
+		return fmt.Errorf("invalid ack, requires going before last ack, for which we have no buffer (ack: %d, acked: %d)", value, w.acknowledged)
 	}
 
 	w.Acknowledge(int(value - w.acknowledged))
 	w.buffer.InsertListBefore(w.buffer.First(), &w.pending)
 
 	w.buffer.First().offset = w.buffer.First().acknowledged
-	w.emptied = w.acknowledged
+	w.Emptied = w.acknowledged
 	w.filled = w.acknowledged
 	return nil
 }
@@ -247,10 +262,16 @@ func ToAbsolute(reference uint64, trunc uint32) uint64 {
 type ReceiveWindow struct {
 	filled  uint64 // Absolute counter of bytes filled.
 	reset   uint64 // Reset position
-	emptied uint64 // Absolute counter of bytes emptied.
+	Emptied uint64 // Absolute counter of bytes Emptied.
 
 	pool   *BufferPool
 	buffer blist
+}
+
+func (sw *ReceiveWindow) Drop() {
+	sw.buffer.Iterate(func(buffer *buffer) {
+		sw.pool.Put(buffer)
+	})
 }
 
 func NewReceiveWindow(pool *BufferPool) *ReceiveWindow {
@@ -262,12 +283,12 @@ func NewReceiveWindow(pool *BufferPool) *ReceiveWindow {
 }
 
 func (w *ReceiveWindow) Reset(wack uint32) error {
-	value := ToAbsolute(w.emptied, wack)
+	value := ToAbsolute(w.Emptied, wack)
 	if value == w.filled {
 		return nil
 	}
 	if value > w.filled {
-		return fmt.Errorf("can't leaves gaps in receive buffer - have been asked to reset past data received")
+		return fmt.Errorf("can't leave gaps in receive buffer - have been asked to reset past data received (ack: %d, filled: %d)", value, w.filled)
 	}
 
 	// We are moving back in time, preparing to fill the buffer with data that was already
@@ -324,7 +345,7 @@ func (w *ReceiveWindow) ToEmpty() []byte {
 }
 
 func (w *ReceiveWindow) Empty(size int) {
-	w.emptied += uint64(size)
+	w.Emptied += uint64(size)
 	for size > 0 {
 		first := w.buffer.First()
 		filled := first.offset + size
