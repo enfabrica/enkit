@@ -14,22 +14,6 @@ import (
 	"net/http"
 )
 
-type Dumper struct {
-	Real http.Handler
-	Log  logger.Printer
-}
-
-func (d *Dumper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	d.Log("REQUEST %s", r.Method)
-	d.Log(" - host %s", r.Host)
-	d.Log(" - url %s", r.URL)
-	d.Log(" - headers")
-	for key, value := range r.Header {
-		d.Log("   - %s: %s", key, value)
-	}
-	d.Real.ServeHTTP(w, r)
-}
-
 func main() {
 	root := &cobra.Command{
 		Use:           "proxy",
@@ -98,7 +82,7 @@ func main() {
 			return err
 		}
 
-		return server.Run(mylog.Infof, &Dumper{Real: mux, Log: log.Printf}, hproxy.Domains...)
+		return server.Run(mylog.Infof, &khttp.Dumper{Real: mux, Log: log.Printf}, hproxy.Domains...)
 	}
 
 	kcobra.RunWithDefaults(root, nil, &mylog)
