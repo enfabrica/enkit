@@ -5,7 +5,33 @@ import (
 	"strings"
 	"net/url"
 	"net/http"
+	"github.com/enfabrica/enkit/lib/logger"
 )
+
+// Dumper is an http.Handler capable of logging the content of the request.
+//
+// Use it anywhere an http.Handler would be accepted (eg, with http.Serve,
+// http.Handle, wrapping a Mux, ...).
+//
+// Example:
+//    mux := http.NewServeMux()
+//    ...
+//    http.ListenAndServe(":8080", &Dumper{Real: mux, Log: log.Printf})
+type Dumper struct {
+	Real http.Handler
+	Log  logger.Printer
+}
+
+func (d *Dumper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	d.Log("REQUEST %s", r.Method)
+	d.Log(" - host %s", r.Host)
+	d.Log(" - url %s", r.URL)
+	d.Log(" - headers")
+	for key, value := range r.Header {
+		d.Log("   - %s: %s", key, value)
+	}
+	d.Real.ServeHTTP(w, r)
+}
 
 // JoinURLQuery takes two escaped query strings (eg, what follows after the ? in a URL)
 // and joins them into one query string.

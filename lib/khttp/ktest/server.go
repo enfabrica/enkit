@@ -85,15 +85,20 @@ func HangingHandler(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(24 * 365 * time.Hour)
 }
 
+func Start(s http.Handler) (string, error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	server := &http.Server{Handler: s}
+	go func() { server.Serve(ln) }()
+	port := ln.Addr().(*net.TCPAddr).Port
+	return fmt.Sprintf("http://127.0.0.1:%d/", port), nil
+}
+
 func StartServer(h Handler) (*http.ServeMux, string, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", h)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return mux, "", err
-	}
-	server := &http.Server{Handler: mux}
-	go func() { server.Serve(ln) }()
-	port := ln.Addr().(*net.TCPAddr).Port
-	return mux, fmt.Sprintf("http://127.0.0.1:%d/", port), nil
+	res, err := Start(mux)
+	return mux, res, err
 }
