@@ -6,6 +6,8 @@ go_library(
     importpath = "github.com/enfabrica/enkit/proxy",
     visibility = ["//visibility:private"],
     deps = [
+        ":credentials",
+        "//lib/kflags:go_default_library",
         "//lib/kflags/kcobra:go_default_library",
         "//lib/khttp:go_default_library",
         "//lib/logger:go_default_library",
@@ -20,5 +22,23 @@ go_library(
 go_binary(
     name = "proxy",
     embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
+
+# Generate a .go file containing all the credentials supplied during the build.
+go_embed_data(
+    name = "embedded-credentials",
+    package = "credentials",
+    srcs = glob(["credentials/**/*.flag*"]),
+    visibility = ["//visibility:public"],
+    flatten = True,
+)
+
+go_library(
+    name = "credentials",
+    srcs = [":embedded-credentials"],
+    importpath = "github.com/enfabrica/enkit/proxy/credentials",
     visibility = ["//visibility:public"],
 )

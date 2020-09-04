@@ -6,10 +6,13 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/srand"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/proxy/httpp"
 	"github.com/enfabrica/enkit/proxy/nasshp"
+	"github.com/enfabrica/enkit/proxy/credentials"
 	"github.com/spf13/cobra"
 	"log"
+	"os"
 	"math/rand"
 	"net/http"
 )
@@ -85,5 +88,9 @@ func main() {
 		return server.Run(mylog.Infof, &khttp.Dumper{Real: mux, Log: log.Printf}, hproxy.Domains...)
 	}
 
+
+	kcobra.PopulateDefaults(root, os.Args,
+		kflags.NewAssetResolver(&logger.NilLogger{}, "enproxy", credentials.Data),
+	)
 	kcobra.RunWithDefaults(root, nil, &mylog)
 }
