@@ -83,23 +83,18 @@ type Redirector struct {
 	AuthURL *url.URL
 }
 
-var ErrorLoops = errors.New("You have been redirected back to this url (%s) - but you still don't have an authentication token.<br />"+
-			"As a sentinent web server, I've decided that you human don't deserve any further redirect, as that would cause a loop<br />"+
-			"which would be bad for the future of the internet, my load, and your bandwidth. Hit refresh if you want, but there's likely<br />"+
+var ErrorLoops = errors.New("You have been redirected back to this url - but you still don't have an authentication token.\n"+
+			"As a sentinent web server, I've decided that you human don't deserve any further redirect, as that would cause a loop\n"+
+			"which would be bad for the future of the internet, my load, and your bandwidth. Hit refresh if you want, but there's likely\n"+
 			"something wrong in your cookies, or your setup")
 var ErrorCannotAuthenticate = errors.New("Who are you? Sorry, you have no authentication cookie, and there is no authentication service configured")
 
 type Authenticate func(w http.ResponseWriter, r *http.Request, rurl *url.URL) (*CredentialsCookie, error)
 
-func CreateRedirectURL(r *http.Request) (*url.URL, error) {
+func CreateRedirectURL(r *http.Request) *url.URL {
 	rurl := khttp.RequestURL(r)
-	_, redirected := rurl.Query()["_redirected"]
-	if redirected {
-		return nil, ErrorLoops
-	}
-
 	rurl.RawQuery = khttp.JoinURLQuery(rurl.RawQuery, "_redirected")
-	return rurl, nil
+	return rurl
 }
 
 func (as *Redirector) Authenticate(w http.ResponseWriter, r *http.Request, rurl *url.URL) (*CredentialsCookie, error) {
@@ -112,8 +107,15 @@ func (as *Redirector) Authenticate(w http.ResponseWriter, r *http.Request, rurl 
 		return nil, ErrorCannotAuthenticate
 	}
 
+	_, redirected := r.URL.Query()["_redirected"]
+	if redirected {
+		return nil, ErrorLoops
+	}
+
 	target := *as.AuthURL
-	target.RawQuery = khttp.JoinURLQuery(target.RawQuery, "r="+url.QueryEscape(rurl.String()))
+	if rurl != nil {
+		target.RawQuery = khttp.JoinURLQuery(target.RawQuery, "r="+url.QueryEscape(rurl.String()))
+	}
 	http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
 	return nil, nil
 }
