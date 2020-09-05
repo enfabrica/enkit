@@ -28,6 +28,7 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/kflags/kconfig"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
+	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/oauth/ogoogle"
@@ -161,11 +162,19 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 	stats.Log(log.Printf)
 
 	mux.HandleFunc("/w", func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" && ((cookieDomain != "" && strings.Index(origin, cookieDomain) >= 0)) {
+			w.Header().Add("Vary", "Origin")
+			w.Header().Add("Access-Control-Allow-Credentials", "true")
+			w.Header().Add("Access-Control-Allow-Origin", origin)
+		}
+
 		redirect := r.URL.Query().Get("r")
 		mods := []oauth.LoginModifier{oauth.WithCookieOptions(kcookie.WithPath("/"))}
 		if redirect != "" {
 			target, err := url.Parse(redirect)
-			if err == nil && cookieDomain != "" && strings.HasSuffix(target.Hostname(), cookieDomain) {
+			// This allows redirects to any machine that will accept the authentication cookie, and chrome extensions.
+			if err == nil && ((cookieDomain != "" && strings.HasSuffix(target.Hostname(), cookieDomain)) || strings.HasPrefix(target.Scheme, "chrome")) {
 				mods = append(mods, oauth.WithTarget(redirect))
 			}
 		}
@@ -199,7 +208,8 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 	mux.HandleFunc("/e/", func(w http.ResponseWriter, r *http.Request) {
 		copts := []kcookie.Modifier{kcookie.WithPath("/")}
 		if cookieDomain != "" {
-			copts = append(copts, kcookie.WithDomain(cookieDomain))
+			// WithSecure and WithSameSite are required to get the cookie forwarded via the NASSH plugin in chrome (for SSH).
+			copts = append(copts, kcookie.WithDomain(cookieDomain), kcookie.WithSecure(true), kcookie.WithSameSite(http.SameSiteNoneMode))
 		}
 
 		data, handled, err := authWeb.PerformAuth(w, r, copts...)
