@@ -8,6 +8,6 @@
 + authenticate user using proxy.
 
 options to use
---proxy-host=gw.corp.enfabrica.net --proxy-port=... --resume-connection
+--proxy-host=gw.corp.enfabrica.net --proxy-port=... --resume-connection --use-ssl
 
 implements protocol corp-relay@google.com

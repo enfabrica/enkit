@@ -1,25 +1,25 @@
 package main
 
 import (
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/proxy/credentials"
 	"github.com/enfabrica/enkit/proxy/httpp"
 	"github.com/enfabrica/enkit/proxy/nasshp"
-	"github.com/enfabrica/enkit/proxy/credentials"
 	"github.com/spf13/cobra"
 	"log"
-	"os"
 	"math/rand"
 	"net/http"
+	"os"
 )
 
 func main() {
 	root := &cobra.Command{
-		Use:           "proxy",
+		Use:           "enproxy",
 		Long:          `proxy - starts an authenticating proxy`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
@@ -48,6 +48,7 @@ func main() {
 
 	mylog := logger.Nil
 	root.RunE = func(cmd *cobra.Command, args []string) error {
+		mods := []httpp.Modifier{httpp.FromFlags(pflags), httpp.WithLogging(mylog)}
 		var authenticate oauth.Authenticate
 		if rflags.AuthURL != "" {
 			redirector, err := oauth.NewRedirector(oauth.WithRedirectorFlags(rflags))
@@ -55,15 +56,18 @@ func main() {
 				return err
 			}
 			authenticate = redirector.Authenticate
+			mods = append(mods, httpp.WithStripCookie([]string{
+				redirector.CredentialsCookieName(),
+			}))
+			mods = append(mods, httpp.WithAuthenticator(authenticate))
 		}
 
-		hproxy, err := httpp.New(httpp.FromFlags(pflags), httpp.WithAuthenticator(authenticate), httpp.WithLogging(mylog))
+		hproxy, err := httpp.New(mods...)
 		if err != nil {
 			return err
 		}
 
-		mux := http.NewServeMux()
-		mux.Handle("/", hproxy)
+		dispatcher := http.Handler(hproxy)
 		if authenticate == nil {
 			mylog.Warnf("ssh gateway disabled as no authentication was configured")
 		} else {
@@ -77,7 +81,18 @@ func main() {
 			if err != nil {
 				return err
 			}
+
+			mux := http.NewServeMux()
 			nasshp.Register(mux.HandleFunc)
+
+			handler, err := khttp.NewHostDispatcher([]khttp.HostDispatch{
+				{Host: nflags.RelayHost, Handler: mux},
+				{Handler: hproxy},
+			})
+			if err != nil {
+				return err
+			}
+			dispatcher = handler
 		}
 
 		server, err := khttp.FromFlags(hflags)
@@ -85,12 +100,11 @@ func main() {
 			return err
 		}
 
-		return server.Run(mylog.Infof, &khttp.Dumper{Real: mux, Log: log.Printf}, hproxy.Domains...)
+		return server.Run(mylog.Infof, &khttp.Dumper{Real: dispatcher, Log: log.Printf}, hproxy.Domains...)
 	}
 
-
 	kcobra.PopulateDefaults(root, os.Args,
-		kflags.NewAssetResolver(&logger.NilLogger{}, "enproxy", credentials.Data),
+		kflags.NewAssetResolver(mylog, "enproxy", credentials.Data),
 	)
 	kcobra.RunWithDefaults(root, nil, &mylog)
 }

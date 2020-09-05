@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,6 +27,12 @@ type NasshProxy struct {
 	upgrader      websocket.Upgrader
 	authenticator oauth.Authenticate
 	encoder       token.BinaryEncoder
+
+	// Timeouts to use, must be set.
+	timeouts *Timeouts
+
+	// Where to redirect users after authentication to get their connections going.
+	relayHost string
 
 	// sync.Pool of buffers to allocate and use for clients.
 	pool *BufferPool
@@ -41,12 +48,30 @@ type options struct {
 }
 
 type Flags struct {
+	*Timeouts
+
 	SymmetricKey []byte
 	BufferSize   int
+	RelayHost    string
+}
+
+func DefaultTimeouts() *Timeouts {
+	return &Timeouts{
+		Now: time.Now,
+
+		BrowserWriteTimeout: time.Second * 60,
+		BrowserAckTimeout:   time.Second * 1,
+		ConnWriteTimeout:    time.Second * 60,
+		ResolutionTimeout:   time.Second * 30,
+
+		// TODO: add a maximum idle time.
+	}
 }
 
 func DefaultFlags() *Flags {
-	return &Flags{}
+	return &Flags{
+		Timeouts: DefaultTimeouts(),
+	}
 }
 
 func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
@@ -54,6 +79,17 @@ func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 		"Path of the file containing the symmetric key to use to create/process sids. "+
 			"If not supplied, a new key is generated")
 	set.IntVar(&fl.BufferSize, prefix+"buffer-size", 8192, "Size of the buffers to use to send/receive data for connections")
+	set.StringVar(&fl.RelayHost, prefix+"host-port", "", "The hostname and port number the nassh client has to be redirected to to establish an ssh connection. "+
+		"Typically, this is the DNS name and port 80 or 443 of the host running this proxy.")
+
+	set.DurationVar(&fl.BrowserWriteTimeout, "browser-write-timeout", fl.BrowserWriteTimeout,
+		"How long to wait for a write to the browser to complete before giving up.")
+	set.DurationVar(&fl.BrowserAckTimeout, "browser-ack-timeout", fl.BrowserAckTimeout,
+		"How long to wait before sending an ack back.")
+	set.DurationVar(&fl.ConnWriteTimeout, "conn-write-timeout", fl.ConnWriteTimeout,
+		"How long to wait for a write to the proxied connection (eg, ssh) to complete before giving up.")
+	set.DurationVar(&fl.ResolutionTimeout, "resolution-timeout", fl.ResolutionTimeout,
+		"How long to wait to resolve the name of the destination of the proxied connection")
 	return fl
 }
 
@@ -84,8 +120,20 @@ func WithBufferSize(size int) Modifier {
 	}
 }
 
+func WithRelayHost(relayHost string) Modifier {
+	return func(np *NasshProxy, o *options) error {
+		np.relayHost = relayHost
+		return nil
+	}
+}
+
 func FromFlags(fl *Flags) Modifier {
 	return func(np *NasshProxy, o *options) error {
+		relayHost := strings.TrimSpace(fl.RelayHost)
+		if len(relayHost) == 0 {
+			return kflags.NewUsageError(fmt.Errorf("specifying --host-port is mandatory - there's no automated way to guess a dns name and port where this proxy (or a relay) is running"))
+		}
+
 		if len(fl.SymmetricKey) == 0 {
 			key, err := token.GenerateSymmetricKey(o.rng, 0)
 			if err != nil {
@@ -93,9 +141,13 @@ func FromFlags(fl *Flags) Modifier {
 			}
 			fl.SymmetricKey = key
 		}
-		WithSymmetricOptions(token.UseSymmetricKey(fl.SymmetricKey))(np, o)
-		WithBufferSize(fl.BufferSize)(np, o)
-		return nil
+		mods := Modifiers{
+			WithRelayHost(fl.RelayHost),
+			WithSymmetricOptions(token.UseSymmetricKey(fl.SymmetricKey)),
+			WithBufferSize(fl.BufferSize),
+			WithTimeouts(fl.Timeouts),
+		}
+		return mods.Apply(np, o)
 	}
 }
 
@@ -113,9 +165,17 @@ func WithOriginChecker(checker func(r *http.Request) bool) Modifier {
 	}
 }
 
+func WithTimeouts(timeouts *Timeouts) Modifier {
+	return func(np *NasshProxy, o *options) error {
+		np.timeouts = timeouts
+		return nil
+	}
+}
+
 func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*NasshProxy, error) {
 	o := &options{rng: rng, bufferSize: 8192}
 	np := &NasshProxy{
+		timeouts:      DefaultTimeouts(),
 		authenticator: authenticator,
 		log:           logger.Nil,
 		upgrader: websocket.Upgrader{
@@ -124,7 +184,7 @@ func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*N
 				if origin == "" {
 					return false
 				}
-				return strings.HasPrefix(origin, "chrome-extension://")
+				return strings.HasPrefix(origin, "chrome-extension://") || strings.HasPrefix(origin, "chrome://")
 			},
 		},
 	}
@@ -161,26 +221,48 @@ func (np *NasshProxy) ServeCookie(w http.ResponseWriter, r *http.Request) {
 	}
 
 	target := &url.URL{
-		Scheme: "chrome-extension",
-		Path:   ext + "/" + path,
-		// FIXME: actual url and port of gateway
-		Fragment: "test@norad:9999",
+		Scheme:   "chrome-extension",
+		Path:     ext + "/" + path,
+		Fragment: "nasshp-enkit@" + np.relayHost,
 	}
 
 	if np.authenticator != nil {
-		np.authenticator(w, r, target)
-	} else {
-		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+		creds, err := np.authenticator(w, r, target)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid request for: %s - %s", r.URL, err), http.StatusBadRequest)
+			return
+		}
+		// There are no credentials, so the user has been redirected to the authentication service.
+		if creds == nil {
+			return
+		}
 	}
+	http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
 }
+
+var OriginMatcher = regexp.MustCompile(`^chrome(-extension)?://`)
 
 func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	host := params.Get("host")
 	port := params.Get("port")
 
+	origin := r.Header.Get("Origin")
+	if origin != "" && OriginMatcher.MatchString(origin) {
+		w.Header().Add("Vary", "Origin")
+		w.Header().Add("Access-Control-Allow-Credentials", "true")
+		w.Header().Add("Access-Control-Allow-Origin", origin)
+	}
+
 	if np.authenticator != nil {
-		np.authenticator(w, r, nil)
+		creds, err := np.authenticator(w, r, nil)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid request for: %s - %s", r.URL, err), http.StatusBadRequest)
+			return
+		}
+		if creds == nil {
+			return
+		}
 	}
 
 	sp, err := strconv.ParseUint(port, 10, 16)
@@ -191,12 +273,6 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 	if host == "" {
 		http.Error(w, fmt.Sprintf("invalid empty host: %s", host), http.StatusBadRequest)
 		return
-	}
-
-	origin := r.Header.Get("Origin")
-	if origin != "" {
-		w.Header().Add("Access-Control-Allow-Credentials", "true")
-		w.Header().Add("Access-Control-Allow-Origin", origin)
 	}
 
 	sid, err := np.encoder.Encode([]byte(fmt.Sprintf("%s:%d", host, sp)))
@@ -240,7 +316,7 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 
 	c, err := np.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to upgrade web socket: %s", err), http.StatusInternalServerError)
+		np.log.Warnf("failed to upgrade web socket: %s", err)
 		return
 	}
 
@@ -308,7 +384,6 @@ type Timeouts struct {
 	BrowserAckTimeout   time.Duration
 
 	ConnWriteTimeout time.Duration
-	ConnAckTimeout   time.Duration
 }
 
 type guardedBrowser struct {
@@ -660,19 +735,8 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 
 func (np *NasshProxy) ProxySsh(r *http.Request, sid string, rack, wack uint32, hostport string, c *websocket.Conn) error {
 	np.log.Warnf("%s with %s starting - rack %08x wack %08x - connects %s", sid[0:6], r.RemoteAddr, rack, wack, hostport)
-	timeouts := &Timeouts{
-		Now: time.Now,
 
-		// FIXME: read those from flags.
-		BrowserWriteTimeout: time.Second * 60,
-		BrowserAckTimeout:   time.Second * 1,
-		ConnWriteTimeout:    time.Second * 60,
-		ConnAckTimeout:      time.Second * 1,
-		ResolutionTimeout:   time.Second * 30,
-		// FIXME: add a cleanup timeout.
-	}
-
-	rwi, found := np.connections.LoadOrStore(sid, newReadWriter(np.log, np.pool, timeouts))
+	rwi, found := np.connections.LoadOrStore(sid, newReadWriter(np.log, np.pool, np.timeouts))
 	rw, converted := rwi.(*readWriter)
 	if !converted {
 		np.connections.Delete(sid)
@@ -686,7 +750,7 @@ func (np *NasshProxy) ProxySsh(r *http.Request, sid string, rack, wack uint32, h
 
 	var waiter waiter
 	if !found {
-		sshconn, err := net.DialTimeout("tcp", hostport, timeouts.ResolutionTimeout)
+		sshconn, err := net.DialTimeout("tcp", hostport, np.timeouts.ResolutionTimeout)
 		if err != nil {
 			return err
 		}

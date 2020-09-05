@@ -20,7 +20,7 @@ go_library(
 )
 
 go_binary(
-    name = "proxy",
+    name = "enproxy",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )
