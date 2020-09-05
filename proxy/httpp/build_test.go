@@ -2,8 +2,10 @@ package httpp
 
 import (
 	"fmt"
+	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,9 +19,9 @@ func TestBuild(t *testing.T) {
 	backends := []*httptest.Server{}
 	for ix := 0; ix < 10; ix++ {
 		proxyId := ix
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(&khttp.Dumper{Log: log.Printf, Real: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "GOT %d:%s", proxyId+1, r.URL.String())
-		}))
+		})})
 		defer server.Close()
 
 		backends = append(backends, server)

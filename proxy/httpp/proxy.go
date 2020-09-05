@@ -33,9 +33,10 @@ type Proxy struct {
 	Domains []string
 
 	authenticator oauth.Authenticate
-	config    *Config
-	log       logger.Logger
+	config        *Config
+	log           logger.Logger
 
+	stripCookie  []string
 	cachedir     string
 	httpAddress  string
 	httpsAddress string
@@ -43,18 +44,13 @@ type Proxy struct {
 }
 
 type AuthenticatedProxy struct {
-	Proxy     http.Handler
+	Proxy         http.Handler
 	Authenticator oauth.Authenticate
-	AuthURL   *url.URL
+	AuthURL       *url.URL
 }
 
 func (as *AuthenticatedProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	target, err := oauth.CreateRedirectURL(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
-
-	creds, err := as.Authenticator(w, r, target)
+	creds, err := as.Authenticator(w, r, oauth.CreateRedirectURL(r))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -67,7 +63,17 @@ func (as *AuthenticatedProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func (p *Proxy) CreateServer(mapping *Mapping) (http.Handler, error) {
-	proxy, err := NewProxy(mapping.From.Path, mapping.To, mapping.Transform)
+	// Ensure that default transforms are applied.
+	transform := mapping.Transform
+	if transform == nil {
+		transform = &Transform{}
+	}
+
+	if len(p.stripCookie) > 0 {
+		transform.StripCookie = append(transform.StripCookie, p.stripCookie...)
+	}
+
+	proxy, err := NewProxy(mapping.From.Path, mapping.To, transform)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +117,13 @@ func WithLogging(log logger.Logger) Modifier {
 func WithAuthURL(u *url.URL) Modifier {
 	return func(p *Proxy) error {
 		p.authURL = u
+		return nil
+	}
+}
+
+func WithStripCookie(toStrip []string) Modifier {
+	return func(p *Proxy) error {
+		p.stripCookie = toStrip
 		return nil
 	}
 }
