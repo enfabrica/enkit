@@ -35,6 +35,8 @@ type Flags struct {
 	Wait time.Duration
 	// How much of a random retry time to add.
 	Fuzzy time.Duration
+	// How many errors to store at most.
+	MaxErrors int
 }
 
 func DefaultFlags() *Flags {
@@ -42,11 +44,13 @@ func DefaultFlags() *Flags {
 		AtMost: 5,
 		Wait:   1 * time.Second,
 		Fuzzy:  1 * time.Second,
+		MaxErrors: 10,
 	}
 }
 
 func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.IntVar(&fl.AtMost, prefix+"retry-at-most", fl.AtMost, "How many time to retry the operation at most")
+	set.IntVar(&fl.MaxErrors, prefix+"retry-max-errors", fl.MaxErrors, "How many errors to record when retrying")
 	set.DurationVar(&fl.Wait, prefix+"retry-wait", fl.Wait, "How long to wait from the start of an attempt to the next")
 	set.DurationVar(&fl.Fuzzy, prefix+"retry-fuzzy", fl.Fuzzy, "How much randomized time to add to each retry-wait time")
 	return fl
@@ -252,7 +256,10 @@ func (o *Options) Run(runner func() error) error {
 			return stop.Original
 		}
 
-		errs = append(errs, err)
+		if len(errs) <= o.MaxErrors {
+			errs = append(errs, err)
+		}
+
 		if delay > 0 {
 			time.Sleep(delay)
 		}
