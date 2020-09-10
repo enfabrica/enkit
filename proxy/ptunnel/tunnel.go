@@ -1,4 +1,4 @@
-package pclient
+package ptunnel
 
 import (
 	"encoding/binary"

@@ -1,4 +1,4 @@
-package pclient
+package ptunnel
 
 import (
 	"github.com/enfabrica/enkit/lib/khttp"

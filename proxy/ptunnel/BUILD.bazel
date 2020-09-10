@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["tunnel.go"],
-    importpath = "github.com/enfabrica/enkit/proxy/pclient",
+    importpath = "github.com/enfabrica/enkit/proxy/ptunnel",
     visibility = ["//visibility:public"],
     deps = [
         "//lib/khttp/protocol:go_default_library",
