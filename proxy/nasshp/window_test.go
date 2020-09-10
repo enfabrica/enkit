@@ -25,7 +25,7 @@ func TestSendWindowSimpleAcknowledge(t *testing.T) {
 	d = w.ToFill()
 	l := copy(d, quote)
 	assert.Equal(t, bsize, l)
-	w.Filled(l)
+	w.Fill(l)
 
 	// Still failing, as the data has not been sent.
 	err = w.AcknowledgeUntil(2)
@@ -119,7 +119,7 @@ func TestSendWindowSimple(t *testing.T) {
 		assert.True(t, len(d) > 0, "should never return a 0 sized buffer")
 
 		c := copy(d, qb[copied:])
-		w.Filled(c)
+		w.Fill(c)
 		copied += c
 	}
 	assert.Equal(t, len(qb)/32+1, loops)
@@ -206,12 +206,12 @@ func TestReceiveWindowSimple(t *testing.T) {
 	data := w.ToFill()
 	assert.Equal(t, bsize, len(data))
 	copy(data, quote)
-	w.Filled(len(quote))
+	w.Fill(len(quote))
 
 	data = w.ToFill()
 	assert.Equal(t, bsize-len(quote), len(data))
 	copy(data, quote)
-	w.Filled(len(quote))
+	w.Fill(len(quote))
 
 	data = w.ToFill()
 	assert.Equal(t, bsize-2*len(quote), len(data))
@@ -236,7 +236,7 @@ func TestReceiveWindowLoop(t *testing.T) {
 	for i := 0; i < 10000; i++ {
 		data := w.ToFill()
 		l := copy(data, quote)
-		w.Filled(l)
+		w.Fill(l)
 	}
 
 	j := 0
@@ -259,7 +259,7 @@ func TestReceiveWindowReset(t *testing.T) {
 	data := w.ToFill()
 	l := copy(data, quote)
 	assert.Equal(t, len(quote), l)
-	w.Filled(l)
+	w.Fill(l)
 
 	e := w.ToEmpty()
 	assert.Equal(t, len(quote), len(e))
@@ -287,14 +287,14 @@ func TestReceiveWindowReset(t *testing.T) {
 	assert.Equal(t, len(quote), len(e))
 
 	// Let's fill in some data (this would be skipped)
-	w.Filled(5)
+	w.Fill(5)
 	e = w.ToEmpty()
 	assert.Equal(t, len(quote), len(e))
 
 	// Part of this write should be skipped.
 	data = w.ToFill()
 	copy(data, quote[0:5])
-	w.Filled(5)
+	w.Fill(5)
 
 	// Let's consume the buffer.
 	data = w.ToEmpty()
@@ -307,7 +307,7 @@ func TestReceiveWindowReset(t *testing.T) {
 
 	data = w.ToFill()
 	copy(data, quote)
-	w.Filled(len(quote))
+	w.Fill(len(quote))
 
 	data = w.ToEmpty()
 	assert.Equal(t, quote, string(data))
@@ -335,7 +335,7 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 		assert.True(t, len(d) > 0, "should never return a 0 sized buffer")
 
 		c := copy(d, qb[copied:])
-		w.Filled(c)
+		w.Fill(c)
 		copied += c
 	}
 	assert.Equal(t, len(qb)/32+1, loops)
@@ -367,7 +367,7 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 		c := 0
 		c = copy(d, wrong)
 		res = append(res, wrong[:c]...)
-		w.Filled(c)
+		w.Fill(c)
 		copied += c
 	}
 	assert.Equal(t, loops*bsize, copied)
@@ -416,7 +416,7 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 		c := 0
 		c = copy(d, wrong)
 		res = append(res, wrong[:c]...)
-		w.Filled(c)
+		w.Fill(c)
 		copied += c
 	}
 	assert.Equal(t, loops*bsize, copied)

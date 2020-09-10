@@ -2,38 +2,29 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "blocking.go",
-        "browser.go",
-        "nassh.go",
-        "window.go",
-    ],
-    importpath = "github.com/enfabrica/enkit/proxy/nasshp",
+    srcs = ["tunnel.go"],
+    importpath = "github.com/enfabrica/enkit/proxy/pclient",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/kflags:go_default_library",
+        "//lib/khttp/protocol:go_default_library",
         "//lib/logger:go_default_library",
-        "//lib/oauth:go_default_library",
-        "//lib/token:go_default_library",
+        "//lib/retry:go_default_library",
+        "//proxy/nasshp:go_default_library",
         "@com_github_gorilla_websocket//:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
-    srcs = [
-        "nassh_test.go",
-        "window_test.go",
-    ],
+    srcs = ["tunnel_test.go"],
     embed = [":go_default_library"],
     deps = [
         "//lib/khttp:go_default_library",
         "//lib/khttp/ktest:go_default_library",
-        "//lib/khttp/protocol:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/srand:go_default_library",
         "//lib/token:go_default_library",
-        "@com_github_gorilla_websocket//:go_default_library",
+        "//proxy/nasshp:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )

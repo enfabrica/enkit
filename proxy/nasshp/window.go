@@ -5,6 +5,28 @@ import (
 	"sync"
 )
 
+// blist implements a bi-directional linked list of buffer nodes.
+//
+// The list is conveniently represented as a node, where next points
+// to the first element of the list, and prev points to the last.
+//
+// The end of the list is not represented by nil, but by a pointer
+// to the sentinel node. The sentinel node happens to be the list
+// itself.
+//
+// data is left empty. When this is used with buffers of fixed length,
+// a 0-byte data can also be used to identify the end of the list, which
+// is very convenient as code can be written to just check how much data
+// is left in the next buffer, without ever worrying if it's the end
+// node or not.
+type blist buffer
+
+// buffer represents a node in a bidirectional linked list and actually
+// holds a pointer to an array of bytes containing the data.
+//
+// data is store in the array contiguously, starting from offset up to
+// the len() of the data array. The size of the buffer can be determine
+// using cap() of data.
 type buffer struct {
 	// We use the slice to:
 	// - maintain a pointer to the start of the data.
@@ -12,7 +34,8 @@ type buffer struct {
 	// - know the amount of memory actually used - len(data).
 	data []byte
 	// Offset indicates how many bytes at the beginning of data to skip.
-	// This way, we don't have to update the data pointer.
+	// This way, we don't have to update the data pointer, which we have
+	// no way to recover from the data slice.
 	offset int
 	// Acknowledged indicates how many bytes have been acknowledged.
 	acknowledged int
@@ -21,28 +44,43 @@ type buffer struct {
 	prev, next *buffer
 }
 
-type blist buffer
-
+// Iterate invokes the supplied function for each buffer in the list.
 func (bl *blist) Iterate(callback func(*buffer)) {
 	for cursor := bl.First(); cursor != nil && cursor != bl.End(); cursor = cursor.next {
 		callback(cursor)
 	}
 }
 
+// Init initializes a bidirectional linked list in place.
+//
+// If not invoked on a blist, your code will crash in horrible horrible ways.
+// Won't make your buffers great again.
 func (bl *blist) Init() *blist {
 	bl.next = (*buffer)(bl)
 	bl.prev = (*buffer)(bl)
 	return bl
 }
 
+// NewBList returns a newly initalized blist.
+func NewBList() *blist {
+	b := &blist{}
+	b.Init()
+	return b
+}
+
+// First returns the first node in the list.
 func (bl *blist) First() *buffer {
 	return bl.next
 }
 
+// Last returns the last node in the list.
 func (bl *blist) Last() *buffer {
 	return bl.prev
 }
 
+// InsertListBefore prepends a whole list before the specified node.
+//
+// The old list is left empty, ready to be used again.
 func (bl *blist) InsertListBefore(where *buffer, list *blist) {
 	first := list.First()
 	where.prev.next = first
@@ -56,6 +94,7 @@ func (bl *blist) InsertListBefore(where *buffer, list *blist) {
 	list.Init()
 }
 
+// InsertAfter inserts the specified node after the one specified.
 func (bl *blist) InsertAfter(where, what *buffer) *buffer {
 	what.prev = where
 	what.next = where.next
@@ -65,20 +104,25 @@ func (bl *blist) InsertAfter(where, what *buffer) *buffer {
 	return what
 }
 
+// Append adds a node at the end of a linked list.
 func (bl *blist) Append(toadd *buffer) *buffer {
 	res := bl.InsertAfter(bl.Last(), toadd)
 	return res
 }
 
+// Drop removes a node from the linked list.
 func (bl *blist) Drop(todrop *buffer) *buffer {
 	todrop.prev.next, todrop.next.prev = todrop.next, todrop.prev
 	return todrop
 }
 
+// End returns the sentinel node used to identify the end of the list.
 func (bl *blist) End() *buffer {
 	return (*buffer)(bl)
 }
 
+// BufferPool is a sync.Pool of buffers, used to allocate (and free)
+// nodes used by the window implementation below.
 type BufferPool sync.Pool
 
 func NewBufferPool(size int) *BufferPool {
@@ -109,7 +153,7 @@ func (bp *BufferPool) Put(b *buffer) {
 }
 
 type SendWindow struct {
-	filled       uint64 // Absolute counter of bytes filled.
+	Filled       uint64 // Absolute counter of bytes Filled.
 	acknowledged uint64 // Absolute counter of bytes acknowledged from this window.
 	Emptied      uint64 // Absolute counter of bytes consumed from this window.
 
@@ -145,11 +189,12 @@ func (w *SendWindow) ToFill() []byte {
 	return last.data[:cap(last.data)]
 }
 
-func (w *SendWindow) Filled(size int) {
+func (w *SendWindow) Fill(size int) uint64 {
 	last := w.buffer.Last()
 
-	w.filled += uint64(size)
+	w.Filled += uint64(size)
 	last.data = last.data[0 : len(last.data)+size]
+	return w.Filled
 }
 
 func (w *SendWindow) ToEmpty() []byte {
@@ -161,8 +206,8 @@ func (w *SendWindow) Empty(size int) {
 	w.Emptied += uint64(size)
 	for size > 0 {
 		first := w.buffer.First()
-		filled := first.offset + size
-		if filled < len(first.data) {
+		Filled := first.offset + size
+		if Filled < len(first.data) {
 			first.offset += size
 			break
 		}
@@ -236,7 +281,7 @@ func (w *SendWindow) Reset(trunc uint32) error {
 
 	w.buffer.First().offset = w.buffer.First().acknowledged
 	w.Emptied = w.acknowledged
-	w.filled = w.acknowledged
+	w.Filled = w.acknowledged
 	return nil
 }
 
@@ -260,7 +305,7 @@ func ToAbsolute(reference uint64, trunc uint32) uint64 {
 }
 
 type ReceiveWindow struct {
-	filled  uint64 // Absolute counter of bytes filled.
+	Filled  uint64 // Absolute counter of bytes Filled.
 	reset   uint64 // Reset position
 	Emptied uint64 // Absolute counter of bytes Emptied.
 
@@ -284,11 +329,11 @@ func NewReceiveWindow(pool *BufferPool) *ReceiveWindow {
 
 func (w *ReceiveWindow) Reset(wack uint32) error {
 	value := ToAbsolute(w.Emptied, wack)
-	if value == w.filled {
+	if value == w.Filled {
 		return nil
 	}
-	if value > w.filled {
-		return fmt.Errorf("can't leave gaps in receive buffer - have been asked to reset past data received (ack: %d, filled: %d)", value, w.filled)
+	if value > w.Filled {
+		return fmt.Errorf("can't leave gaps in receive buffer - have been asked to reset past data received (ack: %d, Filled: %d)", value, w.Filled)
 	}
 
 	// We are moving back in time, preparing to fill the buffer with data that was already
@@ -318,25 +363,26 @@ func (w *ReceiveWindow) ToFill() []byte {
 	return last.data[:cap(last.data)]
 }
 
-func (w *ReceiveWindow) Filled(size int) {
+func (w *ReceiveWindow) Fill(size int) uint64 {
 	last := w.buffer.Last()
 
 	// If we already emptied this data, we need to discard it.
-	if w.reset != 0 && w.reset < w.filled {
-		sentalready := w.filled - w.reset
+	if w.reset != 0 && w.reset < w.Filled {
+		sentalready := w.Filled - w.reset
 		if sentalready > uint64(size) {
 			w.reset += uint64(size)
-			return
+			return w.Filled - w.reset
 		}
 		last.offset = int(sentalready) // Skip the first sentalready bytes of the buffer when ToEmpty is called.
 		w.reset = 0
 
-		w.filled += uint64(size) - sentalready
+		w.Filled += uint64(size) - sentalready
 	} else {
-		w.filled += uint64(size)
+		w.Filled += uint64(size)
 	}
 
 	last.data = last.data[0 : len(last.data)+size]
+	return w.Filled
 }
 
 func (w *ReceiveWindow) ToEmpty() []byte {

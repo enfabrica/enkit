@@ -363,7 +363,7 @@ type readWriter struct {
 	pendingReadAck  uint32
 	pendingWriteAck uint32
 
-	browser guardedBrowser
+	browser ReplaceableBrowser
 	conn    net.Conn
 
 	waiter waiter
@@ -384,106 +384,6 @@ type Timeouts struct {
 	BrowserAckTimeout   time.Duration
 
 	ConnWriteTimeout time.Duration
-}
-
-type guardedBrowser struct {
-	log logger.Logger
-
-	notifier chan error
-	wc       *websocket.Conn
-	err      error
-
-	pendingWack, pendingRack uint32
-
-	lock sync.RWMutex
-	cond *sync.Cond
-}
-
-func (gb *guardedBrowser) Init(log logger.Logger) {
-	gb.log = log
-	gb.cond = sync.NewCond(gb.lock.RLocker())
-}
-
-func (gb *guardedBrowser) GetWack() (*websocket.Conn, uint32, uint32, error) {
-	gb.cond.L.Lock() // This is a read only lock, see how cond is created.
-	defer gb.cond.L.Unlock()
-	for gb.wc == nil && gb.err == nil {
-		gb.cond.Wait()
-	}
-
-	wack := gb.pendingWack
-	gb.pendingWack = 0
-	return gb.wc, gb.pendingRack, wack, gb.err
-}
-
-func (gb *guardedBrowser) GetRack() (*websocket.Conn, uint32, uint32, error) {
-	gb.cond.L.Lock() // This is a read only lock, see how cond is created.
-	defer gb.cond.L.Unlock()
-	for gb.wc == nil && gb.err == nil {
-		gb.cond.Wait()
-	}
-
-	rack := gb.pendingRack
-	gb.pendingRack = 0
-	return gb.wc, rack, gb.pendingWack, gb.err
-}
-
-func (gb *guardedBrowser) Set(wc *websocket.Conn, rack, wack uint32) waiter {
-	gb.lock.Lock() // This is an exclusive write lock.
-	defer gb.lock.Unlock()
-	if gb.wc == wc {
-		return gb.notifier
-	}
-	if gb.wc != nil {
-		gb.notifier <- fmt.Errorf("replaced browser connection")
-		gb.wc.Close()
-	}
-	gb.wc = wc
-	if wc == nil {
-		gb.notifier = nil
-		gb.pendingRack = 0
-		gb.pendingWack = 0
-		return nil
-	}
-
-	gb.pendingRack = rack
-	gb.pendingWack = wack
-	gb.notifier = make(chan error, 1)
-	gb.cond.Broadcast()
-	return gb.notifier
-}
-
-type TerminatingError struct {
-	error
-}
-
-func (gb *guardedBrowser) Close(err error) {
-	gb.lock.Lock() // This is an exclusive write lock.
-	defer gb.lock.Unlock()
-	gb.err = err
-	if gb.notifier != nil {
-		gb.notifier <- &TerminatingError{error: err}
-		gb.notifier = nil
-	}
-	if gb.wc != nil {
-		gb.wc.Close()
-		gb.wc = nil
-	}
-}
-
-func (gb *guardedBrowser) Error(wc *websocket.Conn, err error) {
-	gb.lock.Lock() // This is an exclusive write lock.
-	defer gb.lock.Unlock()
-
-	// The browser has already gone, nothing to do here.
-	if gb.wc == nil || gb.wc != wc {
-		return
-	}
-
-	gb.notifier <- err
-	gb.wc.Close()
-	gb.wc = nil
-	gb.notifier = nil
 }
 
 // readFromBrowser reads from the browser, and writes to the ssh connection.
@@ -557,7 +457,7 @@ func (np *readWriter) proxyFromBrowser(ssh net.Conn) (err error) {
 				}
 				break
 			}
-			wrecv.Filled(read)
+			wrecv.Fill(read)
 			buffer = buffer[:read]
 
 			for {
@@ -578,12 +478,6 @@ func (np *readWriter) proxyFromBrowser(ssh net.Conn) (err error) {
 			}
 		}
 	}
-}
-
-type waiter chan error
-
-func (w waiter) Wait() error {
-	return <-w
 }
 
 func (np *readWriter) Connect(ssh net.Conn, wc *websocket.Conn) waiter {
@@ -657,7 +551,7 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 				return err
 			}
 		}
-		wsend.Filled(read)
+		wsend.Fill(read)
 
 		currentAck := atomic.LoadUint32(&np.browserReadAck)
 		if currentAck != lastWriteAck {
