@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"path"
 	"strconv"
@@ -21,11 +22,6 @@ import (
 // proxy -> given a host and port, returns a sid.
 // connect -> given a sid, ack, pos -> uses a websocket to send and receive data.
 
-// Pseudo code:
-// - use grpc to authenticate with the authentication server.
-// - call proxy to get the sid to connect to.
-// - establish the connection.
-
 type Tunnel struct {
 	log     logger.Logger
 	browser *nasshp.ReplaceableBrowser
@@ -34,7 +30,54 @@ type Tunnel struct {
 	ReceiveWin *nasshp.BlockingReceiveWindow
 }
 
-func GetSID(proxy *url.URL, host string, port uint16) (string, error) {
+type getOptions struct {
+	getOptions     []protocol.Modifier
+	retryOptions   []retry.Modifier
+	connectOptions []ConnectModifier
+}
+
+type GetModifier func(*getOptions) error
+
+type GetModifiers []GetModifier
+
+func (mods GetModifiers) Apply(o *getOptions) error {
+	for _, m := range mods {
+		if err := m(o); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func WithRetryOptions(mods ...retry.Modifier) GetModifier {
+	return func(o *getOptions) error {
+		o.retryOptions = append(o.retryOptions, mods...)
+		return nil
+	}
+}
+
+func WithGetOptions(mods ...protocol.Modifier) GetModifier {
+	return func(o *getOptions) error {
+		o.getOptions = append(o.getOptions, mods...)
+		return nil
+	}
+}
+
+func WithConnectOptions(mods ...ConnectModifier) GetModifier {
+	return func(o *getOptions) error {
+		o.connectOptions = append(o.connectOptions, mods...)
+		return nil
+	}
+}
+
+func WithOptions(r *getOptions) GetModifier {
+	return func(o *getOptions) error {
+		*o = *r
+		return nil
+	}
+}
+
+func GetSID(proxy *url.URL, host string, port uint16, mods ...GetModifier) (string, error) {
 	curl := *proxy
 
 	params := proxy.Query()
@@ -43,25 +86,34 @@ func GetSID(proxy *url.URL, host string, port uint16) (string, error) {
 	curl.RawQuery = params.Encode()
 	curl.Path = path.Join(curl.Path, "/proxy")
 
-	// FIXME: retry
-	// FIXME: timeouts
-	// FIXME: options for cookie
-	sid := ""
-	if err := protocol.Get(curl.String(), protocol.Read(protocol.String(&sid))); err != nil {
+	options := &getOptions{}
+	if err := GetModifiers(mods).Apply(options); err != nil {
 		return "", err
 	}
-	return sid, nil
+
+	retrier := retry.New(options.retryOptions...)
+
+	sid := ""
+	err := retrier.Run(func() error {
+		return protocol.Get(curl.String(), protocol.Read(protocol.String(&sid)), options.getOptions...)
+	})
+	return sid, err
 }
 
-func Connect(proxy *url.URL, host string, port uint16, pos, ack uint32) (*websocket.Conn, error) {
-	sid, err := GetSID(proxy, host, port)
+func Connect(proxy *url.URL, host string, port uint16, pos, ack uint32, mods ...GetModifier) (*websocket.Conn, error) {
+	options := &getOptions{}
+	if err := GetModifiers(mods).Apply(options); err != nil {
+		return nil, err
+	}
+
+	sid, err := GetSID(proxy, host, port, WithOptions(options))
 	if err != nil {
 		return nil, err
 	}
-	return ConnectSID(proxy, sid, pos, ack)
+	return ConnectSID(proxy, sid, pos, ack, options.connectOptions...)
 }
 
-func ConnectSID(proxy *url.URL, sid string, pos, ack uint32) (*websocket.Conn, error) {
+func ConnectSID(proxy *url.URL, sid string, pos, ack uint32, mods ...ConnectModifier) (*websocket.Conn, error) {
 	curl := *proxy
 	switch {
 	case strings.HasPrefix(curl.Scheme, "ws"):
@@ -80,12 +132,56 @@ func ConnectSID(proxy *url.URL, sid string, pos, ack uint32) (*websocket.Conn, e
 	curl.RawQuery = params.Encode()
 	curl.Path = path.Join(curl.Path, "/connect")
 
-	return ConnectURL(&curl)
+	return ConnectURL(&curl, mods...)
 }
 
-func ConnectURL(curl *url.URL) (*websocket.Conn, error) {
-	// FIXME: dialer options
-	c, _, err := websocket.DefaultDialer.Dial(curl.String(), nil /* FIXME HEADERS */)
+type ConnectModifier func(*websocket.Dialer, http.Header) error
+
+type ConnectModifiers []ConnectModifier
+
+func (cm ConnectModifiers) Apply(d *websocket.Dialer, h http.Header) error {
+	for _, m := range cm {
+		if err := m(d, h); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func WithHandshakeTimeout(t time.Duration) ConnectModifier {
+	return func(d *websocket.Dialer, h http.Header) error {
+		d.HandshakeTimeout = t
+		return nil
+	}
+}
+
+func WithBufferSize(read, write int) ConnectModifier {
+	return func(d *websocket.Dialer, h http.Header) error {
+		d.WriteBufferSize = write
+		d.ReadBufferSize = read
+		return nil
+	}
+}
+
+func WithHeader(key, value string) ConnectModifier {
+	return func(d *websocket.Dialer, h http.Header) error {
+		h.Set(key, value)
+		return nil
+	}
+}
+
+func ConnectURL(curl *url.URL, mods ...ConnectModifier) (*websocket.Conn, error) {
+	header := http.Header{}
+	dialer := *websocket.DefaultDialer
+	dialer.HandshakeTimeout = 20 * time.Second
+	dialer.WriteBufferSize = 1024 * 16
+	dialer.ReadBufferSize = 1024 * 16
+
+	if err := ConnectModifiers(mods).Apply(&dialer, header); err != nil {
+		return nil, err
+	}
+
+	c, _, err := dialer.Dial(curl.String(), header)
 	return c, err
 
 }
@@ -121,7 +217,6 @@ func NewTunnel(pool *nasshp.BufferPool) (*Tunnel, error) {
 
 func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16) error {
 	sid, err := GetSID(proxy, host, port)
-	log.Printf("SID? %s %s %v", proxy.String(), sid, err)
 	if err != nil {
 		return err
 	}
@@ -133,7 +228,6 @@ func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16) error {
 
 		pos, ack := t.browser.GetWriteReadUntil()
 		conn, err := ConnectSID(proxy, sid, pos, ack)
-		log.Printf("CONNECTED? %v", err)
 		if err != nil {
 			return err
 		}
@@ -150,14 +244,10 @@ func (t *Tunnel) BrowserSend() error {
 
 outer:
 	for {
-		log.Printf("waiting for browser send")
-
 		if err := t.SendWin.WaitToEmpty(1 * time.Second); err != nil && err != nasshp.ErrorExpired {
 			t.browser.Close(fmt.Errorf("stopping browser write - reader returned %s", err))
 			return err
 		}
-
-		log.Printf("browser send")
 
 		nconn, wu, ru, err := t.browser.GetForSend()
 		if err != nil {
@@ -178,7 +268,6 @@ outer:
 			}
 		}
 
-		log.Printf("GETTING NEXT WRITER FROM %p", conn)
 		writer, err := conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
 			t.browser.Error(conn, fmt.Errorf("websocket NextWriter returned error: %w", err))
@@ -233,14 +322,12 @@ func (t *Tunnel) BrowserReceive() error {
 			return err
 		}
 
-		log.Printf("waiting for browser receive")
 		nconn, ru, err := t.browser.GetForReceive()
 		if err != nil {
 			t.browser.Close(fmt.Errorf("stopping browser read: %w", err))
 			return err
 		}
 
-		log.Printf("browser receive")
 		if nconn != conn {
 			if err := t.ReceiveWin.Reset(ru); err != nil {
 				t.browser.Close(fmt.Errorf("browser receive reset failed: %w", err))
