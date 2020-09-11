@@ -9,7 +9,6 @@ import (
 	"github.com/enfabrica/enkit/lib/config"
 	"github.com/enfabrica/enkit/lib/config/defcon"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
-	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"math/rand"
@@ -70,19 +69,12 @@ func NewRoot(base *commands.Base) *Root {
 }
 
 func (rc *Root) StoreClient() (*astore.Client, error) {
-	ids, err := rc.IdentityStore()
+	cookie, err := rc.IdentityCookie()
 	if err != nil {
 		return nil, err
 	}
 
-	// FIXME: make identity configurable.
-	_, token, err := ids.Load("")
-	if err != nil {
-		return nil, fmt.Errorf("Please run:\n\n\tastore login user@domain.com\n\nTo retrieve the credentials necessary to perform the operation.\nFor debugging, this is the problem: %w", err)
-	}
-
-	// FIXME: make prefix configurable.
-	storeconn, err := rc.store.Connect(client.WithCookie(cookie.CredentialsCookie("", token)))
+	storeconn, err := rc.store.Connect(client.WithCookie(cookie))
 	if err != nil {
 		return nil, err
 	}

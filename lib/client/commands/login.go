@@ -9,9 +9,11 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/kflags/populator"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"math/rand"
+	"net/http"
 	"time"
 )
 
@@ -20,6 +22,9 @@ type Base struct {
 
 	Populator *populator.Populator
 	Log       logger.Logger
+
+	CookiePrefix string
+	Identity     string
 
 	auth client.ServerFlags
 }
@@ -45,7 +50,29 @@ func (rc *Base) IdentityStore() (*identity.Identity, error) {
 	return identity.NewStore(defcon.Open)
 }
 
+func (rc *Base) IdentityCookie() (*http.Cookie, error) {
+	token, err := rc.IdentityToken()
+	if err != nil {
+		return nil, err
+	}
+
+	return cookie.CredentialsCookie(rc.CookiePrefix, token), nil
+}
+
+func (rc *Base) IdentityToken() (string, error) {
+	store, err := rc.IdentityStore()
+	if err != nil {
+		return "", err
+	}
+
+	_, token, err := store.Load(rc.Identity)
+	return token, err
+}
+
 func (rc *Base) Register(set *pflag.FlagSet) {
+	set.StringVarP(&rc.Identity, "identity", "i", "", "Identity to use to authenticate. If empty, the default identity is assumed")
+	set.StringVar(&rc.CookiePrefix, "cookie-prefix", "", "Prefix to use in naming the authentication cookie. You should not normally need to change this")
+
 	rc.auth.Register(set, "auth", "Authentication server", "")
 	rc.CommonFlags.Register(set)
 }
