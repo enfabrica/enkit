@@ -347,7 +347,7 @@ func NewConfigResolver(cs cache.Store, config *Config, mods ...Modifier) (*Confi
 	if options.base != "" {
 		baseURL, err = url.Parse(options.base)
 		if err != nil {
-			return nil, fmt.Errorf("inbalid base url %s - %w", options.base, err)
+			return nil, fmt.Errorf("invalid base url %s - %w", options.base, err)
 		}
 	}
 

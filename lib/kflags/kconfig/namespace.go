@@ -69,7 +69,7 @@ func (c *NamespaceResolver) Visit(namespace string, flag kflags.Flag) (bool, err
 			return
 		}
 		if err := flag.SetContent(origin, []byte(value)); err != nil {
-			c.errs = append(c.errs, fmt.Errorf("could not set flag '%s', value '%s' caused %w", flag.Name, value, err))
+			c.errs = append(c.errs, fmt.Errorf("could not set flag '%s', value '%s' caused %w", flag.Name(), value, err))
 		}
 	}
 

@@ -40,6 +40,11 @@ func CobraPopulator(root *cobra.Command, args []string) kflags.Populator {
 }
 
 func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Resolver) error {
+	// argv[0] needs to be skipped, args is generally os.Args, which contains argv 0.
+	if len(args) >= 1 {
+		args = args[1:]
+	}
+
 	// Find the actual cobra command that would be run given the current argv.
 	target, _, _ := root.Find(args)
 
@@ -108,10 +113,12 @@ func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Re
 
 			cmd.InheritedFlags().VisitAll(resolver)
 			cmd.LocalFlags().VisitAll(resolver)
+		}
+	}
 
-			if err := r.Done(); err != nil {
-				errs = append(errs, err)
-			}
+	for _, r := range resolvers {
+		if err := r.Done(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
