@@ -1,7 +1,8 @@
 package main
 
 import (
-	"github.com/enfabrica/enkit/astore/client/commands"
+	acommands "github.com/enfabrica/enkit/astore/client/commands"
+	bcommands "github.com/enfabrica/enkit/lib/client/commands"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 
 	"github.com/enfabrica/enkit/lib/srand"
@@ -11,16 +12,11 @@ import (
 func main() {
 	rng := rand.New(srand.Source)
 
-	root := commands.NewRoot()
+	base := bcommands.NewBase()
+	root := acommands.New(rng, base)
+	base.Register(root.PersistentFlags())
 
-	root.AddCommand(commands.NewLogin(root, rng).Command)
-	root.AddCommand(commands.NewDownload(root).Command)
-	root.AddCommand(commands.NewUpload(root).Command)
-	root.AddCommand(commands.NewList(root).Command)
-	root.AddCommand(commands.NewGuess(root).Command)
-	root.AddCommand(commands.NewTag(root).Command)
-	root.AddCommand(commands.NewNote(root).Command)
-	root.AddCommand(commands.NewPublic(root).Command)
+	root.AddCommand(bcommands.NewLogin(base, root.Command.Name(), rng).Command)
 
-	kcobra.RunWithDefaults(root.Command, &root.Populator, &root.Log)
+	kcobra.RunWithDefaults(root.Command, &base.Populator, &base.Log)
 }

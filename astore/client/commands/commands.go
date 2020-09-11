@@ -3,15 +3,12 @@ package commands
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
-	"github.com/enfabrica/enkit/astore/client/auth"
 	arpc "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/client/commands"
 	"github.com/enfabrica/enkit/lib/config"
 	"github.com/enfabrica/enkit/lib/config/defcon"
-	"github.com/enfabrica/enkit/lib/config/identity"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
-	"github.com/enfabrica/enkit/lib/kflags/populator"
-	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -19,23 +16,34 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"time"
 )
 
 type Root struct {
 	*cobra.Command
-	client.CommonFlags
-	Populator *populator.Populator
-	Log       logger.Logger
+	*commands.Base
 
 	store client.ServerFlags
-	auth  client.ServerFlags
 }
 
-func NewRoot() *Root {
+func New(rng *rand.Rand, base *commands.Base) *Root {
+	root := NewRoot(base)
+
+	root.AddCommand(NewDownload(root).Command)
+	root.AddCommand(NewUpload(root).Command)
+	root.AddCommand(NewList(root).Command)
+	root.AddCommand(NewGuess(root).Command)
+	root.AddCommand(NewTag(root).Command)
+	root.AddCommand(NewNote(root).Command)
+	root.AddCommand(NewPublic(root).Command)
+
+	return root
+}
+
+func NewRoot(base *commands.Base) *Root {
 	rc := &Root{
 		Command: &cobra.Command{
 			Use:           "astore",
+			Short:         "Push, pull, and publish build artifacts",
 			SilenceUsage:  true,
 			SilenceErrors: true,
 			Example: `  $ astore login carlo@enfabrica.net
@@ -54,25 +62,11 @@ func NewRoot() *Root {
         To have a nice help screen.`,
 			Long: `astore - uploads and downloads artifacts`,
 		},
+		Base: base,
 	}
 
 	rc.store.Register(rc.PersistentFlags(), "store", "Artifacts store metadata server", "")
-	rc.auth.Register(rc.PersistentFlags(), "auth", "Authentication server", "")
-	rc.CommonFlags.Register(rc.PersistentFlags())
 	return rc
-}
-
-func (rc *Root) Options() *client.CommonOptions {
-	return rc.CommonFlags.Options(rc.Log)
-}
-
-func (rc *Root) AuthClient(rng *rand.Rand) (*auth.Client, error) {
-	authconn, err := rc.auth.Connect()
-	if err != nil {
-		return nil, err
-	}
-
-	return auth.New(rng, authconn), nil
 }
 
 func (rc *Root) StoreClient() (*astore.Client, error) {
@@ -106,99 +100,9 @@ func (rc *Root) OutputArtifacts(arts []*arpc.Artifact) {
 	}
 	formatter.Flush()
 }
-func (rc *Root) IdentityStore() (*identity.Identity, error) {
-	return identity.NewStore(defcon.Open)
-}
 
 func (rc *Root) ConfigStore(namespace ...string) (config.Store, error) {
 	return defcon.Open("astore", namespace...)
-}
-
-type Login struct {
-	*cobra.Command
-	root *Root
-	rng  *rand.Rand
-
-	DefaultDomain string
-	NoDefault     bool
-	MinWaitTime   time.Duration
-}
-
-func NewLogin(root *Root, rng *rand.Rand) *Login {
-	login := &Login{
-		Command: &cobra.Command{
-			Use:     "login",
-			Short:   "Retrieve credentials to access the artifact repository",
-			Aliases: []string{"auth", "hello", "hi"},
-		},
-		root: root,
-		rng:  rng,
-	}
-	login.Command.RunE = login.Run
-
-	login.Flags().StringVar(&login.DefaultDomain, "default-domain", "", "Default domain to use, in case the username does not specify one")
-	login.Flags().BoolVarP(&login.NoDefault, "no-default", "n", false, "Do not mark this identity as the default identity to use")
-	login.Flags().DurationVar(&login.MinWaitTime, "min-wait-time", 10*time.Second, "Wait at least this long in between failed attempts to retrieve a token")
-
-	return login
-}
-
-func (l *Login) Run(cmd *cobra.Command, args []string) error {
-	if len(args) > 1 {
-		return kcobra.NewUsageError(fmt.Errorf("use as 'astore login username@domain.com' or just '@domain.com' - exactly one argument"))
-	}
-
-	ids, err := l.root.IdentityStore()
-	if err != nil {
-		return fmt.Errorf("could not open identity store - %w", err)
-	}
-
-	argname := ""
-	if len(args) >= 1 {
-		argname = args[0]
-	} else {
-		argname, _, _ = ids.Load("")
-	}
-
-	username, domain := identity.SplitUsername(argname, l.DefaultDomain)
-	if domain == "" {
-		return kcobra.NewUsageError(fmt.Errorf("no domain found from either --default-domain or the supplied username '%s' - must specify 'username@domain.com' as argument", username))
-	}
-
-	l.root.Populator.PopulateDefaultsForOptions(l.root.Command.Name(), &populator.Options{
-		Token:  "",
-		Domain: domain,
-		Logger: l.root.Log,
-	})
-
-	client, err := l.root.AuthClient(l.rng)
-	if err != nil {
-		return err
-	}
-
-	options := auth.LoginOptions{
-		CommonOptions: l.root.Options(),
-		MinWait:       l.MinWaitTime,
-	}
-
-	token, err := client.Login(username, domain, options)
-	if err != nil {
-		return err
-	}
-
-	userid := identity.Join(username, domain)
-	err = ids.Save(userid, token)
-	if err != nil {
-		return fmt.Errorf("could not store identity - %w", err)
-	}
-	if l.NoDefault == false {
-		err = ids.SetDefault(userid)
-		if err != nil {
-			return fmt.Errorf("could not mark identity as default - %w", err)
-		}
-	}
-
-	return nil
 }
 
 type Download struct {
