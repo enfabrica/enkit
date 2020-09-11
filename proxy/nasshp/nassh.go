@@ -315,6 +315,8 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c, err := np.upgrader.Upgrade(w, r, nil)
+	defer c.Close()
+
 	if err != nil {
 		np.log.Warnf("failed to upgrade web socket: %s", err)
 		return
@@ -534,7 +536,7 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 		// TODO: a client can send arbitrary amounts of data without ever acknowledging it, causing out of memory on the server.
 
 		wack := atomic.LoadUint32(&np.browserWriteAck)
-		if err := wsend.AcknowledgeUntil(wack); err != nil {
+		if _, err := wsend.AcknowledgeUntil(wack); err != nil {
 			err := fmt.Errorf("could not adjust send buffer - %w", err)
 			np.browser.Close(err)
 			return err

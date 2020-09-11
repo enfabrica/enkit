@@ -143,12 +143,15 @@ func (gb *ReplaceableBrowser) GetWriteReadUntil() (uint32, uint32) {
 
 func (gb *ReplaceableBrowser) GetForReceive() (*websocket.Conn, uint32, error) {
 	wc, err := gb.Get()
-	return wc, atomic.LoadUint32(&gb.readUntil), err
+	ru := atomic.LoadUint32(&gb.readUntil)
+	return wc, ru, err
 }
 
 func (gb *ReplaceableBrowser) GetForSend() (*websocket.Conn, uint32, uint32, error) {
 	wc, err := gb.Get()
-	return wc, atomic.LoadUint32(&gb.writtenUntil), atomic.LoadUint32(&gb.readUntil), err
+	wu := atomic.LoadUint32(&gb.writtenUntil)
+	ru := atomic.LoadUint32(&gb.readUntil)
+	return wc, wu, ru, err
 }
 
 func (gb *ReplaceableBrowser) PushReadUntil(ru uint32) {

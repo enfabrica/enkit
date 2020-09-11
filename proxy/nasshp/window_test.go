@@ -13,10 +13,10 @@ func TestSendWindowSimpleAcknowledge(t *testing.T) {
 	p := NewBufferPool(bsize)
 	w := NewSendWindow(p)
 
-	err := w.AcknowledgeUntil(0)
+	_, err := w.AcknowledgeUntil(0)
 	assert.Nil(t, err)
 
-	err = w.AcknowledgeUntil(2)
+	_, err = w.AcknowledgeUntil(2)
 	assert.NotNil(t, err)
 
 	d := w.ToEmpty()
@@ -28,7 +28,7 @@ func TestSendWindowSimpleAcknowledge(t *testing.T) {
 	w.Fill(l)
 
 	// Still failing, as the data has not been sent.
-	err = w.AcknowledgeUntil(2)
+	_, err = w.AcknowledgeUntil(2)
 	assert.NotNil(t, err)
 
 	// Mark 4 bytes as sent.
@@ -39,7 +39,7 @@ func TestSendWindowSimpleAcknowledge(t *testing.T) {
 	assert.Equal(t, bsize-4, len(d))
 
 	// Success!
-	err = w.AcknowledgeUntil(2)
+	_, err = w.AcknowledgeUntil(2)
 	assert.Nil(t, err)
 
 	// Shouldn't change how much data we have left to empty.
@@ -47,10 +47,10 @@ func TestSendWindowSimpleAcknowledge(t *testing.T) {
 	assert.Equal(t, bsize-4, len(d))
 
 	// No change if we re-acknowledge the same data.
-	err = w.AcknowledgeUntil(2)
+	_, err = w.AcknowledgeUntil(2)
 	assert.Nil(t, err)
 	// Error if we go back and un-acknowledge some data.
-	err = w.AcknowledgeUntil(1)
+	_, err = w.AcknowledgeUntil(1)
 	assert.NotNil(t, err)
 
 	// Same amount of data to empty.
@@ -58,14 +58,14 @@ func TestSendWindowSimpleAcknowledge(t *testing.T) {
 	assert.Equal(t, bsize-4, len(d))
 
 	// Acknowledge up to all the data we have.
-	err = w.AcknowledgeUntil(4)
+	_, err = w.AcknowledgeUntil(4)
 	assert.Nil(t, err)
 	d = w.ToEmpty()
 	assert.Equal(t, bsize-4, len(d))
 
 	// Finally, acknowledge everything.
 	w.Empty(len(d))
-	err = w.AcknowledgeUntil(uint32(bsize))
+	_, err = w.AcknowledgeUntil(uint32(bsize))
 	assert.Nil(t, err)
 
 	d = w.ToEmpty()
@@ -122,11 +122,12 @@ func TestSendWindowSimple(t *testing.T) {
 		w.Fill(c)
 		copied += c
 	}
-	assert.Equal(t, len(qb)/32+1, loops)
+	assert.Equal(t, len(qb)/bsize+1, loops)
 
 	// Verify the entire buffer.
 	loops = 0
-	for verified := 0; verified < len(qb); loops++ {
+	verified := 0
+	for ; verified < len(qb); loops++ {
 		d := w.ToEmpty()
 		assert.True(t, len(d) > 0, "should never return a 0 sized buffer")
 		assert.Equal(t, string(qb[verified:verified+len(d)]), string(d), "diff in loop %d, offset %d", loops, verified)
@@ -145,19 +146,19 @@ func TestSendWindowSimple(t *testing.T) {
 		}
 		verified += len(d)
 	}
-	assert.Equal(t, len(qb)/32+1, loops)
+	assert.Equal(t, len(qb)/bsize+1, loops)
 
 	// Acknowledge roughly half the data.
-	verified := 0
-	for verified < len(qb)/2 {
-		w.Acknowledge(17) // not a multiple of 32, or 41, should challenge different offsets.
+	acknowledged := 0
+	for acknowledged < len(qb)/2 {
+		w.Acknowledge(17) // not a multiple of bsize, or 41, should challenge different offsets.
 
 		d := w.ToEmpty()
 		assert.Equal(t, 0, len(d))
 		e := w.ToFill()
-		assert.Equal(t, 32, len(e))
+		assert.Equal(t, bsize - (len(qb) % bsize), len(e))
 
-		verified += 17
+		acknowledged += 17
 	}
 
 	// Try to reset the acknowledge number.
@@ -166,24 +167,37 @@ func TestSendWindowSimple(t *testing.T) {
 	err = w.Reset(uint32(len(qb) + 12))
 	assert.NotNil(t, err, "trying to seek after data in buffer")
 
+	assert.Equal(t, uint64(len(qb)), w.Filled)
+	assert.Equal(t, uint64(verified), w.Emptied)
+	assert.Equal(t, uint64(acknowledged), w.acknowledged)
+
+	acknowledged += 17
+	err = w.Reset(uint32(acknowledged))
+	assert.Nil(t, err)
+
+	assert.Equal(t, uint64(len(qb)), w.Filled, "filled")
+	assert.Equal(t, uint64(acknowledged), w.Emptied, "emptied")
+	assert.Equal(t, uint64(acknowledged), w.acknowledged, "acknowledged")
+	w.Empty(17)
+
 	// Reset the state of the buffer, we should have seeked back to the beginning.
 	for i := 0; ; i++ {
-		verified += 17
-		if verified >= len(qb) {
+		acknowledged += 17
+		if acknowledged >= len(qb) {
 			break
 		}
-		err = w.Reset(uint32(verified))
+		err = w.Reset(uint32(acknowledged))
 		assert.Nil(t, err)
 		if err != nil {
 			t.Fail()
 			break
 		}
 
-		inner := verified
+		inner := acknowledged
 		for loops = 0; inner < len(qb); loops++ {
 			d := w.ToEmpty()
-			assert.True(t, len(d) > 0, "should never return a 0 sized buffer")
-			if !assert.Equal(t, string(qb[inner:inner+len(d)]), string(d), "verified %d diff in loop %d, offset %d", verified, loops, inner) {
+			assert.True(t, len(d) > 0, "should never return a 0 sized buffer - %d out of %d", inner, len(qb))
+			if !assert.Equal(t, string(qb[inner:inner+len(d)]), string(d), "acknowledged %d diff in loop %d, offset %d", acknowledged, loops, inner) {
 				break
 			}
 			w.Empty(len(d))
@@ -194,7 +208,10 @@ func TestSendWindowSimple(t *testing.T) {
 
 			inner += len(d)
 		}
-		t.Logf("TOTAL LOOPS %d - verified %d out of %d", loops, verified, len(qb))
+		assert.Equal(t, w.Emptied, w.Filled)
+		assert.Equal(t, uint64(acknowledged), w.acknowledged, "acknowledged")
+
+		t.Logf("%d TOTAL LOOPS %d - acknowledged %d out of %d", i, loops, acknowledged, len(qb))
 	}
 }
 
@@ -277,6 +294,8 @@ func TestReceiveWindowReset(t *testing.T) {
 	// No change in the data we can write out.
 	e = w.ToEmpty()
 	assert.Equal(t, len(quote), len(e))
+	assert.Equal(t, w.Filled, uint64(len(quote)))
+	assert.Equal(t, w.Emptied, uint64(0))
 
 	// Now we really moved back the needle.
 	err = w.Reset(33)
@@ -285,6 +304,9 @@ func TestReceiveWindowReset(t *testing.T) {
 	// Still, we have the same data to write out, as no more data arrived.
 	e = w.ToEmpty()
 	assert.Equal(t, len(quote), len(e))
+	// And nothing has changed in terms of how many bytes have been filled and emptied.
+	assert.Equal(t, w.Filled, uint64(len(quote)))
+	assert.Equal(t, w.Emptied, uint64(0))
 
 	// Let's fill in some data (this would be skipped)
 	w.Fill(5)
@@ -338,7 +360,11 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 		w.Fill(c)
 		copied += c
 	}
-	assert.Equal(t, len(qb)/32+1, loops)
+
+	assert.Equal(t, len(qb)/bsize+1, loops)
+	assert.Equal(t, w.Filled, uint64(len(qb)))
+	assert.Equal(t, w.Emptied, uint64(0))
+	assert.Equal(t, w.reset, uint64(0))
 
 	// Empty a part of the buffer.
 	loops = 0
@@ -350,13 +376,19 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 		emptied += len(d)
 		w.Empty(len(d))
 	}
-	err := w.Reset(53)
+
+	assert.Equal(t, w.Filled, uint64(len(qb)))
+	assert.Equal(t, w.Emptied, uint64(emptied))
+	assert.Equal(t, w.reset, uint64(0))
+
+	const resetValue = 53
+	err := w.Reset(resetValue)
 	assert.Nil(t, err)
 
 	// The reset should put mechanisms in place so that any further fill of the buffer
 	// results in skipping data - it's not written in the buffer until we catch up.
 	loops = 0
-	stop := len(qb) - 53
+	stop := len(qb) - resetValue
 	copied := 0
 	res := []byte{}
 	for ; copied < stop; loops++ {
@@ -364,13 +396,16 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 		assert.True(t, len(d) > 0, "should never return a 0 sized buffer - loop %d", loops)
 		assert.Equal(t, bsize, len(d))
 
-		c := 0
-		c = copy(d, wrong)
+		c := copy(d, wrong)
 		res = append(res, wrong[:c]...)
 		w.Fill(c)
 		copied += c
 	}
 	assert.Equal(t, loops*bsize, copied)
+
+	assert.Equal(t, w.Filled, uint64(loops*bsize) + resetValue, "extra %x %x", resetValue + loops * bsize, resetValue + copied - len(qb))
+	assert.Equal(t, w.Emptied, uint64(emptied))
+	assert.Equal(t, w.reset, uint64(0))
 
 	// We emptied half the buffer earlier, but not the rest. We reset the cursor to 53.
 	// Now the data that was already filled should still be unchanged, but past that, we
@@ -389,18 +424,21 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 	}
 
 	d := w.ToEmpty()
-	leftover := (((len(qb)-53)/bsize)+1)*bsize - (len(qb) - 53)
-	assert.Equal(t, leftover, len(d), "wrong %d, copied %d, %d", len(wrong), copied, len(qb)-53)
-	assert.Equal(t, string(res[len(qb)-53:]), string(d), "%d", (len(qb)-53)%32)
+	leftover := (((len(qb)-resetValue)/bsize)+1)*bsize - (len(qb) - resetValue)
+	assert.Equal(t, leftover, len(d), "wrong %d, copied %d, %d", len(wrong), copied, len(qb)-resetValue)
+	assert.Equal(t, string(res[len(qb)-resetValue:]), string(d), "%d", (len(qb)-resetValue)%32)
 	w.Empty(len(d))
 	emptied += len(d)
 
 	d = w.ToEmpty()
 	assert.Equal(t, 0, len(d))
+	assert.Equal(t, w.Filled, w.Emptied)
+	assert.Equal(t, w.Filled, uint64(emptied))
 
 	// Reset one more time.
 	err = w.Reset(57)
 	assert.Nil(t, err)
+	assert.Equal(t, w.Filled, w.Emptied)
 
 	// Fill one more time.
 	loops = 0
@@ -420,7 +458,10 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 		copied += c
 	}
 	assert.Equal(t, loops*bsize, copied)
+	assert.Equal(t, w.Filled, uint64(copied + 57))
 
 	d = w.ToEmpty()
+	assert.Equal(t, copied - stop, len(d), "%#v %#v", *w.buffer.First(), *w.buffer.Last())
+	assert.Equal(t, w.Filled, w.Emptied + uint64(len(d)), "len d %d", len(d))
 	assert.Equal(t, string(res[stop:]), string(d))
 }

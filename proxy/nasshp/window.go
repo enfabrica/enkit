@@ -154,8 +154,9 @@ func (bp *BufferPool) Put(b *buffer) {
 
 type SendWindow struct {
 	Filled       uint64 // Absolute counter of bytes Filled.
-	acknowledged uint64 // Absolute counter of bytes acknowledged from this window.
 	Emptied      uint64 // Absolute counter of bytes consumed from this window.
+
+	acknowledged uint64 // Absolute counter of bytes acknowledged from this window.
 
 	pool    *BufferPool
 	buffer  blist
@@ -199,24 +200,37 @@ func (w *SendWindow) Fill(size int) uint64 {
 
 func (w *SendWindow) ToEmpty() []byte {
 	first := w.buffer.First()
-	return first.data[first.offset:]
+	data := first.data[first.offset:]
+	if len(data) == 0 && first.next != w.buffer.End() {
+		first.offset = 0
+		w.pending.Append(w.buffer.Drop(first))
+		first = w.buffer.First()
+		data = first.data[first.offset:]
+	}
+	return data
 }
 
 func (w *SendWindow) Empty(size int) {
 	w.Emptied += uint64(size)
-	for size > 0 {
+	for {
 		first := w.buffer.First()
-		Filled := first.offset + size
-		if Filled < len(first.data) {
+		occupancy := len(first.data) - first.offset
+
+		if size < occupancy {
 			first.offset += size
 			break
 		}
 
-		size -= len(first.data) - first.offset
+		if first == w.buffer.Last() {
+			first.offset += occupancy
+			break
+		}
 
 		// Offset = 0 is important if the ack # is reset, and we have to go back in time.
 		first.offset = 0
 		w.pending.Append(w.buffer.Drop(first))
+
+		size -= occupancy
 	}
 }
 
@@ -234,13 +248,13 @@ func (w *SendWindow) Acknowledge(size int) {
 			break
 		}
 
-		acked := first.acknowledged + size
-		if acked < len(first.data) {
+		occupancy := len(first.data) - first.acknowledged
+		if size < occupancy {
 			first.acknowledged += size
 			return
 		}
 
-		size -= len(first.data) - first.acknowledged
+		size -= occupancy
 		w.pool.Put(w.pending.Drop(first))
 	}
 
@@ -255,16 +269,16 @@ func (w *SendWindow) Acknowledge(size int) {
 	first.acknowledged = first.offset
 }
 
-func (w *SendWindow) AcknowledgeUntil(trunc uint32) error {
+func (w *SendWindow) AcknowledgeUntil(trunc uint32) (uint64, error) {
 	value := ToAbsolute(w.acknowledged, trunc)
 	if value > w.Emptied {
-		return fmt.Errorf("impossible ack: acknowledges data that was never sent (ack: %d, emptied: %d)", value, w.Emptied)
+		return w.acknowledged, fmt.Errorf("impossible ack: acknowledges data that was never sent (ack: %d, emptied: %d)", value, w.Emptied)
 	}
 	if value < w.acknowledged {
-		return fmt.Errorf("political ack: the data had been acked already (and freed), but this ack claims it never was (ack: %d, acknowledged: %d)", value, w.acknowledged)
+		return w.acknowledged, fmt.Errorf("political ack: the data had been acked already (and freed), but this ack claims it never was (ack: %d, acknowledged: %d)", value, w.acknowledged)
 	}
 	w.Acknowledge(int(value - w.acknowledged))
-	return nil
+	return w.acknowledged, nil
 }
 
 func (w *SendWindow) Reset(trunc uint32) error {
@@ -275,13 +289,13 @@ func (w *SendWindow) Reset(trunc uint32) error {
 	if value < w.acknowledged {
 		return fmt.Errorf("invalid ack, requires going before last ack, for which we have no buffer (ack: %d, acked: %d)", value, w.acknowledged)
 	}
-
 	w.Acknowledge(int(value - w.acknowledged))
 	w.buffer.InsertListBefore(w.buffer.First(), &w.pending)
 
+	w.buffer.Last().offset = 0
 	w.buffer.First().offset = w.buffer.First().acknowledged
+
 	w.Emptied = w.acknowledged
-	w.Filled = w.acknowledged
 	return nil
 }
 
@@ -371,7 +385,7 @@ func (w *ReceiveWindow) Fill(size int) uint64 {
 		sentalready := w.Filled - w.reset
 		if sentalready > uint64(size) {
 			w.reset += uint64(size)
-			return w.Filled - w.reset
+			return w.reset
 		}
 		last.offset = int(sentalready) // Skip the first sentalready bytes of the buffer when ToEmpty is called.
 		w.reset = 0
@@ -387,32 +401,32 @@ func (w *ReceiveWindow) Fill(size int) uint64 {
 
 func (w *ReceiveWindow) ToEmpty() []byte {
 	first := w.buffer.First()
-	return first.data[first.offset:]
+	data := first.data[first.offset:]
+	if len(data) == 0 && first.next != w.buffer.End() {
+		w.pool.Put(w.buffer.Drop(first))
+		first = w.buffer.First()
+		data = first.data[first.offset:]
+	}
+	return data
 }
 
 func (w *ReceiveWindow) Empty(size int) {
 	w.Emptied += uint64(size)
-	for size > 0 {
+	for {
 		first := w.buffer.First()
-		filled := first.offset + size
-		if filled < len(first.data) {
+		occupancy := len(first.data) - first.offset
+
+		if size < occupancy {
 			first.offset += size
 			break
 		}
 
-		// If we are here, we have exhausted the buffer.
-		//
-		// If there are no more buffers, this is the last one, don't throw it away.
-		// Rather, reset it so it gets reused. This is very important: on a typical
-		// application, with small writes, where the reader catches up immediately,
-		// it allows to re-use the same buffer over and over.
 		if first == w.buffer.Last() {
-			first.offset = 0
-			first.data = first.data[:0]
+			first.offset += occupancy
 			break
 		}
 
-		size -= len(first.data) - first.offset
 		w.pool.Put(w.buffer.Drop(first))
+		size -= occupancy
 	}
 }

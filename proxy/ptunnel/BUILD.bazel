@@ -6,6 +6,8 @@ go_library(
     importpath = "github.com/enfabrica/enkit/proxy/ptunnel",
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/kflags:go_default_library",
+        "//lib/khttp/krequest:go_default_library",
         "//lib/khttp/protocol:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/retry:go_default_library",

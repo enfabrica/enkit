@@ -2,7 +2,6 @@ package nasshp
 
 import (
 	"errors"
-	"log"
 	"sync"
 	"time"
 )
@@ -114,15 +113,14 @@ func (b *BlockingReceiveWindow) WaitToEmpty() error {
 			return err
 		}
 	}
-	log.Printf("receive to empty %d", len(b.w.ToEmpty()))
 	return nil
 }
 
 func (b *BlockingReceiveWindow) ToFill() []byte {
-	// FIXME: Enforce a limit, block having too much data in memory.
 	b.l.Lock()
 	defer b.l.Unlock()
-	return b.w.ToFill()
+	data := b.w.ToFill()
+	return data
 }
 
 func (b *BlockingReceiveWindow) Fill(size int) uint64 {
@@ -130,7 +128,6 @@ func (b *BlockingReceiveWindow) Fill(size int) uint64 {
 	defer b.l.Unlock()
 	filled := b.w.Fill(size)
 	b.ce.Signal()
-	log.Printf("receive filled %d (%d)", filled, size)
 	return filled
 }
 
@@ -143,7 +140,8 @@ func (b *BlockingReceiveWindow) Reset(wu uint32) error {
 func (b *BlockingReceiveWindow) ToEmpty() []byte {
 	b.l.Lock()
 	defer b.l.Unlock()
-	return b.w.ToEmpty()
+	data := b.w.ToEmpty()
+	return data
 }
 
 func (b *BlockingReceiveWindow) Empty(size int) {
@@ -165,10 +163,10 @@ func NewBlockingSendWindow(pool *BufferPool, max uint64) *BlockingSendWindow {
 }
 
 func (b *BlockingSendWindow) ToFill() []byte {
-	// FIXME: Enforce a limit, block having too much data in memory.
 	b.l.Lock()
 	defer b.l.Unlock()
-	return b.w.ToFill()
+	data := b.w.ToFill()
+	return data
 }
 
 func (b *BlockingSendWindow) Fill(size int) uint64 {
@@ -176,7 +174,6 @@ func (b *BlockingSendWindow) Fill(size int) uint64 {
 	defer b.l.Unlock()
 	filled := b.w.Fill(size)
 	b.ce.Signal()
-	log.Printf("send filled %d (%d)", filled, size)
 	return filled
 }
 
@@ -186,12 +183,12 @@ func (b *BlockingSendWindow) Reset(wu uint32) error {
 	return b.w.Reset(wu)
 }
 
-func (b *BlockingSendWindow) AcknowledgeUntil(wu uint32) error {
+func (b *BlockingSendWindow) AcknowledgeUntil(wu uint32) (uint64, error) {
 	b.l.Lock()
 	defer b.l.Unlock()
-	err := b.w.AcknowledgeUntil(wu)
+	val, err := b.w.AcknowledgeUntil(wu)
 	b.cf.Signal()
-	return err
+	return val, err
 }
 
 func (b *BlockingSendWindow) WaitToFill() error {
@@ -202,7 +199,6 @@ func (b *BlockingSendWindow) WaitToFill() error {
 			return err
 		}
 	}
-	log.Printf("send to empty %d", len(b.w.ToEmpty()))
 	return nil
 }
 
@@ -214,14 +210,14 @@ func (b *BlockingSendWindow) WaitToEmpty(d time.Duration) error {
 			return err
 		}
 	}
-	log.Printf("send to empty %d", len(b.w.ToEmpty()))
 	return nil
 }
 
 func (b *BlockingSendWindow) ToEmpty() []byte {
 	b.l.Lock()
 	defer b.l.Unlock()
-	return b.w.ToEmpty()
+	data := b.w.ToEmpty()
+	return data
 }
 
 func (b *BlockingSendWindow) Empty(size int) {
