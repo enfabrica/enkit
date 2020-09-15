@@ -36,8 +36,11 @@ func main() {
 	astore := acommands.New(base)
 	root.AddCommand(astore.Command)
 
-	tunnel := tcommands.New(base)
+	tunnel := tcommands.NewTunnel(base)
 	root.AddCommand(tunnel.Command)
+
+	ssh := tcommands.NewSSH(base)
+	root.AddCommand(ssh.Command)
 
 	base.Run(set, populator, runner)
 }

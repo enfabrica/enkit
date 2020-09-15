@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-type Root struct {
+type Tunnel struct {
 	*cobra.Command
 	*client.BaseFlags
 
@@ -33,7 +33,7 @@ type Root struct {
 	Listen      string
 }
 
-func (r *Root) Username() string {
+func (r *Tunnel) Username() string {
 	user, err := user.Current()
 	if err != nil {
 		return "<unknown>"
@@ -41,7 +41,7 @@ func (r *Root) Username() string {
 	return user.Username
 }
 
-func (r *Root) Run(cmd *cobra.Command, args []string) error {
+func (r *Tunnel) Run(cmd *cobra.Command, args []string) error {
 	_, cookie, err := r.IdentityCookie()
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (r *Root) Run(cmd *cobra.Command, args []string) error {
 	return r.RunTunnel(purl, id, host, port, cookie, os.Stdin, os.Stdout)
 }
 
-func (r *Root) RunListener(proxy *url.URL, host string, port uint16, cookie *http.Cookie, hostport string) error {
+func (r *Tunnel) RunListener(proxy *url.URL, host string, port uint16, cookie *http.Cookie, hostport string) error {
 	listener, err := net.Listen("tcp", hostport)
 	if err != nil {
 		return err
@@ -117,7 +117,7 @@ func (r *Root) RunListener(proxy *url.URL, host string, port uint16, cookie *htt
 	}
 }
 
-func (r *Root) RunTunnel(proxy *url.URL, id, host string, port uint16, cookie *http.Cookie, reader io.Reader, writer io.Writer) error {
+func (r *Tunnel) RunTunnel(proxy *url.URL, id, host string, port uint16, cookie *http.Cookie, reader io.Reader, writer io.Writer) error {
 	pool := nasshp.NewBufferPool(r.BufferSize)
 	tunnel, err := ptunnel.NewTunnel(pool, ptunnel.WithLogger(r.Log), ptunnel.FromFlags(r.TunnelFlags))
 	if err != nil {
@@ -138,8 +138,8 @@ func (r *Root) RunTunnel(proxy *url.URL, id, host string, port uint16, cookie *h
 	return err
 }
 
-func New(base *client.BaseFlags) *Root {
-	root := &Root{
+func NewTunnel(base *client.BaseFlags) *Tunnel {
+	root := &Tunnel{
 		Command: &cobra.Command{
 			Use:           "tunnel",
 			Short:         "Opens tunnels with your corp infrastructure",
