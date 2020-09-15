@@ -143,7 +143,7 @@ func FromFlags(fl *Flags) Modifier {
 		}
 
 		if len(config.Mapping) <= 0 {
-			return kflags.NewUsageError(fmt.Errorf("invalid config: it has no mappings"))
+			return kflags.NewUsageErrorf("invalid config: it has no mappings")
 		}
 
 		mods := Modifiers{

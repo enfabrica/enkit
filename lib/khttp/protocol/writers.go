@@ -58,7 +58,7 @@ func Read(opener ResponseOpener, checker ...StatusChecker) ResponseHandler {
 			if err == nil {
 				break
 			}
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("HTTP request for %s: %w", url, err))
 		}
 		if len(errs) >= len(checker) {
 			return multierror.New(errs)

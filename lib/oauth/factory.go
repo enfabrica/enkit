@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
-	"time"
-	"strings"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/token"
@@ -253,7 +253,7 @@ func WithRedirectorFlags(fl *RedirectorFlags) Modifier {
 	return func(o *Options) error {
 		authURL := fl.AuthURL
 		if authURL == "" {
-			return kflags.NewUsageError(fmt.Errorf("--auth-url must be supplied"))
+			return kflags.NewUsageErrorf("--auth-url must be supplied")
 		}
 
 		if strings.Index(authURL, "//") < 0 {
@@ -262,7 +262,7 @@ func WithRedirectorFlags(fl *RedirectorFlags) Modifier {
 
 		u, err := url.Parse(authURL)
 		if err != nil || u.Host == "" {
-			return kflags.NewUsageError(fmt.Errorf("invalid url %s supplied with --auth-url: %w", fl.AuthURL, err))
+			return kflags.NewUsageErrorf("invalid url %s supplied with --auth-url: %w", fl.AuthURL, err)
 		}
 
 		WithAuthURL(u)(o)
@@ -441,7 +441,7 @@ func (opt *Options) NewRedirector() (*Redirector, error) {
 
 	return &Redirector{
 		Extractor: extractor,
-		AuthURL: opt.authURL,
+		AuthURL:   opt.authURL,
 	}, nil
 }
 
@@ -453,7 +453,6 @@ func NewRedirector(modifiers ...Modifier) (*Redirector, error) {
 
 	return options.NewRedirector()
 }
-
 
 func NewExtractor(modifiers ...Modifier) (*Extractor, error) {
 	options := DefaultOptions(nil)

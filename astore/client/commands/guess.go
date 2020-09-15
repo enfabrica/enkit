@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
-	"github.com/enfabrica/enkit/lib/kflags/kcobra"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +29,7 @@ func NewRemote(root *Root) *Remote {
 
 func (uc *Remote) Run(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return kcobra.NewUsageError(fmt.Errorf("use as 'astore guess remote <file>...' - one or more files to guess the architecture of"))
+		return kflags.NewUsageErrorf("use as 'astore guess remote <file>...' - one or more files to guess the architecture of")
 	}
 
 	for _, arg := range args {
@@ -62,7 +62,7 @@ func NewArch(root *Root) *Arch {
 
 func (uc *Arch) Run(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return kcobra.NewUsageError(fmt.Errorf("use as 'astore guess arch <file>...' - one or more files to guess the architecture of"))
+		return kflags.NewUsageErrorf("use as 'astore guess arch <file>...' - one or more files to guess the architecture of")
 	}
 
 	for _, arg := range args {

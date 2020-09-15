@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
-	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"golang.org/x/crypto/nacl/box"
 	"google.golang.org/grpc"
 	"math/rand"
@@ -24,7 +24,7 @@ func New(rng *rand.Rand, conn grpc.ClientConnInterface) *Client {
 }
 
 type LoginOptions struct {
-	*client.CommonOptions
+	*ccontext.Context
 
 	// Minimum time that has to elapse between an attempt to retrieve
 	// the token and the next. This is meant to prevent busy loops DoSsing

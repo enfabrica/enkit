@@ -153,8 +153,8 @@ func (bp *BufferPool) Put(b *buffer) {
 }
 
 type SendWindow struct {
-	Filled       uint64 // Absolute counter of bytes Filled.
-	Emptied      uint64 // Absolute counter of bytes consumed from this window.
+	Filled  uint64 // Absolute counter of bytes Filled.
+	Emptied uint64 // Absolute counter of bytes consumed from this window.
 
 	acknowledged uint64 // Absolute counter of bytes acknowledged from this window.
 

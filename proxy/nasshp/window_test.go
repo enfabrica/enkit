@@ -156,7 +156,7 @@ func TestSendWindowSimple(t *testing.T) {
 		d := w.ToEmpty()
 		assert.Equal(t, 0, len(d))
 		e := w.ToFill()
-		assert.Equal(t, bsize - (len(qb) % bsize), len(e))
+		assert.Equal(t, bsize-(len(qb)%bsize), len(e))
 
 		acknowledged += 17
 	}
@@ -403,7 +403,7 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 	}
 	assert.Equal(t, loops*bsize, copied)
 
-	assert.Equal(t, w.Filled, uint64(loops*bsize) + resetValue, "extra %x %x", resetValue + loops * bsize, resetValue + copied - len(qb))
+	assert.Equal(t, w.Filled, uint64(loops*bsize)+resetValue, "extra %x %x", resetValue+loops*bsize, resetValue+copied-len(qb))
 	assert.Equal(t, w.Emptied, uint64(emptied))
 	assert.Equal(t, w.reset, uint64(0))
 
@@ -458,10 +458,10 @@ func TestReceiveWindowResetComplex(t *testing.T) {
 		copied += c
 	}
 	assert.Equal(t, loops*bsize, copied)
-	assert.Equal(t, w.Filled, uint64(copied + 57))
+	assert.Equal(t, w.Filled, uint64(copied+57))
 
 	d = w.ToEmpty()
-	assert.Equal(t, copied - stop, len(d), "%#v %#v", *w.buffer.First(), *w.buffer.Last())
-	assert.Equal(t, w.Filled, w.Emptied + uint64(len(d)), "len d %d", len(d))
+	assert.Equal(t, copied-stop, len(d), "%#v %#v", *w.buffer.First(), *w.buffer.Last())
+	assert.Equal(t, w.Filled, w.Emptied+uint64(len(d)), "len d %d", len(d))
 	assert.Equal(t, string(res[stop:]), string(d))
 }

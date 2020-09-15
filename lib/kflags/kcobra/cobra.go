@@ -2,7 +2,6 @@ package kcobra
 
 import (
 	"github.com/enfabrica/enkit/lib/kflags"
-	"github.com/enfabrica/enkit/lib/kflags/populator"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -18,36 +17,6 @@ type FlagSet struct {
 
 func (fs *FlagSet) ByteFileVar(p *[]byte, name string, defaultFile string, usage string, mods ...kflags.ByteFileModifier) {
 	fs.Var(kflags.NewByteFileFlag(p, defaultFile, mods...), name, usage)
-}
-
-// Wrap errors in a StatusError to indicate a different exit value to be
-// returned for this program.
-type StatusError struct {
-	error
-	Code int
-}
-
-func NewStatusError(code int, err error) *StatusError {
-	return &StatusError{error: err, Code: code}
-}
-
-func NewStatusErrorf(code int, f string, args ...interface{}) *StatusError {
-	return &StatusError{error: fmt.Errorf(f, args...), Code: code}
-}
-
-// Wrap errors in an UsageError to indicate that the problem has been caused
-// by incorrect flags by the user, and as such, the help screen should be
-// printed.
-type UsageError struct {
-	error
-}
-
-func NewUsageError(err error) *UsageError {
-	return &UsageError{error: err}
-}
-
-func NewUsageErrorf(f string, args ...interface{}) *UsageError {
-	return &UsageError{error: fmt.Errorf(f, args...)}
 }
 
 type Command interface {
@@ -73,33 +42,81 @@ func LogFlags(command *cobra.Command, log logger.Printer) {
 	})
 }
 
-func RunWithDefaults(root *cobra.Command, popstore **populator.Populator, log *logger.Logger) {
-	populator := populator.New("enkit", CobraPopulator(root, os.Args))
-	populator.Register(&FlagSet{FlagSet: root.Flags()}, "")
-	logger, _ := populator.PopulateDefaults(root.Name())
-
-	root.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-		LogFlags(root, logger.Infof)
-	}
-
-	if popstore != nil {
-		*popstore = populator
-	}
-	if log != nil {
-		*log = logger
-	}
-
-	Run(root)
+type options struct {
+	ehandlers []kflags.ErrorHandler
+	printer   kflags.Printer
+	argv      []string
 }
 
-func Run(root *cobra.Command) {
-	if err := root.Execute(); err != nil {
-		var ue *UsageError
+type Modifier func(*cobra.Command, *options) error
+
+type Modifiers []Modifier
+
+func (mods Modifiers) Apply(c *cobra.Command, o *options) error {
+	for _, m := range mods {
+		if err := m(c, o); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func WithPrinter(log kflags.Printer) Modifier {
+	return func(c *cobra.Command, o *options) error {
+		o.printer = log
+		return nil
+	}
+}
+
+func WithErrorHandler(eh ...kflags.ErrorHandler) Modifier {
+	return func(c *cobra.Command, o *options) error {
+		o.ehandlers = append(o.ehandlers, eh...)
+		return nil
+	}
+}
+
+func WithArgs(argv []string) Modifier {
+	return func(c *cobra.Command, o *options) error {
+		o.argv = argv
+		return nil
+	}
+}
+
+func Run(root *cobra.Command, mods ...Modifier) {
+	o := options{
+		argv: os.Args,
+	}
+
+	err := Modifiers(mods).Apply(root, &o)
+	if o.printer != nil {
+		LogFlags(root, (logger.Printer)(o.printer))
+	}
+
+	// Cobra expects argv without argv[0], without the path of the command.
+	if len(o.argv) >= 1 {
+		o.argv = o.argv[1:]
+	}
+	root.SetArgs(o.argv)
+
+	if err == nil {
+		err = root.Execute()
+	}
+	if err != nil {
+		cmd, _, nerr := root.Find(o.argv)
+		if nerr != nil {
+			cmd = root
+		}
+
+		for _, eh := range o.ehandlers {
+			err = eh(err)
+		}
+
+		var ue *kflags.UsageError
 		if errors.As(err, &ue) {
-			root.Println(root.UsageString())
+			root.Println(cmd.UsageString())
 		}
 		exit := 1
-		var se *StatusError
+		var se *kflags.StatusError
 		if ok := errors.As(err, &se); ok {
 			exit = se.Code
 		}
@@ -107,4 +124,15 @@ func Run(root *cobra.Command) {
 		root.Printf("ERROR: %s\n", err)
 		os.Exit(exit)
 	}
+}
+
+func Runner(root *cobra.Command, argv []string, eh ...kflags.ErrorHandler) (kflags.FlagSet, kflags.Populator, kflags.Runner) {
+	if argv == nil {
+		argv = os.Args
+	}
+
+	runner := func(p kflags.Printer) {
+		Run(root, WithArgs(argv), WithErrorHandler(eh...), WithPrinter(p))
+	}
+	return &FlagSet{FlagSet: root.PersistentFlags()}, CobraPopulator(root, argv), runner
 }

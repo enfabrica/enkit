@@ -1,32 +1,37 @@
 package commands
 
 import (
-	"github.com/spf13/cobra"
+	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/goroutine"
+	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/kflags/kcobra"
+	"github.com/enfabrica/enkit/lib/khttp/krequest"
+	"github.com/enfabrica/enkit/lib/khttp/protocol"
 	"github.com/enfabrica/enkit/proxy/nasshp"
 	"github.com/enfabrica/enkit/proxy/ptunnel"
-	"github.com/enfabrica/enkit/lib/kflags/kcobra"
-	"github.com/enfabrica/enkit/lib/kflags"
-	"github.com/enfabrica/enkit/lib/goroutine"
-	"github.com/enfabrica/enkit/lib/client/commands"
-	"github.com/enfabrica/enkit/lib/khttp/protocol"
-	"github.com/enfabrica/enkit/lib/khttp/krequest"
-	"strconv"
+	"github.com/spf13/cobra"
 	"net/url"
-	"strings"
 	"os"
+	"strconv"
+	"strings"
 )
 
 type Root struct {
 	*cobra.Command
-	*commands.Base
+	*client.BaseFlags
 
-	Proxy string
+	Proxy      string
 	BufferSize int
 
 	TunnelFlags *ptunnel.Flags
 }
 
 func (r *Root) Run(cmd *cobra.Command, args []string) error {
+	_, cookie, err := r.IdentityCookie()
+	if err != nil {
+		return err
+	}
+
 	proxy := strings.TrimSpace(r.Proxy)
 	if proxy == "" {
 		return kflags.NewUsageErrorf("A proxy must be specified with --proxy (or -p)")
@@ -37,11 +42,6 @@ func (r *Root) Run(cmd *cobra.Command, args []string) error {
 	purl, err := url.Parse(proxy)
 	if err != nil {
 		return kflags.NewUsageErrorf("Invalid proxy %s specified with --proxy - %w", proxy, err)
-	}
-
-	cookie, err := r.IdentityCookie()
-	if err != nil {
-		return err
 	}
 
 	host := ""
@@ -64,41 +64,41 @@ func (r *Root) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	pool := nasshp.NewBufferPool(r.BufferSize)
-	tunnel, err := ptunnel.NewTunnel(pool, ptunnel.FromFlags(r.TunnelFlags))
+	tunnel, err := ptunnel.NewTunnel(pool, ptunnel.WithLogger(r.Log), ptunnel.FromFlags(r.TunnelFlags))
 	if err != nil {
 		return err
 	}
 
 	// TODO: Allow to resume sessions manually? By passing a sid on the CLI?
 	return goroutine.WaitFirstError(
-		func () error {
+		func() error {
 			return tunnel.KeepConnected(purl, host, port,
 				ptunnel.WithGetOptions(protocol.WithRequestOptions(krequest.WithCookie(cookie))),
 				ptunnel.WithConnectOptions(ptunnel.WithHeader("Cookie", cookie.String())))
 		},
-		func () error { return tunnel.Receive(os.Stdout) },
-		func () error { return tunnel.Send(os.Stdin) })
+		func() error { return tunnel.Receive(os.Stdout) },
+		func() error { return tunnel.Send(os.Stdin) })
 }
 
-func New(base *commands.Base) *Root {
+func New(base *client.BaseFlags) *Root {
 	root := &Root{
 		Command: &cobra.Command{
-			Use: "tunnel",
-			Short: "Opens tunnels with your corp infrastructure",
-			Long: `tunnel - open a tunnel with your corp infrastructure`,
-			SilenceUsage: true,
+			Use:           "tunnel",
+			Short:         "Opens tunnels with your corp infrastructure",
+			Long:          `tunnel - open a tunnel with your corp infrastructure`,
+			SilenceUsage:  true,
 			SilenceErrors: true,
-			Example: `this is an example`,
-			Aliases: []string{"tun", "corp"},
+			Example:       `this is an example`,
+			Aliases:       []string{"tun", "corp"},
 		},
-		Base: base,
+		BaseFlags: base,
 	}
 	root.RunE = root.Run
 
-	root.Flags().IntVar(&root.BufferSize, "buffer-size", 1024 * 16, "Default read and write buffer size for window management")
-	root.Flags().StringVarP(&root.Proxy, "proxy", "p", "", "Full url of the proxy to connect to, must be specified")
+	root.Command.Flags().IntVar(&root.BufferSize, "buffer-size", 1024*16, "Default read and write buffer size for window management")
+	root.Command.Flags().StringVarP(&root.Proxy, "proxy", "p", "", "Full url of the proxy to connect to, must be specified")
 
-	root.TunnelFlags = ptunnel.DefaultFlags().Register(&kcobra.FlagSet{FlagSet: root.Flags()}, "")
+	root.TunnelFlags = ptunnel.DefaultFlags().Register(&kcobra.FlagSet{FlagSet: root.Command.Flags()}, "")
 
 	return root
 }

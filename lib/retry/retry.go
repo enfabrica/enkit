@@ -41,9 +41,9 @@ type Flags struct {
 
 func DefaultFlags() *Flags {
 	return &Flags{
-		AtMost: 5,
-		Wait:   1 * time.Second,
-		Fuzzy:  1 * time.Second,
+		AtMost:    5,
+		Wait:      1 * time.Second,
+		Fuzzy:     1 * time.Second,
 		MaxErrors: 10,
 	}
 }

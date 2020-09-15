@@ -2,19 +2,15 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["populator.go"],
-    importpath = "github.com/enfabrica/enkit/lib/kflags/populator",
+    srcs = ["provider.go"],
+    importpath = "github.com/enfabrica/enkit/lib/kflags/provider",
     visibility = ["//visibility:public"],
     deps = [
         "//lib/cache:go_default_library",
-        "//lib/config/defcon:go_default_library",
-        "//lib/config/identity:go_default_library",
         "//lib/kflags:go_default_library",
         "//lib/kflags/kconfig:go_default_library",
         "//lib/khttp/downloader:go_default_library",
         "//lib/khttp/krequest:go_default_library",
         "//lib/logger:go_default_library",
-        "//lib/logger/klog:go_default_library",
-        "//lib/oauth/cookie:go_default_library",
     ],
 )

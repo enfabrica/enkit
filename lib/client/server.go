@@ -8,7 +8,6 @@ import (
 
 	"context"
 	"fmt"
-	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -18,26 +17,37 @@ import (
 )
 
 type ServerFlags struct {
-	Prefix, Name  string
-	Server        string
-	AllowInsecure bool
+	Name, Description string
+	Server            string
+	AllowInsecure     bool
 }
 
-func (sf *ServerFlags) Register(store *pflag.FlagSet, prefix, name, path string) {
-	store.BoolVar(&sf.AllowInsecure, prefix+"-allow-insecure", false, "Allow insecure connections (disable https checks, gRPC security) to the "+name)
-	store.StringVar(&sf.Server, prefix+"-server", path, name+" to connect to. If the URL starts with http:// or https://, it will use the grpc-web protocol")
+// DefaultServerFlags initializes and returns a ServerFlags object with defaults.
+//
+// name is a string to prepend to the registered flags. For example, an "auth" prefix will result
+// in the flags --auth-server and --auth-allow-insecure to be registerd. This allows to have
+// multiple servers defined by flags in the same binary.
+//
+// description is a description for the server, which will be used to create the help messages. For example,
+// a name of "Authentication server" will be appended to "allow... connections to the... Authentication server".
+//
+// address is the default address of the server to connect to, leave it empty if unknown.
+func DefaultServerFlags(name, description, address string) *ServerFlags {
+	return &ServerFlags{
+		Name:        name,
+		Description: description,
+		Server:      address,
+	}
+}
 
-	// TODO: provide a reasonable constructor, so we don't have to do this.
-	sf.Prefix = prefix
-	sf.Name = name
+func (sf *ServerFlags) Register(store kflags.FlagSet, namespace string) {
+	store.BoolVar(&sf.AllowInsecure, namespace+sf.Name+"-allow-insecure", sf.AllowInsecure, "Allow insecure connections (disable https checks, gRPC security) to the "+sf.Description)
+	store.StringVar(&sf.Server, namespace+sf.Name+"-server", sf.Server, sf.Description+" to connect to. If the URL starts with http:// or https://, it will use the grpc-web protocol")
 }
 
 func (sf *ServerFlags) Connect(mods ...GwcOrGrpcOptions) (grpc.ClientConnInterface, error) {
 	if sf.Server == "" {
-		if sf.Prefix != "" && sf.Name != "" {
-			return nil, kflags.NewUsageError(fmt.Errorf("Must specify the address for %s, use --%s", sf.Name, sf.Prefix+"-server"))
-		}
-		return nil, fmt.Errorf("Must specify the address of the server")
+		return nil, kflags.NewUsageErrorf("Must specify the address for %s, use --%s-server", sf.Description, sf.Name)
 	}
 
 	if sf.AllowInsecure {

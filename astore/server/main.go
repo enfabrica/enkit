@@ -103,7 +103,7 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 	}
 
 	if targetURL == "" {
-		return kcobra.NewUsageError(fmt.Errorf("--site-url must be specified"))
+		return kflags.NewUsageErrorf("--site-url must be specified")
 	}
 
 	// Adjust the URLs the user supplied based on what the web server below does.
@@ -162,7 +162,7 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 
 	mux.HandleFunc("/w", func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origin != "" && ((cookieDomain != "" && strings.Index(origin, cookieDomain) >= 0)) {
+		if origin != "" && (cookieDomain != "" && strings.Index(origin, cookieDomain) >= 0) {
 			w.Header().Add("Vary", "Origin")
 			w.Header().Add("Access-Control-Allow-Credentials", "true")
 			w.Header().Add("Access-Control-Allow-Origin", origin)

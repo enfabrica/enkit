@@ -33,12 +33,25 @@ func (pf *PFlag) SetContent(origin string, data []byte) error {
 	return nil
 }
 
+// CobraPopulator returns a kflags.Populator capable of filling in the defaults for
+// flags defined through cobra and the pflags library.
 func CobraPopulator(root *cobra.Command, args []string) kflags.Populator {
 	return func(resolvers ...kflags.Resolver) error {
 		return PopulateDefaults(root, args, resolvers...)
 	}
 }
 
+// PopulateDefaults is a function that walks all the flags of the specified root command
+// and all its sub commands, the argv provided as args, and tries to provide defaults
+// using the spcified resolvers.
+//
+// root is the cobra.Command of which to walk the flags to fill in the defaults.
+//
+// args is the list of command line parameters passed to the command, argv. This is
+// generally os.Args. It is expected to include argv[0], the path of the command, as
+// first argument.
+//
+// resolvers is the list of resolvers to use to assign the defaults.
 func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Resolver) error {
 	// argv[0] needs to be skipped, args is generally os.Args, which contains argv 0.
 	if len(args) >= 1 {

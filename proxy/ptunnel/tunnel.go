@@ -3,15 +3,14 @@ package ptunnel
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/khttp/protocol"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/khttp/krequest"
+	"github.com/enfabrica/enkit/lib/khttp/protocol"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"
-	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/proxy/nasshp"
 	"github.com/gorilla/websocket"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"path"
@@ -25,8 +24,8 @@ import (
 // connect -> given a sid, ack, pos -> uses a websocket to send and receive data.
 
 type Tunnel struct {
-	log     logger.Logger
-	browser *nasshp.ReplaceableBrowser
+	log      logger.Logger
+	browser  *nasshp.ReplaceableBrowser
 	timeouts *Timeouts
 
 	SendWin    *nasshp.BlockingSendWindow
@@ -237,19 +236,19 @@ func DefaultFlags() *Flags {
 	return &Flags{
 		MaxReceiveWindow: 1048576,
 		MaxSendWindow:    1048576,
-		Timeouts: DefaultTimeouts(),
+		Timeouts:         DefaultTimeouts(),
 	}
 }
 
 type options struct {
 	Flags
-	Logger             logger.Logger
+	Logger logger.Logger
 }
 
 func DefaultOptions() *options {
 	return &options{
-		Flags: *DefaultFlags(),
-		Logger:             &logger.DefaultLogger{Printer: log.Printf},
+		Flags:  *DefaultFlags(),
+		Logger: logger.Nil,
 	}
 }
 
@@ -267,7 +266,7 @@ func (mods Modifiers) Apply(o *options) error {
 }
 
 func FromFlags(fl *Flags) Modifier {
-	return func (o *options) error {
+	return func(o *options) error {
 		// 16 is somewhat arbitrary. Less than 4 bytes would very likely crash.
 		// Anything less than 1024 would probably suck in term of performance.
 		if fl.MaxSendWindow < 16 {
@@ -286,14 +285,14 @@ func FromFlags(fl *Flags) Modifier {
 }
 
 func WithTimeouts(t *Timeouts) Modifier {
-	return func (o *options) error {
+	return func(o *options) error {
 		o.Timeouts = t
 		return nil
 	}
 }
 
 func WithWindowSize(send, receive int) Modifier {
-	return func (o *options) error {
+	return func(o *options) error {
 		o.MaxSendWindow = send
 		o.MaxReceiveWindow = receive
 		return nil
@@ -301,7 +300,7 @@ func WithWindowSize(send, receive int) Modifier {
 }
 
 func WithLogger(l logger.Logger) Modifier {
-	return func (o *options) error {
+	return func(o *options) error {
 		o.Logger = l
 		return nil
 	}
@@ -315,8 +314,8 @@ func NewTunnel(pool *nasshp.BufferPool, mods ...Modifier) (*Tunnel, error) {
 	}
 
 	tl := &Tunnel{
-		log:        options.Logger,
-		timeouts:   options.Timeouts,
+		log:      options.Logger,
+		timeouts: options.Timeouts,
 
 		SendWin:    nasshp.NewBlockingSendWindow(pool, uint64(options.MaxSendWindow)),
 		ReceiveWin: nasshp.NewBlockingReceiveWindow(pool, uint64(options.MaxReceiveWindow)),

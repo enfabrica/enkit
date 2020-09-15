@@ -3,11 +3,10 @@ package commands
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
-	"github.com/enfabrica/enkit/lib/kflags/kcobra"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	//"log"
 )
 
 type PublicAdd struct {
@@ -43,7 +42,7 @@ func NewPublicAdd(root *Root) *PublicAdd {
 
 func (uc *PublicAdd) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 && len(args) != 2 {
-		return kcobra.NewUsageError(fmt.Errorf("use as 'astore public add <uid|path> [path]' - one or two arguments"))
+		return kflags.NewUsageErrorf("use as 'astore public add <uid|path> [path]' - one or two arguments")
 	}
 
 	artifact := args[0]
@@ -110,7 +109,7 @@ func NewPublicDel(root *Root) *PublicDel {
 
 func (uc *PublicDel) Run(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return kcobra.NewUsageError(fmt.Errorf("use as 'astore public del <url>...' - one or more urls to unpublish"))
+		return kflags.NewUsageErrorf("use as 'astore public del <url>...' - one or more urls to unpublish")
 	}
 
 	client, err := uc.root.StoreClient()

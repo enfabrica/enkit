@@ -13,9 +13,9 @@ import (
 
 	"time"
 
+	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
-	"github.com/enfabrica/enkit/lib/logger"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -225,12 +225,13 @@ func main() {
 	providing a UI on port 8080.`,
 	}
 
+	base := client.DefaultBaseFlags(root.Name(), "enkit")
+
 	port := 7777
-	log := logger.Nil
 	root.Flags().IntVarP(&port, "port", "p", port, "Port number on which the probing daemon will be listening for connections.")
 
 	root.RunE = func(cmd *cobra.Command, args []string) error {
-		log.Warnf("Listening on port %d", port)
+		base.Log.Warnf("Listening on port %d", port)
 
 		for _, arg := range args {
 			var config Config
@@ -247,5 +248,5 @@ func main() {
 		return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	}
 
-	kcobra.RunWithDefaults(root, nil, &log)
+	base.Run(kcobra.Runner(root, nil))
 }

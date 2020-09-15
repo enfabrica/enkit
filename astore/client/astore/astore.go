@@ -14,6 +14,7 @@ import (
 	"context"
 	"github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/grpcwebclient"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/progress"
@@ -50,7 +51,7 @@ func NewNative(server string, mods ...grpc.DialOption) (*Client, error) {
 }
 
 type DownloadOptions struct {
-	*client.CommonOptions
+	*ccontext.Context
 	*Options
 
 	Output    string
@@ -194,7 +195,7 @@ func (c *Client) Download(names []string, defaultId PathType, o DownloadOptions)
 }
 
 type UploadOptions struct {
-	*client.CommonOptions
+	*ccontext.Context
 }
 
 type FileToUpload struct {
@@ -427,7 +428,7 @@ func SuggestRemote(name string, options SuggestOptions) (string, string, error) 
 
 func FindRemote(name string, options SuggestOptions) (string, string, error) {
 	if options.File != "" && options.Directory != "" {
-		return "", "", kflags.NewUsageError(fmt.Errorf("cannot specify -d and -f at the same time - either -d or -f must be used"))
+		return "", "", kflags.NewUsageErrorf("cannot specify -d and -f at the same time - either -d or -f must be used")
 	}
 	if !options.DisableAt {
 		ix := strings.LastIndex(name, "@")
@@ -471,7 +472,7 @@ type Options struct {
 }
 
 type ListOptions struct {
-	*client.CommonOptions
+	*ccontext.Context
 	Tag []string
 }
 

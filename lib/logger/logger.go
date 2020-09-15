@@ -6,18 +6,33 @@ import (
 	"strings"
 )
 
-// Logger is the interface used by the pbj library to log messages.
+// Logger is the interface used by the enkit libraries to log messages.
 //
 // The logrus library can be used out of the box without additional
 // glue. The golang log library is used by default, through DefaultLogger.
 // DefaultLogger can be used to pass an arbitrary log function as well.
 type Logger interface {
+	// Use for messages that are pretty much only useful when debugging
+	// specific behaviors. Should be used rarely.
+	// Expect debug messages to be discarded.
 	Debugf(format string, args ...interface{})
-	Infof(format string, args ...interface{})
+	// Use for messages that clearly a) outline a problem that b) the operator MUST act upon.
+	// Errors are generally reserved for things that cause the program to fail and must be fixed.
 	Errorf(format string, args ...interface{})
+	// Use for messages that a) outline a problem that b) is actionable, and c) the operator
+	// may want to act upon - even though the program may have recovered or continued without
+	// intervention (in degraded mode, or without some functionality, ...).
 	Warnf(format string, args ...interface{})
+	// Use for messages that are either not actionable, or require no action by the operator.
+	Infof(format string, args ...interface{})
 
 	SetOutput(writer io.Writer)
+}
+
+// Forwardable is the interface implemented by any logger capable
+// of forwarding, upon request, buffered messages to another logger.
+type Forwardable interface {
+	Forward(Logger)
 }
 
 // Printer is a Printf like function.
@@ -88,7 +103,7 @@ func (dl NilLogger) Warnf(format string, args ...interface{}) {
 func (dl NilLogger) SetOutput(output io.Writer) {
 }
 
-// utils.IndentLines indents each line in the buffer with the specified string.
+// IndentLines indents each line in the buffer with the specified string.
 func IndentLines(buffer, indent string) string {
 	return indent + strings.ReplaceAll(strings.TrimSuffix(buffer, "\n"), "\n", "\n"+indent)
 }

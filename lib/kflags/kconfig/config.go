@@ -246,6 +246,10 @@ func NewConfigResolverFromDNS(cs cache.Store, domain string, binary string, mods
 	options := DefaultOptions()
 	Modifiers(mods).Apply(options)
 
+	if domain == "" {
+		return nil, fmt.Errorf("cannot look up empty domain name")
+	}
+
 	dns := remote.NewDNS(domain, append([]remote.DNSModifier{remote.WithLogger(options.log)}, options.dnso...)...)
 	eps, errs := dns.GetEndpoints()
 	if len(eps) <= 0 {

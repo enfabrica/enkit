@@ -1,10 +1,9 @@
 package main
 
 import (
-	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/khttp"
-	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/proxy/credentials"
@@ -28,7 +27,9 @@ func main() {
 	To start a proxy mapping the urls defined in mappings.toml.`,
 	}
 
-	set := &kcobra.FlagSet{FlagSet: root.Flags()}
+	set, populator, runner := kcobra.Runner(root, os.Args)
+
+	base := client.DefaultBaseFlags(root.Name(), "enkit")
 
 	pflags := httpp.DefaultFlags()
 	pflags.Register(set, "")
@@ -46,9 +47,8 @@ func main() {
 	root.Flags().BoolVar(&unsafeDevelopmentMode, "unsafe-development-mode", false,
 		"Disable oauth ssh based authentication - this is for testing only!")
 
-	mylog := logger.Nil
 	root.RunE = func(cmd *cobra.Command, args []string) error {
-		mods := []httpp.Modifier{httpp.FromFlags(pflags), httpp.WithLogging(mylog)}
+		mods := []httpp.Modifier{httpp.FromFlags(pflags), httpp.WithLogging(base.Log)}
 		var authenticate oauth.Authenticate
 		if rflags.AuthURL != "" {
 			redirector, err := oauth.NewRedirector(oauth.WithRedirectorFlags(rflags))
@@ -69,15 +69,15 @@ func main() {
 
 		dispatcher := http.Handler(hproxy)
 		if authenticate == nil {
-			mylog.Warnf("ssh gateway disabled as no authentication was configured")
+			base.Log.Warnf("ssh gateway disabled as no authentication was configured")
 		} else {
 			if unsafeDevelopmentMode {
-				mylog.Errorf("Watch out! The proxy is being started with unsafe authentication mode! No authentication performed")
+				base.Log.Errorf("Watch out! The proxy is being started with unsafe authentication mode! No authentication performed")
 				authenticate = nil
 			}
 
 			rng := rand.New(srand.Source)
-			nasshp, err := nasshp.New(rng, authenticate, nasshp.FromFlags(nflags), nasshp.WithLogging(mylog))
+			nasshp, err := nasshp.New(rng, authenticate, nasshp.FromFlags(nflags), nasshp.WithLogging(base.Log))
 			if err != nil {
 				return err
 			}
@@ -100,11 +100,9 @@ func main() {
 			return err
 		}
 
-		return server.Run(mylog.Infof, &khttp.Dumper{Real: dispatcher, Log: log.Printf}, hproxy.Domains...)
+		return server.Run(base.Log.Infof, &khttp.Dumper{Real: dispatcher, Log: log.Printf}, hproxy.Domains...)
 	}
 
-	kcobra.PopulateDefaults(root, os.Args,
-		kflags.NewAssetResolver(mylog, "enproxy", credentials.Data),
-	)
-	kcobra.RunWithDefaults(root, nil, &mylog)
+	base.LoadFlagAssets(populator, credentials.Data)
+	base.Run(set, populator, runner)
 }

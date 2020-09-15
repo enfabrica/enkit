@@ -3,9 +3,9 @@ package khttp
 import (
 	"github.com/enfabrica/enkit/lib/multierror"
 
+	"fmt"
 	"net/http"
 	"strings"
-	"fmt"
 )
 
 type HostDispatcher map[string]http.Handler
@@ -28,7 +28,7 @@ func (hd HostDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type HostDispatch struct {
-	Host string
+	Host    string
 	Handler http.Handler
 }
 
@@ -36,7 +36,7 @@ func NewHostDispatcher(todispatch []HostDispatch) (HostDispatcher, error) {
 	hd := HostDispatcher{}
 	var errs []error
 
-	add := func (ix int, host string, handler http.Handler) {
+	add := func(ix int, host string, handler http.Handler) {
 		_, found := hd[host]
 		if found {
 			errs = append(errs, fmt.Errorf("entry %d (host %s): already mapped", ix, host))
@@ -58,10 +58,10 @@ func NewHostDispatcher(todispatch []HostDispatch) (HostDispatcher, error) {
 		host = strings.ToLower(strings.TrimSuffix(host, "."))
 		if port == "443" || port == "80" || port == "" {
 			add(ix, host, entry.Handler)
-			add(ix, host + ".", entry.Handler)
+			add(ix, host+".", entry.Handler)
 		} else {
-			add(ix, host + ":" + port, entry.Handler)
-			add(ix, host + ".:" + port, entry.Handler)
+			add(ix, host+":"+port, entry.Handler)
+			add(ix, host+".:"+port, entry.Handler)
 		}
 	}
 	return hd, multierror.New(errs)

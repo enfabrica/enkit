@@ -1,13 +1,13 @@
 package khttp
 
 import (
-	"path"
-	"strings"
-	"net/url"
-	"net/http"
 	"github.com/enfabrica/enkit/lib/logger"
-	"strconv"
 	"net"
+	"net/http"
+	"net/url"
+	"path"
+	"strconv"
+	"strings"
 )
 
 // Dumper is an http.Handler capable of logging the content of the request.

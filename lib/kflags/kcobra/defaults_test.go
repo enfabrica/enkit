@@ -191,7 +191,7 @@ func TestPopulateDefaults(t *testing.T) {
 	fc := CreateFakeCommand()
 	fr := &MockResolver{}
 
-	err := PopulateDefaults(fc.Root, []string{"user", "add", "system"}, fr)
+	err := PopulateDefaults(fc.Root, []string{"ignored-argv-0", "user", "add", "system"}, fr)
 	assert.Nil(t, err)
 
 	// user has no direct flags, only subcommands.

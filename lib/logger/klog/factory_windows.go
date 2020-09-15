@@ -21,6 +21,7 @@ func (l *Logger) SetOutput(writer io.Writer) {
 type Flags struct {
 	ConsoleLevel string
 	Verbosity    int
+	Quiet        bool
 }
 
 func DefaultFlags() *Flags {
@@ -33,6 +34,7 @@ func DefaultFlags() *Flags {
 func (cf *Flags) Register(flags kflags.FlagSet, prefix string) *Flags {
 	flags.StringVar(&cf.ConsoleLevel, prefix+"loglevel-console", cf.ConsoleLevel, "Can be debug, info, warn, error. Indicates the minimum severity of messages to log on the console")
 	flags.IntVar(&cf.Verbosity, prefix+"verbosity", cf.Verbosity, "Increases the verbosity level of logs by the specified amount")
+	flags.BoolVar(&cf.Quiet, prefix+"quiet", cf.Quiet, "If set to true, only errors will be logged on the console")
 	return cf
 }
 
@@ -102,6 +104,9 @@ func FromFlags(flags Flags) Modifier {
 
 		cx = max(0, cx-flags.Verbosity)
 		o.minConsole = DefaultLevels[cx].Value
+		if flags.Quiet {
+			o.minConsole = zapcore.ErrorLevel
+		}
 		return nil
 	}
 }

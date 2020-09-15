@@ -10,7 +10,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//lib/kflags:go_default_library",
-        "//lib/kflags/populator:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/multierror:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",

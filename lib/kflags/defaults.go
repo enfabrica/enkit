@@ -7,12 +7,19 @@ import (
 	"strings"
 )
 
+// Flag represents a command line flag.
 type Flag interface {
+	// Returns the name of the flag.
 	Name() string
+	// Sets the value of the flag.
 	Set(string) error
+	// Sets the content of the flag (for those flags that support it,
+	// see the description of the ContentValue interface for more details)
 	SetContent(string, []byte) error
 }
 
+// GoFlag wraps a flag.Flag object from the go standard library
+// and implements the Flag interface above.
 type GoFlag struct {
 	*flag.Flag
 }
@@ -78,8 +85,12 @@ func SetContent(fl flag.Value, name string, value []byte) (string, error) {
 	return newv, fl.Set(newv)
 }
 
+// Populator is a function that given a set of resolvers, it is capable of invoking
+// them to assign default flag values.
 type Populator func(resolvers ...Resolver) error
 
+// GoPopulator returns a Populator capable of walking all the flags in the specified
+// set, and assign defaults to those flags.
 func GoPopulator(set *flag.FlagSet) Populator {
 	return func(resolvers ...Resolver) error {
 		return PopulateDefaults(set, resolvers...)

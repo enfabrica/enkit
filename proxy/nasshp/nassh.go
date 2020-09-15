@@ -131,7 +131,7 @@ func FromFlags(fl *Flags) Modifier {
 	return func(np *NasshProxy, o *options) error {
 		relayHost := strings.TrimSpace(fl.RelayHost)
 		if len(relayHost) == 0 {
-			return kflags.NewUsageError(fmt.Errorf("specifying --host-port is mandatory - there's no automated way to guess a dns name and port where this proxy (or a relay) is running"))
+			return kflags.NewUsageErrorf("specifying --host-port is mandatory - there's no automated way to guess a dns name and port where this proxy (or a relay) is running")
 		}
 
 		if len(fl.SymmetricKey) == 0 {

@@ -51,7 +51,7 @@ type Transform struct {
 	// Defines what to do with the X-Forwarded-For header, and the IP of the client.
 	XForwardedFor XForwardedForTreatment
 	// List of regular expressions defining which cookies to strip in requests to the backend.
-	StripCookie   []string
+	StripCookie []string
 	// By default, requests to the backend are forwarded with the Host field set to the
 	// value of the From.Host map. You can override that value with SetHost.
 	SetHost string

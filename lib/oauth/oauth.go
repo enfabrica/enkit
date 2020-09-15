@@ -45,16 +45,16 @@ package oauth
 //
 
 import (
-	"errors"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"golang.org/x/oauth2"
 	"log"
 	"math/rand"
 	"net/http"
-	"path/filepath"
 	"net/url"
+	"path/filepath"
 
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
@@ -65,7 +65,6 @@ import (
 
 type Verifier func(tok *oauth2.Token) (*Identity, error)
 type VerifierFactory func(conf *oauth2.Config) (Verifier, error)
-
 
 // Extractor is an object capable of extracting and verifying authentication information.
 type Extractor struct {
@@ -83,10 +82,10 @@ type Redirector struct {
 	AuthURL *url.URL
 }
 
-var ErrorLoops = errors.New("You have been redirected back to this url - but you still don't have an authentication token.\n"+
-			"As a sentinent web server, I've decided that you human don't deserve any further redirect, as that would cause a loop\n"+
-			"which would be bad for the future of the internet, my load, and your bandwidth. Hit refresh if you want, but there's likely\n"+
-			"something wrong in your cookies, or your setup")
+var ErrorLoops = errors.New("You have been redirected back to this url - but you still don't have an authentication token.\n" +
+	"As a sentinent web server, I've decided that you human don't deserve any further redirect, as that would cause a loop\n" +
+	"which would be bad for the future of the internet, my load, and your bandwidth. Hit refresh if you want, but there's likely\n" +
+	"something wrong in your cookies, or your setup")
 var ErrorCannotAuthenticate = errors.New("Who are you? Sorry, you have no authentication cookie, and there is no authentication service configured")
 
 type Authenticate func(w http.ResponseWriter, r *http.Request, rurl *url.URL) (*CredentialsCookie, error)
@@ -218,7 +217,6 @@ func GetCredentials(ctx context.Context) *CredentialsCookie {
 func SetCredentials(ctx context.Context, creds *CredentialsCookie) context.Context {
 	return context.WithValue(ctx, "creds", creds)
 }
-
 
 // ParseCredentialsCookie parses a string containing a CredentialsCookie, and returns the corresponding object.
 func (a *Extractor) ParseCredentialsCookie(cookie string) (*CredentialsCookie, error) {

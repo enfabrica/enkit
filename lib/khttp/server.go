@@ -1,30 +1,30 @@
 package khttp
 
 import (
+	"crypto/tls"
+	"fmt"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/logger"
-	"golang.org/x/crypto/acme/autocert"
 	"github.com/kirsle/configdir"
-	"crypto/tls"
+	"golang.org/x/crypto/acme/autocert"
 	"net/http"
-	"fmt"
 	"os"
 )
 
 type Flags struct {
-	HttpPort  int
+	HttpPort    int
 	HttpAddress string
 
-	HttpsPort int
+	HttpsPort    int
 	HttpsAddress string
 
-	Cache     string
+	Cache string
 }
 
 func DefaultFlags() *Flags {
 	return &Flags{
-		HttpPort:       9999,
-		Cache:          configdir.LocalCache("enkit-certs"),
+		HttpPort: 9999,
+		Cache:    configdir.LocalCache("enkit-certs"),
 	}
 }
 
@@ -40,19 +40,18 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 }
 
 type Server struct {
-	HttpAddress string
+	HttpAddress  string
 	HttpsAddress string
-	CacheDir string
+	CacheDir     string
 }
 
 func FromFlags(flags *Flags) (*Server, error) {
-	server := &Server{
-	}
+	server := &Server{}
 
 	server.HttpAddress = flags.HttpAddress
 	if flags.HttpAddress == "" {
 		if flags.HttpPort <= 0 {
-			return nil, kflags.NewUsageError(fmt.Errorf("no http port specified - use --http-address or --http-port"))
+			return nil, kflags.NewUsageErrorf("no http port specified - use --http-address or --http-port")
 		}
 		server.HttpAddress = fmt.Sprintf(":%d", flags.HttpPort)
 	}
@@ -68,7 +67,6 @@ func FromFlags(flags *Flags) (*Server, error) {
 		}
 		server.CacheDir = flags.Cache
 	}
-
 
 	return server, nil
 }

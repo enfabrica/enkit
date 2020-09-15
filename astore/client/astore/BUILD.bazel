@@ -15,6 +15,7 @@ go_library(
     deps = [
         "//astore/rpc:astore-go",
         "//lib/client:go_default_library",
+        "//lib/client/ccontext:go_default_library",
         "//lib/grpcwebclient:go_default_library",
         "//lib/kflags:go_default_library",
         "//lib/multierror:go_default_library",

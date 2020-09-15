@@ -50,6 +50,10 @@ type StatusError struct {
 	Code int
 }
 
+func (se *StatusError) Unwrap() error {
+	return se.error
+}
+
 func NewStatusError(code int, err error) *StatusError {
 	return &StatusError{error: err, Code: code}
 }
@@ -64,6 +68,10 @@ type UsageError struct {
 	error
 }
 
+func (ue *UsageError) Unwrap() error {
+	return ue.error
+}
+
 func NewUsageError(err error) *UsageError {
 	return &UsageError{error: err}
 }
@@ -71,3 +79,20 @@ func NewUsageError(err error) *UsageError {
 func NewUsageErrorf(f string, args ...interface{}) *UsageError {
 	return &UsageError{error: fmt.Errorf(f, args...)}
 }
+
+// An ErrorHandler takes an error as input, transforms it, and returns an error as output.
+//
+// This can be used, for example, to improve the readability of an error, ignore it, or turn
+// a low level error into a higher level error (eg, "cannot open file" -> "credentials missing").
+//
+// For each error, all error handlers configured are executed in the order they were originally
+// supplied, each taking as input the output of the previous handler.
+//
+// For an example, look for HandleIdentityError.
+type ErrorHandler func(err error) error
+
+// Printer is a function capable of printing Printf like strings.
+type Printer func(format string, v ...interface{})
+
+// Runner is a function capable of starting a program.
+type Runner func(Printer)

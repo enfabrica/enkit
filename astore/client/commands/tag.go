@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
-	"github.com/enfabrica/enkit/lib/kflags/kcobra"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/spf13/cobra"
 	"strings"
 )
@@ -32,7 +32,7 @@ func NewTagCommand(root *Root, name string, op func([]string) astore.TagModifier
 
 func (uc *TagCommand) Run(cmd *cobra.Command, args []string) error {
 	if len(args) < 2 {
-		return kcobra.NewUsageErrorf("use as 'astore tag %s UID tag [tag]...' - the UID of exactly one artifact, followed by one or more tags", uc.name)
+		return kflags.NewUsageErrorf("use as 'astore tag %s UID tag [tag]...' - the UID of exactly one artifact, followed by one or more tags", uc.name)
 	}
 
 	uid := args[0]

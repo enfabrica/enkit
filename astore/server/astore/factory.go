@@ -11,7 +11,6 @@ import (
 	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/storage"
 	"github.com/enfabrica/enkit/lib/kflags"
-	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/logger"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -134,7 +133,7 @@ func WithFlags(flags *Flags) Modifier {
 			WithProjectIDJSON(flags.ProjectIDJSON)(o)
 		}
 		if flags.Bucket == "" {
-			return kcobra.NewUsageErrorf("A bucket must be specified with the --bucket option")
+			return kflags.NewUsageErrorf("A bucket must be specified with the --bucket option")
 		}
 		WithBucket(flags.Bucket)(o)
 

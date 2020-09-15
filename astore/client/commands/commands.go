@@ -5,13 +5,12 @@ import (
 	"github.com/enfabrica/enkit/astore/client/astore"
 	arpc "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/client"
-	"github.com/enfabrica/enkit/lib/client/commands"
 	"github.com/enfabrica/enkit/lib/config"
 	"github.com/enfabrica/enkit/lib/config/defcon"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"math/rand"
 	"os"
 	"runtime"
 	"strings"
@@ -19,12 +18,12 @@ import (
 
 type Root struct {
 	*cobra.Command
-	*commands.Base
+	*client.BaseFlags
 
-	store client.ServerFlags
+	store *client.ServerFlags
 }
 
-func New(rng *rand.Rand, base *commands.Base) *Root {
+func New(base *client.BaseFlags) *Root {
 	root := NewRoot(base)
 
 	root.AddCommand(NewDownload(root).Command)
@@ -38,7 +37,7 @@ func New(rng *rand.Rand, base *commands.Base) *Root {
 	return root
 }
 
-func NewRoot(base *commands.Base) *Root {
+func NewRoot(base *client.BaseFlags) *Root {
 	rc := &Root{
 		Command: &cobra.Command{
 			Use:           "astore",
@@ -61,15 +60,16 @@ func NewRoot(base *commands.Base) *Root {
         To have a nice help screen.`,
 			Long: `astore - uploads and downloads artifacts`,
 		},
-		Base: base,
+		BaseFlags: base,
+		store:     client.DefaultServerFlags("store", "Artifacts store metadata server", ""),
 	}
 
-	rc.store.Register(rc.PersistentFlags(), "store", "Artifacts store metadata server", "")
+	rc.store.Register(&kcobra.FlagSet{FlagSet: rc.PersistentFlags()}, "")
 	return rc
 }
 
 func (rc *Root) StoreClient() (*astore.Client, error) {
-	cookie, err := rc.IdentityCookie()
+	_, cookie, err := rc.IdentityCookie()
 	if err != nil {
 		return nil, err
 	}
@@ -133,10 +133,10 @@ func NewDownload(root *Root) *Download {
 }
 func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return kcobra.NewUsageError(fmt.Errorf("use as 'astore download <path|uid>...' - one or more paths to download"))
+		return kflags.NewUsageErrorf("use as 'astore download <path|uid>...' - one or more paths to download")
 	}
 	if dc.ForceUid && dc.ForcePath {
-		return kcobra.NewUsageError(fmt.Errorf("cannot specify --force-uid together with --force-path - an argument can be either one, but not both"))
+		return kflags.NewUsageErrorf("cannot specify --force-uid together with --force-path - an argument can be either one, but not both")
 	}
 
 	mode := astore.IdAuto
@@ -158,7 +158,7 @@ func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	options := astore.DownloadOptions{
-		CommonOptions: dc.root.Options(),
+		Context: dc.root.BaseFlags.Context(),
 		Options: &astore.Options{
 			Formatter: dc.root.Formatter(WithNoNesting),
 		},
@@ -205,7 +205,7 @@ func NewList(root *Root) *List {
 
 func (l *List) Run(cmd *cobra.Command, args []string) error {
 	if len(args) > 1 {
-		return kcobra.NewUsageError(fmt.Errorf("use as 'astore list [PATH]' - with a single, optional, PATH argument (got %d arguments)", len(args)))
+		return kflags.NewUsageErrorf("use as 'astore list [PATH]' - with a single, optional, PATH argument (got %d arguments)", len(args))
 	}
 	query := ""
 	if len(args) == 1 {
@@ -222,8 +222,8 @@ func (l *List) Run(cmd *cobra.Command, args []string) error {
 		tags = []string{}
 	}
 	options := astore.ListOptions{
-		CommonOptions: l.root.Options(),
-		Tag:           tags,
+		Context: l.root.BaseFlags.Context(),
+		Tag:     tags,
 	}
 
 	arts, els, err := client.List(query, options)

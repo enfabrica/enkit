@@ -2,7 +2,7 @@ package commands
 
 import (
 	"github.com/enfabrica/enkit/astore/client/astore"
-	"github.com/enfabrica/enkit/lib/kflags/kcobra"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/spf13/cobra"
 )
 
@@ -113,7 +113,7 @@ c) If no architecture is guessed or specified, it is assumed that the
 
 func (uc *Upload) Run(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return kcobra.NewUsageErrorf("use as 'astore upload <file>...' - one or more paths to upload")
+		return kflags.NewUsageErrorf("use as 'astore upload <file>...' - one or more paths to upload")
 	}
 
 	client, err := uc.root.StoreClient()
@@ -122,7 +122,7 @@ func (uc *Upload) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	options := astore.UploadOptions{
-		CommonOptions: uc.root.Options(),
+		Context: uc.root.BaseFlags.Context(),
 	}
 
 	files := []astore.FileToUpload{}

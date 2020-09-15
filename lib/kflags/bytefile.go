@@ -57,6 +57,12 @@ func NewByteFileFlag(destination *[]byte, defaultFile string, mods ...ByteFileMo
 }
 
 func (bf *ByteFileFlag) String() string {
+	// This is not possible if ByteFileFlag is initalized through the New method above.
+	// Apparently, the golang flags library makes an internal copy, causing bf.filename to be nil
+	// This if protects against that.
+	if bf.filename == nil {
+		return ""
+	}
 	return *bf.filename
 }
 

@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/enfabrica/enkit/lib/kflags/kcobra"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/spf13/cobra"
 	"strings"
 )
@@ -32,7 +32,7 @@ $ astore annotate wusyhsim6h5nhukvu5sejtp7eg6eqdgp "Do not use this binary, it i
 
 func (uc *NoteCommand) Run(cmd *cobra.Command, args []string) error {
 	if len(args) < 2 {
-		return kcobra.NewUsageErrorf("use as 'astore annotate UID message' - the UID of exactly one artifact, followed by the message to associate")
+		return kflags.NewUsageErrorf("use as 'astore annotate UID message' - the UID of exactly one artifact, followed by the message to associate")
 	}
 
 	uid := args[0]

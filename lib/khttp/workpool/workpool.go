@@ -1,7 +1,6 @@
 package workpool
 
 import (
-	"fmt"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"runtime"
 	"sync"
@@ -62,13 +61,13 @@ func FromFlags(flags *Flags) Modifier {
 		}
 
 		if flags.QueueSize < 0 {
-			return kflags.NewUsageError(fmt.Errorf("invalid workpool-queue-size %d - must be > 0", flags.QueueSize))
+			return kflags.NewUsageErrorf("invalid workpool-queue-size %d - must be > 0", flags.QueueSize)
 		}
 		if flags.ImmediateQueueSize < 0 {
-			return kflags.NewUsageError(fmt.Errorf("invalid workpool-immediate-queue-size %d - must be > 0", flags.ImmediateQueueSize))
+			return kflags.NewUsageErrorf("invalid workpool-immediate-queue-size %d - must be > 0", flags.ImmediateQueueSize)
 		}
 		if flags.Workers < 0 {
-			return kflags.NewUsageError(fmt.Errorf("invalid workpool-workers %d - must be > 0", flags.Workers))
+			return kflags.NewUsageErrorf("invalid workpool-workers %d - must be > 0", flags.Workers)
 		}
 
 		o.normalQueueSize = flags.QueueSize
