@@ -29,6 +29,7 @@ func (d *Dumper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	d.Real.ServeHTTP(w, r)
 }
 
+// LogRequest will simply log the important parts of an http request.
 func LogRequest(log logger.Printer, r *http.Request) {
 	log("REQUEST %s", r.Method)
 	log(" - host %s", r.Host)
