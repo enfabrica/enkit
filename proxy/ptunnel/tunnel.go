@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/khttp/kclient"
 	"github.com/enfabrica/enkit/lib/khttp/krequest"
 	"github.com/enfabrica/enkit/lib/khttp/protocol"
 	"github.com/enfabrica/enkit/lib/logger"
@@ -18,10 +19,6 @@ import (
 	"strings"
 	"time"
 )
-
-// cookie protocol -> redirects back to the plugin after authentication.
-// proxy -> given a host and port, returns a sid.
-// connect -> given a sid, ack, pos -> uses a websocket to send and receive data.
 
 type Tunnel struct {
 	log      logger.Logger
@@ -97,8 +94,18 @@ func GetSID(proxy *url.URL, host string, port uint16, mods ...GetModifier) (stri
 
 	sid := ""
 	err := retrier.Run(func() error {
-		return protocol.Get(curl.String(), protocol.Read(protocol.String(&sid)),
-			append([]protocol.Modifier{protocol.WithRequestOptions(krequest.AddHeader("Origin", "chrome://enkit-tunnel"))}, options.getOptions...)...)
+		err := protocol.Get(curl.String(), protocol.Read(protocol.String(&sid)),
+			append([]protocol.Modifier{
+				protocol.WithClientOptions(kclient.WithDisabledRedirects()),
+				protocol.WithRequestOptions(krequest.AddHeader("Origin", "chrome://enkit-tunnel"))}, options.getOptions...)...)
+
+		herr, ok := err.(*protocol.HTTPError)
+		if ok && herr.Resp != nil && herr.Resp.StatusCode == http.StatusTemporaryRedirect {
+			return retry.Fatal(kflags.NewIdentityError(
+				fmt.Errorf("Proxy %s rejected authentication cookie\n    %w", curl.String(), err),
+			))
+		}
+		return err
 	})
 	return sid, err
 }
@@ -186,7 +193,12 @@ func ConnectURL(curl *url.URL, mods ...ConnectModifier) (*websocket.Conn, error)
 		return nil, err
 	}
 
-	c, _, err := dialer.Dial(curl.String(), header)
+	c, r, err := dialer.Dial(curl.String(), header)
+	if err != nil && r != nil && r.StatusCode == http.StatusTemporaryRedirect {
+		return nil, kflags.NewIdentityError(
+			fmt.Errorf("Proxy %s rejected authentication cookie\n    %w", curl.String(), err),
+		)
+	}
 	return c, err
 }
 
@@ -340,6 +352,8 @@ func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ..
 
 	retrier := retry.New(retry.WithAttempts(0), retry.WithLogger(t.log), retry.WithDescription(fmt.Sprintf("connecting to %s", proxy.String())))
 	return retrier.Run(func() error {
+		// Following the nassh documentation, at:
+		//  https://chromium.googlesource.com/apps/libapps/+/4763ff7fa95760c9c85ef3563953cdfb391d209f/nassh/doc/relay-protocol.md
 		// pos: "... the last write ack the client received" -> WrittenUntil
 		// ack: "... the last read ack the client received" -> ReadUntil
 

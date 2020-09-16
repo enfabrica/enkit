@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//lib/kflags:go_default_library",
+        "//lib/khttp/kclient:go_default_library",
         "//lib/khttp/krequest:go_default_library",
         "//lib/khttp/protocol:go_default_library",
         "//lib/logger:go_default_library",
