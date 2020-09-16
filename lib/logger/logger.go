@@ -103,6 +103,46 @@ func (dl NilLogger) Warnf(format string, args ...interface{}) {
 func (dl NilLogger) SetOutput(output io.Writer) {
 }
 
+// IndentedError reformats the error to have indented new lines.
+type IndentedError struct {
+	indent string
+	err    error
+}
+
+func (ie *IndentedError) Unwrap() error {
+	return ie.err
+}
+
+func (ie *IndentedError) Error() string {
+	return IndentLines(ie.err.Error(), ie.indent)
+}
+
+// NewIndentedError wraps an error into an object that ensures that when
+// the error is converted to a string and printed, via the Error method, every
+// line of the error message is indented with indent.
+//
+// For example, let's say you have an error err that converted with
+// fmt.Printf(... %s ...) leads to the following output:
+//
+//   An error occured in executing function, stack trace follows.
+//     Function1() ...
+//     Function2() ...
+//
+// Using NewIndentedError(err, "| "), would lead to:
+//
+//   | An error occured in executing function, stack trace follows.
+//   |   Function1() ...
+//   |   Function2() ...
+//
+// Further, the error returned by NewIntendedError implements the
+// Unwrap interface, allowing programmatic access to the original error.
+func NewIndentedError(err error, indent string) *IndentedError {
+	return &IndentedError{
+		err:    err,
+		indent: indent,
+	}
+}
+
 // IndentLines indents each line in the buffer with the specified string.
 func IndentLines(buffer, indent string) string {
 	return indent + strings.ReplaceAll(strings.TrimSuffix(buffer, "\n"), "\n", "\n"+indent)
