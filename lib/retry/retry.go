@@ -1,6 +1,7 @@
 package retry
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -231,7 +232,8 @@ func (o *Options) Once(attempt int, runner func() error) (time.Duration, error) 
 	if err == nil {
 		return 0, nil
 	}
-	if _, ok := err.(*FatalError); ok {
+	var stop *FatalError
+	if errors.As(err, &stop) {
 		return 0, err
 	}
 	o.logger.Infof("attempt #%d%s - FAILED - %s", attempt+1, description, err)
@@ -252,7 +254,8 @@ func (o *Options) Run(runner func() error) error {
 		if err == nil {
 			return nil
 		}
-		if stop, ok := err.(*FatalError); ok {
+		var stop *FatalError
+		if errors.As(err, &stop) {
 			return stop.Original
 		}
 
