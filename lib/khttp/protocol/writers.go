@@ -11,13 +11,30 @@ import (
 	"sync/atomic"
 )
 
+// Returned by Read operations to provide details on the failed operation,
+// by wrapping an existing error.
+type HTTPError struct {
+	error
+
+	URL  string
+	Resp *http.Response
+}
+
+func (e *HTTPError) Unwrap() error {
+	return e.error
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("HTTP request for %s: %v", e.URL, e.error)
+}
+
 type ResponseHandler func(url string, resp *http.Response, err error) error
 
 type StatusChecker func(code int, message string) error
 
 func StatusOK(code int, message string) error {
 	if code != http.StatusOK {
-		return fmt.Errorf("status of request is not OK - returned %d - %s", code, message)
+		return fmt.Errorf("status is not OK - %s", message)
 	}
 	return nil
 }
@@ -25,7 +42,7 @@ func StatusOK(code int, message string) error {
 func StatusRange(min, max int) StatusChecker {
 	return func(code int, message string) error {
 		if code < min || code > max {
-			return fmt.Errorf("status code %d outside valid range - < %d, and > %d - %s", code, min, max, message)
+			return fmt.Errorf("status %d outside valid range - < %d, and > %d - %s", code, min, max, message)
 		}
 		return nil
 	}
@@ -34,7 +51,7 @@ func StatusRange(min, max int) StatusChecker {
 func StatusValue(expected int) StatusChecker {
 	return func(code int, message string) error {
 		if code != expected {
-			return fmt.Errorf("status code %d is unexpected - != %d - %s", code, expected, message)
+			return fmt.Errorf("status %d is unexpected - != %d - %s", code, expected, message)
 		}
 		return nil
 	}
@@ -50,18 +67,21 @@ func Read(opener ResponseOpener, checker ...StatusChecker) ResponseHandler {
 			return err
 		}
 
-		var errs []error
-
 		// Goal of the unusual loop here is to succeed if at least one of the checkers succeeds.
+		var errs []error
 		for _, check := range checker {
 			err := check(resp.StatusCode, resp.Status)
 			if err == nil {
 				break
 			}
-			errs = append(errs, fmt.Errorf("HTTP request for %s: %w", url, err))
+			errs = append(errs, err)
 		}
 		if len(errs) >= len(checker) {
-			return multierror.New(errs)
+			return &HTTPError{
+				error: multierror.New(errs),
+				Resp:  resp,
+				URL:   url,
+			}
 		}
 
 		writer, err := opener(resp)
