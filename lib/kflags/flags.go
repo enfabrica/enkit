@@ -80,6 +80,23 @@ func NewUsageErrorf(f string, args ...interface{}) *UsageError {
 	return &UsageError{error: fmt.Errorf(f, args...)}
 }
 
+// IdentityError is an error that indicates that there was some problem
+// loading or using the identity and credentials of the user.
+//
+// It doesn't really belong to kflags, except it's a common error returned
+// by cli commands, and requires some special handling.
+type IdentityError struct {
+	error
+}
+
+func (ie *IdentityError) Unwrap() error {
+	return ie.error
+}
+
+func NewIdentityError(err error) *IdentityError {
+	return &IdentityError{error: err}
+}
+
 // An ErrorHandler takes an error as input, transforms it, and returns an error as output.
 //
 // This can be used, for example, to improve the readability of an error, ignore it, or turn

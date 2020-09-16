@@ -112,7 +112,7 @@ func Connect(server string, mods ...GwcOrGrpcOptions) (grpc.ClientConnInterface,
 func NiceError(err error, formatting string, args ...interface{}) error {
 	switch status.Code(err) {
 	case codes.Unauthenticated:
-		return fmt.Errorf("Authentication token expired? Do you need to log in again? %s", err)
+		return kflags.NewIdentityError(err)
 	default:
 		return fmt.Errorf(formatting, args...)
 	}

@@ -88,14 +88,6 @@ func DefaultBaseFlags(commandName, configName string) *BaseFlags {
 	}
 }
 
-type IdentityError struct {
-	error
-}
-
-func (ie *IdentityError) Unwrap() error {
-	return ie.error
-}
-
 // Use with kcobra.Run or similar functions to decoarete an IdentityError
 // with the proper error message to guide the user through authentication.
 //
@@ -106,18 +98,19 @@ func (ie *IdentityError) Unwrap() error {
 // related errors.
 func HandleIdentityError(message string) kflags.ErrorHandler {
 	return func(err error) error {
-		var ie *IdentityError
+		var ie *kflags.IdentityError
 		if !errors.As(err, &ie) {
 			return err
 		}
-		return fmt.Errorf("Loading your credentials failed with:\n   (for debugging only) %w\n\nThis probably means that you just need to log in again with:\n\t%s", err, message)
+		return fmt.Errorf("Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s",
+			logger.NewIndentedError(err, "    (for debug only) "), message)
 	}
 }
 
 func (bf *BaseFlags) IdentityStore() (identity.Identity, error) {
 	id, err := identity.NewStore(bf.ConfigName, defcon.Open)
 	if err != nil {
-		return nil, &IdentityError{error: err}
+		return nil, kflags.NewIdentityError(err)
 	}
 	return id, nil
 }
@@ -125,7 +118,7 @@ func (bf *BaseFlags) IdentityStore() (identity.Identity, error) {
 func (bf *BaseFlags) IdentityCookie() (string, *http.Cookie, error) {
 	username, token, err := bf.IdentityToken()
 	if err != nil {
-		return "", nil, &IdentityError{error: err}
+		return "", nil, kflags.NewIdentityError(err)
 	}
 
 	return username, cookie.CredentialsCookie(bf.CookiePrefix, token), nil
@@ -140,7 +133,7 @@ func (bf *BaseFlags) IdentityToken() (string, string, error) {
 	identity := bf.Identity()
 	username, token, err := store.Load(identity)
 	if err != nil {
-		return "", "", &IdentityError{error: err}
+		return "", "", kflags.NewIdentityError(err)
 	}
 	return username, token, nil
 }
