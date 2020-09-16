@@ -190,6 +190,19 @@ func WithTransport(rt http.RoundTripper) Modifier {
 	}
 }
 
+func WithRedirectHandler(handler func(req *http.Request, via []*http.Request) error) Modifier {
+	return func(c *http.Client) error {
+		c.CheckRedirect = handler
+		return nil
+	}
+}
+
+func WithDisabledRedirects() Modifier {
+	return WithRedirectHandler(func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	})
+}
+
 func WithInsecureCertificates() Modifier {
 	return func(c *http.Client) error {
 		transport, err := transport(c)
