@@ -525,10 +525,26 @@ func (s *Server) Commit(ctx context.Context, req *astore.CommitRequest) (*astore
 	opath := objectPath(req.Sid)
 	attrs, err := s.bkt.Object(opath).Attrs(s.ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "UID %s is invalid - %s", opath, err)
+		return nil, status.Errorf(codes.InvalidArgument, "SID %s is invalid - %s", opath, err)
+	}
+
+	uid, err := GenerateUid(s.rng)
+	if err != nil {
+		return nil, err
 	}
 
 	creator := creds.Identity.GlobalName()
+
+	_, err = s.bkt.Object(opath).Update(s.ctx, storage.ObjectAttrsToUpdate{
+		Metadata: map[string]string{
+			"path":    req.Path,
+			"uid":     uid,
+			"creator": creator,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	path, pkey, err := keyFromPath(req.Path, architecture)
 	if err != nil {
@@ -537,11 +553,6 @@ func (s *Server) Commit(ctx context.Context, req *astore.CommitRequest) (*astore
 	muts := mutationsForKeyPath(path, pkey, creator)
 	_, err = s.ds.Mutate(s.ctx, muts...)
 	if err != nil && !alreadyExistsError(err) {
-		return nil, err
-	}
-
-	uid, err := GenerateUid(s.rng)
-	if err != nil {
 		return nil, err
 	}
 
