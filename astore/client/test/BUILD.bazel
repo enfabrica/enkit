@@ -1,0 +1,39 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+
+# This rule defines a full regression test:
+#  - it connects to a working astore server.
+#  - tries to complete a bunch of operations.
+#  - verifies the results.
+#
+# It should be run manually, once you have the environment ready.
+#
+# To prepare the environment, you need to start an astore server on your local
+# machine. You can use something like:
+#
+#     bazelisk run astore/server:server -- --credentials-file=/tmp/credentials.service.json --signing-config=/tmp/credentials.service.json --bucket=test-onboarding
+#
+# The flags here are important:
+#     --bucket instructs the binary to use a test GCS bucket.
+#     --credentials-file and --signing-config instructs the binary to use the test credentials.
+#
+# Ensure that the binary is running on 127.0.0.1:6433 (the default).
+# 
+# TODO: automate the enviornment preparation, could use the same mechanism
+#       to retrieve credentials using a different rule.
+go_test(
+    name = "test",
+    srcs = ["regression_test.go"],
+    data = glob(["testdata/**"]),
+    tags = ["manual"],
+    deps = [
+        "//astore/client/astore:go_default_library",
+        "//astore/server/astore:go_default_library",
+        "//lib/client:go_default_library",
+        "//lib/config:go_default_library",
+        "//lib/config/directory:go_default_library",
+        "//lib/kflags:go_default_library",
+        "//lib/srand:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
+)
