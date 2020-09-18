@@ -106,6 +106,7 @@ type Download struct {
 	Output    string
 	Overwrite bool
 	Arch      string
+	Tag       []string
 }
 
 func SystemArch() string {
@@ -125,8 +126,9 @@ func NewDownload(root *Root) *Download {
 
 	command.Flags().BoolVarP(&command.ForceUid, "force-uid", "u", false, "The argument specified identifies an uid")
 	command.Flags().BoolVarP(&command.ForcePath, "force-path", "p", false, "The argument specified identifies a file path")
-	command.Flags().StringVarP(&command.Output, "output", "o", ".", "Where to output the downloaded files. If multiple files are supplied, it must be a directory")
+	command.Flags().StringVarP(&command.Output, "output", "o", ".", "Where to output the downloaded files. If multiple files are supplied, a directory with this name will be created")
 	command.Flags().BoolVarP(&command.Overwrite, "overwrite", "w", false, "Overwrite files that already exist")
+	command.Flags().StringArrayVarP(&command.Tag, "tag", "t", []string{"latest"}, "Download artifacts matching the tag specified. More than one tag can be specified")
 	command.Flags().StringVarP(&command.Arch, "arch", "a", SystemArch(), "Architecture to download the file for")
 
 	return command
@@ -157,14 +159,24 @@ func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 		archs = []string{dc.Arch, "all"}
 	}
 
-	options := astore.DownloadOptions{
-		Context: dc.root.BaseFlags.Context(),
-		Options: &astore.Options{
-			Formatter: dc.root.Formatter(WithNoNesting),
-		},
-		Output:       dc.Output,
-		Overwrite:    dc.Overwrite,
-		Architecture: archs,
+	// If there are multiple files to download, the output must be a directory.
+	// Append a trailing '/' so one will be created if necessary.
+	output := dc.Output
+	if len(args) > 1 && output != "" {
+		output = output + "/"
+	}
+
+	ftd := []astore.FileToDownload{}
+	for _, name := range args {
+		file := astore.FileToDownload{
+			Remote:       name,
+			RemoteType:   mode,
+			Local:        output,
+			Overwrite:    dc.Overwrite,
+			Architecture: archs,
+			Tag:          &dc.Tag,
+		}
+		ftd = append(ftd, file)
 	}
 
 	client, err := dc.root.StoreClient()
@@ -172,9 +184,16 @@ func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = client.Download(args, mode, options)
+	arts, err := client.Download(ftd, astore.DownloadOptions{
+		Context: dc.root.BaseFlags.Context(),
+	})
 	if err != nil && os.IsExist(err) {
 		return fmt.Errorf("file already exists? To overwrite, pass the -w or --overwrite flag - %s", err)
+	}
+
+	formatter := dc.root.Formatter()
+	for _, art := range arts {
+		formatter.Artifact(art)
 	}
 	return err
 }

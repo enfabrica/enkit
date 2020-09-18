@@ -52,18 +52,27 @@ func NewNative(server string, mods ...grpc.DialOption) (*Client, error) {
 
 type DownloadOptions struct {
 	*ccontext.Context
-	*Options
+}
 
-	Output    string
+type FileToDownload struct {
+	// Name of the file on the remote system.
+	Remote     string   // ok
+	RemoteType PathType // ok
+
+	// How we want the file to be named on the local filesystem.
+	Local string
+	// Overwrite the file if there already?
 	Overwrite bool
 	// First architecture found is downloaded.
-	Architecture []string
+	Architecture []string // ok
+	// No tags means latest tag.
+	Tag *[]string
 }
 
 type PathType string
 
 const (
-	IdAuto PathType = "auto"
+	IdAuto PathType = ""
 	IdPath          = "path"
 	IdUid           = "uid"
 )
@@ -74,26 +83,22 @@ func IsUid(path string) bool {
 	if len(path) != 32 {
 		return false
 	}
-
 	return UidRegex.MatchString(path)
 }
 
-func GetPathType(name string, defaultId PathType) PathType {
-	id := defaultId
-	if id == IdAuto {
-		if IsUid(name) {
-			id = IdUid
-		} else {
-			id = IdPath
-		}
+func GetPathType(name string, id PathType) PathType {
+	if id == IdUid || id == IdPath {
+		return id
 	}
-	return id
+	if IsUid(name) {
+		return IdUid
+	}
+	return IdPath
 }
 
-func RetrieveRequestFromPath(name string, defaultId PathType) (*astore.RetrieveRequest, PathType) {
-	id := GetPathType(name, defaultId)
-
+func RetrieveRequestFromPath(name string, id PathType) (*astore.RetrieveRequest, PathType) {
 	req := &astore.RetrieveRequest{}
+	id = GetPathType(name, id)
 	switch id {
 	case IdPath:
 		req.Path = name
@@ -104,94 +109,130 @@ func RetrieveRequestFromPath(name string, defaultId PathType) (*astore.RetrieveR
 }
 
 // GetRetrieveResponse performs a Retrieve request, and returns both the generated request, and returned response.
-func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId PathType) (*astore.RetrieveResponse, *astore.RetrieveRequest, PathType, error) {
+func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId PathType, tags *[]string) (*astore.RetrieveResponse, *astore.RetrieveRequest, PathType, error) {
 	req, id := RetrieveRequestFromPath(name, defaultId)
+
+	adapt := func(err error) error {
+		if status.Code(err) != codes.NotFound {
+			return client.NiceError(err, "Could not contact the metadata server. Is your connectivity working? Is the server up?\nFor debugging: %s", err)
+		}
+		return status.Errorf(codes.NotFound, "Could not find package archs: %s - %s", archs, err)
+	}
 
 	var response *astore.RetrieveResponse
 	var err error
-	for _, arch := range archs {
-		req.Architecture = arch
-
+	if id == IdUid {
 		response, err = c.client.Retrieve(context.TODO(), req)
-		if err == nil {
-			break
+		if err != nil {
+			return nil, nil, id, adapt(err)
 		}
-		if status.Code(err) != codes.NotFound {
-			return nil, nil, id, client.NiceError(err, "Could not contact the metadata server. Is your connectivity working? Is the server up?\nFor debugging: %s", err)
+	} else {
+		// Tags are purposedly ignored when fetching by UID.
+		if tags != nil {
+			req.Tag = &astore.TagSet{Tag: *tags}
 		}
-	}
-	if err != nil {
-		return nil, nil, id, status.Errorf(codes.NotFound, "Could not find package suitable for architecture %s - %s", archs, err)
+
+		if len(archs) == 0 {
+			archs = []string{"all"}
+		}
+
+		for _, arch := range archs {
+			req.Architecture = arch
+
+			response, err = c.client.Retrieve(context.TODO(), req)
+			if err == nil {
+				break
+			}
+			if status.Code(err) != codes.NotFound {
+				return nil, nil, id, adapt(err)
+			}
+		}
+
+		if err != nil {
+			return nil, nil, id, adapt(err)
+		}
 	}
 	return response, req, id, nil
 }
 
-func (c *Client) Download(names []string, defaultId PathType, o DownloadOptions) error {
-	defaultOutputDir := ""
-	defaultOutputFile := ""
-	if len(names) > 1 || (len(o.Output) > 1 && o.Output[len(o.Output)-1] == os.PathSeparator) {
-		if err := os.MkdirAll(o.Output, 0770); err != nil {
-			return err
-		}
-		defaultOutputDir = o.Output
-	} else {
-		stat, err := os.Stat(o.Output)
-		if err == nil && stat.IsDir() {
-			defaultOutputDir = o.Output
-		} else {
-			defaultOutputFile = o.Output
-		}
-	}
-
-	for _, name := range names {
-		response, _, id, err := c.GetRetrieveResponse(name, o.Architecture, defaultId)
+func (c *Client) Download(files []FileToDownload, o DownloadOptions) ([]*astore.Artifact, error) {
+	arts := []*astore.Artifact{}
+	for _, file := range files {
+		response, _, id, err := c.GetRetrieveResponse(file.Remote, file.Architecture, file.RemoteType, file.Tag)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		outputFile := defaultOutputFile
-		if id == IdPath && outputFile == "" {
-			outputFile = filepath.Base(name)
-		}
-
-		o.Formatter.Artifact(response.Artifact)
+		arts = append(arts, response.Artifact)
 
 		p := o.Progress()
 		if response.Url == "" {
-			return fmt.Errorf("Invalid empty URL returned by server")
+			return nil, fmt.Errorf("Invalid empty URL returned by server")
 		}
 
-		if outputFile == "" {
-			outputFile = filepath.Base(response.Path)
-			if outputFile == "" {
-				return fmt.Errorf("Invalid / unknown output file used.")
+		outputDir, outputFile := "", ""
+		stat, err := os.Stat(file.Local)
+		if err == nil && stat.IsDir() {
+			outputDir = file.Local
+			outputFile = ""
+		} else {
+			outputDir, outputFile = filepath.Split(file.Local)
+			if outputDir != "" {
+				if err := os.MkdirAll(outputDir, 0770); err != nil {
+					return nil, err
+				}
 			}
 		}
 
-		output := filepath.Join(defaultOutputDir, outputFile)
-		shortpath := o.ShortPath(output)
-		// FIXME: use a temporary filename, then move in place.
-		p.Step("%s: creating file", shortpath)
-
-		flags := os.O_CREATE | os.O_WRONLY | os.O_SYNC
-		if o.Overwrite {
-			flags |= os.O_TRUNC
-		} else {
-			flags |= os.O_EXCL
+		if id == IdPath && outputFile == "" {
+			outputFile = filepath.Base(file.Remote)
+		}
+		if outputFile == "" {
+			outputFile = filepath.Base(response.Path)
+			if outputFile == "" {
+				return nil, fmt.Errorf("Invalid / unknown output file used.")
+			}
 		}
 
-		f, err := os.OpenFile(output, flags, 0660)
+		output := filepath.Join(outputDir, outputFile)
+		shortpath := o.ShortPath(output)
+
+		// Yes, this is racy. Who knows if someone will create the file before the
+		// download is over, or if the file will be gone by then.
+		// However, it would be a shame if we spent 30 mins downloading a file to
+		// then discover that we cannot overwrite it.
+		// This is just to be nice to the user.
+		if !file.Overwrite {
+			if _, err := os.Stat(output); err == nil {
+				return nil, os.ErrExist
+			}
+		}
+
+		p.Step("%s: creating file", shortpath)
+		f, err := ioutil.TempFile(outputDir, "."+outputFile+".*")
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		p.Step("%s: downloading", shortpath)
 		if err := Download(context.TODO(), progress.WriterCreator(p, f), response.Url); err != nil {
-			return err
+			os.Remove(f.Name())
+			return nil, err
 		}
+
+		if err := os.Link(f.Name(), output); err != nil {
+			if !os.IsExist(err) || !file.Overwrite {
+				return nil, fmt.Errorf("trying to store file as %s, failed with: %w", output, err)
+			}
+			if err := os.Rename(f.Name(), output); err != nil {
+				return nil, err
+			}
+		}
+
+		os.Remove(f.Name())
 		p.Done()
 	}
-	return nil
+	return arts, nil
 }
 
 type UploadOptions struct {
@@ -308,6 +349,9 @@ func Upload(ctx context.Context, r io.ReadCloser, size int64, url string) error 
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Upload to url:\n\t%s\nFailed: status %s", url, resp.Status)
 	}
 
 	// Flush and discard any reply. This is strictly not needed.
@@ -465,10 +509,6 @@ func FindRemote(name string, options SuggestOptions) (string, string, error) {
 	}
 
 	return name, name, nil
-}
-
-type Options struct {
-	Formatter
 }
 
 type ListOptions struct {

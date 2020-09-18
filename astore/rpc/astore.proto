@@ -57,7 +57,12 @@ message RetrieveRequest {
   string path = 1;         // Name of the resource.
   string uid = 2;          // Unique identifer for the resource.
   string architecture = 3; // Architecture of the file.
-  TagSet tag = 4; 	   // Tags.
+
+  // Set of tags the binary needs to have.
+  // No TagSet is interpreted as tags undefined, server looks for the default set of tags ("latest").
+  // Empty TagSet is interpreted as no tags specified, server looks for any tag.
+  // Specifying a set of tags result in downloading a binary with all the tags specified.
+  TagSet tag = 4;
 }
 
 message RetrieveResponse {
@@ -71,7 +76,8 @@ message RetrieveResponse {
 // - each field is optional, except for path or uid.
 // - if a set of tags is specified, the item must have all of them.
 // - if a set of tags is not specified, "latest" tag is assumed.
-//   Provide an empty list of tags to override.
+// - if an empty set of tags is specified, entities with any tag are returned.
+//   -> there is no way to query for items with no tags.
 message ListRequest {
   string path = 1;
   string uid = 2;
