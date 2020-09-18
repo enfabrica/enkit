@@ -65,7 +65,7 @@ func TestDNSOptionsApply(t *testing.T) {
 
 	dest1 := &struct{}{}
 	unknown, err = o.Apply(&dest1)
-	assert.Equal(t, []string{"timeout", "retries"}, unknown)
+	assert.ElementsMatch(t, []string{"timeout", "retries"}, unknown)
 
 	dest2 := &struct {
 		Timeout time.Duration
