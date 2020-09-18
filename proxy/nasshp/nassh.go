@@ -288,6 +288,17 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 	ack := strings.TrimSpace(params.Get("ack"))
 	pos := strings.TrimSpace(params.Get("pos"))
 
+	if np.authenticator != nil {
+		creds, err := np.authenticator(w, r, nil)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid request for: %s - %s", r.URL, err), http.StatusBadRequest)
+			return
+		}
+		if creds == nil {
+			return
+		}
+	}
+
 	rack := uint32(0)
 	if ack != "" {
 		sp, err := strconv.ParseUint(ack, 10, 32)
