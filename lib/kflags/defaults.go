@@ -18,6 +18,16 @@ type Flag interface {
 	SetContent(string, []byte) error
 }
 
+// GoFlagSet wraps a flag.FloagSet from the go standard library and completes the
+// implementation of the FlagSet interface in this module.
+type GoFlagSet struct {
+	*flag.FlagSet
+}
+
+func (fs *GoFlagSet) ByteFileVar(p *[]byte, name string, defaultFile string, usage string, mods ...ByteFileModifier) {
+	fs.Var(NewByteFileFlag(p, defaultFile, mods...), name, usage)
+}
+
 // GoFlag wraps a flag.Flag object from the go standard library
 // and implements the Flag interface above.
 type GoFlag struct {

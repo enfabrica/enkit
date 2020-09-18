@@ -6,6 +6,7 @@ import (
 	"github.com/enfabrica/enkit/astore/client/auth"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
+	"github.com/enfabrica/enkit/lib/config"
 	"github.com/enfabrica/enkit/lib/config/defcon"
 	"github.com/enfabrica/enkit/lib/config/identity"
 	"github.com/enfabrica/enkit/lib/kflags"
@@ -55,6 +56,11 @@ type BaseFlags struct {
 	*cache.Local
 	*provider.ProviderFlags
 
+	// Function capable of opening the config stores.
+	// This is not controlled by command line, but useful for tests or
+	// other libraries consuming BaseFlags.
+	ConfigOpener config.Opener
+
 	// The name used to build the paths to find config files or cached files.
 	// For example, if ConfigName is "enkit", config files may be stored in "~/.config/enkit".
 	// This name can be shared across multiple CLI tools needing the same configs.
@@ -76,8 +82,9 @@ type BaseFlags struct {
 
 func DefaultBaseFlags(commandName, configName string) *BaseFlags {
 	return &BaseFlags{
-		ConfigName:  configName,
-		CommandName: commandName,
+		ConfigOpener: defcon.Open,
+		ConfigName:   configName,
+		CommandName:  commandName,
 
 		Flags:         klog.DefaultFlags(),
 		AuthFlags:     DefaultAuthFlags(),
@@ -108,7 +115,8 @@ func HandleIdentityError(message string) kflags.ErrorHandler {
 }
 
 func (bf *BaseFlags) IdentityStore() (identity.Identity, error) {
-	id, err := identity.NewStore(bf.ConfigName, defcon.Open)
+	bf.Log.Infof("Loading credentials from store '%s", bf.ConfigName)
+	id, err := identity.NewStore(bf.ConfigName, bf.ConfigOpener)
 	if err != nil {
 		return nil, kflags.NewIdentityError(err)
 	}
@@ -132,6 +140,7 @@ func (bf *BaseFlags) IdentityToken() (string, string, error) {
 
 	identity := bf.Identity()
 	username, token, err := store.Load(identity)
+	bf.Log.Infof("Using credentials of '%s' for '%s'", username, identity)
 	if err != nil {
 		return "", "", kflags.NewIdentityError(err)
 	}
@@ -166,6 +175,26 @@ func (bf *BaseFlags) Run(set kflags.FlagSet, populator kflags.Populator, run kfl
 	run(bf.Log.Infof)
 }
 
+// Initializes a BaseFlags object after all flags have been parsed.
+//
+// Invoked automatically by Run and every time flags are changed.
+func (bf *BaseFlags) Init() {
+	// The newly loaded flags may change how logging needs to be performed.
+	// Let's recreate the logging objects.
+	var newlog logger.Logger
+	newlog, err := klog.New(bf.CommandName, klog.FromFlags(*bf.Flags))
+	if err != nil {
+		bf.Log.Infof("could not initialize logger - %s", err)
+		newlog = &logger.DefaultLogger{Printer: log.Printf}
+	}
+
+	fw, ok := bf.Log.(logger.Forwardable)
+	if ok {
+		fw.Forward(newlog)
+	}
+	bf.Log = newlog
+}
+
 func (bf *BaseFlags) UpdateFlagDefaults(populator kflags.Populator, domain string) error {
 	username, cookie, err := bf.IdentityCookie()
 	if err != nil {
@@ -189,20 +218,7 @@ func (bf *BaseFlags) UpdateFlagDefaults(populator kflags.Populator, domain strin
 		bf.Log.Infof("could not retrieve remote defaults - continuing without (error: %s)", err)
 	}
 
-	// The newly loaded flags may change how logging needs to be performed.
-	// Let's recreate the logging objects.
-	var newlog logger.Logger
-	newlog, err = klog.New(bf.CommandName, klog.FromFlags(*bf.Flags))
-	if err != nil {
-		bf.Log.Infof("could not initialize logger - %s", err)
-		newlog = &logger.DefaultLogger{Printer: log.Printf}
-	}
-
-	fw, ok := bf.Log.(logger.Forwardable)
-	if ok {
-		fw.Forward(newlog)
-	}
-	bf.Log = newlog
+	bf.Init()
 	return nil
 }
 

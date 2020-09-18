@@ -12,6 +12,7 @@ go_library(
         "//astore/client/auth:go_default_library",
         "//lib/cache:go_default_library",
         "//lib/client/ccontext:go_default_library",
+        "//lib/config:go_default_library",
         "//lib/config/defcon:go_default_library",
         "//lib/config/identity:go_default_library",
         "//lib/grpcwebclient:go_default_library",
