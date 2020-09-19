@@ -1,8 +1,6 @@
 package httpp
 
 import (
-	"github.com/enfabrica/enkit/lib/config/marshal"
-	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/kataras/muxie"
@@ -12,28 +10,13 @@ import (
 	"net/url"
 )
 
-type Flags struct {
-	Name   string
-	Config []byte
-}
-
-func DefaultFlags() *Flags {
-	return &Flags{}
-}
-
-func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
-	set.ByteFileVar(&f.Config, "config", f.Name, "Default config file location.", kflags.WithFilename(&f.Name))
-	return f
-}
-
 type Proxy struct {
 	// Public, as it provides the ServeHTTP method, needed to serve the proxy.
 	*muxie.Mux
-	// List of domains for which an SSL certificate would be needed.
 	Domains []string
 
 	authenticator oauth.Authenticate
-	config        *Config
+	mapping       []Mapping
 	log           logger.Logger
 
 	stripCookie  []string
@@ -100,13 +83,6 @@ func (mods Modifiers) Apply(p *Proxy) error {
 	return nil
 }
 
-func WithConfig(config *Config) Modifier {
-	return func(p *Proxy) error {
-		p.config = config
-		return nil
-	}
-}
-
 func WithLogging(log logger.Logger) Modifier {
 	return func(p *Proxy) error {
 		p.log = log
@@ -135,25 +111,7 @@ func WithAuthenticator(authenticator oauth.Authenticate) Modifier {
 	}
 }
 
-func FromFlags(fl *Flags) Modifier {
-	return func(p *Proxy) error {
-		var config Config
-		if err := marshal.UnmarshalDefault(fl.Name, fl.Config, marshal.Json, &config); err != nil {
-			return kflags.NewUsageError(err)
-		}
-
-		if len(config.Mapping) <= 0 {
-			return kflags.NewUsageErrorf("invalid config: it has no mappings")
-		}
-
-		mods := Modifiers{
-			WithConfig(&config),
-		}
-		return mods.Apply(p)
-	}
-}
-
-func New(mod ...Modifier) (*Proxy, error) {
+func New(mapping []Mapping, mod ...Modifier) (*Proxy, error) {
 	p := &Proxy{
 		log: logger.Nil,
 	}
@@ -161,14 +119,13 @@ func New(mod ...Modifier) (*Proxy, error) {
 		return nil, err
 	}
 
-	p.log.Infof("Config is: %v", *p.config)
-	mux, domains, err := BuildMux(nil, p.log, p.config.Mapping, p.CreateServer)
+	p.log.Infof("Mappings are: %v", mapping)
+	mux, domains, err := BuildMux(nil, p.log, mapping, p.CreateServer)
 	if err != nil {
 		return nil, err
 	}
 
 	p.Mux = mux
-	p.Domains = append(domains, p.config.Domains...)
-
+	p.Domains = domains
 	return p, nil
 }

@@ -10,8 +10,6 @@ go_library(
     importpath = "github.com/enfabrica/enkit/proxy/httpp",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/config/marshal:go_default_library",
-        "//lib/kflags:go_default_library",
         "//lib/khttp:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/multierror:go_default_library",

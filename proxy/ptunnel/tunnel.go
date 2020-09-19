@@ -100,10 +100,15 @@ func GetSID(proxy *url.URL, host string, port uint16, mods ...GetModifier) (stri
 				protocol.WithRequestOptions(krequest.AddHeader("Origin", "chrome://enkit-tunnel"))}, options.getOptions...)...)
 
 		herr, ok := err.(*protocol.HTTPError)
-		if ok && herr.Resp != nil && herr.Resp.StatusCode == http.StatusTemporaryRedirect {
+		if ok && herr.Resp != nil {
+			if herr.Resp.StatusCode == http.StatusTemporaryRedirect {
 			return retry.Fatal(kflags.NewIdentityError(
 				fmt.Errorf("Proxy %s rejected authentication cookie\n    %w", curl.String(), err),
 			))
+			}
+			if herr.Resp.StatusCode == http.StatusUnauthorized {
+				return retry.Fatal(fmt.Errorf("Proxy %s permanently rejected your connection attempt - ACLs?", curl.String()))
+			}
 		}
 		return err
 	})
@@ -194,10 +199,17 @@ func ConnectURL(curl *url.URL, mods ...ConnectModifier) (*websocket.Conn, error)
 	}
 
 	c, r, err := dialer.Dial(curl.String(), header)
-	if err != nil && r != nil && r.StatusCode == http.StatusTemporaryRedirect {
-		return nil, kflags.NewIdentityError(
-			fmt.Errorf("Proxy %s rejected authentication cookie\n    %w", curl.String(), err),
-		)
+	if err != nil {
+		if r != nil && r.StatusCode == http.StatusTemporaryRedirect {
+			return nil, kflags.NewIdentityError(
+				fmt.Errorf("Proxy %s rejected authentication cookie\n    %w", curl.String(), err),
+			)
+		}
+		if r != nil && r.StatusCode == http.StatusUnauthorized {
+			return nil, retry.Fatal(
+				fmt.Errorf("Proxy %s permanently rejected the connection - due to ACLs?", curl.String()),
+			)
+		}
 	}
 	return c, err
 }

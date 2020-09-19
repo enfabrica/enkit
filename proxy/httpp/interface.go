@@ -137,11 +137,3 @@ type Mapping struct {
 	Transform *Transform
 	Auth      MappingAuth
 }
-
-type Config struct {
-	// Which URLs to map to which other URLs.
-	Mapping []Mapping
-
-	// Extra domains for which to obtain a certificate.
-	Domains []string
-}

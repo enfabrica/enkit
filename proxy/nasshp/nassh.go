@@ -27,6 +27,7 @@ type NasshProxy struct {
 	upgrader      websocket.Upgrader
 	authenticator oauth.Authenticate
 	encoder       token.BinaryEncoder
+	filter        Filter
 
 	// Timeouts to use, must be set.
 	timeouts *Timeouts
@@ -123,6 +124,26 @@ func WithBufferSize(size int) Modifier {
 func WithRelayHost(relayHost string) Modifier {
 	return func(np *NasshProxy, o *options) error {
 		np.relayHost = relayHost
+		return nil
+	}
+}
+
+type Verdict int
+
+const (
+	// Can't decide either way. This is useful for chaning filters.
+	VerdictUnknown Verdict = iota
+	// Let the request in.
+	VerdictAllow
+	// Block the request.
+	VerdictDrop
+)
+
+type Filter func(proto string, hostport string, creds *oauth.CredentialsCookie) Verdict
+
+func WithFilter(filter Filter) Modifier {
+	return func (np *NasshProxy, o *options) error {
+		np.filter = filter
 		return nil
 	}
 }
@@ -275,11 +296,58 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sid, err := np.encoder.Encode([]byte(fmt.Sprintf("%s:%d", host, sp)))
+	hostport := fmt.Sprintf("%s:%d", host, sp)
+
+	_, allowed := np.allow(r, w, "", hostport)
+	if !allowed {
+		return
+	}
+
+	sid, err := np.encoder.Encode([]byte(hostport))
 	if err != nil {
 		http.Error(w, "Sorry, the world is coming to an end, there was an error generating a session id. Good Luck.", http.StatusInternalServerError)
 	}
 	fmt.Fprintln(w, string(sid))
+}
+
+func LogId(sid string, r *http.Request, hostport string, c *oauth.CredentialsCookie) string {
+	identity := ""
+	if c != nil {
+		identity = "[" + c.Identity.GlobalName() + "]"
+	}
+	if sid != "" {
+		sid = "[SID:" + sid[0:6] + "]"
+	}
+	return fmt.Sprintf("%s[IP:%s][DEST:%s]%s", sid, r.RemoteAddr, hostport, identity)
+}
+
+func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostport string) (string, bool) {
+	logid := LogId(sid, r, hostport, nil)
+
+	var creds *oauth.CredentialsCookie
+	if np.authenticator != nil {
+		// TODO: merge credentials checking with filtering mechanism.
+		creds, err := np.authenticator(w, r, nil)
+		if err != nil {
+			np.log.Warnf("%s - authentication error: %s", logid, err)
+			http.Error(w, fmt.Sprintf("invalid request for: %s - %s", r.URL, err), http.StatusBadRequest)
+			return logid, false
+		}
+		if creds == nil {
+			return logid, false
+		}
+		logid = LogId(sid, r, hostport, creds)
+	}
+
+	if np.filter != nil {
+		verdict := np.filter("tcp", hostport, creds)
+		if verdict != VerdictAllow {
+			np.log.Infof("%s was rejected by filter", logid)
+			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
+			return logid, false
+		}
+	}
+	return logid, true
 }
 
 func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
@@ -288,16 +356,20 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 	ack := strings.TrimSpace(params.Get("ack"))
 	pos := strings.TrimSpace(params.Get("pos"))
 
-	if np.authenticator != nil {
-		creds, err := np.authenticator(w, r, nil)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid request for: %s - %s", r.URL, err), http.StatusBadRequest)
-			return
-		}
-		if creds == nil {
-			return
-		}
+	hostportb, err := np.encoder.Decode([]byte(sid))
+	if err != nil {
+		http.Error(w, "invalid sid provided", http.StatusBadRequest)
+		return
 	}
+	hostport := string(hostportb)
+
+	logid := LogId(sid, r, hostport, nil)
+
+	logid, allow := np.allow(r, w, sid, hostport)
+	if !allow {
+		return
+	}
+	np.log.Infof("%s - connect allowed", logid, err)
 
 	rack := uint32(0)
 	if ack != "" {
@@ -319,24 +391,18 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 		wack = uint32(sp)
 	}
 
-	hostportb, err := np.encoder.Decode([]byte(sid))
-	if err != nil {
-		http.Error(w, "invalid sid provided", http.StatusBadRequest)
-		return
-	}
-
 	c, err := np.upgrader.Upgrade(w, r, nil)
 	defer c.Close()
 
 	if err != nil {
-		np.log.Warnf("failed to upgrade web socket: %s", err)
+		np.log.Warnf("%s failed to upgrade web socket: %s", logid, err)
 		return
 	}
 
-	err = np.ProxySsh(r, sid, rack, wack, string(hostportb), c)
+	err = np.ProxySsh(logid, r, sid, rack, wack, string(hostportb), c)
 	if err != nil {
 		if err != io.EOF {
-			np.log.Warnf("connection with %v dropped: %v", r.RemoteAddr, err)
+			np.log.Warnf("%s connection with %v dropped: %v", logid, r.RemoteAddr, err)
 		}
 		return
 	}
@@ -640,8 +706,8 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 	}
 }
 
-func (np *NasshProxy) ProxySsh(r *http.Request, sid string, rack, wack uint32, hostport string, c *websocket.Conn) error {
-	np.log.Warnf("%s with %s starting - rack %08x wack %08x - connects %s", sid[0:6], r.RemoteAddr, rack, wack, hostport)
+func (np *NasshProxy) ProxySsh(logid string, r *http.Request, sid string, rack, wack uint32, hostport string, c *websocket.Conn) error {
+	np.log.Infof("%s rack %08x wack %08x - connects %s", logid, rack, wack, hostport)
 
 	rwi, found := np.connections.LoadOrStore(sid, newReadWriter(np.log, np.pool, np.timeouts))
 	rw, converted := rwi.(*readWriter)
@@ -662,9 +728,6 @@ func (np *NasshProxy) ProxySsh(r *http.Request, sid string, rack, wack uint32, h
 			return err
 		}
 
-		// FIXME: have some mechanism to validate / resolve / check the host the client asked to connect to.
-		// as it is today, the proxy can be used to connect _anywhere_, in or out your network.
-
 		waiter = rw.Connect(sshconn, c)
 	} else {
 		waiter = rw.Attach(c, rack, wack)
@@ -674,9 +737,9 @@ func (np *NasshProxy) ProxySsh(r *http.Request, sid string, rack, wack uint32, h
 	var te *TerminatingError
 	if errors.As(err, &te) {
 		np.connections.Delete(sid)
-		np.log.Warnf("%s terminating (forever) - rack %08x wack %08x", sid[0:6], rack, wack)
+		np.log.Warnf("%s terminating (forever) - rack %08x wack %08x", logid, rack, wack)
 	} else {
-		np.log.Warnf("%s terminating (retry-possible) - rack %08x wack %08x", sid[0:6], rack, wack)
+		np.log.Warnf("%s terminating (retry-possible) - rack %08x wack %08x", logid, rack, wack)
 	}
 	return err
 }
