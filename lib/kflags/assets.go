@@ -68,11 +68,11 @@ func (ar *AssetResolver) Visit(reqns string, fl Flag) (bool, error) {
 
 	asset, found := ar.index[fl.Name()]
 	if !found {
-		ar.log.Debugf("%s flag %s: not found among assets - not in index", ar.forns, fl.Name)
+		ar.log.Debugf("%s flag %s: not found among assets - not in index", ar.forns, fl.Name())
 		return false, nil
 	}
 
-	ar.log.Infof("%s flag %s: set from static assets (%d bytes)", ar.forns, fl.Name, len(asset.data))
+	ar.log.Infof("%s flag %s: set from static assets (%d bytes)", ar.forns, fl.Name(), len(asset.data))
 	return true, fl.SetContent(asset.name, asset.data)
 }
 
