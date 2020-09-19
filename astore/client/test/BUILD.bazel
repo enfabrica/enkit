@@ -1,6 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
-
 # This rule defines a full regression test:
 #  - it connects to a working astore server.
 #  - tries to complete a bunch of operations.
@@ -18,9 +17,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 #     --credentials-file and --signing-config instructs the binary to use the test credentials.
 #
 # Ensure that the binary is running on 127.0.0.1:6433 (the default).
-# 
+#
 # TODO: automate the enviornment preparation, could use the same mechanism
 #       to retrieve credentials using a different rule.
+#
+# gazelle:exclude regression_test.go
 go_test(
     name = "test",
     srcs = ["regression_test.go"],
