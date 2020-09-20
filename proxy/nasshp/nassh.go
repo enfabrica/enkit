@@ -369,7 +369,7 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 	if !allow {
 		return
 	}
-	np.log.Infof("%s - connect allowed", logid, err)
+	np.log.Infof("%s - connect allowed", logid)
 
 	rack := uint32(0)
 	if ack != "" {
