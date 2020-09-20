@@ -109,13 +109,32 @@ func main() {
 				return err
 			}
 
+			// Why is a new mux created? Why not re-use the mux in hproxy? Why the funky logic below with empty host names?
+			//
+			// The httpp package uses the muxie mux by default. This mux can match directly on host name, and is generally
+			// great. Except it mangles the http request objects in such a way that gorilla/websocket fails to upgrade the
+			// connection.
+			//
+			// To work around that issue, we use two muxes:
+			// - one that dispatches based on host name, very simple, does not mangle the http request.
+			//   The goal of this mux is to route connection requests to either the ssh handler, or http proxy handler.
+			// - muxie, used by the proxy, to route all other requests.
+			//
+			// To support the two being configured on the same domain, or default domain, the muxie mux is configured
+			// as a fallback to the ssh mux.
+
 			mux := http.NewServeMux()
 			nasshp.Register(mux.HandleFunc)
+			mux.Handle("/", hproxy)
 
-			handler, err := khttp.NewHostDispatcher([]khttp.HostDispatch{
+			hosts := []khttp.HostDispatch{
 				{Host: nflags.RelayHost, Handler: mux},
-				{Handler: hproxy},
-			})
+			}
+			if nflags.RelayHost != "" {
+				hosts = append(hosts, khttp.HostDispatch{Handler: hproxy})
+			}
+
+			handler, err := khttp.NewHostDispatcher(hosts)
 			if err != nil {
 				return err
 			}
