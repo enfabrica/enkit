@@ -42,14 +42,17 @@ func (r *Tunnel) Username() string {
 }
 
 func (r *Tunnel) Run(cmd *cobra.Command, args []string) error {
-	_, cookie, err := r.IdentityCookie()
-	if err != nil {
-		return err
-	}
+	// Treat credentials as optional, move forward in any case.
+	_, cookie, _ := r.IdentityCookie()
 
 	proxy := strings.TrimSpace(r.Proxy)
 	if proxy == "" {
-		return kflags.NewUsageErrorf("A proxy must be specified with --proxy (or -p)")
+		if cookie != nil {
+			return kflags.NewUsageErrorf("A proxy must be specified with --proxy (or -p)")
+		}
+		return kflags.NewIdentityError(
+			kflags.NewUsageErrorf("No proxy detected, and no proxy specified with --proxy. Maybe you need to authenticate to get the default settings?"),
+		)
 	}
 	if strings.Index(proxy, "//") < 0 {
 		proxy = "https://" + proxy
@@ -123,13 +126,16 @@ func (r *Tunnel) RunTunnel(proxy *url.URL, id, host string, port uint16, cookie 
 	if err != nil {
 		return err
 	}
+	mods := []ptunnel.GetModifier{}
+	if cookie != nil {
+		mods = append(mods, ptunnel.WithGetOptions(protocol.WithRequestOptions(krequest.WithCookie(cookie))))
+		mods = append(mods, ptunnel.WithConnectOptions(ptunnel.WithHeader("Cookie", cookie.String())))
+	}
 
 	// TODO: Allow to resume sessions manually? By passing a sid on the CLI?
 	err = goroutine.WaitFirstError(
 		func() error {
-			return tunnel.KeepConnected(proxy, host, port,
-				ptunnel.WithGetOptions(protocol.WithRequestOptions(krequest.WithCookie(cookie))),
-				ptunnel.WithConnectOptions(ptunnel.WithHeader("Cookie", cookie.String())))
+			return tunnel.KeepConnected(proxy, host, port, mods...)
 		},
 		func() error { return tunnel.Receive(writer) },
 		func() error { return tunnel.Send(reader) })
