@@ -142,7 +142,7 @@ const (
 type Filter func(proto string, hostport string, creds *oauth.CredentialsCookie) Verdict
 
 func WithFilter(filter Filter) Modifier {
-	return func (np *NasshProxy, o *options) error {
+	return func(np *NasshProxy, o *options) error {
 		np.filter = filter
 		return nil
 	}
@@ -391,15 +391,7 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 		wack = uint32(sp)
 	}
 
-	c, err := np.upgrader.Upgrade(w, r, nil)
-	defer c.Close()
-
-	if err != nil {
-		np.log.Warnf("%s failed to upgrade web socket: %s", logid, err)
-		return
-	}
-
-	err = np.ProxySsh(logid, r, sid, rack, wack, string(hostportb), c)
+	err = np.ProxySsh(logid, r, w, sid, rack, wack, string(hostportb))
 	if err != nil {
 		if err != io.EOF {
 			np.log.Warnf("%s connection with %v dropped: %v", logid, r.RemoteAddr, err)
@@ -706,19 +698,29 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 	}
 }
 
-func (np *NasshProxy) ProxySsh(logid string, r *http.Request, sid string, rack, wack uint32, hostport string, c *websocket.Conn) error {
+func (np *NasshProxy) ProxySsh(logid string, r *http.Request, w http.ResponseWriter, sid string, rack, wack uint32, hostport string) error {
 	np.log.Infof("%s rack %08x wack %08x - connects %s", logid, rack, wack, hostport)
 
 	rwi, found := np.connections.LoadOrStore(sid, newReadWriter(np.log, np.pool, np.timeouts))
 	rw, converted := rwi.(*readWriter)
 	if !converted {
 		np.connections.Delete(sid)
+		http.Error(w, "internal error in sid map", http.StatusInternalServerError)
 		return fmt.Errorf("something went wrong, unexpected type in map")
 	}
 
 	if !found && rack != 0 && wack != 0 {
 		np.connections.Delete(sid)
+		http.Error(w, "request to resume connection, but sid is unknown", http.StatusGone)
 		return fmt.Errorf("request to resume connection, but sid is unknown")
+	}
+
+	c, err := np.upgrader.Upgrade(w, r, nil)
+	defer c.Close()
+
+	if err != nil {
+		http.Error(w, "failed to upgrade web socket", http.StatusBadRequest)
+		return fmt.Errorf("failed to upgrade web socket %w", err)
 	}
 
 	var waiter waiter
@@ -733,7 +735,7 @@ func (np *NasshProxy) ProxySsh(logid string, r *http.Request, sid string, rack, 
 		waiter = rw.Attach(c, rack, wack)
 	}
 
-	err := waiter.Wait()
+	err = waiter.Wait()
 	var te *TerminatingError
 	if errors.As(err, &te) {
 		np.connections.Delete(sid)
