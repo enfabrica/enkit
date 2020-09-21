@@ -2,6 +2,7 @@ package ptunnel
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/khttp/kclient"
@@ -14,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -102,9 +104,9 @@ func GetSID(proxy *url.URL, host string, port uint16, mods ...GetModifier) (stri
 		herr, ok := err.(*protocol.HTTPError)
 		if ok && herr.Resp != nil {
 			if herr.Resp.StatusCode == http.StatusTemporaryRedirect {
-			return retry.Fatal(kflags.NewIdentityError(
-				fmt.Errorf("Proxy %s rejected authentication cookie\n    %w", curl.String(), err),
-			))
+				return retry.Fatal(kflags.NewIdentityError(
+					fmt.Errorf("Proxy %s rejected authentication cookie\n    %w", curl.String(), err),
+				))
 			}
 			if herr.Resp.StatusCode == http.StatusUnauthorized {
 				return retry.Fatal(fmt.Errorf("Proxy %s permanently rejected your connection attempt - ACLs?", curl.String()))
@@ -199,15 +201,25 @@ func ConnectURL(curl *url.URL, mods ...ConnectModifier) (*websocket.Conn, error)
 	}
 
 	c, r, err := dialer.Dial(curl.String(), header)
-	if err != nil {
-		if r != nil && r.StatusCode == http.StatusTemporaryRedirect {
+	if err != nil && r != nil {
+		// Print the URL without the query parameters, as they contain the SID.
+		durl := curl.Scheme + "://" + curl.Hostname() + "/" + curl.EscapedPath()
+		switch r.StatusCode {
+		case http.StatusTemporaryRedirect:
 			return nil, kflags.NewIdentityError(
-				fmt.Errorf("Proxy %s rejected authentication cookie\n    %w", curl.String(), err),
+				fmt.Errorf("Proxy %s rejected authentication cookie\n    %w", durl, err),
 			)
-		}
-		if r != nil && r.StatusCode == http.StatusUnauthorized {
+		case http.StatusUnauthorized:
 			return nil, retry.Fatal(
-				fmt.Errorf("Proxy %s permanently rejected the connection - due to ACLs?", curl.String()),
+				fmt.Errorf("Proxy %s permanently rejected the connection - due to ACLs?", durl),
+			)
+		case http.StatusBadRequest:
+			return nil, retry.Fatal(
+				fmt.Errorf("Proxy %s permanently rejected the connection - proxy rejects the parameters supplied", durl),
+			)
+		case http.StatusGone:
+			return nil, retry.Fatal(
+				fmt.Errorf("Proxy %s permanently rejected the connection - proxy restarted? different region? No longer accepts your session id", durl),
 			)
 		}
 	}
@@ -219,26 +231,38 @@ type TimeSource func() time.Time
 type Timeouts struct {
 	Now TimeSource
 
-	// TODO: need better timeouts, the defaults are not good enough and fairly unclear.
+	ConnWriteTimeout    time.Duration
 	BrowserWriteTimeout time.Duration
-	//ConnWriteTimeout time.Duration
+
+	BrowserAckInterval  time.Duration
+	BrowserPingInterval time.Duration
+	BrowserPingTimeout  time.Duration
 }
 
 func DefaultTimeouts() *Timeouts {
-	return &Timeouts{
+	to := &Timeouts{
 		Now: time.Now,
 
-		BrowserWriteTimeout: time.Second * 20,
-		//ConnWriteTimeout:    time.Second * 20,
-		// TODO: add a maximum idle time.
+		ConnWriteTimeout:    time.Second * 20,
+		BrowserWriteTimeout: time.Second * 5,
+
+		BrowserAckInterval:  time.Second * 1,
+		BrowserPingInterval: time.Second * 10,
 	}
+	to.BrowserPingTimeout = time.Duration(to.BrowserAckInterval + to.BrowserPingInterval*2)
+	return to
 }
 
 func (t *Timeouts) Register(set kflags.FlagSet, prefix string) *Timeouts {
+	set.DurationVar(&t.ConnWriteTimeout, "conn-write-timeout", t.ConnWriteTimeout,
+		"How long to wait for a write to the proxied connection (eg, ssh) to complete before giving up.")
 	set.DurationVar(&t.BrowserWriteTimeout, "browser-write-timeout", t.BrowserWriteTimeout,
 		"How long to wait for a write to the browser to complete before giving up.")
-	//set.DurationVar(&t.ConnWriteTimeout, "conn-write-timeout", t.ConnWriteTimeout,
-	//	"How long to wait for a write to the proxied connection (eg, ssh) to complete before giving up.")
+
+	set.DurationVar(&t.BrowserAckInterval, "browser-ack-interval", t.BrowserAckInterval, "How long to wait to send pending acks.")
+	set.DurationVar(&t.BrowserPingInterval, "browser-ping-interval", t.BrowserPingInterval, "How long to wait before sending a ping.")
+	set.DurationVar(&t.BrowserPingTimeout, "browser-ping-timeout", t.BrowserPingTimeout, "How long to wait for a pong to be received before considering the connection dead. Should be greater than browser-ping-interval")
+
 	return t
 }
 
@@ -375,6 +399,12 @@ func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ..
 			return err
 		}
 
+		conn.SetReadDeadline(t.timeouts.Now().Add(t.timeouts.BrowserPingTimeout))
+		conn.SetPongHandler(func(string) error {
+			conn.SetReadDeadline(t.timeouts.Now().Add(t.timeouts.BrowserPingTimeout))
+			return nil
+		})
+
 		waiter := t.browser.Set(conn, ack, pos)
 		return waiter.Wait()
 	})
@@ -382,12 +412,14 @@ func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ..
 
 func (t *Tunnel) BrowserSend() error {
 	ackbuffer := [4]byte{}
+
+	var nextping time.Time
 	var conn *websocket.Conn
 	var oldru uint32
 
 outer:
 	for {
-		if err := t.SendWin.WaitToEmpty(1 * time.Second); err != nil && err != nasshp.ErrorExpired {
+		if err := t.SendWin.WaitToEmpty(t.timeouts.BrowserAckInterval); err != nil && err != nasshp.ErrorExpired {
 			t.browser.Close(fmt.Errorf("stopping browser write - reader returned %s", err))
 			return err
 		}
@@ -413,11 +445,13 @@ outer:
 			}
 		}
 
-		conn.SetWriteDeadline(t.timeouts.Now().Add(t.timeouts.BrowserWriteTimeout))
-		writer, err := conn.NextWriter(websocket.BinaryMessage)
-		if err != nil {
-			t.browser.Error(conn, fmt.Errorf("websocket NextWriter returned error: %w", err))
-			continue
+		now := t.timeouts.Now()
+		conn.SetWriteDeadline(now.Add(t.timeouts.BrowserWriteTimeout))
+		if now.After(nextping) {
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				t.browser.Error(conn, fmt.Errorf("websocket Ping returned error: %w", err))
+			}
+			nextping = now.Add(t.timeouts.BrowserPingInterval)
 		}
 
 		// We may be here because there's either data to send, or we need to ack data back to the browser.
@@ -426,6 +460,12 @@ outer:
 			continue
 		}
 		oldru = ru
+
+		writer, err := conn.NextWriter(websocket.BinaryMessage)
+		if err != nil {
+			t.browser.Error(conn, fmt.Errorf("websocket NextWriter returned error: %w", err))
+			continue
+		}
 
 		binary.BigEndian.PutUint32(ackbuffer[:], ru)
 		written, err := writer.Write(ackbuffer[:])
@@ -518,6 +558,7 @@ func (t *Tunnel) BrowserReceive() error {
 				}
 				break
 			}
+			conn.SetReadDeadline(t.timeouts.Now().Add(t.timeouts.BrowserPingTimeout))
 			filled := t.ReceiveWin.Fill(size)
 			t.browser.PushReadUntil((uint32)(filled) & 0xffffff)
 		}
@@ -543,8 +584,13 @@ type Flushable interface {
 	Flush() error
 }
 
+type WithWriteDeadline interface {
+	SetWriteDeadline(time.Time) error
+}
+
 func (t *Tunnel) Receive(file io.Writer) error {
-	flushable, flush := file.(Flushable)
+	flushable, canflush := file.(Flushable)
+	timeouttable, cantimeout := file.(WithWriteDeadline)
 
 	for {
 		if err := t.ReceiveWin.WaitToEmpty(); err != nil {
@@ -556,19 +602,26 @@ func (t *Tunnel) Receive(file io.Writer) error {
 			if len(buffer) == 0 {
 				break
 			}
+			if cantimeout {
+				if err := timeouttable.SetWriteDeadline(t.timeouts.Now().Add(t.timeouts.ConnWriteTimeout)); err != nil {
+					if !errors.Is(err, os.ErrNoDeadline) {
+						return err
+					}
+					cantimeout = false
+				}
+			}
 			size, err := file.Write(buffer)
 			if err != nil {
 				return err
 			}
 
 			t.ReceiveWin.Empty(size)
-			if !flush {
-				continue
+			if canflush {
+				if err := flushable.Flush(); err != nil {
+					return err
+				}
 			}
 
-			if err := flushable.Flush(); err != nil {
-				return err
-			}
 		}
 	}
 }
