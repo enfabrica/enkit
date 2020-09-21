@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/khttp"
@@ -77,7 +77,7 @@ func main() {
 
 		mods := []httpp.Modifier{httpp.WithLogging(base.Log)}
 		var authenticate oauth.Authenticate
-		if rflags.AuthURL != "" && !withoutAuthentication{
+		if rflags.AuthURL != "" && !withoutAuthentication {
 			redirector, err := oauth.NewRedirector(oauth.WithRedirectorFlags(rflags))
 			if err != nil {
 				return err

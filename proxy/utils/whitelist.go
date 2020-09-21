@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"github.com/enfabrica/enkit/proxy/nasshp"
-	"github.com/enfabrica/enkit/lib/oauth"
-	"path/filepath"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/proxy/nasshp"
+	"path/filepath"
 )
 
 type PatternList []string
