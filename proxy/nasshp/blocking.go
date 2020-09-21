@@ -48,7 +48,7 @@ func (w *Waiter) WaitFor(d time.Duration) error {
 	case err := <-w.c:
 		return err
 	case <-time.After(d):
-		return nil
+		return ErrorExpired
 	}
 }
 
