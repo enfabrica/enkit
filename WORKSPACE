@@ -40,50 +40,6 @@ go_rules_dependencies()
 
 go_register_toolchains()
 
-# Download the rules_docker repository at release v0.14.1
-http_archive(
-    name = "io_bazel_rules_docker",
-    sha256 = "dc97fccceacd4c6be14e800b2a00693d5e8d07f69ee187babfd04a80a9f8e250",
-    strip_prefix = "rules_docker-0.14.1",
-    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.14.1/rules_docker-v0.14.1.tar.gz"],
-)
-
-load(
-    "@io_bazel_rules_docker//repositories:repositories.bzl",
-    container_repositories = "repositories",
-)
-
-container_repositories()
-
-load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
-
-container_deps()
-
-#container_pull(
-#  name = "java_base",
-#  registry = "gcr.io",
-#  repository = "distroless/java",
-#  # 'tag' is also supported, but digest is encouraged for reproducibility.
-#  digest = "sha256:deadbeef",
-#)
-#
-#load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
-#
-#container_pull(
-#    name = "alpine_linux_amd64",
-#    registry = "index.docker.io",
-#    repository = "library/alpine",
-#    tag = "3.8",
-#    digest = "sha256:954b378c375d852eb3c63ab88978f640b4348b01c1b3456a024a81536dafbbf4",
-#)
-#
-#container_pull(
-#    name = "debian_bullseye_slim_amd64",
-#    registry = "index.docker.io",
-#    repository = "library/debian",
-#    tag = "bullseye-slim",
-#    digest = "sha256:757e3d0eb1ef7d20d564c62d7937946c7a592f20a35b9bd81aec2379f056ad3c",
-#)
 
 load("@io_bazel_rules_go//extras:embed_data_deps.bzl", "go_embed_data_dependencies")
 
@@ -117,10 +73,8 @@ npm_bazel_labs_dependencies()
 
 http_archive(
     name = "bazel_gazelle",
-    urls = [
-        "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/bazel-gazelle/releases/download/0.21.1/bazel-gazelle-0.21.1.tar.gz",
-        "https://github.com/bazelbuild/bazel-gazelle/releases/download/0.21.1/bazel-gazelle-0.21.1.tar.gz",
-    ],
+    sha256 = "7fc87f4170011201b1690326e8c16c5d802836e3a0d617d8f75c3af2b23180c4",
+    urls = ["https://github.com/bazelbuild/bazel-gazelle/releases/download/0.18.2/bazel-gazelle-0.18.2.tar.gz"],
 )
 
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
