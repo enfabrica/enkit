@@ -24,28 +24,28 @@ go_binary(
 go_binary(
     name = "astore-linux-amd64",
     embed = [":go_default_library"],
+    goarch = "amd64",
+    goos = "linux",
     static = "on",
     visibility = ["//visibility:public"],
-    goos = "linux",
-    goarch = "amd64",
 )
 
 go_binary(
     name = "astore-darwin-amd64",
     embed = [":go_default_library"],
+    goarch = "amd64",
+    goos = "darwin",
     static = "on",
     visibility = ["//visibility:public"],
-    goos = "darwin",
-    goarch = "amd64",
 )
 
 go_binary(
     name = "astore-win-amd64",
     embed = [":go_default_library"],
+    goarch = "amd64",
+    goos = "windows",
     static = "on",
     visibility = ["//visibility:public"],
-    goos = "windows",
-    goarch = "amd64",
 )
 
 load("//bazel:astore.bzl", "astore_upload")

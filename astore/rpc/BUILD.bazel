@@ -20,14 +20,6 @@ proto_library(
     ],
 )
 
-load("@npm_bazel_labs//:index.bzl", "ts_proto_library")
-
-ts_proto_library(
-    name = "astore-ts",
-    proto = ":astore_proto",
-    visibility = ["//visibility:public"],
-)
-
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
 go_proto_library(

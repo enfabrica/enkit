@@ -3,9 +3,9 @@ load("@com_github_ccontavalli_bazel_rules//qtc:defs.bzl", "qtpl_go_library")
 qtpl_go_library(
     name = "templates",
     srcs = [
-        "struct.qtpl",
-        "message.qtpl",
         "list.qtpl",
+        "message.qtpl",
+        "struct.qtpl",
     ],
     importpath = "github.com/enfabrica/enkit/astore/server/templates",
     visibility = ["//visibility:public"],

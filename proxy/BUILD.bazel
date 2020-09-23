@@ -32,10 +32,10 @@ load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
 # Generate a .go file containing all the credentials supplied during the build.
 go_embed_data(
     name = "embedded-credentials",
-    package = "credentials",
     srcs = glob(["credentials/**/*.flag*"]),
-    visibility = ["//visibility:public"],
     flatten = True,
+    package = "credentials",
+    visibility = ["//visibility:public"],
 )
 
 go_library(
