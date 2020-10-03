@@ -41,11 +41,11 @@ astore_upload = rule(
             "architectures or operating systems.",
     ),
     "_astore_upload_file": attr.label(
-      default = Label("//bazel:astore_upload_file.sh"),
+      default = Label("//bazel/astore:astore_upload_file.sh"),
       allow_single_file = True,
     ),
     "_astore_upload_dir": attr.label(
-      default = Label("//bazel:astore_upload_dir.sh"),
+      default = Label("//bazel/astore:astore_upload_dir.sh"),
       allow_single_file = True,
     ),
     "_astore_client": attr.label(

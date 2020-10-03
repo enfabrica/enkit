@@ -48,7 +48,7 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-load("//bazel:astore.bzl", "astore_upload")
+load("//bazel/astore:defs.bzl", "astore_upload")
 
 astore_upload(
     name = "deploy",
