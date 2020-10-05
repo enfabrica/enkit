@@ -38,7 +38,6 @@ def enkit_deps():
             ],
         )
 
-
     if "rules_proto" not in excludes:
         http_archive(
             name = "rules_proto",

@@ -29,3 +29,11 @@ enkit_init()
 load("//bazel:go_repositories.bzl", "go_repositories")
 
 go_repositories()
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "com_github_bazelbuild_buildtools",
+    strip_prefix = "buildtools-master",
+    url = "https://github.com/bazelbuild/buildtools/archive/master.zip",
+)
