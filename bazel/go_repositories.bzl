@@ -177,6 +177,31 @@ def go_repositories():
         version = "v1.1.9",
     )
     go_repository(
+        name = "com_github_cybozu_go_aptutil",
+        importpath = "github.com/cybozu-go/aptutil",
+        sum = "h1:AiIKluGPqgQFUlZ29SZFoe4p9q+gnM8u+bDDdymul9c=",
+        version = "v1.4.2-0.20200413001041-3f82d8384481",
+    )
+    go_repository(
+        name = "com_github_cybozu_go_log",
+        importpath = "github.com/cybozu-go/log",
+        sum = "h1:cjLr+pNga4NL5sj5vnnG00xKmKXSWx0grQQ4LnV1Ris=",
+        version = "v1.5.0",
+    )
+    go_repository(
+        name = "com_github_cybozu_go_netutil",
+        importpath = "github.com/cybozu-go/netutil",
+        sum = "h1:UBO0+hB43zd5mIXRfD195eBMHvgWlHP2mYuQ2F5Yxtg=",
+        version = "v1.2.0",
+    )
+    go_repository(
+        name = "com_github_cybozu_go_well",
+        importpath = "github.com/cybozu-go/well",
+        sum = "h1:YlEPreiDBI+KxE5rcAkkaB5j/Iyow6nIVmUpq3u5DYQ=",
+        version = "v1.8.1",
+    )
+
+    go_repository(
         name = "com_github_davecgh_go_spew",
         importpath = "github.com/davecgh/go-spew",
         sum = "h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=",
@@ -838,6 +863,13 @@ def go_repositories():
         version = "v1.1.4",
     )
     go_repository(
+        name = "com_github_ulikunitz_xz",
+        importpath = "github.com/ulikunitz/xz",
+        sum = "h1:ERv8V6GKqVi23rgu5cj9pVfVzJbOqAY2Ntl88O6c2nQ=",
+        version = "v0.5.8",
+    )
+
+    go_repository(
         name = "com_github_valyala_bytebufferpool",
         importpath = "github.com/valyala/bytebufferpool",
         sum = "h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=",
@@ -881,6 +913,13 @@ def go_repositories():
         sum = "h1:eY9dn8+vbi4tKz5Qo6v2eYzo7kUS51QINcR5jNpbZS8=",
         version = "v0.0.0-20190116061207-43a291ad63a2",
     )
+    go_repository(
+        name = "com_github_xor_gate_ar",
+        importpath = "github.com/xor-gate/ar",
+        sum = "h1:Vo3q7h44BfmnLQh5SdF+2xwIoVnHThmZLunx6odjrHI=",
+        version = "v0.0.0-20170530204233-5c72ae81e2b7",
+    )
+
     go_repository(
         name = "com_github_xordataexchange_crypt",
         importpath = "github.com/xordataexchange/crypt",

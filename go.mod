@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/storage v1.10.0
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/cybozu-go/aptutil v1.4.2-0.20200413001041-3f82d8384481
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/color v1.9.0
@@ -27,7 +28,9 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/tchap/zapext v1.0.0
+	github.com/ulikunitz/xz v0.5.8
 	github.com/valyala/quicktemplate v1.6.3 // indirect
+	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/net v0.0.0-20200822124328-c89045814202

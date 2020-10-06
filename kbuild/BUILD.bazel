@@ -1,0 +1,41 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/enfabrica/enkit/kbuild",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":assets",
+        "//lib/khttp/protocol:go_default_library",
+        "//lib/khttp/scheduler:go_default_library",
+        "//lib/khttp/workpool:go_default_library",
+        "//lib/retry:go_default_library",
+        "@com_github_cybozu_go_aptutil//apt:go_default_library",
+        "@com_github_ulikunitz_xz//:go_default_library",
+        "@com_github_xor_gate_ar//:go_default_library",
+    ],
+)
+
+load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
+
+go_embed_data(
+    name = "embedded-assets",
+    srcs = glob(["assets/**"]),
+    flatten = True,
+    package = "assets",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "assets",
+    srcs = [":embedded-assets"],
+    importpath = "github.com/enfabrica/kbuild/assets",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
+    name = "kbuild",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
