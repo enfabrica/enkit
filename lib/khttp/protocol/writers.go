@@ -32,6 +32,28 @@ type ResponseHandler func(url string, resp *http.Response, err error) error
 
 type StatusChecker func(code int, message string) error
 
+type StatusCheckers []StatusChecker
+
+func (sc StatusCheckers) Run(url string, resp *http.Response) error {
+	// Goal of the unusual loop here is to succeed if at least one of the checkers succeeds.
+	var errs []error
+	for _, check := range sc {
+		err := check(resp.StatusCode, resp.Status)
+		if err == nil {
+			break
+		}
+		errs = append(errs, err)
+	}
+	if len(errs) >= len(sc) {
+		return &HTTPError{
+			error: multierror.New(errs),
+			Resp:  resp,
+			URL:   url,
+		}
+	}
+	return nil
+}
+
 func StatusOK(code int, message string) error {
 	if code != http.StatusOK {
 		return fmt.Errorf("status is not OK - %s", message)
@@ -57,6 +79,26 @@ func StatusValue(expected int) StatusChecker {
 	}
 }
 
+type ResponseReader func(r io.Reader) error
+
+func Reader(r ResponseReader, checker ...StatusChecker) ResponseHandler {
+	if len(checker) == 0 {
+		checker = []StatusChecker{StatusOK}
+	}
+
+	return func(url string, resp *http.Response, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if err := StatusCheckers(checker).Run(url, resp); err != nil {
+			return err
+		}
+
+		return r(resp.Body)
+	}
+}
+
 func Read(opener ResponseOpener, checker ...StatusChecker) ResponseHandler {
 	if len(checker) == 0 {
 		checker = []StatusChecker{StatusOK}
@@ -67,21 +109,8 @@ func Read(opener ResponseOpener, checker ...StatusChecker) ResponseHandler {
 			return err
 		}
 
-		// Goal of the unusual loop here is to succeed if at least one of the checkers succeeds.
-		var errs []error
-		for _, check := range checker {
-			err := check(resp.StatusCode, resp.Status)
-			if err == nil {
-				break
-			}
-			errs = append(errs, err)
-		}
-		if len(errs) >= len(checker) {
-			return &HTTPError{
-				error: multierror.New(errs),
-				Resp:  resp,
-				URL:   url,
-			}
+		if err := StatusCheckers(checker).Run(url, resp); err != nil {
+			return err
 		}
 
 		writer, err := opener(resp)
