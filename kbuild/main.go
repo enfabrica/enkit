@@ -5,403 +5,36 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
-	"github.com/cybozu-go/aptutil/apt"
+	"github.com/enfabrica/enkit/kbuild/common"
+	"github.com/enfabrica/enkit/kbuild/kapt"
+
+	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/khttp/protocol"
 	"github.com/enfabrica/enkit/lib/khttp/scheduler"
 	"github.com/enfabrica/enkit/lib/khttp/workpool"
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/enfabrica/kbuild/assets"
-	"github.com/ulikunitz/xz"
 	"github.com/xor-gate/ar"
 	"io"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"text/template"
 )
 
-// ControlURL represents an URL pointing to a file in the debian control file format.
-// Debian repositories use this format for Release files, as well as Packages and
-// the proper control files, described here:
-//     https://www.debian.org/doc/debian-policy/ch-controlfields.html#syntax-of-control-files
-//
-// Control files can generally be parsed with the cybozu-go/aptutil/apt library in go.
-type ControlURL struct {
-	url.URL
-}
-
-type Origin struct {
-	Watch *Watch
-
-	Distribution string
-	Component    string
-	Arch         string
-
-	Repo *Repository
-}
-
-type Paragraph struct {
-	apt.Paragraph
-	Origin Origin
-}
-
-func (p Paragraph) Single(key string) string {
-	values := p.Paragraph[key]
-	if len(values) <= 0 {
-		return ""
-	}
-	return values[0]
-}
-
-func (p Paragraph) URLFile() *url.URL {
-	path := p.Single("Filename")
-	if p.Origin.Repo == nil {
-		return nil
-	}
-
-	return p.Origin.Repo.URLDeb(path)
-}
-
-type Alternative struct {
-	Name, Constraints string
-}
-
-type Dependency struct {
-	Alternative []Alternative
-}
-
-func (d Dependency) First() Alternative {
-	if len(d.Alternative) >= 1 {
-		return d.Alternative[0]
-	}
-	return Alternative{Name: "<not-available>"}
-}
-
-func (p Paragraph) Package() string {
-	return path.Join(p.Origin.Watch.Output, p.Single("Package"))
-}
-
-func (p Paragraph) Get(key string) ([]string, bool) {
-	v, f := p.Paragraph[key]
-	return v, f
-}
-
-var splitDeps = regexp.MustCompile(`\s*,\s*`)
-var splitAlternatives = regexp.MustCompile(`\s*\|\s*`)
-var splitConstraints = regexp.MustCompile(`\s+`)
-
-func (p Paragraph) Dependencies() []Dependency {
-	result := []Dependency{}
-	deps := splitDeps.Split(p.Single("Depends"), -1)
-	for _, dep := range deps {
-		alts := splitAlternatives.Split(dep, -1)
-		depr := Dependency{}
-		for _, alt := range alts {
-			nc := splitConstraints.Split(alt, 2)
-			if len(nc) <= 0 {
-				continue
-			}
-			altr := Alternative{
-				Name: nc[0],
-			}
-			if len(nc) > 1 {
-				altr.Constraints = nc[1]
-			}
-			depr.Alternative = append(depr.Alternative, altr)
-		}
-		result = append(result, depr)
-	}
-	return result
-}
-
-func Decoder(name string, current io.Reader) (string, io.Reader, error) {
-	ext := path.Ext(name)
-	name = strings.TrimSuffix(name, ext)
-	switch ext {
-	case "": // Plain text, no extension
-		return name, current, nil
-	case ".xz":
-		r, err := xz.NewReader(current)
-		return name, r, err
-	case ".gz":
-		r, err := gzip.NewReader(current)
-		return name, r, err
-	}
-	return "", nil, fmt.Errorf("format of file not known - extension %s does not match any known format", ext)
-}
-
-// Decoder returns an io.Reader capable of decoding the file.
-func (cu ControlURL) Decoder(current io.Reader) (string, io.Reader, error) {
-	return Decoder(cu.Path, current)
-}
-
-// Supported returns true if the URL specifies a format that can be opened by this library.
-func (cu ControlURL) Supported() bool {
-	ext := path.Ext(cu.Path)
-	switch ext {
-	case "": // Plain text has no extension.
-		return true
-	case ".xz":
-		return true
-	case ".gz":
-		return true
-	}
-	return false
-}
-
-// Parse fetches the control file and invoke the handler for each "paragraph" in the file.
-// A paragraph is just a section like:
-//
-//     Package: 7kaa-data
-//     Source: 7kaa
-//     Version: 2.15.4p1+dfsg-1
-//     Installed-Size: 103621
-//     [...]
-//
-func (cu ControlURL) Parse(handler func(Paragraph) error) error {
-	return protocol.Get(cu.String(), protocol.Reader(func(input io.Reader) error {
-		_, decoder, err := cu.Decoder(input)
-		if err != nil {
-			return err
-		}
-
-		parser := apt.NewParser(decoder)
-		for {
-			section, err := parser.Read()
-			if err != nil {
-				return fmt.Errorf("error parsing file: %w", err)
-			}
-
-			if err := handler(Paragraph{Paragraph: section}); err != nil {
-				return err
-			}
-		}
-	}))
-}
-
-// Get will return all the paragraph that have the field matching the specified regular expression.
-func (cu ControlURL) Get(field string, re *regexp.Regexp) ([]Paragraph, error) {
-	result := []Paragraph{}
-	return result, cu.Parse(func(p Paragraph) error {
-		value, found := p.Get(field)
-		if !found {
-			return nil
-		}
-		for _, v := range value {
-			if re.MatchString(v) {
-				result = append(result, p)
-				return nil
-			}
-		}
-		return nil
-	})
-}
-
-type ControlURLs []ControlURL
-
-func (cu ControlURLs) First() *ControlURL {
-	for _, u := range cu {
-		if u.Supported() {
-			return &u
-		}
-	}
-	return nil
-}
-
-func (cu ControlURLs) Parse(handler func(Paragraph) error) error {
-	u := cu.First()
-	if u == nil {
-		return fmt.Errorf("None of the URLs is supported %v", cu)
-	}
-	return u.Parse(handler)
-}
-
-type Section struct {
-	Size   uint64
-	SHA256 string
-	Path   string
-}
-
-type SectionMap map[string]Section
-
-type Repository struct {
-	Mirror       *url.URL
-	Distribution string
-}
-
-func (r *Repository) URLBase() *url.URL {
-	result := *r.Mirror
-	result.Path = path.Join(result.Path, "/dists/", r.Distribution)
-	return &result
-}
-
-func (r *Repository) URLRelease() *ControlURL {
-	result := ControlURL{URL: *r.URLBase()}
-	result.Path = path.Join(result.Path, "Release")
-	return &result
-}
-
-func (r *Repository) URLDeb(deb string) *url.URL {
-	result := *r.Mirror
-	result.Path = path.Join(result.Path, deb)
-	return &result
-}
-
-// URLPackages returns a set of URLs where the "Packages" file can be found.
-// The Packages file is a file listing all the .deb packages available for the distribution.
-//
-// arch is an architecture, like "all", "amd64", ...
-// component is a string like "main", "non-free", "contrib", ...
-func (r *Repository) URLPackages(component, arch string) ControlURLs {
-	result := []ControlURL{}
-	for _, pf := range []string{"Packages.xz", "Packages.gz", "Packages.diff/Index", "Packages"} {
-		url := *r.URLBase()
-		pf = path.Join(component, "binary-"+arch, pf)
-		url.Path = path.Join(url.Path, pf)
-		result = append(result, ControlURL{URL: url})
-	}
-	return result
-}
-
-func (r *Repository) Section() (SectionMap, error) {
-	result := SectionMap{}
-	return result, r.URLRelease().Parse(
-		func(section Paragraph) error {
-			files, ok := section.Get("SHA256")
-			if !ok {
-				log.Printf("File does not have 'SHA256' section")
-				return nil
-			}
-
-			for _, file := range files {
-				fields := strings.Fields(file)
-				if len(fields) < 2 {
-					log.Printf("skipping line with not enough fields %s", file)
-					continue
-				}
-
-				size, err := strconv.ParseUint(fields[1], 10, 64)
-				if err != nil {
-					log.Printf("skipping unparsable line %s", err)
-					continue
-				}
-				result[fields[2]] = Section{
-					Path:   fields[2],
-					SHA256: fields[0],
-					Size:   size,
-				}
-				log.Printf("got file %s", file)
-			}
-			return nil
-		})
-}
-
-func NewRepository(mirror, distribution string) (*Repository, error) {
-	u, err := url.Parse(mirror)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Repository{
-		Mirror:       u,
-		Distribution: distribution,
-	}, nil
-}
-
-type Watch struct {
-	Output string
-
-	Mirror       string
-	Distribution []string
-	Component    []string
-	Arch         []string
-}
-
-// Represents the version of a kernel package.
-//
-// For a package named:
-//   linux-headers-5.8.0-rc9-2-cloud-amd64
-//
-// We would have:
-//   Name: linux-headers-5.8.0-2-cloud
-//   Package: <a package version - independent of the name>
-//   Arch: amd64
-//   Type: linux-headers
-//   Kernel: 5.8.0-rc9
-//   Upload: 2
-//   Variant: cloud
-type KVersion struct {
-	Full string
-
-	Name    string
-	Package string
-	Type    string
-
-	Kernel  string
-	Upload  string
-	Variant string
-	Arch    string
-}
-
-func (kv KVersion) Id() string {
-	id := kv.ArchLessId()
-	if kv.Arch != "" {
-		id += "-" + kv.Arch
-	}
-	return id
-}
-
-func (kv KVersion) ArchLessId() string {
-	id := kv.Kernel
-	if kv.Upload != "" {
-		id += "-" + kv.Upload
-	}
-	if kv.Variant != "" {
-		id += "-" + kv.Variant
-	}
-	return id
-}
-
-var kpackageVersion = regexp.MustCompile(`^((?U:.*))-([0-9.]+(?:-rc[0-9]+)?)(?:-([0-9]+))?(?:-(\S+))?$`)
-
-func ParseKVersion(p Paragraph) *KVersion {
-	arch := p.Single("Architecture")
-	full := p.Single("Package")
-
-	name := strings.TrimSuffix(full, "-"+arch)
-	match := kpackageVersion.FindStringSubmatch(name)
-	if len(match) != 5 {
-		return nil
-	}
-
-	return &KVersion{
-		Full:    full,
-		Name:    name,
-		Package: p.Single("Version"),
-		Arch:    arch,
-		Type:    match[1],
-		Kernel:  match[2],
-		Upload:  match[3],
-		Variant: match[4],
-	}
-
-}
-
 type Fetch struct {
-	Package Paragraph
+	Package kapt.Paragraph
 	Groups  []*Group
 }
 
 type Group struct {
-	Version KVersion
-	Package []Paragraph
+	Version common.KVersion
+	Package []kapt.Paragraph
 
 	Lock   sync.Mutex
 	Writer *tar.Writer
@@ -471,7 +104,7 @@ type Symlink struct {
 
 type Fixups struct {
 	Symlinks []Symlink
-	Version  KVersion
+	Version  common.KVersion
 }
 
 func writeDataFile(archive, file string, d io.Reader, fetch *Fetch) error {
@@ -479,7 +112,7 @@ func writeDataFile(archive, file string, d io.Reader, fetch *Fetch) error {
 }
 
 func writeControlFile(archive, file string, d io.Reader, fetch *Fetch) error {
-	kv := ParseKVersion(fetch.Package)
+	kv := fetch.Package.KVersion()
 	mangler := func(hdr *tar.Header) error {
 		name := path.Clean(hdr.Name)
 		switch name {
@@ -493,6 +126,14 @@ func writeControlFile(archive, file string, d io.Reader, fetch *Fetch) error {
 		return nil
 	}
 	return writeArchiveFile(archive, file, d, fetch.Groups, mangler)
+}
+
+type Config struct {
+	// List of repositories to watch.
+	Watch []*common.Watch
+
+	// Regular expression selecting which packages contain kernel headers.
+	Packages string
 }
 
 // ubuntu:
@@ -513,32 +154,23 @@ func main() {
 	sc := scheduler.New()
 	r := retry.New()
 
-	watch := []*Watch{
-		{
-			Output:    "debian",
-			Mirror:    "http://ftp.us.debian.org/debian",
-			Component: []string{"main"},
-			//Distribution: []string{"unstable"},
-			//Arch:         []string{"amd64"},
-			Distribution: []string{"stable", "testing", "unstable", "experimental"},
-			Arch:         []string{"amd64", "all"},
-		},
-		{
-			Output:       "ubuntu",
-			Mirror:       "http://archive.ubuntu.com/ubuntu/",
-			Component:    []string{"main"}, // restricted
-			Distribution: []string{"groovy"},
-			Arch:         []string{"amd64"},
-		}}
+	var config Config
+	if err := marshal.UnmarshalAsset("watch", assets.Data, &config); err != nil {
+		log.Fatalf("failed parsing config: %s", err)
+	}
+	to_assemble, err := regexp.Compile(config.Packages)
+	if err != nil {
+		log.Fatalf("config had an invalid regexp %s: %s", config.Packages, err)
+	}
+	log.Printf("Parsed config: %#v", config)
 
-	to_assemble := regexp.MustCompile(`^linux-headers-|linux-kbuild-|linux-.*-headers`)
-
-	pindex := map[string]Paragraph{}
+	watch := config.Watch
+	pindex := map[string]kapt.Paragraph{}
 	for _, w := range watch {
 		for _, d := range w.Distribution {
 			for _, c := range w.Component {
 				for _, a := range w.Arch {
-					repo, err := NewRepository(w.Mirror, d)
+					repo, err := kapt.NewRepository(w.Mirror, d)
 					if err != nil {
 						log.Printf("could not create repository: %v", err)
 						continue
@@ -557,7 +189,7 @@ func main() {
 						continue
 					}
 					for _, p := range packs {
-						p.Origin = Origin{
+						p.Origin = kapt.Origin{
 							Watch: w,
 
 							Distribution: d,
@@ -582,12 +214,12 @@ outer:
 			continue
 		}
 
-		version := ParseKVersion(p)
+		version := p.KVersion()
 		if version == nil {
 			continue
 		}
 		log.Printf("For %s...", p.Package())
-		group := Group{Fixups: Fixups{Version: *version}, Package: []Paragraph{p}}
+		group := Group{Fixups: Fixups{Version: *version}, Package: []kapt.Paragraph{p}}
 		for _, dep := range p.Dependencies() {
 			name := dep.First().Name
 			if !to_assemble.MatchString(name) {
@@ -676,7 +308,7 @@ outer:
 					}
 					log.Printf("for file %s: %v", file, *arh)
 
-					name, d, err := Decoder(arh.Name, r)
+					name, d, err := common.Decoder(arh.Name, r)
 					if err != nil {
 						return fmt.Errorf("decode error for %s: %w", file, err)
 					}

@@ -1,0 +1,32 @@
+watch:
+- output: debian
+  mirror: http://ftp.us.debian.org/debian
+  distribution:
+  - stable
+  - testing
+  - unstable
+  - experimental
+  component:
+  - main
+  arch:
+  - amd64
+  - all
+
+- output: ubuntu
+  mirror: http://archive.ubuntu.com/ubuntu/
+  distribution:
+  - groovy
+  - groovy-updates
+  - groovy-security
+  - focal
+  - focal-updates
+  - focal-security
+  component:
+  - main
+  - universe
+  - restricted
+  arch:
+  - amd64
+
+packages: "^linux-headers-|linux-kbuild-|linux-.*-headers"
+
