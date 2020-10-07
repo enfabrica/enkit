@@ -234,16 +234,22 @@ def kernel_module(*args, **kwargs):
     kernels = kwargs["kernels"]
     kwargs.pop("kernels")
 
+    targets = []
     original = kwargs["name"]
     for kernel in kernels:
         kernel = _normalize_kernel(kernel)
+        rename = kernel[1:] + "/" + module
         name = kernel[1:] + "-" + original
-        rename = kernel[1:] + "-" + module
+        targets.append(":" + name)
 
         kwargs["name"] = name
         kwargs["kernel"] = kernel
         kwargs["rename"] = rename
         kernel_module_rule(*args, **kwargs)
+
+    # This creates a target with the name chosen by the user that builds all the kernel modules at once.
+    # Without this, the user can only build :all, or the specific module for a specific kernel.
+    return native.filegroup(name = original, srcs = targets)
 
 def _kernel_tree(ctx):
     return [DefaultInfo(files = depset(ctx.files.files)), KernelTreeInfo(
