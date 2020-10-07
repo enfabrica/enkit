@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"os"
 )
 
 // Use marshal.Toml to encode/decode from Toml format.
@@ -70,12 +71,50 @@ func (fm FileMarshallers) UnmarshalDefault(path string, data []byte, def Marshal
 	return marshaller.Unmarshal(data, value)
 }
 
+// Marshal will encode the 'value' object using the best encoder depending on the 'path' extension.
+// Returns the marshalled object, or an error.
 func Marshal(path string, value interface{}) ([]byte, error) {
 	return FileMarshallers(Known).Marshal(path, value)
 }
 
+// Unmarshal will decode the 'data' into the 'value' object based on the 'path' extension.
+// value must be a pointer to the desired type.
+// Returns error if the byte stream could not be decoded.
 func Unmarshal(path string, data []byte, value interface{}) error {
 	return FileMarshallers(Known).Unmarshal(path, data, value)
+}
+
+// UnmarshalAsset tries to find an asset that can be decoded, and decodes it.
+//
+// UnmarshalAsset expect an 'assets' dict of {'path': '<configuration-blob>'}, generally
+// representing the name of a file, and the corresponding bytes.
+//
+// 'name' is the name of a configuration to parse, without extension.
+// 'value' is the pointer to an object to decode from the configuration file.
+//
+// UnmarshalAsset will iterate through the known extension, and see if an asset by
+// the name of 'name'.'extension' exists. If it does, it will try to decode the
+// blob of bytes into the value.
+//
+// For example:
+//     UnmarshalAsset("config", map[string][]byte{"config.yaml": ...}, &config)
+//
+// Will look for "config.json", "config.toml", "config.yaml", in the assets dict.
+// The value of the first found will be decoded in config.
+//
+// This function is typically used in conjunction with the go_embed_data rule
+// with the bazel build system.
+//
+// Similarly to what would happen if a config file was not found on disk, returns
+// os.ErrNotExist if no valid file could be found in the assets.
+func UnmarshalAsset(name string, assets map[string][]byte, value interface{}) error {
+	for _, known := range Known {
+		asset, found := assets[name + "." + known.Extension()]
+		if found {
+			return known.Unmarshal(asset, value)
+		}
+	}
+	return os.ErrNotExist
 }
 
 func MarshalFile(path string, value interface{}) error {
