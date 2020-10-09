@@ -205,11 +205,11 @@ func (e *NotFoundError) Error() string {
 }
 
 func (d *DNS) GetEndpoints() ([]Endpoint, []error) {
-	ctx, cancel := context.WithTimeout(context.Background(), d.Timeout)
-	defer cancel()
-
 	var records []string
 	err := d.retry.Run(func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), d.Timeout)
+		defer cancel()
+
 		var err error
 		records, err = net.DefaultResolver.LookupTXT(ctx, d.Name())
 		if derr, ok := err.(*net.DNSError); ok && derr.IsNotFound {
