@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package machinist;
+
+
+message WaitRequest {
+}
+message Action {
+}
+
+message SendRequest {
+}
+message SendResponse {
+}
+
+message ReceiveRequest {
+}
+message ReceiveResponse {
+}
+
+service Enslaver {
+  rpc Wait(WaitRequest) returns (stream Action) {}
+  rpc Send(stream SendRequest) returns (SendResponse) {}
+  rpc Receive(ReceiveRequest) returns (ReceiveResponse) {}
+}
