@@ -13,13 +13,13 @@ type asset struct {
 	data []byte
 }
 
-type AssetResolver struct {
+type AssetAugmenter struct {
 	log   logger.Logger
 	index map[string]asset
 	forns string
 }
 
-// NewAssetResolver creates a new AssetResolver.
+// NewAssetAugmenter creates a new AssetAugmenter.
 //
 // An asset-resolver looks up configuration flags in a built in dict where the key is
 // the name of a file, and the value is what should be passed to the flag.
@@ -31,11 +31,11 @@ type AssetResolver struct {
 //
 // Now let's say you have a binary that takes a --astore-server or -astore-server flag.
 //
-// When invoked, the returned AssetResolver will set the default value of --astore-server to 127.0.0.1.
+// When invoked, the returned AssetAugmenter will set the default value of --astore-server to 127.0.0.1.
 //
 // This is extremely powerful when combined to a library to embed files at build time,
 // like the go_embed_data target of bazel.
-func NewAssetResolver(log logger.Logger, forns string, assets map[string][]byte) *AssetResolver {
+func NewAssetAugmenter(log logger.Logger, forns string, assets map[string][]byte) *AssetAugmenter {
 	index := map[string]asset{}
 	for name, data := range assets {
 		original := name
@@ -52,15 +52,15 @@ func NewAssetResolver(log logger.Logger, forns string, assets map[string][]byte)
 		}
 	}
 
-	return &AssetResolver{
+	return &AssetAugmenter{
 		log:   log,
 		index: index,
 		forns: forns,
 	}
 }
 
-// Visit implements the Visit interface of Resolver.
-func (ar *AssetResolver) Visit(reqns string, fl Flag) (bool, error) {
+// Visit implements the Visit interface of Augmenter.
+func (ar *AssetAugmenter) Visit(reqns string, fl Flag) (bool, error) {
 	if reqns != ar.forns {
 		ar.log.Debugf("%s flag %s: no asset assigned - namespace %s != %s", ar.forns, fl.Name(), reqns, ar.forns)
 		return false, nil
@@ -76,7 +76,7 @@ func (ar *AssetResolver) Visit(reqns string, fl Flag) (bool, error) {
 	return true, fl.SetContent(asset.name, asset.data)
 }
 
-// Done implements the Done interface of Resolver.
-func (ar *AssetResolver) Done() error {
+// Done implements the Done interface of Augmenter.
+func (ar *AssetAugmenter) Done() error {
 	return nil
 }

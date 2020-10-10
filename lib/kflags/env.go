@@ -8,16 +8,16 @@ import (
 
 type EnvMangler func(components ...string) string
 
-type EnvResolver struct {
+type EnvAugmenter struct {
 	prefix  string
 	mangler EnvMangler
 }
 
-type EnvModifier func(e *EnvResolver)
+type EnvModifier func(e *EnvAugmenter)
 
 type EnvModifiers []EnvModifier
 
-func (ems EnvModifiers) Apply(e *EnvResolver) {
+func (ems EnvModifiers) Apply(e *EnvAugmenter) {
 	for _, em := range ems {
 		em(e)
 	}
@@ -38,13 +38,13 @@ func DefaultRemap(elements ...string) string {
 }
 
 func WithMangler(m EnvMangler) EnvModifier {
-	return func(e *EnvResolver) {
+	return func(e *EnvAugmenter) {
 		e.mangler = m
 	}
 }
 
-func NewEnvResolver(prefix string, mods ...EnvModifier) *EnvResolver {
-	er := &EnvResolver{
+func NewEnvAugmenter(prefix string, mods ...EnvModifier) *EnvAugmenter {
+	er := &EnvAugmenter{
 		prefix:  prefix,
 		mangler: DefaultRemap,
 	}
@@ -53,8 +53,8 @@ func NewEnvResolver(prefix string, mods ...EnvModifier) *EnvResolver {
 	return er
 }
 
-// Visit implements the Visit interface of Resolver.
-func (er *EnvResolver) Visit(reqns string, fl Flag) (bool, error) {
+// Visit implements the Visit interface of Augmenter.
+func (er *EnvAugmenter) Visit(reqns string, fl Flag) (bool, error) {
 	env := er.mangler(er.prefix, reqns, fl.Name())
 	result, found := os.LookupEnv(env)
 	if !found {
@@ -64,7 +64,7 @@ func (er *EnvResolver) Visit(reqns string, fl Flag) (bool, error) {
 	return true, fl.Set(result)
 }
 
-// Done implements the Done interface of Resolver.
-func (ar *EnvResolver) Done() error {
+// Done implements the Done interface of Augmenter.
+func (ar *EnvAugmenter) Done() error {
 	return nil
 }

@@ -41,7 +41,7 @@ var jconfigRoot = `
 // By means of configuring a single handler in the HTTP server,
 // the same page with the same include will be served over and over,
 // creating a loop.
-func TestConfigResolverLoop(t *testing.T) {
+func TestConfigAugmenterLoop(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "cache")
 	assert.Nil(t, err)
 	c := &cache.Local{Root: tempdir}
@@ -51,7 +51,7 @@ func TestConfigResolverLoop(t *testing.T) {
 	_, url, err := ktest.StartServer(ktest.StringHandler(jconfigRoot))
 	assert.Nil(t, err)
 
-	r, err := NewConfigResolverFromURL(c, url, WithDownloader(dl))
+	r, err := NewConfigAugmenterFromURL(c, url, WithDownloader(dl))
 	assert.Nil(t, err)
 
 	fs := flag.NewFlagSet("", flag.PanicOnError)
@@ -69,7 +69,7 @@ func TestConfigResolverLoop(t *testing.T) {
 	// assert.NotNil(t, err, "%s", err)
 }
 
-func TestConfigResolver(t *testing.T) {
+func TestConfigAugmenter(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "cache")
 	assert.Nil(t, err)
 	c := &cache.Local{Root: tempdir}
@@ -80,7 +80,7 @@ func TestConfigResolver(t *testing.T) {
 	assert.Nil(t, err)
 	mux.HandleFunc("/astore.json", ktest.StringHandler(jconfigAstore))
 
-	r, err := NewConfigResolverFromURL(c, url, WithDownloader(dl))
+	r, err := NewConfigAugmenterFromURL(c, url, WithDownloader(dl))
 	assert.Nil(t, err)
 
 	fs := flag.NewFlagSet("", flag.PanicOnError)

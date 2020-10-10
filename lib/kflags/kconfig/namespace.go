@@ -9,7 +9,7 @@ import (
 
 type ParamIndex map[string][]Retriever
 
-type NamespaceResolver struct {
+type NamespaceAugmenter struct {
 	index map[string]ParamIndex
 
 	wg   sync.WaitGroup
@@ -19,8 +19,8 @@ type NamespaceResolver struct {
 
 type Factory func(*Parameter) (Retriever, error)
 
-func NewNamespaceResolver(commands []Namespace, factory Factory) (*NamespaceResolver, error) {
-	ci := &NamespaceResolver{index: map[string]ParamIndex{}}
+func NewNamespaceAugmenter(commands []Namespace, factory Factory) (*NamespaceAugmenter, error) {
+	ci := &NamespaceAugmenter{index: map[string]ParamIndex{}}
 	errs := []error{}
 	for _, cmd := range commands {
 		_, found := ci.index[cmd.Name]
@@ -48,7 +48,7 @@ func NewNamespaceResolver(commands []Namespace, factory Factory) (*NamespaceReso
 	return ci, multierror.New(errs)
 }
 
-func (c *NamespaceResolver) Visit(namespace string, flag kflags.Flag) (bool, error) {
+func (c *NamespaceAugmenter) Visit(namespace string, flag kflags.Flag) (bool, error) {
 	paramIndex, found := c.index[namespace]
 	if !found {
 		return false, nil
@@ -81,7 +81,7 @@ func (c *NamespaceResolver) Visit(namespace string, flag kflags.Flag) (bool, err
 	return true, nil
 }
 
-func (c *NamespaceResolver) Done() error {
+func (c *NamespaceAugmenter) Done() error {
 	c.wg.Wait()
 
 	// Not necessary - all downloads have completed by now. Here in case tsan is not smart enough.

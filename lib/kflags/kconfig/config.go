@@ -23,10 +23,10 @@ import (
 type resolver struct {
 	cond     *sync.Cond
 	err      error
-	instance kflags.Resolver
+	instance kflags.Augmenter
 }
 
-type ConfigResolver struct {
+type ConfigAugmenter struct {
 	// Operations on individual resolvers must be done under lock.
 	lock     sync.RWMutex
 	resolver []resolver
@@ -237,7 +237,7 @@ func FromFlags(fl *Flags) Modifier {
 	}
 }
 
-func NewConfigResolverFromDNS(cs cache.Store, domain string, binary string, mods ...Modifier) (*ConfigResolver, error) {
+func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mods ...Modifier) (*ConfigAugmenter, error) {
 	options := DefaultOptions()
 	Modifiers(mods).Apply(options)
 
@@ -302,7 +302,7 @@ func NewConfigResolverFromDNS(cs cache.Store, domain string, binary string, mods
 			addoptions(downloader.WithRetryOptions(ropts...))
 		}
 		ep.URL.Path = path.Join(ep.URL.Path, binary+".config")
-		resolver, err := NewConfigResolverFromURL(cs, ep.URL.String(), WithOptions(options))
+		resolver, err := NewConfigAugmenterFromURL(cs, ep.URL.String(), WithOptions(options))
 		if err == nil {
 			return resolver, nil
 		}
@@ -311,11 +311,11 @@ func NewConfigResolverFromDNS(cs cache.Store, domain string, binary string, mods
 	return nil, multierror.NewOr(errs, fmt.Errorf("No suitable endpoint detected from record %s", dns.Name()))
 }
 
-func NewConfigResolverFromURL(cs cache.Store, url string, mods ...Modifier) (*ConfigResolver, error) {
-	return NewConfigResolver(cs, &Config{Include: []string{url}}, mods...)
+func NewConfigAugmenterFromURL(cs cache.Store, url string, mods ...Modifier) (*ConfigAugmenter, error) {
+	return NewConfigAugmenter(cs, &Config{Include: []string{url}}, mods...)
 }
 
-func NewConfigResolver(cs cache.Store, config *Config, mods ...Modifier) (*ConfigResolver, error) {
+func NewConfigAugmenter(cs cache.Store, config *Config, mods ...Modifier) (*ConfigAugmenter, error) {
 	options := DefaultOptions()
 	Modifiers(mods).Apply(options)
 
@@ -333,12 +333,12 @@ func NewConfigResolver(cs cache.Store, config *Config, mods ...Modifier) (*Confi
 		options.creator = NewCreator(options.log, cs, options.dl, options.getOptions...).Create
 	}
 
-	namespace, err := NewNamespaceResolver(config.Namespace, options.creator)
+	namespace, err := NewNamespaceAugmenter(config.Namespace, options.creator)
 	if err != nil {
 		return nil, err
 	}
 
-	cr := &ConfigResolver{
+	cr := &ConfigAugmenter{
 		resolver: make([]resolver, len(config.Include)+1),
 	}
 
@@ -393,7 +393,7 @@ func NewConfigResolver(cs cache.Store, config *Config, mods ...Modifier) (*Confi
 			//
 			// This callback won't complete until all downloads have been queued, but running
 			// this function is blocking a worker. If the queue fills up, this will block forever.
-			ncr, err := NewConfigResolver(cs, config, WithOptions(options), WithBaseURL(url))
+			ncr, err := NewConfigAugmenter(cs, config, WithOptions(options), WithBaseURL(url))
 			if err != nil {
 				return fmt.Errorf("config not accepted - %w", err)
 			}
@@ -420,9 +420,9 @@ func NewConfigResolver(cs cache.Store, config *Config, mods ...Modifier) (*Confi
 	return cr, multierror.New(errs)
 }
 
-func (cr *ConfigResolver) Visit(ns string, flag kflags.Flag) (bool, error) {
+func (cr *ConfigAugmenter) Visit(ns string, flag kflags.Flag) (bool, error) {
 	for ix := range cr.resolver {
-		resolver, err := cr.getResolver(ix)
+		resolver, err := cr.getAugmenter(ix)
 		if err != nil {
 			continue
 		}
@@ -438,7 +438,7 @@ func (cr *ConfigResolver) Visit(ns string, flag kflags.Flag) (bool, error) {
 	return false, nil
 }
 
-func (cr *ConfigResolver) getResolver(ix int) (kflags.Resolver, error) {
+func (cr *ConfigAugmenter) getAugmenter(ix int) (kflags.Augmenter, error) {
 	cr.lock.RLock()
 	instance, err := cr.resolver[ix].instance, cr.resolver[ix].err
 	cr.lock.RUnlock()
@@ -454,7 +454,7 @@ func (cr *ConfigResolver) getResolver(ix int) (kflags.Resolver, error) {
 	return cr.resolver[ix].instance, cr.resolver[ix].err
 }
 
-func (cr *ConfigResolver) Done() error {
+func (cr *ConfigAugmenter) Done() error {
 	cr.lock.Lock()
 	list := cr.resolver
 	cr.resolver = nil

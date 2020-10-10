@@ -36,7 +36,7 @@ func (pf *PFlag) SetContent(origin string, data []byte) error {
 // CobraPopulator returns a kflags.Populator capable of filling in the defaults for
 // flags defined through cobra and the pflags library.
 func CobraPopulator(root *cobra.Command, args []string) kflags.Populator {
-	return func(resolvers ...kflags.Resolver) error {
+	return func(resolvers ...kflags.Augmenter) error {
 		return PopulateDefaults(root, args, resolvers...)
 	}
 }
@@ -52,7 +52,7 @@ func CobraPopulator(root *cobra.Command, args []string) kflags.Populator {
 // first argument.
 //
 // resolvers is the list of resolvers to use to assign the defaults.
-func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Resolver) error {
+func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Augmenter) error {
 	// argv[0] needs to be skipped, args is generally os.Args, which contains argv 0.
 	if len(args) >= 1 {
 		args = args[1:]
@@ -61,7 +61,7 @@ func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Re
 	// Find the actual cobra command that would be run given the current argv.
 	target, _, _ := root.Find(args)
 
-	// Resolvers need to assign defaults from more generic config to more specific configs.
+	// Augmenters need to assign defaults from more generic config to more specific configs.
 	// Parent command is considered more generic than child command.
 	// Walk back the root, so we can override defaults in the correct order.
 	stack := []*cobra.Command{}
@@ -89,7 +89,7 @@ func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Re
 	// However, this may (or may not) cause the same flags to be processed multiple times.
 	// We protect against this by using the seen map.
 	errs := []error{}
-	resolve := func(namespace string, seen map[string]struct{}, r kflags.Resolver, flag *pflag.Flag) {
+	resolve := func(namespace string, seen map[string]struct{}, r kflags.Augmenter, flag *pflag.Flag) {
 		// Prevent setting the same flag multiple times, defense in depth - see comment above.
 		_, found := seen[flag.Name]
 		if found {

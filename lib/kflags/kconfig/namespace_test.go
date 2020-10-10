@@ -98,7 +98,7 @@ func getNamespaces(url string, invalid bool) []Namespace {
 	return namespaces
 }
 
-func TestResolverWithError(t *testing.T) {
+func TestAugmenterWithError(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "cache")
 	assert.Nil(t, err)
 	c := &cache.Local{Root: tempdir}
@@ -110,11 +110,11 @@ func TestResolverWithError(t *testing.T) {
 	assert.Nil(t, err)
 
 	namespaces := getNamespaces(url, true)
-	_, err = NewNamespaceResolver(namespaces, NewCreator(logger.Nil, c, dl).Create)
+	_, err = NewNamespaceAugmenter(namespaces, NewCreator(logger.Nil, c, dl).Create)
 	assert.NotNil(t, err, "%s", err)
 }
 
-func TestResolver(t *testing.T) {
+func TestAugmenter(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "cache")
 	assert.Nil(t, err)
 	c := &cache.Local{Root: tempdir}
@@ -126,7 +126,7 @@ func TestResolver(t *testing.T) {
 	assert.Nil(t, err)
 
 	namespaces := getNamespaces(url, false)
-	r, err := NewNamespaceResolver(namespaces, NewCreator(logger.Nil, c, dl).Create)
+	r, err := NewNamespaceAugmenter(namespaces, NewCreator(logger.Nil, c, dl).Create)
 	assert.Nil(t, err, "%s", err)
 
 	server := flag.String("astore-server", "initials", "usage")

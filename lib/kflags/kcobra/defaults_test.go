@@ -175,21 +175,21 @@ type lf struct {
 	flag string
 }
 
-type MockResolver struct {
+type MockAugmenter struct {
 	lfs []lf
 }
 
-func (mr *MockResolver) Visit(namespace string, flag kflags.Flag) (bool, error) {
+func (mr *MockAugmenter) Visit(namespace string, flag kflags.Flag) (bool, error) {
 	mr.lfs = append(mr.lfs, lf{ns: namespace, flag: flag.Name()})
 	return true, nil
 }
-func (mr *MockResolver) Done() error {
+func (mr *MockAugmenter) Done() error {
 	return nil
 }
 
 func TestPopulateDefaults(t *testing.T) {
 	fc := CreateFakeCommand()
-	fr := &MockResolver{}
+	fr := &MockAugmenter{}
 
 	err := PopulateDefaults(fc.Root, []string{"ignored-argv-0", "user", "add", "system"}, fr)
 	assert.Nil(t, err)

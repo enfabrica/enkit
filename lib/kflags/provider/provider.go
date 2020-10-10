@@ -39,7 +39,7 @@ func SetFlagDefaults(populator kflags.Populator, flags *ProviderFlags, options *
 	}
 	mods = append(mods, kconfig.FromFlags((*kconfig.Flags)(flags)))
 
-	resolver, err := kconfig.NewConfigResolverFromDNS(options.Cache, options.Domain, options.CommandName, mods...)
+	resolver, err := kconfig.NewConfigAugmenterFromDNS(options.Cache, options.Domain, options.CommandName, mods...)
 	if err != nil {
 		return err
 	}

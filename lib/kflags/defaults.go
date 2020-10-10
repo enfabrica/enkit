@@ -55,7 +55,7 @@ func (gf *GoFlag) SetContent(name string, data []byte) error {
 	return nil
 }
 
-// A Resolver is an object capable of providing default values for a flag.
+// An Augmenter is an object capable of providing default values for a flag.
 //
 // Typically, it is invoked by a library that iterates over the flags of a command.
 //
@@ -64,20 +64,20 @@ func (gf *GoFlag) SetContent(name string, data []byte) error {
 //
 // At the end of the walk, Done is called.
 //
-// The user of Resolver must assume that the flag pointers passed may be used up
+// The user of Augmenter must assume that the flag pointers passed may be used up
 // until the point that Done() is invoked.
 //
 // Some resolvers may, for example, accumulate all the required flags to determine
 // the value to lookup in a database with a single query.
 //
 // Concurrent access to the flag by the resolver is not allowed. The resolver must
-// ensure that access to a given flag pointer is serialized.
-type Resolver interface {
+// ensure that access to a given flag object is serialized.
+type Augmenter interface {
 	Visit(namespace string, flag Flag) (bool, error)
 	Done() error
 }
 
-// SetContent is a utility function Resolvers can use to set the value of a flag.
+// SetContent is a utility function Augmenters can use to set the value of a flag.
 //
 // Let's say you have a flag that takes the path of a file, to load it. At run
 // time, the value of the flag is the content of the file, rather than its path.
@@ -97,12 +97,12 @@ func SetContent(fl flag.Value, name string, value []byte) (string, error) {
 
 // Populator is a function that given a set of resolvers, it is capable of invoking
 // them to assign default flag values.
-type Populator func(resolvers ...Resolver) error
+type Populator func(resolvers ...Augmenter) error
 
 // GoPopulator returns a Populator capable of walking all the flags in the specified
 // set, and assign defaults to those flags.
 func GoPopulator(set *flag.FlagSet) Populator {
-	return func(resolvers ...Resolver) error {
+	return func(resolvers ...Augmenter) error {
 		return PopulateDefaults(set, resolvers...)
 	}
 }
@@ -117,12 +117,12 @@ func GoPopulator(set *flag.FlagSet) Populator {
 //
 //     var server = flag.String("server", "127.0.0.1", "server to connect to")
 //     func main(...) {
-//       kflags.PopulateDefaults(flag.CommandLine, kflags.NewEnvResolver())
+//       kflags.PopulateDefaults(flag.CommandLine, kflags.NewEnvAugmenter())
 //       [...]
 //
 //       flag.Parse()
 //
-func PopulateDefaults(set *flag.FlagSet, resolvers ...Resolver) error {
+func PopulateDefaults(set *flag.FlagSet, resolvers ...Augmenter) error {
 	errors := []error{}
 	namespace := filepath.Base(set.Name())
 

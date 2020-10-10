@@ -251,7 +251,7 @@ func main() {
 	}
 
 	kcobra.PopulateDefaults(command, os.Args,
-		kflags.NewAssetResolver(&logger.NilLogger{}, "astore-server", credentials.Data),
+		kflags.NewAssetAugmenter(&logger.NilLogger{}, "astore-server", credentials.Data),
 	)
 	kcobra.Run(command)
 }
