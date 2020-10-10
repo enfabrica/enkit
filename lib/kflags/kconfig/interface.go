@@ -31,9 +31,34 @@ type Parameter struct {
 
 type Namespace struct {
 	// If empty, it is assumed to be the name of the application.
-	// Otherwise, it is a path using " " to separate subcommands.
+	// Otherwise, it is a path using "." to separate subcommands.
 	Name    string
+	Hidden  bool         // TODO
 	Default []Parameter
+	Command []Command    // TODO
+}
+
+type Implementation struct { // TODO
+	URL string // TODO
+	Hash string // TODO
+}
+
+type Flag struct { // TODO
+	Name string
+	Help string
+	Default string
+}
+
+type Command struct { // TODO
+	Use string
+	Aliases []string
+	Short string
+	Long string
+	Example string
+
+	Flag []Flag
+
+	Implementation Implementation
 }
 
 // Goal of a Config is to specify a list of defaults to apply to all the flags in a namespace.
