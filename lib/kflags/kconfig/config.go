@@ -17,7 +17,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -33,6 +32,7 @@ type ConfigResolver struct {
 	resolver []resolver
 }
 
+// Parse unmarshals a blob of bytes retrieved from a file or URL into a Config object.
 func Parse(name string, data []byte) (*Config, error) {
 	var config Config
 	err := marshal.UnmarshalDefault(name, data, marshal.Json, &config)
@@ -42,14 +42,29 @@ func Parse(name string, data []byte) (*Config, error) {
 	return &config, nil
 }
 
+// SeenStack is an object used to prevent inclusion and redirect loops.
+//
+// It is meant to keep track of all previously seen URLs, the nesting level,
+// and return an error if any of the URLs is encountered again.
+//
+// SeenStack is thread safe: once created, all its methods can safely be invoked
+// from any thread.
 type SeenStack struct {
 	lock sync.RWMutex
 	seen []string
 }
 
+// NewSeenStack creates a new SeenStack.
 func NewSeenStack() *SeenStack {
 	return &SeenStack{}
 }
+
+// Add adds a new URL to the SeenStack.
+//
+// Always returns the nesting levels, how many URLs were seen already.
+//
+// If the url added is known, and was already visited, the function also
+// returns a fmt.Errorf() with a helpful message to help debug the problem.
 func (bl *SeenStack) Add(url string) (int, error) {
 	bl.lock.Lock()
 	defer bl.lock.Unlock()
@@ -62,31 +77,11 @@ func (bl *SeenStack) Add(url string) (int, error) {
 	return len(bl.seen), nil
 }
 
+// Stack returns the list of URLs already visited.
 func (bl *SeenStack) Stack() []string {
 	bl.lock.Lock()
 	defer bl.lock.Unlock()
 	return append([]string{}, bl.seen...)
-}
-
-type SharedLimit struct {
-	total uint32
-	limit uint32
-}
-
-func NewSharedLimit(limit uint32) *SharedLimit {
-	return &SharedLimit{limit: limit}
-}
-
-func (sl *SharedLimit) Add() error {
-	if sl.limit == 0 {
-		return nil
-	}
-
-	value := atomic.AddUint32(&sl.total, 1)
-	if value >= sl.limit {
-		return fmt.Errorf("too many includes loaded - hit limit of %d", sl.limit)
-	}
-	return nil
 }
 
 type options struct {
