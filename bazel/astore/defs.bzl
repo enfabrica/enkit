@@ -62,33 +62,20 @@ to an artifact store.""",
 )
 
 def _astore_download(ctx):
-    push = ctx.actions.declare_file("astore_download.sh")
-    inputs = [ctx.executable._astore_client]
-    template = ctx.file._astore_download_file
-    ctx.actions.expand_template(
-        template = template,
-        output = push,
-        substitutions = {
-            "{astore}": ctx.executable._astore_client.short_path,
-            "{file}": ctx.attr.file,
-            "{destination}": ctx.attr.destination
-        },
-        is_executable = True,
+    outputs = [ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])]
+    ctx.actions.run(
+        tools = [ctx.executable._astore_client],
+        arguments = ["download", ctx.attr.download_src],
+        outputs = outputs,
+	    executable = ctx.executable._astore_client,
     )
-    return [DefaultInfo(executable = push, runfiles = ctx.runfiles(inputs))]
+    return [DefaultInfo(files = outputs)]
 
 astore_download = rule(
     implementation = _astore_download,
     attrs = {
-        "destination": attr.string(
-            doc = "The file will be downloaded from astore to this path.",
-        ),
-        "file": attr.string(
+        "download_src": attr.string(
             doc = "Provided the full path, download a file from astore.",
-        ),
-        "_astore_download_file": attr.label(
-            default = Label("//bazel/astore:astore_download_file.sh"),
-            allow_single_file = True,
         ),
         "_astore_client": attr.label(
             default = Label("//astore/client:astore"),
@@ -97,10 +84,9 @@ astore_download = rule(
             cfg = "host",
         ),
     },
-    executable = True,
-    doc = """Downloads artifacts from artifact store - astore.
-
-With this rule, you can easily download files
-to an artifact store.""",
+    outputs = {"file": "downloaded_file"},
+    doc = """Downloads artifacts from artifact store - astore. \
+		    With this rule, you can easily download \
+		    files from an artifact store.""",
 )
 
