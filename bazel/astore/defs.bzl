@@ -64,12 +64,11 @@ to an artifact store.""",
 def _astore_download(ctx):
     outputs = [ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])]
     ctx.actions.run(
-        tools = [ctx.executable._astore_client],
         arguments = ["download", ctx.attr.download_src],
-        outputs = outputs,
-	    executable = ctx.executable._astore_client,
+	executable = ctx.executable._astore_client,
+	outputs = outputs,
     )
-    return [DefaultInfo(files = outputs)]
+    return [DefaultInfo(files = depset(outputs))]
 
 astore_download = rule(
     implementation = _astore_download,
@@ -84,7 +83,6 @@ astore_download = rule(
             cfg = "host",
         ),
     },
-    outputs = {"file": "downloaded_file"},
     doc = """Downloads artifacts from artifact store - astore. \
 		    With this rule, you can easily download \
 		    files from an artifact store.""",
