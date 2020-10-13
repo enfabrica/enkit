@@ -5,8 +5,23 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestOpenHomeDir(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("HOME", "/home/test")
+	Refresh()
+	dir, err := OpenHomeDir("app", "identity")
+	assert.Nil(t, err)
+	assert.True(t, strings.HasPrefix(dir.path, "/home/test"), "path %s", dir.path)
+	os.Unsetenv("HOME")
+	Refresh()
+	dir, err = OpenHomeDir("app", "identity")
+	assert.Nil(t, err, "%v", err)
+	assert.True(t, strings.HasPrefix(dir.path, "/home"), "path %s", dir.path)
+}
 
 func TestOpenDir(t *testing.T) {
 	dir, err := ioutil.TempDir("", "opendir")
