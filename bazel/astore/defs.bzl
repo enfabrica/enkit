@@ -60,3 +60,35 @@ astore_upload = rule(
 With this rule, you can easily upload the output of a build rule
 to an artifact store.""",
 )
+
+def _astore_download(ctx):
+    output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
+    ctx.actions.run_shell(
+        command = "%s download --no-progress -o %s %s" % (ctx.executable._astore_client.path, output.path, ctx.attr.download_src),
+        use_default_shell_env = False,
+        tools = [ctx.executable._astore_client],
+        outputs = [output],
+	#TODO: remove env after build user is created
+	env = {"HOME": "/home/bbhuynh"},
+    )
+    return [DefaultInfo(files = depset([output]))]
+
+astore_download = rule(
+    implementation = _astore_download,
+    attrs = {
+        "download_src": attr.string(
+            doc = "Provided the full path, download a file from astore.",
+            mandatory = True,
+        ),
+        "_astore_client": attr.label(
+            default = Label("//astore/client:astore"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "host",
+        ),
+    },
+    doc = """Downloads artifacts from artifact store - astore. 
+
+With this rule, you can easily download 
+files from an artifact store.""",
+)
