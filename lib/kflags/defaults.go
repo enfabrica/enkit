@@ -55,25 +55,45 @@ func (gf *GoFlag) SetContent(name string, data []byte) error {
 	return nil
 }
 
-// An Augmenter is an object capable of providing default values for a flag.
+// Command represents a command line command. 
+type Command interface {
+	Name() string
+	Hide(bool)
+//	AddFlag() error
+}
+
+// Commander is a Command that is capable of having subcommands.
+type Commander interface {
+	Command
+	AddCommand() error
+}
+
+// An Augmenter is an object capable of providing default flag values, disable, add
+// or modify sub commands of a generic CLI.
 //
-// Typically, it is invoked by a library that iterates over the flags of a command.
+// Typically, it is invoked by a library that iterates over the flags of a command,
+// and the existing commands defined.
 //
-// Visit is invoked for each flag, with the Visit implementation allowed to call
+// VisitFlag is invoked for each flag, with the method implementation allowed to call
 // arbitrary methods on the flag.
+//
+// VisitCommands is invoked for each sub-command, with the method implementation allowed
+// to call arbitrary methods on the command.
 //
 // At the end of the walk, Done is called.
 //
-// The user of Augmenter must assume that the flag pointers passed may be used up
-// until the point that Done() is invoked.
+// The user of Augmenter must assume that any of the pointers passed to the agumenter
+// may be used until the point that Done() is invoked.
 //
 // Some resolvers may, for example, accumulate all the required flags to determine
 // the value to lookup in a database with a single query.
 //
-// Concurrent access to the flag by the resolver is not allowed. The resolver must
-// ensure that access to a given flag object is serialized.
+// Concurrent access to the flag or command by the resolver is not allowed. The
+// resolver must ensure that access to a given flag object is serialized.
 type Augmenter interface {
-	Visit(namespace string, flag Flag) (bool, error)
+	VisitCommand(command Command) (bool, error)
+	VisitFlag(name string, flag Flag) (bool, error)
+
 	Done() error
 }
 
@@ -139,7 +159,7 @@ func PopulateDefaults(set *flag.FlagSet, resolvers ...Augmenter) error {
 				return
 			}
 
-			if _, err := r.Visit(namespace, &GoFlag{fl}); err != nil {
+			if _, err := r.VisitFlag(namespace, &GoFlag{fl}); err != nil {
 				errors = append(errors, err)
 			}
 		})

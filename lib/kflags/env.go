@@ -53,8 +53,12 @@ func NewEnvAugmenter(prefix string, mods ...EnvModifier) *EnvAugmenter {
 	return er
 }
 
+func (er *EnvAugmenter) VisitCommand(command Command) (bool, error) {
+	return false, nil
+}
+
 // Visit implements the Visit interface of Augmenter.
-func (er *EnvAugmenter) Visit(reqns string, fl Flag) (bool, error) {
+func (er *EnvAugmenter) VisitFlag(reqns string, fl Flag) (bool, error) {
 	env := er.mangler(er.prefix, reqns, fl.Name())
 	result, found := os.LookupEnv(env)
 	if !found {

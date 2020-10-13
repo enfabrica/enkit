@@ -33,6 +33,15 @@ func (pf *PFlag) SetContent(origin string, data []byte) error {
 	return nil
 }
 
+type KCommand struct {
+	*cobra.Command
+}
+
+func (kc *KCommand) Hide(yes bool) {
+}
+
+
+
 // CobraPopulator returns a kflags.Populator capable of filling in the defaults for
 // flags defined through cobra and the pflags library.
 func CobraPopulator(root *cobra.Command, args []string) kflags.Populator {
@@ -41,7 +50,51 @@ func CobraPopulator(root *cobra.Command, args []string) kflags.Populator {
 	}
 }
 
-// PopulateDefaults is a function that walks all the flags of the specified root command
+func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Augmenter) error {
+	if err := PopulateCommands(root, args, resolvers...); err != nil {
+		return err
+	}
+
+	if err := PopulateFlagDefaults(root, args, resolvers...); err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, r := range resolvers {
+		if err := r.Done(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return multierror.New(errs)
+}
+
+func PopulateCommands(root *cobra.Command, args []string, resolvers ...kflags.Augmenter) error {
+	if len(args) >= 1 {
+		args = args[1:]
+	}
+
+	// Find the actual cobra command that would be run given the current argv.
+	target, _, _ := root.Find(args)
+	var errs []error
+
+	resolve := func(comm kflags.Command) {
+		for _, r := range resolvers {
+			if _, err := r.VisitCommand(comm); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+
+	resolve(&KCommand{target})
+	for _, sub := range target.Commands() {
+		resolve(&KCommand{sub})
+	}
+
+	return multierror.New(errs)
+}
+
+// PopulateFlagDefaults is a function that walks all the flags of the specified root command
 // and all its sub commands, the argv provided as args, and tries to provide defaults
 // using the spcified resolvers.
 //
@@ -52,7 +105,10 @@ func CobraPopulator(root *cobra.Command, args []string) kflags.Populator {
 // first argument.
 //
 // resolvers is the list of resolvers to use to assign the defaults.
-func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Augmenter) error {
+//
+// WARNING: PopulateFlagDefaults does not call Done() supplied list of resolvers.
+// It is the responsibility of the caller to do so.
+func PopulateFlagDefaults(root *cobra.Command, args []string, resolvers ...kflags.Augmenter) error {
 	// argv[0] needs to be skipped, args is generally os.Args, which contains argv 0.
 	if len(args) >= 1 {
 		args = args[1:]
@@ -101,8 +157,7 @@ func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Au
 		}
 
 		seen[flag.Name] = struct{}{}
-
-		if _, err := r.Visit(namespace, &PFlag{flag}); err != nil {
+		if _, err := r.VisitFlag(namespace, &PFlag{flag}); err != nil {
 			errs = append(errs, err)
 			return
 		}
@@ -126,12 +181,6 @@ func PopulateDefaults(root *cobra.Command, args []string, resolvers ...kflags.Au
 
 			cmd.InheritedFlags().VisitAll(resolver)
 			cmd.LocalFlags().VisitAll(resolver)
-		}
-	}
-
-	for _, r := range resolvers {
-		if err := r.Done(); err != nil {
-			errs = append(errs, err)
 		}
 	}
 

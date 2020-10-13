@@ -58,7 +58,7 @@ func TestConfigAugmenterLoop(t *testing.T) {
 	fooserver := fs.String("foo-server", "initials", "usage")
 	sflag := fs.Lookup("foo-server")
 
-	found, err := r.Visit("", &kflags.GoFlag{sflag})
+	found, err := r.VisitFlag("", &kflags.GoFlag{sflag})
 	assert.True(t, found)
 	assert.Equal(t, "19", *fooserver)
 
@@ -93,15 +93,15 @@ func TestConfigAugmenter(t *testing.T) {
 	unknown := fs.String("whatever-server", "initialw", "usage")
 	uflag := fs.Lookup("whatever-server")
 
-	found, err := r.Visit("", &kflags.GoFlag{sflag})
+	found, err := r.VisitFlag("", &kflags.GoFlag{sflag})
 	assert.True(t, found)
 	assert.Equal(t, "19", *fooserver)
 
-	found, err = r.Visit("", &kflags.GoFlag{bflag})
+	found, err = r.VisitFlag("", &kflags.GoFlag{bflag})
 	assert.True(t, found)
 	assert.Equal(t, "42", *barserver)
 
-	found, err = r.Visit("", &kflags.GoFlag{uflag})
+	found, err = r.VisitFlag("", &kflags.GoFlag{uflag})
 	assert.False(t, found)
 	assert.Equal(t, "initialw", *unknown)
 

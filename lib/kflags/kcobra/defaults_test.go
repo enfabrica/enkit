@@ -179,7 +179,11 @@ type MockAugmenter struct {
 	lfs []lf
 }
 
-func (mr *MockAugmenter) Visit(namespace string, flag kflags.Flag) (bool, error) {
+func (mr *MockAugmenter) VisitCommand(command kflags.Command) (bool, error) {
+	return false, nil
+}
+
+func (mr *MockAugmenter) VisitFlag(namespace string, flag kflags.Flag) (bool, error) {
 	mr.lfs = append(mr.lfs, lf{ns: namespace, flag: flag.Name()})
 	return true, nil
 }

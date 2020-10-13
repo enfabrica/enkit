@@ -48,7 +48,11 @@ func NewNamespaceAugmenter(commands []Namespace, factory Factory) (*NamespaceAug
 	return ci, multierror.New(errs)
 }
 
-func (c *NamespaceAugmenter) Visit(namespace string, flag kflags.Flag) (bool, error) {
+func (c *NamespaceAugmenter) VisitCommand(command kflags.Command) (bool, error) {
+	return false, nil // FIXME
+}
+
+func (c *NamespaceAugmenter) VisitFlag(namespace string, flag kflags.Flag) (bool, error) {
 	paramIndex, found := c.index[namespace]
 	if !found {
 		return false, nil

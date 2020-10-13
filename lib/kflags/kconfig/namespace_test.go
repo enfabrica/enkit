@@ -136,7 +136,7 @@ func TestAugmenter(t *testing.T) {
 	cflag := flag.Lookup("astore-certificate")
 
 	// invalid namespace, the flag is not found.
-	found, err := r.Visit("invalid", &kflags.GoFlag{sflag})
+	found, err := r.VisitFlag("invalid", &kflags.GoFlag{sflag})
 	derr := r.Done()
 
 	assert.Nil(t, derr)
@@ -145,7 +145,7 @@ func TestAugmenter(t *testing.T) {
 	assert.Equal(t, *server, "initials")
 
 	// Flag should be found and applied.
-	found, err = r.Visit("", &kflags.GoFlag{sflag})
+	found, err = r.VisitFlag("", &kflags.GoFlag{sflag})
 	derr = r.Done()
 
 	assert.Nil(t, derr)
@@ -154,7 +154,7 @@ func TestAugmenter(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", *server)
 
 	// Same as above, the value should be set to a cached path.
-	found, err = r.Visit("", &kflags.GoFlag{cflag})
+	found, err = r.VisitFlag("", &kflags.GoFlag{cflag})
 	derr = r.Done()
 
 	assert.Nil(t, derr, "%s", derr)
@@ -165,7 +165,7 @@ func TestAugmenter(t *testing.T) {
 	assert.Equal(t, message, string(data))
 
 	// Value should now be inlined.
-	found, err = r.Visit("astore", &kflags.GoFlag{cflag})
+	found, err = r.VisitFlag("astore", &kflags.GoFlag{cflag})
 	derr = r.Done()
 	assert.Nil(t, derr, "%s", derr)
 	assert.Nil(t, err, "%s", err)
@@ -175,21 +175,21 @@ func TestAugmenter(t *testing.T) {
 	unknown := flag.Int("astore-whatever", 14, "usage")
 	uflag := flag.Lookup("astore-whatever")
 
-	found, err = r.Visit("astore", &kflags.GoFlag{uflag})
+	found, err = r.VisitFlag("astore", &kflags.GoFlag{uflag})
 	derr = r.Done()
 	assert.Nil(t, derr, "%s", derr)
 	assert.Nil(t, err, "%s", err)
 	assert.False(t, found)
 	assert.Equal(t, 14, *unknown)
 
-	found, err = r.Visit("whatever", &kflags.GoFlag{uflag})
+	found, err = r.VisitFlag("whatever", &kflags.GoFlag{uflag})
 	derr = r.Done()
 	assert.Nil(t, derr, "%s", derr)
 	assert.Nil(t, err, "%s", err)
 	assert.True(t, found)
 	assert.Equal(t, 42, *unknown)
 
-	found, err = r.Visit("", &kflags.GoFlag{uflag})
+	found, err = r.VisitFlag("", &kflags.GoFlag{uflag})
 	derr = r.Done()
 	assert.NotNil(t, derr, "%s", derr)
 	assert.Nil(t, err, "%s", err)

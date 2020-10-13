@@ -26,9 +26,33 @@ type resolver struct {
 	instance kflags.Augmenter
 }
 
+// ConfigAugmenter is an Augmenter filling flags and commands based on the content of a configuration file.
+//
+// The format of the configuration file is defined in the interface.go file, and represented by the Config struct.
+//
+// Given that a config file can recursively include other configs, a ConfigAugmenter may internally parse
+// other config files, and recursively create other ConfigAugmenter objects.
 type ConfigAugmenter struct {
 	// Operations on individual resolvers must be done under lock.
 	lock     sync.RWMutex
+
+	// A config file has includes. Each include requires downloading a file.
+	// When a file is downloaded, a new ConfigAugmenter is created able to
+	// augment solely on the content of that specific file (this works
+	// recursively).
+	//
+	// This array contains one augmenter per include in the config file
+	// represented by this ConfigAugmenter instance.
+	//
+	// Do not access this array directly: it is filled in lazily**,
+	// use getAugmenter instead.
+	// 
+	// **lazily: when a ConfigAugmenter object is created, the download of
+	// all the dependant configs is started, but not waited for (we may never
+	// need it, after all!).
+	//
+	// getAugmenter will automatically wait for the file to be downloaded
+	// the first time it is actually needed.
 	resolver []resolver
 }
 
@@ -420,14 +444,14 @@ func NewConfigAugmenter(cs cache.Store, config *Config, mods ...Modifier) (*Conf
 	return cr, multierror.New(errs)
 }
 
-func (cr *ConfigAugmenter) Visit(ns string, flag kflags.Flag) (bool, error) {
+func (cr *ConfigAugmenter) VisitCommand(command kflags.Command) (bool, error) {
 	for ix := range cr.resolver {
 		resolver, err := cr.getAugmenter(ix)
 		if err != nil {
 			continue
 		}
 
-		found, err := resolver.Visit(ns, flag)
+		found, err := resolver.VisitCommand(command)
 		if err != nil {
 			return false, err
 		}
@@ -438,6 +462,35 @@ func (cr *ConfigAugmenter) Visit(ns string, flag kflags.Flag) (bool, error) {
 	return false, nil
 }
 
+func (cr *ConfigAugmenter) VisitFlag(ns string, flag kflags.Flag) (bool, error) {
+	for ix := range cr.resolver {
+		resolver, err := cr.getAugmenter(ix)
+		if err != nil {
+			continue
+		}
+
+		found, err := resolver.VisitFlag(ns, flag)
+		if err != nil {
+			return false, err
+		}
+		if found {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// getAugmenter returns the ixth augmenter in the list of augmenters.
+//
+// A configuration file can include multiple files. Each file is represented as an
+// augmenter object (likely, another ConfigAugmenter).
+//
+// When a ConfigAugmenter is created, the download of all the dependent files is started.
+// Once completed, the corresponding object is stored in the list of augmenters of the
+// parent object.
+//
+// getAugmenter looks at this list of augmenters, and returns the one requested by
+// the caller. If the augmenter is not ready, it will wait for it to be ready.
 func (cr *ConfigAugmenter) getAugmenter(ix int) (kflags.Augmenter, error) {
 	cr.lock.RLock()
 	instance, err := cr.resolver[ix].instance, cr.resolver[ix].err
@@ -454,6 +507,10 @@ func (cr *ConfigAugmenter) getAugmenter(ix int) (kflags.Augmenter, error) {
 	return cr.resolver[ix].instance, cr.resolver[ix].err
 }
 
+// Done completes the augmentation process.
+//
+// It recursively invokes the Done method of the augmenters that have been **used**.
+// It does NOT wait for augmenters that have NOT been used, even if configured.
 func (cr *ConfigAugmenter) Done() error {
 	cr.lock.Lock()
 	list := cr.resolver

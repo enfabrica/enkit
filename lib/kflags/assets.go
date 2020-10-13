@@ -59,8 +59,12 @@ func NewAssetAugmenter(log logger.Logger, forns string, assets map[string][]byte
 	}
 }
 
+func (ar *AssetAugmenter) VisitCommand(command Command) (bool, error) {
+	return false, nil
+}
+
 // Visit implements the Visit interface of Augmenter.
-func (ar *AssetAugmenter) Visit(reqns string, fl Flag) (bool, error) {
+func (ar *AssetAugmenter) VisitFlag(reqns string, fl Flag) (bool, error) {
 	if reqns != ar.forns {
 		ar.log.Debugf("%s flag %s: no asset assigned - namespace %s != %s", ar.forns, fl.Name(), reqns, ar.forns)
 		return false, nil
