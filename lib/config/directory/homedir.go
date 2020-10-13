@@ -3,7 +3,9 @@ package directory
 import (
 	"github.com/kirsle/configdir"
 	"io/ioutil"
+	"log"
 	"os"
+	"os/user"
 	"path/filepath"
 )
 
@@ -17,7 +19,26 @@ type Directory struct {
 // On Linux systems, this generally means ~/.config/<app>/<namespace>/.
 func OpenHomeDir(app string, namespaces ...string) (*Directory, error) {
 	paths := append([]string{app}, namespaces...)
-	return &Directory{path: configdir.LocalConfig(paths...)}, nil
+	dir := configdir.LocalConfig(paths...)
+	log.Printf("DIR %s", dir)
+	if !filepath.IsAbs(dir) {
+		user, err := user.Current()
+		if err != nil {
+			return nil, err
+		}
+		dir = filepath.Join(user.HomeDir, dir)
+	}
+
+	return &Directory{path: dir}, nil
+}
+
+// Refresh values cached by OpenHomeDir.
+//
+// Internally, OpenHomeDir caches some of the computed paths. Refresh() will cause
+// those paths to be re-computed. This is needed pretty much only if you expect
+// environment variables to change value in between calls.
+func Refresh() {
+	configdir.Refresh()
 }
 
 func OpenDir(base string, sub ...string) (*Directory, error) {
