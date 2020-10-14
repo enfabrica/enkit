@@ -65,11 +65,8 @@ def _astore_download(ctx):
     output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
     ctx.actions.run_shell(
         command = "%s download --no-progress -o %s %s" % (ctx.executable._astore_client.path, output.path, ctx.attr.download_src),
-        use_default_shell_env = False,
         tools = [ctx.executable._astore_client],
         outputs = [output],
-	#TODO: remove env after build user is created
-	env = {"HOME": "/home/bbhuynh"},
     )
     return [DefaultInfo(files = depset([output]))]
 
