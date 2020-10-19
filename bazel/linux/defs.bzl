@@ -111,6 +111,11 @@ def _kernel_module(ctx):
     inputs = ctx.files.srcs + ctx.files.kernel
     srcdir = ctx.file.makefile.dirname
 
+    for d in ctx.attr.deps:
+        inputs += d.files.to_list()
+        if CcInfo in d:
+            inputs += d[CcInfo].compilation_context.headers.to_list()
+
     rename = ctx.attr.rename
     if not rename:
         rename = module
@@ -174,6 +179,9 @@ when not debugging flaky builds.
         "silent": attr.bool(
             default = True,
             doc = "If set to False, the standard kernel 'make' output will be let free to clobber your console.",
+        ),
+        "deps": attr.label_list(
+            doc = "List of additional dependencies necessary to build this module.",
         ),
         "extra": attr.string_list(
             doc = "Anything more you'd like to pass to 'make'. All arguments specified here are just appended at the end of the build.",
