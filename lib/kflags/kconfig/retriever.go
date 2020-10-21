@@ -20,12 +20,36 @@ import (
 	"sync"
 )
 
+// Callback is used to return the value of a parameter.
+//
+// origin is a string identifying where the value is coming from. It can be a file name, an url, or...
+// It is useful for debugging purposes, or to implement heuristics to determine the format of the value
+// (example: is it json? yaml? let's hope there is an extension).
+//
+// value is the retrieved value, it is only valid if err is nil.
+// err indicates if an error happened during retrieval.
 type Callback func(origin, value string, err error)
 
+// Retriever is an object capable of retrieving the value of a parameter.
+//
+// Generally, a retriever is created when the configuration is parsed, to, for example, download the
+// value from an internal config store.
+//
+// Retrievers, however, will only start fetching the value when it is actually needed, when the
+// Retrieve() method is invoked.
+//
+// Generally, you should not create a retriever directly, but through the Creator object below.
 type Retriever interface {
 	Retrieve(Callback)
 }
 
+// Creator is an object capable of creating and sharing retrievers.
+//
+// Creator ensures that for a given parameter or url, only one retriever is instantiated, and the
+// result cached for the lifetime of the Creator.
+//
+// This allows a complex configuration file re-using the same parameters over and over to
+// have a very little impact in terms of latency, reliability, and bandwidth.
 type Creator struct {
 	cache      cache.Store
 	downloader *downloader.Downloader
@@ -46,6 +70,13 @@ func NewCreator(log logger.Logger, cache cache.Store, downloader *downloader.Dow
 	}
 }
 
+// Create creates the Retriever for a specific parameter.
+//
+// Create validates some of the parameter values, to ensure the validity of the request,
+// and based on the type of request, returns the correct Retriever.
+//
+// The returned retrieved is either newly created (if the value requested was never seen before) or
+// returns an exisitng one (if the same value was requested by another parameter).
 func (f *Creator) Create(param *Parameter) (Retriever, error) {
 	source := param.Source
 	if source == "" {
@@ -238,7 +269,7 @@ func (p *URLRetriever) DeliverError(err error) {
 // Retrieve by hash retrieves a parameter from a URL with a hash.
 //
 // It does not use an HTTP cache, Last-Modifier, or If-Modified-Since sorcery, as the Hash already
-// identifies the file uniquely. Eg, if we have a file by that hash, no need to fetc it. If we don't,
+// identifies the file uniquely. Eg, if we have a file by that hash, no need to fetch it. If we don't,
 // then we must fetch it.
 func (p *URLRetriever) RetrieveByHash() error {
 	location, found, err := p.cache.Get(p.param.Hash)

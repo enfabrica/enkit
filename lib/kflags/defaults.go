@@ -59,13 +59,35 @@ func (gf *GoFlag) SetContent(name string, data []byte) error {
 type Command interface {
 	Name() string
 	Hide(bool)
-//	AddFlag() error
 }
+
+type CommandDefinition struct {
+	Name string
+	Use string
+	Short string
+	Long string
+	Example string
+
+	Aliases []string
+}
+
+type FlagDefinition struct {
+	Name string
+	Help string
+	Default string
+}
+
+type FlagArg struct {
+	*FlagDefinition
+	flag.Value
+}
+
+type CommandAction func(flags []FlagArg, args []string) error
 
 // Commander is a Command that is capable of having subcommands.
 type Commander interface {
 	Command
-	AddCommand() error
+	AddCommand(def CommandDefinition, fl []FlagDefinition, action CommandAction) error
 }
 
 // An Augmenter is an object capable of providing default flag values, disable, add
@@ -91,9 +113,25 @@ type Commander interface {
 // Concurrent access to the flag or command by the resolver is not allowed. The
 // resolver must ensure that access to a given flag object is serialized.
 type Augmenter interface {
-	VisitCommand(command Command) (bool, error)
-	VisitFlag(name string, flag Flag) (bool, error)
+	// VisitCommand is used to ask the Augmenter to configure a command.
+	//
+	// namespace is a string that identifies the parent command this command is defined on.
+	// It is generally a string like "enkit.astore" identifying the "astore" subcommand of "enkit".
+	//
+	// Note that the caller will immediately call VisitFlag and other VisitCommand after this
+	// command returns, without waiting for Done().
+	VisitCommand(namespace string, command Command) (bool, error)
 
+	// VisitFlag is used to ask the Augmenter to configure a flag.
+	//
+	// namespace is a string that identifies the command the flag is defined on.
+	// It is generally a string like "enkit.astore" identifying the "astore" subcommand of "enkit".
+	VisitFlag(namespace string, flag Flag) (bool, error)
+
+	// Waits for all the visit details to be filled in.
+	//
+	// After Done() is invoked, the caller can assume that the flags and commands will no longer
+	// be touched by the augmenter.
 	Done() error
 }
 

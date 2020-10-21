@@ -1,5 +1,9 @@
 package kconfig
 
+import (
+	"github.com/enfabrica/enkit/lib/kflags"
+)
+
 type EncodeAs string
 
 const (
@@ -33,32 +37,40 @@ type Namespace struct {
 	// If empty, it is assumed to be the name of the application.
 	// Otherwise, it is a path using "." to separate subcommands.
 	Name    string
-	Hidden  bool         // TODO
+	Hidden  bool
 	Default []Parameter
-	Command []Command    // TODO
+	Command []Command
 }
 
-type Implementation struct { // TODO
-	URL string // TODO
-	Hash string // TODO
+type Package struct {
+	URL  string
+	Hash string
 }
 
-type Flag struct { // TODO
-	Name string
-	Help string
-	Default string
+type Var struct {
+	Key, Value string
 }
 
-type Command struct { // TODO
-	Use string
-	Aliases []string
-	Short string
-	Long string
-	Example string
+type Implementation struct {
+	// Having a Package results in a .tar.gz being downloaded from the specified URL,
+	// and in the Manifest contained therein to be loaded.
+	Package *Package
+	Local   []string
+	System  []string
 
-	Flag []Flag
+	// Variables to pass to the Local and System commands.
+	Var []Var
+}
 
-	Implementation Implementation
+type Manifest struct {
+	Command []Command
+}
+
+type Command struct {
+	kflags.CommandDefinition
+
+	Flag           []kflags.FlagDefinition
+	Implementation *Implementation
 }
 
 // Goal of a Config is to specify a list of defaults to apply to all the flags in a namespace.

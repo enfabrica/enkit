@@ -168,6 +168,11 @@ func TestCobraFeatures(t *testing.T) {
 	fc.Root.SetArgs([]string{"user", "add", "system"})
 	err = fc.Root.Execute()
 	assert.NotNil(t, err)
+
+	found, res, err := fc.Root.Find([]string{"user", "non-existing", "blah"})
+	assert.Equal(t, fc.User, found, "%v", found)
+	assert.Nil(t, err, "%v", err)
+	assert.Equal(t, []string{"non-existing", "blah"}, res)
 }
 
 type lf struct {
@@ -175,11 +180,25 @@ type lf struct {
 	flag string
 }
 
-type MockAugmenter struct {
-	lfs []lf
+type lc struct {
+	ns      string
+	command *kflags.Command
 }
 
-func (mr *MockAugmenter) VisitCommand(command kflags.Command) (bool, error) {
+type MockAugmenter struct {
+	commandCallbacks []func(ns string, command kflags.Command)
+
+	lfs []lf
+	lcs []lc
+}
+
+func (mr *MockAugmenter) VisitCommand(ns string, command kflags.Command) (bool, error) {
+	mr.lcs = append(mr.lcs, lc{ns: ns, command: &command})
+
+	if len(mr.commandCallbacks) > 0 {
+		mr.commandCallbacks[0](ns, command)
+		mr.commandCallbacks = mr.commandCallbacks[1:]
+	}
 	return false, nil
 }
 
@@ -191,7 +210,7 @@ func (mr *MockAugmenter) Done() error {
 	return nil
 }
 
-func TestPopulateDefaults(t *testing.T) {
+func TestPopulateFlags(t *testing.T) {
 	fc := CreateFakeCommand()
 	fr := &MockAugmenter{}
 
@@ -215,4 +234,121 @@ func TestPopulateDefaults(t *testing.T) {
 		{ns: "root.user.add.system", flag: "system-f"},
 		{ns: "root.user.add.system", flag: "system-p"},
 	}, fr.lfs)
+}
+
+// This won't build if something is wrong in the KCommand definition.
+func TestInterface(t *testing.T) {
+	var commander kflags.Commander
+	var command kflags.Command
+
+	v := &KCommand{}
+	commander = v
+	command = v
+	t.Log(commander, command)
+}
+
+func TestPopulateCommands(t *testing.T) {
+	fc := CreateFakeCommand()
+	fr := &MockAugmenter{}
+
+	argv := []string{"ignored-argv-0", "user", "add", "justice", "truth"}
+	err := PopulateCommands(fc.Root, argv, fr)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(fr.lcs))
+	assert.Equal(t, "root.user.add", fr.lcs[0].ns)
+
+	fr = &MockAugmenter{
+		commandCallbacks: []func(string, kflags.Command){
+			func(ns string, cmd kflags.Command) {
+				commander, ok := cmd.(kflags.Commander)
+				assert.True(t, ok)
+				assert.NotNil(t, commander)
+
+				commander.AddCommand(kflags.CommandDefinition{
+					Name:  "justice",
+					Short: "never fail to protest",
+					Long:  "There may be times when we are powerless to prevent injustice, but there must never be a time when we fail to protest.",
+				}, nil, nil)
+			},
+		},
+	}
+
+	err = PopulateCommands(fc.Root, argv, fr)
+	assert.Nil(t, err)
+
+	assert.Equal(t, 2, len(fr.lcs))
+	assert.Equal(t, "root.user.add", fr.lcs[0].ns)
+	assert.Equal(t, "root.user.add.justice", fr.lcs[1].ns)
+
+	// cobra assumes argv[0] is the first sub-command, rather than the path of the binary.
+	added, args, err := fc.Root.Find(argv[1:])
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"truth"}, args)
+	assert.Equal(t, "justice", added.Name())
+}
+
+func TestAddCommand(t *testing.T) {
+	root := &cobra.Command{Use: "root"}
+	assert.Equal(t, "Usage:\n", root.UsageString())
+
+	var cbflags []kflags.FlagArg
+	var cbargs []string
+
+	kc := KCommand{root}
+	kc.AddCommand(kflags.CommandDefinition{
+		Name:    "enkit",
+		Use:     "-p -f -bah",
+		Short:   "shortshortshort",
+		Long:    "longlonglong\nlonglonglong",
+		Example: "exampleexampleexample\nexampleexampleexample",
+		Aliases: []string{"first", "second"},
+	}, []kflags.FlagDefinition{
+		{
+			Name:    "step1",
+			Help:    "There can be no peace without justice",
+			Default: "peace",
+		},
+		{
+			Name:    "step2",
+			Help:    "There can be no justice without truth",
+			Default: "justice",
+		},
+	}, func(flags []kflags.FlagArg, args []string) error {
+		cbflags = flags
+		cbargs = args
+		return nil
+	})
+
+	assert.Equal(t, "Usage:\n  root [command]\n\nAvailable Commands:\n  enkit       shortshortshort\n\nUse \"root [command] --help\" for more information about a command.\n", root.UsageString())
+	added, args, err := root.Find([]string{"enkit", "dev:stable"})
+	assert.Nil(t, err, "%v", err)
+	assert.Equal(t, []string{"dev:stable"}, args, err)
+	assert.NotNil(t, added)
+
+	assert.Equal(t, "enkit", added.Name())
+	assert.Equal(t, "shortshortshort", added.Short)
+	expected := `Usage:
+  root enkit -p -f -bah [flags]
+
+Aliases:
+  enkit, first, second
+
+Examples:
+exampleexampleexample
+exampleexampleexample
+
+Flags:
+      --step1 string   There can be no peace without justice (default "peace")
+      --step2 string   There can be no justice without truth (default "justice")
+`
+	assert.Equal(t, expected, added.UsageString())
+	root.SetArgs([]string{"enkit", "--step2", "truth", "fpga:test"})
+	err = root.Execute()
+	assert.Nil(t, err)
+
+	assert.Equal(t, []string{"fpga:test"}, cbargs)
+	assert.Equal(t, 2, len(cbflags))
+	assert.Equal(t, "peace", cbflags[0].Value.String())
+	assert.Equal(t, "truth", cbflags[1].Value.String())
 }

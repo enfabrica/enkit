@@ -34,7 +34,7 @@ type resolver struct {
 // other config files, and recursively create other ConfigAugmenter objects.
 type ConfigAugmenter struct {
 	// Operations on individual resolvers must be done under lock.
-	lock     sync.RWMutex
+	lock sync.RWMutex
 
 	// A config file has includes. Each include requires downloading a file.
 	// When a file is downloaded, a new ConfigAugmenter is created able to
@@ -46,7 +46,7 @@ type ConfigAugmenter struct {
 	//
 	// Do not access this array directly: it is filled in lazily**,
 	// use getAugmenter instead.
-	// 
+	//
 	// **lazily: when a ConfigAugmenter object is created, the download of
 	// all the dependant configs is started, but not waited for (we may never
 	// need it, after all!).
@@ -124,8 +124,13 @@ type options struct {
 	// Our beloved logging framework.
 	log logger.Logger
 
-	creator Factory
-	base    string
+	// Generates the name of environment variables.
+	mangler kflags.EnvMangler
+
+	paramfactory   ParamFactory
+	commandfactory CommandFactory
+
+	base string
 
 	blocklist      *SeenStack
 	recursionLimit int
@@ -135,6 +140,7 @@ func DefaultOptions() *options {
 	return &options{
 		log:            logger.Nil,
 		recursionLimit: 10,
+		mangler:        kflags.PrefixRemap(kflags.DefaultRemap, "KCONFIG"),
 	}
 }
 
@@ -189,9 +195,16 @@ func WithDownloader(dl *downloader.Downloader) Modifier {
 	}
 }
 
-func WithCreator(c Factory) Modifier {
+func WithParamFactory(c ParamFactory) Modifier {
 	return func(o *options) error {
-		o.creator = c
+		o.paramfactory = c
+		return nil
+	}
+}
+
+func WithCommandFactory(c CommandFactory) Modifier {
+	return func(o *options) error {
+		o.commandfactory = c
 		return nil
 	}
 }
@@ -199,6 +212,13 @@ func WithCreator(c Factory) Modifier {
 func WithBaseURL(url string) Modifier {
 	return func(o *options) error {
 		o.base = url
+		return nil
+	}
+}
+
+func WithMangler(mangler kflags.EnvMangler) Modifier {
+	return func(o *options) error {
+		o.mangler = mangler
 		return nil
 	}
 }
@@ -353,11 +373,14 @@ func NewConfigAugmenter(cs cache.Store, config *Config, mods ...Modifier) (*Conf
 			return nil, err
 		}
 	}
-	if options.creator == nil {
-		options.creator = NewCreator(options.log, cs, options.dl, options.getOptions...).Create
+	if options.paramfactory == nil {
+		options.paramfactory = NewCreator(options.log, cs, options.dl, options.getOptions...).Create
+	}
+	if options.commandfactory == nil {
+		options.commandfactory = NewCommandRetriever(options.log, cs, options.dl.Retrier(), options.dl.ProtocolModifiers()...).Retrieve
 	}
 
-	namespace, err := NewNamespaceAugmenter(config.Namespace, options.creator)
+	namespace, err := NewNamespaceAugmenter(config.Namespace, options.log, options.mangler, options.commandfactory, options.paramfactory)
 	if err != nil {
 		return nil, err
 	}
@@ -444,14 +467,14 @@ func NewConfigAugmenter(cs cache.Store, config *Config, mods ...Modifier) (*Conf
 	return cr, multierror.New(errs)
 }
 
-func (cr *ConfigAugmenter) VisitCommand(command kflags.Command) (bool, error) {
+func (cr *ConfigAugmenter) VisitCommand(namespace string, command kflags.Command) (bool, error) {
 	for ix := range cr.resolver {
 		resolver, err := cr.getAugmenter(ix)
 		if err != nil {
 			continue
 		}
 
-		found, err := resolver.VisitCommand(command)
+		found, err := resolver.VisitCommand(namespace, command)
 		if err != nil {
 			return false, err
 		}

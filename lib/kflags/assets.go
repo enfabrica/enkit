@@ -59,11 +59,17 @@ func NewAssetAugmenter(log logger.Logger, forns string, assets map[string][]byte
 	}
 }
 
-func (ar *AssetAugmenter) VisitCommand(command Command) (bool, error) {
+// VisitCommand implements the VisitCommand interface of Augmenter. In AssetAugmenter, it is a noop.
+func (ar *AssetAugmenter) VisitCommand(ns string, command Command) (bool, error) {
 	return false, nil
 }
 
-// Visit implements the Visit interface of Augmenter.
+// VisitFlag implements the VisitFlag interface of Augmenter.
+//
+// If the namespace matches the one configured with the constructor, VisitFlag will look
+// for an asset named after the flag name.
+//
+// If one is found, the content of the flag is set to that of the asset.
 func (ar *AssetAugmenter) VisitFlag(reqns string, fl Flag) (bool, error) {
 	if reqns != ar.forns {
 		ar.log.Debugf("%s flag %s: no asset assigned - namespace %s != %s", ar.forns, fl.Name(), reqns, ar.forns)

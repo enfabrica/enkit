@@ -1,6 +1,7 @@
 package kcobra
 
 import (
+	"fmt"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/spf13/cobra"
@@ -37,10 +38,44 @@ type KCommand struct {
 	*cobra.Command
 }
 
-func (kc *KCommand) Hide(yes bool) {
+func (kc *KCommand) Hide(hidden bool) {
+	kc.Command.Hidden = hidden
 }
 
+func (kc *KCommand) AddCommand(def kflags.CommandDefinition, flags []kflags.FlagDefinition, action kflags.CommandAction) error {
+	command := &cobra.Command{
+		// In cobra, the name of a command is the first word in the use string.
+		Use:     def.Name + " " + def.Use,
+		Short:   def.Short,
+		Long:    def.Long,
+		Example: def.Example,
+		Aliases: def.Aliases,
+	}
 
+	flargs := []kflags.FlagArg{}
+	set := command.PersistentFlags()
+	for ix, flag := range flags {
+		set.String(flag.Name, flag.Default, flag.Help)
+		fdef := set.Lookup(flag.Name)
+		if fdef == nil {
+			return fmt.Errorf("internal error: the flag %s was just created, and yet does not exist - nil was returned", flag.Name)
+		}
+
+		flargs = append(flargs, kflags.FlagArg{
+			FlagDefinition: &flags[ix],
+			Value:          fdef.Value,
+		})
+	}
+
+	if action != nil {
+		command.RunE = func(cmd *cobra.Command, args []string) error {
+			return action(flargs, args)
+		}
+	}
+
+	kc.Command.AddCommand(command)
+	return nil
+}
 
 // CobraPopulator returns a kflags.Populator capable of filling in the defaults for
 // flags defined through cobra and the pflags library.
@@ -75,20 +110,26 @@ func PopulateCommands(root *cobra.Command, args []string, resolvers ...kflags.Au
 	}
 
 	// Find the actual cobra command that would be run given the current argv.
-	target, _, _ := root.Find(args)
 	var errs []error
+	var previous *cobra.Command
+	for {
+		target, _, _ := root.Find(args)
+		if target == previous {
+			break
+		}
+		previous = target
 
-	resolve := func(comm kflags.Command) {
+		namespace := target.Name()
+		for cursor := target.Parent(); cursor != nil; cursor = cursor.Parent() {
+			namespace = cursor.Name() + "." + namespace
+		}
+
+		ktarget := &KCommand{target}
 		for _, r := range resolvers {
-			if _, err := r.VisitCommand(comm); err != nil {
+			if _, err := r.VisitCommand(namespace, ktarget); err != nil {
 				errs = append(errs, err)
 			}
 		}
-	}
-
-	resolve(&KCommand{target})
-	for _, sub := range target.Commands() {
-		resolve(&KCommand{sub})
 	}
 
 	return multierror.New(errs)

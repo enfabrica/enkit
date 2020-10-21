@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "commandretriever.go",
         "config.go",
         "interface.go",
         "namespace.go",
@@ -14,6 +15,7 @@ go_library(
         "//lib/cache:go_default_library",
         "//lib/config/marshal:go_default_library",
         "//lib/config/remote:go_default_library",
+        "//lib/karchive:go_default_library",
         "//lib/kflags:go_default_library",
         "//lib/khttp/downloader:go_default_library",
         "//lib/khttp/kcache:go_default_library",
@@ -28,10 +30,12 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "commandretriever_test.go",
         "config_test.go",
         "namespace_test.go",
         "retriever_test.go",
     ],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
     deps = [
         "//lib/cache:go_default_library",
@@ -39,6 +43,7 @@ go_test(
         "//lib/khttp/downloader:go_default_library",
         "//lib/khttp/ktest:go_default_library",
         "//lib/logger:go_default_library",
+        "//lib/retry:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
