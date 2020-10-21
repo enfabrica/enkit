@@ -10,6 +10,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/config/marshal",
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/multierror:go_default_library",
         "@com_github_pelletier_go_toml//:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",
     ],

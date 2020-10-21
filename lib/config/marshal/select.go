@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"os"
+	"github.com/enfabrica/enkit/lib/multierror"
 )
 
 // Use marshal.Toml to encode/decode from Toml format.
@@ -22,9 +23,10 @@ var Known = []FileMarshaller{
 	Toml, Json, Yaml,
 }
 
+// Represents a sorted list of marshallers. Lowest indes is the most preferred marshaller.
 type FileMarshallers []FileMarshaller
 
-// ByExtension returns the best FileMarshaller based on the extension of the path provided.
+// ByExtension returns the first FileMarshaller based on the extension of the path provided.
 func (fm FileMarshallers) ByExtension(path string) FileMarshaller {
 	ext := strings.TrimPrefix(filepath.Ext(path), ".")
 	if ext == "" {
@@ -39,6 +41,10 @@ func (fm FileMarshallers) ByExtension(path string) FileMarshaller {
 	return nil
 }
 
+// Marshal will marshal the specified value based on the extension of the specified path.
+// If the extension is unknown, an error is returned.
+//
+// Returns a byte array with the marshalled value, or error.
 func (fm FileMarshallers) Marshal(path string, value interface{}) ([]byte, error) {
 	marshaller := fm.ByExtension(path)
 	if marshaller == nil {
@@ -47,6 +53,10 @@ func (fm FileMarshallers) Marshal(path string, value interface{}) ([]byte, error
 	return marshaller.Marshal(value)
 }
 
+// MarshalDefault will marshal the specified value based on the extension of the specified path.
+// If the extension is unknown, the specified default marshaller is used.
+//
+// Returns a byte array with the marshalled value, or error.
 func (fm FileMarshallers) MarshalDefault(path string, def Marshaller, value interface{}) ([]byte, error) {
 	marshaller := fm.ByExtension(path)
 	if marshaller == nil {
@@ -55,6 +65,10 @@ func (fm FileMarshallers) MarshalDefault(path string, def Marshaller, value inte
 	return marshaller.Marshal(value)
 }
 
+// Unmarshal will determine the format of the file based on the extension, and unmarshal it in value.
+//
+// value is a pointer to the object to be parsed.
+// If the extension is unknown, an error is returned.
 func (fm FileMarshallers) Unmarshal(path string, data []byte, value interface{}) error {
 	marshaller := fm.ByExtension(path)
 	if marshaller == nil {
@@ -63,6 +77,10 @@ func (fm FileMarshallers) Unmarshal(path string, data []byte, value interface{})
 	return marshaller.Unmarshal(data, value)
 }
 
+// UnmarshalDefault will determine the format of the file based on the extension, and unmarshal it in value.
+//
+// value is a pointer to the object to be parsed.
+// If the extension is unknown, the specified default marshaller is used.
 func (fm FileMarshallers) UnmarshalDefault(path string, data []byte, def Marshaller, value interface{}) error {
 	marshaller := fm.ByExtension(path)
 	if marshaller == nil {
@@ -71,17 +89,26 @@ func (fm FileMarshallers) UnmarshalDefault(path string, data []byte, def Marshal
 	return marshaller.Unmarshal(data, value)
 }
 
-// Marshal will encode the 'value' object using the best encoder depending on the 'path' extension.
-// Returns the marshalled object, or an error.
-func Marshal(path string, value interface{}) ([]byte, error) {
-	return FileMarshallers(Known).Marshal(path, value)
-}
+// UnmarshalFilePrefix will attempt each FileMarshaller extension in order, and open the first that succeeds.
+//
+// Returns the full path of the file that succeeded, or error.
+func (fm FileMarshallers) UnmarshalFilePrefix(prefix string, value interface{}) (string, error) {
+	var errs []error
+	for _, candidate := range fm {
+		name := prefix + "." + candidate.Extension()
 
-// Unmarshal will decode the 'data' into the 'value' object based on the 'path' extension.
-// value must be a pointer to the desired type.
-// Returns error if the byte stream could not be decoded.
-func Unmarshal(path string, data []byte, value interface{}) error {
-	return FileMarshallers(Known).Unmarshal(path, data, value)
+		data, err := ioutil.ReadFile(name)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("opening %s: %w", name, err))
+			continue
+		}
+		if err := candidate.Unmarshal(data, value); err != nil {
+			errs = append(errs, fmt.Errorf("parsing %s: %w", name, err))
+			continue
+		}
+		return name, nil
+	}
+	return "", multierror.New(errs)
 }
 
 // UnmarshalAsset tries to find an asset that can be decoded, and decodes it.
@@ -107,8 +134,8 @@ func Unmarshal(path string, data []byte, value interface{}) error {
 //
 // Similarly to what would happen if a config file was not found on disk, returns
 // os.ErrNotExist if no valid file could be found in the assets.
-func UnmarshalAsset(name string, assets map[string][]byte, value interface{}) error {
-	for _, known := range Known {
+func (fm FileMarshallers) UnmarshalAsset(name string, assets map[string][]byte, value interface{}) error {
+	for _, known := range fm {
 		asset, found := assets[name + "." + known.Extension()]
 		if found {
 			return known.Unmarshal(asset, value)
@@ -117,25 +144,63 @@ func UnmarshalAsset(name string, assets map[string][]byte, value interface{}) er
 	return os.ErrNotExist
 }
 
-func MarshalFile(path string, value interface{}) error {
-	data, err := Marshal(path, value)
+// MarshalFile invokes Marshal() to then save the content in a file.
+func (fm FileMarshallers) MarshalFile(path string, value interface{}) error {
+	data, err := fm.Marshal(path, value)
 	if err != nil {
 		return err
 	}
 	return ioutil.WriteFile(path, data, 0660)
 }
-func UnmarshalFile(path string, value interface{}) error {
+
+// UnmarshalFile invokes Unarshal() to parse the content of a file.
+func (fm FileMarshallers) UnmarshalFile(path string, value interface{}) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	return Unmarshal(path, data, value)
+	return fm.Unmarshal(path, data, value)
 }
 
+// Marshal will encode the 'value' object using the best encoder depending on the 'path' extension.
+// Returns the marshalled object, or an error.
+func Marshal(path string, value interface{}) ([]byte, error) {
+	return FileMarshallers(Known).Marshal(path, value)
+}
+
+// Unmarshal will decode the 'data' into the 'value' object based on the 'path' extension.
+// value must be a pointer to the desired type.
+// Returns error if the byte stream could not be decoded.
+func Unmarshal(path string, data []byte, value interface{}) error {
+	return FileMarshallers(Known).Unmarshal(path, data, value)
+}
+
+// UnmarshalAsset is the same as FileMarshallers.UnmarshalAsset, but uses the default list of Marshallers.
+func UnmarshalAsset(name string, assets map[string][]byte, value interface{}) error {
+	return FileMarshallers(Known).UnmarshalAsset(name, assets, value)
+}
+
+// MarshalFile is the same as FileMarshallers.MarshalFile, but uses the default list of Marshallers.
+func MarshalFile(path string, value interface{}) error {
+	return FileMarshallers(Known).MarshalFile(path, value)
+}
+
+// UnmarshalFile is the same as FileMarshallers.UnmarshalFile, but uses the default list of Marshallers.
+func UnmarshalFile(path string, value interface{}) error {
+	return FileMarshallers(Known).UnmarshalFile(path, value)
+}
+
+// MarshalDefault is the same as FileMarshallers.MarshalDefault, but uses the default list of Marshallers.
 func MarshalDefault(path string, def Marshaller, value interface{}) ([]byte, error) {
 	return FileMarshallers(Known).MarshalDefault(path, def, value)
 }
 
+// UnmarshalDefault is the same as FileMarshallers.UnmarshalDefault, but uses the default list of Marshallers.
 func UnmarshalDefault(path string, data []byte, def Marshaller, value interface{}) error {
 	return FileMarshallers(Known).UnmarshalDefault(path, data, def, value)
+}
+
+// UnmarshalFilePrefix is the same as FileMarshallers.UnmarshalFilePrefix, but uses the default list of Marshallers.
+func UnmarshalFilePrefix(prefix string, value interface{}) (string, error) {
+	return FileMarshallers(Known).UnmarshalFilePrefix(prefix, value)
 }
