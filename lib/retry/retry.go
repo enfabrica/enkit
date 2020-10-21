@@ -29,6 +29,18 @@ type Options struct {
 	Flags
 }
 
+// Nil is a set of retry options that perform a single retry.
+//
+// This is useful whenever you have an object that requires a retry config, but you only
+// want a single retry attempt to be performed.
+var Nil = &Options{
+	logger: logger.Nil,
+	Now: time.Now,
+	Flags: Flags{
+		AtMost: 1,
+	},
+}
+
 type Flags struct {
 	// How many times to retry the operation, at most.
 	AtMost int
