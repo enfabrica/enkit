@@ -136,6 +136,19 @@ type Downloader struct {
 	pool  *workpool.WorkPool
 }
 
+// Retrier returns a retrier with the same options that would be used by the downloader.
+func (o *roptions) Retrier() *retry.Options {
+	return retry.New(o.retry...)
+}
+
+func (o *roptions) ProtocolModifiers() []protocol.Modifier {
+	return append(protocol.Modifiers{
+			protocol.WithContext(o.ctx),
+			protocol.WithTimeout(o.timeout),
+			protocol.WithRequestOptions(o.request...),
+			protocol.WithClientOptions(o.client...)}, o.protocol...)
+}
+
 // Get will fetch the specified url, invoke handler to process the response, and eh to process the returned error.
 //
 // Get will schedule the operation through a workpool.
@@ -154,17 +167,10 @@ func (d *Downloader) Get(url string, handler protocol.ResponseHandler, eh workpo
 	}
 
 	work := func() error {
-		err := protocol.Get(url, handler,
-			append(protocol.Modifiers{
-				protocol.WithContext(options.ctx),
-				protocol.WithTimeout(options.timeout),
-				protocol.WithRequestOptions(options.request...),
-				protocol.WithClientOptions(options.client...)}, options.protocol...)...)
-		return err
+		return protocol.Get(url, handler, options.ProtocolModifiers()...)
 	}
 
-	retrier := retry.New(d.retry...)
-
+	retrier := options.Retrier()
 	if retrier.AtMost <= 0 {
 		d.pool.Add(workpool.WithError(work, eh))
 	} else {

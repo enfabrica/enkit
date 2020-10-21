@@ -8,6 +8,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"time"
+	"path/filepath"
+	"os"
+	"io"
 )
 
 type Handler func(w http.ResponseWriter, r *http.Request)
@@ -70,17 +73,59 @@ func CachableStringHandler(message string) Handler {
 	}
 }
 
+// Returns a file, cachable.
+func CachableFileHandler(file string) Handler {
+	return func(w http.ResponseWriter, r *http.Request) {
+		f, err := os.Open(file)
+		if err != nil {
+			panic(fmt.Sprintf("could not open %s", file))
+		}
+
+		defer f.Close()
+		http.ServeContent(w, r, "hello.html", CacheTime, f)
+	}
+}
+
+// Returns a file not cachable.
+func FileHandler(file string) Handler {
+	return func(w http.ResponseWriter, r *http.Request) {
+		f, err := os.Open(file)
+		if err != nil {
+			panic(fmt.Sprintf("could not open %s", file))
+		}
+
+		defer f.Close()
+		w.Header().Set("Content-Type", "application/octet-stream")
+		io.Copy(w, f)
+		return
+	}
+}
+// Returns a file from the "testdata" directory", cachable.
+func CachableTestDataHandler(file string) Handler {
+	return CachableFileHandler(filepath.Join("testdata", file))
+}
+
+// Returns a file from the "testdata" directory", not cachable.
+func TestDataHandler(file string) Handler {
+	return FileHandler(filepath.Join("testdata", file))
+}
+
+// Always returns the string "hello", with headers that allow caching.
 func CachableHelloHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, "hello.html", CacheTime, strings.NewReader("hello"))
 }
 
+// Always returns the string "hello".
 func HelloHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "hello")
 }
 
+// ErrorHandler returns a StatusInternalServerError.
 func ErrorHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "all kitties have died", http.StatusInternalServerError)
 }
+
+// HangingHandler hangs forever.
 func HangingHandler(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(24 * 365 * time.Hour)
 }

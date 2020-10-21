@@ -73,10 +73,6 @@ func WithCache(cache cache.Store, mods ...Modifier) protocol.Modifier {
 	}
 	Modifiers(mods).Apply(cacheOptions)
 
-	// Pseudo code:
-	// - modify request to include Last-Modified-If time (or nothing).
-	// - modify opener so that the result is saved into the cache.
-	// - modify error handling so if an error arises, the cache can interject.
 	var cachepath string
 	var outfile string
 	var request *http.Request
@@ -168,10 +164,24 @@ const (
 	CEPFail
 )
 
+// CachedFile is an io.Reader provided by WithCache in place of resp.Body.
+//
+// This allows response handlers to access the underlying file or directory directly.
 type CachedFile struct {
+	// An open descriptor pointing to the cache file where the body was saved.
+	//
+	// The application is free to do anything on this File, except close it.
+	// WithCache will fail if the file cannot be closed successfully.
 	*os.File
 
+	// Path is the final path of where the cached file has been stored.
+	//
+	// This includes any directory provided by the cache storage layer.
 	Path  string
+
+	// If false, indicates that the file was just downloaded.
+	// If true, it was either re-used from cache because nothing changed, or because
+	// there was a failure on the remote end.
 	Stale bool
 }
 
