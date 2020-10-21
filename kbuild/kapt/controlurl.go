@@ -2,8 +2,8 @@ package kapt
 
 import (
 	"github.com/cybozu-go/aptutil/apt"
-	"github.com/enfabrica/enkit/kbuild/common"
 	"github.com/enfabrica/enkit/lib/khttp/protocol"
+	"github.com/enfabrica/enkit/lib/karchive"
 
 	"fmt"
 	"io"
@@ -24,7 +24,7 @@ type ControlURL struct {
 
 // Decoder returns an io.Reader capable of decoding the file.
 func (cu ControlURL) Decoder(current io.Reader) (string, io.Reader, error) {
-	return common.Decoder(cu.Path, current)
+	return karchive.Decoder(cu.Path, current)
 }
 
 // Supported returns true if the URL specifies a format that can be opened by this library.

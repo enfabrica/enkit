@@ -12,6 +12,7 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/protocol"
 	"github.com/enfabrica/enkit/lib/khttp/scheduler"
 	"github.com/enfabrica/enkit/lib/khttp/workpool"
+	"github.com/enfabrica/enkit/lib/karchive"
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/enfabrica/kbuild/assets"
 	"github.com/xor-gate/ar"
@@ -308,7 +309,7 @@ outer:
 					}
 					log.Printf("for file %s: %v", file, *arh)
 
-					name, d, err := common.Decoder(arh.Name, r)
+					name, d, err := karchive.Decoder(arh.Name, r)
 					if err != nil {
 						return fmt.Errorf("decode error for %s: %w", file, err)
 					}

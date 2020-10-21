@@ -10,6 +10,7 @@ go_library(
         "//kbuild/common:go_default_library",
         "//kbuild/kapt:go_default_library",
         "//lib/config/marshal:go_default_library",
+        "//lib/karchive:go_default_library",
         "//lib/khttp/protocol:go_default_library",
         "//lib/khttp/scheduler:go_default_library",
         "//lib/khttp/workpool:go_default_library",

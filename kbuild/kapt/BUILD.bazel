@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//kbuild/common:go_default_library",
+        "//lib/karchive:go_default_library",
         "//lib/khttp/protocol:go_default_library",
         "@com_github_cybozu_go_aptutil//apt:go_default_library",
     ],
