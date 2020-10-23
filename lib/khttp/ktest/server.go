@@ -3,14 +3,15 @@ package ktest
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
-	"path/filepath"
-	"os"
-	"io"
 )
 
 type Handler func(w http.ResponseWriter, r *http.Request)
@@ -100,6 +101,7 @@ func FileHandler(file string) Handler {
 		return
 	}
 }
+
 // Returns a file from the "testdata" directory", cachable.
 func CachableTestDataHandler(file string) Handler {
 	return CachableFileHandler(filepath.Join("testdata", file))
@@ -130,15 +132,34 @@ func HangingHandler(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(24 * 365 * time.Hour)
 }
 
-func Start(s http.Handler) (string, error) {
+func StartURL(s http.Handler) (*url.URL, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	server := &http.Server{Handler: s}
 	go func() { server.Serve(ln) }()
 	port := ln.Addr().(*net.TCPAddr).Port
-	return fmt.Sprintf("http://127.0.0.1:%d/", port), nil
+	return &url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("127.0.0.1:%d", port),
+		Path:   "/",
+	}, nil
+}
+
+func Start(s http.Handler) (string, error) {
+	u, err := StartURL(s)
+	if err != nil {
+		return "", err
+	}
+	return u.String(), err
+}
+
+func StartServerURL(h Handler) (*http.ServeMux, *url.URL, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", h)
+	res, err := StartURL(mux)
+	return mux, res, err
 }
 
 func StartServer(h Handler) (*http.ServeMux, string, error) {
