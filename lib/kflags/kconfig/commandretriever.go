@@ -115,6 +115,5 @@ func (cr *CommandRetriever) Retrieve(url, hash string) (string, *Manifest, error
 	if _, err := marshal.UnmarshalFilePrefix(filepath.Join(dir, "manifest"), &manifest); err != nil {
 		return "", nil, fmt.Errorf("could not find manifest file: %w", err)
 	}
-
 	return dir, &manifest, nil
 }

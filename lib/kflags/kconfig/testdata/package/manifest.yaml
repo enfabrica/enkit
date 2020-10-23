@@ -1,0 +1,33 @@
+command:
+- name: start
+  use: use
+  short: short
+  long: long
+  example: example
+  aliases:
+  - run
+  - go
+  flag:
+  - name: option1
+    help: test optional parameter
+    default: value1
+  - name: option2
+    help: test optional parameter
+    default: value2
+  implementation:
+    local:
+    - start.sh
+    - "{{.truth}}"
+    - happily
+    var:
+    - key: truth
+      value: justice
+- name: stop
+  use: don't use this
+  short: short description
+  long: long description
+  example: example
+  flag: []
+  implementation:
+    local:
+    - stop.sh

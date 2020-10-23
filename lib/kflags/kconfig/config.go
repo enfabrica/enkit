@@ -373,21 +373,6 @@ func NewConfigAugmenter(cs cache.Store, config *Config, mods ...Modifier) (*Conf
 			return nil, err
 		}
 	}
-	if options.paramfactory == nil {
-		options.paramfactory = NewCreator(options.log, cs, options.dl, options.getOptions...).Create
-	}
-	if options.commandfactory == nil {
-		options.commandfactory = NewCommandRetriever(options.log, cs, options.dl.Retrier(), options.dl.ProtocolModifiers()...).Retrieve
-	}
-
-	namespace, err := NewNamespaceAugmenter(config.Namespace, options.log, options.mangler, options.commandfactory, options.paramfactory)
-	if err != nil {
-		return nil, err
-	}
-
-	cr := &ConfigAugmenter{
-		resolver: make([]resolver, len(config.Include)+1),
-	}
 
 	baseURL := &url.URL{}
 	if options.base != "" {
@@ -395,6 +380,22 @@ func NewConfigAugmenter(cs cache.Store, config *Config, mods ...Modifier) (*Conf
 		if err != nil {
 			return nil, fmt.Errorf("invalid base url %s - %w", options.base, err)
 		}
+	}
+
+	if options.paramfactory == nil {
+		options.paramfactory = NewCreator(options.log, cs, options.dl, options.getOptions...).Create
+	}
+	if options.commandfactory == nil {
+		options.commandfactory = NewCommandRetriever(options.log, cs, options.dl.Retrier(), options.dl.ProtocolModifiers()...).Retrieve
+	}
+
+	namespace, err := NewNamespaceAugmenter(baseURL, config.Namespace, options.log, options.mangler, options.commandfactory, options.paramfactory)
+	if err != nil {
+		return nil, err
+	}
+
+	cr := &ConfigAugmenter{
+		resolver: make([]resolver, len(config.Include)+1),
 	}
 
 	// When visiting flags, the last include takes priority.

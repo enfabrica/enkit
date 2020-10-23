@@ -67,7 +67,7 @@ type Manifest struct {
 }
 
 type Command struct {
-	kflags.CommandDefinition
+	kflags.CommandDefinition `yaml:",inline"`
 
 	Flag           []kflags.FlagDefinition
 	Implementation *Implementation

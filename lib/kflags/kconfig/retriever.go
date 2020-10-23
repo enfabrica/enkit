@@ -17,6 +17,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -80,7 +81,7 @@ func NewCreator(log logger.Logger, cache cache.Store, downloader *downloader.Dow
 //
 // The returned retrieved is either newly created (if the value requested was never seen before) or
 // returns an exisitng one (if the same value was requested by another parameter).
-func (f *Creator) Create(param *Parameter) (Retriever, error) {
+func (f *Creator) Create(base *url.URL, param *Parameter) (Retriever, error) {
 	source := param.Source
 	if source == "" {
 		source = SourceInline
@@ -100,14 +101,23 @@ func (f *Creator) Create(param *Parameter) (Retriever, error) {
 		return nil, fmt.Errorf("invalid configuration - %#v when fetching an url, an url must be specified", param)
 	}
 
-	key := fmt.Sprintf("%s:%s:%s", param.Value, param.Encoding, param.Hash)
+	u, err := url.Parse(param.Value)
+	if err != nil {
+		return nil, fmt.Errorf("invalid configuration - %#v the url cannot be parsed - %w", param, err)
+	}
+
+	desired := u
+	if base != nil {
+		desired = base.ResolveReference(u)
+	}
+	key := fmt.Sprintf("%s:%s:%s", desired.String(), param.Encoding, param.Hash)
 
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
 	retriever := f.index[key]
 	if retriever == nil {
-		retriever = NewURLRetriever(f.log, f.cache, f.downloader, param, f.mods...)
+		retriever = NewURLRetriever(f.log, f.cache, f.downloader, desired, param, f.mods...)
 		f.index[key] = retriever
 	}
 	return retriever, nil
@@ -215,6 +225,8 @@ type URLRetriever struct {
 	cache cache.Store
 	dl    *downloader.Downloader
 	mods  []downloader.Modifier
+
+	url   *url.URL
 	param *Parameter
 
 	lock sync.RWMutex
@@ -225,8 +237,8 @@ type URLRetriever struct {
 	cbs    []Callback
 }
 
-func NewURLRetriever(log logger.Logger, cache cache.Store, dl *downloader.Downloader, param *Parameter, mods ...downloader.Modifier) *URLRetriever {
-	return &URLRetriever{log: log, cache: cache, dl: dl, mods: mods, param: param}
+func NewURLRetriever(log logger.Logger, cache cache.Store, dl *downloader.Downloader, url *url.URL, param *Parameter, mods ...downloader.Modifier) *URLRetriever {
+	return &URLRetriever{log: log, cache: cache, dl: dl, mods: mods, url: url, param: param}
 }
 
 // Call will invoke the callback with the retrieved value.
@@ -295,10 +307,10 @@ func (p *URLRetriever) RetrieveByHash() error {
 		return h
 	}
 
-	p.dl.Get(p.param.Value, protocol.Read(protocol.Chain(protocol.WriterCreator(hasher), protocol.File(CacheFile(location)), protocol.OnClose(func(resp *http.Response) error {
+	p.dl.Get(p.url.String(), protocol.Read(protocol.Chain(protocol.WriterCreator(hasher), protocol.File(CacheFile(location)), protocol.OnClose(func(resp *http.Response) error {
 		computed := hex.EncodeToString(h.Sum(nil))
 		if ihash != computed {
-			return fmt.Errorf("computed sha256 for %s is %s - required is %s - REJECTED", p.param.Value, computed, ihash)
+			return fmt.Errorf("computed sha256 for %s is %s - required is %s - REJECTED", p.url.String(), computed, ihash)
 		}
 
 		final, err := p.cache.Commit(location)
@@ -340,7 +352,7 @@ func (p *URLRetriever) RetrieveByHash() error {
 var YodaSays = "Do. Or do not. There is no try. And there is no config either."
 
 func (p *URLRetriever) RetrieveByPath() {
-	p.dl.Get(p.param.Value, func(url string, resp *http.Response, err error) error {
+	p.dl.Get(p.url.String(), func(url string, resp *http.Response, err error) error {
 		if err != nil || resp.StatusCode != http.StatusOK {
 			if err != nil && resp.StatusCode != http.StatusNotFound {
 				return err

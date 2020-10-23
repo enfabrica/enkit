@@ -9,6 +9,7 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -132,7 +133,7 @@ func TestAugmenterWithError(t *testing.T) {
 	assert.Nil(t, err)
 
 	namespaces := getNamespaces(url, true)
-	_, err = NewNamespaceAugmenter(namespaces, nil, nil, nil, NewCreator(logger.Nil, c, dl).Create)
+	_, err = NewNamespaceAugmenter(nil, namespaces, nil, nil, nil, NewCreator(logger.Nil, c, dl).Create)
 	assert.NotNil(t, err, "%s", err)
 }
 
@@ -173,13 +174,13 @@ func TestAugmenterCommand(t *testing.T) {
 	}
 
 	created := []*Parameter{}
-	mockCreator := func(param *Parameter) (Retriever, error) {
+	mockCreator := func(url *url.URL, param *Parameter) (Retriever, error) {
 		created = append(created, param)
 		return nil, nil
 	}
 
 	namespaces := getNamespaces("http://non-existant-url/", false)
-	ag, err := NewNamespaceAugmenter(namespaces, nil, nil, mockRetrieve, mockCreator)
+	ag, err := NewNamespaceAugmenter(nil, namespaces, nil, nil, mockRetrieve, mockCreator)
 
 	// First round: the test namespace adds a subcommand to astore, but
 	// does not cause any retrieval, as the entire configuration is self contained.
@@ -214,7 +215,7 @@ func TestAugmenter(t *testing.T) {
 	assert.Nil(t, err)
 
 	namespaces := getNamespaces(url, false)
-	r, err := NewNamespaceAugmenter(namespaces, nil, nil, nil, NewCreator(logger.Nil, c, dl).Create)
+	r, err := NewNamespaceAugmenter(nil, namespaces, nil, nil, nil, NewCreator(logger.Nil, c, dl).Create)
 	assert.Nil(t, err, "%s", err)
 
 	server := flag.String("astore-server", "initials", "usage")

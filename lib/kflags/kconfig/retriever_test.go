@@ -7,6 +7,7 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
+	"net/url"
 	"sync"
 	"testing"
 	"time"
@@ -92,7 +93,7 @@ func TestURLRetriever(t *testing.T) {
 	assert.Nil(t, err)
 
 	http := ktest.Capture(ktest.CachableStringHandler(message))
-	_, url, err := ktest.StartServer(http.Handle)
+	_, url, err := ktest.StartServerURL(http.Handle)
 	assert.Nil(t, err)
 
 	type result struct {
@@ -108,9 +109,9 @@ func TestURLRetriever(t *testing.T) {
 		values = append(values, result{value: value, err: err})
 	}
 
-	r := NewURLRetriever(logger.Nil, c, dl, &Parameter{
+	r := NewURLRetriever(logger.Nil, c, dl, url, &Parameter{
 		Name:  "name",
-		Value: url,
+		Value: url.String(),
 	})
 	for ix := 0; ix < 10; ix++ {
 		r.Retrieve(callback)
@@ -129,9 +130,9 @@ func TestURLRetriever(t *testing.T) {
 	}
 
 	testEncoding(t, func(message, encoding string) Retriever {
-		return NewURLRetriever(logger.Nil, c, dl, &Parameter{
+		return NewURLRetriever(logger.Nil, c, dl, url, &Parameter{
 			Name:     "name",
-			Value:    url,
+			Value:    url.String(),
 			Encoding: EncodeAs(encoding),
 		})
 	}, func() {
@@ -146,7 +147,7 @@ func TestURLByHash(t *testing.T) {
 	dl, err := downloader.New()
 	assert.Nil(t, err)
 	http := ktest.Capture(ktest.StringHandler(message))
-	_, url, err := ktest.StartServer(http.Handle)
+	_, url, err := ktest.StartServerURL(http.Handle)
 	assert.Nil(t, err)
 
 	type result struct {
@@ -162,9 +163,9 @@ func TestURLByHash(t *testing.T) {
 		values = append(values, result{value: value, err: err})
 	}
 
-	r := NewURLRetriever(logger.Nil, c, dl, &Parameter{
+	r := NewURLRetriever(logger.Nil, c, dl, url, &Parameter{
 		Name:  "name",
-		Value: url,
+		Value: url.String(),
 		Hash:  "c24e00ca3ba81c6b4071298fadcefbec2b560f13d40dff7c1881989add11c75f",
 	})
 	for ix := 0; ix < 10; ix++ {
@@ -188,20 +189,20 @@ func TestCreator(t *testing.T) {
 	assert.Nil(t, err)
 
 	creator := NewCreator(logger.Nil, c, dl)
-	r, err := creator.Create(&Parameter{})
+	r, err := creator.Create(nil, &Parameter{})
 	assert.NotNil(t, err)
 	assert.Nil(t, r)
 
-	r, err = creator.Create(&Parameter{Source: "proletarian"})
+	r, err = creator.Create(nil, &Parameter{Source: "proletarian"})
 	assert.NotNil(t, err)
 	assert.Nil(t, r)
 
-	r, err = creator.Create(&Parameter{Source: SourceURL, Name: "union"})
+	r, err = creator.Create(nil, &Parameter{Source: SourceURL, Name: "union"})
 	assert.NotNil(t, err)
 	assert.Nil(t, r)
 
 	testEncoding(t, func(message, encoding string) Retriever {
-		r, err := creator.Create(&Parameter{
+		r, err := creator.Create(nil, &Parameter{
 			Name:     "name",
 			Value:    message,
 			Encoding: EncodeAs(encoding),
@@ -212,13 +213,13 @@ func TestCreator(t *testing.T) {
 	})
 
 	http := ktest.Capture(ktest.CachableStringHandler(message))
-	_, url, err := ktest.StartServer(http.Handle)
+	_, url, err := ktest.StartServerURL(http.Handle)
 	assert.Nil(t, err)
 
 	testEncoding(t, func(message, encoding string) Retriever {
-		r, err := creator.Create(&Parameter{
+		r, err := creator.Create(nil, &Parameter{
 			Name:     "name",
-			Value:    url,
+			Value:    url.String(),
 			Source:   SourceURL,
 			Encoding: EncodeAs(encoding),
 		})
@@ -228,18 +229,18 @@ func TestCreator(t *testing.T) {
 		dl.Wait()
 	})
 
-	r1, err := creator.Create(&Parameter{Source: SourceURL, Name: "union", Value: url})
+	r1, err := creator.Create(nil, &Parameter{Source: SourceURL, Name: "union", Value: url.String()})
 	assert.Nil(t, err)
 	assert.NotNil(t, r1)
 
-	r2, err := creator.Create(&Parameter{Source: SourceURL, Name: "bar", Value: url})
+	r2, err := creator.Create(nil, &Parameter{Source: SourceURL, Name: "bar", Value: url.String()})
 	assert.Nil(t, err)
 	assert.NotNil(t, r2)
 
 	// No matter the name, if the same url with the same encoding is fetched, the same retrievers should be used.
 	assert.Equal(t, r1, r2)
 
-	r3, err := creator.Create(&Parameter{Source: SourceURL, Name: "bar", Value: url, Encoding: "file"})
+	r3, err := creator.Create(nil, &Parameter{Source: SourceURL, Name: "bar", Value: url.String(), Encoding: "file"})
 	assert.Nil(t, err)
 	assert.NotNil(t, r3)
 
@@ -265,10 +266,12 @@ func TestURLFail(t *testing.T) {
 		defer l.Unlock()
 		values = append(values, result{value: value, err: err})
 	}
+	u, err := url.Parse("https://127.0.0.3:1/")
+	assert.Nil(t, err)
 
-	r := NewURLRetriever(logger.Nil, c, dl, &Parameter{
+	r := NewURLRetriever(logger.Nil, c, dl, u, &Parameter{
 		Name:  "name",
-		Value: "https://127.0.1.3:1/",
+		Value: u.String(),
 	})
 	r.Retrieve(callback)
 	dl.Wait()
@@ -286,7 +289,7 @@ func TestURLSlow(t *testing.T) {
 	assert.Nil(t, err)
 
 	http := ktest.Capture(ktest.CachableStringHandler(message))
-	_, url, err := ktest.StartServer(ktest.Slow(100*time.Millisecond, http.Handle))
+	_, url, err := ktest.StartServerURL(ktest.Slow(100*time.Millisecond, http.Handle))
 	assert.Nil(t, err)
 
 	type result struct {
@@ -303,9 +306,9 @@ func TestURLSlow(t *testing.T) {
 	}
 
 	for ix := 0; ix < 10; ix++ {
-		NewURLRetriever(logger.Nil, c, dl, &Parameter{
+		NewURLRetriever(logger.Nil, c, dl, url, &Parameter{
 			Name:  "name",
-			Value: url,
+			Value: url.String(),
 		}).Retrieve(callback)
 	}
 	dl.Wait()
