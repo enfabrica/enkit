@@ -22,9 +22,9 @@ func TestCommandRetrieverHash(t *testing.T) {
 	_, url, err := ktest.StartServer(http.Handle)
 	url += "empty.tar.gz"
 
-	dir1, err := cr.PrepareHash(url, "test-hash")
+	dir1, err := cr.PrepareHash(url, "80b6d25600d8a239571857d944d4c5ff06235c6d6c5604877230c475ee94d0c5")
 	assert.Nil(t, err)
-	dir2, err := cr.PrepareHash(url, "test-hash")
+	dir2, err := cr.PrepareHash(url, "80b6d25600d8a239571857d944d4c5ff06235c6d6c5604877230c475ee94d0c5")
 	assert.Equal(t, dir1, dir2, "%s != %s", dir1, dir2)
 
 	// Given that the url was retrieved by hash, there is no need to fetch it multiple
@@ -43,7 +43,7 @@ func TestCommandRetrieverHashError(t *testing.T) {
 	_, url, err := ktest.StartServer(ktest.ErrorHandler)
 	url += "empty.tar.gz"
 
-	_, err = cr.PrepareHash(url, "test-hash")
+	_, err = cr.PrepareHash(url, "80b6d25600d8a239571857d944d4c5ff06235c6d6c5604877230c475ee94d0c5")
 	assert.NotNil(t, err, "%v", err)
 }
 

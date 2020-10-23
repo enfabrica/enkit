@@ -10,8 +10,11 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"
 
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"hash"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"path"
@@ -272,7 +275,9 @@ func (p *URLRetriever) DeliverError(err error) {
 // identifies the file uniquely. Eg, if we have a file by that hash, no need to fetch it. If we don't,
 // then we must fetch it.
 func (p *URLRetriever) RetrieveByHash() error {
-	location, found, err := p.cache.Get(p.param.Hash)
+	ihash := strings.TrimSpace(p.param.Hash)
+
+	location, found, err := p.cache.Get(ihash)
 	if err != nil {
 		return fmt.Errorf("problem accessing cached entry for %v - %w", p.param, err)
 	}
@@ -284,8 +289,17 @@ func (p *URLRetriever) RetrieveByHash() error {
 		return nil
 	}
 
-	p.dl.Get(p.param.Value, protocol.Read(protocol.Chain(protocol.File(CacheFile(location)), protocol.OnClose(func(resp *http.Response) error {
-		// TODO: !!VERIFY HASH!!
+	var h hash.Hash
+	hasher := func() io.Writer {
+		h = sha256.New()
+		return h
+	}
+
+	p.dl.Get(p.param.Value, protocol.Read(protocol.Chain(protocol.WriterCreator(hasher), protocol.File(CacheFile(location)), protocol.OnClose(func(resp *http.Response) error {
+		computed := hex.EncodeToString(h.Sum(nil))
+		if ihash != computed {
+			return fmt.Errorf("computed sha256 for %s is %s - required is %s - REJECTED", p.param.Value, computed, ihash)
+		}
 
 		final, err := p.cache.Commit(location)
 		if err != nil {

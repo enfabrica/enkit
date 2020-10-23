@@ -258,6 +258,12 @@ func Writer(wc io.Writer) ResponseOpener {
 	}
 }
 
+func WriterCreator(creator func() io.Writer) ResponseOpener {
+	return func(*http.Response) (io.WriteCloser, error) {
+		return &ignoreClose{creator()}, nil
+	}
+}
+
 type CallbackWriter struct {
 	bytes.Buffer
 	cb func([]byte) error

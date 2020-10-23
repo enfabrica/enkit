@@ -1,6 +1,8 @@
 package kconfig
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/karchive"
@@ -12,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 )
 
 type CommandRetriever struct {
@@ -31,6 +34,8 @@ func NewCommandRetriever(log logger.Logger, cache cache.Store, retrier *retry.Op
 }
 
 func (cr *CommandRetriever) PrepareHash(url, hash string) (string, error) {
+	hash = strings.TrimSpace(hash)
+
 	unpack, found, err := cr.cache.Get(hash)
 	if err != nil {
 		return "", fmt.Errorf("problem accessing cached entry for hash %s of %s - %w", hash, url, err)
@@ -41,10 +46,17 @@ func (cr *CommandRetriever) PrepareHash(url, hash string) (string, error) {
 	defer cr.cache.Rollback(unpack)
 
 	if err := cr.retrier.Run(func() error {
-		return protocol.Get(url, protocol.Reader(func(r io.Reader) error {
-			err := karchive.Untarz(url, r, unpack)
+		return protocol.Get(url, protocol.Reader(func(httpr io.Reader) error {
+			h := sha256.New()
+			r := io.TeeReader(httpr, h)
+			err := karchive.Untarz(url, r, unpack, karchive.WithFileUmask(0222))
 			if err != nil {
 				return fmt.Errorf("error decompressing %s: %w", url, err)
+			}
+
+			computed := hex.EncodeToString(h.Sum(nil))
+			if hash != computed {
+				return fmt.Errorf("computed sha256 for %s is %s - required is %s - REJECTED", url, computed, hash)
 			}
 			return nil
 		}))
@@ -73,7 +85,7 @@ func (cr *CommandRetriever) PrepareURL(url string) (string, error) {
 				return nil
 			}
 			defer cr.cache.Rollback(tmp)
-			if err := karchive.Untarz(url, cf, unpack); err != nil {
+			if err := karchive.Untarz(url, cf, unpack, karchive.WithFileUmask(0227)); err != nil {
 				return err
 			}
 			unpack, err = cr.cache.Commit(tmp)

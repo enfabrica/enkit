@@ -165,7 +165,7 @@ func TestURLByHash(t *testing.T) {
 	r := NewURLRetriever(logger.Nil, c, dl, &Parameter{
 		Name:  "name",
 		Value: url,
-		Hash:  "15",
+		Hash:  "c24e00ca3ba81c6b4071298fadcefbec2b560f13d40dff7c1881989add11c75f",
 	})
 	for ix := 0; ix < 10; ix++ {
 		r.Retrieve(callback)
@@ -174,6 +174,9 @@ func TestURLByHash(t *testing.T) {
 
 	// Result has been provided 10 times via callbacks, but only fetched once via http.
 	assert.Equal(t, 10, len(values))
+	for ix, ret := range values {
+		assert.Equal(t, nil, ret.err, "element %d - %s - %#v", ix, ret.err, ret.value)
+	}
 	assert.Equal(t, 1, len(http.Request))
 }
 
