@@ -1,12 +1,23 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
     srcs = [
         "decoder.go",
+        "mkdir.go",
         "untar.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/karchive",
     visibility = ["//visibility:public"],
     deps = ["@com_github_ulikunitz_xz//:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "mkdir_test.go",
+        "untar_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
 )
