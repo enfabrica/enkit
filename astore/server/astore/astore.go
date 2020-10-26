@@ -228,60 +228,6 @@ func (s *Server) Tag(ctx context.Context, req *astore.TagRequest) (*astore.TagRe
 	return &astore.TagResponse{Artifact: arts}, err
 }
 
-func (s *Server) Retrieve(ctx context.Context, req *astore.RetrieveRequest) (*astore.RetrieveResponse, error) {
-	if req.Uid == "" && req.Path == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid request - no uid and no path")
-	}
-
-	reqarch := strings.TrimSpace(req.Architecture)
-
-	var query *datastore.Query
-	var err error
-	if req.Path != "" {
-		query, err = queryForPath(KindArtifact, req.Path, reqarch)
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "Invalid path - %s", err)
-		}
-	} else {
-		query = datastore.NewQuery(KindArtifact).Order("-Created")
-	}
-	query = query.Limit(1)
-
-	if req.Uid != "" {
-		query = query.Filter("Uid = ", req.Uid)
-	}
-
-	tags := []string{"latest"}
-	if req.Tag != nil {
-		tags = req.Tag.Tag
-	}
-	for _, tag := range tags {
-		query = query.Filter("Tag = ", tag)
-	}
-
-	var artifacts []*Artifact
-	keys, err := s.ds.GetAll(s.ctx, query, &artifacts)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "error running query - %s", err)
-	}
-	if len(keys) != 1 || len(artifacts) != 1 {
-		return nil, status.Errorf(codes.NotFound, "artifact not found (%d found)", len(artifacts))
-	}
-
-	artifact := artifacts[0]
-	url, err := storage.SignedURL(s.options.bucket, objectPath(artifact.Sid), s.options.ForSigning("GET"))
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "could not generate download URL - %s", err)
-	}
-
-	resp := &astore.RetrieveResponse{
-		Path:     keyToPath(keys[0]),
-		Artifact: artifact.ToProto(keyToArchitecture(keys[0])),
-		Url:      url,
-	}
-	return resp, nil
-}
-
 func keyToArchitecture(key *datastore.Key) string {
 	cursor := key
 	for cursor != nil {

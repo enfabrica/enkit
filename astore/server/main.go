@@ -58,6 +58,9 @@ func ShowResult(w http.ResponseWriter, r *http.Request, image, title, message st
 	})
 }
 
+// DownloadHandler implements the astore.DownloadHandler contract.
+//
+// It is responsible for starting the direct download of a file as necessary for the DownloadArtifact or DownloadPublished handlers.
 func DownloadHandler(base, upath string, resp *rpc_astore.RetrieveResponse, err error, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -76,6 +79,9 @@ func DownloadHandler(base, upath string, resp *rpc_astore.RetrieveResponse, err 
 	http.Redirect(w, r, resp.Url+disposition, http.StatusTemporaryRedirect)
 }
 
+// ListHandler implements the astore.ListHandler contract.
+//
+// It is responsible for listing the artifacts available for this path, and is used as a callback for ListPublished.
 func ListHandler(base, upath string, resp *rpc_astore.ListResponse, err error, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -143,23 +149,36 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 
 	mux := http.NewServeMux()
 	stats := server.AssetStats{}
+
+	// Public configs, those are accessible to anyone on the internet.
 	mux.HandleFunc("/configs/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("%s On %s", kconfig.YodaSays, time.Now()), http.StatusNotFound)
-	})
-	mux.HandleFunc("/l/", func(w http.ResponseWriter, r *http.Request) {
-		astoreServer.ListPublished("/l/", func(upath string, resp *rpc_astore.ListResponse, err error, w http.ResponseWriter, r *http.Request) {
-			ListHandler(downloadURL, upath, resp, err, w, r)
-		}, w, r)
-	})
-	mux.HandleFunc("/d/", func(w http.ResponseWriter, r *http.Request) {
-		astoreServer.DownloadPublished("/d/", func(upath string, resp *rpc_astore.RetrieveResponse, err error, w http.ResponseWriter, r *http.Request) {
-			DownloadHandler(listURL, upath, resp, err, w, r)
-		}, w, r)
 	})
 	server.RegisterAssets(&stats, assets.Data, "", server.BasicMapper(server.MuxMapper(mux)))
 	server.RegisterAssets(&stats, configs.Data, "", server.PrefixMapper("/configs", server.StripExtensionMapper(server.BasicMapper(server.MuxMapper(mux)))))
 	stats.Log(log.Printf)
 
+	// Published artifacts, web page for human consumption, lists the options available for download.
+	mux.HandleFunc("/l/", func(w http.ResponseWriter, r *http.Request) {
+		astoreServer.ListPublished("/l/", func(upath string, resp *rpc_astore.ListResponse, err error, w http.ResponseWriter, r *http.Request) {
+			ListHandler(downloadURL, upath, resp, err, w, r)
+		}, w, r)
+	})
+	// Published artifacts, starts immediately the download that best matches the query.
+	mux.HandleFunc("/d/", func(w http.ResponseWriter, r *http.Request) {
+		astoreServer.DownloadPublished("/d/", func(upath string, resp *rpc_astore.RetrieveResponse, err error, w http.ResponseWriter, r *http.Request) {
+			DownloadHandler(listURL, upath, resp, err, w, r)
+		}, w, r)
+	})
+	// Direct download of non-published artifacts, starts immediately the download if the user is authenticated.
+	mux.HandleFunc("/g/", authWeb.WithCredentialsOrError(func(w http.ResponseWriter, r *http.Request) {
+		astoreServer.DownloadArtifact("/g/", func(upath string, resp *rpc_astore.RetrieveResponse, err error, w http.ResponseWriter, r *http.Request) {
+			DownloadHandler("", upath, resp, err, w, r)
+		}, w, r)
+	}))
+
+	// Web authentication endpoint. Other web services can redirect the user to /w here with an r= parameter to perform authentication,
+	// and redirect the user back to the r= target if authentication succeeds.
 	mux.HandleFunc("/w", func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		if origin != "" && (cookieDomain != "" && strings.Index(origin, cookieDomain) >= 0) {
@@ -199,10 +218,6 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		}
 	})
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		ShowResult(w, r, "angry", "Nothing to see here", messageNothing, http.StatusUnauthorized)
-	})
-
 	// Path /e/ is the landing page at the end of the oauth authentication.
 	mux.HandleFunc("/e/", func(w http.ResponseWriter, r *http.Request) {
 		copts := []kcookie.Modifier{kcookie.WithPath("/")}
@@ -224,6 +239,11 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		if !handled {
 			ShowResult(w, r, "thumbs-up", "Good Job!", messageSuccess, http.StatusOK)
 		}
+	})
+
+	// The root of the web server, nothing to see here.
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		ShowResult(w, r, "angry", "Nothing to see here", messageNothing, http.StatusUnauthorized)
 	})
 
 	server.Run(mux, grpcs)

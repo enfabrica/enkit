@@ -8,6 +8,7 @@ go_library(
         "interface.go",
         "note.go",
         "publish.go",
+        "retrieve.go",
     ],
     importpath = "github.com/enfabrica/enkit/astore/server/astore",
     visibility = ["//visibility:public"],
