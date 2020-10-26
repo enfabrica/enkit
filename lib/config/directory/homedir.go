@@ -3,7 +3,6 @@ package directory
 import (
 	"github.com/kirsle/configdir"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -20,7 +19,6 @@ type Directory struct {
 func OpenHomeDir(app string, namespaces ...string) (*Directory, error) {
 	paths := append([]string{app}, namespaces...)
 	dir := configdir.LocalConfig(paths...)
-	log.Printf("DIR %s", dir)
 	if !filepath.IsAbs(dir) {
 		user, err := user.Current()
 		if err != nil {
