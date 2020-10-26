@@ -124,7 +124,7 @@ func ReadChunk(r io.Reader, limit *int64) (byte, []byte, error) {
 
 	// This is the only read where receiving EOF is ok. In any other read, it means the message
 	// was truncated one way or another.
-	if got, err := r.Read(hdr[:]); err != nil {
+	if got, err := io.ReadFull(r, hdr[:]); err != nil {
 		if err == io.EOF && got == 0 {
 			return '\xff', nil, err
 		}
@@ -136,10 +136,10 @@ func ReadChunk(r io.Reader, limit *int64) (byte, []byte, error) {
 	}
 
 	msgdata := make([]byte, msglen)
-	if got, err := r.Read(msgdata[:]); err != nil && (err != io.EOF || got != len(msgdata)) {
+	if got, err := io.ReadFull(r, msgdata); err != nil && (err != io.EOF || got != len(msgdata)) {
 		return hdr[0], msgdata[:got], err
 	}
-	return hdr[0], msgdata[:], nil
+	return hdr[0], msgdata, nil
 }
 
 func ReadMessage(r io.Reader, reply interface{}, limit *int64) error {
@@ -151,7 +151,10 @@ func ReadMessage(r io.Reader, reply interface{}, limit *int64) error {
 	if flags != 0 {
 		return fmt.Errorf("invalid first byte of response - 0x00 expected, got %02x", flags)
 	}
-	if err := Unmarshal(msgdata[:], reply); err != nil {
+	if err := Unmarshal(msgdata, reply); err != nil {
+		if status.Code(err) == codes.Unknown {
+			return status.Errorf(codes.Internal, "message was not parsed correctly: %x - %v", msgdata, err)
+		}
 		return err
 	}
 	return nil
