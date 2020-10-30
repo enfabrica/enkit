@@ -16,7 +16,7 @@ import (
 type EnvMangler func(components ...string) string
 
 type EnvAugmenter struct {
-	prefix  string
+	prefix  []string
 	mangler EnvMangler
 }
 
@@ -63,6 +63,16 @@ func WithMangler(m EnvMangler) EnvModifier {
 	}
 }
 
+// WithPrefixes prepends the specified prefixes to the looked up environment variables.
+//
+// For example, if EnvMangler would normally look up the environment variable ENKIT_KFLAGS_DNS,
+// WithPrefixes("PROD", "AMERICA") would look up PROD_AMERICA_ENKIT_KFLAGS_DNS.
+func WithPrefixes(prefix ...string) EnvModifier {
+	return func(e *EnvAugmenter) {
+		e.prefix = prefix
+	}
+}
+
 // NewEnvAugmenter creates a new EnvAugmenter.
 //
 // An EnvAugmenter is an object capable of looking up environment variables to
@@ -75,12 +85,8 @@ func WithMangler(m EnvMangler) EnvModifier {
 //
 // The DefaultRemap will be used to determine that a variable named EN_PATH
 // needs to be looked up in the environment.
-func NewEnvAugmenter(prefix string, mods ...EnvModifier) *EnvAugmenter {
-	er := &EnvAugmenter{
-		prefix:  prefix,
-		mangler: DefaultRemap,
-	}
-
+func NewEnvAugmenter(mods ...EnvModifier) *EnvAugmenter {
+	er := &EnvAugmenter{mangler: DefaultRemap}
 	EnvModifiers(mods).Apply(er)
 	return er
 }
@@ -100,7 +106,8 @@ func (er *EnvAugmenter) VisitCommand(reqns string, command Command) (bool, error
 //
 // The default EnvMangler is DefaultRemap.
 func (er *EnvAugmenter) VisitFlag(reqns string, fl Flag) (bool, error) {
-	env := er.mangler(er.prefix, reqns, fl.Name())
+	tomangle := append(append([]string{}, er.prefix...), reqns, fl.Name())
+	env := er.mangler(tomangle...)
 	if env == "" {
 		return false, nil
 	}

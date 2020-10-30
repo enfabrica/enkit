@@ -164,7 +164,7 @@ func (bf *BaseFlags) LoadFlagAssets(populator kflags.Populator, assets map[strin
 
 func (bf *BaseFlags) Run(set kflags.FlagSet, populator kflags.Populator, run kflags.Runner) {
 	bf.Register(set, "")
-	if err := populator(kflags.NewEnvAugmenter(bf.CommandName)); err != nil {
+	if err := populator(kflags.NewEnvAugmenter()); err != nil {
 		bf.Log.Infof("Setting default flags from environment failed with: %s", err)
 	}
 
