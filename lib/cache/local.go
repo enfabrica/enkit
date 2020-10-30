@@ -97,15 +97,15 @@ func (c *Local) Get(key string) (string, bool, error) {
 // Note that this is no guarantee that the cache key will exist by the
 // time you use it. If you need a cache key in a concurrent environment,
 // you should always use Get(), Commit(), and Purge().
-func (c *Local) Exists(key string) (bool, error) {
+func (c *Local) Exists(key string) (string, error) {
 	sum := hash(key)
 	dirPrefix := filepath.Join(c.Root, fmt.Sprintf("%x", sum[0:1]))
 	dirEnd := fmt.Sprintf("%x", sum[1:len(sum)-1])
 	dirFull := filepath.Join(dirPrefix, dirEnd)
 	if PathIsDir(dirFull) {
-		return true, nil
+		return dirFull, nil
 	}
-	return false, nil
+	return "", nil
 }
 
 // Commits a cache location so others can start retrieving it.

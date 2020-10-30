@@ -33,8 +33,8 @@ func TestCache(t *testing.T) {
 		t.Errorf("Could not write a file in %s", location)
 	}
 
-	found, err = cache.Exists("test-key")
-	if found == true {
+	exists, err := cache.Exists("test-key")
+	if exists != "" {
 		t.Errorf("key unexpectedly found? it has not been committed yet!!")
 	}
 	if err != nil {
@@ -62,8 +62,8 @@ func TestCache(t *testing.T) {
 		t.Errorf("what happened to the committed file?? %v", err)
 	}
 
-	found, err = cache.Exists("test-key")
-	if found != true {
+	exists, err = cache.Exists("test-key")
+	if exists == "" {
 		t.Errorf("key not found? after commit?")
 	}
 	if err != nil {
@@ -84,8 +84,8 @@ func TestCache(t *testing.T) {
 		t.Errorf("Purging the final location - eliminating a key - should have succeeded - %v", err)
 	}
 
-	found, err = cache.Exists("test-key")
-	if found == true {
+	exists, err = cache.Exists("test-key")
+	if exists != "" {
 		t.Errorf("key still found? after purge?")
 	}
 	if err != nil {

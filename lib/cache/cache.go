@@ -1,8 +1,30 @@
 package cache
 
 type Store interface {
-	Exists(key string) (bool, error)
+	// Get creates or returns an existing location where data corresponding to key is stored.
+	//
+	// The first value returned is a path, the path where data is to be stored, or has been stored before.
+	// The second value returned is true if the path was existing already, false otherwise.
+	// An error is returned if for some reason the key could not be created or looked up.
+	//
+	// If the location returned by Get was newly created, this location must either be Purged,
+	// Rolled back, or Committed, otherwise your code will leak cache keys.
+	//
+	// If a location was already existing, data should be accessed in a read only way, unless
+	// the application is capable of handling concurrent writes on its own data.
+	//
+	// Both Commit and Rollback can safely be called on an existing location, in which case
+	// nothing will be done. This is convenient to use with defer.
+	//
+	// Purge can be called on existing as well as new locations, and will result in the data
+	// being forever deleted.
 	Get(key string) (string, bool, error)
+
+	// Exists check if there is an entry in the cache corresponding to key.
+	//
+	// If there is, it returns the path on disk. If there is not, it returns the empty string.
+	// Error is returned if the location could not be found.
+	Exists(key string) (string, error)
 
 	// Commit ensures that the changes made to the cache at location are saved.
 	//
