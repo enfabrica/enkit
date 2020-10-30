@@ -77,7 +77,7 @@ type BaseFlags struct {
 	NoProgress bool
 
 	// Logger object. Guaranteed to never be nil, and always be usable.
-	Log logger.Logger
+	Log *logger.Proxy
 }
 
 func DefaultBaseFlags(commandName, configName string) *BaseFlags {
@@ -91,7 +91,7 @@ func DefaultBaseFlags(commandName, configName string) *BaseFlags {
 		Local:         cache.NewLocal(configName),
 		ProviderFlags: provider.DefaultProviderFlags(),
 
-		Log: logger.NewAccumulator(),
+		Log: &logger.Proxy{Logger: logger.NewAccumulator()},
 	}
 }
 
@@ -188,11 +188,7 @@ func (bf *BaseFlags) Init() {
 		newlog = &logger.DefaultLogger{Printer: log.Printf}
 	}
 
-	fw, ok := bf.Log.(logger.Forwardable)
-	if ok {
-		fw.Forward(newlog)
-	}
-	bf.Log = newlog
+	bf.Log.Replace(newlog)
 }
 
 func (bf *BaseFlags) UpdateFlagDefaults(populator kflags.Populator, domain string) error {

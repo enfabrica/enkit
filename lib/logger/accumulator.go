@@ -25,6 +25,23 @@ type Event struct {
 	Message  string
 }
 
+// Proxy is a simple logger that as long as it is passed by pointer, allows to change
+// the underlying logger implementation.
+//
+// This allows to initialize some code to use a logging object, to then replace it later
+// after the initialization stage.
+type Proxy struct {
+	Logger
+}
+
+func (p *Proxy) Replace(newl Logger) {
+	f, ok := p.Logger.(Forwardable)
+	if ok {
+		f.Forward(newl)
+	}
+	p.Logger = newl
+}
+
 // Accumulator is a thread safe object implementing the Logger interface that
 // accumulates all messages being logged.
 //
