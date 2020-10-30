@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/enfabrica/enkit/bazel/utils/validate",
+    visibility = ["//visibility:private"],
+    deps = ["//lib/config/marshal:go_default_library"],
+)
+
+go_binary(
+    name = "validate",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
