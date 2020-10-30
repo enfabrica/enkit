@@ -36,20 +36,28 @@ func NewCommandRetriever(log logger.Logger, cache cache.Store, retrier *retry.Op
 func (cr *CommandRetriever) PrepareHash(url, hash string) (string, error) {
 	hash = strings.TrimSpace(hash)
 
-	unpack, found, err := cr.cache.Get(hash)
+	unpack, err := cr.cache.Exists(hash)
 	if err != nil {
 		return "", fmt.Errorf("problem accessing cached entry for hash %s of %s - %w", hash, url, err)
 	}
-	if found {
+	if unpack != "" {
 		return unpack, nil
 	}
-	defer cr.cache.Rollback(unpack)
 
 	if err := cr.retrier.Run(func() error {
 		return protocol.Get(url, protocol.Reader(func(httpr io.Reader) error {
+			var found bool
+			var err error	
+
+			unpack, found, err = cr.cache.Get(hash)
+			if found {
+				return nil
+			}
+			defer cr.cache.Rollback(unpack)
+
 			h := sha256.New()
 			r := io.TeeReader(httpr, h)
-			err := karchive.Untarz(url, r, unpack, karchive.WithFileUmask(0222))
+			err = karchive.Untarz(url, r, unpack, karchive.WithFileUmask(0222))
 			if err != nil {
 				return fmt.Errorf("error decompressing %s: %w", url, err)
 			}
@@ -58,18 +66,24 @@ func (cr *CommandRetriever) PrepareHash(url, hash string) (string, error) {
 			if hash != computed {
 				return fmt.Errorf("computed sha256 for %s is %s - required is %s - REJECTED", url, computed, hash)
 			}
-			return nil
-		}))
+
+			unpack, err = cr.cache.Commit(unpack)
+			return err
+		}), cr.mods...)
 	}); err != nil {
 		return "", err
 	}
 
-	return cr.cache.Commit(unpack)
+	return unpack, nil
 }
 
 func (cr *CommandRetriever) PrepareURL(url string) (string, error) {
 	var unpack string
 	if err := cr.retrier.Run(func() error {
+		mods := protocol.Modifiers{}
+		mods = append(mods, kcache.WithCache(cr.cache, kcache.WithLogger(cr.log)))
+                mods = append(mods, cr.mods...)
+
 		return protocol.Get(url, protocol.Reader(func(r io.Reader) error {
 			cf, converted := r.(*kcache.CachedFile)
 			if !converted {
@@ -90,7 +104,7 @@ func (cr *CommandRetriever) PrepareURL(url string) (string, error) {
 			}
 			unpack, err = cr.cache.Commit(tmp)
 			return err
-		}), kcache.WithCache(cr.cache, kcache.WithLogger(cr.log)))
+		}), mods...)
 	}); err != nil {
 		return "", err
 	}

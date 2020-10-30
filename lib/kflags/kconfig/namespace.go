@@ -196,7 +196,7 @@ func CreateExecuteAction(packagedir string, commanddir string, argv []string, va
 			printer("  %s: %v", k, v)
 		}
 		if err := command.Run(); err != nil {
-			printer("command %s failed with %s", err)
+			printer("command failed: %s", err)
 		}
 		return err
 	}, nil
