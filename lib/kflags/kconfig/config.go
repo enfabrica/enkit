@@ -300,6 +300,7 @@ func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mod
 		Fuzzy    time.Duration
 		Wait     time.Duration
 		Attempts int
+                Extension string
 	}
 
 	addoptions := func(mod downloader.Modifier) {
@@ -313,14 +314,15 @@ func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mod
 
 	errs = []error{}
 	for ix, ep := range eps {
-		dnsoptions := &Options{
+		dnsoptions := Options{
 			Timeout:  3 * time.Second,
 			Wait:     1 * time.Second,
 			Fuzzy:    1 * time.Second,
 			Attempts: 3,
+                        Extension: ".config",
 		}
 
-		unknown, err := ep.Options.Apply(dnsoptions)
+		unknown, err := ep.Options.Apply(&dnsoptions)
 		if err != nil {
 			options.log.Warnf("Could not apply options by %s for %s: %s", domain, ep.URL.String(), err)
 			continue
@@ -345,7 +347,7 @@ func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mod
 			}
 			addoptions(downloader.WithRetryOptions(ropts...))
 		}
-		ep.URL.Path = path.Join(ep.URL.Path, binary+".config")
+		ep.URL.Path = path.Join(ep.URL.Path, binary+dnsoptions.Extension)
 		resolver, err := NewConfigAugmenterFromURL(cs, ep.URL.String(), WithOptions(options))
 		if err == nil {
 			return resolver, nil
@@ -436,6 +438,8 @@ func NewConfigAugmenter(cs cache.Store, config *Config, mods ...Modifier) (*Conf
 			if err != nil {
 				return fmt.Errorf("couldn't parse %s - %w", url, err)
 			}
+
+			options.log.Debugf("Retrieved remote config from %s - parsing %#v", url, *config)
 
 			// TODO: this call can cause a deadlock.
 			//
