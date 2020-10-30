@@ -2,11 +2,11 @@ package marshal
 
 import (
 	"fmt"
+	"github.com/enfabrica/enkit/lib/multierror"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
-	"os"
-	"github.com/enfabrica/enkit/lib/multierror"
 )
 
 // Use marshal.Toml to encode/decode from Toml format.
@@ -32,9 +32,22 @@ func (fm FileMarshallers) ByExtension(path string) FileMarshaller {
 	if ext == "" {
 		return nil
 	}
+	return fm.ByFormat(ext)
+}
 
+func (fm FileMarshallers) Formats() []string {
+	result := []string{}
 	for _, candidate := range fm {
-		if candidate.Extension() == ext {
+		result = append(result, candidate.Extension())
+	}
+	return result
+}
+
+// ByExtension returns the first FileMarshaller based on the format specified.
+// Format is generally a lowercase string like "json", "yaml", ...
+func (fm FileMarshallers) ByFormat(format string) FileMarshaller {
+	for _, candidate := range fm {
+		if candidate.Extension() == format {
 			return candidate
 		}
 	}
@@ -136,7 +149,7 @@ func (fm FileMarshallers) UnmarshalFilePrefix(prefix string, value interface{}) 
 // os.ErrNotExist if no valid file could be found in the assets.
 func (fm FileMarshallers) UnmarshalAsset(name string, assets map[string][]byte, value interface{}) error {
 	for _, known := range fm {
-		asset, found := assets[name + "." + known.Extension()]
+		asset, found := assets[name+"."+known.Extension()]
 		if found {
 			return known.Unmarshal(asset, value)
 		}
@@ -203,4 +216,19 @@ func UnmarshalDefault(path string, data []byte, def Marshaller, value interface{
 // UnmarshalFilePrefix is the same as FileMarshallers.UnmarshalFilePrefix, but uses the default list of Marshallers.
 func UnmarshalFilePrefix(prefix string, value interface{}) (string, error) {
 	return FileMarshallers(Known).UnmarshalFilePrefix(prefix, value)
+}
+
+// ByExtension is the same as FileMarshallers.ByExtension, but uses the default list of Marshallers.
+func ByExtension(path string) FileMarshaller {
+	return FileMarshallers(Known).ByExtension(path)
+}
+
+// ByFormat is the same as FileMarshallers.ByFormat, but uses the default list of Marshallers.
+func ByFormat(path string) FileMarshaller {
+	return FileMarshallers(Known).ByFormat(path)
+}
+
+// Formats is the same as FileMarshallers.Formats, but uses the default list of Marshallers.
+func Formats() []string {
+	return FileMarshallers(Known).Formats()
 }
