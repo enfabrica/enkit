@@ -1,8 +1,6 @@
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
-load("@com_github_atlassian_bazel_tools//multirun:def.bzl", "multirun")
-load("@io_bazel_rules_docker//container:container.bzl", "container_push")
+load("@com_github_atlassian_bazel_tools//multirun:def.bzl", _multirun = "multirun")
 load("@bazel_tools//tools/build_defs/hash:hash.bzl", "sha256", "tools")
-load("//bazel/astore:defs.bzl", "astore_upload")
 load("//bazel/utils:template.bzl", "template_expand", "template_tool")
 load("//bazel/utils:validate.bzl", "validate_format", "validate_tool")
 
@@ -18,7 +16,7 @@ EnkitExtensionInfo = provider(
 
 def _enkit_package_definition(ctx):
     sha = sha256(ctx, ctx.file.tarball)
-    return [DefaultInfo(files = depset([sha])), EnkitExtensionInfo(manifest = ctx.attr.manifest, images = ctx.attr.images, tarball = ctx.attr.tarball, sha256 = sha)]
+    return [DefaultInfo(files = depset([sha, ctx.file.tarball])), EnkitExtensionInfo(manifest = ctx.attr.manifest, images = ctx.attr.images, tarball = ctx.attr.tarball, sha256 = sha)]
 
 enkit_package_definition = rule(
     doc = """Provides the definition of an enkit package.
@@ -89,12 +87,12 @@ enkit_config = rule(
     },
 )
 
-def enkit_package(name, srcs, image = "", manifest = "maninfest.yaml", **kwargs):
+def enkit_package(name, srcs, image = "", override = "", manifest = "maninfest.yaml", **kwargs):
     """Convenience macro to create a tarball usable as an enkit package extension.
 
     This macro creates two targets:
       - name + "-package" - containing a tarball of the package.
-      - name + "-definition" - containing the sha256 of the package, and an EnkitExtensionInfo
+      - name - containing the sha256 of the package, and an EnkitExtensionInfo
         provider convenient for the embedding of the package in other enkit configs.
 
     Args:
@@ -105,8 +103,13 @@ def enkit_package(name, srcs, image = "", manifest = "maninfest.yaml", **kwargs)
     """
     tarball = name + "-package"
     images = []
-    if image:
+    if image and not override:
         images = [image + ".digest"]
+
+    if override:
+        outfile = Label(image).name + ".digest"
+        native.genrule(name = name + "-image-digest", srcs = [], outs = [outfile], cmd = "echo " + override + " > $@")
+        images = [":" + name + "-image-digest"]
 
     pkg_tar(
         name = tarball,
@@ -114,76 +117,7 @@ def enkit_package(name, srcs, image = "", manifest = "maninfest.yaml", **kwargs)
         srcs = srcs + [manifest] + images,
         **kwargs
     )
-    enkit_package_definition(name = name + "-definition", tarball = ":" + tarball, images = images, manifest = manifest, **kwargs)
+    enkit_package_definition(name = name, tarball = ":" + tarball, images = images, manifest = manifest, **kwargs)
 
-def enkit_config_upload(name, config, packages = [], astore = "", **kwargs):
-    """Convenience macro to upload an enkit config to astore."""
-    enkit_config(
-        name = name,
-        config = config,
-        packages = packages,
-        **kwargs
-    )
-    if astore:
-        astore_upload(
-            name = name + "-upload",
-            dir = astore,
-            targets = [":" + name],
-            **kwargs
-        )
-
-def enkit_extension(name, srcs, manifest = "", astore = "", image = {}, **kwargs):
-    """Convenience macro to upload a package to astore together with a docker image.
-
-    Creates multiple targets:
-      - name + "-image" - to build and push the container image to the registry.
-      - name + "-upload" - to upload the package definition to astore.
-      - name + "-package" - containing a tarball of the package.
-      - name + "-definition" - containing the sha256 of the package, and an EnkitExtensionInfo
-        provider convenient for the embedding of the package in other enkit configs.
-      - name - that can be invoked with bazel build or run to upload the image to docker
-        and the package to astore.
-
-    Args:
-      srcs: source files to include in the generated enkit_package.
-      manifest: optional, path to a manifest file. "manifest.yaml" is assumed if unspecified.
-      image: optional, a dict, containing all the parameters that would be passed to container_push().
-      astore: optional, a string, containing the path of the directory where to push the package.
-      **kwargs: passed to all the rules, to allow to define visibility and similar.
-    """
-    commands = []
-    itarget = ""
-    if image:
-        iname = name + "-image"
-        image.update(**kwargs)
-        container_push(
-            name = iname,
-            **image
-        )
-        itarget = ":" + iname
-        commands.append(itarget)
-
-    enkit_package(
-        name = name,
-        srcs = srcs,
-        image = itarget,
-        manifest = manifest,
-        **kwargs
-    )
-    if astore:
-        astore_upload(
-            name = name + "-upload",
-            dir = astore,
-            targets = [
-                ":" + name + "-package",
-            ],
-            **kwargs
-        )
-        commands.append(name + "-upload")
-
-    if commands:
-        multirun(
-            name = name,
-            commands = commands,
-            **kwargs
-        )
+# Expose the multirun target, for convenience.
+multirun = _multirun
