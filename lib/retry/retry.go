@@ -35,7 +35,7 @@ type Options struct {
 // want a single retry attempt to be performed.
 var Nil = &Options{
 	logger: logger.Nil,
-	Now: time.Now,
+	Now:    time.Now,
 	Flags: Flags{
 		AtMost: 1,
 	},
@@ -231,6 +231,10 @@ type ExaustedError struct {
 
 func (ee *ExaustedError) Error() string {
 	return ee.Message
+}
+
+func (ee *ExaustedError) Unwrap() error {
+	return ee.Original
 }
 
 func (o *Options) Once(attempt int, runner func() error) (time.Duration, error) {
