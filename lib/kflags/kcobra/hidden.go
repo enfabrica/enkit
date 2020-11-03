@@ -3,7 +3,6 @@ package kcobra
 import (
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/spf13/cobra"
-	"log"
 	"time"
 )
 
@@ -40,7 +39,6 @@ func (hfs *HiddenFlagSet) IntVar(p *int, name string, value int, usage string) {
 }
 
 func (hfs *HiddenFlagSet) Help(cmd *cobra.Command, args []string) bool {
-	log.Printf("INVOKED")
 	if !hfs.showHidden {
 		return true
 	}
