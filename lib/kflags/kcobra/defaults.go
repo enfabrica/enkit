@@ -71,6 +71,10 @@ func (kc *KCommand) AddCommand(def kflags.CommandDefinition, flags []kflags.Flag
 		command.RunE = func(cmd *cobra.Command, args []string) error {
 			return action(flargs, args)
 		}
+	} else {
+		command.RunE = func(cmd *cobra.Command, args []string) error {
+			return pflag.ErrHelp
+		}
 	}
 
 	kc.Command.AddCommand(command)
