@@ -6,7 +6,7 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 proto_library(
     name = "machinist_proto",
-    srcs = ["machinist.proto"],
+    srcs = ["machinist.proto", "actions.proto"],
     visibility = ["//visibility:public"],
     deps = [
     ],
@@ -17,7 +17,7 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 go_proto_library(
     name = "machinist-proto-lib",
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
-    importpath = "github.com/enfabrica/enkit/machinist/rpc",
+    importpath = "github.com/enfabrica/enkit/machinist/rpc/machinist",
     proto = ":machinist_proto",
     visibility = ["//visibility:public"],
 )
@@ -27,6 +27,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "machinist-go",
     embed = [":machinist-proto-lib"],
-    importpath = "github.com/enfabrica/enkit/machinist/rpc",
+    importpath = "github.com/enfabrica/enkit/machinist/rpc/machinist",
     visibility = ["//visibility:public"],
 )
