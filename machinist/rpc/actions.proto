@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package machinist;
+
+message ActionRegister {
+}
+
+message ClientRegister {
+  // Name of the machine.
+  string name = 1;
+  // Tags assigned to this machine.
+  repeated string tag = 2;
+}
+
+message ClientPing {
+  bytes payload = 1;
+}
+message ActionPong {
+  bytes payload = 1;
+}
+
+message ClientResult {
+}
+
+message ActionResponse {
+}
+
+message ActionSession {
+}
+
+message ActionUpload {
+}
+
+message ActionDownload {
+}

@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+import "machinist/rpc/actions.proto";
+
+package machinist;
+
+message PollRequest {
+  oneof req {
+    // Sent only once, when the client first connects.
+    ClientRegister register = 1;
+    // Sent periodicially, the server just replies with an ActionPong.
+    ClientPing ping = 2;
+    // Sent after completing an operation on behalf of the server.
+    ClientResult result = 3;
+  }
+}
+
+message PollResponse {
+  oneof resp {
+    // Response to a ClientRegister.
+    ActionRegister result = 1;
+    // Response to a ClientPing.
+    ActionPong pong = 2;
+
+    ////////////////////////
+    // Operations the server can ask the client to complete.
+
+    // Starts an independent session.
+    ActionSession start = 3;
+    // Send a file.
+    ActionUpload upload = 4;
+    // Receive a file.
+    ActionDownload download = 5;
+  }
+}
+
+// Client sends a file to the server, as a result of processing an ActionUpload.
+message UploadRequest {
+  // required in the first request only.
+  string key = 1;  
+  // optional. If it is provided, it is processed in the first request only.
+  int32 total = 2; 
+
+  bytes data = 3;
+}
+message UploadResponse {
+}
+
+// Client downloads a file from the server, as a result of a processing an ActionDownload.
+message DownloadRequest {
+  string key = 1;
+}
+message DownloadResponse {
+  bytes data = 1;
+}
+
+// Enslaver is the service that workers will connect to to register themselves,
+// and poll for actions to perform.
+//
+// Workers can be behind NAT or firewalls, or not have an IP address. The
+// entire protocol is designed around workers connecting to an enslaver.
+service Enslaver {
+  // Poll is the first request performed by the client. It is our main control channel.
+  // The client parses loops over the PollResponses, and performs the action requested.
+  rpc Poll(stream PollRequest) returns (stream PollResponse) {}
+
+  // The client will invoke Upload when the server requests the client to upload a file.
+  rpc Upload(stream UploadRequest) returns (UploadResponse) {}
+  // The client will invoke Download when the server requests the client to upload a file.
+  rpc Download(DownloadRequest) returns (stream DownloadResponse) {}
+}
