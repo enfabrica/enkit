@@ -28,7 +28,7 @@ type DNSFlags struct {
 func DefaultDNSFlags() *DNSFlags {
 	return &DNSFlags{
 		Timeout: 3 * time.Second,
-		Prefix:  "_enkit_config",
+		Prefix:  "_enkit_config_v2",
 		Retry:   retry.DefaultFlags(),
 	}
 }
