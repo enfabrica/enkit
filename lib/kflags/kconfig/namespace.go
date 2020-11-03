@@ -22,6 +22,7 @@ type paramIndex map[string][]Retriever
 type implementation struct {
 	*Implementation
 	path string
+	err  error
 }
 
 type namespaceData struct {
@@ -263,7 +264,9 @@ func (c *NamespaceAugmenter) VisitCommand(namespace string, command kflags.Comma
 	if impl := nsIndex.imp.Implementation; impl != nil && impl.Package != nil {
 		purl, err := url.Parse(impl.Package.URL)
 		if err != nil {
-			return false, fmt.Errorf("package requires url %s - invalid: %w", impl.Package.URL, err)
+			err = fmt.Errorf("command %s in %s requires package url %s - which is invalid: %w", command.Name(), namespace, impl.Package.URL, err)
+			nsIndex.imp.err = err
+			return false, err
 		}
 
 		if c.base != nil {
@@ -272,6 +275,8 @@ func (c *NamespaceAugmenter) VisitCommand(namespace string, command kflags.Comma
 
 		dir, manifest, err := c.cf(purl.String(), impl.Package.Hash)
 		if err != nil {
+			err = fmt.Errorf("command %s in %s requires package url %s - but could not retrieve it: %w", command.Name(), namespace, impl.Package.URL, err)
+			nsIndex.imp.err = err
 			return false, err
 		}
 		if manifest != nil {
@@ -281,6 +286,7 @@ func (c *NamespaceAugmenter) VisitCommand(namespace string, command kflags.Comma
 
 	var errs []error
 	for _, extra := range commands {
+		var imp *implementation
 		var action kflags.CommandAction
 		if impl := extra.Implementation; impl != nil {
 			if len(impl.Local) > 0 && len(impl.System) > 0 {
@@ -296,7 +302,8 @@ func (c *NamespaceAugmenter) VisitCommand(namespace string, command kflags.Comma
 					intns = extra.Name
 				}
 
-				c.index.Get(intns).imp = implementation{
+				imp = &c.index.Get(intns).imp
+				*imp = implementation{
 					Implementation: extra.Implementation,
 					path:           extra.path,
 				}
@@ -310,6 +317,19 @@ func (c *NamespaceAugmenter) VisitCommand(namespace string, command kflags.Comma
 			}
 			if err != nil {
 				errs = append(errs, err)
+			}
+		}
+
+		// action can be nil if there is no implementation, or the implementation requires no local commands.
+		// (another package is to be downloaded).
+		//
+		// But this action will be invoked if, for any reason, we couldn't get hold of the correct subcommands.
+		if action == nil {
+			action = func(flagarg []kflags.FlagArg, args []string) error {
+				if imp != nil && imp.err != nil {
+					return imp.err
+				}
+				return kflags.NewUsageErrorf("You must specify a subcommand to run")
 			}
 		}
 
