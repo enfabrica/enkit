@@ -6,13 +6,16 @@ import (
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/karchive"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/khttp/kcache"
 	"github.com/enfabrica/enkit/lib/khttp/protocol"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"
 
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"path/filepath"
 	"strings"
 )
@@ -47,7 +50,7 @@ func (cr *CommandRetriever) PrepareHash(url, hash string) (string, error) {
 	if err := cr.retrier.Run(func() error {
 		return protocol.Get(url, protocol.Reader(func(httpr io.Reader) error {
 			var found bool
-			var err error	
+			var err error
 
 			unpack, found, err = cr.cache.Get(hash)
 			if found {
@@ -82,7 +85,7 @@ func (cr *CommandRetriever) PrepareURL(url string) (string, error) {
 	if err := cr.retrier.Run(func() error {
 		mods := protocol.Modifiers{}
 		mods = append(mods, kcache.WithCache(cr.cache, kcache.WithLogger(cr.log)))
-                mods = append(mods, cr.mods...)
+		mods = append(mods, cr.mods...)
 
 		return protocol.Get(url, protocol.Reader(func(r io.Reader) error {
 			cf, converted := r.(*kcache.CachedFile)
@@ -122,6 +125,10 @@ func (cr *CommandRetriever) Prepare(url, hash string) (string, error) {
 func (cr *CommandRetriever) Retrieve(url, hash string) (string, *Manifest, error) {
 	dir, err := cr.Prepare(url, hash)
 	if err != nil {
+		var herr *protocol.HTTPError
+		if errors.As(err, &herr) && herr.Resp.StatusCode == http.StatusUnauthorized {
+			return "", nil, kflags.NewIdentityError(err)
+		}
 		return "", nil, err
 	}
 
