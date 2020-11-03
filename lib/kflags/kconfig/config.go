@@ -296,11 +296,11 @@ func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mod
 	}
 
 	type Options struct {
-		Timeout  time.Duration
-		Fuzzy    time.Duration
-		Wait     time.Duration
-		Attempts int
-                Extension string
+		Timeout   time.Duration
+		Fuzzy     time.Duration
+		Wait      time.Duration
+		Attempts  int
+		Extension string
 	}
 
 	addoptions := func(mod downloader.Modifier) {
@@ -315,11 +315,11 @@ func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mod
 	errs = []error{}
 	for ix, ep := range eps {
 		dnsoptions := Options{
-			Timeout:  3 * time.Second,
-			Wait:     1 * time.Second,
-			Fuzzy:    1 * time.Second,
-			Attempts: 3,
-                        Extension: ".config",
+			Timeout:   3 * time.Second,
+			Wait:      1 * time.Second,
+			Fuzzy:     1 * time.Second,
+			Attempts:  3,
+			Extension: ".config",
 		}
 
 		unknown, err := ep.Options.Apply(&dnsoptions)
