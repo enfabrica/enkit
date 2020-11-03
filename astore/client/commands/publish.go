@@ -24,7 +24,7 @@ func NewPublicAdd(root *Root) *PublicAdd {
 	command := &PublicAdd{
 		root: root,
 		Command: &cobra.Command{
-			Use:   "add",
+			Use:   "add patht/to/artifact [path/to/publish]",
 			Short: "Makes the specified artifact available at the URL provided",
 		},
 	}
