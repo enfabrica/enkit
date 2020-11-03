@@ -172,7 +172,7 @@ func (bf *BaseFlags) Run(set kflags.FlagSet, populator kflags.Populator, run kfl
 		bf.Log.Infof("Updating default flags for domain failed with: %s", err)
 	}
 
-	run(bf.Log.Infof)
+	run(set, bf.Log.Infof)
 }
 
 // Initializes a BaseFlags object after all flags have been parsed.

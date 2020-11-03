@@ -46,6 +46,8 @@ type options struct {
 	ehandlers []kflags.ErrorHandler
 	printer   kflags.Printer
 	argv      []string
+	runner    func() error
+	helper    func(*cobra.Command, []string) bool
 }
 
 type Modifier func(*cobra.Command, *options) error
@@ -82,10 +84,22 @@ func WithArgs(argv []string) Modifier {
 	}
 }
 
-func Run(root *cobra.Command, mods ...Modifier) {
-	o := options{
-		argv: os.Args,
+func WithRunner(runner func() error) Modifier {
+	return func(c *cobra.Command, o *options) error {
+		o.runner = runner
+		return nil
 	}
+}
+
+func WithHelper(helper func(c *cobra.Command, args []string) bool) Modifier {
+	return func(c *cobra.Command, o *options) error {
+		o.helper = helper
+		return nil
+	}
+}
+
+func Run(root *cobra.Command, mods ...Modifier) {
+	o := options{argv: os.Args}
 
 	err := Modifiers(mods).Apply(root, &o)
 	if o.printer != nil {
@@ -97,6 +111,30 @@ func Run(root *cobra.Command, mods ...Modifier) {
 		o.argv = o.argv[1:]
 	}
 	root.SetArgs(o.argv)
+
+	if o.runner != nil {
+		original := root.PersistentPreRunE
+		root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+			err := o.runner()
+			if err != nil {
+				return err
+			}
+			if original != nil {
+				return original(cmd, args)
+			}
+			return nil
+		}
+	}
+
+	if o.helper != nil {
+		original := root.HelpFunc()
+		root.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+			if !o.helper(cmd, args) {
+				return
+			}
+			original(cmd, args)
+		})
+	}
 
 	if err == nil {
 		err = root.Execute()
@@ -126,13 +164,30 @@ func Run(root *cobra.Command, mods ...Modifier) {
 	}
 }
 
-func Runner(root *cobra.Command, argv []string, eh ...kflags.ErrorHandler) (kflags.FlagSet, kflags.Populator, kflags.Runner) {
+type Runnable interface {
+	Run() error
+}
+
+type Helper interface {
+	Help(cmd *cobra.Command, args []string) bool
+}
+
+func Runner(root *cobra.Command, argv []string, eh ...kflags.ErrorHandler) (*FlagSet, kflags.Populator, kflags.Runner) {
 	if argv == nil {
 		argv = os.Args
 	}
 
-	runner := func(p kflags.Printer) {
-		Run(root, WithArgs(argv), WithErrorHandler(eh...), WithPrinter(p))
+	runner := func(fs kflags.FlagSet, p kflags.Printer) {
+		mods := Modifiers{WithArgs(argv), WithErrorHandler(eh...), WithPrinter(p)}
+		runnable, ok := fs.(Runnable)
+		if ok {
+			mods = append(mods, WithRunner(runnable.Run))
+		}
+		helping, ok := fs.(Helper)
+		if ok {
+			mods = append(mods, WithHelper(helping.Help))
+		}
+		Run(root, mods...)
 	}
 	return &FlagSet{FlagSet: root.PersistentFlags()}, CobraPopulator(root, argv), runner
 }

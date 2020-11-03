@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "cobra.go",
         "defaults.go",
+        "hidden.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/kflags/kcobra",
     visibility = ["//visibility:public"],

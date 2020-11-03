@@ -55,25 +55,25 @@ func (gf *GoFlag) SetContent(name string, data []byte) error {
 	return nil
 }
 
-// Command represents a command line command. 
+// Command represents a command line command.
 type Command interface {
 	Name() string
 	Hide(bool)
 }
 
 type CommandDefinition struct {
-	Name string
-	Use string
-	Short string
-	Long string
+	Name    string
+	Use     string
+	Short   string
+	Long    string
 	Example string
 
 	Aliases []string
 }
 
 type FlagDefinition struct {
-	Name string
-	Help string
+	Name    string
+	Help    string
 	Default string
 }
 

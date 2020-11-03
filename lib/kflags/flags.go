@@ -111,5 +111,5 @@ type ErrorHandler func(err error) error
 // Printer is a function capable of printing Printf like strings.
 type Printer func(format string, v ...interface{})
 
-// Runner is a function capable of starting a program.
-type Runner func(Printer)
+// Runner is a function capable of starting a program with a given set of flags.
+type Runner func(FlagSet, Printer)
