@@ -33,8 +33,21 @@ func (ifl *IdentityFlags) Register(flags kflags.FlagSet, prefix string) *Identit
 
 // Identity of the user requesting the operation as specified via command line flags.
 // It is generally a string that looks like an email, user@domain.com, for example.
+//
+// The empty string indicates the "default identity", unknown until loaded from a file or
+// retrieved from some remote system.
 func (ifl *IdentityFlags) Identity() string {
 	return Join(SplitUsername(ifl.UserDomain, ifl.DefaultDomain))
+}
+
+// Same as Identity() but instead of returning an empty string as the default identity,
+// it returns a human readable "(default)".
+func (ifl *IdentityFlags) Printable() string {
+	id := ifl.Identity()
+	if id == "" {
+		id = "(default)"
+	}
+	return id
 }
 
 // Domain name specified by the user via flags.
@@ -83,14 +96,15 @@ type Default struct {
 	Identity string
 }
 
-// An Identity store is an object capable of reading and writing identities on disk.
-type Identity interface {
+// An Identity store is a generic object capable of storing and retrieving identities.
+type IdentityStore interface {
 	Save(identity string, token string) error
 	SetDefault(identity string) error
 	Load(identity string) (string, string, error)
 }
 
-type IdentityStore struct {
+// A ConfigIdentityStore is an IdentityStore using a config.Store to store and retrieve identities.
+type ConfigIdentityStore struct {
 	store config.Store
 }
 
@@ -101,18 +115,18 @@ type IdentityStore struct {
 // The configName parameter specifies the namespace used to store and retrieve
 // those identities. The namespace is typically mapped to a config directory
 // name where those identities are stored.
-func NewStore(configName string, opener config.Opener) (*IdentityStore, error) {
+func NewStore(configName string, opener config.Opener) (*ConfigIdentityStore, error) {
 	store, err := opener(configName, "identity")
 	if err != nil {
 		return nil, err
 	}
-	return &IdentityStore{store: store}, nil
+	return &ConfigIdentityStore{store: store}, nil
 }
 
-func (id *IdentityStore) Save(identity string, token string) error {
+func (id *ConfigIdentityStore) Save(identity string, token string) error {
 	return id.store.Marshal(identity, Token{Token: token})
 }
-func (id *IdentityStore) SetDefault(identity string) error {
+func (id *ConfigIdentityStore) SetDefault(identity string) error {
 	return id.store.Marshal("default", Default{Identity: identity})
 }
 
@@ -120,7 +134,7 @@ func (id *IdentityStore) SetDefault(identity string) error {
 // identity is a string like 'user@domain.com', if empty, the default identity is loaded.
 //
 // Returns the identity loaded and the security token, or an error.
-func (id *IdentityStore) Load(identity string) (string, string, error) {
+func (id *ConfigIdentityStore) Load(identity string) (string, string, error) {
 	if identity == "" {
 		var def Default
 		if _, err := id.store.Unmarshal("default", &def); err != nil {

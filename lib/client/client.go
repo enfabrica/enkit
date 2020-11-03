@@ -103,18 +103,25 @@ func DefaultBaseFlags(commandName, configName string) *BaseFlags {
 //
 // to make sure the user is told to use enkit login in case of identity
 // related errors.
-func HandleIdentityError(message string) kflags.ErrorHandler {
+func (bf *BaseFlags) IdentityErrorHandler(message string) kflags.ErrorHandler {
 	return func(err error) error {
 		var ie *kflags.IdentityError
 		if !errors.As(err, &ie) {
 			return err
 		}
-		return fmt.Errorf("Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s",
-			logger.NewIndentedError(err, "    (for debug only) "), message)
+		identity := bf.Identity()
+		if identity == "" {
+			identity, _, _ = bf.IdentityToken()
+			if identity == "" {
+				identity = "youruser@yourdomain.com"
+			}
+		}
+		return fmt.Errorf("Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s %s",
+			logger.NewIndentedError(err, "    (for debug only) "), message, identity)
 	}
 }
 
-func (bf *BaseFlags) IdentityStore() (identity.Identity, error) {
+func (bf *BaseFlags) IdentityStore() (identity.IdentityStore, error) {
 	bf.Log.Infof("Loading credentials from store '%s", bf.ConfigName)
 	id, err := identity.NewStore(bf.ConfigName, bf.ConfigOpener)
 	if err != nil {
@@ -140,7 +147,7 @@ func (bf *BaseFlags) IdentityToken() (string, string, error) {
 
 	identity := bf.Identity()
 	username, token, err := store.Load(identity)
-	bf.Log.Infof("Using credentials of '%s' for '%s'", username, identity)
+	bf.Log.Infof("Using credentials of '%s' for requested '%s'", username, bf.Printable())
 	if err != nil {
 		return "", "", kflags.NewIdentityError(err)
 	}

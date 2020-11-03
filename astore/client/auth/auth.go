@@ -6,11 +6,19 @@ import (
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
+	"github.com/pkg/browser"
 	"golang.org/x/crypto/nacl/box"
 	"google.golang.org/grpc"
 	"math/rand"
 	"time"
 )
+
+// Override the browser library defaults - just write to /dev/null, no need to
+// print garbage on the console.
+func init() {
+	browser.Stdout = nil
+	browser.Stderr = nil
+}
 
 type Client struct {
 	rng  *rand.Rand
@@ -61,6 +69,7 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	}
 	fmt.Printf("\t%s\n\nTo complete authentication with @%s.\n"+
 		"I'll be waiting for you, but hurry! The request may timeout.\nHit Ctl+C with no regrets to abort.\n", ares.Url, domain)
+	browser.OpenURL(ares.Url)
 	treq := &auth.TokenRequest{
 		Url: ares.Url,
 	}

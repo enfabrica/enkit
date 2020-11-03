@@ -15,7 +15,7 @@ func main() {
 	base := client.DefaultBaseFlags("astore", "enkit")
 	root := acommands.New(base)
 
-	set, populator, runner := kcobra.Runner(root.Command, nil, client.HandleIdentityError("astore login youruser@yourdomain.com"))
+	set, populator, runner := kcobra.Runner(root.Command, nil, base.IdentityErrorHandler("astore login"))
 
 	rng := rand.New(srand.Source)
 	root.AddCommand(bcommands.NewLogin(base, rng, populator).Command)

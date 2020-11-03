@@ -25,10 +25,9 @@ func main() {
 		Example:       `  $ enkit astore push`,
 	}
 
-	set, populator, runner := kcobra.Runner(root, nil,
-		client.HandleIdentityError("enkit login youruser@yourdomain.com"))
-
 	base := client.DefaultBaseFlags(root.Name(), "enkit")
+
+	set, populator, runner := kcobra.Runner(root, nil, base.IdentityErrorHandler("enkit login"))
 
 	login := bcommands.NewLogin(base, rng, populator)
 	root.AddCommand(login.Command)
