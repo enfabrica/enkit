@@ -133,6 +133,15 @@ message NoteResponse {
   repeated Artifact artifact = 1;
 }
 
+message DeleteRequest {
+  string id = 1; //SID or UID (will be interpreted to which based on length)
+}
+
+message DeleteResponse {
+  int32 code = 1; //Valid values are like fs errors, either 0 1 or 2;
+  string message = 2; //Raw error or success message
+}
+
 service Astore {
   rpc Store(StoreRequest) returns (StoreResponse) {}
   rpc Commit(CommitRequest) returns (CommitResponse) {}
@@ -140,6 +149,7 @@ service Astore {
   rpc List(ListRequest) returns (ListResponse) {}
   rpc Tag(TagRequest) returns (TagResponse) {}
   rpc Note(NoteRequest) returns (NoteResponse) {}
+  rpc Delete(DeleteRequest) returns (DeleteResponse){}
 
   rpc Publish(PublishRequest) returns (PublishResponse) {}
   rpc Unpublish(UnpublishRequest) returns (UnpublishResponse) {}
