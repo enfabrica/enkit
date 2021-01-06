@@ -1,20 +1,20 @@
 package ogithub
 
 import (
+	"context"
 	"fmt"
 	"log"
-	"context"
 
 	"github.com/enfabrica/enkit/lib/oauth"
 	gh "github.com/google/go-github/github"
-	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 )
 
 func Defaults() oauth.Modifier {
 	return oauth.WithModifiers(
-		oauth.WithScopes([]string {
-				"repos",
+		oauth.WithScopes([]string{
+			"repos",
 		}),
 		oauth.WithEndpoint(github.Endpoint),
 		oauth.WithFactory(GetUserVerifier),
@@ -48,5 +48,3 @@ func GetUserVerifier(conf *oauth2.Config) (oauth.Verifier, error) {
 		}, nil
 	}, nil
 }
-
-

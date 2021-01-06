@@ -33,7 +33,6 @@ func New(base *client.BaseFlags) *Root {
 	root.AddCommand(NewTag(root).Command)
 	root.AddCommand(NewNote(root).Command)
 	root.AddCommand(NewPublic(root).Command)
-
 	return root
 }
 

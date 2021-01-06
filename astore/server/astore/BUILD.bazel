@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "astore.go",
+        "delete.go",
         "factory.go",
         "interface.go",
         "note.go",

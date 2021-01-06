@@ -177,7 +177,7 @@ type CachedFile struct {
 	// Path is the final path of where the cached file has been stored.
 	//
 	// This includes any directory provided by the cache storage layer.
-	Path  string
+	Path string
 
 	// If false, indicates that the file was just downloaded.
 	// If true, it was either re-used from cache because nothing changed, or because

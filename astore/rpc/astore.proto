@@ -133,6 +133,14 @@ message NoteResponse {
   repeated Artifact artifact = 1;
 }
 
+message DeleteRequest {
+  string id = 1; //SID or UID (will be interpreted to which based on length)
+}
+
+message DeleteResponse {
+  repeated string ids = 1; //list of deleted sid's and deleted uids
+}
+
 service Astore {
   rpc Store(StoreRequest) returns (StoreResponse) {}
   rpc Commit(CommitRequest) returns (CommitResponse) {}
@@ -140,6 +148,7 @@ service Astore {
   rpc List(ListRequest) returns (ListResponse) {}
   rpc Tag(TagRequest) returns (TagResponse) {}
   rpc Note(NoteRequest) returns (NoteResponse) {}
+  rpc Delete(DeleteRequest) returns (DeleteResponse){}
 
   rpc Publish(PublishRequest) returns (PublishResponse) {}
   rpc Unpublish(UnpublishRequest) returns (UnpublishResponse) {}
