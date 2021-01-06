@@ -138,8 +138,7 @@ message DeleteRequest {
 }
 
 message DeleteResponse {
-  int32 code = 1; //Valid values are like fs errors, either 0 1 or 2;
-  string message = 2; //Raw error or success message
+  repeated string ids = 1; //list of deleted sid's and deleted uids
 }
 
 service Astore {

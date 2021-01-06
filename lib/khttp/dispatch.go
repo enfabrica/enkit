@@ -53,7 +53,7 @@ type HostDispatch struct {
 	// The Host string can also specify a port number for example: www.mydomain.com:1001.
 	// Port 80 or 443 are stripped by default and matched without port, as the RFC
 	// recommandation is that port 80 and 443 are to be stripped in host headers.
-	Host    string
+	Host string
 
 	// Handler is the handler to invoke for all requests matching this host.
 	Handler http.Handler

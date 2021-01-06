@@ -143,10 +143,10 @@ func (o *roptions) Retrier() *retry.Options {
 
 func (o *roptions) ProtocolModifiers() []protocol.Modifier {
 	return append(protocol.Modifiers{
-			protocol.WithContext(o.ctx),
-			protocol.WithTimeout(o.timeout),
-			protocol.WithRequestOptions(o.request...),
-			protocol.WithClientOptions(o.client...)}, o.protocol...)
+		protocol.WithContext(o.ctx),
+		protocol.WithTimeout(o.timeout),
+		protocol.WithRequestOptions(o.request...),
+		protocol.WithClientOptions(o.client...)}, o.protocol...)
 }
 
 // Get will fetch the specified url, invoke handler to process the response, and eh to process the returned error.

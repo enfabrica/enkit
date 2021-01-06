@@ -9,10 +9,10 @@ import (
 	"github.com/enfabrica/enkit/kbuild/kapt"
 
 	"github.com/enfabrica/enkit/lib/config/marshal"
+	"github.com/enfabrica/enkit/lib/karchive"
 	"github.com/enfabrica/enkit/lib/khttp/protocol"
 	"github.com/enfabrica/enkit/lib/khttp/scheduler"
 	"github.com/enfabrica/enkit/lib/khttp/workpool"
-	"github.com/enfabrica/enkit/lib/karchive"
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/enfabrica/kbuild/assets"
 	"github.com/xor-gate/ar"
