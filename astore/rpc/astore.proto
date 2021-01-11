@@ -134,11 +134,11 @@ message NoteResponse {
 }
 
 message DeleteRequest {
-  string id = 1; //SID or UID (will be interpreted to which based on length)
+  string id = 1;  // SID or UID (will be interpreted to which based on length).
 }
 
 message DeleteResponse {
-  repeated string ids = 1; //list of deleted sid's and deleted uids
+  repeated string ids = 1;  // list of deleted sid's and deleted uids.
 }
 
 service Astore {
