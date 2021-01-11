@@ -11,8 +11,8 @@ jobs:
         with:
           bazel-version: '3.5.0'
       - name: output folder
-        run: -|
-        bazel build
+        run: |
+          bazel build
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
