@@ -9,7 +9,7 @@ jobs:
       - name: Setup bazel
         uses: jwlawson/actions-setup-bazel@v1
         with:
-          bazel-version: '3.5.0'
+          bazel-version: '3.5.1'
       - name: output folder
         run: |
           bazel build
