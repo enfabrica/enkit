@@ -9,7 +9,7 @@ jobs:
       - name: Setup bazel
         uses: abhinavsingh/setup-bazel@v3
         with:
-          version: 3.5.1
+          version: 3.5.0
       - name: bazel confirm
         run: |
           which bazel
