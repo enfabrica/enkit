@@ -7,9 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup bazel
-        uses: jwlawson/actions-setup-bazel@v3
+        uses: abhinavsingh/setup-bazel@v3
         with:
-          bazel-version: 3.5.x
+          bazel-version: 3.5.1
       - name: output folder
         run: |
           bazel build
