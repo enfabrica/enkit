@@ -9,7 +9,7 @@ jobs:
       - name: Setup bazel
         uses: abhinavsingh/setup-bazel@v3
         with:
-          bazel-version: 3.5.1
+          version: 3.5.1
       - name: output folder
         run: |
           bazel build
