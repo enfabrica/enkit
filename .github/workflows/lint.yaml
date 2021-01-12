@@ -11,9 +11,7 @@ jobs:
         with:
           version: 3.5.1
       - name: bazel confirm
-        run: |
-          ls
-          bazel build
+        run: bazel -h
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
