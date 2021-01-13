@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_path")
 
 go_library(
     name = "go_default_library",
@@ -47,6 +47,19 @@ go_binary(
     goos = "windows",
     static = "on",
     visibility = ["//visibility:public"],
+)
+
+#load("//astore/rpc/BUILD.bzl", "astore-go", "auth-go")
+
+go_path(
+    name = "ci_vendor",
+    mode = "copy",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":go_default_library",
+        "//astore/rpc:astore-proto-lib",
+        "//astore/rpc:auth-proto-lib",
+    ],
 )
 
 load("//bazel/astore:defs.bzl", "astore_upload")

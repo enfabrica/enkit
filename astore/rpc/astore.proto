@@ -91,7 +91,7 @@ message ListResponse {
 }
 
 message PublishRequest {
-  string path = 1; 
+  string path = 1;
   ListRequest select = 2;
 }
 message PublishResponse {
