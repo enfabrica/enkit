@@ -15,6 +15,7 @@ jobs:
           which bazel
           bazel --version
           bazel build //enkit:ci_vendor
+          export GOPATH=$PWD/bazel-bin/enkit/ci_vendor/src/github.com/enfabrica/enkit
         continue-on-error: true
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
