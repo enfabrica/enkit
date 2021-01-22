@@ -6,7 +6,9 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/krequest"
 	"io"
 	"io/ioutil"
+	//	"log"
 	"net/http"
+	//	"net/http/httputil"
 	"time"
 )
 
@@ -30,6 +32,7 @@ type Options struct {
 	Client  *http.Client
 	Ctx     context.Context
 	Timeout time.Duration
+	Content io.Reader
 
 	ClientMods  kclient.Modifiers
 	RequestMods krequest.Modifiers
@@ -76,6 +79,17 @@ func WithTimeout(timeout time.Duration) Modifier {
 	}
 }
 
+// WithContent allows to provide a body to be sent to the remote end.
+//
+// For example, use WithContent(strings.NewReader("this is some json")) to
+// send some json alongside your POST requests.
+func WithContent(content io.Reader) Modifier {
+	return func(o *Options) error {
+		o.Content = content
+		return nil
+	}
+}
+
 func WithOptions(mods ...Modifier) Modifier {
 	return func(o *Options) error {
 		return Modifiers(mods).Apply(o)
@@ -89,10 +103,26 @@ func WithCleaner(cleaner Cleaner) Modifier {
 	}
 }
 
+// Get will perform a GET request to retrieve the specified url by invoking the Do method.
 func Get(url string, handler ResponseHandler, mod ...Modifier) error {
+	return Do(http.MethodGet, url, handler, mod...)
+}
+
+// Get will perform a POST request to retrieve the specified url by invoking the Do method.
+func Post(url string, handler ResponseHandler, mod ...Modifier) error {
+	return Do(http.MethodPost, url, handler, mod...)
+}
+
+// Do performs an http request by applying the specified options.
+//
+// method is a string, generally one of the http.Method.* constants, indicating
+// the HTTP method to use.
+// url is the remote url to retrieve, as a string.
+// mod is a set of modifiers indicating how to perform the request.
+func Do(method, url string, handler ResponseHandler, mod ...Modifier) error {
 	options := &Options{
 		Url:     url,
-		Method:  http.MethodGet,
+		Method:  method,
 		Handler: handler,
 		Timeout: 30 * time.Second,
 		Client:  &http.Client{},
@@ -122,14 +152,22 @@ func (options *Options) Do() error {
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, options.Method, url, nil)
+	req, err := http.NewRequestWithContext(ctx, options.Method, url, options.Content)
 	if err != nil {
 		return err
 	}
 
 	var resp *http.Response
 	if err = options.RequestMods.Apply(req); err == nil {
+		req.URL.RawQuery = req.URL.Query().Encode()
+
+		// dump, err := httputil.DumpRequest(req, true)
+		// log.Printf("REQUEST %v - %s", err, dump)
+
 		resp, err = options.Client.Do(req)
+
+		// dump, err = httputil.DumpResponse(resp, true)
+		// log.Printf("RESPONSE %v - %s", err, dump)
 	}
 
 	defer func() {
