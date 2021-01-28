@@ -35,12 +35,6 @@ go_lint = rule(
             executable = True,
             cfg = "exec"
         ),
-        "_compiler": attr.label(
-            default = Label("//enkit:enkit-darwin-amd64"),
-            allow_single_file = True,
-            executable = True,
-            cfg = "exec",
-        ),
          "_go_context_data": attr.label(
             default = "@io_bazel_rules_go//:go_context_data",
         ),
