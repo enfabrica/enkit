@@ -8,16 +8,18 @@ def _my_rule_impl(ctx):
     library_name = lib.label.name
     go = go_context(ctx)
     print(lib)
+    print(ctx.outputs.output.path)
     ctx.actions.run(
         inputs = lib.files,
         outputs = [ctx.outputs.output],
         arguments = [],
         progress_message = "Running linter into",
         executable = ctx.executable._lint_script,
-        tools = [ctx.executable._compiler, go.go],
+        tools = [go.go],
         env = {
             "GO_LOCATION": go.sdk.root_file.dirname,
-            "GO_LIBRARY_NAME": library_name
+            "GO_LIBRARY_NAME": library_name,
+            "LINT_OUTPUT": ctx.outputs.output.path
         }
     )
     print("ran all the stuff")

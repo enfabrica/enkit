@@ -3,8 +3,8 @@ echo "running lint script"
 
 #Golang setup
 export PATH="${PWD}/${GO_LOCATION}/bin:$PATH"
-export GOPATH=$SOURCE_LINT
 export SOURCE_LINT="$(find $PWD -name ${GO_LIBRARY_NAME})"
+export GOPATH=$SOURCE_LINT
 
 echo "running lint on directory $(find $PWD -name enfabrica)/enkit"
 
@@ -12,6 +12,12 @@ echo "running lint on directory $(find $PWD -name enfabrica)/enkit"
 export HOME="$PWD"
 mkdir -p .cache
 
-#run the actual linter
+
+#create output files
+mkdir -p $(dirname ${LINT_OUTPUT})
+touch ${LINT_OUTPUT}
+export LINT_OUTPUT="$PWD/${LINT_OUTPUT}"
+
 cd $(find $PWD -name enfabrica)/enkit
-golangci-lint run --path-prefix "/"
+echo "$(golangci-lint run --path-prefix / --issues-exit-code 0)" >> ${LINT_OUTPUT}
+cat ${LINT_OUTPUT}
