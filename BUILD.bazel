@@ -25,3 +25,11 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 buildifier(
     name = "buildifier",
 )
+
+load("//bazel/scripts:defs.bzl", "go_lint")
+
+go_lint(
+    name = "lint_astore",
+    go_library = ["//astore/client:astore_source"],
+    output = "//:lint_result.txt"
+)
