@@ -1,17 +1,17 @@
 #!/usr/bin/env sh
 echo "running lint script"
-#sleep 5
-echo "hello hello" >> "lint_result.txt"
-#ls bazel-out/darwin-fastbuild/bin/astore/client/astore_source/src/github.com/enfabrica/enkit/astore
-#if [[ -nz $1 ]]
-#  echo "must provide path prefix"
-#fi
+
+#Golang setup
+export PATH="${PWD}/${GO_LOCATION}/bin:$PATH"
+export GOPATH=$SOURCE_LINT
+export SOURCE_LINT="$(find $PWD -name ${GO_LIBRARY_NAME})"
+
+echo "running lint on directory $(find $PWD -name enfabrica)/enkit"
+
+# this is necessary for cache + homdir lib errors
 export HOME="$PWD"
 mkdir -p .cache
-echo "here"
-#ls
-#echo ${enkit}
-#export PATH=$PATH:"${enkit}"
-#bash -c "${enkit} --help"
-#echo "here again "
-golangci-lint run --path-prefix bazel-out/darwin-fastbuild/bin/astore/client/astore_source/src/github.com/enfabrica/enkit
+
+#run the actual linter
+cd $(find $PWD -name enfabrica)/enkit
+golangci-lint run --path-prefix "/"
