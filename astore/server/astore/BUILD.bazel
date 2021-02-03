@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("//bazel/testing:defs.bzl", "run_container", "n_run_test")
 
 go_library(
     name = "go_default_library",
@@ -29,9 +30,25 @@ go_library(
     ],
 )
 
+run_container(
+    name = "run_container",
+    visibility = ["//visibility:public"],
+)
+
+n_run_test(
+    name = "n_run_test_example",
+    containers = [
+        "//bazel/testing:run_nginx"
+    ],
+    test = ":go_default_test",
+)
+
 go_test(
     name = "go_default_test",
-    srcs = ["astore_test.go"],
+    srcs = [
+        "astore_test.go",
+        "delete_test.go",
+    ],
     embed = [":go_default_library"],
     deps = [
         "//astore/client/astore:go_default_library",

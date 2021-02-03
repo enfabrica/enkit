@@ -37,3 +37,6 @@ http_archive(
     strip_prefix = "buildtools-master",
     url = "https://github.com/bazelbuild/buildtools/archive/master.zip",
 )
+
+load("//bazel/testing:defs.bzl", "run_container")
+

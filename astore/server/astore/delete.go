@@ -6,5 +6,5 @@ import (
 )
 
 func (s *Server) Delete(ctx context.Context, request *astore.DeleteRequest) (*astore.DeleteResponse, error) {
-	panic("implement me")
+	panic("here")
 }

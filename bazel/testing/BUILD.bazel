@@ -1,0 +1,9 @@
+load("//bazel/testing:defs.bzl", "run_container")
+
+exports_files(["run_container.sh", "close_container.sh", "example.sh"])
+
+run_nginx = run_container(
+    name="run_nginx",
+    image_name="nginx",
+    visibility = ["//visibility:public"]
+)
