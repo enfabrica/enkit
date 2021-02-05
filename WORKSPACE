@@ -5,6 +5,8 @@ workspace(
     managed_directories = {"@npm": ["node_modules"]},
 )
 
+#local_repository(name="enkit", path=".")
+
 load("//bazel:deps.bzl", "enkit_deps")
 
 enkit_deps()
@@ -37,5 +39,4 @@ http_archive(
     strip_prefix = "buildtools-master",
     url = "https://github.com/bazelbuild/buildtools/archive/master.zip",
 )
-
 
