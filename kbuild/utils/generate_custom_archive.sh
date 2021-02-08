@@ -13,6 +13,11 @@ usage: ${0##*/} OPTS
     -t OUTDIR    Root directory for containing the generated kernel package
     -v KVER      Kernel version (used to name the package)
 This will generate a KVER-test.tar.gz file inside OUTDIR, built from the pre-compiled kernel in KDIR.
+The pre-compiled kernel is expected to have been obtained by:
+1. Downloading kernel source code from somewhere into KDIR
+2. export ARCH=x
+3. cd KDIR && make defconfig && make menuconfig # Enable/disable stuff.
+4. make
 EOF
 }
 
