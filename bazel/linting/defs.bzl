@@ -1,56 +1,60 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_context")
+load("@io_bazel_rules_go//go:def.bzl", "go_context", "GoSource")
 
 
-
-def _generate_list_of_changes_files(ctx):
-    ctx.actions.run(
-        executable = ctx.executable._to_execute,
-#        input_files = ctx.attr._root_repository.files,
-        outputs = [ctx.outputs.out]
-    )
-
-
-get_changed_files = rule(
-    _generate_list_of_changes_files,
-    attrs = {
-        "_to_execute": attr.label(
-            default = Label("//bazel/linting/scripts:git.sh"),
-            allow_single_file = True,
-            executable = True,
-            cfg = "exec"
-        ),
-#        "_root_repository": attr.label(
-#            default = Label("//.git")
-#        )
-    },
-    outputs = {
-        "out": "hello"
+DepInfo = provider(
+    fields = {
+        'files' : 'deps'
     }
 )
 
-def generate_git_changes(name, visibility=None):
-    native.genrule(
-        name = 'git_version',
-        srcs = ['.git/HEAD', '.git/refs/**'],
-        outs = [
-          'changes.txt',
-        ],
-        cmd = 'echo "$$(git rev-parse HEAD)" > $(location changes.txt)',
-    )
+def _print_aspect_impl(target, ctx):
+    # Make sure the rule has a srcs attribute.
+    to_return = []
+    if hasattr(ctx.rule.attr, 'srcs'):
+        for src in ctx.rule.attr.srcs:
+            for f in src.files.to_list():
+                to_return.append(f)
+
+    if hasattr(ctx.rule.attr, 'deps'):
+        for dep in ctx.rule.attr.deps:
+            to_return.extend(dep[DepInfo].files)
+
+    return [DepInfo(files=to_return)]
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+)
 
 
 # TODO be able to put in a list of go_path targets to lint
 # TODO make flatmap helper?
 # TODO export lint result file
-def _my_rule_impl(ctx):
-    lib = ctx.attr.go_library[0]
+def _go_lint_impl(ctx):
+    lib = ctx.attr.go_libraries[0]
     library_name = lib.label.name
     go = go_context(ctx)
-    print(lib)
-    print(ctx.outputs.output.path)
+    inputs = []
+    for l in ctx.attr.deps:
+        inputs.extend(l[DefaultInfo].files.to_list())
+#    for go_lib in ctx.attr.go_libraries:
+#        inputs.extend(go_lib[DefaultInfo].files.to_list())
+    for lib in ctx.attr.go_libraries:
+#        inputs.extend(lib[DepInfo].files)
+        inputs.extend(lib.files.to_list())
+#    print(inputs)
+#    print(inputs[0].path)
+#    ctx.actions.expand_template(
+#        template = "//bazel/linting/templates:golangci_lint.yaml",
+#        substitutions = {
+#
+#        },
+#        out = "meow.yaml"
+#    )
+
     ctx.actions.run(
-        inputs = lib.files,
-        outputs = [ctx.outputs.output],
+        inputs = depset(inputs),
+        outputs = [ctx.outputs.out],
         arguments = [],
         progress_message = "Running linter into",
         executable = ctx.executable._lint_script,
@@ -58,7 +62,8 @@ def _my_rule_impl(ctx):
         env = {
             "GO_LOCATION": go.sdk.root_file.dirname,
             "GO_LIBRARY_NAME": library_name,
-            "LINT_OUTPUT": ctx.outputs.output.path
+            "LINT_OUTPUT": ctx.outputs.out.path,
+            "GIT_DATA": inputs[0].path
         }
     )
     print("ran all the stuff")
@@ -66,10 +71,11 @@ def _my_rule_impl(ctx):
 
 
 go_lint = rule(
-    _my_rule_impl,
+    _go_lint_impl,
     attrs = {
-        "go_library": attr.label_list(),
-        "output": attr.output(mandatory = True),
+        "go_libraries": attr.label_list(
+            aspects = [print_aspect]
+        ),
         "_lint_script": attr.label(
             default = Label("//bazel/linting/scripts:lint.sh"),
             allow_files = True,
@@ -79,19 +85,32 @@ go_lint = rule(
          "_go_context_data": attr.label(
             default = "@io_bazel_rules_go//:go_context_data",
         ),
+        "deps": attr.label_list(),
     },
     toolchains = ["@io_bazel_rules_go//go:toolchain"],
+    outputs = {
+        "out": "asjdhalskhd.txt"
+    }
 )
 
-
+#go_libs takes in a gopath compliant repo. This is because the
 def lint(name, go_libs, rust_libs):
     native.genrule(
-       name = 'git_version',
-       srcs = native.glob(['.git/HEAD', '.git/refs/**']),
-       outs = [
-         'changes.txt',
-       ],
-       cmd = "echo $$(git rev-parse HEAD) > $@",
-#       cmd = "echo $$(git rev-parse HEAD) > $@",
+        name = "parse_git_changes",
+        outs = [
+            "//:git.json"
+        ],
+        srcs = [
+            "//bazel/linting/scripts:git.sh"
+        ],
+        cmd = "./$(location //bazel/linting/scripts:git.sh) bazel-out/volatile-status.txt > $@",
+        stamp = 1
+    )
+    go_lint(
+        name="lint_go",
+        go_libraries=go_libs,
+        deps = [
+            ":parse_git_changes",
+        ]
     )
     print("done with the git command")

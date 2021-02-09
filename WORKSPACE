@@ -5,7 +5,7 @@ workspace(
     managed_directories = {"@npm": ["node_modules"]},
 )
 
-#local_repository(name="enkit", path=".")
+local_repository(name="help_me_please", path=".")
 
 load("//bazel:deps.bzl", "enkit_deps")
 

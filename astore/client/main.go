@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	acommands "github.com/enfabrica/enkit/astore/client/commands"
 	bcommands "github.com/enfabrica/enkit/lib/client/commands"
 
@@ -21,4 +22,6 @@ func main() {
 	root.AddCommand(bcommands.NewLogin(base, rng, populator).Command)
 
 	base.Run(set, populator, runner)
+
+	fmt.Println("testing lint changes here")
 }

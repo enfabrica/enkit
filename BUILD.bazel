@@ -13,11 +13,6 @@ exports_files(
 )
 
 exports_files(
-    glob([".git", ".git/*/**"]),
-    visibility = ["//visibility:public"]
-)
-
-exports_files(
     [
         "go.mod",
         "go.sum",
@@ -33,25 +28,21 @@ buildifier(
 
 load("//bazel/linting:defs.bzl", "lint")
 
-
-#
-#lint(
-#    name="lint",
-#    go_libs = [
-#        "//astore/client:go_default_library",
-#        "//enkit:go_default_library",
-#    ],
-#    rust_libs = [
-#
+#go_lint(
+#    name = "lint_go",
+#    go_libraries = [
+#         "//astore/client:go_default_library"
 #    ]
 #)
+#
+##
+lint(
+    name="lint",
+    go_libs = [
+        "//astore/client:astore_source",
+    ],
+    rust_libs = [
 
-genrule(
-       name = 'git_version',
-       srcs = glob(['.git/HEAD', '.git/refs/**', "tsconfig.json", ".git/FETCH_HEAD"]),
-       outs = [
-         'changes.txt',
-       ],
-       cmd = "echo $$(ls external/bazel_tools/tools/genrule) > $@",
-#       cmd = "echo $$(git rev-parse HEAD) > $@",
-    )
+    ]
+)
+
