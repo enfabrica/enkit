@@ -88,7 +88,7 @@ go_lint = rule(
     },
     toolchains = ["@io_bazel_rules_go//go:toolchain"],
     outputs = {
-        "out": "asjdhalskhd.txt"
+        "out": "go_lint_result.txt"
     }
 )
 

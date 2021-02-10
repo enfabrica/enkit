@@ -33,8 +33,7 @@ for i in "${arr[@]}"
 do
   if [[ $i == *.go ]]; then
     go_package=$(dirname $i)
-    echo "running on " $go_package
-    golangci-lint run $go_package --issues-exit-code 0 2>&1 | tee ${LINT_OUTPUT}
+    golangci-lint run $go_package --issues-exit-code 0 2>&1 | sed 's/.*'enkit'//' | tee ${LINT_OUTPUT}
   fi
 done
 
