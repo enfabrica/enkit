@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/astore/client",
-    visibility = ["//visibility:public"],
+    visibility = ["//visibility:private"],
     deps = [
         "//astore/client/commands:go_default_library",
         "//lib/client:go_default_library",
