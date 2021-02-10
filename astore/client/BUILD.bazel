@@ -62,7 +62,7 @@ astore_upload(
 
 go_path(
     name = "astore_source",
-    deps = ["//astore/client:go_default_library"],
+    mode = "copy",
     visibility = ["//visibility:public"],
-    mode = "copy"
+    deps = ["//astore/client:go_default_library"],
 )

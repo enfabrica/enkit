@@ -37,12 +37,10 @@ load("//bazel/linting:defs.bzl", "lint")
 #
 ##
 lint(
-    name="lint",
+    name = "lint",
     go_libs = [
         "//astore/client:astore_source",
     ],
     rust_libs = [
-
-    ]
+    ],
 )
-

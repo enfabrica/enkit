@@ -5,6 +5,8 @@
 export PATH="${PWD}/${GO_LOCATION}/bin:$PATH"
 export SOURCE_LINT="$(find $PWD -name ${GO_LIBRARY_NAME})"
 export GOPATH=$SOURCE_LINT
+echo "go path is " $GOPATH
+ls $GOPATH
 
 echo "running lint on directory $(find $PWD -name enfabrica)/enkit"
 #
@@ -23,15 +25,18 @@ export LINT_OUTPUT="$PWD/${LINT_OUTPUT}"
 
 read -a arr <<< $(cat ${GIT_DATA})
 
+cd $(find $PWD -name enfabrica)/enkit
+echo $PWD
+#golangci-lint run ./...
+ls lib/khttp/protocol
 for i in "${arr[@]}"
 do
-  echo $i
-  echo $(golangci-lint run $i)
-#  echo $(golangci-lint run $i) >> ${LINT_OUTPUT}
+  if [[ $i == *.go ]]; then
+    go_package=$(dirname $i)
+    echo "running on " $go_package
+    golangci-lint run $go_package --issues-exit-code 0 2>&1 | tee ${LINT_OUTPUT}
+  fi
 done
-cat ${LINT_OUTPUT}
-
-cd $(find $PWD -name enfabrica)/enkit
 
 
 

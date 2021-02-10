@@ -66,7 +66,6 @@ def _go_lint_impl(ctx):
             "GIT_DATA": inputs[0].path
         }
     )
-    print("ran all the stuff")
 
 
 
@@ -77,7 +76,7 @@ go_lint = rule(
             aspects = [print_aspect]
         ),
         "_lint_script": attr.label(
-            default = Label("//bazel/linting/scripts:lint.sh"),
+            default = Label("//bazel/linting/scripts:lint_go.sh"),
             allow_files = True,
             executable = True,
             cfg = "exec"
@@ -98,7 +97,7 @@ def lint(name, go_libs, rust_libs):
     native.genrule(
         name = "parse_git_changes",
         outs = [
-            "//:git.json"
+            "//:git.txt"
         ],
         srcs = [
             "//bazel/linting/scripts:git.sh"
@@ -113,4 +112,3 @@ def lint(name, go_libs, rust_libs):
             ":parse_git_changes",
         ]
     )
-    print("done with the git command")

@@ -1,1 +1,4 @@
-exports_files(["git.sh", "lint.sh"])
+exports_files([
+    "git.sh",
+    "lint_go.sh",
+])
