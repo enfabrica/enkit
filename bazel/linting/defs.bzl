@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_context", "GoSource")
+load("@io_bazel_rules_go//go:def.bzl", "go_context")
 
 
 DepInfo = provider(
@@ -7,7 +7,7 @@ DepInfo = provider(
     }
 )
 
-def _print_aspect_impl(target, ctx):
+def _dep_aspect_impl(target, ctx):
     # Make sure the rule has a srcs attribute.
     to_return = []
     if hasattr(ctx.rule.attr, 'srcs'):
@@ -21,15 +21,11 @@ def _print_aspect_impl(target, ctx):
 
     return [DepInfo(files=to_return)]
 
-print_aspect = aspect(
-    implementation = _print_aspect_impl,
+dep_aspect = aspect(
+    implementation = _dep_aspect_impl,
     attr_aspects = ['deps'],
 )
 
-
-# TODO be able to put in a list of go_path targets to lint
-# TODO make flatmap helper?
-# TODO export lint result file
 def _go_lint_impl(ctx):
     lib = ctx.attr.go_libraries[0]
     library_name = lib.label.name
@@ -37,20 +33,9 @@ def _go_lint_impl(ctx):
     inputs = []
     for l in ctx.attr.deps:
         inputs.extend(l[DefaultInfo].files.to_list())
-#    for go_lib in ctx.attr.go_libraries:
-#        inputs.extend(go_lib[DefaultInfo].files.to_list())
+
     for lib in ctx.attr.go_libraries:
-#        inputs.extend(lib[DepInfo].files)
         inputs.extend(lib.files.to_list())
-#    print(inputs)
-#    print(inputs[0].path)
-#    ctx.actions.expand_template(
-#        template = "//bazel/linting/templates:golangci_lint.yaml",
-#        substitutions = {
-#
-#        },
-#        out = "meow.yaml"
-#    )
 
     ctx.actions.run(
         inputs = depset(inputs),
@@ -73,7 +58,7 @@ go_lint = rule(
     _go_lint_impl,
     attrs = {
         "go_libraries": attr.label_list(
-            aspects = [print_aspect]
+            aspects = [dep_aspect]
         ),
         "_lint_script": attr.label(
             default = Label("//bazel/linting/scripts:lint_go.sh"),
@@ -92,7 +77,7 @@ go_lint = rule(
     }
 )
 
-#go_libs takes in a gopath compliant repo. This is because the
+#go_libs takes in a gopath compliant repo.
 def lint(name, go_libs, rust_libs):
     native.genrule(
         name = "parse_git_changes",
