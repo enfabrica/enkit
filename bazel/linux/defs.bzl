@@ -129,7 +129,7 @@ def _kernel_module(ctx):
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
         progress_message = "kernel building: compiling kernel module %s for %s" % (module, ki.package),
-        command = "make -s M=$PWD/%s -C $PWD/%s/%s%s && cp $PWD/%s/%s %s && echo ==== NO FATAL ERRORS - MODULE CREATED - bazel-bin/%s" % (
+        command = "make -s M=$PWD/%s -C $PWD/%s/%s %s && cp $PWD/%s/%s %s && echo ==== NO FATAL ERRORS - MODULE CREATED - bazel-bin/%s" % (
             srcdir,
             ki.root,
             ki.build,
