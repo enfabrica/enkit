@@ -28,14 +28,6 @@ buildifier(
 
 load("//bazel/linting:defs.bzl", "lint")
 
-#go_lint(
-#    name = "lint_go",
-#    go_libraries = [
-#         "//astore/client:go_default_library"
-#    ]
-#)
-#
-##
 lint(
     name = "lint",
     go_libs = [
