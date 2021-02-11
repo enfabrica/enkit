@@ -312,22 +312,27 @@ Example:
     },
 )
 
-def kernel_unit_test(name, module, linux_image, rootfs_image):
+def kernel_test(name, repo_name, module, kernel_image, rootfs_image):
     """Convenience wrapper around sh_test, makes it easier to declare and run KUnit user-mode linux tests.
 
     Args:
       name: string, name for the underlying sh_test rule.
-      module: label, target KUnit kernel module containing the tests.
-      linux_image: label, executable user-mode linux image file.
+      repo_name: label, @name used to import this external repository. Used to
+                 implicitly define the local file run_um_kunit_tests.sh as the test
+	         runner.
+      module: label, KUnit kernel module containing the tests.
+      kernel_image: label, executable user-mode linux image file.
       rootfs_image: label, rootfs image file to be used by the linux image.
     """
-    srcs = ["run_um_kunit_tests.sh"]
+    srcs = [repo_name + "//bazel/linux:run_um_kunit_tests.sh"]
     data = [
         module,
-        linux_image,
-        rootfs_image]
+        kernel_image,
+        rootfs_image
+    ]
     args = [
-        "$(location %s)" % linux_image,
+        "$(location %s)" % kernel_image,
         "$(location %s)" % rootfs_image,
-        "$(location %s)" % module]
+        "$(location %s)" % module
+    ]
     return native.sh_test(name=name, srcs=srcs, data=data, args=args)
