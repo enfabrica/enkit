@@ -311,3 +311,26 @@ Example:
         ),
     },
 )
+
+def kernel_test(name, module, kernel_image, rootfs_image, tap_parser, repo_name="@enkit"):
+    """Convenience wrapper around sh_test, useful for running kernel tests.
+
+    Args:
+      name: string, name for the underlying sh_test rule.
+      module: label, KUnit kernel module containing the tests.
+      kernel_image: label, executable user-mode linux image file.
+      rootfs_image: label, rootfs image file to be used by the linux image.
+      tap_parser: label, script to use to parse the test TAP output.
+      repo_name: label, @name used to import this external repository. Used to
+                 implicitly define the local file run_um_kunit_tests.sh as the test
+                 runner. Default = "@enkit".
+    """
+    srcs = [repo_name + "//bazel/linux:run_um_kunit_tests.sh"]
+    data = [
+        kernel_image,
+        rootfs_image,
+        module,
+	tap_parser
+    ]
+    args = ["$(location %s)" % elem for elem in data]
+    return native.sh_test(name=name, srcs=srcs, data=data, args=args)
