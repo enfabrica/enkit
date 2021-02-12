@@ -1,0 +1,2 @@
+This directory is a partial mirror of the Linux kernel subdirectory tools/testing/kunit, available, for example, at https://github.com/torvalds/linux/tree/master/tools/testing/kunit. Currently mirroring the kernel 5.9 release.
+This has been done to ease the burden of end users of the `kernel_testing` bazel rule (defined in bazel/linux/defs.bzl), which requires a TAP parser to interpret the output of KUnit tests that will be run.

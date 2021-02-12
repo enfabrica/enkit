@@ -1,0 +1,25 @@
+py_binary(
+    name = "kunit",
+    srcs = ["kunit.py"],
+    deps = [
+        ":kunit_config",
+        ":kunit_kernel",
+        ":kunit_parser",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "kunit_config",
+    srcs = ["kunit_config.py"],
+)
+
+py_library(
+    name = "kunit_kernel",
+    srcs = ["kunit_kernel.py"],
+)
+
+py_library(
+    name = "kunit_parser",
+    srcs = ["kunit_parser.py"],
+)
