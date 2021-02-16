@@ -129,7 +129,7 @@ def _kernel_module(ctx):
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
         progress_message = "kernel building: compiling kernel module %s for %s" % (module, ki.package),
-        command = "make -s M=$PWD/%s -C $PWD/%s/%s%s && cp $PWD/%s/%s %s && echo ==== NO FATAL ERRORS - MODULE CREATED - bazel-bin/%s" % (
+        command = "make -s M=$PWD/%s -C $PWD/%s/%s %s && cp $PWD/%s/%s %s && echo ==== NO FATAL ERRORS - MODULE CREATED - bazel-bin/%s" % (
             srcdir,
             ki.root,
             ki.build,
@@ -311,3 +311,30 @@ Example:
         ),
     },
 )
+
+def kernel_test(name, module, kernel_image, rootfs_image,
+		tap_parser="@enkit//bazel/linux/kunit:kunit",
+		repo_name="@enkit"):
+    """Convenience wrapper around sh_test, useful for running kernel tests.
+
+    Args:
+      name: string, name for the underlying sh_test rule.
+      module: label, KUnit kernel module containing the tests.
+      kernel_image: label, executable user-mode linux image file.
+      rootfs_image: label, rootfs image file to be used by the linux image.
+      tap_parser: label, script to use to parse the test TAP output. Default =
+                  kunit tool shipped with the linux kernel source code (mirrored
+                  here in the subdir kunit).
+      repo_name: label, @name used to import this external repository. Used to
+                 implicitly define the local file run_um_kunit_tests.sh as the test
+                 runner. Default = "@enkit".
+    """
+    srcs = [repo_name + "//bazel/linux:run_um_kunit_tests.sh"]
+    data = [
+        kernel_image,
+        rootfs_image,
+        module,
+	tap_parser
+    ]
+    args = ["$(location %s)" % elem for elem in data]
+    return native.sh_test(name=name, srcs=srcs, data=data, args=args)
