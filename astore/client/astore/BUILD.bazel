@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "arch.go",
         "astore.go",
-        "delete.go",
         "formatter.go",
         "note.go",
         "publish.go",

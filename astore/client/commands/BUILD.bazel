@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "commands.go",
-        "delete.go",
         "formatter.go",
         "guess.go",
         "note.go",
