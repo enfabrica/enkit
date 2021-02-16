@@ -35,7 +35,7 @@ kernel_version = repository_rule(
 A kernel_version rule will download a specific kernel version and make it available
 to the rest of the repository to build kernel modules.
 
-kernl_version rules are repository_rule, meaning that they are meant to be used from
+kernel_version rules are repository_rule, meaning that they are meant to be used from
 within a WORKSPACE file to download dependencies before the build starts.
 
 As an example, you can use:
@@ -81,12 +81,10 @@ To create a .tar.gz suitable for this rule, you can use the kbuild tool, availab
         "_template": attr.label(
             default = Label("//bazel/linux:kernel.BUILD.bzl"),
             allow_single_file = True,
-            executable = False,
         ),
         "_utils": attr.label(
             default = Label("//bazel/linux:defs.bzl"),
             allow_single_file = True,
-            executable = False,
         ),
     },
 )
@@ -190,7 +188,7 @@ when not debugging flaky builds.
             mandatory = True,
             allow_empty = False,
             allow_files = True,
-            doc = "The list of files that consitute this module. Generally a glob for all .c and .h files. If you use **/* with glob, we recommend excluding the patterns defined by BUILD_LEFTOVERS.",
+            doc = "The list of files that constitute this module. Generally a glob for all .c and .h files. If you use **/* with glob, we recommend excluding the patterns defined by BUILD_LEFTOVERS.",
         ),
     },
 )
