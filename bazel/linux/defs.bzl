@@ -324,6 +324,116 @@ Example:
     },
 )
 
+RootfsImageInfo = provider(
+    doc = """Maintains the information necessary to represent a rootfs image.
+""",
+    fields = {
+        "name": "Name of the rule that defined this rootfs image. For example, 'stefano-s-favourite-rootfs'.",
+        "image": "File containing the rootfs image.",
+    },
+)
+
+def _rootfs_image(ctx):
+    return [DefaultInfo(files = depset([ctx.file.image])), RootfsImageInfo(
+        name = ctx.attr.name,
+        image = ctx.file.image,
+    )]
+
+rootfs_image = rule(
+    doc = """Defines a new rootfs image.
+
+This rule exports a file that represent a linux rootfs image with just enough
+to be able to boot a linux executable image.
+
+rootfs_image rules are typically automatically created when you declare a
+rootfs_version() in your WORKSPACE file. You should almost never have to create
+rootfs_image rules manually.
+
+The only exception is if you want to troubleshoot a new rootfs image you have
+available locally.
+
+All RootfsImage rules export a RootfsImageInfo provider.
+
+Example:
+
+    rootfs_image(
+        # An arbitrary name for the rule.
+        name = "stefano-s-favourite-rootfs",
+        # This rootfs image file.
+        image = "buildroot-custom-amd64.img",
+    )
+""",
+    implementation = _rootfs_image,
+    attrs = {
+        "image": attr.label(
+	    mandatory = True,
+	    allow_single_file = True,
+            doc = "File containing the rootfs image.",
+        ),
+    },
+)
+
+def _rootfs_version(ctx):
+    ctx.download(ctx.attr.url, output = ctx.attr.package, sha256 = ctx.attr.sha256, auth = ctx.attr.auth)
+    ctx.template(
+        "BUILD.bazel",
+        ctx.attr._template,
+        substitutions = {
+            "{name}": ctx.name,
+	    "{image}": ctx.attr.package,
+            "{utils}": str(ctx.attr._utils),
+        },
+        executable = False,
+    )
+
+rootfs_version = repository_rule(
+    doc = """Imports a specific rootfs version to be used for kernel tests.
+
+A rootfs_version rule will download a specific rootfs version and make it available
+to the rest of the repository to generate kunit tests environments.
+
+rootfs_version rules are repository_rule, meaning that they are meant to be used from
+within a WORKSPACE file to download dependencies before the build starts.
+
+As an example, you can use:
+
+    rootfs_version(
+        name = "test-latest-rootfs",
+        package = "buildroot-custom-amd64",
+        url = "astore.corp.enfabrica.net/d/kernel/test/buildroot-custom-amd64.img",
+    )
+
+To download the specified image from "https://astore.corp.enfabrica.net/d/kernel",
+and use it as the "test-latest-rootfs" from the repository.
+""",
+    implementation = _rootfs_version,
+    local = False,
+    attrs = {
+        "package": attr.string(
+            doc = "The name of the downloaded image. Usually the format is 'distribution-rootfs_version-arch', like buildroot-custom-amd64.",
+            mandatory = True,
+        ),
+        "url": attr.string(
+            doc = "The url to download the rootfs image from.",
+            mandatory = True,
+        ),
+        "sha256": attr.string(
+            doc = "The sha256 of the downloaded package file.",
+        ),
+        "auth": attr.string_dict(
+            doc = "An auth dict as documented for the download_and_extract context rule as is.",
+        ),
+        "_template": attr.label(
+            default = Label("//bazel/linux:rootfs.BUILD.bzl"),
+            allow_single_file = True,
+        ),
+        "_utils": attr.label(
+            default = Label("//bazel/linux:defs.bzl"),
+            allow_single_file = True,
+        ),
+    },
+)
+
 KernelImageInfo = provider(
     doc = """Maintains the information necessary to represent a kernel executable image.""",
     fields = {
