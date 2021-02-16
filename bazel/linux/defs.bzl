@@ -558,3 +558,73 @@ To create an image suitable for this rule, you can compile a linux source tree u
     },
 )
 
+def _kernel_test(ctx):
+    ki = ctx.attr.kernel_image[KernelImageInfo]
+    ri = ctx.attr.rootfs_image[RootfsImageInfo]
+    mi = ctx.attr.module[KernelModuleInfo]
+    # Confirm that the kernel test module is compatible with the precompiled linux kernel executable image.
+    if ki.package != mi.package:
+        print("ERROR: kernel_test expects a test kernel module built against the kernel tree package used to obtain the kernel executable image. ",
+	      "Instead it was given module.package='{}' and kernel_image.package='{}'".format(mi.package, ki.package))
+        return
+
+    parser = ctx.attr._parser.files_to_run.executable
+    inputs = [ki.image, ri.image, mi.module, parser]
+    inputs = depset(inputs, transitive = [
+        ctx.attr.kernel_image.files,
+        ctx.attr.rootfs_image.files,
+        ctx.attr.module.files,
+        ctx.attr._parser.files,
+    ])
+    executable = ctx.actions.declare_file("script.sh")
+    ctx.actions.expand_template(
+        template = ctx.file._template,
+        output = executable,
+        substitutions = {
+            "{kernel}" : ki.image.short_path,
+            "{rootfs}" : ri.image.short_path,
+            "{module}" : mi.module.short_path,
+            "{parser}" : parser.short_path
+        },
+        is_executable = True
+    )
+    runfiles = ctx.runfiles(files = inputs.to_list())
+    runfiles = runfiles.merge(ctx.attr._parser.default_runfiles)
+    return [DefaultInfo(runfiles = runfiles, executable = executable)]
+
+kernel_test = rule(
+    doc = """Test a linux kernel module using the KUnit framework.
+
+kernel_test will retrieve the elements needed to setup a linux kernel test environment, and then execute the test.
+The test will run locally inside a user-mode linux process.
+""",
+    implementation = _kernel_test,
+    attrs = {
+        "kernel_image": attr.label(
+            mandatory = True,
+            providers = [DefaultInfo, KernelImageInfo],
+            doc = "The kernel image that will be used to execute this test. A string like @stefano-s-favourite-kernel-image, referencing a kernel_image(name = 'stefano-s-favourite-kernel-image', ...",
+        ),
+        "rootfs_image": attr.label(
+            mandatory = True,
+            providers = [DefaultInfo, RootfsImageInfo],
+            doc = "The rootfs image that will be used to execute this test. A string like @stefano-s-favourite-rootfs-image, referencing a rootfs_image(name = 'stefano-s-favourite-rootfs-image', ...",
+        ),
+        "module": attr.label(
+            mandatory = True,
+            providers = [DefaultInfo, KernelModuleInfo],
+            doc = "The label of the KUnit linux kernel module to be used for testing. It must define a kunit_test_suite so that when loaded, KUnit will start executing its tests.",
+        ),
+        "_template": attr.label(
+            allow_single_file = True,
+            default = Label("//bazel/linux:run_um_kunit_tests.template"),
+            doc = "The template to generate the bash script used to run the tests.",
+        ),
+        "_parser": attr.label(
+            default = Label("//bazel/linux/kunit:kunit"),
+            doc = "KUnit TAP output parser.",
+        ),
+    },
+    test = True,
+)
+
