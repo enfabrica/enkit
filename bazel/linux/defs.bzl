@@ -1,4 +1,4 @@
-def _kernel_version(ctx):
+def _kernel_tree_version(ctx):
     distro, version = ctx.attr.package.split("-", 1)
 
     ctx.download_and_extract(ctx.attr.url, output = ".", sha256 = ctx.attr.sha256, auth = ctx.attr.auth, stripPrefix = ctx.attr.strip_prefix)
@@ -29,10 +29,10 @@ def _kernel_version(ctx):
         executable = False,
     )
 
-kernel_version = repository_rule(
+kernel_tree_version = repository_rule(
     doc = """Imports a specific kernel version to build out of tree modules.
 
-A kernel_version rule will download a specific kernel version and make it available
+A kernel_tree_version rule will download a specific kernel version and make it available
 to the rest of the repository to build kernel modules.
 
 kernel_version rules are repository_rule, meaning that they are meant to be used from
@@ -40,7 +40,7 @@ within a WORKSPACE file to download dependencies before the build starts.
 
 As an example, you can use:
 
-    kernel_version(
+    kernel_tree_version(
         name = "default-kernel",
         package = "debian-5.9.0-rc6-amd64",
         url = "astore.corp.enfabrica.net/d/kernel/debian/5.9.0-build893849392.tar.gz",
@@ -58,7 +58,7 @@ To create a .tar.gz suitable for this rule, you can use the kbuild tool, availab
 
     https://github.com/enfabrica/enkit/kbuild
 """,
-    implementation = _kernel_version,
+    implementation = _kernel_tree_version,
     local = False,
     attrs = {
         "package": attr.string(
@@ -79,7 +79,7 @@ To create a .tar.gz suitable for this rule, you can use the kbuild tool, availab
             doc = "A path prefix to remove after unpackaging the file, passed to the download_and_extract context rule as is.",
         ),
         "_template": attr.label(
-            default = Label("//bazel/linux:kernel.BUILD.bzl"),
+            default = Label("//bazel/linux:kernel_tree.BUILD.bzl"),
             allow_single_file = True,
         ),
         "_utils": attr.label(
@@ -161,7 +161,7 @@ kernel_module_rule = rule(
     doc = """Builds a kernel module.
 
 The kernel_module_rule will build the specified files as a kernel module. As kernel modules must be built
-against a specific kernel, the 'kernel' attribute must point to a rule created with 'kernel_tree' or 'kernel_version'
+against a specific kernel, the 'kernel' attribute must point to a rule created with 'kernel_tree' or 'kernel_tree_version'
 (really, anything exporting a KernelTreeInfo provider).
 
 The attributes are pretty self explanatory. For convenience, though, we recommend using the
@@ -174,7 +174,7 @@ when not debugging flaky builds.
         "kernel": attr.label(
             mandatory = True,
             providers = [DefaultInfo, KernelTreeInfo],
-            doc = "The kernel to build this module against. A string like @carlo-s-favourite-kernel, referencing a kernel_version(name = 'carlo-s-favourite-kernel', ...",
+            doc = "The kernel to build this module against. A string like @carlo-s-favourite-kernel, referencing a kernel_tree_version(name = 'carlo-s-favourite-kernel', ...",
         ),
         "makefile": attr.label(
             mandatory = True,
@@ -286,7 +286,7 @@ This rule exports a set of files that represent a partial linux kernel tree
 with just enough files and tools to build an out-of-tree kernel modules.
 
 kernel_tree rules are typically automatically created when you declare a
-kernel_version() in your WORKSPACE file. You should almost never have to create
+kernel_tree_version() in your WORKSPACE file. You should almost never have to create
 kernel_tree rules manually.
 
 The only exception is if you check in directly in your repository a patched
