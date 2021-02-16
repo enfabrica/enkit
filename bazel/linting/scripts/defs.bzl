@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_context")
+load("@io_bazel_rules_go//go:def.bzl", "go_context", "go_path")
 
 
 DepInfo = provider(
@@ -90,9 +90,19 @@ def lint(name, go_libs, rust_libs):
         cmd = "./$(location //bazel/linting/scripts:git.sh) bazel-out/volatile-status.txt > $@",
         stamp = 1
     )
+    go_path_rules = []
+    go_lint_ouputs = []
+    for go_lib in go_libs:
+        short_name = go_lib.replace("/","_").replace(":", "_")
+        go_path(name = short_name + "_source",
+                    deps = [go_lib],
+                    mode = "copy")
+        go_path_rules.append("//:" + short_name + "_source")
+        go_lint_ouputs.append(short_name + ".txt")
+
     go_lint(
         name="lint_go",
-        go_libraries=go_libs,
+        go_libraries=go_path_rules,
         deps = [
             ":parse_git_changes",
         ]

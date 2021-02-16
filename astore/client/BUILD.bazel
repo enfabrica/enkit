@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/astore/client",
-    visibility = ["//visibility:private"],
+    visibility = ["//visibility:public"],
     deps = [
         "//astore/client/commands:go_default_library",
         "//lib/client:go_default_library",
@@ -60,9 +60,4 @@ astore_upload(
     ],
 )
 
-go_path(
-    name = "astore_source",
-    mode = "copy",
-    visibility = ["//visibility:public"],
-    deps = ["//astore/client:go_default_library"],
-)
+
