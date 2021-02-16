@@ -140,7 +140,6 @@ service Astore {
   rpc List(ListRequest) returns (ListResponse) {}
   rpc Tag(TagRequest) returns (TagResponse) {}
   rpc Note(NoteRequest) returns (NoteResponse) {}
-  rpc Delete(DeleteRequest) returns (DeleteResponse){}
 
   rpc Publish(PublishRequest) returns (PublishResponse) {}
   rpc Unpublish(UnpublishRequest) returns (UnpublishResponse) {}
