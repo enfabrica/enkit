@@ -9,3 +9,5 @@ node_modules
 credentials*.json
 *.flag*
 *.config*
+.idea/
+.ijwb/
