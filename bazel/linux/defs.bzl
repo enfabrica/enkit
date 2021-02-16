@@ -324,4 +324,127 @@ Example:
     },
 )
 
+KernelImageInfo = provider(
+    doc = """Maintains the information necessary to represent a kernel executable image.""",
+    fields = {
+        "name": "Name of the rule that defined this kernel executable image. For example, 'stefano-s-favourite-kernel-image'.",
+        "package": "A string indicating which package this kernel executable image is coming from. For example, 'custom-5.9.0-um'.",
+        "image": "Path of the kernel executable image.",
+    },
+)
+
+def _kernel_image(ctx):
+    return [DefaultInfo(files = depset([ctx.file.image])), KernelImageInfo(
+        name = ctx.attr.name,
+        package = ctx.attr.package,
+        image = ctx.file.image,
+    )]
+
+kernel_image = rule(
+    doc = """Defines a new kernel executable image.
+
+This rule exports a file that represent a kernel executable image with just
+enough to be able to run kernel tests.
+
+kernel_image rules are typically automatically created when you declare a
+kernel_image_version() in your WORKSPACE file. You should almost never have to
+create kernel_image rules manually.
+
+The only exception is if you want to troubleshoot a new kernel image you have
+available locally.
+
+Example:
+
+    kernel_image(
+        # An arbitrary name for the rule.
+        name = "stefano-s-favourite-kernel-image",
+        # This kernel image file.
+        image = "custom-5.9.0-um",
+    )
+""",
+    implementation = _kernel_image,
+    attrs = {
+        "package": attr.string(
+            mandatory = True,
+            doc = "A string indicating which package this kernel executable image is coming from.",
+        ),
+        "image": attr.label(
+	    mandatory = True,
+            executable = True,
+            cfg = "target",
+	    allow_single_file = True,
+            doc = "File containing the kernel executable image.",
+        ),
+    },
+)
+
+def _kernel_image_version(ctx):
+    ctx.download(
+        ctx.attr.url,
+        output = ctx.attr.package,
+        sha256 = ctx.attr.sha256,
+        auth = ctx.attr.auth,
+        executable = True
+    )
+    ctx.template(
+        "BUILD.bazel",
+        ctx.attr._template,
+        substitutions = {
+            "{name}": ctx.name,
+            "{package}": ctx.attr.package,
+            "{image}": ctx.attr.package,
+            "{utils}": str(ctx.attr._utils),
+        },
+        executable = False,
+    )
+
+kernel_image_version = repository_rule(
+    doc = """Imports a specific kernel executable image version to be used for kernel tests.
+
+A kernel_image_version rule will download a specific kernel image version and make it available
+to the rest of the repository to generate kernel modules tests environments.
+
+kernel_image_version rules are repository_rule, meaning that they are meant to be used from
+within a WORKSPACE file to download dependencies before the build starts.
+
+As an example, you can use:
+
+    kernel_image_version(
+        name = "test-latest-kernel-image",
+        package = "custom-5.9.0-um",
+        url = "astore.corp.enfabrica.net/d/kernel/test/custom-5.9.0-um",
+    )
+
+To download the specified image from "https://astore.corp.enfabrica.net/d/kernel",
+and use it as the "test-latest-kernel-image" from the repository.
+
+To create an image suitable for this rule, you can compile a linux source tree using your preferred configs.
+""",
+    implementation = _kernel_image_version,
+    local = False,
+    attrs = {
+        "package": attr.string(
+            doc = "The name of the downloaded image. Usually the format is 'distribution-kernel_version-arch', like custom-5.9.0-um.",
+            mandatory = True,
+        ),
+        "url": attr.string(
+            doc = "The url to download the kernel executable image from.",
+            mandatory = True,
+        ),
+        "sha256": attr.string(
+            doc = "The sha256 of the downloaded package file.",
+        ),
+        "auth": attr.string_dict(
+            doc = "An auth dict as documented for the download_and_extract context rule as is.",
+        ),
+        "_template": attr.label(
+            default = Label("//bazel/linux:kernel_image.BUILD.bzl"),
+            allow_single_file = True,
+        ),
+        "_utils": attr.label(
+            default = Label("//bazel/linux:defs.bzl"),
+            allow_single_file = True,
+        ),
+    },
+)
 
