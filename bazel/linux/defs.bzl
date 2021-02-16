@@ -104,6 +104,15 @@ a kernel_tree on its own is not expected to be hermetic.
     },
 )
 
+KernelModuleInfo = provider(
+    doc = """Maintains the information necessary to represent a compiled kernel module.""",
+    fields = {
+        "name": "Name of the rule that defined this kernel module.",
+        "package": "A string indicating which package this kernel module has been built against. For example, 'centos-kernel-5.3.0-1'.",
+        "module": "File representing the compiled kernel module (.ko).",
+    },
+)
+
 def _kernel_module(ctx):
     module = ctx.attr.module
     inputs = ctx.files.srcs + ctx.files.kernel
@@ -141,7 +150,12 @@ def _kernel_module(ctx):
         inputs = inputs,
         use_default_shell_env = True,
     )
-    return DefaultInfo(files = depset([output]))
+
+    return [DefaultInfo(files = depset([output])), KernelModuleInfo(
+        name = ctx.attr.name,
+        package = ki.package,
+        module = output,
+    )]
 
 kernel_module_rule = rule(
     doc = """Builds a kernel module.
