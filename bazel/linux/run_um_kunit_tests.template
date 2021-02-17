@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+
+MODULE=$(dirname $(realpath {module}))
+TMPOUTPUT=$TEST_UNDECLARED_OUTPUTS_DIR/.output
+{kernel} ubd0={rootfs} hostfs=$MODULE | tee $TMPOUTPUT
+{parser} parse < $TMPOUTPUT

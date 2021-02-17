@@ -1,4 +1,4 @@
-def _kernel_version(ctx):
+def _kernel_tree_version(ctx):
     distro, version = ctx.attr.package.split("-", 1)
 
     ctx.download_and_extract(ctx.attr.url, output = ".", sha256 = ctx.attr.sha256, auth = ctx.attr.auth, stripPrefix = ctx.attr.strip_prefix)
@@ -29,18 +29,18 @@ def _kernel_version(ctx):
         executable = False,
     )
 
-kernel_version = repository_rule(
+kernel_tree_version = repository_rule(
     doc = """Imports a specific kernel version to build out of tree modules.
 
-A kernel_version rule will download a specific kernel version and make it available
+A kernel_tree_version rule will download a specific kernel version and make it available
 to the rest of the repository to build kernel modules.
 
-kernl_version rules are repository_rule, meaning that they are meant to be used from
+kernel_version rules are repository_rule, meaning that they are meant to be used from
 within a WORKSPACE file to download dependencies before the build starts.
 
 As an example, you can use:
 
-    kernel_version(
+    kernel_tree_version(
         name = "default-kernel",
         package = "debian-5.9.0-rc6-amd64",
         url = "astore.corp.enfabrica.net/d/kernel/debian/5.9.0-build893849392.tar.gz",
@@ -58,7 +58,7 @@ To create a .tar.gz suitable for this rule, you can use the kbuild tool, availab
 
     https://github.com/enfabrica/enkit/kbuild
 """,
-    implementation = _kernel_version,
+    implementation = _kernel_tree_version,
     local = False,
     attrs = {
         "package": attr.string(
@@ -79,14 +79,12 @@ To create a .tar.gz suitable for this rule, you can use the kbuild tool, availab
             doc = "A path prefix to remove after unpackaging the file, passed to the download_and_extract context rule as is.",
         ),
         "_template": attr.label(
-            default = Label("//bazel/linux:kernel.BUILD.bzl"),
+            default = Label("//bazel/linux:kernel_tree.BUILD.bzl"),
             allow_single_file = True,
-            executable = False,
         ),
         "_utils": attr.label(
             default = Label("//bazel/linux:defs.bzl"),
             allow_single_file = True,
-            executable = False,
         ),
     },
 )
@@ -103,6 +101,15 @@ a kernel_tree on its own is not expected to be hermetic.
         "package": "A string indicating which package this kernel is coming from. For example, 'centos-kernel-5.3.0-1'.",
         "root": "Bazel directory containing the root of the kernel tree. This is generally the location of the top level BUILD.bazel file. For example, external/@centos-kernel-5.3.0-1.",
         "build": "Relative path of subdirectory to enter to build a kernel module. It is generally the 'build' parameter passed to the kernel_tree rule. For example, lib/modules/centos-kernel-5.3.0-1/build.",
+    },
+)
+
+KernelModuleInfo = provider(
+    doc = """Maintains the information necessary to represent a compiled kernel module.""",
+    fields = {
+        "name": "Name of the rule that defined this kernel module.",
+        "package": "A string indicating which package this kernel module has been built against. For example, 'centos-kernel-5.3.0-1'.",
+        "module": "File representing the compiled kernel module (.ko).",
     },
 )
 
@@ -143,13 +150,18 @@ def _kernel_module(ctx):
         inputs = inputs,
         use_default_shell_env = True,
     )
-    return DefaultInfo(files = depset([output]))
+
+    return [DefaultInfo(files = depset([output])), KernelModuleInfo(
+        name = ctx.attr.name,
+        package = ki.package,
+        module = output,
+    )]
 
 kernel_module_rule = rule(
     doc = """Builds a kernel module.
 
 The kernel_module_rule will build the specified files as a kernel module. As kernel modules must be built
-against a specific kernel, the 'kernel' attribute must point to a rule created with 'kernel_tree' or 'kernel_version'
+against a specific kernel, the 'kernel' attribute must point to a rule created with 'kernel_tree' or 'kernel_tree_version'
 (really, anything exporting a KernelTreeInfo provider).
 
 The attributes are pretty self explanatory. For convenience, though, we recommend using the
@@ -162,7 +174,7 @@ when not debugging flaky builds.
         "kernel": attr.label(
             mandatory = True,
             providers = [DefaultInfo, KernelTreeInfo],
-            doc = "The kernel to build this module against. A string like @carlo-s-favourite-kernel, referencing a kernel_version(name = 'carlo-s-favourite-kernel', ...",
+            doc = "The kernel to build this module against. A string like @carlo-s-favourite-kernel, referencing a kernel_tree_version(name = 'carlo-s-favourite-kernel', ...",
         ),
         "makefile": attr.label(
             mandatory = True,
@@ -190,7 +202,7 @@ when not debugging flaky builds.
             mandatory = True,
             allow_empty = False,
             allow_files = True,
-            doc = "The list of files that consitute this module. Generally a glob for all .c and .h files. If you use **/* with glob, we recommend excluding the patterns defined by BUILD_LEFTOVERS.",
+            doc = "The list of files that constitute this module. Generally a glob for all .c and .h files. If you use **/* with glob, we recommend excluding the patterns defined by BUILD_LEFTOVERS.",
         ),
     },
 )
@@ -274,7 +286,7 @@ This rule exports a set of files that represent a partial linux kernel tree
 with just enough files and tools to build an out-of-tree kernel modules.
 
 kernel_tree rules are typically automatically created when you declare a
-kernel_version() in your WORKSPACE file. You should almost never have to create
+kernel_tree_version() in your WORKSPACE file. You should almost never have to create
 kernel_tree rules manually.
 
 The only exception is if you check in directly in your repository a patched
@@ -312,29 +324,309 @@ Example:
     },
 )
 
-def kernel_test(name, module, kernel_image, rootfs_image,
-		tap_parser="@enkit//bazel/linux/kunit:kunit",
-		repo_name="@enkit"):
-    """Convenience wrapper around sh_test, useful for running kernel tests.
+RootfsImageInfo = provider(
+    doc = """Maintains the information necessary to represent a rootfs image.
+""",
+    fields = {
+        "name": "Name of the rule that defined this rootfs image. For example, 'stefano-s-favourite-rootfs'.",
+        "image": "File containing the rootfs image.",
+    },
+)
 
-    Args:
-      name: string, name for the underlying sh_test rule.
-      module: label, KUnit kernel module containing the tests.
-      kernel_image: label, executable user-mode linux image file.
-      rootfs_image: label, rootfs image file to be used by the linux image.
-      tap_parser: label, script to use to parse the test TAP output. Default =
-                  kunit tool shipped with the linux kernel source code (mirrored
-                  here in the subdir kunit).
-      repo_name: label, @name used to import this external repository. Used to
-                 implicitly define the local file run_um_kunit_tests.sh as the test
-                 runner. Default = "@enkit".
-    """
-    srcs = [repo_name + "//bazel/linux:run_um_kunit_tests.sh"]
-    data = [
-        kernel_image,
-        rootfs_image,
-        module,
-	tap_parser
-    ]
-    args = ["$(location %s)" % elem for elem in data]
-    return native.sh_test(name=name, srcs=srcs, data=data, args=args)
+def _rootfs_image(ctx):
+    return [DefaultInfo(files = depset([ctx.file.image])), RootfsImageInfo(
+        name = ctx.attr.name,
+        image = ctx.file.image,
+    )]
+
+rootfs_image = rule(
+    doc = """Defines a new rootfs image.
+
+This rule exports a file that represents a linux rootfs image with just enough
+to be able to boot a linux executable image.
+
+rootfs_image rules are typically automatically created when you declare a
+rootfs_version() in your WORKSPACE file. You should almost never have to create
+rootfs_image rules manually.
+
+The only exception is if you want to troubleshoot a new rootfs image you have
+available locally.
+
+All RootfsImage rules export a RootfsImageInfo provider.
+
+Example:
+
+    rootfs_image(
+        # An arbitrary name for the rule.
+        name = "stefano-s-favourite-rootfs",
+        # This rootfs image file.
+        image = "buildroot-custom-amd64.img",
+    )
+""",
+    implementation = _rootfs_image,
+    attrs = {
+        "image": attr.label(
+            mandatory = True,
+            allow_single_file = True,
+            doc = "File containing the rootfs image.",
+        ),
+    },
+)
+
+def _rootfs_version(ctx):
+    ctx.download(ctx.attr.url, output = ctx.attr.package, sha256 = ctx.attr.sha256, auth = ctx.attr.auth)
+    ctx.template(
+        "BUILD.bazel",
+        ctx.attr._template,
+        substitutions = {
+            "{name}": ctx.name,
+            "{image}": ctx.attr.package,
+            "{utils}": str(ctx.attr._utils),
+        },
+        executable = False,
+    )
+
+rootfs_version = repository_rule(
+    doc = """Imports a specific rootfs version to be used for kernel tests.
+
+A rootfs_version rule will download a specific rootfs version and make it available
+to the rest of the repository to generate kunit tests environments.
+
+rootfs_version rules are repository_rule, meaning that they are meant to be used from
+within a WORKSPACE file to download dependencies before the build starts.
+
+As an example, you can use:
+
+    rootfs_version(
+        name = "test-latest-rootfs",
+        package = "buildroot-custom-amd64",
+        url = "astore.corp.enfabrica.net/d/kernel/test/buildroot-custom-amd64.img",
+    )
+
+To download the specified image from "https://astore.corp.enfabrica.net/d/kernel",
+and use it as the "test-latest-rootfs" from the repository.
+""",
+    implementation = _rootfs_version,
+    local = False,
+    attrs = {
+        "package": attr.string(
+            doc = "The name of the downloaded image. Usually the format is 'distribution-rootfs_version-arch', like buildroot-custom-amd64.",
+            mandatory = True,
+        ),
+        "url": attr.string(
+            doc = "The url to download the rootfs image from.",
+            mandatory = True,
+        ),
+        "sha256": attr.string(
+            doc = "The sha256 of the downloaded package file.",
+        ),
+        "auth": attr.string_dict(
+            doc = "An auth dict as documented for the download_and_extract context rule as is.",
+        ),
+        "_template": attr.label(
+            default = Label("//bazel/linux:rootfs.BUILD.bzl"),
+            allow_single_file = True,
+        ),
+        "_utils": attr.label(
+            default = Label("//bazel/linux:defs.bzl"),
+            allow_single_file = True,
+        ),
+    },
+)
+
+KernelImageInfo = provider(
+    doc = """Maintains the information necessary to represent a kernel executable image.""",
+    fields = {
+        "name": "Name of the rule that defined this kernel executable image. For example, 'stefano-s-favourite-kernel-image'.",
+        "package": "A string indicating which package this kernel executable image is coming from. For example, 'custom-5.9.0-um'.",
+        "image": "Path of the kernel executable image.",
+    },
+)
+
+def _kernel_image(ctx):
+    return [DefaultInfo(files = depset([ctx.file.image])), KernelImageInfo(
+        name = ctx.attr.name,
+        package = ctx.attr.package,
+        image = ctx.file.image,
+    )]
+
+kernel_image = rule(
+    doc = """Defines a new kernel executable image.
+
+This rule exports a file that represents a kernel executable image with just
+enough to be able to run kernel tests.
+
+kernel_image rules are typically automatically created when you declare a
+kernel_image_version() in your WORKSPACE file. You should almost never have to
+create kernel_image rules manually.
+
+The only exception is if you want to troubleshoot a new kernel image you have
+available locally.
+
+Example:
+
+    kernel_image(
+        # An arbitrary name for the rule.
+        name = "stefano-s-favourite-kernel-image",
+        # This kernel image file.
+        image = "custom-5.9.0-um",
+    )
+""",
+    implementation = _kernel_image,
+    attrs = {
+        "package": attr.string(
+            mandatory = True,
+            doc = "A string indicating which package this kernel executable image is coming from.",
+        ),
+        "image": attr.label(
+            mandatory = True,
+            executable = True,
+            cfg = "target",
+            allow_single_file = True,
+            doc = "File containing the kernel executable image.",
+        ),
+    },
+)
+
+def _kernel_image_version(ctx):
+    ctx.download(
+        ctx.attr.url,
+        output = ctx.attr.package,
+        sha256 = ctx.attr.sha256,
+        auth = ctx.attr.auth,
+        executable = True,
+    )
+    ctx.template(
+        "BUILD.bazel",
+        ctx.attr._template,
+        substitutions = {
+            "{name}": ctx.name,
+            "{package}": ctx.attr.package,
+            "{image}": ctx.attr.package,
+            "{utils}": str(ctx.attr._utils),
+        },
+        executable = False,
+    )
+
+kernel_image_version = repository_rule(
+    doc = """Imports a specific kernel executable image version to be used for kernel tests.
+
+A kernel_image_version rule will download a specific kernel image version and make it available
+to the rest of the repository to generate kernel modules tests environments.
+
+kernel_image_version rules are repository_rule, meaning that they are meant to be used from
+within a WORKSPACE file to download dependencies before the build starts.
+
+As an example, you can use:
+
+    kernel_image_version(
+        name = "test-latest-kernel-image",
+        package = "custom-5.9.0-um",
+        url = "astore.corp.enfabrica.net/d/kernel/test/custom-5.9.0-um",
+    )
+
+To download the specified image from "https://astore.corp.enfabrica.net/d/kernel",
+and use it as the "test-latest-kernel-image" from the repository.
+
+To create an image suitable for this rule, you can compile a linux source tree using your preferred configs.
+""",
+    implementation = _kernel_image_version,
+    local = False,
+    attrs = {
+        "package": attr.string(
+            doc = "The name of the downloaded image. Usually the format is 'distribution-kernel_version-arch', like custom-5.9.0-um.",
+            mandatory = True,
+        ),
+        "url": attr.string(
+            doc = "The url to download the kernel executable image from.",
+            mandatory = True,
+        ),
+        "sha256": attr.string(
+            doc = "The sha256 of the downloaded package file.",
+        ),
+        "auth": attr.string_dict(
+            doc = "An auth dict as documented for the download_and_extract context rule as is.",
+        ),
+        "_template": attr.label(
+            default = Label("//bazel/linux:kernel_image.BUILD.bzl"),
+            allow_single_file = True,
+        ),
+        "_utils": attr.label(
+            default = Label("//bazel/linux:defs.bzl"),
+            allow_single_file = True,
+        ),
+    },
+)
+
+def _kernel_test(ctx):
+    ki = ctx.attr.kernel_image[KernelImageInfo]
+    ri = ctx.attr.rootfs_image[RootfsImageInfo]
+    mi = ctx.attr.module[KernelModuleInfo]
+
+    # Confirm that the kernel test module is compatible with the precompiled linux kernel executable image.
+    if ki.package != mi.package:
+        print(
+            "ERROR: kernel_test expects a test kernel module built against the kernel tree package used to obtain the kernel executable image. ",
+            "Instead it was given module.package='{}' and kernel_image.package='{}'".format(mi.package, ki.package),
+        )
+        return
+
+    parser = ctx.attr._parser.files_to_run.executable
+    inputs = [ki.image, ri.image, mi.module, parser]
+    inputs = depset(inputs, transitive = [
+        ctx.attr.kernel_image.files,
+        ctx.attr.rootfs_image.files,
+        ctx.attr.module.files,
+        ctx.attr._parser.files,
+    ])
+    executable = ctx.actions.declare_file("script.sh")
+    ctx.actions.expand_template(
+        template = ctx.file._template,
+        output = executable,
+        substitutions = {
+            "{kernel}": ki.image.short_path,
+            "{rootfs}": ri.image.short_path,
+            "{module}": mi.module.short_path,
+            "{parser}": parser.short_path,
+        },
+        is_executable = True,
+    )
+    runfiles = ctx.runfiles(files = inputs.to_list())
+    runfiles = runfiles.merge(ctx.attr._parser.default_runfiles)
+    return [DefaultInfo(runfiles = runfiles, executable = executable)]
+
+kernel_test = rule(
+    doc = """Test a linux kernel module using the KUnit framework.
+
+kernel_test will retrieve the elements needed to setup a linux kernel test environment, and then execute the test.
+The test will run locally inside a user-mode linux process.
+""",
+    implementation = _kernel_test,
+    attrs = {
+        "kernel_image": attr.label(
+            mandatory = True,
+            providers = [DefaultInfo, KernelImageInfo],
+            doc = "The kernel image that will be used to execute this test. A string like @stefano-s-favourite-kernel-image, referencing a kernel_image(name = 'stefano-s-favourite-kernel-image', ...",
+        ),
+        "rootfs_image": attr.label(
+            mandatory = True,
+            providers = [DefaultInfo, RootfsImageInfo],
+            doc = "The rootfs image that will be used to execute this test. A string like @stefano-s-favourite-rootfs-image, referencing a rootfs_image(name = 'stefano-s-favourite-rootfs-image', ...",
+        ),
+        "module": attr.label(
+            mandatory = True,
+            providers = [DefaultInfo, KernelModuleInfo],
+            doc = "The label of the KUnit linux kernel module to be used for testing. It must define a kunit_test_suite so that when loaded, KUnit will start executing its tests.",
+        ),
+        "_template": attr.label(
+            allow_single_file = True,
+            default = Label("//bazel/linux:run_um_kunit_tests.template"),
+            doc = "The template to generate the bash script used to run the tests.",
+        ),
+        "_parser": attr.label(
+            default = Label("//bazel/linux/kunit:kunit"),
+            doc = "KUnit TAP output parser.",
+        ),
+    },
+    test = True,
+)
