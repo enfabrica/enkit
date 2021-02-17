@@ -366,8 +366,8 @@ Example:
     implementation = _rootfs_image,
     attrs = {
         "image": attr.label(
-	    mandatory = True,
-	    allow_single_file = True,
+            mandatory = True,
+            allow_single_file = True,
             doc = "File containing the rootfs image.",
         ),
     },
@@ -380,7 +380,7 @@ def _rootfs_version(ctx):
         ctx.attr._template,
         substitutions = {
             "{name}": ctx.name,
-	    "{image}": ctx.attr.package,
+            "{image}": ctx.attr.package,
             "{utils}": str(ctx.attr._utils),
         },
         executable = False,
@@ -479,10 +479,10 @@ Example:
             doc = "A string indicating which package this kernel executable image is coming from.",
         ),
         "image": attr.label(
-	    mandatory = True,
+            mandatory = True,
             executable = True,
             cfg = "target",
-	    allow_single_file = True,
+            allow_single_file = True,
             doc = "File containing the kernel executable image.",
         ),
     },
@@ -494,7 +494,7 @@ def _kernel_image_version(ctx):
         output = ctx.attr.package,
         sha256 = ctx.attr.sha256,
         auth = ctx.attr.auth,
-        executable = True
+        executable = True,
     )
     ctx.template(
         "BUILD.bazel",
@@ -562,10 +562,13 @@ def _kernel_test(ctx):
     ki = ctx.attr.kernel_image[KernelImageInfo]
     ri = ctx.attr.rootfs_image[RootfsImageInfo]
     mi = ctx.attr.module[KernelModuleInfo]
+
     # Confirm that the kernel test module is compatible with the precompiled linux kernel executable image.
     if ki.package != mi.package:
-        print("ERROR: kernel_test expects a test kernel module built against the kernel tree package used to obtain the kernel executable image. ",
-	      "Instead it was given module.package='{}' and kernel_image.package='{}'".format(mi.package, ki.package))
+        print(
+            "ERROR: kernel_test expects a test kernel module built against the kernel tree package used to obtain the kernel executable image. ",
+            "Instead it was given module.package='{}' and kernel_image.package='{}'".format(mi.package, ki.package),
+        )
         return
 
     parser = ctx.attr._parser.files_to_run.executable
@@ -581,12 +584,12 @@ def _kernel_test(ctx):
         template = ctx.file._template,
         output = executable,
         substitutions = {
-            "{kernel}" : ki.image.short_path,
-            "{rootfs}" : ri.image.short_path,
-            "{module}" : mi.module.short_path,
-            "{parser}" : parser.short_path
+            "{kernel}": ki.image.short_path,
+            "{rootfs}": ri.image.short_path,
+            "{module}": mi.module.short_path,
+            "{parser}": parser.short_path,
         },
-        is_executable = True
+        is_executable = True,
     )
     runfiles = ctx.runfiles(files = inputs.to_list())
     runfiles = runfiles.merge(ctx.attr._parser.default_runfiles)
@@ -627,4 +630,3 @@ The test will run locally inside a user-mode linux process.
     },
     test = True,
 )
-
