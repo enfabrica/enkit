@@ -145,7 +145,7 @@ def _kernel_module(ctx):
             extra_args = extra,
             module = module,
             output_long = output.path,
-            output_short = output.short_path
+            output_short = output.short_path,
         ),
         outputs = [output],
         inputs = inputs,
@@ -566,11 +566,10 @@ def _kernel_test(ctx):
 
     # Confirm that the kernel test module is compatible with the precompiled linux kernel executable image.
     if ki.package != mi.package:
-        print(
-            "ERROR: kernel_test expects a test kernel module built against the kernel tree package used to obtain the kernel executable image. ",
-            "Instead it was given module.package='{}' and kernel_image.package='{}'".format(mi.package, ki.package),
+        fail(
+            "kernel_test expects a test kernel module built against the kernel tree package used to obtain the kernel executable image. " +
+            "Instead it was given kernel_test.module.kernel.package='{}' and kernel_test.kernel_image.package='{}'.".format(mi.package, ki.package),
         )
-        return
 
     parser = ctx.attr._parser.files_to_run.executable
     inputs = [ki.image, ri.image, mi.module, parser]
