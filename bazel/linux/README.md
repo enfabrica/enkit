@@ -15,7 +15,7 @@ When executed using *bazel test*, it will launch the user-mode linux image using
 
 # Workflow
 ## Building a kernel module
-1. Generate a .tar.gz using either [kbuild](https://github.com/enfabrica/enkit/tree/master/kbuild) or the generate_custom_archive.sh [instructions](https://github.com/enfabrica/enkit/tree/master/kbuild/utils)
+1. Generate a .tar.gz using either [kbuild](https://github.com/enfabrica/enkit/tree/master/kbuild) or the [generate_custom_archive.sh](https://github.com/enfabrica/enkit/tree/master/kbuild/utils) script
 2. Make the .tar.gz available through some https mirror at $URL
 3. Define a `kernel_version(name="my-kernel-version", url="$URL", ...)` rule in your repository WORKSPACE file
 4. Add a `kernel_module(name="my-kernel-module", kernel="my-kernel-version", ...)` rule inside your BUILD.bazel file in your kernel module directory
@@ -23,8 +23,9 @@ When executed using *bazel test*, it will launch the user-mode linux image using
 ## Testing a kernel module
 1. Build a kernel module following the instructions above
 2. Add an `http_file(name="rootfs-img", ...)` rule in your repository WORKSPACE file (same for the executable kernel image)
-3. Add a `kernel_test(name="my-kernel-module-test", module=":my-kernel-module", kernel_image="@kernel-img//file", rootfs_image="@rootfs-img//file")` rule inside your BUILD.bazel file in your kernel module directory
-4. Test the kernel running `bazel test :my-kernel-module-test`
+   * Check out the *generate_custom_archive.sh* [instructions](https://github.com/enfabrica/enkit/blob/master/kbuild/utils/README.md) if you don't know how to generate a suitable  user-mode linux executable image
+4. Add a `kernel_test(name="my-kernel-module-test", module=":my-kernel-module", kernel_image="@kernel-img//file", rootfs_image="@rootfs-img//file")` rule inside your BUILD.bazel file in your kernel module directory
+5. Test the kernel running `bazel test :my-kernel-module-test`
 
 **NOTE**: currently we only support KUnit tests, i.e. your kernel module must define a *kunit_suite_test* as documented [here](https://kunit.dev/third_party/kernel/docs/start.html#writing-your-first-test).
 Moreover, it is expected that the rootfs image you provide will take care of:
