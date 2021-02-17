@@ -342,7 +342,7 @@ def _rootfs_image(ctx):
 rootfs_image = rule(
     doc = """Defines a new rootfs image.
 
-This rule exports a file that represent a linux rootfs image with just enough
+This rule exports a file that represents a linux rootfs image with just enough
 to be able to boot a linux executable image.
 
 rootfs_image rules are typically automatically created when you declare a
