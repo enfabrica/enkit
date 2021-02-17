@@ -453,7 +453,7 @@ def _kernel_image(ctx):
 kernel_image = rule(
     doc = """Defines a new kernel executable image.
 
-This rule exports a file that represent a kernel executable image with just
+This rule exports a file that represents a kernel executable image with just
 enough to be able to run kernel tests.
 
 kernel_image rules are typically automatically created when you declare a
