@@ -12,6 +12,9 @@ since most of the kernel config used for testing are usually disabled in the deb
    * `export ARCH=x # x being the architecture you want to compile the kernel for.`
    * `make defconfig && make menuconfig # Enable/disable stuff.`
    * `make`
+   * Note: at this point, you have generated a `linux` file as well. This is a kernel executable image.
+     If you previously specified `ARCH=um`, and enabled KUnit in the config, this image can be used by *kernel_test* rules.
+     Documentation about the *kernel_test* rule can be found [here](https://github.com/enfabrica/enkit/blob/master/bazel/linux/README.md).
 3. Execute the script and generate the .tar.gz inside $OUTDIR for your kernel version $KVER
    * `$ENKIT_REPO/kbuild/utils/generate_custom_archive.sh -k $KDIR -t $OUTDIR -v $KVER`
 4. Optional: upload the .tar.gz using astore and make it public
