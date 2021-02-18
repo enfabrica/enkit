@@ -3,6 +3,6 @@
 set -e
 
 MODULE=$(dirname $(realpath {module}))
-TMPOUTPUT=$TEST_UNDECLARED_OUTPUTS_DIR/.output
-{kernel} ubd0={rootfs} hostfs=$MODULE | tee $TMPOUTPUT
+TMPOUTPUT=$TEST_TMPDIR/.output
+{kernel} ubd0={rootfs} hostfs=$MODULE uml_dir=$TEST_TMPDIR | tee $TMPOUTPUT
 {parser} parse < $TMPOUTPUT
