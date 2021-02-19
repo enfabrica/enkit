@@ -6,20 +6,15 @@ import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
 	astore2 "github.com/enfabrica/enkit/astore/rpc/astore"
+	"github.com/enfabrica/enkit/e2e"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/progress"
 	"io/ioutil"
-	//"github.com/enfabrica/enkit/astore/rpc/auth"
-	//auth2 "github.com/enfabrica/enkit/astore/server/auth"
-	"github.com/enfabrica/enkit/lib/srand"
+
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 	"log"
 	"math/rand"
-	"net"
-	"os"
 	"testing"
 )
 
@@ -44,56 +39,19 @@ func TestUid(t *testing.T) {
 
 //TODO fix client so that it's signed urls can depend on an interface for actual e2e testing
 func TestServer(t *testing.T) {
-	os.Setenv("DATASTORE_EMULATOR_HOST", "localhost:8081")
-	err := os.Setenv("STORAGE_EMULATOR_HOST", "localhost:9000")
+	astoreDescriptor, end, err := e2e.RunAStoreServer()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	os.Getenv("STORAGE_EMULATOR_HOST")
-	b, err := ioutil.ReadFile("./testdata/dummy.json")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	server, err := New(rand.New(srand.Source),
-		WithCredentialsJSON(b),
-		WithSigningJSON(b),
-		WithBucket("example-bucket"))
-
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	buffListener := bufconn.Listen(2048 * 2048)
-	bufDialer := func(context.Context, string) (net.Conn, error) {
-		return buffListener.Dial()
-	}
-	grpcServer := grpc.NewServer()
-	astore2.RegisterAstoreServer(grpcServer, server)
-	//authServer, err := auth2.New(
-	//	rand.New(srand.Source),
-	//	auth2.WithAuthURL("http://empty"))
-	//auth.RegisterAuthServer(grpcServer, authServer)
-	go func() {
-		if err := grpcServer.Serve(buffListener); err != nil {
-			log.Fatalf("Server exited with error: %v", err)
-		}
-	}()
-
-	conn, err := grpc.DialContext(context.Background(),
-		"empty", grpc.WithContextDialer(bufDialer),
-		grpc.WithInsecure())
-
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	defer end()
 	//running this as test ping feature
-	client := astore.New(conn)
+	client := astore.New(astoreDescriptor.Connection)
 	res, _, err := client.List("/test", astore.ListOptions{})
 	if err != nil {
 		t.Error(err.Error())
 	}
 	fmt.Printf("list response is +%v \n", res)
-	b, err = ioutil.ReadFile("./testdata/example.yaml")
+	b, err := ioutil.ReadFile("./testdata/example.yaml")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -101,6 +59,7 @@ func TestServer(t *testing.T) {
 	uploadFiles := []astore.FileToUpload{
 		{Local: "./testdata/example.yaml"},
 	}
+
 	ctxWithLogger := ccontext.DefaultContext()
 	ctxWithLogger.Logger = logger.DefaultLogger{Printer: log.Printf}
 	ctxWithLogger.Progress = progress.NewDiscard
@@ -115,14 +74,14 @@ func TestServer(t *testing.T) {
 	}
 
 	fmt.Printf("upload is +%v \n", u)
-	storeResponse, err := server.Store(context.Background(), &astore2.StoreRequest{})
+	storeResponse, err := astoreDescriptor.Server.Store(context.Background(), &astore2.StoreRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if storeResponse.GetSid() == "" || storeResponse.GetUrl() == "" {
 		t.Fatal(errors.New("invalid store response"))
 	}
-	resp, err := server.Commit(context.Background(), &astore2.CommitRequest{
+	resp, err := astoreDescriptor.Server.Commit(context.Background(), &astore2.CommitRequest{
 		Sid:          storeResponse.GetSid(),
 		Architecture: "dwarvenx99",
 		Path:         "127.0.0.1:9000/hello/work/example.yaml",
