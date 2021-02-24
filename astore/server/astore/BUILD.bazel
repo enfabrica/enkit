@@ -34,13 +34,16 @@ go_test(
     srcs = ["astore_test.go"],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    local = True,
     deps = [
         "//astore/client/astore:go_default_library",
         "//astore/rpc:astore-go",
-        "//e2e:go_default_library",
         "//lib/client/ccontext:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/progress:go_default_library",
+        "//lib/srand:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//test/bufconn:go_default_library",
     ],
 )
