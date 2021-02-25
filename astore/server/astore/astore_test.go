@@ -1,4 +1,4 @@
-package astore
+package astore_test
 
 import (
 	"context"
@@ -6,27 +6,22 @@ import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
 	rpcAstore "github.com/enfabrica/enkit/astore/rpc/astore"
+	astore2 "github.com/enfabrica/enkit/astore/server/astore"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/khttp/ktest"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/progress"
-	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 	"io/ioutil"
 	"log"
 	"math/rand"
-	"net"
-	"os"
-	"os/exec"
 	"testing"
 )
 
 func TestSid(t *testing.T) {
 	rng := rand.New(rand.NewSource(0))
 	for i := 0; i < 1000; i++ {
-		value, err := GenerateSid(rng)
+		value, err := astore2.GenerateSid(rng)
 		assert.Nil(t, err)
 		assert.Equal(t, 34, len(value), "value: %s", value)
 	}
@@ -35,7 +30,7 @@ func TestSid(t *testing.T) {
 func TestUid(t *testing.T) {
 	rng := rand.New(rand.NewSource(0))
 	for i := 0; i < 1000; i++ {
-		value, err := GenerateUid(rng)
+		value, err := astore2.GenerateUid(rng)
 		assert.Nil(t, err)
 		assert.Equal(t, 32, len(value), "value: %s", value)
 		assert.True(t, astore.IsUid(value))

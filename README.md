@@ -6,7 +6,9 @@
 ##### Setting up for tests 
 > Non-bazel managed dependencies
 1. google-cloud-sdk
-    * install here 
+    * install here https://cloud.google.com/sdk/docs/install
+        PLEASE NOTE: do not install using snap/brew/apt-get etc
+        emulators do not work
     * After following the instructions to install here
     * run the following command to get access to the emulators
         > gcloud components install beta 
@@ -38,7 +40,6 @@ Remove all emulator spawned processes
 
 
 ##### Developing Tests
-
 
 
 --- 
