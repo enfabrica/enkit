@@ -42,9 +42,6 @@ go_test(
         "//lib/khttp/ktest:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/progress:go_default_library",
-        "//lib/srand:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//test/bufconn:go_default_library",
     ],
 )
