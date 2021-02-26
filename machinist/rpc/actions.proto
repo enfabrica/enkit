@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package machinist;
+
+message ActionResult {
+	int32 status = 1;
+	string description = 2;
+}
+
+message ClientRegister {
+  // Not implemented yet - TODO: at enrollment time, a certificate is issued.
+  // The token is generated from the certificate, the name and tags become obsolete.
+  string token = 1;
+
+  // Name of the machine.
+  string name = 2;
+  // Tags assigned to this machine.
+  repeated string tag = 3;
+}
+
+message ClientPing {
+  bytes payload = 1;
+}
+message ActionPong {
+  bytes payload = 1;
+}
+
+message ClientResult {
+}
+
+message ActionResponse {
+}
+
+message ActionSession {
+}
+
+message ActionUpload {
+}
+
+message ActionDownload {
+}

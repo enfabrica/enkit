@@ -63,8 +63,12 @@ to an artifact store.""",
 
 def _astore_download(ctx):
     output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
+    command = ("%s download --no-progress -o %s %s" %
+               (ctx.executable._astore_client.path, output.path, ctx.attr.download_src))
+    if ctx.attr.arch:
+        command += " -a " + ctx.attr.arch
     ctx.actions.run_shell(
-        command = "%s download --no-progress -o %s %s" % (ctx.executable._astore_client.path, output.path, ctx.attr.download_src),
+        command = command,
         tools = [ctx.executable._astore_client],
         outputs = [output],
     )
@@ -76,6 +80,9 @@ astore_download = rule(
         "download_src": attr.string(
             doc = "Provided the full path, download a file from astore.",
             mandatory = True,
+        ),
+        "arch": attr.string(
+            doc = "Architecture to download the file for.",
         ),
         "_astore_client": attr.label(
             default = Label("//astore/client:astore"),

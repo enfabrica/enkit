@@ -123,6 +123,18 @@ func transport(c *http.Client) (*http.Transport, error) {
 	return transport, nil
 }
 
+// WithJar overrides the default client http.CookieJar with the specified one.
+//
+// A CookieJar will automatically store and retrieve cookies based on the remote
+// path and domain name retrieved, and generally implement the logic that browsers
+// use to protect and provide cookies.
+func WithJar(jar http.CookieJar) Modifier {
+	return func(c *http.Client) error {
+		c.Jar = jar
+		return nil
+	}
+}
+
 func WithExpectContinueTimeout(timeout time.Duration) Modifier {
 	return func(c *http.Client) error {
 		transport, err := transport(c)
