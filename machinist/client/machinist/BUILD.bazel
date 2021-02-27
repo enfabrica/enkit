@@ -8,11 +8,4 @@ go_library(
     ],
     importpath = "github.com/enfabrica/enkit/machinist/client/machinist",
     visibility = ["//visibility:public"],
-    deps = [
-        "//lib/client:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/retry:go_default_library",
-        "//machinist/rpc:machinist-go",
-    ],
 )
