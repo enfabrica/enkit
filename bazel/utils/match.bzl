@@ -27,6 +27,12 @@ def match(data, pattern):
         return pattern in data
     return data.startswith(divided[0]) and data.endswith(divided[1])
 
+def to_glob(pattern):
+    """Given a pattern in match format, returns a glob in shell format."""
+    if "*" in pattern:
+        return pattern
+    return "*" + pattern + "*"
+
 def matchall(data, patterns, default = True):
     """Returns True if the supplied string matches all the patterns.
 
