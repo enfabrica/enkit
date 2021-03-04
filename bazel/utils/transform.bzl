@@ -1,11 +1,11 @@
-load("//bazel/utils:match.bzl", "matchany")
+load("//bazel/utils:match.bzl", "matchany", "to_glob")
 load("//bazel/utils:labels.bzl", "labelrelative")
 
 def _message(ctx, ofile):
     """Commodity function to format a message with the file paths."""
     return ctx.attr.progress.format(basename = ofile.basename, path = ofile.short_path)
 
-def _run(ctx, ifile, ofile):
+def _run(ctx, ifile, ipath, ofile):
     """Commodity function to run a shell command with less typing."""
     ctx.actions.run_shell(
         outputs = [ofile],
@@ -15,42 +15,100 @@ def _run(ctx, ifile, ofile):
         progress_message = _message(ctx, ofile),
         command = ctx.attr.command,
         env = {
-            "input": ifile.path,
+            "input": ipath,
             "output": ofile.path,
         },
     )
 
+def debug(on, *args, **kwargs):
+    """Prints a message if debugging is enabled."""
+    if not on:
+        return
+    print(*args, **kwargs)
+
 def _transform(ctx):
     """Implementation for the transform rule."""
-    outputs = []
     if ctx.attr.command and not ctx.attr.transform:
-        fail(("Target '%s' specifies 'command = ...', but this attribute is ignored when no pattern " +
+        fail(("Target '%s' specifies 'command = ...', but this attribute is ignored when no pattern" +
               " is supplied with the 'transform' attribute") % (ctx.label.name))
 
+    lines = []
+    for transform in ctx.attr.transform:
+        lines.append("%s) transform;;" % to_glob(transform))
+    for include in ctx.attr.include:
+        lines.append("%s) include;;" % to_glob(include))
+
+    transformer = ctx.actions.declare_file("transformer.sh")
+    ctx.actions.expand_template(template = ctx.file._transformer, output = transformer, substitutions = {
+        "{root}": ctx.bin_dir.path,
+        "{command}": ctx.attr.command,
+        "{patterns}": "\n".join(lines),
+        "{debug}": ["", "enabled"][int(ctx.attr.debug)],
+    }, is_executable = True)
+
+    outputs = []
+    opaths = []
     for iattr in ctx.attr.inputs:
         for ifile in iattr.files.to_list():
-            opath = labelrelative(iattr.label, ifile.short_path)
-            if matchany(opath, ctx.attr.transform, default = False):
-                ofile = ctx.actions.declare_file(opath)
-                outputs.append(ofile)
-
-                _run(ctx, ifile, ofile)
+            opath = ifile.short_path
+            info = ("FROM", iattr.label, "PATH", opath, "DIR", ifile.is_directory, "ORIGIN", ifile.short_path)
+            if not ifile.is_directory:
+                debug(ctx.attr.debug, "FILE", *info)
+                opaths.append((ifile, ifile.path, opath))
                 continue
 
-            if matchany(opath, ctx.attr.include):
-                ofile = ctx.actions.declare_file(opath)
-                outputs.append(ofile)
+            if not ifile.short_path in ctx.attr.expand:
+                debug(ctx.attr.debug, "TREE-FILTER", *info)
+                add = ctx.actions.declare_directory(opath)
+                outputs.append(add)
+                ctx.actions.run(inputs = [ifile], outputs = [add], executable = transformer, arguments = [
+                    ifile.path,
+                    add.path,
+                ], tools = ctx.files.tools)
+                continue
 
+            debug(ctx.attr.debug, "TREE-EXPAND", *info)
+            outputs = []
+            for output in ctx.attr.expand[ifile.short_path]:
+                if output.endswith("/"):
+                    add = ctx.actions.declare_directory(output[:-1])
+                    outputs.append(add)
+                    ctx.actions.run(inputs = [ifile], outputs = add, executable = transformer, arguments = [
+                        ifile.path,
+                        add.path,  # ctx.bin_dir.path + "/" + ctx.label.package + "/" + opath
+                    ], tools = ctx.files.tools)
+                    continue
+
+                opaths.append((ifile, ifile.path + "/" + output, ifile.short_path + "/" + output))
+
+    for ifile, ipath, opath in opaths:
+        debug(ctx.attr.debug, "GENERATING FILE", opath, "- FROM TREE?", ifile.is_directory, "- SOURCE PATH", ifile.short_path)
+        if matchany(opath, ctx.attr.transform, default = False):
+            ofile = ctx.actions.declare_file(opath)
+            outputs.append(ofile)
+
+            _run(ctx, ifile, ipath, ofile)
+            continue
+
+        if matchany(opath, ctx.attr.include):
+            ofile = ctx.actions.declare_file(opath)
+            outputs.append(ofile)
+
+            if not ifile.is_directory:
                 ctx.actions.symlink(output = ofile, target_file = ifile, progress_message = _message(ctx, ofile))
-                continue
+            else:
+                ctx.actions.run(outputs = [ofile], inputs = [ifile], executable = "cp", arguments = ["-f", ipath, ofile.path])
+            continue
 
+    for o in outputs:
+        debug(ctx.attr.debug, "EXPECTING OUTPUT", o.short_path, "- TREE?", o.is_directory)
     return [DefaultInfo(files = depset(outputs))]
 
 transform = rule(
     doc = """Transforms or filters the files produced by another rule.
 
 Goal of this rule is to apply a transformation and filter all the files
-generated by another rule.
+or directories generated by another rule.
 
 Let's say, for example, that you have a rule named 'compile-idl' that
 generates a few .h, .cc, and .c files.
@@ -86,6 +144,13 @@ Now you can have another rule like:
   )
 
 To build those files, which will only see the .cc and .h files generated.
+
+If your input rule generates 'tree artifacts', eg, a directory created
+with ctx.actions.declarea_directory, which bazel treats as a "single entity",
+"transform" will handle the files in that tree correctly.
+
+Further, it will be able to turn a 'tree artifact' into normal
+file artifact by means of the 'expand' attribute. See below.
 """,
     implementation = _transform,
     attrs = {
@@ -93,14 +158,50 @@ To build those files, which will only see the .cc and .h files generated.
             allow_empty = False,
             doc = "Targets whose output files need to be transformed",
         ),
+        "expand": attr.string_list_dict(
+            doc = """A set of 'tree artifacts' to transform and turn into 'file artifacts'.
+
+The key for the dictionary is the path of a directory generated by another rule.
+The value for the key is a list of files to turn into file artifacts.
+
+For example, let's say that you have a rule:
+    //frontend/js/data:css
+
+which calls declare_directory to export a path "sass/minified".
+Let's say you want to extract two files from this directory:
+"prod/small.css", "prod/commented.css", among the hundreds of files generated.
+
+What you can do is have:
+
+    transform(
+        ...
+        inputs = ["//frontend/js/data:css"],
+        expand = {
+            "frontend/js/data/css/sass/minified": [
+                "prod/small.css",
+                "prod/commented.css",
+            ],
+        }
+        ...
+    )
+
+... to only include those two files, as file artifacts, from the
+input tree provided by data:css.
+
+Those two files will further be included and transformed as per
+include and transform attributes.
+
+If the path to be extracted ends with a '/', eg, 'prod/', it will
+be created as an output tree artifact, rather than a file.
+""",
+        ),
         "include": attr.string_list(
             doc = """Patterns selecting which input files to include in the output.
 For each input file, each pattern is checked against the full path of
 the file.
 
 If there is at least one match, the input file is included in the
-output.
-If there is no match, the file is NOT included in the output.
+output. If there is no match, the file is NOT included in the output.
 
 If no include pattern is provided (default), all input files are included
 in the output.
@@ -108,6 +209,10 @@ in the output.
 Patterns are in a simplified glob format, where only '*' is understood,
 and can only appear once in the pattern (eg, *.c, mpi_*, mpi*.c are valid
 patterns, mpi_*foo*.c is not valid.
+
+Patterns can match on artifact trees, eg, outputs other rules are
+producing by means of directory_tree. Unless expand is specified,
+artifact trees are simply passed over, with no further expansion.
 """,
         ),
         "transform": attr.string_list(
@@ -149,6 +254,10 @@ would need:
 In your transform target.
 """,
         ),
+        "debug": attr.bool(
+            doc = "Turns on debugging. Will print inputs, outputs, and actions.",
+            default = False,
+        ),
         "mnemonic": attr.string(
             default = "CustomTransform",
             doc = "Passed as 'mnemonic' to the actions run - useful to customize bazel output",
@@ -156,6 +265,10 @@ In your transform target.
         "progress": attr.string(
             default = "Transforming {basename}",
             doc = "Passed as progress_message to the actions run - useful to customize basel output",
+        ),
+        "_transformer": attr.label(
+            default = Label("//bazel/utils/transform:transformer.sh"),
+            allow_single_file = True,
         ),
     },
 )
