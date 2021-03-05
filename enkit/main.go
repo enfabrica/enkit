@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/enfabrica/enkit/lib/client"
-	"github.com/enfabrica/enkit/machinist"
 
 	acommands "github.com/enfabrica/enkit/astore/client/commands"
 	bcommands "github.com/enfabrica/enkit/lib/client/commands"
@@ -41,9 +40,6 @@ func main() {
 
 	ssh := tcommands.NewSSH(base)
 	root.AddCommand(ssh.Command)
-
-	machinistCommands := machinist.NewCommands(base)
-	root.AddCommand(machinistCommands)
 
 	base.Run(kcobra.HideFlags(set), populator, runner)
 }
