@@ -1,14 +1,14 @@
 syntax = "proto3";
 
-package machinist;
-
 import "machinist/rpc/actions.proto";
+
+package machinist;
 
 message PollRequest {
   oneof req {
     // Sent only once, when the client first connects.
     ClientRegister register = 1;
-    // Sent periodicially, the server just reßplies with an ActionPong.
+    // Sent periodicially, the server just replies with an ActionPong.
     ClientPing ping = 2;
     // Sent after completing an operation on behalf of the server.
     ClientResult result = 3;
@@ -17,7 +17,7 @@ message PollRequest {
 
 message PollResponse {
   oneof resp {
-    // Response to a ClientRegister.ß
+    // Response to a ClientRegister.
     ActionResult result = 1;
     // Response to a ClientPing.
     ActionPong pong = 2;
@@ -37,9 +37,9 @@ message PollResponse {
 // Client sends a file to the server, as a result of processing an ActionUpload.
 message UploadRequest {
   // required in the first request only.
-  string key = 1;
+  string key = 1;  
   // optional. If it is provided, it is processed in the first request only.
-  int32 total = 2;
+  int32 total = 2; 
 
   bytes data = 3;
 }
