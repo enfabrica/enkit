@@ -8,24 +8,16 @@ import (
 	"net"
 )
 
-type PortDescriptor struct {
-	net.Listener
-}
-
-func (d PortDescriptor) Addr() (*net.TCPAddr, error) {
-	allocatedDatastorePort, ok := d.Listener.Addr().(*net.TCPAddr)
-	if !ok {
-		return nil, errors.New("shape of the address not correct, is your os not unix?")
-	}
-	return allocatedDatastorePort, nil
-}
-
-func AllocatePort() (*PortDescriptor, error) {
+func AllocatePort() (*net.TCPAddr, error) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return nil, err
 	}
-	return &PortDescriptor{listener}, nil
+	allocatedDatastorePort, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return nil, errors.New("shape of the address not correct, is your os not unix?")
+	}
+	return allocatedDatastorePort, nil
 }
 
 type KillAbleProcess []func()
@@ -46,7 +38,8 @@ func (k *KillAbleProcess) AddKillable(process KillAbleProcess) {
 	*k = newList
 }
 
-func (k *KillAbleProcess) Add(p func()) {
+
+func (k *KillAbleProcess) Add(p func()){
 	newList := append(*k, p)
 	*k = newList
 }
