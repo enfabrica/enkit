@@ -94,9 +94,11 @@ func (t *TimeEncoder) Decode(data []byte) ([]byte, error) {
 	if parsed <= 0 {
 		return nil, fmt.Errorf("invalid timestamp in buffer")
 	}
+
 	if issued <= 0 || time.Unix(issued, 0).Add(t.validity).Before(t.now()) {
 		return nil, ExpiredError
 	}
+
 	return data[parsed:], nil
 }
 
