@@ -38,7 +38,7 @@ def _transform(ctx):
     for include in ctx.attr.include:
         lines.append("%s) include;;" % to_glob(include))
 
-    transformer = ctx.actions.declare_file("transformer.sh")
+    transformer = ctx.actions.declare_file("%s-transformer.sh" % (ctx.label.name))
     ctx.actions.expand_template(template = ctx.file._transformer, output = transformer, substitutions = {
         "{root}": ctx.bin_dir.path,
         "{command}": ctx.attr.command,
