@@ -35,7 +35,7 @@
     2. Test must also include the target "//credentials:credentials.json"
 
 Clean Up / Dev Helpers  
-Remove all emulator spawned processes
+Remove all emulator spawned processes (just in case working on processes results in artifacts)
 > ps aux | grep gcloud/emulators/datastore | awk '{print $2}' | xargs kill
 
 

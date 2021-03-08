@@ -13,6 +13,6 @@ go_library(
         "//lib/kflags:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/retry:go_default_library",
-        "//machinist/rpc:machinist-go",
+        "//machinist/rpc:go_default_library",
     ],
 )

@@ -8,5 +8,5 @@ go_library(
     ],
     importpath = "github.com/enfabrica/enkit/machinist/server/controller",
     visibility = ["//visibility:public"],
-    deps = ["//machinist/rpc:machinist-go"],
+    deps = ["//machinist/rpc:go_default_library"],
 )

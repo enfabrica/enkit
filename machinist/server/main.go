@@ -7,7 +7,7 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/server"
-	"github.com/enfabrica/enkit/machinist/rpc/machinist"
+	"github.com/enfabrica/enkit/machinist/rpc"
 	"github.com/enfabrica/enkit/machinist/server/assets"
 	"github.com/enfabrica/enkit/machinist/server/flags"
 	"github.com/enfabrica/enkit/machinist/server/controller"

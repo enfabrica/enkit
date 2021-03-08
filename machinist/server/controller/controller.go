@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/enfabrica/enkit/machinist/rpc/machinist"
+	"github.com/enfabrica/enkit/machinist/rpc"
 	"log"
 	"sync"
 )

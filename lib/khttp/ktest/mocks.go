@@ -42,10 +42,14 @@ func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, erro
 	if err != nil {
 		return nil, nil, err
 	}
+	allocatedPort, err := emulatorAddr.Addr()
+	if err != nil {
+		return nil, nil, err
+	}
 	cmd := exec.Command("gcloud",
 		"beta", "emulators", "datastore", "start",
 		"--no-store-on-disk",
-		fmt.Sprintf("--host-port=127.0.0.1:%d", emulatorAddr.Port),
+		fmt.Sprintf("--host-port=127.0.0.1:%d", allocatedPort.Port),
 		"--quiet")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	outputStdErrPipe, err := cmd.StderrPipe()
@@ -80,7 +84,7 @@ func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, erro
 		return nil, killFunc, errors.New("unable to start the datastore simulator for reason Y")
 	} else {
 		return &EmulatedDatastoreDescriptor{
-			Addr: emulatorAddr,
+			Addr: allocatedPort,
 		}, killFunc, nil
 	}
 }
