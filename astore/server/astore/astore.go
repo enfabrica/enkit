@@ -92,7 +92,6 @@ func (s *Server) List(ctx context.Context, req *astore.ListRequest) (*astore.Lis
 	// Two queries are necessary:
 	//   1) To retrieve artifacts.
 	//   2) To retrieve sub-paths.
-	fmt.Println("")
 	childFiles := []*PathElement{}
 	queryPath, err := queryForPath(KindPathElement, req.Path, "")
 	if err != nil {

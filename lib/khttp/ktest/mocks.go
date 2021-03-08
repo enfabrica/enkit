@@ -19,17 +19,17 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type MinioDescriptor struct {
 	Port uint16
 }
 
-//RunMinioServer will spin up a minio serer using the local docker daemon
-//it also returns a func to call that will close and destroy the running image
-//the port and network bind are determined by docker and returned
+// RunMinioServer will spin up a minio serer using the local docker daemon
+// it also returns a func to call that will close and destroy the running image
+// the port and network bind are determined by docker and returned
 func RunMinioServer() (MinioDescriptor, func() error, error) {
-	_ = "gcloud beta emulators datastore start --no-store-on-disk"
 	return MinioDescriptor{}, nil, nil
 }
 
@@ -64,24 +64,29 @@ func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, erro
 		return nil, killFunc, err
 	}
 	datastoreBooted := make(chan bool)
-	//TODO concatenate stdout and stderr?
-	//the datastore emulator writes all logs to the error channel for some reason
+	// TODO(adam): concatenate stdout and stderr?
+	// the datastore emulator writes all logs to the error channel for some reason
 	scannerErr := bufio.NewScanner(outputStdErrPipe)
-	//TODO add timeout on starting, maybe 3 seconds?
+	emulatorOutputText := ""
 	go func() {
 		for scannerErr.Scan() {
+			emulatorOutputText += scannerErr.Text()
 			if strings.Contains(scannerErr.Text(), "Dev App Server is now running") {
 				datastoreBooted <- true
 			}
 		}
 	}()
-	//TODO pass failure logs to errors.Wrap upstream
-	if !<-datastoreBooted {
-		return nil, killFunc, errors.New("unable to start the datastore simulator for reason Y")
-	} else {
-		return &EmulatedDatastoreDescriptor{
-			Addr: emulatorAddr,
-		}, killFunc, nil
+
+	select {
+	case <-time.After(30 * time.Second):
+		return nil, nil, nil
+	case result := <-datastoreBooted:
+		if result {
+			return &EmulatedDatastoreDescriptor{
+				Addr: emulatorAddr,
+			}, killFunc, nil
+		}
+		return nil, killFunc, errors.New(fmt.Sprintf("unable to start emulator, output is %v", emulatorOutputText))
 	}
 }
 

@@ -26,7 +26,7 @@
     },
     "scripts": {
         "build": "bazel build //...",
-        "test": "bazel ktest //..."
+        "test": "bazel test //..."
     },
     "dependencies": {
         "@bazel/labs": "^1.6.1",
