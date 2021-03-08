@@ -6,7 +6,7 @@ import (
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"
-	"github.com/enfabrica/enkit/machinist/rpc/machinist"
+	"github.com/enfabrica/enkit/machinist/rpc"
 	"os"
 )
 

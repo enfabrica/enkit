@@ -14,7 +14,7 @@ go_library(
         "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
         "//lib/server:go_default_library",
-        "//machinist/rpc:machinist-go",
+        "//machinist/rpc:go_default_library",
         "//machinist/server/controller:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",

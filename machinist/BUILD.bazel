@@ -1,0 +1,29 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "node.go",
+        "server.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/machinist",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/token:go_default_library",
+        "//machinist/rpc:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//credentials:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["server_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//lib/kcerts:go_default_library",
+        "//lib/khttp/ktest:go_default_library",
+        "//lib/srand:go_default_library",
+        "//lib/token:go_default_library",
+    ],
+)
