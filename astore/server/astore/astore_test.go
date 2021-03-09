@@ -46,7 +46,7 @@ func TestServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	// running this as test ping feature
+	// Running this as test ping feature.
 	client := astore.New(astoreDescriptor.Connection)
 	res, _, err := client.List("/test", astore.ListOptions{})
 	if err != nil {
