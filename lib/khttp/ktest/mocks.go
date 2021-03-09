@@ -76,7 +76,6 @@ func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, erro
 			}
 		}
 	}()
-
 	select {
 	case <-time.After(30 * time.Second):
 		return nil, nil, nil
@@ -95,10 +94,10 @@ type AStoreDescriptor struct {
 	Server     *astore.Server
 }
 
-//Run Astoreserver will spin up an emulated datastore along with an instance of the astore grpc server
+// RunAStoreServer will spin up an emulated datastore along with an instance of the astore grpc server.
 func RunAStoreServer() (*AStoreDescriptor, KillAbleProcess, error) {
 
-	killFunctions := KillAbleProcess([]func(){})
+	killFunctions := KillAbleProcess{}
 	emulatorDescriptor, emulatorKill, err := RunEmulatedDatastore()
 	killFunctions.AddKillable(emulatorKill)
 	if err != nil {
