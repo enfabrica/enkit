@@ -96,7 +96,6 @@ type AStoreDescriptor struct {
 
 // RunAStoreServer will spin up an emulated datastore along with an instance of the astore grpc server.
 func RunAStoreServer() (*AStoreDescriptor, KillAbleProcess, error) {
-
 	killFunctions := KillAbleProcess{}
 	emulatorDescriptor, emulatorKill, err := RunEmulatedDatastore()
 	killFunctions.AddKillable(emulatorKill)

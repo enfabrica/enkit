@@ -13,11 +13,11 @@ func AllocatePort() (*net.TCPAddr, error) {
 	if err != nil {
 		return nil, err
 	}
-	allocatedDatastorePort, ok := listener.Addr().(*net.TCPAddr)
+	allocatedPort, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {
 		return nil, errors.New("shape of the address not correct, is your os not unix?")
 	}
-	return allocatedDatastorePort, nil
+	return allocatedPort, nil
 }
 
 type KillAbleProcess []func()
@@ -31,15 +31,11 @@ func (k *KillAbleProcess) KillAll() {
 }
 
 func (k *KillAbleProcess) AddKillable(process KillAbleProcess) {
-	if k == nil {
-		return
-	}
-	newList := append(*k, process...)
-	*k = newList
+
+	*k = append(*k, process...)
 }
 
 
 func (k *KillAbleProcess) Add(p func()){
-	newList := append(*k, p)
-	*k = newList
+	*k = append(*k, p)
 }
