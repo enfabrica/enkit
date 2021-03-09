@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
 	rpcAstore "github.com/enfabrica/enkit/astore/rpc/astore"
-	astore2 "github.com/enfabrica/enkit/astore/server/astore"
+	astoreServer "github.com/enfabrica/enkit/astore/server/astore"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/khttp/ktest"
 	"github.com/enfabrica/enkit/lib/logger"
@@ -21,7 +21,7 @@ import (
 func TestSid(t *testing.T) {
 	rng := rand.New(rand.NewSource(0))
 	for i := 0; i < 1000; i++ {
-		value, err := astore2.GenerateSid(rng)
+		value, err := astoreServer.GenerateSid(rng)
 		assert.Nil(t, err)
 		assert.Equal(t, 34, len(value), "value: %s", value)
 	}
@@ -30,14 +30,14 @@ func TestSid(t *testing.T) {
 func TestUid(t *testing.T) {
 	rng := rand.New(rand.NewSource(0))
 	for i := 0; i < 1000; i++ {
-		value, err := astore2.GenerateUid(rng)
+		value, err := astoreServer.GenerateUid(rng)
 		assert.Nil(t, err)
 		assert.Equal(t, 32, len(value), "value: %s", value)
 		assert.True(t, astore.IsUid(value))
 	}
 }
 
-//TODO fix client so that it's signed urls can depend on an interface for actual e2e testing
+// TODO(aaahrens): fix client so that it's signed urls can depend on an interface for actual e2e testing
 func TestServer(t *testing.T) {
 	astoreDescriptor, killFuncs, err := ktest.RunAStoreServer()
 	if killFuncs != nil {
@@ -46,7 +46,7 @@ func TestServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	//running this as test ping feature
+	// Running this as test ping feature.
 	client := astore.New(astoreDescriptor.Connection)
 	res, _, err := client.List("/test", astore.ListOptions{})
 	if err != nil {
