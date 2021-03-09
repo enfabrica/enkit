@@ -34,9 +34,10 @@ require (
 	github.com/valyala/quicktemplate v1.6.3 // indirect
 	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
+	golang.org/x/sys v0.0.0-20210309074719-68d13333faf2 // indirect
 	google.golang.org/api v0.30.0
 	google.golang.org/grpc v1.32.0
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
