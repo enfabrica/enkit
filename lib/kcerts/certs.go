@@ -12,7 +12,8 @@ import (
 	"time"
 )
 
-//GenerateNewCARoot returns the new
+// GenerateNewCARoot returns the new certificate anchor for a chain. This should ideally only be called once as rotating
+// this will invalidate all existing private certs. Unless, you add it and reload and x509.CertPool in a server.
 func GenerateNewCARoot(opts *CertOptions) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 	if !opts.isValid {
 		return nil, nil, nil, errors.New("must call Validate() on certificate options before creating a CA")
@@ -47,7 +48,8 @@ func GenerateNewCARoot(opts *CertOptions) (*x509.Certificate, []byte, *rsa.Priva
 	return &rootTemplate, certPEM, privateKey, nil
 }
 
-//GenerateIntermediateCertificate
+// GenerateIntermediateCertificate will generate the DCA and intermediate chain. It is acceptable to publicly share this chain.
+// requires to call GenerateNewCARoot beforehand. Reusing Opts is recommended.
 func GenerateIntermediateCertificate(opts *CertOptions, RootCa *x509.Certificate, RootCaPrivateKey *rsa.PrivateKey) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 	intermediatePrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
