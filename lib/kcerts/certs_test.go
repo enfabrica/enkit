@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
 	"net"
 	"testing"
@@ -24,33 +25,33 @@ func TestCertSuite(t *testing.T) {
 
 	rootCert, rootPem, rootPrivateKey, err := kcerts.GenerateNewCARoot(opts)
 	if err != nil {
-		t.Fatal(err.Error())
+		assert.Error(t, err)
 	}
 	intermediateCert, intermediatePem, intermediatePrivateKey, err := kcerts.GenerateIntermediateCertificate(opts, rootCert, rootPrivateKey)
 	if err != nil {
-		t.Fatal(err.Error())
+		assert.Error(t, err)
 	}
 
 	serverCert, _, _, err := kcerts.GenerateServerKey(opts, intermediateCert, intermediatePrivateKey)
 	t.Run("verify intermediate", func(t *testing.T) {
 		if err := verifyIntermediateChain(rootPem, intermediateCert); err != nil {
-			t.Error("error verifying intermediate chain", err)
+			assert.Error(t, err)
 		}
 
 	})
 	t.Run("verify chain", func(t *testing.T) {
 		if err := verifyFullChain(rootPem, intermediatePem, serverCert); err != nil {
-			t.Error("error verifying full chain", err)
+			assert.Error(t, err)
 		}
 	})
 	t.Run("verify rsa client output with intermediate chain", func(t *testing.T) {
 		if err := verifyRSAEncryption(intermediatePrivateKey); err != nil {
-			t.Error(err.Error())
+			assert.Error(t, err)
 		}
 	})
 	t.Run("verify rsa client output with root chain", func(t *testing.T) {
 		if err := verifyRSAEncryption(rootPrivateKey); err != nil {
-			t.Error(err.Error())
+			assert.Error(t, err)
 		}
 	})
 
@@ -80,7 +81,6 @@ func verifyIntermediateChain(root []byte, inter *x509.Certificate) error {
 	opts := x509.VerifyOptions{
 		Roots: roots,
 	}
-
 	if _, err := inter.Verify(opts); err != nil {
 		return err
 	}
