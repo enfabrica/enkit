@@ -15,7 +15,7 @@ import (
 // GenerateNewCARoot returns the new certificate anchor for a chain. This should ideally only be called once as rotating
 // this will invalidate all existing private certs. Unless, you add it and reload and x509.CertPool in a server.
 func GenerateNewCARoot(opts *CertOptions) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
-	if !opts.isValid {
+	if err := opts.Validate(); err != nil {
 		return nil, nil, nil, errors.New("must call Validate() on certificate options before creating a CA")
 	}
 	rootTemplate := x509.Certificate{
@@ -55,7 +55,7 @@ func GenerateIntermediateCertificate(opts *CertOptions, RootCa *x509.Certificate
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if !opts.isValid {
+	if err := opts.Validate(); err != nil {
 		return nil, nil, nil, errors.New("must call Validate() on certificate options before creating a DCA")
 	}
 	intermediate := x509.Certificate{
@@ -99,7 +99,7 @@ func GenerateServerKey(opts *CertOptions, intermediateCert *x509.Certificate, in
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if !opts.isValid {
+	if err := opts.Validate(); err != nil {
 		return nil, nil, nil, errors.New("must call Validate() on certificate options before creating a Server Crt")
 	}
 
@@ -151,7 +151,6 @@ type CertOptions struct {
 	Before       time.Time
 	After        time.Time
 	IPAddresses  []net.IP
-	isValid      bool
 }
 
 func (o *CertOptions) WithCountries(cs []string) *CertOptions {
@@ -169,12 +168,12 @@ func (o *CertOptions) WithIpAddresses(ips []net.IP) *CertOptions {
 	return o
 }
 
-func (o *CertOptions) ValidUntil(time2 time.Time) *CertOptions {
-	o.After = time2
+func (o *CertOptions) ValidUntil(validUntil time.Time) *CertOptions {
+	o.After = validUntil
 	return o
 }
-func (o *CertOptions) NotValidBefore(time2 time.Time) *CertOptions {
-	o.Before = time2
+func (o *CertOptions) NotValidBefore(startTime time.Time) *CertOptions {
+	o.Before = startTime
 	return o
 }
 
@@ -195,7 +194,6 @@ func (o *CertOptions) Validate() error {
 	if len(o.Country) == 0 {
 		return errors.New("must set countries of origin for en_Lang and i8n support")
 	}
-	o.isValid = true
 	return nil
 }
 

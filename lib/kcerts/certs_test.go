@@ -6,9 +6,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"golang.org/x/crypto/ssh"
-	"log"
 	"net"
 	"testing"
 	"time"
@@ -22,10 +22,6 @@ func TestCertSuite(t *testing.T) {
 		WithOrganizations([]string{"Test Corp"}).
 		WithCountries([]string{"US"})
 
-	err := opts.Validate()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 	rootCert, rootPem, rootPrivateKey, err := kcerts.GenerateNewCARoot(opts)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -111,12 +107,12 @@ func verifyRSAEncryption(key *rsa.PrivateKey) error {
 	signer, _ := ssh.NewSignerFromKey(key)
 	sig, _ := signer.Sign(rand.Reader, data)
 
-	// extract the ssh.PublicKey from *rsa.PublicKey to verify the signature
+	// Extract the ssh.PublicKey from *rsa.PublicKey to verify the signature.
 	pub, _ := ssh.NewPublicKey(&key.PublicKey)
 	if err := pub.Verify(data, sig); err != nil {
-		log.Fatalf("publicKey.Verify failed: %v", err)
+		return errors.New(fmt.Sprintf("publicKey.Verify failed: %v", err))
 	}
-	// modify the data and make sure we get a failure
+	// Modify the data and make sure we get a failure.
 	data[0]++
 	if err := pub.Verify(data, sig); err == nil {
 		return errors.New("modifying the data should have resulted in a verification error")
