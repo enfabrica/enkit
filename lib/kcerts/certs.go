@@ -7,6 +7,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"math/big"
 	"net"
 	"time"
@@ -180,7 +181,7 @@ func (o *CertOptions) NotValidBefore(startTime time.Time) *CertOptions {
 func (o *CertOptions) Validate() error {
 	currTime := time.Now()
 	if currTime.Before(o.Before) {
-		return errors.New("time must be before time.Now")
+		return fmt.Errorf("time is invalid: value %v must be after value %v", o.Before, currTime)
 	}
 	if currTime.After(o.After) {
 		return errors.New("cannot issue invalid CA's time invalid")
