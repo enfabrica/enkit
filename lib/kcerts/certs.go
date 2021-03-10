@@ -129,7 +129,6 @@ func GenerateServerKey(opts *CertOptions, intermediateCert *x509.Certificate, in
 	certPEM := pem.EncodeToMemory(&b)
 
 	return cert, certPEM, serverPrivateKey, nil
-
 }
 
 // GenerateSSHKeyPair will generate a re-encoded private rsa key and public key from an existing *rsa.PrivateKey.
