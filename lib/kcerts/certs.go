@@ -185,7 +185,7 @@ func WithNotValidBefore(startTime time.Time) Modifier {
 		o.Before = startTime
 		currTime := time.Now()
 		if currTime.Before(o.Before) {
-			return fmt.Errorf("time is invalid: value %v must be after value %v", o.Before, currTime)
+			return fmt.Errorf("time is invalid: value %v must be after current time %v", o.Before, currTime)
 		}
 		return nil
 	}
