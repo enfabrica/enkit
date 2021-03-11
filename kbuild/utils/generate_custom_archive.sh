@@ -12,7 +12,7 @@ usage: ${0##*/} OPTS
     -k KDIR      Directory containing the compiled custom linux source tree
     -t OUTDIR    Root directory for containing the generated kernel package
     -v KVER      Kernel version (used to name the package)
-This will generate a KVER-test.tar.gz file inside OUTDIR, built from the pre-compiled kernel in KDIR.
+This will generate a KVER.tar.gz file inside OUTDIR, built from the pre-compiled kernel in KDIR.
 The pre-compiled kernel is expected to have been obtained by:
 1. Downloading kernel source code from somewhere into KDIR
 2. export ARCH=x
@@ -36,15 +36,15 @@ INSTALLED=\${INSTALLED:-\$PWD}
 {
     set -e
 
-    rm -rf "\$INSTALLED"/'lib/modules/$KERNELVERSION-test/build'
-    ln -sf "\$INSTALLED"/'usr/src/linux-headers-$KERNELVERSION-test' "\$INSTALLED"/'lib/modules/$KERNELVERSION-test/build'
-    rm -rf "\$INSTALLED"/'lib/modules/$KERNELVERSION-test/source'
-    ln -sf "\$INSTALLED"/'usr/src/linux-headers-$KERNELVERSION-test' "\$INSTALLED"/'lib/modules/$KERNELVERSION-test/source'
+    rm -rf "\$INSTALLED"/'lib/modules/${KERNELVERSION}/build'
+    ln -sf "\$INSTALLED"/'usr/src/linux-headers-${KERNELVERSION}' "\$INSTALLED"/'lib/modules/${KERNELVERSION}/build'
+    rm -rf "\$INSTALLED"/'lib/modules/${KERNELVERSION}/source'
+    ln -sf "\$INSTALLED"/'usr/src/linux-headers-${KERNELVERSION}' "\$INSTALLED"/'lib/modules/${KERNELVERSION}/source'
 
     find . -type f -name Makefile |xargs sed -i -e "s@/\([/a-zA-Z0-9._-]*\)usr/src/linux@\$INSTALLED/usr/src/linux@g"
 } 1>&2
 
-build='lib/modules/$KERNELVERSION-test'
+build='lib/modules/${KERNELVERSION}'
 test -d "\$build" && { echo "\$build"; exit 0; }
 
 echo "build directory not detect - installation failed?" 1>&2
@@ -72,14 +72,14 @@ fi
 
 SRCDIR=$(realpath -s "$SRCDIR")
 INSTALLDIR=$(realpath -s "$INSTALLDIR")
-TARGETDIR="${INSTALLDIR}/usr/src/linux-headers-${KERNELVERSION}-test"
-SCRIPTNAME="install-${KERNELVERSION}-test.sh"
+TARGETDIR="${INSTALLDIR}/usr/src/linux-headers-${KERNELVERSION}"
+SCRIPTNAME="install-${KERNELVERSION}.sh"
 
 set -e
 mkdir -p "${TARGETDIR}/arch"
 mkdir -p "${TARGETDIR}/include"
 mkdir -p "${TARGETDIR}/scripts"
-mkdir -p "${INSTALLDIR}/lib/modules/${KERNELVERSION}-test/build"
+mkdir -p "${INSTALLDIR}/lib/modules/${KERNELVERSION}/build"
 
 generate_install_script "${INSTALLDIR}/${SCRIPTNAME}"
 chmod 755 ${INSTALLDIR}/${SCRIPTNAME}
@@ -89,5 +89,5 @@ cp -r $SRCDIR/include/* $TARGETDIR/include/
 cp -r $SRCDIR/Makefile $SRCDIR/.config $SRCDIR/Module.symvers $TARGETDIR/
 (
 	cd "$INSTALLDIR"
-	tar -czvf "${KERNELVERSION}-test.tar.gz" "${SCRIPTNAME}" "usr" "lib"
+	tar -czvf "${KERNELVERSION}.tar.gz" "${SCRIPTNAME}" "usr" "lib"
 )
