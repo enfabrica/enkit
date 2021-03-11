@@ -23,8 +23,10 @@ def labelrelative(label, path):
       string, path relative to where all the output files for that
       label are saved by bazel.
     """
-    to_strip = "%s/%s/" % (label.package, label.name)
-    output = path
-    if output.startswith(to_strip):
-        output = output[len(to_strip):]
-    return output
+    to_strip = "%s/%s" % (label.package, label.name)
+    if path == to_strip:
+        return ""
+
+    if path.startswith(to_strip + "/"):
+        path = path[len(to_strip) + 1:]
+    return path

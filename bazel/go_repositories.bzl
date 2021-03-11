@@ -1199,8 +1199,8 @@ def go_repositories():
     go_repository(
         name = "org_golang_x_sys",
         importpath = "golang.org/x/sys",
-        sum = "h1:FuBaiPCiXkq4v+JY5JEGPU/HwEZwpVyDbu/KBz9fU+4=",
-        version = "v0.0.0-20210308170721-88b6017d0656",
+        sum = "h1:46ULzRKLh1CwgRq2dC5SlBzEqqNCi8rreOZnNrbqcIY=",
+        version = "v0.0.0-20210309074719-68d13333faf2",
     )
     go_repository(
         name = "org_golang_x_term",
