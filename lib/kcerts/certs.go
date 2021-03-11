@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -172,10 +171,10 @@ func WithValidUntil(validUntil time.Time) Modifier {
 		o.After = validUntil
 		currTime := time.Now()
 		if currTime.After(o.After) {
-			return errors.New("cannot issue invalid CA's time invalid")
+			return fmt.Errorf("time %v to be valid until is less than current time %v", validUntil, currTime)
 		}
 		if o.After.Sub(currTime).Hours() < 24*365 { // hours in a year
-			return errors.New("duration of the CA is too low")
+			return fmt.Errorf("duration of the CA is too low, %f is less than %d", o.After.Sub(currTime).Hours(), 24*365)
 		}
 		return nil
 	}
