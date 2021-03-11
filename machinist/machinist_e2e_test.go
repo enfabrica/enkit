@@ -1,78 +1,61 @@
 package machinist_test
 
 import (
+	"fmt"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/khttp/ktest"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/lib/token"
 	"github.com/enfabrica/enkit/machinist"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
+	"net"
 	"testing"
 	"time"
 )
 
-func TestRunServerAndGenerateInvite(t *testing.T) {
+func TestRunServerNodeJoinAndPoll(t *testing.T) {
 	descriptor, err := ktest.AllocatePort()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	//descriptorAddr, err := descriptor.Addr()
-	//if err != nil {
-	//	t.Fatal(err.Error())
-	//}
 	rngSeed := rand.New(srand.Source)
 	key, err := token.GenerateSymmetricKey(rngSeed, 128)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	assert.Nil(t, err)
 	symmetricEncoder, err := token.NewSymmetricEncoder(rngSeed, token.UseSymmetricKey(key))
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	ca, caPem, caPrivateBytes, err := kcerts.GenerateNewCARoot()
+	assert.Nil(t, err)
+	serverRequest := machinist.NewServerRequest().
+		UseEncoder(symmetricEncoder).
+		WithNetListener(&descriptor.Listener)
+
+	credMod := machinist.WithGenerateNewCredentials(
+		kcerts.WithCountries([]string{"US"}),
+		kcerts.WithValidUntil(time.Now().AddDate(3, 0, 0)),
+		kcerts.WithNotValidBefore(time.Now().Add(-4*time.Minute)),
+		kcerts.WithIpAddresses([]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("0.0.0.0")}))
+
+	portMod := machinist.WithPortDescriptor(descriptor)
+	server, err := machinist.NewServer(serverRequest, credMod, portMod)
+
+	assert.Nil(t, err)
+	go t.Run("start machinist master server", func(t *testing.T) {
+		if err := server.Start(); err != nil {
+			fmt.Println("there was an error")
+			t.Fatal(err)
+		}
+	})
+	time.Sleep(2 * time.Second) // Just in case machine is pinned and ipc needs to catch up
+	defer server.Close()
+	inviteToken, err := server.GenerateInvitation(nil, "node1")
+	assert.NoError(t, err)
+	////debug inviteString
+	node, err := machinist.NewNode(machinist.WithInviteToken(string(inviteToken)))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	serverRequest := machinist.NewServerRequest().
-		UseEncoder(symmetricEncoder).
-		WithNetListener(&descriptor.Listener).
-		WithCA(ca, caPem, caPrivateBytes)
-
-	server := machinist.NewServer(serverRequest)
-	go t.Run("start machinist master server", func(t *testing.T) {
-		if err := server.Start(); err != nil {
-			t.Error(err.Error())
-		}
-	})
+	assert.Nil(t, err)
+	go node.BeginPolling()
 	time.Sleep(2 * time.Second)
-	defer server.Close()
 
-	//inviteString, err := server.GenerateInvitation(nil)
-	//if err != nil {
-	//	t.Error(err.Error())
-	//}
-
-	//debug inviteString
-
-	//conn, err := grpc.Dial(fmt.Sprintf(":%d", descriptorAddr.Port), grpc.WithInsecure())
-	//if err != nil {
-	//	t.Fatal(err.Error())
-	//}
-	//client := machinist2.NewControllerClient(conn)
-	//ctx := context.Background()
-	//pollStream, err := client.Poll(ctx)
-	//if err != nil {
-	//	t.Fatal(err.Error())
-	//}
-	//for {
-	//	fmt.Println("polling now")
-	//	pollResponse, err := pollStream.Recv()
-	//	if err != nil {
-	//		t.Error(err)
-	//	}
-	//	fmt.Println("poll response is %v", pollResponse)
-	//	break
-	//}
-
+	node.Stop()
 }

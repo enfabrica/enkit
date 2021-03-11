@@ -1,34 +1,33 @@
 package machinist
 
 import (
-	"bytes"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/khttp/ktest"
 	"github.com/enfabrica/enkit/lib/token"
 	machinist "github.com/enfabrica/enkit/machinist/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"log"
-	"math/big"
 	"net"
-	"time"
 )
 
-func NewServer(req *ServerRequest) *Server {
-
-	return &Server{
-		Encoder:      req.Encoder,
-		Port:         req.Port,
-		NetListener:  req.Listener,
-		CA:           req.CA,
-		CAPrivateKey: req.CaPrivateKey,
+func NewServer(req *ServerRequest, modifiers ...ServerModifier) (*Server, error) {
+	s := &Server{
+		Encoder: req.Encoder,
 	}
+	for _, mod := range modifiers {
+		if err := mod(s); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
 }
 
 func NewServerRequest() *ServerRequest {
@@ -41,73 +40,25 @@ func (rs *ServerRequest) WithNetListener(l *net.Listener) *ServerRequest {
 }
 
 type Server struct {
-	Encoder       token.BinaryEncoder
-	Port          int
-	NetListener   *net.Listener
-	RunningServer *grpc.Server
-	CA            *x509.Certificate
-	CAPrivateKey  interface{}
+	Encoder            token.BinaryEncoder
+	NetListener        net.Listener
+	NetAddr            *net.TCPAddr
+	RunningServer      *grpc.Server
+	GenerateServerCert func() (*x509.Certificate, []byte, *rsa.PrivateKey, error)
+	FetchTlSConfig     func() (*tls.Config, error)
+	CAPem              string
 }
 
 func (s *Server) Start() error {
-	// set up our server certificate
-	cert := &x509.Certificate{
-		SerialNumber: big.NewInt(2019),
-		Subject: pkix.Name{
-			Organization:  []string{"Company, INC."},
-			Country:       []string{"US"},
-			Province:      []string{""},
-			Locality:      []string{"San Francisco"},
-			StreetAddress: []string{"Golden Gate Bridge"},
-			PostalCode:    []string{"94016"},
-		},
-		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().AddDate(10, 0, 0),
-		SubjectKeyId: []byte{1, 2, 3, 4, 6},
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:     x509.KeyUsageDigitalSignature,
-	}
-
-	certPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	tlsConfig, err := s.FetchTlSConfig()
 	if err != nil {
 		return err
 	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, cert, s.CA, certPrivateKey.PublicKey, s.CAPrivateKey)
-	if err != nil {
-		return err
-	}
-
-	certPEM := new(bytes.Buffer)
-	pem.Encode(certPEM, &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certBytes,
-	})
-
-	certPrivateKeyPEM := new(bytes.Buffer)
-	pem.Encode(certPrivateKeyPEM, &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(certPrivateKey),
-	})
-
-	serverCert, err := tls.X509KeyPair(certPEM.Bytes(), certPrivateKeyPEM.Bytes())
-	if err != nil {
-		fmt.Println("erroring here")
-		return err
-	}
-
-	ca := credentials.NewServerTLSFromCert(&serverCert)
+	ca := credentials.NewTLS(tlsConfig)
 	grpcServer := grpc.NewServer(grpc.Creds(ca))
 	machinist.RegisterControllerServer(grpcServer, s)
-	if s.NetListener == nil {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
-		if err != nil {
-			return err
-		}
-		s.NetListener = &lis
-	}
 	s.RunningServer = grpcServer
-	return grpcServer.Serve(*s.NetListener)
+	return grpcServer.Serve(s.NetListener)
 }
 
 func (s *Server) Close() {
@@ -119,11 +70,10 @@ func (s *Server) Close() {
 
 func (s Server) Poll(server machinist.Controller_PollServer) error {
 	for {
-		in, err := server.Recv()
+		_, err := server.Recv()
 		if err != nil {
 			return err
 		}
-		log.Printf("GOT %#v", in.Req)
 		response := &machinist.PollResponse{
 			Resp: &machinist.PollResponse_Pong{
 				Pong: &machinist.ActionPong{
@@ -148,11 +98,14 @@ func (s Server) Download(request *machinist.DownloadRequest, server machinist.Co
 }
 
 type invitationToken struct {
-	Addresses []string
-	Port      int
+	Addresses  []string
+	Port       int
+	CRT        string
+	PrivateKey string
+	RootCA     string
 }
 
-func (s Server) GenerateInvitation(tags map[string]string) ([]byte, error) {
+func (s Server) GenerateInvitation(tags map[string]string, name string) ([]byte, error) {
 	nats, err := net.Interfaces()
 	if err != nil {
 		return nil, err
@@ -167,23 +120,33 @@ func (s Server) GenerateInvitation(tags map[string]string) ([]byte, error) {
 			if tcpNat, ok := addr.(*net.IPNet); ok {
 				attachedIpAddresses = append(attachedIpAddresses, tcpNat.IP.String())
 			}
-			//not sure if should try and handle non ipAddr interfaces
+			// TODO(adam): not sure if should try and handle non ipAddr interfaces
 		}
 	}
-	i := invitationToken{
-		Port:      s.Port,
-		Addresses: attachedIpAddresses,
+	_, certPem, certPrivate, err := s.GenerateServerCert()
+	if err != nil {
+		return nil, err
 	}
+	privatePemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(certPrivate),
+	})
 
+	i := invitationToken{
+		Port:       s.NetAddr.Port,
+		Addresses:  attachedIpAddresses,
+		CRT:        string(certPem),
+		PrivateKey: string(privatePemBytes),
+		RootCA:     s.CAPem,
+	}
 	jsonString, err := json.Marshal(i)
 	if err != nil {
 		return nil, err
 	}
-	encodedToken, err := s.Encoder.Encode(jsonString)
-	if err != nil {
-		return nil, err
-	}
-	return encodedToken, nil
+	fmt.Println("jsons string is", string(jsonString))
+	encodedToken := base64.RawStdEncoding.EncodeToString(jsonString)
+	fmt.Println("encoded opaque token is", encodedToken)
+	return []byte(encodedToken), nil
 }
 
 type ServerRequest struct {
@@ -210,4 +173,65 @@ func (rs *ServerRequest) WithCA(ca *x509.Certificate, pem []byte, key *rsa.Priva
 	rs.CaPem = pem
 	rs.CaPrivateKey = key
 	return rs
+}
+
+type ServerModifier func(server *Server) error
+
+func WithGenerateNewCredentials(certOpts ...kcerts.Modifier) ServerModifier {
+	return func(server *Server) error {
+		opts, err := kcerts.NewOptions(certOpts...)
+		if err != nil {
+			return err
+		}
+		rootCert, rootPem, rootPrivateKey, err := kcerts.GenerateNewCARoot(opts)
+		if err != nil {
+			return err
+		}
+		intermediateCert, intermediatePem, intermediatePrivateKey, err := kcerts.GenerateIntermediateCertificate(opts, rootCert, rootPrivateKey)
+		if err != nil {
+			return err
+		}
+		server.CAPem = string(rootPem)
+		server.GenerateServerCert = func() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
+			return kcerts.GenerateServerKey(opts, intermediateCert, intermediatePrivateKey)
+		}
+		server.FetchTlSConfig = func() (*tls.Config, error) {
+			newPool := x509.NewCertPool()
+			newPool.AppendCertsFromPEM(rootPem)
+			newPool.AppendCertsFromPEM(intermediatePem)
+			_, serverPem, serverPrivateKey, err := server.GenerateServerCert()
+			if err != nil {
+				return nil, err
+			}
+			privatePemBytes := pem.EncodeToMemory(&pem.Block{
+				Type:  "RSA PRIVATE KEY",
+				Bytes: x509.MarshalPKCS1PrivateKey(serverPrivateKey),
+			})
+			serverCert, err := tls.X509KeyPair(serverPem, privatePemBytes)
+			if err != nil {
+				return nil, err
+			}
+			return &tls.Config{
+				//ClientAuth:   tls.RequireAndVerifyClientCert,
+				Certificates: []tls.Certificate{serverCert},
+				RootCAs:      newPool,
+			}, nil
+		}
+		return nil
+	}
+}
+
+func WithPortDescriptor(pd *ktest.PortDescriptor) ServerModifier {
+	return func(server *Server) error {
+		server.NetListener = pd.Listener
+		if pd == nil {
+			return fmt.Errorf("the port descriptor is null")
+		}
+		na, err := pd.Addr()
+		if err != nil {
+			return err
+		}
+		server.NetAddr = na
+		return nil
+	}
 }

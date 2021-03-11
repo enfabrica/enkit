@@ -20,7 +20,7 @@ func GenerateNewCARoot(opts *certOptions) (*x509.Certificate, []byte, *rsa.Priva
 		Subject: pkix.Name{
 			Country:      opts.Country,
 			Organization: opts.Organization,
-			CommonName:   "Root CA",
+			CommonName:   "machinist",
 		},
 		NotBefore:             opts.Before,
 		NotAfter:              opts.After,
@@ -57,7 +57,7 @@ func GenerateIntermediateCertificate(opts *certOptions, RootCa *x509.Certificate
 		Subject: pkix.Name{
 			Country:      opts.Country,
 			Organization: opts.Organization,
-			CommonName:   "DCA",
+			CommonName:   "machinist-dca",
 		},
 		NotBefore:             opts.Before,
 		NotAfter:              opts.After,
