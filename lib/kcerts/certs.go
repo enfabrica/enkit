@@ -15,10 +15,7 @@ import (
 
 // GenerateNewCARoot returns the new certificate anchor for a chain. This should ideally only be called once as rotating
 // this will invalidate all existing private certs. Unless, you add it and reload and x509.CertPool in a server.
-func GenerateNewCARoot(opts *CertOptions) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
-	if err := opts.Validate(); err != nil {
-		return nil, nil, nil, errors.New("must call Validate() on certificate options before creating a CA")
-	}
+func GenerateNewCARoot(opts *certOptions) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 	rootTemplate := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
@@ -51,13 +48,10 @@ func GenerateNewCARoot(opts *CertOptions) (*x509.Certificate, []byte, *rsa.Priva
 
 // GenerateIntermediateCertificate will generate the DCA and intermediate chain. It is acceptable to publicly share this chain.
 // requires to call GenerateNewCARoot beforehand. Reusing Opts is recommended.
-func GenerateIntermediateCertificate(opts *CertOptions, RootCa *x509.Certificate, RootCaPrivateKey *rsa.PrivateKey) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
+func GenerateIntermediateCertificate(opts *certOptions, RootCa *x509.Certificate, RootCaPrivateKey *rsa.PrivateKey) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 	intermediatePrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, nil, err
-	}
-	if err := opts.Validate(); err != nil {
-		return nil, nil, nil, errors.New("must call Validate() on certificate options before creating a DCA")
 	}
 	intermediate := x509.Certificate{
 		SerialNumber: big.NewInt(1),
@@ -95,13 +89,10 @@ func GenerateIntermediateCertificate(opts *CertOptions, RootCa *x509.Certificate
 
 // GenerateServerKey will generate the final tls cert, generally requires GenerateIntermediateCertificate and
 // GenerateNewCARoot to be called beforehand. Reusing Opts is recommended.
-func GenerateServerKey(opts *CertOptions, intermediateCert *x509.Certificate, intermediatePrivateKey *rsa.PrivateKey) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
+func GenerateServerKey(opts *certOptions, intermediateCert *x509.Certificate, intermediatePrivateKey *rsa.PrivateKey) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 	serverPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, nil, err
-	}
-	if err := opts.Validate(); err != nil {
-		return nil, nil, nil, errors.New("must call Validate() on certificate options before creating a Server Crt")
 	}
 
 	serverTemplate := &x509.Certificate{
@@ -145,7 +136,9 @@ func GenerateSSHKeyPair(privateKey *rsa.PrivateKey) ([]byte, []byte) {
 	return pem.EncodeToMemory(publicBlock), pem.EncodeToMemory(privateBlock)
 }
 
-type CertOptions struct {
+type Modifier func(o *certOptions) error
+
+type certOptions struct {
 	Country      []string
 	Organization []string
 	Before       time.Time
@@ -153,50 +146,59 @@ type CertOptions struct {
 	IPAddresses  []net.IP
 }
 
-func (o *CertOptions) WithCountries(cs []string) *CertOptions {
-	o.Country = cs
-	return o
+func WithCountries(countries []string) Modifier {
+	return func(o *certOptions) error {
+		o.Country = countries
+		return nil
+	}
 }
 
-func (o *CertOptions) WithOrganizations(orgs []string) *CertOptions {
-	o.Organization = orgs
-	return o
+func WithOrganizations(orgs []string) Modifier {
+	return func(o *certOptions) error {
+		o.Organization = orgs
+		return nil
+	}
 }
 
-func (o *CertOptions) WithIpAddresses(ips []net.IP) *CertOptions {
-	o.IPAddresses = ips
-	return o
+func WithIpAddresses(ips []net.IP) Modifier {
+	return func(o *certOptions) error {
+		o.IPAddresses = ips
+		return nil
+	}
 }
 
-func (o *CertOptions) ValidUntil(validUntil time.Time) *CertOptions {
-	o.After = validUntil
-	return o
-}
-func (o *CertOptions) NotValidBefore(startTime time.Time) *CertOptions {
-	o.Before = startTime
-	return o
-}
-
-func (o *CertOptions) Validate() error {
-	currTime := time.Now()
-	if currTime.Before(o.Before) {
-		return fmt.Errorf("time is invalid: value %v must be after value %v", o.Before, currTime)
+func WithValidUntil(validUntil time.Time) Modifier {
+	return func(o *certOptions) error {
+		o.After = validUntil
+		currTime := time.Now()
+		if currTime.After(o.After) {
+			return errors.New("cannot issue invalid CA's time invalid")
+		}
+		if o.After.Sub(currTime).Hours() < 24*365 { // hours in a year
+			return errors.New("duration of the CA is too low")
+		}
+		return nil
 	}
-	if currTime.After(o.After) {
-		return errors.New("cannot issue invalid CA's time invalid")
-	}
-	if o.After.Sub(currTime).Hours() < 24*365 { // hours in a year
-		return errors.New("duration of the CA is too low")
-	}
-	if len(o.Organization) == 0 {
-		return errors.New("must set organization")
-	}
-	if len(o.Country) == 0 {
-		return errors.New("must set countries of origin for en_Lang and i8n support")
-	}
-	return nil
 }
 
-func NewOptions() *CertOptions {
-	return &CertOptions{}
+func WithNotValidBefore(startTime time.Time) Modifier {
+	return func(o *certOptions) error {
+		o.Before = startTime
+		currTime := time.Now()
+		if currTime.Before(o.Before) {
+			return fmt.Errorf("time is invalid: value %v must be after value %v", o.Before, currTime)
+		}
+		return nil
+	}
+}
+
+func NewOptions(mods ...Modifier) (*certOptions, error) {
+	co := &certOptions{}
+	for _, mod := range mods {
+		err := mod(co)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return co, nil
 }

@@ -16,62 +16,52 @@ import (
 )
 
 func TestCertSuite(t *testing.T) {
-	opts := kcerts.NewOptions().
-		NotValidBefore(time.Now().Add(-5 * time.Minute)).
-		ValidUntil(time.Now().AddDate(3, 0, 0)).
-		WithIpAddresses([]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("0.0.0.0")}).
-		WithOrganizations([]string{"Test Corp"}).
-		WithCountries([]string{"US"})
+	opts, err := kcerts.NewOptions(
+		kcerts.WithCountries([]string{"US"}),
+		kcerts.WithOrganizations([]string{"Test Corp"}),
+		kcerts.WithValidUntil(time.Now().AddDate(3, 0, 0)),
+		kcerts.WithNotValidBefore(time.Now().Add(-10*time.Minute)),
+		kcerts.WithIpAddresses([]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("0.0.0.0")}),
+	)
 
+	assert.Nil(t, err)
 	rootCert, rootPem, rootPrivateKey, err := kcerts.GenerateNewCARoot(opts)
-	if err != nil {
-		assert.Error(t, err)
-	}
+	assert.Nil(t, err)
+
 	intermediateCert, intermediatePem, intermediatePrivateKey, err := kcerts.GenerateIntermediateCertificate(opts, rootCert, rootPrivateKey)
-	if err != nil {
-		assert.Error(t, err)
-	}
+	assert.Nil(t, err)
 
 	serverCert, _, _, err := kcerts.GenerateServerKey(opts, intermediateCert, intermediatePrivateKey)
 	t.Run("verify intermediate", func(t *testing.T) {
-		if err := verifyIntermediateChain(rootPem, intermediateCert); err != nil {
-			assert.Error(t, err)
-		}
-
+		assert.Nil(t, verifyIntermediateChain(rootPem, intermediateCert))
 	})
 	t.Run("verify chain", func(t *testing.T) {
-		if err := verifyFullChain(rootPem, intermediatePem, serverCert); err != nil {
-			assert.Error(t, err)
-		}
+		assert.Nil(t, verifyFullChain(rootPem, intermediatePem, serverCert))
 	})
 	t.Run("verify rsa client output with intermediate chain", func(t *testing.T) {
-		if err := verifyRSAEncryption(intermediatePrivateKey); err != nil {
-			assert.Error(t, err)
-		}
+		assert.Nil(t, verifyRSAEncryption(intermediatePrivateKey))
 	})
 	t.Run("verify rsa client output with root chain", func(t *testing.T) {
-		if err := verifyRSAEncryption(rootPrivateKey); err != nil {
-			assert.Error(t, err)
-		}
+		assert.Nil(t, verifyRSAEncryption(rootPrivateKey))
 	})
 
 	t.Run("test rsa output generations", func(t *testing.T) {
 		publicBytes, privateBytes := kcerts.GenerateSSHKeyPair(rootPrivateKey)
+
 		publicBlock, _ := pem.Decode(publicBytes)
-		if publicBlock.Type != "PUBLIC KEY" {
-			t.Error("public key is re encoded block, check encoding steps")
-		}
+		assert.NotNil(t, publicBlock)
+		assert.Nil(t, err)
+		assert.Equal(t, publicBlock.Type, "PUBLIC KEY")
+
 		privateBlock, _ := pem.Decode(privateBytes)
-		if privateBlock.Type != "RSA PRIVATE KEY" {
-			t.Error("private key is re encoded block or password encrypted")
-		}
+		assert.NotNil(t, privateBlock)
+		assert.Nil(t, err)
+		assert.Equal(t, privateBlock.Type, "RSA PRIVATE KEY")
+
 		privateKey, err := x509.ParsePKCS1PrivateKey(privateBlock.Bytes)
-		if err != nil {
-			t.Error("error parsing private key bytes ", err.Error())
-		}
-		if err := verifyRSAEncryption(privateKey); err != nil {
-			t.Error(err.Error())
-		}
+		assert.NotNil(t, privateKey)
+		assert.Nil(t, err)
+		assert.Nil(t, verifyRSAEncryption(privateKey))
 	})
 }
 
