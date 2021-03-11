@@ -174,7 +174,7 @@ func WithValidUntil(validUntil time.Time) Modifier {
 			return fmt.Errorf("time %v to be valid until is less than current time %v", validUntil, currTime)
 		}
 		if o.After.Sub(currTime).Hours() < 24*365 { // hours in a year
-			return fmt.Errorf("duration of the CA is too low, %f is less than %d", o.After.Sub(currTime).Hours(), 24*365)
+			return fmt.Errorf("date configured with After of %v is too low, must be > one year", o.After)
 		}
 		return nil
 	}
