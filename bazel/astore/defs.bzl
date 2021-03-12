@@ -63,8 +63,8 @@ to an artifact store.""",
 
 def _astore_download(ctx):
     output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
-    command = ("%s download --no-progress -o %s %s"
-        % (ctx.executable._astore_client.path, output.path, ctx.attr.download_src))
+    command = ("%s download --no-progress -o %s %s" %
+               (ctx.executable._astore_client.path, output.path, ctx.attr.download_src))
     if ctx.attr.arch:
         command += " -a " + ctx.attr.arch
     ctx.actions.run_shell(

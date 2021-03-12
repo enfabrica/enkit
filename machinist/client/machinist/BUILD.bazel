@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "factory.go",
+        "machinist.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/machinist/client/machinist",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/client:go_default_library",
+        "//lib/kflags:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/retry:go_default_library",
+        "//machinist/rpc:machinist-go",
+    ],
+)
