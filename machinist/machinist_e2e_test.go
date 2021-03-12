@@ -56,7 +56,7 @@ func TestRunServerNodeJoinAndPoll(t *testing.T) {
 	}
 	assert.Nil(t, err)
 	go node.BeginPolling()
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	node.Stop()
 }

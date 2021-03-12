@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"time"
@@ -22,6 +23,7 @@ type Node struct {
 	Connection  *grpc.ClientConn
 	KillChannel chan NodeErr
 	PongChannel chan *machinist.PollResponse
+	*prometheus.Registry
 	*ccontext.Context
 }
 
@@ -29,6 +31,7 @@ func NewNode(nm ...NodeModifier) (*Node, error) {
 	n := &Node{
 		KillChannel: make(chan NodeErr),
 		Context:     ccontext.DefaultContext(),
+		Registry:    prometheus.NewRegistry(),
 	}
 	for _, mod := range nm {
 		if err := mod(n); err != nil {
@@ -40,6 +43,7 @@ func NewNode(nm ...NodeModifier) (*Node, error) {
 }
 
 type NodeModifier func(node *Node) error
+
 
 func (n *Node) listenForPong() {
 	ctx := context.Background()
@@ -58,6 +62,9 @@ func (n *Node) listenForPong() {
 }
 
 func (n *Node) BeginPolling() {
+	collector := prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{})
+	err := n.Registry.Register(collector)
+
 	ctx := context.Background()
 	pollStream, err := n.Client.Poll(ctx)
 	if err != nil {
@@ -157,5 +164,3 @@ func WithInviteToken(token string) NodeModifier {
 func (n Node) GatherInformation() ([]byte, error) {
 	return []byte("jjj"), nil
 }
-
-
