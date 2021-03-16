@@ -32,16 +32,11 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["astore_test.go"],
-    data = glob(["testdata/**"]) + ["//something:credentials.json"],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
     local = True,
     deps = [
         "//astore/client/astore:go_default_library",
-        "//astore/rpc:astore-go",
-        "//lib/client/ccontext:go_default_library",
-        "//lib/khttp/ktest:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/progress:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )

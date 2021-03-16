@@ -4,18 +4,11 @@ package ktest
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
-	rpcAstore "github.com/enfabrica/enkit/astore/rpc/astore"
-	"github.com/enfabrica/enkit/astore/server/astore"
-	"github.com/enfabrica/enkit/lib/srand"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
+	"github.com/enfabrica/enkit/lib/knetwork"
 	"log"
-	"math/rand"
 	"net"
-	"os"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -38,14 +31,18 @@ type EmulatedDatastoreDescriptor struct {
 }
 
 func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, error) {
-	emulatorAddr, err := AllocatePort()
+	portDescriptor, err := knetwork.AllocatePort()
+	if err != nil {
+		return nil, nil, err
+	}
+	tcpAddr, err := portDescriptor.Address()
 	if err != nil {
 		return nil, nil, err
 	}
 	cmd := exec.Command("gcloud",
 		"beta", "emulators", "datastore", "start",
 		"--no-store-on-disk",
-		fmt.Sprintf("--host-port=127.0.0.1:%d", emulatorAddr.Port),
+		fmt.Sprintf("--host-port=127.0.0.1:%d", tcpAddr.Port),
 		"--quiet")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	outputStdErrPipe, err := cmd.StderrPipe()
@@ -77,72 +74,14 @@ func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, erro
 		}
 	}()
 	select {
-	case <-time.After(30 * time.Second):
-		return nil, nil, nil
+	case <-time.After(15 * time.Second):
+		return nil, nil, fmt.Errorf("timeout on starting the emulator, output is %v", emulatorOutputText)
 	case result := <-datastoreBooted:
 		if result {
 			return &EmulatedDatastoreDescriptor{
-				Addr: emulatorAddr,
+				Addr: tcpAddr,
 			}, killFunc, nil
 		}
 		return nil, killFunc, errors.New(fmt.Sprintf("unable to start emulator, output is %v", emulatorOutputText))
 	}
-}
-
-type AStoreDescriptor struct {
-	Connection *grpc.ClientConn
-	Server     *astore.Server
-}
-
-// RunAStoreServer will spin up an emulated datastore along with an instance of the astore grpc server.
-func RunAStoreServer() (*AStoreDescriptor, KillAbleProcess, error) {
-	killFunctions := KillAbleProcess{}
-	emulatorDescriptor, emulatorKill, err := RunEmulatedDatastore()
-	killFunctions.AddKillable(emulatorKill)
-	if err != nil {
-		return nil, killFunctions, err
-	}
-	err = os.Setenv(
-		"STORAGE_EMULATOR_HOST",
-		fmt.Sprintf("localhost:%d", emulatorDescriptor.Addr.Port))
-	if err != nil {
-		return nil, killFunctions, err
-	}
-	buffListener := bufconn.Listen(2048 * 2048)
-	bufDialer := func(context.Context, string) (net.Conn, error) {
-		return buffListener.Dial()
-	}
-	grpcServer := grpc.NewServer()
-	credentialString, err := CheckCredentials()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	server, err := astore.New(rand.New(srand.Source),
-		astore.WithCredentialsJSON([]byte(credentialString)),
-		astore.WithSigningJSON([]byte(credentialString)),
-		astore.WithBucket("example-bucket"))
-
-	if err != nil {
-		return nil, killFunctions, err
-	}
-	rpcAstore.RegisterAstoreServer(grpcServer, server)
-	if err := grpcServer.Serve(buffListener); err != nil {
-		return nil, killFunctions, err
-	}
-	killGrpcFunc := func() {
-		grpcServer.Stop()
-	}
-	killFunctions.Add(killGrpcFunc)
-
-	conn, err := grpc.DialContext(context.Background(),
-		"empty", grpc.WithContextDialer(bufDialer),
-		grpc.WithInsecure())
-	if err != nil {
-		return nil, killFunctions, err
-	}
-	return &AStoreDescriptor{
-		Connection: conn,
-		Server:     server,
-	}, killFunctions, nil
 }
