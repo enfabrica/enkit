@@ -3,15 +3,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "invitations.go",
         "node.go",
         "server.go",
     ],
     importpath = "github.com/enfabrica/enkit/machinist",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/client/ccontext:go_default_library",
         "//lib/kcerts:go_default_library",
-        "//lib/khttp/ktest:go_default_library",
         "//lib/token:go_default_library",
         "//machinist/rpc:machinist-go",
         "@org_golang_google_grpc//:go_default_library",

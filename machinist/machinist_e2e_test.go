@@ -6,6 +6,7 @@ import (
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/lib/token"
 	"github.com/enfabrica/enkit/machinist"
+	"github.com/enfabrica/enkit/machinist/mnode"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"net"
@@ -50,7 +51,7 @@ func TestRunServerNodeJoinAndPoll(t *testing.T) {
 	inviteToken, err := server.GenerateInvitation(nil, "node1")
 	assert.NoError(t, err)
 	////debug inviteString
-	node, err := machinist.NewNode(machinist.WithInviteToken(string(inviteToken)))
+	node, err := mnode.New(mnode.WithInviteToken(string(inviteToken)))
 	if err != nil {
 		t.Fatal(err)
 	}

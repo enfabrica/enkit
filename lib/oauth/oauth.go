@@ -55,6 +55,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
@@ -232,15 +233,19 @@ func (a *Extractor) ParseCredentialsCookie(cookie string) (*CredentialsCookie, e
 // If successful, it will return a CredentialsCookie pointer.
 // If no credentials, or invalid credentials, an error is returned with nil credentials.
 func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCookie, error) {
+	fmt.Printf("%v \n", r.Cookies())
+	fmt.Println(a.CredentialsCookieName())
 	cookie, err := r.Cookie(a.CredentialsCookieName())
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println("cookie is gotten")
 	credentials, err := a.ParseCredentialsCookie(cookie.Value)
 	if err != nil {
+		fmt.Println(err.Error())
 		return nil, err
 	}
+	fmt.Println("credentials are parsed")
 	if credentials == nil {
 		return nil, fmt.Errorf("invalid nil credentials")
 	}
@@ -536,7 +541,8 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 
 	code := query.Get("code")
 	// FIXME: needs retry logic, timeout?
-	tok, err := a.conf.Exchange(oauth2.NoContext, code)
+	code = strings.TrimSpace(code)
+	tok, err := a.conf.Exchange(context.TODO(), code)
 	if err != nil {
 		return AuthData{}, fmt.Errorf("Could not retrieve token - %w", err)
 	}
@@ -583,7 +589,7 @@ func (a *Authenticator) PerformAuth(w http.ResponseWriter, r *http.Request, co .
 	if err != nil {
 		return AuthData{}, false, err
 	}
-
+	fmt.Println("setting cookie")
 	http.SetCookie(w, a.CredentialsCookie(auth.Cookie, co...))
 
 	if auth.Target != "" {

@@ -18,7 +18,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/color v1.9.0
 	github.com/go-git/go-git/v5 v5.1.0
-	github.com/golang/protobuf v1.4.2
+	github.com/golang/protobuf v1.4.3
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/gorilla/websocket v1.4.2
@@ -43,10 +43,10 @@ require (
 	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net v0.0.0-20200822124328-c89045814202
-	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
-	golang.org/x/sys v0.0.0-20210309074719-68d13333faf2 // indirect
+	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4
+	golang.org/x/oauth2 v0.0.0-20210313182246-cd4f82c27b84
 	google.golang.org/api v0.30.0
+	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/grpc v1.32.0
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v2 v2.3.0

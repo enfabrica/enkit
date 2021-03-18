@@ -97,13 +97,6 @@ func (s Server) Download(request *machinist.DownloadRequest, server machinist.Co
 	panic("implement me")
 }
 
-type invitationToken struct {
-	Addresses  []string
-	Port       int
-	CRT        string
-	PrivateKey string
-	RootCA     string
-}
 
 func (s Server) GenerateInvitation(tags map[string]string, name string) ([]byte, error) {
 	nats, err := net.Interfaces()
@@ -132,7 +125,7 @@ func (s Server) GenerateInvitation(tags map[string]string, name string) ([]byte,
 		Bytes: x509.MarshalPKCS1PrivateKey(certPrivate),
 	})
 
-	i := invitationToken{
+	i := InvitationToken{
 		Port:       s.NetAddr.Port,
 		Addresses:  attachedIpAddresses,
 		CRT:        string(certPem),
