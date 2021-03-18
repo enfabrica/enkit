@@ -3,9 +3,9 @@ package astore_test
 import (
 	"context"
 	"fmt"
+	"github.com/enfabrica/enkit/astore/atesting"
 	rpcAstore "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/astore/server/astore"
-	"github.com/enfabrica/enkit/lib/khttp/ktest"
 	"github.com/enfabrica/enkit/lib/srand"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -21,9 +21,9 @@ type AStoreDescriptor struct {
 }
 
 // RunAStoreServer will spin up an emulated datastore along with an instance of the astore grpc server.
-func RunAStoreServer() (*AStoreDescriptor, ktest.KillAbleProcess, error) {
-	killFunctions := ktest.KillAbleProcess{}
-	emulatorDescriptor, emulatorKill, err := ktest.RunEmulatedDatastore()
+func RunAStoreServer() (*AStoreDescriptor, atesting.KillAbleProcess, error) {
+	killFunctions := atesting.KillAbleProcess{}
+	emulatorDescriptor, emulatorKill, err := atesting.RunEmulatedDatastore()
 	killFunctions.AddKillable(emulatorKill)
 	if err != nil {
 		return nil, killFunctions, err

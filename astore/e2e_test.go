@@ -2,13 +2,13 @@ package astore_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
 	rpcAstore "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/progress"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
 	"testing"
@@ -20,21 +20,14 @@ func TestServer(t *testing.T) {
 	if killFuncs != nil {
 		defer killFuncs.KillAll()
 	}
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	assert.Nil(t, err)
 	// Running this as test ping feature.
 	client := astore.New(astoreDescriptor.Connection)
 	res, _, err := client.List("/test", astore.ListOptions{})
-	if err != nil {
-		t.Error(err.Error())
-	}
+	assert.Nil(t, err)
 	fmt.Printf("list response is +%v \n", res)
 	b, err := ioutil.ReadFile("./testdata/example.yaml")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	fmt.Println("bytes are ", string(b))
+	assert.Nil(t, err)
 	uploadFiles := []astore.FileToUpload{
 		{Local: "./testdata/example.yaml"},
 	}
@@ -47,19 +40,14 @@ func TestServer(t *testing.T) {
 		Context: ctxWithLogger,
 	}
 	u, err := client.Upload(uploadFiles, uploadOption)
-	if err != nil {
-		t.Error(err.Error())
-		fmt.Println("erroring in client upload")
-	}
+	assert.Nil(t, err, "client upload failed with %s", err)
 
 	fmt.Printf("upload is +%v \n", u)
 	storeResponse, err := astoreDescriptor.Server.Store(context.Background(), &rpcAstore.StoreRequest{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if storeResponse.GetSid() == "" || storeResponse.GetUrl() == "" {
-		t.Fatal(errors.New("invalid store response"))
-	}
+	assert.Nil(t, err)
+	assert.NotEqual(t, "", storeResponse.GetSid())
+	assert.NotEqual(t, "", storeResponse.GetUrl())
+
 	resp, err := astoreDescriptor.Server.Commit(context.Background(), &rpcAstore.CommitRequest{
 		Sid:          storeResponse.GetSid(),
 		Architecture: "dwarvenx99",
@@ -67,11 +55,9 @@ func TestServer(t *testing.T) {
 		Note:         "note",
 		Tag:          []string{"something"},
 	})
-	if err != nil {
-		t.Error(err.Error())
-	}
+	assert.Nil(t, err)
 
-	fmt.Println("finalizzing +%v", resp.Artifact)
+	fmt.Println("finalizing +%v", resp.Artifact)
 
 }
 

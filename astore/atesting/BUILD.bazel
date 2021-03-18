@@ -2,7 +2,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["server.go"],
-    importpath = "github.com/enfabrica/enkit/lib/khttp/ktest",
+    srcs = ["mocks.go"],
+    importpath = "github.com/enfabrica/enkit/astore/atesting",
     visibility = ["//visibility:public"],
+    deps = ["//lib/knetwork:go_default_library"],
 )

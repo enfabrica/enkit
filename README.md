@@ -16,13 +16,13 @@
         > ln -s $(which gcloud) /usr/local/bin
                     
 2. Get a service account from <x, Y, Z person>
-    * Put it in credentials/credentials.json     
+    * Put it in astore/testdata/credentials.json     
                                                                                          >
 ##### Examples of Running Tests
 * Running a specific go test target
-> bazel test //astore/server/astore:go_default_test
+> bazel test //astore:go_default_test
 * Running specific test of a test file 
-> bazel test //astore/server/astore:go_default_test --test_filter=^TestServer$
+> bazel test //astore:go_default_test --test_filter=^TestServer$
 * Running Everything 
 > bazel test //...
 
@@ -32,7 +32,6 @@
     > bazel run //:gazelle
 * if your test needs server dependencies, such as astore or minio 
     1. Tests must be run as local = True 
-    2. Test must also include the target "//credentials:credentials.json"
 
 Clean Up / Dev Helpers  
 Remove all emulator spawned processes

@@ -1,10 +1,9 @@
 // +build !release
 
-package ktest
+package atesting
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/knetwork"
 	"log"
@@ -82,6 +81,26 @@ func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, erro
 				Addr: tcpAddr,
 			}, killFunc, nil
 		}
-		return nil, killFunc, errors.New(fmt.Sprintf("unable to start emulator, output is %v", emulatorOutputText))
+		return nil, killFunc, fmt.Errorf("unable to start emulator, output is %v", emulatorOutputText)
 	}
+}
+
+
+
+type KillAbleProcess []func()
+
+func (k *KillAbleProcess) KillAll() {
+	fmt.Println("running kill functions")
+	for _, killFunc := range *k {
+		fmt.Println("running kill function")
+		killFunc()
+	}
+}
+
+func (k *KillAbleProcess) AddKillable(process KillAbleProcess) {
+	*k = append(*k, process...)
+}
+
+func (k *KillAbleProcess) Add(p func()){
+	*k = append(*k, p)
 }
