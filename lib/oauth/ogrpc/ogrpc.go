@@ -20,6 +20,7 @@ package ogrpc
 
 import (
 	"context"
+	"fmt"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -100,8 +101,10 @@ func ProcessMetdata(auth *oauth.Authenticator, ctx context.Context) (context.Con
 	if !ok {
 		return ctx, status.Errorf(codes.Unauthenticated, "no cookies in request")
 	}
+	fmt.Println("grpc cookies are", md)
 	cookie := ExtractCookie(md["cookie"], auth.CredentialsCookieName())
 	if cookie == nil {
+		fmt.Println("no cookie")
 		return ctx, status.Errorf(codes.Unauthenticated, "no credentials cookie")
 	}
 	creds, err := auth.ParseCredentialsCookie(*cookie)

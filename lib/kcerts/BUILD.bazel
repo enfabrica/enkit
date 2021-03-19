@@ -5,6 +5,7 @@ go_library(
     srcs = ["certs.go"],
     importpath = "github.com/enfabrica/enkit/lib/kcerts",
     visibility = ["//visibility:public"],
+    deps = ["@org_golang_x_crypto//ssh:go_default_library"],
 )
 
 go_test(

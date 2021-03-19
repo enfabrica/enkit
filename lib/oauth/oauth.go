@@ -233,19 +233,15 @@ func (a *Extractor) ParseCredentialsCookie(cookie string) (*CredentialsCookie, e
 // If successful, it will return a CredentialsCookie pointer.
 // If no credentials, or invalid credentials, an error is returned with nil credentials.
 func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCookie, error) {
-	fmt.Printf("%v \n", r.Cookies())
-	fmt.Println(a.CredentialsCookieName())
 	cookie, err := r.Cookie(a.CredentialsCookieName())
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("cookie is gotten")
 	credentials, err := a.ParseCredentialsCookie(cookie.Value)
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, err
 	}
-	fmt.Println("credentials are parsed")
 	if credentials == nil {
 		return nil, fmt.Errorf("invalid nil credentials")
 	}

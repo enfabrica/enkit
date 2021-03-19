@@ -9,6 +9,9 @@ import (
 var token string
 
 func Start(parent *cobra.Command, args []string) error {
+	if token == "" {
+		panic("token is " + token)
+	}
 	n, err := mnode.New(mnode.WithInviteToken(token))
 	if err != nil {
 		return err

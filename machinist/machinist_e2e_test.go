@@ -2,11 +2,13 @@ package machinist_test
 
 import (
 	"fmt"
+	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/lib/token"
 	"github.com/enfabrica/enkit/machinist"
 	"github.com/enfabrica/enkit/machinist/mnode"
+	"github.com/enfabrica/enkit/machinist/mserver"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"net"
@@ -17,7 +19,7 @@ import (
 
 
 func TestRunServerNodeJoinAndPoll(t *testing.T) {
-	descriptor, err := machinist.AllocatePort()
+	descriptor, err := mserver.AllocatePort()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -26,9 +28,6 @@ func TestRunServerNodeJoinAndPoll(t *testing.T) {
 	assert.Nil(t, err)
 	symmetricEncoder, err := token.NewSymmetricEncoder(rngSeed, token.UseSymmetricKey(key))
 	assert.Nil(t, err)
-	serverRequest := machinist.NewServerRequest().
-		UseEncoder(symmetricEncoder).
-		WithNetListener(&descriptor.Listener)
 
 	credMod := machinist.WithGenerateNewCredentials(
 		kcerts.WithCountries([]string{"US"}),
@@ -38,7 +37,6 @@ func TestRunServerNodeJoinAndPoll(t *testing.T) {
 
 	portMod := machinist.WithPortDescriptor(descriptor)
 	server, err := machinist.NewServer(serverRequest, credMod, portMod)
-
 	assert.Nil(t, err)
 	go t.Run("start machinist master server", func(t *testing.T) {
 		if err := server.Start(); err != nil {
