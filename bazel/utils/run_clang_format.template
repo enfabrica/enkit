@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Retrieve the absolute path from the relative path passed by Bazel.
+CLANG_FORMAT=$(realpath {clang-format})
+
+# $BUILD_WORKSPACE_DIRECTOR is made available by Bazel to executables
+# (see https://docs.bazel.build/versions/master/user-manual.html#run).
+if ! cd "$BUILD_WORKSPACE_DIRECTORY"; then
+  echo "Cannot cd to BUILD_WORKSPACE_DIRECTORY=${BUILD_WORKSPACE_DIRECTORY}"
+  exit 1
+fi
+
+# Run clang-format on all the files conforming to the specified format
+find . -type f \( -name '{pattern-to-format}' \) -exec "$CLANG_FORMAT" -style={style} -i {} \;
