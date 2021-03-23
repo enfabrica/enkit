@@ -111,6 +111,7 @@ func (gb *ReplaceableBrowser) Close(err error) {
 		gb.wc.Close()
 		gb.wc = nil
 	}
+	gb.cond.Broadcast()
 }
 
 func (gb *ReplaceableBrowser) Error(wc *websocket.Conn, err error) {
