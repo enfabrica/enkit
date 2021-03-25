@@ -1,0 +1,4 @@
+exports_files([
+    "git.sh",
+    "lint_go.sh",
+])

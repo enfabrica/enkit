@@ -25,3 +25,14 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 buildifier(
     name = "buildifier",
 )
+
+load("//bazel/linting/scripts:defs.bzl", "lint")
+
+lint(
+    name = "lint",
+    go_libs = [
+        "//astore/client:go_default_library",
+    ],
+    rust_libs = [
+    ],
+)
