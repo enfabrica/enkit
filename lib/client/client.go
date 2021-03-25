@@ -147,10 +147,11 @@ func (bf *BaseFlags) IdentityToken() (string, string, error) {
 
 	identity := bf.Identity()
 	username, token, err := store.Load(identity)
-	bf.Log.Infof("Using credentials of '%s' for requested '%s'", username, bf.Printable())
 	if err != nil {
+		bf.Log.Infof("Error loading credentials for '%s' - %s", bf.Printable(), err)
 		return "", "", kflags.NewIdentityError(err)
 	}
+	bf.Log.Infof("Using credentials of '%s' for requested '%s'", username, bf.Printable())
 	return username, token, nil
 }
 
