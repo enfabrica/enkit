@@ -29,7 +29,6 @@ func main() {
 		OauthSecretID:   "c375a13b8ffc37a9bc60",
 		OauthSecretKey:  "07f3f0b064788d1eae53037c38b40e2d20711f5d",
 		TargetURL:       "http://localhost:5443/callback",
-		//TokenSigningKey: sk[:],
 		AuthTime:        time.Hour,
 	}
 	authenticator, err := oauth.New(rand.New(srand.Source),
