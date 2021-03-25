@@ -8,46 +8,49 @@ import (
 
 type Waiter struct {
 	l sync.Locker
-	c chan error
+	c chan bool
+	e error
 }
 
 func NewWaiter(l sync.Locker) *Waiter {
 	return &Waiter{
 		l: l,
-		c: make(chan error, 1),
+		c: make(chan bool, 1),
 	}
 }
 
-func (w *Waiter) Channel() chan error {
-	return w.c
-}
-
 func (w *Waiter) Fail(err error) {
-	w.c <- err
+	w.l.Lock()
+	defer w.l.Unlock()
+	w.e = err
+	close(w.c)
 }
 
 func (w *Waiter) Signal() {
 	select {
-	case w.c <- nil:
+	case w.c <- true:
 	default:
 	}
 }
 
 func (w *Waiter) Wait() error {
 	w.l.Unlock()
-	defer w.l.Lock()
-	return <-w.c
+	_ = <-w.c
+	w.l.Lock()
+	return w.e
 }
 
 var ErrorExpired = errors.New("timer expired")
 
 func (w *Waiter) WaitFor(d time.Duration) error {
 	w.l.Unlock()
-	defer w.l.Lock()
 	select {
-	case err := <-w.c:
-		return err
+	case <-w.c:
+		w.l.Lock()
+		return w.e
+
 	case <-time.After(d):
+		w.l.Lock()
 		return ErrorExpired
 	}
 }
@@ -151,6 +154,11 @@ func (b *BlockingReceiveWindow) Empty(size int) {
 	b.cf.Signal()
 }
 
+func (b *BlockingReceiveWindow) Fail(err error) {
+	b.ce.Fail(err)
+	b.cf.Fail(err)
+}
+
 func NewBlockingSendWindow(pool *BufferPool, max uint64) *BlockingSendWindow {
 	bw := &BlockingSendWindow{}
 	bw.w.pool = pool
@@ -224,4 +232,9 @@ func (b *BlockingSendWindow) Empty(size int) {
 	b.l.Lock()
 	defer b.l.Unlock()
 	b.w.Empty(size)
+}
+
+func (b *BlockingSendWindow) Fail(err error) {
+	b.ce.Fail(err)
+	b.cf.Fail(err)
 }

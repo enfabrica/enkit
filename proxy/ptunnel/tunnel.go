@@ -382,8 +382,17 @@ func NewTunnel(pool *nasshp.BufferPool, mods ...Modifier) (*Tunnel, error) {
 	return tl, nil
 }
 
+func (t *Tunnel) Close() {
+	err := fmt.Errorf("close requested")
+	t.browser.Close(err)
+	t.SendWin.Fail(err)
+	t.ReceiveWin.Fail(err)
+}
+
 func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ...GetModifier) error {
-	options := &GetOptions{}
+	options := &GetOptions{
+		retryOptions: []retry.Modifier{retry.WithAttempts(0), retry.WithLogger(t.log), retry.WithDescription(fmt.Sprintf("connecting to %s:%d via %s", host, port, proxy.String()))},
+	}
 	if err := GetModifiers(mods).Apply(options); err != nil {
 		return err
 	}
@@ -393,7 +402,7 @@ func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ..
 		return err
 	}
 
-	retrier := retry.New(retry.WithAttempts(0), retry.WithLogger(t.log), retry.WithDescription(fmt.Sprintf("connecting to %s", proxy.String())))
+	retrier := retry.New(options.retryOptions...)
 	return retrier.Run(func() error {
 		// Following the nassh documentation, at:
 		//  https://chromium.googlesource.com/apps/libapps/+/4763ff7fa95760c9c85ef3563953cdfb391d209f/nassh/doc/relay-protocol.md

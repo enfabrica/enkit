@@ -2,7 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["ports.go"],
+    srcs = ["ports.go", "shutdown.go"],
     importpath = "github.com/enfabrica/enkit/lib/knetwork",
     visibility = ["//visibility:public"],
 )
