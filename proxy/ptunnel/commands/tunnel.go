@@ -126,13 +126,38 @@ func (r *Tunnel) RunTunnel(proxy *url.URL, id, host string, port uint16, cookie 
 	if err != nil {
 		return err
 	}
-	mods := []ptunnel.GetModifier{}
+	var mods []ptunnel.GetModifier
 	if cookie != nil {
-		mods = append(mods, ptunnel.WithGetOptions(protocol.WithRequestOptions(krequest.WithCookie(cookie))))
-		mods = append(mods, ptunnel.WithConnectOptions(ptunnel.WithHeader("Cookie", cookie.String())))
+		loader := func(o *ptunnel.GetOptions) error {
+			// On the very first run of RunTunnel, there is a valid cookie passed on. Why not use it?
+			//
+			// We don't know how long ago that cookie was fetched. RunTunnel can be called hours or
+			// days later, when the first connection is attempted. Unconditionally re-using that cookie
+			// can cause an initial authentication failure, which will most likely result in not even
+			// retrying the connection.
+			//
+			// That said, the code below makes a weak attempt at re-using the last known valid cookie.
+			user, scookie, err := r.IdentityCookie()
+			if err == nil {
+				r.Log.Infof("%s - loaded credentials from disk for %s", id, user)
+				cookie = scookie
+			} else {
+				r.Log.Infof("%s - loading new credentials failed - sticking with old ones", id)
+				scookie = cookie
+			}
+
+			if scookie == nil {
+				return fmt.Errorf("%s - authentication necessary, but no credentials available", id)
+			}
+
+			if err := ptunnel.WithGetOptions(protocol.WithRequestOptions(krequest.WithCookie(scookie)))(o); err != nil {
+				return err
+			}
+			return ptunnel.WithConnectOptions(ptunnel.WithHeader("Cookie", scookie.String()))(o)
+		}
+		mods = append(mods, loader)
 	}
 
-	// TODO: Allow to resume sessions manually? By passing a sid on the CLI?
 	err = goroutine.WaitFirstError(
 		func() error {
 			return tunnel.KeepConnected(proxy, host, port, mods...)
