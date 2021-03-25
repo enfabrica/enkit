@@ -248,17 +248,21 @@ func (o *Options) Once(attempt int, runner func() error) (time.Duration, error) 
 	if err == nil {
 		return 0, nil
 	}
-	var stop *FatalError
-	if errors.As(err, &stop) {
-		return 0, err
-	}
-	o.logger.Infof("attempt #%d%s - FAILED - %s", attempt+1, description, err)
 
-	delay := o.DelaySince(start)
-	if delay > 0 {
-		o.logger.Infof("attempt #%d%s - will retry in %s", attempt+1, description, delay)
+	var stop *FatalError
+	var delay time.Duration
+	message := "considered FATAL - not retrying anymore"
+	format := "attempt #%d%s - FAILED - %s - %s"
+	if errors.As(err, &stop) {
+		o.logger.Errorf(format, attempt+1, description, err, message)
 	} else {
-		o.logger.Infof("attempt #%d%s - retrying immediately", attempt+1, description)
+		delay = o.DelaySince(start)
+		if delay > 0 {
+			message = fmt.Sprintf("will retry in %s", delay)
+		} else {
+			message = "retrying immediately"
+		}
+		o.logger.Infof(format, attempt+1, description, err, message)
 	}
 	return delay, err
 }
