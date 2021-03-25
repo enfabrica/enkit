@@ -1,5 +1,9 @@
 package goroutine
 
+import (
+	"github.com/enfabrica/enkit/lib/multierror"
+)
+
 // ErrorChannel is a simple "chan error" with a couple convenience methods,
 // and strong typing to help the compiler.
 type ErrorChannel chan error
@@ -23,7 +27,7 @@ func Run(goroutine func() error) ErrorChannel {
 }
 
 // WaitAll runs a goroutine for each function, waits for each to complete, and returns all errors.
-func WaitAll(goroutine ...func() error) []error {
+func WaitAll(goroutine ...func() error) error {
 	type eix struct {
 		err error
 		ix  int
@@ -51,7 +55,7 @@ func WaitAll(goroutine ...func() error) []error {
 			errs[result.ix] = result.err
 		}
 	}
-	return errs
+	return multierror.New(errs)
 }
 
 // WaitFirst runs a goroutine for each function, returns as soon as all have completed, or one errors out.
