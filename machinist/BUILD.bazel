@@ -3,20 +3,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "node.go",
-        "server.go",
+        "flags.go",
+        "invitations.go",
     ],
     importpath = "github.com/enfabrica/enkit/machinist",
     visibility = ["//visibility:public"],
-    deps = [
-        "//lib/client/ccontext:go_default_library",
-        "//lib/kcerts:go_default_library",
-        "//lib/token:go_default_library",
-        "//machinist/rpc:machinist-go",
-        "@com_github_prometheus_client_golang//prometheus:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//credentials:go_default_library",
-    ],
 )
 
 go_test(
@@ -27,6 +18,8 @@ go_test(
         "//lib/kcerts:go_default_library",
         "//lib/srand:go_default_library",
         "//lib/token:go_default_library",
+        "//machinist/mnode:go_default_library",
+        "//machinist/mserver:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )

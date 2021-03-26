@@ -51,7 +51,10 @@ message DownloadRequest {
   string key = 1;
 }
 message DownloadResponse {
-  bytes data = 1;
+  bytes key = 1;
+  bytes cert = 2;
+  bytes capublickey = 3;
+  repeated string cahosts = 4;
 }
 
 // Controller is the service that workers will connect to to register themselves,
@@ -67,5 +70,5 @@ service Controller {
   // The client will invoke Upload when the server requests the client to upload a file.
   rpc Upload(stream UploadRequest) returns (UploadResponse) {}
   // The client will invoke Download when the server requests the client to upload a file.
-  rpc Download(DownloadRequest) returns (stream DownloadResponse) {}
+  rpc Download(DownloadRequest) returns (DownloadResponse) {}
 }

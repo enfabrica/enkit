@@ -1,4 +1,4 @@
-package machinist
+package mnode
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
+	machinistRpc "github.com/enfabrica/enkit/machinist"
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
@@ -16,18 +17,20 @@ import (
 )
 
 type NodeErr struct {
+	err error
 }
 type Node struct {
 	Client      machinist.ControllerClient
 	TLSCert     string
 	Connection  *grpc.ClientConn
 	KillChannel chan NodeErr
+	StopChannel chan bool
 	PongChannel chan *machinist.PollResponse
 	*prometheus.Registry
 	*ccontext.Context
 }
 
-func NewNode(nm ...NodeModifier) (*Node, error) {
+func New(nm ...NodeModifier) (*Node, error) {
 	n := &Node{
 		KillChannel: make(chan NodeErr),
 		Context:     ccontext.DefaultContext(),
@@ -70,14 +73,10 @@ func (n *Node) BeginPolling() {
 	if err != nil {
 		panic(err)
 	}
-	prometheusPayload, err := n.GatherInformation()
-	if err != nil {
-		n.Kill(err)
-	}
 	err = pollStream.Send(&machinist.PollRequest{
 		Req: &machinist.PollRequest_Ping{
 			Ping: &machinist.ClientPing{
-				Payload: prometheusPayload,
+				Payload: []byte("data here"),
 			},
 		},
 	})
@@ -95,15 +94,10 @@ func (n *Node) BeginPolling() {
 			fmt.Println("recv %v", pollResp)
 			// TODO(adam): should scheduling happen here or should it happen somewhere else
 		case <-time.After(2 * time.Second):
-			prometheusPayload, err := n.GatherInformation()
-			if err != nil {
-				n.Kill(err)
-			}
-			fmt.Println("sending")
 			err = pollStream.Send(&machinist.PollRequest{
 				Req: &machinist.PollRequest_Ping{
 					Ping: &machinist.ClientPing{
-						Payload: prometheusPayload,
+						Payload: []byte("hello"),
 					},
 				},
 			})
@@ -130,7 +124,7 @@ func WithInviteToken(token string) NodeModifier {
 		if err != nil {
 			return err
 		}
-		i := invitationToken{}
+		i := machinistRpc.InvitationToken{}
 		err = json.Unmarshal(data, &i)
 		if err != nil {
 			return err
@@ -161,6 +155,22 @@ func WithInviteToken(token string) NodeModifier {
 	}
 }
 
-func (n Node) GatherInformation() ([]byte, error) {
-	return []byte("jjj"), nil
+func (n *Node) ListenAndServe() error {
+	go n.BeginPolling()
+	go n.listenForPong()
+	go n.startPrometheus()
+	for {
+		select {
+		case err := <-n.KillChannel:
+			return err.err
+		}
+	}
+}
+
+func (n *Node) startPrometheus() {
+
+}
+
+func (n Node) AttemptToConnect() (grpc.ClientConn, error)  {
+	panic("erer")
 }

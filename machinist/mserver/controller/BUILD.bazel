@@ -6,7 +6,7 @@ go_library(
         "controller.go",
         "factory.go",
     ],
-    importpath = "github.com/enfabrica/enkit/machinist/server/controller",
+    importpath = "github.com/enfabrica/enkit/machinist/mserver/controller",
     visibility = ["//visibility:public"],
     deps = ["//machinist/rpc:machinist-go"],
 )

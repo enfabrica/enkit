@@ -13,7 +13,7 @@ type Controller struct {
 	workers sync.Map
 }
 
-func (en *Controller) Download(*machinist.DownloadRequest, machinist.Controller_DownloadServer) error {
+func (en *Controller) Download(*machinist.DownloadRequest) error {
 	return nil
 }
 

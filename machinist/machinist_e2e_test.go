@@ -5,7 +5,8 @@ import (
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/lib/token"
-	"github.com/enfabrica/enkit/machinist"
+	"github.com/enfabrica/enkit/machinist/mnode"
+	"github.com/enfabrica/enkit/machinist/mserver"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"net"
@@ -16,7 +17,7 @@ import (
 
 
 func TestRunServerNodeJoinAndPoll(t *testing.T) {
-	descriptor, err := machinist.AllocatePort()
+	descriptor, err := mserver.AllocatePort()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -25,18 +26,15 @@ func TestRunServerNodeJoinAndPoll(t *testing.T) {
 	assert.Nil(t, err)
 	symmetricEncoder, err := token.NewSymmetricEncoder(rngSeed, token.UseSymmetricKey(key))
 	assert.Nil(t, err)
-	serverRequest := machinist.NewServerRequest().
-		UseEncoder(symmetricEncoder).
-		WithNetListener(&descriptor.Listener)
 
-	credMod := machinist.WithGenerateNewCredentials(
+	credMod := mserver.WithGenerateNewCredentials(
 		kcerts.WithCountries([]string{"US"}),
 		kcerts.WithValidUntil(time.Now().AddDate(3, 0, 0)),
 		kcerts.WithNotValidBefore(time.Now().Add(-4*time.Minute)),
 		kcerts.WithIpAddresses([]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("0.0.0.0")}))
 
-	portMod := machinist.WithPortDescriptor(descriptor)
-	server, err := machinist.NewServer(serverRequest, credMod, portMod)
+	portMod := mserver.WithPortDescriptor(descriptor)
+	server, err := mserver.New(credMod, portMod, mserver.WithEncoder(symmetricEncoder))
 
 	assert.Nil(t, err)
 	go t.Run("start machinist master server", func(t *testing.T) {
@@ -50,7 +48,7 @@ func TestRunServerNodeJoinAndPoll(t *testing.T) {
 	inviteToken, err := server.GenerateInvitation(nil, "node1")
 	assert.NoError(t, err)
 	////debug inviteString
-	node, err := machinist.NewNode(machinist.WithInviteToken(string(inviteToken)))
+	node, err := mnode.New(mnode.WithInviteToken(string(inviteToken)))
 	if err != nil {
 		t.Fatal(err)
 	}

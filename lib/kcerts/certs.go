@@ -7,6 +7,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"golang.org/x/crypto/ssh"
 	"math/big"
 	"net"
 	"time"
@@ -123,6 +124,7 @@ func GenerateServerKey(opts *certOptions, intermediateCert *x509.Certificate, in
 
 // GenerateSSHKeyPair will generate a re-encoded private rsa key and public key from an existing *rsa.PrivateKey.
 func GenerateSSHKeyPair(privateKey *rsa.PrivateKey) ([]byte, []byte) {
+
 	privateBlock := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
@@ -200,4 +202,38 @@ func NewOptions(mods ...Modifier) (*certOptions, error) {
 		}
 	}
 	return co, nil
+}
+
+func GenerateUserSSHCert(ca ssh.Signer, certType uint32) (*rsa.PrivateKey, *ssh.Certificate, error) {
+	priv, pub, err := makeKeys()
+	if err != nil {
+		return priv, nil, err
+	}
+	from := time.Now().UTC()
+	to := time.Now().UTC().Add(300 * time.Hour)
+	cert := &ssh.Certificate{
+		CertType:        certType,
+		Key:             pub,
+		KeyId:           "smth",
+		ValidAfter:      uint64(from.Unix()),
+		ValidBefore:     uint64(to.Unix()),
+		ValidPrincipals: []string{"hello.local", "adamalanahrens", "localhost", "penguin"},
+		Permissions:     ssh.Permissions{},
+	}
+	if err := cert.SignCert(rand.Reader, ca); err != nil {
+		return nil, nil, err
+	}
+	return priv, cert, nil
+}
+
+func makeKeys() (*rsa.PrivateKey, ssh.PublicKey, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, err
+	}
+	publicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return privateKey, publicKey, err
 }

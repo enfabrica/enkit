@@ -40,7 +40,6 @@ func New(mods ...Modifier) (*Machinist, error) {
 
 func (m *Machinist) Send(stream machinist.Controller_PollClient, req *machinist.PollRequest) error {
 	// TODO: accumulate requests, check for result.
-
 	if err := stream.Send(req); err != nil {
 		// FIXME dispatch error
 		return nil
@@ -55,6 +54,8 @@ func (m *Machinist) Dispatch(in *machinist.PollResponse) {
 	case *machinist.PollResponse_Start:
 	case *machinist.PollResponse_Upload:
 	case *machinist.PollResponse_Download:
+		fmt.Println("recieved a download response")
+
 	}
 }
 

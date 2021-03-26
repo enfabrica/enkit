@@ -1,45 +1,39 @@
 package main
 
 import (
-	"fmt"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/enfabrica/enkit/lib/server"
-	"github.com/enfabrica/enkit/machinist/rpc/machinist"
-	"github.com/enfabrica/enkit/machinist/server/assets"
+	"github.com/enfabrica/enkit/lib/srand"
+	"github.com/enfabrica/enkit/lib/token"
+	"github.com/enfabrica/enkit/machinist/mserver"
 	"github.com/enfabrica/enkit/machinist/server/flags"
-	"github.com/enfabrica/enkit/machinist/server/controller"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"log"
-	"net/http"
+	"math/rand"
+	"net"
 	"os"
+	"time"
 )
 
 func Start(oauthFlags *oauth.RedirectorFlags) error {
-	controller, err := controller.New()
+	rng := rand.New(srand.Source)
+	credMod := mserver.WithGenerateNewCredentials(
+		kcerts.WithCountries([]string{"US"}),
+		kcerts.WithValidUntil(time.Now().AddDate(3, 0, 0)),
+		kcerts.WithNotValidBefore(time.Now().Add(-4*time.Minute)),
+		kcerts.WithIpAddresses([]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("0.0.0.0")}))
+	//
+	enc, err := token.NewSymmetricEncoder(rng, token.WithGeneratedSymmetricKey(0))
 	if err != nil {
 		return err
 	}
-
-	grpcs := grpc.NewServer()
-	machinist.RegisterControllerServer(grpcs, controller)
-
-	mux := http.NewServeMux()
-
-	stats := server.AssetStats{}
-	server.RegisterAssets(&stats, assets.Data, "", server.BasicMapper(server.MuxMapper(mux)))
-	stats.Log(log.Printf)
-
-	// The root of the web server, nothing to see here.
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello from your friendly machinist")
-	})
-
-	server.Run(mux, grpcs)
-	return nil
+	s, err := mserver.New(credMod, mserver.WithEncoder(enc), mserver.WithPort(8080))
+	if err != nil {
+		return err
+	}
+	return s.Start()
 }
 
 func main() {
