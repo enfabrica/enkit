@@ -3,18 +3,40 @@ def _kernel_tree_version(ctx):
 
     ctx.download_and_extract(ctx.attr.url, output = ".", sha256 = ctx.attr.sha256, auth = ctx.attr.auth, stripPrefix = ctx.attr.strip_prefix)
 
-    command = ctx.path("install-" + version + ".sh")
-    result = ctx.execute([command])
+    install_script = "install-" + version + ".sh"
+    install_script_path = ctx.path(install_script)
+    separator = "========================"
+    if not install_script_path.exists:
+        fail(
+            """
+{separator}
+Could not find '{install_script}' inside the specified kernel package.
+This usually means that you did not respect the naming convention of the package attribute of the kernel_tree_version rule:
+* package should be something like 'distro-kernel_version-arch'
+* the install script should be named 'install-kernel_version-arch.sh'
+Read the kernel_tree_version doc for more info.
+{separator}""".format(
+                separator = separator,
+                install_script = install_script,
+            ),
+        )
 
-    sep = "\n========================"
+    result = ctx.execute([install_script_path])
     if result.return_code != 0:
-        fail("%s\nINSTALL FAILED\ncommand: %s\ndirectory: %s\nstdout:\n%s\nstderr:\n%s%s" % (
-            sep,
-            command,
-            ctx.path(""),
-            result.stdout,
-            result.stderr,
-            sep,
+        fail("""
+{separator}
+INSTALL SCRIPT FAILED
+
+command: '{command}'
+directory: '{directory}'
+stdout: '{stdout}'
+stderr: '{stderr}'
+{separator}""".format(
+            separator = separator,
+            command = install_script_path,
+            directory = ctx.path(""),
+            stdout = result.stdout.strip(),
+            stderr = result.stderr.strip(),
         ))
 
     ctx.template(
