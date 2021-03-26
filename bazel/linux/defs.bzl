@@ -226,7 +226,9 @@ def kernel_module(*args, **kwargs):
     Args:
       srcs: list of labels, specifying the source files that constitute the kernel module.
             If not specified, kernel_module will provide a reasonable default including all
-            files that are typically part of a kernel module.
+            files that are typically part of a kernel module (i.e., the specified makefile
+            and all .c and .h files belonging to the package where the kernel_module rule
+            has been instantiated, see https://docs.bazel.build/versions/master/be/functions.html#glob).
       module: string, name of the output module. If not specified, kernel_module will assume
             the output module name will be the same as the rule name. Also, it normalizes the
             name ensuring it has a '.ko' suffix.
@@ -237,16 +239,18 @@ def kernel_module(*args, **kwargs):
       kernels: list of kernel (same as above). kernel_module will instantiate multiple
             kernel_module_rule, one per kernel, and ensure they all build in parallel.
     """
+    if "makefile" not in kwargs:
+        kwargs["makefile"] = "Makefile"
+
     if "srcs" not in kwargs:
-        kwargs["srcs"] = native.glob(include = ["**/*"], exclude = BUILD_LEFTOVERS, allow_empty = False)
+        include = ["**/*.c", "**/*.h", kwargs["makefile"]]
+        exclude = BUILD_LEFTOVERS + ["**/*.mod.c"]
+        kwargs["srcs"] = native.glob(include = include, exclude = exclude, allow_empty = False)
 
     module = kwargs.get("module", kwargs["name"])
     if not module.endswith(".ko"):
         module = module + ".ko"
     kwargs["module"] = module
-
-    if "makefile" not in kwargs:
-        kwargs["makefile"] = "Makefile"
 
     if "kernels" not in kwargs:
         kwargs["kernel"] = _normalize_kernel(kwargs["kernel"])
