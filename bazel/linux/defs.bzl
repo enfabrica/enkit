@@ -215,7 +215,7 @@ def _normalize_kernel(kernel):
 
     return kernel
 
-BUILD_LEFTOVERS = [".*.cmd", "*.a", "*.o", "*.ko", "*.order", "*.symvers", "*.mod", "*.mod.[co]"]
+BUILD_LEFTOVERS = ["**/.*.cmd", "**/*.a", "**/*.o", "**/*.ko", "**/*.order", "**/*.symvers", "**/*.mod", "**/*.mod.c", "**/*.mod.o"]
 
 def kernel_module(*args, **kwargs):
     """Convenience wrapper around kernel_module_rule, makes it easier to use.
@@ -244,8 +244,7 @@ def kernel_module(*args, **kwargs):
 
     if "srcs" not in kwargs:
         include = ["**/*.c", "**/*.h", kwargs["makefile"]]
-        exclude = BUILD_LEFTOVERS + ["**/*.mod.c"]
-        kwargs["srcs"] = native.glob(include = include, exclude = exclude, allow_empty = False)
+        kwargs["srcs"] = native.glob(include = include, exclude = BUILD_LEFTOVERS, allow_empty = False)
 
     module = kwargs.get("module", kwargs["name"])
     if not module.endswith(".ko"):
