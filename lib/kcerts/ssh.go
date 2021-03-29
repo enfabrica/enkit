@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -26,32 +27,32 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string) error {
 	if err != nil {
 		return err
 	}
-	hDir = hDir + "/"
-	if _, err := os.Stat(hDir + SSHDir); os.IsNotExist(err) {
+	sshDir := filepath.Join(hDir, SSHDir)
+	if _, err := os.Stat(sshDir); os.IsNotExist(err) {
 		return fmt.Errorf("ssh directory %s does not exist, please create it", hDir+SSHDir)
 	}
-	qualifiedKnownHosts := hDir + SSHDir + "/" + KnownHosts
-	if _, err := os.Stat(qualifiedKnownHosts); os.IsNotExist(err) {
-		return fmt.Errorf("ssh authorized hosts file %s does not exist, please create it", qualifiedKnownHosts)
+	knownHosts := filepath.Join(sshDir, KnownHosts)
+	if _, err := os.Stat(knownHosts); os.IsNotExist(err) {
+		return fmt.Errorf("ssh authorized hosts file %s does not exist, please create it", knownHosts)
 	}
 	caPublic := string(ssh.MarshalAuthorizedKey(publicKey))
-	existingKnownHostsContent, err := ioutil.ReadFile(qualifiedKnownHosts)
+	existingKnownHostsContent, err := ioutil.ReadFile(knownHosts)
 	if err != nil {
 		return err
 	}
-	knownHostsFile, err := os.OpenFile(qualifiedKnownHosts, os.O_APPEND|os.O_WRONLY, 0644)
+	knownHostsFile, err := os.OpenFile(knownHosts, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
 	defer knownHostsFile.Close()
 	for _, dns := range hosts {
 		publicFormat := fmt.Sprintf("%s %s %s", CAPrefix, dns, caPublic)
-		if !strings.Contains(string(existingKnownHostsContent), publicFormat) {
-			_, err = knownHostsFile.WriteString(publicFormat)
-			if err != nil {
-				fmt.Println("error is not nil", err.Error())
-				return err
-			}
+		if strings.Contains(string(existingKnownHostsContent), publicFormat) {
+			continue
+		}
+		_, err = knownHostsFile.WriteString(publicFormat)
+		if err != nil {
+			return fmt.Errorf("could not add key %s to known_hosts file: %w", err)
 		}
 	}
 	return nil
@@ -71,7 +72,7 @@ func StartSSHAgent() error {
 	reader := bufio.NewScanner(bytes.NewReader(out))
 	for reader.Scan() {
 		if strings.Contains(reader.Text(), "SSH_AUTH_SOCK") {
-			afterSockString := strings.SplitN(reader.Text(), "SSH_AUTH_SOCK=",  2)
+			afterSockString := strings.SplitN(reader.Text(), "SSH_AUTH_SOCK=", 2)
 			socketPath := strings.Split(afterSockString[1], ";")
 			os.Setenv("SSH_AUTH_SOCK", strings.TrimSpace(socketPath[0]))
 			fmt.Println("set SSH_AUTH_SOCK to", os.Getenv("SSH_AUTH_SOCK"))
