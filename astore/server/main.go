@@ -262,9 +262,14 @@ func main() {
 
 	targetURL := ""
 	cookieDomain := ""
+
+	pathToCAPrivateFile := ""
+	var principals []string
 	command.Flags().StringVar(&targetURL, "site-url", "", "The URL external users can use to reach this web server")
 	command.Flags().StringVar(&cookieDomain, "cookie-domain", "", "The domain for which the issued authentication cookie is valid. "+
 		"This implicitly authorizes redirection to any URL within the domain.")
+	command.Flags().StringVar(&pathToCAPrivateFile, "ca", "", "the path to the certificate authority private file, used to sign requests")
+	command.Flags().StringSliceVar(&principals, "principals", []string{}, "the list of authorized principals to ssh, usually the default users in the server")
 
 	command.RunE = func(cmd *cobra.Command, args []string) error {
 		return Start(targetURL, cookieDomain, astoreFlags, authFlags, oauthFlags)

@@ -3,6 +3,8 @@ package kcerts
 import (
 	"bufio"
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
@@ -10,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 const CAPrefix = "@cert-authority"
@@ -75,4 +78,39 @@ func StartSSHAgent() error {
 		}
 	}
 	return err
+}
+
+// GenerateUserSSHCert will sign and return credentials based on the CA signer and given parameters
+// to generate a user cert, certType must be 1, and host certs ust have certType 2
+func GenerateUserSSHCert(ca ssh.Signer, certType uint32, principals []string, ttl time.Duration) (*rsa.PrivateKey, *ssh.Certificate, error) {
+	priv, pub, err := makeKeys()
+	if err != nil {
+		return priv, nil, err
+	}
+	from := time.Now().UTC()
+	to := time.Now().UTC().Add(ttl * time.Hour)
+	cert := &ssh.Certificate{
+		CertType:        certType,
+		Key:             pub,
+		ValidAfter:      uint64(from.Unix()),
+		ValidBefore:     uint64(to.Unix()),
+		ValidPrincipals: principals,
+		Permissions:     ssh.Permissions{},
+	}
+	if err := cert.SignCert(rand.Reader, ca); err != nil {
+		return nil, nil, err
+	}
+	return priv, cert, nil
+}
+
+func makeKeys() (*rsa.PrivateKey, ssh.PublicKey, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, err
+	}
+	publicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return privateKey, publicKey, err
 }
