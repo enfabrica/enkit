@@ -7,6 +7,7 @@ import (
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io"
@@ -24,6 +25,10 @@ type Server struct {
 
 	authURL string
 	limit   time.Duration
+
+	caSigner              ssh.Signer
+	principals            []string
+	marshalledCAPublicKey []byte
 }
 
 type Jar struct {
@@ -96,8 +101,12 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		}
 
 		return &auth.TokenResponse{
-			Nonce: nonce[:],
-			Token: box.Seal(nil, []byte(token), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
+			Nonce:       nonce[:],
+			Token:       box.Seal(nil, []byte(token), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
+			Capublickey: s.marshalledCAPublicKey,
+			// Always trust the CA for now since the DNS gets resolved behind tunnel and therefore the client doesnt know
+			// which to trust
+			Cahosts:     []string{"*"},
 		}, nil
 	}
 

@@ -1,7 +1,10 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
+	"golang.org/x/crypto/ssh"
+	"io/ioutil"
 	"math/rand"
 	"strings"
 	"time"
@@ -12,8 +15,10 @@ import (
 )
 
 type Flags struct {
-	TimeLimit time.Duration
-	AuthURL   string
+	TimeLimit  time.Duration
+	AuthURL    string
+	Principals string
+	PathToCA   string
 }
 
 func DefaultFlags() *Flags {
@@ -24,6 +29,8 @@ func DefaultFlags() *Flags {
 
 func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.DurationVar(&f.TimeLimit, prefix+"time-limit", f.TimeLimit, "How long to wait at most for the user to complete authentication, before freeing resources")
+	set.StringVar(&f.Principals, prefix+"principals", f.Principals, "Allowed principals and the ability to auth,comma separated string")
+	set.StringVar(&f.PathToCA, prefix+"ca", f.PathToCA, "Path to the certificate authority private file")
 	return f
 }
 
@@ -35,7 +42,12 @@ func WithFlags(f *Flags) Modifier {
 		if err := WithAuthURL(f.AuthURL)(s); err != nil {
 			return err
 		}
-
+		if err := WithCA(f.PathToCA)(s); err != nil {
+			return err
+		}
+		if err := WithPrincipals(f.Principals)(s); err != nil {
+			return err
+		}
 		if s.authURL == "" || s.authURL == "/" {
 			return fmt.Errorf("an auth-url must be supplied using the --auth-url parameter")
 		}
@@ -57,6 +69,33 @@ func WithAuthURL(url string) Modifier {
 func WithTimeLimit(limit time.Duration) Modifier {
 	return func(s *Server) error {
 		s.limit = limit
+		return nil
+	}
+}
+
+func WithCA(path string) Modifier {
+	return func(server *Server) error {
+		fileContent, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		signer, err := ssh.ParsePrivateKey(fileContent)
+		if err != nil {
+			return err
+		}
+		server.caSigner = signer
+		server.marshalledCAPublicKey = ssh.MarshalAuthorizedKey(signer.PublicKey())
+		return nil
+	}
+}
+
+func WithPrincipals(raw string) Modifier {
+	return func(server *Server) error {
+		splitString := strings.Split(raw, ",")
+		if len(splitString) == 0  || (len(splitString) == 1 && splitString[0] == "") {
+			return errors.New("no principals cannot be 0 in the auth server")
+		}
+		server.principals = splitString
 		return nil
 	}
 }
