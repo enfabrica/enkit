@@ -20,28 +20,31 @@ const CAPrefix = "@cert-authority"
 const SSHDir = ".ssh"
 const KnownHosts = "known_hosts"
 
-// AddSSHCAToClient adds a public key to the $HOME/.ssh/known_hosts in the ssh-cert x509.1 format.
-// For each entry, it adds an additional line and does not concatenate
-func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string) error {
+// FindSSHDir will find the users ssh directory based on $HOME. If $HOME/.ssh does not exist
+// it will attempt to create it.
+func FindSSHDir() (string, error) {
 	hDir, err := homedir.Dir()
 	if err != nil {
-		return err
+		return "", fmt.Errorf("could not find the home directory: %w", err)
 	}
 	sshDir := filepath.Join(hDir, SSHDir)
 	if err := os.Mkdir(sshDir, 0700); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("could not create file %s: %w", sshDir, err)
+		return "", fmt.Errorf("could not create directory %s: %w", sshDir, err)
 	}
+	return sshDir, nil
+}
 
-
+// AddSSHCAToClient adds a public key to the $HOME/.ssh/known_hosts in the ssh-cert x509.1 format.
+// For each entry, it adds an additional line and does not concatenate
+func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) error {
 	caPublic := string(ssh.MarshalAuthorizedKey(publicKey))
-
 	knownHosts := filepath.Join(sshDir, KnownHosts)
-	if err := os.Mkdir(knownHosts, 0644); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("could not create file %s: %w", knownHosts, err)
-	}
-	knownHostsFile, err := os.OpenFile(knownHosts, os.O_APPEND|os.O_WRONLY, 0644)
+	knownHostsFile, err := os.OpenFile(knownHosts, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		return fmt.Errorf("error opening %s: %w", knownHosts, err)
+		if os.IsNotExist(err) {
+			return fmt.Errorf("could not create known_hosts file: %w", err)
+		}
+		return err
 	}
 	existingKnownHostsContent, err := ioutil.ReadAll(knownHostsFile)
 	if err != nil {
