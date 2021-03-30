@@ -62,6 +62,13 @@ func WithListener(l net.Listener) DNSModifier {
 	}
 }
 
+func WithHost(ip string) DNSModifier {
+	return func(s *DnsServer) error {
+		s.host = ip
+		return nil
+	}
+}
+
 type DnsServer struct {
 	dnsServer *dns.Server
 	sync.RWMutex
@@ -70,6 +77,7 @@ type DnsServer struct {
 	Logger   *klog.Logger
 	domains  []string
 	Listener net.Listener
+	host     string
 }
 
 func (s *DnsServer) Start() error {
@@ -84,7 +92,7 @@ func (s *DnsServer) Start() error {
 		s.dnsServer.Addr = s.Listener.Addr().String()
 	}
 	if s.Port != 0 {
-		s.dnsServer.Addr = net.JoinHostPort("127.0.0.1", strconv.Itoa(s.Port))
+		s.dnsServer.Addr = net.JoinHostPort(s.host, strconv.Itoa(s.Port))
 	}
 	return s.dnsServer.ListenAndServe()
 }
