@@ -28,32 +28,28 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string) error {
 		return err
 	}
 	sshDir := filepath.Join(hDir, SSHDir)
-	if _, err := os.Stat(sshDir); os.IsNotExist(err) {
-		fmt.Printf("ssh directory %s does not exist, attempting to create it", sshDir)
-		err = os.Mkdir(sshDir, 0700)
-		if err != nil {
-			return fmt.Errorf("could not create dir %s err: %w", sshDir, err)
-		}
+	if err := os.Mkdir(sshDir, 0700); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("could not create file %s: %w", sshDir, err)
 	}
-	knownHosts := filepath.Join(sshDir, KnownHosts)
-	if _, err := os.Stat(knownHosts); os.IsNotExist(err) {
-		fmt.Printf("ssh authorized hosts file %s does not exist, creating it now \n", knownHosts)
-		err = os.Mkdir(knownHosts, 0644)
-		if err != nil {
-			return fmt.Errorf("could not create file %s: %w", knownHosts, err)
-		}
-	}
+
+
 	caPublic := string(ssh.MarshalAuthorizedKey(publicKey))
-	existingKnownHostsContent, err := ioutil.ReadFile(knownHosts)
-	if err != nil {
-		return fmt.Errorf("error reading %s: %w", knownHosts, err)
+
+	knownHosts := filepath.Join(sshDir, KnownHosts)
+	if err := os.Mkdir(knownHosts, 0644); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("could not create file %s: %w", knownHosts, err)
 	}
 	knownHostsFile, err := os.OpenFile(knownHosts, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("error opening %s: %w", knownHosts, err)
 	}
+	existingKnownHostsContent, err := ioutil.ReadAll(knownHostsFile)
+	if err != nil {
+		return fmt.Errorf("error reading %s: %w", knownHosts, err)
+	}
 	defer knownHostsFile.Close()
 	for _, dns := range hosts {
+		// caPublic terminates with a '\n', added by ssh.MarshalAuthorizedKey
 		publicFormat := fmt.Sprintf("%s %s %s", CAPrefix, dns, caPublic)
 		if strings.Contains(string(existingKnownHostsContent), publicFormat) {
 			continue
