@@ -79,11 +79,13 @@ set -e
 mkdir -p "${TARGETDIR}/arch"
 mkdir -p "${TARGETDIR}/include"
 mkdir -p "${TARGETDIR}/scripts"
+mkdir -p "${TARGETDIR}/tools"
 mkdir -p "${INSTALLDIR}/lib/modules/${KERNELVERSION}/build"
 
 generate_install_script "${INSTALLDIR}/${SCRIPTNAME}"
 chmod 755 ${INSTALLDIR}/${SCRIPTNAME}
 cp -r $SRCDIR/scripts/* $TARGETDIR/scripts/
+cp -r $SRCDIR/tools/* $TARGETDIR/tools/
 cp -r $SRCDIR/arch/* $TARGETDIR/arch/
 cp -r $SRCDIR/include/* $TARGETDIR/include/
 cp -r $SRCDIR/Makefile $SRCDIR/.config $SRCDIR/Module.symvers $TARGETDIR/
