@@ -6,10 +6,15 @@ import (
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/pkg/browser"
 	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
+	"io/ioutil"
 	"math/rand"
+	"os"
+	"os/exec"
 	"time"
 )
 
@@ -103,5 +108,36 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		return "", fmt.Errorf("could not decrypt returned token")
 	}
 
+	err = kcerts.StartSSHAgent()
+	if err != nil {
+
+	}
+	publicKey, _ ,_ ,_, err := ssh.ParseAuthorizedKey(tres.Capublickey)
+	if err != nil {
+
+	}
+	err = kcerts.AddSSHCAToClient(publicKey, tres.Cahosts)
+	if err != nil {
+		return "", err
+	}
+	file, err := ioutil.TempFile("/tmp", "en")
+	if err != nil {
+		return "", err
+	}
+	left, err := file.Write(tres.Key)
+	if err != nil || left == 0 {
+		return "", err
+	}
+	err = ioutil.WriteFile(file.Name()+"-cert.pub", tres.Cert, 0644)
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.Command("ssh-add", file.Name())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		return "", err
+	}
 	return string(decrypted), nil
 }
