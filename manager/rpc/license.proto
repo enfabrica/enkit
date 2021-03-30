@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package license;
+
+message AcquireRequest {
+	string vendor = 1; // Xilinx or Cadence
+	string feature = 2; // Vivado, Xcelium, etc
+	int32 quantity = 3; // Number of licenses
+}
+
+message AcquireResponse {
+	bool available = 1; // License was acquired
+	bool waiting = 2; // Waiting for license to be available
+	bool missing = 3; // Vendor and/or feature not found
+}
+
+message ReleaseRequest {
+	string vendor = 1; // Xilinx or Cadence
+	string feature = 2; // Vivado, Xcelium, etc
+	int32 quantity = 3; // Number of licenses
+}
+
+message ReleaseResponse {
+	bool success = 1;
+}
+
+message KeepAliveRequest {
+	bool heartbeat = 1; // Interval in between keepalive messages in seconds
+}
+
+message KeepAliveResponse {
+	bool heartbeat = 1;
+}
+
+service License {
+	rpc Acquire(AcquireRequest) returns (AcquireResponse) {}
+	rpc Release(ReleaseRequest) returns (ReleaseResponse) {}
+	rpc KeepAlive(KeepAliveRequest) returns (KeepAliveResponse) {} 
+}
