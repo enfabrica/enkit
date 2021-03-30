@@ -1,4 +1,4 @@
-package controller
+package mserver
 
 import (
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
@@ -6,11 +6,10 @@ import (
 	"sync"
 )
 
-type Worker struct {
-}
-
 type Controller struct {
-	workers sync.Map
+	workers        sync.Map
+	ConnectedNodes map[string][]string
+	sync.RWMutex
 }
 
 func (en *Controller) Download(*machinist.DownloadRequest, machinist.Controller_DownloadServer) error {
@@ -29,18 +28,22 @@ func (en *Controller) HandlePing(stream machinist.Controller_PollServer, ping *m
 					Payload: ping.Payload,
 				},
 			},
-	})
+		})
 
 }
 
 func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, ping *machinist.ClientRegister) error {
+	en.Lock()
+	en.ConnectedNodes[ping.Name] = ping.Tag
+	en.Unlock()
 	return stream.Send(
 		&machinist.PollResponse{
 			Resp: &machinist.PollResponse_Result{
 				Result: &machinist.ActionResult{
+
 				},
 			},
-	})
+		})
 
 }
 
@@ -61,5 +64,4 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 			log.Printf("Got REGISTER %#v", *r.Register)
 		}
 	}
-	return nil
 }
