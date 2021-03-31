@@ -156,7 +156,7 @@ func FindSSHAgent(store cache.Store, ttl time.Duration) (string, int, error) {
 	}
 	err = ioutil.WriteFile(filepath.Join(sshEnkitCache, "ssh.json"), b, 0750)
 	if err != nil {
-		return "", 0, fmt.Errorf("error writing to file: %w", err.Error())
+		return "", 0, fmt.Errorf("error writing to file: %w", err)
 	}
 	_, err = store.Commit(sshEnkitCache)
 	return rawSock[1], pid, err
