@@ -45,7 +45,7 @@ func FindSSHDir() (string, error) {
 }
 
 // AddSSHCAToClient adds a public key to the $HOME/.ssh/known_hosts in the ssh-cert x509.1 format.
-// For each entry, it adds an additional line and does not concatenate
+// For each entry, it adds an additional line and does not concatenate.
 func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) error {
 	caPublic := string(ssh.MarshalAuthorizedKey(publicKey))
 	knownHosts := filepath.Join(sshDir, KnownHosts)
@@ -133,7 +133,7 @@ func FindSSHAgentFromEnv() *SSHAgent {
 }
 
 // CreateNewSSHAgent creates a new ssh agent. Its env variables have not been added to the shell. It does not maintain
-// its own connection
+// its own connection.
 func CreateNewSSHAgent() (*SSHAgent, error) {
 	cmd := exec.Command("ssh-agent", "-s")
 	out, err := cmd.Output()
