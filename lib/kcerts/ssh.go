@@ -97,9 +97,8 @@ func (a SSHAgent) Valid() bool {
 }
 
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
-// Currently only outputs the env and does not persist it across terminals
+// It will pull, in order: from the env, from the cache, create new.
 func FindSSHAgent(store cache.Store, logger *klog.Logger) (*SSHAgent, error) {
-	// TODO(adam): sniff out dead agents and sneak pids
 	agent := FindSSHAgentFromEnv()
 	if agent != nil && agent.Valid() {
 		return agent, nil
@@ -123,14 +122,14 @@ func FindSSHAgent(store cache.Store, logger *klog.Logger) (*SSHAgent, error) {
 func FindSSHAgentFromEnv() *SSHAgent {
 	envSSHSock := os.Getenv("SSH_AUTH_SOCK")
 	envSSHPID := os.Getenv("SSH_AGENT_PID")
-	if envSSHSock != "" && envSSHPID != "" {
-		pid, err := strconv.Atoi(envSSHPID)
-		if err != nil {
-			return nil
-		}
-		return &SSHAgent{PID: pid, Socket: envSSHSock, Close: func() {}}
+	if envSSHSock != "" || envSSHPID != "" {
+		return nil
 	}
-	return nil
+	pid, err := strconv.Atoi(envSSHPID)
+	if err != nil {
+		return nil
+	}
+	return &SSHAgent{PID: pid, Socket: envSSHSock, Close: func() {}}
 }
 
 // CreateNewSSHAgent creates a new ssh agent. Its env variables have not been added to the shell. It does not maintain
