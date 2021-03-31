@@ -103,7 +103,7 @@ func (s *DnsServer) Stop() error {
 
 func (s *DnsServer) AddEntry(name string, ips []string) error {
 	if s.routeMap[dns.Fqdn(name)] != nil {
-		return DNSEntryNotExistError
+		return fmt.Errorf("%w: %s", DNSEntryExistError, name)
 	}
 	s.Lock()
 	s.routeMap[dns.Fqdn(name)] = ips
@@ -111,10 +111,37 @@ func (s *DnsServer) AddEntry(name string, ips []string) error {
 	return nil
 }
 
+// ReplaceEntry will hard replace an entry. Consider it a force AddEntry
 func (s *DnsServer) ReplaceEntry(name string, ips []string) error {
 	s.Lock()
 	s.routeMap[name] = ips
 	s.Unlock()
+	return nil
+}
+
+// AppendToEntry will add ips to an existing entry. Any collisions are automatically handled. It will not automatically
+// add the entry if it does not exist
+func (s *DnsServer) AppendToEntry(name string, ips []string) error {
+	if s.routeMap[dns.Fqdn(name)] == nil {
+		return fmt.Errorf("%w: %s", DNSEntryNotExistError, name)
+	}
+	fqdnName := dns.Fqdn(name)
+	s.Lock()
+	s.routeMap[fqdnName] = appendIfNotPresent(s.routeMap[fqdnName], ips)
+	s.Unlock()
+	return nil
+}
+
+// RemoveIPFromEntry will remove ips from an entry if the entry and name exists. I will not error if the ip to delete
+// is not found in th records
+func (s *DnsServer) RemoveIPFromEntry(name string, ips []string) error {
+	if s.routeMap[name] == nil {
+		return fmt.Errorf("%w: %s", DNSEntryNotExistError, name)
+	}
+	return nil
+}
+
+func (s *DnsServer) RemoveEntry(name string) error {
 	return nil
 }
 
@@ -145,4 +172,20 @@ func (s *DnsServer) ParseDNS(m *dns.Msg) {
 			}
 		}
 	}
+}
+
+// generic func
+func appendIfNotPresent(s1, s2 []string) (inter []string) {
+	hash := make(map[string]bool)
+	for _, e := range s1 {
+		hash[e] = true
+		inter = append(inter, e)
+	}
+	for _, e := range s2 {
+		// If elements present in the hashmap then append intersection list.
+		if !hash[e] {
+			inter = append(inter, e)
+		}
+	}
+	return inter
 }
