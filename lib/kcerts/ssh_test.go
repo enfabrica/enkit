@@ -53,7 +53,7 @@ func TestStartSSHAgent(t *testing.T) {
 	assert.Equal(t, agent.PID, newAgent.PID)
 	assert.True(t, newAgent.Valid())
 
-	assert.Nil(t, newAgent.CloseIfNotCached())
+	assert.Nil(t, newAgent.Close())
 
 	newAgent, err = kcerts.FindSSHAgent(localCache, l)
 	assert.Nil(t, err)

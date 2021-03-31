@@ -3,7 +3,6 @@ package kcerts
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/logger/klog"
@@ -20,9 +19,11 @@ import (
 	"time"
 )
 
-const CAPrefix = "@cert-authority"
-const SSHDir = ".ssh"
-const KnownHosts = "known_hosts"
+const (
+	CAPrefix   = "@cert-authority"
+	SSHDir     = ".ssh"
+	KnownHosts = "known_hosts"
+)
 
 var (
 	sockR = regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
@@ -49,13 +50,13 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) er
 	caPublic := string(ssh.MarshalAuthorizedKey(publicKey))
 	knownHosts := filepath.Join(sshDir, KnownHosts)
 	knownHostsFile, err := os.OpenFile(knownHosts, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
-	defer knownHostsFile.Close()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("could not create known_hosts file: %w", err)
 		}
 		return err
 	}
+	defer knownHostsFile.Close()
 	existingKnownHostsContent, err := ioutil.ReadAll(knownHostsFile)
 	if err != nil {
 		return fmt.Errorf("error reading %s: %w", knownHosts, err)
@@ -77,24 +78,22 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) er
 type SSHAgent struct {
 	PID    int    `json:"pid"`
 	Socket string `json:"sock"`
-	// failed is marked in WriteToCache
-	failed bool
+	// Close is edited in WriteToCache, is defaulted to an empty lambda
+	Close func()
+}
+
+func (a SSHAgent) Kill() error {
+	p, err := os.FindProcess(a.PID)
+	if err != nil {
+		return err
+	}
+	return p.Kill()
 }
 
 func (a SSHAgent) Valid() bool {
 	conn, err := net.Dial("unix", a.Socket)
 	defer conn.Close()
 	return err == nil
-}
-
-// CloseIfNotCached will kill the agent if it failed to write to cache. Otherwise is a NoOp
-func (a *SSHAgent) CloseIfNotCached() error {
-	if a.failed {
-		cmd := exec.Command("kill", "-HUP", strconv.Itoa(a.PID))
-		cmd.Stdout = os.Stdout
-		return cmd.Run()
-	}
-	return nil
 }
 
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
@@ -107,12 +106,7 @@ func FindSSHAgent(store cache.Store, logger *klog.Logger) (*SSHAgent, error) {
 	}
 	agent, err := FetchSSHAgentFromCache(store)
 	if err != nil {
-		logger.Warn(err.Error())
-		if errors.Is(SSHAgentCacheInvalid, err) {
-			if err := DeleteSSHCache(store); err != nil {
-				logger.Warnf("could not delete cache %w", err)
-			}
-		}
+		logger.Warnf("%s", err)
 	}
 	if agent != nil && agent.Valid() {
 		return agent, nil
@@ -121,7 +115,7 @@ func FindSSHAgent(store cache.Store, logger *klog.Logger) (*SSHAgent, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer logger.Info(WriteAgentToCache(store, newAgent))
+	logger.Infof("%s", WriteAgentToCache(store, newAgent))
 	return newAgent, nil
 }
 
@@ -134,7 +128,7 @@ func FindSSHAgentFromEnv() *SSHAgent {
 		if err != nil {
 			return nil
 		}
-		return &SSHAgent{PID: pid, Socket: envSSHSock}
+		return &SSHAgent{PID: pid, Socket: envSSHSock, Close: func() {}}
 	}
 	return nil
 }
@@ -160,7 +154,7 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error processing ssh agent pid %s: %w", resultPID, err)
 	}
-	return &SSHAgent{Socket: rawSock, PID: pid}, nil
+	return &SSHAgent{Socket: rawSock, PID: pid, Close: func() {}}, nil
 }
 
 // GenerateUserSSHCert will sign and return credentials based on the CA signer and given parameters
