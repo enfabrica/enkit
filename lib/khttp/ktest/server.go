@@ -1,3 +1,5 @@
+// +build !release
+
 package ktest
 
 import (
