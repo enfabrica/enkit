@@ -104,7 +104,7 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 			Nonce:       nonce[:],
 			Token:       box.Seal(nil, []byte(token), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			Capublickey: s.marshalledCAPublicKey,
-			// Always trust the CA for now since the DNS gets resolved behind tunnel and therefore the client doesnt know
+			// Always trust the CA for now since the DNS gets resolved behind tunnel and therefore the client doesn't know
 			// which to trust
 			Cahosts:     []string{"*"},
 		}, nil
