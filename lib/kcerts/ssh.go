@@ -44,6 +44,7 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) er
 	caPublic := string(ssh.MarshalAuthorizedKey(publicKey))
 	knownHosts := filepath.Join(sshDir, KnownHosts)
 	knownHostsFile, err := os.OpenFile(knownHosts, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	defer knownHostsFile.Close()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("could not create known_hosts file: %w", err)
@@ -54,7 +55,6 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) er
 	if err != nil {
 		return fmt.Errorf("error reading %s: %w", knownHosts, err)
 	}
-	defer knownHostsFile.Close()
 	for _, dns := range hosts {
 		// caPublic terminates with a '\n', added by ssh.MarshalAuthorizedKey
 		publicFormat := fmt.Sprintf("%s %s %s", CAPrefix, dns, caPublic)
@@ -142,7 +142,7 @@ func FindSSHAgent(store cache.Store, ttl time.Duration) (string, int, error) {
 	// The second element after splitting is the raw value we want
 	pid, err := strconv.Atoi(rawPId[1])
 	if err != nil {
-		return "", 0, fmt.Errorf("error processing ssh agent pid %s: %w", string(resultPID), err)
+		return "", 0, fmt.Errorf("error processing ssh agent pid %s: %w", resultPID, err)
 	}
 	cacheToWrite := &sshCache{
 		Sock:      rawSock[1],
