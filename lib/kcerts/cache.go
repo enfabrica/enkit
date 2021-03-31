@@ -14,8 +14,7 @@ const (
 )
 
 var (
-	SSHAgentNoCache      = errors.New("the cache had not existed before")
-	SSHAgentCacheInvalid = errors.New("the cache is corrupted or invalid json")
+	SSHAgentNoCache = errors.New("the cache had not existed before")
 )
 
 func FetchSSHAgentFromCache(store cache.Store) (*SSHAgent, error) {
@@ -30,7 +29,7 @@ func FetchSSHAgentFromCache(store cache.Store) (*SSHAgent, error) {
 		Close: func() {},
 	}
 	if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent); err != nil {
-		return nil, fmt.Errorf("%s: %w", SSHAgentCacheInvalid, err)
+		return nil, fmt.Errorf("error deserializing cache: %w", err)
 	}
 	return agent, err
 }
