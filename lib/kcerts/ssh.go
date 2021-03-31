@@ -1,17 +1,19 @@
 package kcerts
 
 import (
-	"bufio"
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/json"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -19,6 +21,8 @@ import (
 const CAPrefix = "@cert-authority"
 const SSHDir = ".ssh"
 const KnownHosts = "known_hosts"
+
+const SSHCacheKey = "enkit_ssh_cache_key"
 
 // FindSSHDir will find the users ssh directory based on $HOME. If $HOME/.ssh does not exist
 // it will attempt to create it.
@@ -65,27 +69,97 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) er
 	return nil
 }
 
-// StartSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
+type sshCache struct {
+	PID       int       `json:"pid"`
+	Sock      string    `json:"sock"`
+	TimeStamp time.Time `json:"time_stamp"`
+}
+
+// FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // Currently only outputs the env and does not persist it across terminals
-func StartSSHAgent() error {
-	if os.Getenv("SSH_AUTH_SOCK") != "" {
-		return nil
+func FindSSHAgent(store cache.Store, ttl time.Duration) (string, int, error) {
+	envSSHSock := os.Getenv("SSH_AUTH_SOCK")
+	envSSHPID := os.Getenv("SSH_AGENT_PID")
+	if envSSHSock != "" && envSSHPID != "" {
+		fmt.Println("found in env")
+		pid, err := strconv.Atoi(envSSHPID)
+		if err != nil {
+			return "", 0, fmt.Errorf("%s is not a valid pid: %w", envSSHPID, err)
+		}
+		return envSSHSock, pid, nil
 	}
+	// Currently the cache never errors out on Existing. therefore ignoring errors
+	sshEnkitCache, isFresh, err := store.Get(SSHCacheKey)
+
+	if err != nil {
+		return "", 0, fmt.Errorf("error fetching cache: %w", err)
+	}
+
+	if isFresh {
+		f, err := os.OpenFile(filepath.Join(sshEnkitCache, "ssh.json"), os.O_RDWR, 0750)
+		if err != nil && !os.IsNotExist(err) {
+			return "", 0, fmt.Errorf("error opening cache: %w", err)
+		}
+		if err == nil {
+			cacheContent, err := ioutil.ReadAll(f)
+			if err != nil {
+				return "", 0, fmt.Errorf("error reading cache: %w", err)
+			}
+			var sshCache sshCache
+			if err := json.Unmarshal(cacheContent, &sshCache); err != nil {
+				return "", 0, fmt.Errorf("error deserializing cache: %w", err)
+			}
+			if time.Now().Before(sshCache.TimeStamp) {
+				return sshCache.Sock, sshCache.PID, nil
+			}
+			err = store.Purge(sshEnkitCache)
+			if err != nil {
+				return "", 0, fmt.Errorf("error clearing the cache %w", err)
+			}
+			sshEnkitCache, _, err = store.Get(SSHCacheKey)
+			if err != nil {
+				return "", 0, fmt.Errorf("error refetching cache: %w", err)
+			}
+		}
+	}
+
 	cmd := exec.Command("ssh-agent", "-s")
 	out, err := cmd.Output()
 	if err != nil {
-		return err
+		return "", 0, err
 	}
-	reader := bufio.NewScanner(bytes.NewReader(out))
-	for reader.Scan() {
-		if strings.Contains(reader.Text(), "SSH_AUTH_SOCK") {
-			afterSockString := strings.SplitN(reader.Text(), "SSH_AUTH_SOCK=", 2)
-			socketPath := strings.Split(afterSockString[1], ";")
-			os.Setenv("SSH_AUTH_SOCK", strings.TrimSpace(socketPath[0]))
-			fmt.Println("set SSH_AUTH_SOCK to", os.Getenv("SSH_AUTH_SOCK"))
-		}
+
+	sockR := regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
+	pidR := regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
+	resultSock := string(sockR.Find(out))
+	resultPID := string(pidR.Find(out))
+
+	rawSock := strings.Split(resultSock, "=")
+	rawPId := strings.Split(resultPID, "=")
+
+	if len(rawPId) != 2 || len(rawSock) != 2 {
+		return "", 0, fmt.Errorf("not a valid pid or agent sock, %v %v", rawSock, rawPId)
 	}
-	return err
+	// The second element after splitting is the raw value we want
+	pid, err := strconv.Atoi(rawPId[1])
+	if err != nil {
+		return "", 0, fmt.Errorf("error processing ssh agent pid %s: %w", string(resultPID), err)
+	}
+	cacheToWrite := &sshCache{
+		Sock:      rawSock[1],
+		PID:       pid,
+		TimeStamp: time.Now().Add(ttl),
+	}
+	b, err := json.Marshal(cacheToWrite)
+	if err != nil {
+		return "", 0, fmt.Errorf("error marshalling cache: %w", err)
+	}
+	err = ioutil.WriteFile(filepath.Join(sshEnkitCache, "ssh.json"), b, 0750)
+	if err != nil {
+		return "", 0, fmt.Errorf("error writing to file: %w", err.Error())
+	}
+	_, err = store.Commit(sshEnkitCache)
+	return rawSock[1], pid, err
 }
 
 // GenerateUserSSHCert will sign and return credentials based on the CA signer and given parameters
