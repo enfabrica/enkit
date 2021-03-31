@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	SSHCacheKey  = "enkit_ssh_cache_key"
+	SSHCacheKey  = "enkitssh"
 	SSHCacheFile = "ssh.json"
 )
 
@@ -19,33 +19,30 @@ var (
 )
 
 func FetchSSHAgentFromCache(store cache.Store) (*SSHAgent, error) {
-	sshEnkitCache, isFresh, err := store.Get(SSHCacheKey)
+	sshEnkitCache, err := store.Exists(SSHCacheKey)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching cache: %w", err)
 	}
-	defer store.Rollback(sshEnkitCache)
+	if sshEnkitCache == "" {
+		return nil, SSHAgentNoCache
+	}
 	agent := &SSHAgent{
 		Close: func() {},
 	}
-	if isFresh {
-		if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent); err != nil {
-			return nil, fmt.Errorf("%s: %w", SSHAgentCacheInvalid, err)
-		}
-		return agent, err
+	if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent); err != nil {
+		return nil, fmt.Errorf("%s: %w", SSHAgentCacheInvalid, err)
 	}
-	return nil, SSHAgentNoCache
+	return agent, err
 }
 
 func WriteAgentToCache(store cache.Store, agent *SSHAgent) error {
 	sshEnkitCache, _, err := store.Get(SSHCacheKey)
-
 	killFunc := func() {
 		//TODO(adam): add logging inside ssh agent?
 		if err := agent.Kill(); err != nil {
-			//Right now this is swallows
+			//Right now this is swallows the error
 		}
 	}
-
 	if err != nil {
 		agent.Close = killFunc
 		return fmt.Errorf("error fetching cache: %w", err)
@@ -65,9 +62,12 @@ func WriteAgentToCache(store cache.Store, agent *SSHAgent) error {
 
 // DeleteSSHCache deletes the SSH cache
 func DeleteSSHCache(store cache.Store) error {
-	sshEnkitCache, _, err := store.Get(SSHCacheKey)
+	sshEnkitCache, err := store.Exists(SSHCacheKey)
 	if err != nil {
 		return err
+	}
+	if sshEnkitCache == "" {
+		return SSHAgentNoCache
 	}
 	return store.Purge(sshEnkitCache)
 }

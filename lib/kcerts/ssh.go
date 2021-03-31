@@ -79,7 +79,7 @@ type SSHAgent struct {
 	PID    int    `json:"pid"`
 	Socket string `json:"sock"`
 	// Close is edited in WriteToCache, is defaulted to an empty lambda
-	Close func()
+	Close func() `json:"-"`
 }
 
 func (a SSHAgent) Kill() error {
