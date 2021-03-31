@@ -88,9 +88,8 @@ func FindSSHAgent(store cache.Store, ttl time.Duration) (string, int, error) {
 		}
 		return envSSHSock, pid, nil
 	}
-	// Currently the cache never errors out on Existing. therefore ignoring errors
-	sshEnkitCache, isFresh, err := store.Get(SSHCacheKey)
 
+	sshEnkitCache, isFresh, err := store.Get(SSHCacheKey)
 	if err != nil {
 		return "", 0, fmt.Errorf("error fetching cache: %w", err)
 	}
