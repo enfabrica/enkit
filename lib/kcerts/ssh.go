@@ -3,12 +3,14 @@ package kcerts
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
+	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,7 +24,10 @@ const CAPrefix = "@cert-authority"
 const SSHDir = ".ssh"
 const KnownHosts = "known_hosts"
 
-const SSHCacheKey = "enkit_ssh_cache_key"
+var (
+	sockR = regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
+	pidR  = regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
+)
 
 // FindSSHDir will find the users ssh directory based on $HOME. If $HOME/.ssh does not exist
 // it will attempt to create it.
@@ -69,99 +74,94 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) er
 	return nil
 }
 
-type sshCache struct {
-	PID       int       `json:"pid"`
-	Sock      string    `json:"sock"`
-	TimeStamp time.Time `json:"time_stamp"`
+type SSHAgent struct {
+	PID    int    `json:"pid"`
+	Socket string `json:"sock"`
+	// failed is marked in WriteToCache
+	failed bool
 }
 
-var (
-	sockR = regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
-	pidR = regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
-)
+func (a SSHAgent) Valid() bool {
+	conn, err := net.Dial("unix", a.Socket)
+	defer conn.Close()
+	fmt.Printf("Failed to open SSH_AUTH_SOCK: %v \n", err)
+	return err == nil
+}
+
+// CloseIfNotCached will kill the agent if it failed to write to cache. Otherwise is a NoOp
+func (a *SSHAgent) CloseIfNotCached() error {
+	if a.failed {
+		cmd := exec.Command("kill", "-HUP", strconv.Itoa(a.PID))
+		cmd.Stdout = os.Stdout
+		return cmd.Run()
+	}
+	return nil
+}
 
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // Currently only outputs the env and does not persist it across terminals
-func FindSSHAgent(store cache.Store, ttl time.Duration) (string, int, error) {
+func FindSSHAgent(store cache.Store, logger *klog.Logger) (*SSHAgent, error) {
 	// TODO(adam): sniff out dead agents and sneak pids
+	agent := FindSSHAgentFromEnv()
+	if agent != nil && agent.Valid() {
+		return agent, nil
+	}
+	agent, err := FetchSSHAgentFromCache(store)
+	if err != nil {
+		logger.Warn(err.Error())
+		if errors.Is(SSHAgentCacheInvalid, err) {
+			if err := DeleteSSHCache(store); err != nil {
+				logger.Warnf("could not delete cache %w", err)
+			}
+		}
+	}
+	if agent != nil && agent.Valid() {
+		return agent, nil
+	}
+	newAgent, err := CreateNewSSHAgent()
+	if err != nil {
+		return nil, err
+	}
+	defer logger.Info(WriteAgentToCache(store, newAgent))
+	return newAgent, nil
+}
+
+// FindSSHAgentFromEnv
+func FindSSHAgentFromEnv() *SSHAgent {
 	envSSHSock := os.Getenv("SSH_AUTH_SOCK")
 	envSSHPID := os.Getenv("SSH_AGENT_PID")
 	if envSSHSock != "" && envSSHPID != "" {
 		pid, err := strconv.Atoi(envSSHPID)
 		if err != nil {
-			return "", 0, fmt.Errorf("%s is not a valid pid: %w", envSSHPID, err)
+			return nil
 		}
-		return envSSHSock, pid, nil
+		return &SSHAgent{PID: pid, Socket: envSSHSock}
 	}
+	return nil
+}
 
-	sshEnkitCache, isFresh, err := store.Get(SSHCacheKey)
-	if err != nil {
-		return "", 0, fmt.Errorf("error fetching cache: %w", err)
-	}
-
-	if isFresh {
-		f, err := os.OpenFile(filepath.Join(sshEnkitCache, "ssh.json"), os.O_RDWR, 0750)
-		if err != nil && !os.IsNotExist(err) {
-			return "", 0, fmt.Errorf("error opening cache: %w", err)
-		}
-		if err == nil {
-			cacheContent, err := ioutil.ReadAll(f)
-			if err != nil {
-				return "", 0, fmt.Errorf("error reading cache: %w", err)
-			}
-			var sshCache sshCache
-			if err := json.Unmarshal(cacheContent, &sshCache); err != nil {
-				return "", 0, fmt.Errorf("error deserializing cache: %w", err)
-			}
-			if time.Now().Before(sshCache.TimeStamp) {
-				return sshCache.Sock, sshCache.PID, nil
-			}
-			err = store.Purge(sshEnkitCache)
-			if err != nil {
-				return "", 0, fmt.Errorf("error clearing the cache %w", err)
-			}
-			sshEnkitCache, _, err = store.Get(SSHCacheKey)
-			if err != nil {
-				return "", 0, fmt.Errorf("error refetching cache: %w", err)
-			}
-		}
-	}
-
+// CreateNewSSHAgent creates a new ssh agent. Its env variables have not been added to the shell. It does not maintain
+// its own connection
+func CreateNewSSHAgent() (*SSHAgent, error) {
 	cmd := exec.Command("ssh-agent", "-s")
 	out, err := cmd.Output()
 	if err != nil {
-		return "", 0, err
+		return nil, err
 	}
+	resultSock := sockR.FindStringSubmatch(string(out))
+	resultPID := pidR.FindStringSubmatch(string(out))
+	if len(resultSock) != 2 || len(resultPID) != 2 {
+		return nil, fmt.Errorf("not a valid pid or agent sock, %v %v", resultSock, resultPID)
+	}
+	// The second element is the raw value we want
+	rawPID := resultPID[1]
+	rawSock := resultSock[1]
 
-	resultSock := string(sockR.Find(out))
-	resultPID := string(pidR.Find(out))
-
-	rawSock := strings.Split(resultSock, "=")
-	rawPId := strings.Split(resultPID, "=")
-
-	if len(rawPId) != 2 || len(rawSock) != 2 {
-		return "", 0, fmt.Errorf("not a valid pid or agent sock, %v %v", rawSock, rawPId)
-	}
-	// The second element after splitting is the raw value we want
-	pid, err := strconv.Atoi(rawPId[1])
+	pid, err := strconv.Atoi(rawPID)
 	if err != nil {
-		return "", 0, fmt.Errorf("error processing ssh agent pid %s: %w", resultPID, err)
+		return nil, fmt.Errorf("error processing ssh agent pid %s: %w", resultPID, err)
 	}
-	cacheToWrite := &sshCache{
-		Sock:      rawSock[1],
-		PID:       pid,
-		TimeStamp: time.Now().Add(ttl),
-	}
-	b, err := json.Marshal(cacheToWrite)
-	if err != nil {
-		return "", 0, fmt.Errorf("error marshalling cache: %w", err)
-	}
-	err = ioutil.WriteFile(filepath.Join(sshEnkitCache, "ssh.json"), b, 0750)
-	if err != nil {
-		return "", 0, fmt.Errorf("error writing to file: %w", err)
-	}
-	_, err = store.Commit(sshEnkitCache)
-	return rawSock[1], pid, err
+	return &SSHAgent{Socket: rawSock, PID: pid}, nil
 }
 
 // GenerateUserSSHCert will sign and return credentials based on the CA signer and given parameters

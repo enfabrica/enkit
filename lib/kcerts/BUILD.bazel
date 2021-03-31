@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "cache.go",
         "certs.go",
         "ssh.go",
     ],
@@ -10,6 +11,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//lib/cache:go_default_library",
+        "//lib/config/marshal:go_default_library",
+        "//lib/logger/klog:go_default_library",
         "@com_github_mitchellh_go_homedir//:go_default_library",
         "@org_golang_x_crypto//ssh:go_default_library",
     ],
@@ -24,6 +27,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//lib/cache:go_default_library",
+        "//lib/logger/klog:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
         "@org_golang_x_crypto//ssh:go_default_library",
     ],

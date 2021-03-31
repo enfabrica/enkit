@@ -1,8 +1,10 @@
 package kcerts_test
 
 import (
+	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
@@ -27,6 +29,7 @@ func TestAddSSHCAToClient(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+// TODO(adam): test cache failures and edge cases
 func TestStartSSHAgent(t *testing.T) {
 	assert.Nil(t, os.Unsetenv("SSH_AUTH_SOCK"))
 	assert.Nil(t, os.Unsetenv("SSH_AGENT_PID"))
@@ -36,21 +39,38 @@ func TestStartSSHAgent(t *testing.T) {
 	localCache := &cache.Local{
 		Root: tmpDir,
 	}
-	socketPath, pid, err := kcerts.FindSSHAgent(localCache, 5*time.Second)
+	l, err := klog.New("test", klog.FromFlags(*klog.DefaultFlags()))
 	assert.Nil(t, err)
-	assert.NotEqual(t, "", socketPath)
-	assert.NotEqual(t, 0, pid)
 
-	newSocketPath, newPID, err := kcerts.FindSSHAgent(localCache, 5*time.Second)
+	agent, err := kcerts.FindSSHAgent(localCache, l)
+	fmt.Println("agent socket is", agent.Socket)
 	assert.Nil(t, err)
-	assert.Equal(t, socketPath, newSocketPath)
-	assert.Equal(t, pid, newPID)
+	assert.NotEqual(t, "", agent.Socket)
+	assert.NotEqual(t, 0, agent.PID)
+	assert.True(t, agent.Valid())
 
-	time.Sleep(6 * time.Second)
-	// Testing cache expiration
-	newSocketPath, newPID, err = kcerts.FindSSHAgent(localCache, 5*time.Second)
+	newAgent, err := kcerts.FindSSHAgent(localCache, l)
 	assert.Nil(t, err)
-	assert.NotEqual(t, socketPath, newSocketPath)
-	assert.NotEqual(t, pid, newPID)
+	assert.Equal(t, agent.Socket, newAgent.Socket)
+	assert.Equal(t, agent.PID, newAgent.PID)
+	assert.True(t, newAgent.Valid())
+
+	assert.Nil(t, newAgent.CloseIfNotCached())
+
+	newAgent, err = kcerts.FindSSHAgent(localCache, l)
+	assert.Nil(t, err)
+	assert.Equal(t, agent.Socket, newAgent.Socket)
+	assert.Equal(t, agent.PID, newAgent.PID)
+	assert.True(t, newAgent.Valid())
+
+	assert.Nil(t, kcerts.DeleteSSHCache(localCache))
+	time.Sleep(50 * time.Millisecond)
+
+	//// Testing cache expiration
+	agentAfterCacheDelete, err := kcerts.FindSSHAgent(localCache, l)
+	assert.Nil(t, err)
+	assert.NotEqual(t, newAgent.Socket, agentAfterCacheDelete.Socket)
+	assert.NotEqual(t, newAgent.PID, agentAfterCacheDelete.PID)
+	assert.True(t, agentAfterCacheDelete.Valid())
 
 }
