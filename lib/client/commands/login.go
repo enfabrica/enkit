@@ -6,6 +6,7 @@ import (
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config/identity"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/spf13/cobra"
 	"math/rand"
 	"time"
@@ -84,16 +85,23 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Right now recreating the logger because ssh requires a klog.Logger and it only gets called once and immediately is
+	// coerced into an interface type, not sure if I should just typecast here or deal with propagation
+	newLogger, err := klog.New(l.Command.Name(), klog.FromFlags(*klog.DefaultFlags()))
+	if err != nil {
+		return err
+	}
 	options := auth.LoginOptions{
 		Context: l.base.Context(),
 		MinWait: l.MinWaitTime,
+		Store:   l.base.Local,
+		L:       newLogger,
 	}
 
 	token, err := client.Login(username, domain, options)
 	if err != nil {
 		return err
 	}
-
 	userid := identity.Join(username, domain)
 	err = ids.Save(userid, token)
 	if err != nil {

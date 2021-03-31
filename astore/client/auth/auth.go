@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
+	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/pkg/browser"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
@@ -43,6 +46,8 @@ type LoginOptions struct {
 	// the token and the next. This is meant to prevent busy loops DoSsing
 	// the server, while allowing fast retries in the normal case.
 	MinWait time.Duration
+	Store   cache.Store
+	L       *klog.Logger
 }
 
 func (c *Client) Login(username, domain string, o LoginOptions) (string, error) {
@@ -108,24 +113,29 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		return "", fmt.Errorf("could not decrypt returned token")
 	}
 
-	err = kcerts.StartSSHAgent()
+	publicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
 	if err != nil {
 
 	}
-	publicKey, _ ,_ ,_, err := ssh.ParseAuthorizedKey(tres.Capublickey)
-	if err != nil {
-
-	}
-	err = kcerts.AddSSHCAToClient(publicKey, tres.Cahosts)
+	sshDir, err := kcerts.FindSSHDir()
 	if err != nil {
 		return "", err
 	}
+	err = kcerts.AddSSHCAToClient(publicKey, tres.Cahosts, sshDir)
+	if err != nil {
+		return "", err
+	}
+	agent, err := kcerts.FindSSHAgent(o.Store, o.L)
+	if err != nil {
+		return "", err
+	}
+	defer agent.Close()
 	file, err := ioutil.TempFile("/tmp", "en")
 	if err != nil {
 		return "", err
 	}
-	left, err := file.Write(tres.Key)
-	if err != nil || left == 0 {
+	err = marshal.MarshalFile(file.Name(), tres.Key)
+	if err != nil {
 		return "", err
 	}
 	err = ioutil.WriteFile(file.Name()+"-cert.pub", tres.Cert, 0644)
@@ -133,6 +143,7 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		return "", err
 	}
 	cmd := exec.Command("ssh-add", file.Name())
+	cmd.Env = append(cmd.Env, fmt.Sprintf("SSH_AUTH_SOCK=%s", agent.Socket), fmt.Sprintf("SSH_AGENT_PID=%d", agent.PID))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
