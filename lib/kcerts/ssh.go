@@ -154,7 +154,11 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error processing ssh agent pid %s: %w", resultPID, err)
 	}
-	return &SSHAgent{Socket: rawSock, PID: pid, Close: func() {}}, nil
+	s := &SSHAgent{Socket: rawSock, PID: pid}
+	s.Close = func() {
+		_ = s.Kill()
+	}
+	return s, nil
 }
 
 // GenerateUserSSHCert will sign and return credentials based on the CA signer and given parameters
