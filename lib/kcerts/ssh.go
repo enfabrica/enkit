@@ -78,10 +78,10 @@ type sshCache struct {
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // Currently only outputs the env and does not persist it across terminals
 func FindSSHAgent(store cache.Store, ttl time.Duration) (string, int, error) {
+	// TODO(adam): sniff out dead agents and sneak pids
 	envSSHSock := os.Getenv("SSH_AUTH_SOCK")
 	envSSHPID := os.Getenv("SSH_AGENT_PID")
 	if envSSHSock != "" && envSSHPID != "" {
-		fmt.Println("found in env")
 		pid, err := strconv.Atoi(envSSHPID)
 		if err != nil {
 			return "", 0, fmt.Errorf("%s is not a valid pid: %w", envSSHPID, err)
