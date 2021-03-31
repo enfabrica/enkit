@@ -75,6 +75,11 @@ type sshCache struct {
 	TimeStamp time.Time `json:"time_stamp"`
 }
 
+var (
+	sockR = regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
+	pidR = regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
+)
+
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // Currently only outputs the env and does not persist it across terminals
 func FindSSHAgent(store cache.Store, ttl time.Duration) (string, int, error) {
@@ -128,8 +133,6 @@ func FindSSHAgent(store cache.Store, ttl time.Duration) (string, int, error) {
 		return "", 0, err
 	}
 
-	sockR := regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
-	pidR := regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
 	resultSock := string(sockR.Find(out))
 	resultPID := string(pidR.Find(out))
 
