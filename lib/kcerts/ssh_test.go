@@ -1,7 +1,6 @@
 package kcerts_test
 
 import (
-	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger/klog"
@@ -43,7 +42,6 @@ func TestStartSSHAgent(t *testing.T) {
 	assert.Nil(t, err)
 
 	agent, err := kcerts.FindSSHAgent(localCache, l)
-	fmt.Println("agent socket is", agent.Socket)
 	assert.Nil(t, err)
 	assert.NotEqual(t, "", agent.Socket)
 	assert.NotEqual(t, 0, agent.PID)

@@ -84,7 +84,6 @@ type SSHAgent struct {
 func (a SSHAgent) Valid() bool {
 	conn, err := net.Dial("unix", a.Socket)
 	defer conn.Close()
-	fmt.Printf("Failed to open SSH_AUTH_SOCK: %v \n", err)
 	return err == nil
 }
 
