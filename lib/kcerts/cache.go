@@ -37,27 +37,21 @@ func FetchSSHAgentFromCache(store cache.Store) (*SSHAgent, error) {
 
 func WriteAgentToCache(store cache.Store, agent *SSHAgent) error {
 	sshEnkitCache, _, err := store.Get(SSHCacheKey)
-	killFunc := func() {
-		//TODO(adam): add logging inside ssh agent?
-		if err := agent.Kill(); err != nil {
-			//Right now this is swallows the error
-		}
-	}
 	if err != nil {
-		agent.Close = killFunc
 		return fmt.Errorf("error fetching cache: %w", err)
 	}
 	defer store.Rollback(sshEnkitCache)
 	err = marshal.MarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), agent)
 	if err != nil {
-		agent.Close = killFunc
 		return fmt.Errorf("error writing to cache: %w", err)
 	}
 	_, err = store.Commit(sshEnkitCache)
 	if err != nil {
-		agent.Close = killFunc
+		return err
 	}
-	return err
+	// Agent Saved successfully, can remove kill Close
+	agent.Close = func() {}
+	return nil
 }
 
 // DeleteSSHCache deletes the SSH cache
