@@ -14,10 +14,11 @@ import (
 )
 
 type Flags struct {
-	TimeLimit  time.Duration
-	AuthURL    string
-	Principals string
-	CA         []byte
+	TimeLimit         time.Duration
+	AuthURL           string
+	Principals        string
+	CA                []byte
+	UserCertTimeLimit time.Duration
 }
 
 func DefaultFlags() *Flags {
@@ -28,6 +29,7 @@ func DefaultFlags() *Flags {
 
 func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.DurationVar(&f.TimeLimit, prefix+"time-limit", f.TimeLimit, "How long to wait at most for the user to complete authentication, before freeing resources")
+	set.DurationVar(&f.UserCertTimeLimit, prefix+"user-cert-ttl", 24*time.Hour, "How long a user's ssh certificates are valid for before they expire")
 	set.StringVar(&f.Principals, prefix+"principals", f.Principals, "Authorized ssh users which the ability to auth, in a comma separated string e.g. \"john,root,admin,smith\"")
 	set.ByteFileVar(&f.CA, prefix+"ca", "/etc/ssh/ca.pem", "Path to the certificate authority private file")
 	return f
@@ -42,6 +44,9 @@ func WithFlags(f *Flags) Modifier {
 			return err
 		}
 		if err := WithCA(f.CA)(s); err != nil {
+			return err
+		}
+		if err := WithUserCertTimeLimit(f.UserCertTimeLimit)(s); err != nil {
 			return err
 		}
 		if err := WithPrincipals(f.Principals)(s); err != nil {
@@ -91,6 +96,13 @@ func WithPrincipals(raw string) Modifier {
 			return errors.New("there cannot be 0 principals in the auth server")
 		}
 		server.principals = splitString
+		return nil
+	}
+}
+
+func WithUserCertTimeLimit(duration time.Duration) Modifier {
+	return func(server *Server) error {
+		server.userCertTTL = duration
 		return nil
 	}
 }

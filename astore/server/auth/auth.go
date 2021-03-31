@@ -2,10 +2,13 @@ package auth
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/codes"
@@ -29,6 +32,7 @@ type Server struct {
 	caSigner              ssh.Signer
 	principals            []string
 	marshalledCAPublicKey []byte
+	userCertTTL           time.Duration
 }
 
 type Jar struct {
@@ -99,14 +103,22 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if _, err := io.ReadFull(s.rng, nonce[:]); err != nil {
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
 		}
-
+		userPrivateKey, userCert, err := kcerts.GenerateUserSSHCert(s.caSigner, ssh.UserCert, s.principals, s.userCertTTL)
+		if err != nil {
+			return nil, fmt.Errorf("error generating certificates: %w", err)
+		}
 		return &auth.TokenResponse{
 			Nonce:       nonce[:],
 			Token:       box.Seal(nil, []byte(token), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			Capublickey: s.marshalledCAPublicKey,
 			// Always trust the CA for now since the DNS gets resolved behind tunnel and therefore the client doesn't know
 			// which to trust
-			Cahosts:     []string{"*"},
+			Cahosts: []string{"*"},
+			Cert:    ssh.MarshalAuthorizedKey(userCert),
+			Key: pem.EncodeToMemory(&pem.Block{
+				Type:  "RSA PRIVATE KEY",
+				Bytes: x509.MarshalPKCS1PrivateKey(userPrivateKey),
+			}),
 		}, nil
 	}
 
