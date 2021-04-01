@@ -7,7 +7,6 @@ import (
 )
 
 type Controller struct {
-	workers        sync.Map
 	ConnectedNodes map[string][]string
 	sync.RWMutex
 }

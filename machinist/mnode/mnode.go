@@ -2,9 +2,9 @@ package mnode
 
 import (
 	"context"
+	"fmt"
 	"github.com/enfabrica/enkit/machinist"
 	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"time"
 )
@@ -49,7 +49,7 @@ func (n *Node) BeginPolling() error {
 		},
 	}
 	if err := pollStream.Send(initialRequest); err != nil {
-		return errors.Wrap(err, "unable to send initial request")
+		return fmt.Errorf("unable to send initial request: %w", err)
 	}
 	for {
 		select {
@@ -62,7 +62,7 @@ func (n *Node) BeginPolling() error {
 				},
 			}
 			if err := pollStream.Send(pollReq); err != nil {
-				return errors.Wrap(err, "unable to send poll req")
+				return fmt.Errorf("unable to send poll req: %w", err)
 			}
 		}
 	}
