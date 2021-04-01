@@ -1,22 +1,8 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "dns.go",
-        "ports.go",
-    ],
+    srcs = ["ports.go"],
     importpath = "github.com/enfabrica/enkit/lib/knetwork",
     visibility = ["//visibility:public"],
-    deps = [
-        "//lib/logger/klog:go_default_library",
-        "@com_github_miekg_dns//:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["dns_test.go"],
-    embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
 )

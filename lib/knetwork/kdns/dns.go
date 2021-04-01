@@ -1,9 +1,9 @@
-package knetwork
+package kdns
 
 import (
 	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/logger/klog"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/miekg/dns"
 	"net"
 	"strconv"
@@ -15,66 +15,12 @@ var (
 	DNSEntryExistError    = errors.New("the following entry did exist")
 )
 
-func NewDNS(mods ...DNSModifier) (*DnsServer, error) {
-	defaultLogger, err := klog.New("default", klog.FromFlags(*klog.DefaultFlags()))
-	if err != nil {
-		return nil, err
-	}
-	s := &DnsServer{
-		routeMap: make(map[string][]string),
-		Logger:   defaultLogger,
-	}
-	for _, mod := range mods {
-		if err := mod(s); err != nil {
-			return nil, err
-		}
-	}
-	return s, nil
-}
-
-type DNSModifier func(s *DnsServer) error
-
-func WithLogger(l *klog.Logger) DNSModifier {
-	return func(s *DnsServer) error {
-		s.Logger = l
-		return nil
-	}
-}
-
-func WithPort(p int) DNSModifier {
-	return func(s *DnsServer) error {
-		s.Port = p
-		return nil
-	}
-}
-
-func WithDomains(domains []string) DNSModifier {
-	return func(s *DnsServer) error {
-		s.domains = domains
-		return nil
-	}
-}
-
-func WithListener(l net.Listener) DNSModifier {
-	return func(s *DnsServer) error {
-		s.Listener = l
-		return nil
-	}
-}
-
-func WithHost(ip string) DNSModifier {
-	return func(s *DnsServer) error {
-		s.host = ip
-		return nil
-	}
-}
-
 type DnsServer struct {
 	dnsServer *dns.Server
 	sync.RWMutex
 	routeMap map[string][]string
 	Port     int
-	Logger   *klog.Logger
+	Logger   logger.Logger
 	domains  []string
 	Listener net.Listener
 	host     string
@@ -155,7 +101,7 @@ func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg)
 	}
 	err := writer.WriteMsg(m)
 	if err != nil {
-		s.Logger.Errorw(err.Error())
+		s.Logger.Errorf("%s", err)
 	}
 }
 

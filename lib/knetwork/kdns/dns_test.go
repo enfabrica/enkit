@@ -1,9 +1,10 @@
-package knetwork_test
+package kdns_test
 
 import (
 	"context"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/knetwork"
+	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/stretchr/testify/assert"
 	"net"
 	"testing"
@@ -16,9 +17,9 @@ func TestDNS(t *testing.T) {
 	l, err := knetwork.AllocatePort()
 	assert.Nil(t, err)
 
-	dnsServer, err := knetwork.NewDNS(
-		knetwork.WithDomains([]string{"enkit.", "enb."}),
-		knetwork.WithListener(l),
+	dnsServer, err := kdns.NewDNS(
+		kdns.WithDomains([]string{"enkit.", "enb."}),
+		kdns.WithListener(l),
 	)
 	fmt.Println(l.Addr().String())
 	customResolver := &net.Resolver{
