@@ -134,8 +134,9 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	err = marshal.MarshalFile(file.Name(), tres.Key)
+	err = ioutil.WriteFile(file.Name(), tres.Key, 0750)
 	if err != nil {
+		fmt.Println("error marshalling")
 		return "", err
 	}
 	err = ioutil.WriteFile(file.Name()+"-cert.pub", tres.Cert, 0644)
@@ -143,6 +144,7 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		return "", err
 	}
 	cmd := exec.Command("ssh-add", file.Name())
+	fmt.Println("agent socket is ", agent.Socket)
 	cmd.Env = append(cmd.Env, fmt.Sprintf("SSH_AUTH_SOCK=%s", agent.Socket), fmt.Sprintf("SSH_AGENT_PID=%d", agent.PID))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
