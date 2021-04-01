@@ -7,8 +7,20 @@ import (
 )
 
 type Controller struct {
-	ConnectedNodes map[string][]string
+	connectedNodes map[string]*Node
 	sync.RWMutex
+}
+
+func (en *Controller) Nodes() []*Node {
+	var nodes []*Node
+	for _, v := range en.connectedNodes {
+		nodes = append(nodes, v)
+	}
+	return nodes
+}
+
+func (en *Controller) Node(name string) *Node {
+	return en.connectedNodes[name]
 }
 
 func (en *Controller) Download(*machinist.DownloadRequest, machinist.Controller_DownloadServer) error {
@@ -33,7 +45,11 @@ func (en *Controller) HandlePing(stream machinist.Controller_PollServer, ping *m
 
 func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, ping *machinist.ClientRegister) error {
 	en.Lock()
-	en.ConnectedNodes[ping.Name] = ping.Tag
+	n := &Node{
+		Name: ping.Name,
+		Tags: ping.Tag,
+	}
+	en.connectedNodes[ping.Name] = n
 	en.Unlock()
 	return stream.Send(
 		&machinist.PollResponse{

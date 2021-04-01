@@ -25,7 +25,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 		))
 	assert.Nil(t, err)
 	go func() {
-		assert.Nil(t, s.Start())
+		assert.Nil(t, s.Run())
 	}()
 	time.Sleep(50 * time.Millisecond)
 	defer func() {
@@ -52,10 +52,11 @@ func TestJoinServerAndPoll(t *testing.T) {
 		assert.Nil(t, n.BeginPolling())
 	}()
 	time.Sleep(2 * time.Second)
-	assert.Equal(t, 1, len(mController.ConnectedNodes))
+	assert.Equal(t, 1, len(mController.Nodes()))
+	assert.NotNil(t, mController.Node("test-01"))
 
-	for k, v := range mController.ConnectedNodes {
-		assert.Equal(t, []string{"big", "heavy"}, v)
-		assert.Equal(t, "test-01", k)
+	for _, v := range mController.Nodes() {
+		assert.Equal(t, []string{"big", "heavy"}, v.Tags)
+		assert.Equal(t, "test-01", v.Name)
 	}
 }
