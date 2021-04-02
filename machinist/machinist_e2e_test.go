@@ -40,7 +40,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 			}), grpc.WithInsecure())
 	}
 
-	joinNodeToMaster(t, []mnode.NodeModifier{
+	go joinNodeToMaster(t, []mnode.NodeModifier{
 		mnode.WithDialFunc(customConnect),
 		mnode.WithName("test-01"),
 		mnode.WithTags([]string{"big", "heavy"}),
@@ -48,11 +48,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 			machinist.WithListener(lis)),
 	})
 
-	time.Sleep(2 * time.Second)
-	assert.Equal(t, 1, len(mController.Nodes()))
-	assert.NotNil(t, mController.Node("test-01"))
-
-	joinNodeToMaster(t, []mnode.NodeModifier{
+	go joinNodeToMaster(t, []mnode.NodeModifier{
 		mnode.WithDialFunc(customConnect),
 		mnode.WithName("test-02"),
 		mnode.WithTags([]string{"teeny", "weeny"}),
@@ -60,7 +56,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 			machinist.WithListener(lis)),
 	})
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(50 * time.Millisecond)
 	assert.Equal(t, 2, len(mController.Nodes()))
 	assert.NotNil(t, mController.Node("test-02"))
 	assert.NotNil(t, mController.Node("test-01"))
