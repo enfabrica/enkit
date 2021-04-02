@@ -2,7 +2,7 @@ package mserver
 
 func NewController() (*Controller, error) {
 	en := &Controller{
-		connectedNodes: make(map[string]*Node),
+		connectedNodes: map[string]*Node{},
 	}
 	return en, nil
 }

@@ -40,23 +40,48 @@ func TestJoinServerAndPoll(t *testing.T) {
 			}), grpc.WithInsecure())
 	}
 
-	n, err := mnode.New(
+	joinNodeToMaster(t, []mnode.NodeModifier{
 		mnode.WithDialFunc(customConnect),
 		mnode.WithName("test-01"),
 		mnode.WithTags([]string{"big", "heavy"}),
 		mnode.WithMachinistFlags(
-			machinist.WithListener(lis)))
+			machinist.WithListener(lis)),
+	})
 
-	assert.Nil(t, err)
-	go func() {
-		assert.Nil(t, n.BeginPolling())
-	}()
 	time.Sleep(2 * time.Second)
 	assert.Equal(t, 1, len(mController.Nodes()))
 	assert.NotNil(t, mController.Node("test-01"))
 
+	joinNodeToMaster(t, []mnode.NodeModifier{
+		mnode.WithDialFunc(customConnect),
+		mnode.WithName("test-02"),
+		mnode.WithTags([]string{"teeny", "weeny"}),
+		mnode.WithMachinistFlags(
+			machinist.WithListener(lis)),
+	})
+
+	time.Sleep(2 * time.Second)
+	assert.Equal(t, 2, len(mController.Nodes()))
+	assert.NotNil(t, mController.Node("test-02"))
+	assert.NotNil(t, mController.Node("test-01"))
+
+	//TODO(adam): table test this
 	for _, v := range mController.Nodes() {
-		assert.Equal(t, []string{"big", "heavy"}, v.Tags)
-		assert.Equal(t, "test-01", v.Name)
+		if v.Name == "test-01" {
+			assert.Equal(t, []string{"big", "heavy"}, v.Tags)
+		} else if v.Name == "test-02" {
+			assert.Equal(t, []string{"teeny", "weeny"}, v.Tags)
+		} else {
+			t.Fatalf("controller found node %v, which should not be present", v)
+		}
 	}
+}
+
+func joinNodeToMaster(t *testing.T, opts []mnode.NodeModifier) *mnode.Node {
+	n, err := mnode.New(opts...)
+	assert.Nil(t, err)
+	go func() {
+		assert.Nil(t, n.BeginPolling())
+	}()
+	return n
 }

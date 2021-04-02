@@ -4,6 +4,7 @@ go_test(
     name = "go_default_test",
     srcs = ["machinist_e2e_test.go"],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//machinist/mnode:go_default_library",
         "//machinist/mserver:go_default_library",

@@ -7,11 +7,13 @@ import (
 )
 
 type Controller struct {
-	connectedNodes map[string]*Node
-	sync.RWMutex
+	connectedNodes      map[string]*Node
+	connectedNodesMutex sync.RWMutex
 }
 
 func (en *Controller) Nodes() []*Node {
+	en.connectedNodesMutex.RLock()
+	defer en.connectedNodesMutex.RUnlock()
 	var nodes []*Node
 	for _, v := range en.connectedNodes {
 		nodes = append(nodes, v)
@@ -20,6 +22,8 @@ func (en *Controller) Nodes() []*Node {
 }
 
 func (en *Controller) Node(name string) *Node {
+	en.connectedNodesMutex.RLock()
+	defer en.connectedNodesMutex.RUnlock()
 	return en.connectedNodes[name]
 }
 
@@ -44,13 +48,13 @@ func (en *Controller) HandlePing(stream machinist.Controller_PollServer, ping *m
 }
 
 func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, ping *machinist.ClientRegister) error {
-	en.Lock()
 	n := &Node{
 		Name: ping.Name,
 		Tags: ping.Tag,
 	}
+	en.connectedNodesMutex.Lock()
 	en.connectedNodes[ping.Name] = n
-	en.Unlock()
+	en.connectedNodesMutex.Unlock()
 	return stream.Send(
 		&machinist.PollResponse{
 			Resp: &machinist.PollResponse_Result{

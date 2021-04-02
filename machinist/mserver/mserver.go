@@ -10,7 +10,7 @@ func New(mods ...Modifier) (*server, error) {
 	s := &server{
 		killChannel: make(chan error),
 		Controller: &Controller{
-			connectedNodes: make(map[string]*Node),
+			connectedNodes: map[string]*Node{},
 		},
 		SharedFlags: &machinist.SharedFlags{},
 	}
