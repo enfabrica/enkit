@@ -96,6 +96,27 @@ func (a SSHAgent) Valid() bool {
 	return err == nil
 }
 
+func (a SSHAgent) AddCertificates(privateKey, publicKey []byte) error {
+	file, err := ioutil.TempFile("/tmp", "en")
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(file.Name(), privateKey, 0700)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(file.Name()+"-cert.pub", publicKey, 0644)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("ssh-add", file.Name())
+	cmd.Env = append(cmd.Env, fmt.Sprintf("SSH_AUTH_SOCK=%s", a.Socket), fmt.Sprintf("SSH_AGENT_PID=%d", a.PID))
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // It will pull, in order: from the env, from the cache, create new.
 func FindSSHAgent(store cache.Store, logger *klog.Logger) (*SSHAgent, error) {
