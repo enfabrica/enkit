@@ -6,8 +6,8 @@ go_test(
         "e2e_test.go",
         "server_test.go",
     ],
-    local = True,
     data = glob(["testdata/**"]),
+    local = True,
     deps = [
         "//astore/atesting:go_default_library",
         "//astore/client/astore:go_default_library",

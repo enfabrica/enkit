@@ -3,13 +3,13 @@ package auth
 import (
 	"context"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/kcerts"
-	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/pkg/browser"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
@@ -44,7 +44,6 @@ type LoginOptions struct {
 	// the server, while allowing fast retries in the normal case.
 	MinWait time.Duration
 	Store   cache.Store
-	L       *klog.Logger
 }
 
 func (c *Client) Login(username, domain string, o LoginOptions) (string, error) {
@@ -105,15 +104,22 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		return "", fmt.Errorf("server returned invalid nonce, please try again - %s", err)
 	}
 
-	decrypted, ok := box.Open(nil, []byte(tres.Token), nonce.ToByte(), servPub.ToByte(), priv)
+	decrypted, ok := box.Open(nil, tres.Token, nonce.ToByte(), servPub.ToByte(), priv)
 	if !ok {
 		return "", fmt.Errorf("could not decrypt returned token")
 	}
-	publicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
+
+	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
 	if err != nil {
 		return "", err
 	}
-	privateKey, err := x509.ParsePKCS1PrivateKey(tres.Key)
+
+	publicCertKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Cert)
+	if err != nil {
+		return "", err
+	}
+	r, _ := pem.Decode(tres.Key)
+	privateKey, err := x509.ParsePKCS1PrivateKey(r.Bytes)
 	if err != nil {
 		return "", err
 	}
@@ -121,15 +127,16 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	err = kcerts.AddSSHCAToClient(publicKey, tres.Cahosts, sshDir)
+	err = kcerts.AddSSHCAToClient(caPublicKey, tres.Cahosts, sshDir)
 	if err != nil {
 		return "", err
 	}
-	agent, err := kcerts.FindSSHAgent(o.Store, o.L)
+	agent, err := kcerts.FindSSHAgent(o.Store, o.Logger)
 	if err != nil {
 		return "", err
 	}
 	defer agent.Close()
-	err = agent.AddCertificates(privateKey, publicKey, uint32((time.Hour * 48).Milliseconds()))
+	err = agent.AddCertificates(privateKey, publicCertKey, uint32((time.Hour * 48).Milliseconds()))
+	o.Logger.Infof("successfully added certificates to the ssh agent")
 	return string(decrypted), err
 }

@@ -10,6 +10,7 @@ go_library(
         "//lib/client:go_default_library",
         "//lib/config/identity:go_default_library",
         "//lib/kflags:go_default_library",
+        "//lib/logger/klog:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
     ],
 )

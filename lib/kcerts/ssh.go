@@ -5,7 +5,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
-	"github.com/enfabrica/enkit/lib/logger/klog"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -117,7 +117,7 @@ func (a SSHAgent) AddCertificates(privateKey *rsa.PrivateKey, publicKey ssh.Publ
 
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // It will pull, in order: from the env, from the cache, create new.
-func FindSSHAgent(store cache.Store, logger *klog.Logger) (*SSHAgent, error) {
+func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
 	agent := FindSSHAgentFromEnv()
 	if agent != nil && agent.Valid() {
 		return agent, nil
