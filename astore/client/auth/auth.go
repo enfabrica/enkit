@@ -109,8 +109,11 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	if !ok {
 		return "", fmt.Errorf("could not decrypt returned token")
 	}
-	err = loadSSHKey(tres, o.Store, o.Logger)
-	if err != nil {
+	// TODO(adam): remove once everyone is on board with ssh certs
+	if len(tres.Capublickey) == 0 || len(tres.Cert) == 0 {
+		return string(decrypted), err
+	}
+	if err = loadSSHKey(tres, o.Store, o.Logger); err != nil {
 		return "", err
 	}
 	return string(decrypted), err
