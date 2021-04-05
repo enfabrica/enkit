@@ -2,7 +2,6 @@ package kdns_test
 
 import (
 	"context"
-	"fmt"
 	"github.com/enfabrica/enkit/lib/knetwork"
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +20,6 @@ func TestDNS(t *testing.T) {
 		kdns.WithDomains([]string{"enkit.", "enb."}),
 		kdns.WithListener(l),
 	)
-	fmt.Println(l.Addr().String())
 	customResolver := &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -65,5 +63,16 @@ func TestDNS(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t,newIps, ips)
 	assert.Equal(t, 3, len(ips))
+
+	ips, err = customResolver.LookupHost(context.TODO(), "hello.enkit")
+	assert.Nil(t, err)
+	assert.Equal(t,newIps, ips)
+	assert.Equal(t, 3, len(ips))
+	ips, err = customResolver.LookupHost(context.TODO(), "hello.enb")
+	assert.Nil(t, err)
+	assert.Equal(t,newIps, ips)
+	assert.Equal(t, 3, len(ips))
+
+
 
 }

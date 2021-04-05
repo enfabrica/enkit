@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "dns.go",
         "factory.go",
+        "records.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/knetwork/kdns",
     visibility = ["//visibility:public"],
@@ -17,8 +18,12 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["dns_test.go"],
+    srcs = [
+        "dns_test.go",
+        "records_test.go",
+    ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//lib/knetwork:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",

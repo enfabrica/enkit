@@ -16,21 +16,31 @@ var (
 )
 
 type DnsServer struct {
-	dnsServer *dns.Server
-	sync.RWMutex
-	routeMap map[string][]string
-	Port     int
-	Logger   logger.Logger
-	domains  []string
 	Listener net.Listener
-	host     string
+	Logger   logger.Logger
+	Port     int
+
+	dnsServer *dns.Server
+	// routeMap
+	routeMap   map[string]*BaseRecord
+	routeMutex sync.RWMutex
+
+	domains []string
+	host    string
 }
 
-func (s *DnsServer) Start() error {
+type BaseRecord struct {
+	ARecord    []*dns.A
+	TxtRecord  []*dns.TXT
+	baseHeader dns.RR_Header
+}
+
+func (s *DnsServer) Run() error {
 	mux := dns.NewServeMux()
 	for _, domain := range s.domains {
 		mux.HandleFunc(dns.Fqdn(domain), s.HandleIncoming)
 	}
+	dns.NewRR()
 	s.dnsServer = &dns.Server{Handler: mux}
 	if s.Listener != nil {
 		s.dnsServer.Listener = s.Listener
@@ -47,18 +57,22 @@ func (s *DnsServer) Stop() error {
 	return s.dnsServer.Shutdown()
 }
 
-func (s *DnsServer) AddEntry(name string, ips []string) error {
+func (s *DnsServer) AddAEntry(name string, ip net.IP) error {
 	if s.routeMap[dns.Fqdn(name)] != nil {
 		return fmt.Errorf("%w: %s", DNSEntryExistError, name)
 	}
-	s.Lock()
-	s.routeMap[dns.Fqdn(name)] = ips
-	s.Unlock()
+	a := dns.A{
+		A:   ip,
+		Hdr: s.routeMap[dns.Fqdn(name)].baseHeader,
+	}
+	s.routeMutex.Lock()
+	defer s.routeMutex.Unlock()
+	s.routeMap[dns.Fqdn(name)] = a
 	return nil
 }
 
-// ReplaceEntry will hard replace an entry. Consider it a force AddEntry
-func (s *DnsServer) ReplaceEntry(name string, ips []string) error {
+// SetEntry will hard replace an entry. Consider it a force AddEntry
+func (s *DnsServer) SetEntry(name string, ips []string) error {
 	s.Lock()
 	s.routeMap[name] = ips
 	s.Unlock()
@@ -72,9 +86,9 @@ func (s *DnsServer) AppendToEntry(name string, ips []string) error {
 		return fmt.Errorf("%w: %s", DNSEntryNotExistError, name)
 	}
 	fqdnName := dns.Fqdn(name)
-	s.Lock()
+	s.routeMutex.Lock()
 	s.routeMap[fqdnName] = appendIfNotPresent(s.routeMap[fqdnName], ips)
-	s.Unlock()
+	s.routeMutex.Unlock()
 	return nil
 }
 
@@ -105,17 +119,30 @@ func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg)
 	}
 }
 
+func (s *DnsServer) AddTxtRecord(name string) {
+
+}
+
+func (s *DnsServer) FetchARecords(name string) []*dns.A {
+	s.routeMutex.RLock()
+	defer s.routeMutex.RUnlock()
+	br := s.routeMap[name]
+	var toReturn []*dns.A
+	copy(toReturn, br.ARecord)
+	return toReturn
+}
+
 func (s *DnsServer) ParseDNS(m *dns.Msg) {
 	for _, q := range m.Question {
 		switch q.Qtype {
 		case dns.TypeA:
-			ips := s.routeMap[q.Name]
-			for _, ip := range ips {
-				rr, err := dns.NewRR(fmt.Sprintf("%s A %s", q.Name, ip))
-				if err == nil {
-					m.Answer = append(m.Answer, rr)
-				}
+			rrs := s.FetchARecords(q.Name)
+			for _, a := range rrs {
+				m.Answer = append(m.Answer, a)
 			}
+		case dns.TypeTXT:
+			s.AddTxtRecord(q.Name)
+
 		}
 	}
 }
