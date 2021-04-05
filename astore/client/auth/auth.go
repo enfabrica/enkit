@@ -2,22 +2,19 @@ package auth
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
-	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/pkg/browser"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
-	"io/ioutil"
 	"math/rand"
-	"os"
-	"os/exec"
 	"time"
 )
 
@@ -112,10 +109,13 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	if !ok {
 		return "", fmt.Errorf("could not decrypt returned token")
 	}
-
 	publicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
 	if err != nil {
-
+		return "", err
+	}
+	privateKey, err := x509.ParsePKCS1PrivateKey(tres.Key)
+	if err != nil {
+		return "", err
 	}
 	sshDir, err := kcerts.FindSSHDir()
 	if err != nil {
@@ -130,27 +130,6 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		return "", err
 	}
 	defer agent.Close()
-	file, err := ioutil.TempFile("/tmp", "en")
-	if err != nil {
-		return "", err
-	}
-	err = ioutil.WriteFile(file.Name(), tres.Key, 0750)
-	if err != nil {
-		fmt.Println("error marshalling")
-		return "", err
-	}
-	err = ioutil.WriteFile(file.Name()+"-cert.pub", tres.Cert, 0644)
-	if err != nil {
-		return "", err
-	}
-	cmd := exec.Command("ssh-add", file.Name())
-	fmt.Println("agent socket is ", agent.Socket)
-	cmd.Env = append(cmd.Env, fmt.Sprintf("SSH_AUTH_SOCK=%s", agent.Socket), fmt.Sprintf("SSH_AGENT_PID=%d", agent.PID))
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err = cmd.Run(); err != nil {
-		return "", err
-	}
-	return string(decrypted), nil
+	err = agent.AddCertificates(privateKey, publicKey, uint32((time.Hour * 48).Milliseconds()))
+	return string(decrypted), err
 }

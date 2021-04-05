@@ -8,6 +8,7 @@ import (
 	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 	"io/ioutil"
 	"net"
 	"os"
@@ -94,6 +95,24 @@ func (a SSHAgent) Valid() bool {
 	conn, err := net.Dial("unix", a.Socket)
 	defer conn.Close()
 	return err == nil
+}
+
+func (a SSHAgent) AddCertificates(privateKey *rsa.PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
+	conn, err := net.Dial("unix", a.Socket)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	cert, ok := publicKey.(*ssh.Certificate)
+	if !ok {
+		return fmt.Errorf("public key is not a valid ssh certificate")
+	}
+	agentClient := agent.NewClient(conn)
+	return agentClient.Add(agent.AddedKey{
+		PrivateKey:   privateKey,
+		Certificate:  cert,
+		LifetimeSecs: ttl,
+	})
 }
 
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
