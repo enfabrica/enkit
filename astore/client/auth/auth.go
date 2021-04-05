@@ -150,6 +150,6 @@ func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger) 
 	if err != nil {
 		return err
 	}
-	log.Warnf("successfully added certificates to the ssh agent")
+	log.Infof("successfully added certificates to the ssh agent")
 	return nil
 }
