@@ -136,7 +136,7 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		return "", err
 	}
 	defer agent.Close()
-	err = agent.AddCertificates(privateKey, publicCertKey, uint32((time.Hour * 48).Milliseconds()))
+	err = agent.AddCertificates(privateKey, publicCertKey, uint32((time.Hour * 48).Seconds()))
 	o.Logger.Infof("successfully added certificates to the ssh agent")
 	return string(decrypted), err
 }
