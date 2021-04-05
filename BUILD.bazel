@@ -8,11 +8,7 @@ gazelle(
 )
 
 exports_files(
-    [
-        "tsconfig.json",
-        "package.json",
-        "yarn.lock",
-    ],
+    ["tsconfig.json", "package.json", "yarn.lock"],
     visibility = ["//:__subpackages__"],
 )
 
