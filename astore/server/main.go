@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/enfabrica/enkit/lib/oauth/ogithub"
 	"os"
 
 	"fmt"
@@ -30,7 +31,6 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/enfabrica/enkit/lib/oauth/ogoogle"
 	"github.com/enfabrica/enkit/lib/oauth/ogrpc"
 	"github.com/enfabrica/enkit/lib/server"
 	"github.com/enfabrica/enkit/lib/srand"
@@ -135,7 +135,7 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		return fmt.Errorf("could not initialize auth server - %s", err)
 	}
 
-	authWeb, err := oauth.New(rng, oauth.WithFlags(oauthFlags), ogoogle.Defaults())
+	authWeb, err := oauth.New(rng, oauth.WithFlags(oauthFlags), ogithub.Defaults())
 	if err != nil {
 		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
 	}

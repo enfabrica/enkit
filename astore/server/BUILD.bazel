@@ -24,7 +24,6 @@ go_library(
         "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
         "//lib/oauth/ogithub:go_default_library",
-        "//lib/oauth/ogoogle:go_default_library",
         "//lib/oauth/ogrpc:go_default_library",
         "//lib/server:go_default_library",
         "//lib/srand:go_default_library",

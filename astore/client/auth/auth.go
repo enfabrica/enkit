@@ -144,6 +144,9 @@ func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger) 
 	}
 	defer agent.Close()
 	err = agent.AddCertificates(privateKey, publicCertKey, uint32((time.Hour * 48).Seconds()))
-	log.Infof("successfully added certificates to the ssh agent")
+	if err != nil {
+		return err
+	}
+	log.Warnf("successfully added certificates to the ssh agent")
 	return nil
 }
