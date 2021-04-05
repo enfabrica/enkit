@@ -10,6 +10,7 @@ import (
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/pkg/browser"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
@@ -108,35 +109,41 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	if !ok {
 		return "", fmt.Errorf("could not decrypt returned token")
 	}
-
-	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
+	err = loadSSHKey(tres, o.Store, o.Logger)
 	if err != nil {
 		return "", err
 	}
+	return string(decrypted), err
+}
 
+func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger) error {
+	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
+	if err != nil {
+		return err
+	}
 	publicCertKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Cert)
 	if err != nil {
-		return "", err
+		return err
 	}
 	r, _ := pem.Decode(tres.Key)
 	privateKey, err := x509.ParsePKCS1PrivateKey(r.Bytes)
 	if err != nil {
-		return "", err
+		return err
 	}
 	sshDir, err := kcerts.FindSSHDir()
 	if err != nil {
-		return "", err
+		return err
 	}
 	err = kcerts.AddSSHCAToClient(caPublicKey, tres.Cahosts, sshDir)
 	if err != nil {
-		return "", err
+		return err
 	}
-	agent, err := kcerts.FindSSHAgent(o.Store, o.Logger)
+	agent, err := kcerts.FindSSHAgent(store, log)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer agent.Close()
 	err = agent.AddCertificates(privateKey, publicCertKey, uint32((time.Hour * 48).Seconds()))
-	o.Logger.Infof("successfully added certificates to the ssh agent")
-	return string(decrypted), err
+	log.Infof("successfully added certificates to the ssh agent")
+	return nil
 }
