@@ -93,6 +93,9 @@ func (a SSHAgent) Kill() error {
 
 func (a SSHAgent) Valid() bool {
 	conn, err := net.Dial("unix", a.Socket)
+	if err != nil {
+		return false
+	}
 	defer conn.Close()
 	return err == nil
 }
