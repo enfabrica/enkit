@@ -40,11 +40,7 @@ func WithDomains(domains []string) DNSModifier {
 	return func(s *DnsServer) error {
 		s.domains = domains
 		for _, d :=  range domains {
-			s.routeMap[dns.Fqdn(d)] = &BaseRecord{
-				baseHeader: dns.RR_Header{
-					Class:
-				},
-			}
+			s.routeMap[dns.Fqdn(d)] = &BaseRecord{}
 		}
 		return nil
 	}

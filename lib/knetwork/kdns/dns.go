@@ -21,18 +21,11 @@ type DnsServer struct {
 	Port     int
 
 	dnsServer *dns.Server
-	// routeMap
-	routeMap   map[string]*BaseRecord
-	routeMutex sync.RWMutex
-
-	domains []string
-	host    string
 }
 
 type BaseRecord struct {
-	ARecord    []*dns.A
-	TxtRecord  []*dns.TXT
-	baseHeader dns.RR_Header
+	ARecord   []*dns.A
+	TxtRecord []*dns.TXT
 }
 
 func (s *DnsServer) Run() error {
@@ -40,7 +33,6 @@ func (s *DnsServer) Run() error {
 	for _, domain := range s.domains {
 		mux.HandleFunc(dns.Fqdn(domain), s.HandleIncoming)
 	}
-	dns.NewRR()
 	s.dnsServer = &dns.Server{Handler: mux}
 	if s.Listener != nil {
 		s.dnsServer.Listener = s.Listener
@@ -58,15 +50,12 @@ func (s *DnsServer) Stop() error {
 }
 
 func (s *DnsServer) AddAEntry(name string, ip net.IP) error {
-	if s.routeMap[dns.Fqdn(name)] != nil {
-		return fmt.Errorf("%w: %s", DNSEntryExistError, name)
-	}
-	a := dns.A{
-		A:   ip,
-		Hdr: s.routeMap[dns.Fqdn(name)].baseHeader,
-	}
 	s.routeMutex.Lock()
 	defer s.routeMutex.Unlock()
+	rr, err := dns.NewRR("%s A %s")
+	if err != nil {
+		return err
+	}
 	s.routeMap[dns.Fqdn(name)] = a
 	return nil
 }
@@ -116,10 +105,11 @@ func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg)
 	err := writer.WriteMsg(m)
 	if err != nil {
 		s.Logger.Errorf("%s", err)
+
 	}
 }
 
-func (s *DnsServer) AddTxtRecord(name string) {
+func (s *DnsServer) FetchTxtRecord(name string) []*dns.TXT {
 
 }
 
@@ -141,7 +131,10 @@ func (s *DnsServer) ParseDNS(m *dns.Msg) {
 				m.Answer = append(m.Answer, a)
 			}
 		case dns.TypeTXT:
-			s.AddTxtRecord(q.Name)
+			rrs := s.FetchTxtRecord(q.Name)
+			for _, txt := range rrs {
+				m.Answer = append(m.Answer, txt)
+			}
 
 		}
 	}
