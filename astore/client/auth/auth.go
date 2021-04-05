@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
@@ -112,6 +113,10 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	if err != nil {
 		return "", err
 	}
+	privateKey, err := x509.ParsePKCS1PrivateKey(tres.Key)
+	if err != nil {
+		return "", err
+	}
 	sshDir, err := kcerts.FindSSHDir()
 	if err != nil {
 		return "", err
@@ -125,6 +130,6 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		return "", err
 	}
 	defer agent.Close()
-	err = agent.AddCertificates(tres.Key, tres.Cert)
+	err = agent.AddCertificates(privateKey, publicKey, uint32((time.Hour * 48).Milliseconds()))
 	return string(decrypted), err
 }

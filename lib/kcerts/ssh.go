@@ -8,6 +8,7 @@ import (
 	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 	"io/ioutil"
 	"net"
 	"os"
@@ -96,25 +97,22 @@ func (a SSHAgent) Valid() bool {
 	return err == nil
 }
 
-func (a SSHAgent) AddCertificates(privateKey, publicKey []byte) error {
-	file, err := ioutil.TempFile("/tmp", "en")
+func (a SSHAgent) AddCertificates(privateKey *rsa.PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
+	conn, err := net.Dial("unix", a.Socket)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(file.Name(), privateKey, 0700)
-	if err != nil {
-		return err
+	defer conn.Close()
+	cert, ok := publicKey.(*ssh.Certificate)
+	if !ok {
+		return fmt.Errorf("public key is not a valid ssh certificate")
 	}
-	err = ioutil.WriteFile(file.Name()+"-cert.pub", publicKey, 0644)
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command("ssh-add", file.Name())
-	cmd.Env = append(cmd.Env, fmt.Sprintf("SSH_AUTH_SOCK=%s", a.Socket), fmt.Sprintf("SSH_AGENT_PID=%d", a.PID))
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	agentClient := agent.NewClient(conn)
+	return agentClient.Add(agent.AddedKey{
+		PrivateKey:   privateKey,
+		Certificate:  cert,
+		LifetimeSecs: ttl,
+	})
 }
 
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
