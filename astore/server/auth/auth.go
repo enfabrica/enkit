@@ -10,6 +10,7 @@ import (
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/oauth"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/codes"
@@ -39,11 +40,11 @@ type Server struct {
 
 type Jar struct {
 	created time.Time
-	channel chan string
+	channel chan oauth.AuthData
 	cancel  context.CancelFunc
 }
 
-func (s *Server) GetChannel(cancel context.CancelFunc, pub common.Key) chan string {
+func (s *Server) GetChannel(cancel context.CancelFunc, pub common.Key) chan oauth.AuthData {
 	s.jarlock.Lock()
 	defer s.jarlock.Unlock()
 
@@ -62,7 +63,7 @@ func (s *Server) GetChannel(cancel context.CancelFunc, pub common.Key) chan stri
 		//
 		// This allows a client supllying a token to not block until the token
 		// has in facts been consumed.
-		channel: make(chan string, 1),
+		channel: make(chan oauth.AuthData, 1),
 		cancel:  cancel,
 	}
 	s.jars[pub] = jar
@@ -81,7 +82,7 @@ func (s *Server) Authenticate(ctx context.Context, req *auth.AuthenticateRequest
 	return resp, nil
 }
 
-func (s *Server) FeedToken(key common.Key, cookie string) {
+func (s *Server) FeedToken(key common.Key, cookie oauth.AuthData) {
 	channel := s.GetChannel(nil, key)
 	channel <- cookie
 }
@@ -91,7 +92,6 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 	if err != nil {
 		return nil, err
 	}
-
 	ctx, cancel := context.WithCancel(ctx)
 	channel := s.GetChannel(cancel, *clientPub)
 	select {
@@ -100,7 +100,7 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 	case <-time.After(s.limit):
 		return nil, status.Errorf(codes.DeadlineExceeded, "timed out waiting for your lazy fingers to complete authentication")
 
-	case token := <-channel:
+	case authData := <-channel:
 		var nonce [common.NonceLength]byte
 		if _, err := io.ReadFull(s.rng, nonce[:]); err != nil {
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
@@ -109,16 +109,17 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if s.caSigner == nil {
 			return &auth.TokenResponse{
 				Nonce: nonce[:],
-				Token: box.Seal(nil, []byte(token), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
+				Token: box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			}, nil
 		}
-		userPrivateKey, userCert, err := kcerts.GenerateUserSSHCert(s.caSigner, ssh.UserCert, s.principals, s.userCertTTL)
+		effectivePrincipals := append(s.principals, authData.Creds.Identity.Username)
+		userPrivateKey, userCert, err := kcerts.GenerateUserSSHCert(s.caSigner, ssh.UserCert, effectivePrincipals, s.userCertTTL)
 		if err != nil {
 			return nil, fmt.Errorf("error generating certificates: %w", err)
 		}
 		return &auth.TokenResponse{
 			Nonce:       nonce[:],
-			Token:       box.Seal(nil, []byte(token), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
+			Token:       box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			Capublickey: s.marshalledCAPublicKey,
 			// Always trust the CA for now since the DNS gets resolved behind tunnel and therefore the client doesn't know
 			// which to trust

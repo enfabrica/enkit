@@ -1,4 +1,4 @@
-package controller
+package mserver
 
 import (
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
@@ -6,11 +6,25 @@ import (
 	"sync"
 )
 
-type Worker struct {
+type Controller struct {
+	connectedNodes      map[string]*Node
+	connectedNodesMutex sync.RWMutex
 }
 
-type Controller struct {
-	workers sync.Map
+func (en *Controller) Nodes() []*Node {
+	en.connectedNodesMutex.RLock()
+	defer en.connectedNodesMutex.RUnlock()
+	var nodes []*Node
+	for _, v := range en.connectedNodes {
+		nodes = append(nodes, v)
+	}
+	return nodes
+}
+
+func (en *Controller) Node(name string) *Node {
+	en.connectedNodesMutex.RLock()
+	defer en.connectedNodesMutex.RUnlock()
+	return en.connectedNodes[name]
 }
 
 func (en *Controller) Download(*machinist.DownloadRequest, machinist.Controller_DownloadServer) error {
@@ -29,18 +43,26 @@ func (en *Controller) HandlePing(stream machinist.Controller_PollServer, ping *m
 					Payload: ping.Payload,
 				},
 			},
-	})
+		})
 
 }
 
 func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, ping *machinist.ClientRegister) error {
+	n := &Node{
+		Name: ping.Name,
+		Tags: ping.Tag,
+	}
+	en.connectedNodesMutex.Lock()
+	en.connectedNodes[ping.Name] = n
+	en.connectedNodesMutex.Unlock()
 	return stream.Send(
 		&machinist.PollResponse{
 			Resp: &machinist.PollResponse_Result{
 				Result: &machinist.ActionResult{
+
 				},
 			},
-	})
+		})
 
 }
 
@@ -61,5 +83,4 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 			log.Printf("Got REGISTER %#v", *r.Register)
 		}
 	}
-	return nil
 }

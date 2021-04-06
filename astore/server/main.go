@@ -233,7 +233,7 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		}
 
 		if key, ok := data.State.(common.Key); ok {
-			authServer.FeedToken(key, data.Cookie)
+			authServer.FeedToken(key, data)
 		}
 		if !handled {
 			ShowResult(w, r, "thumbs-up", "Good Job!", messageSuccess, http.StatusOK)
