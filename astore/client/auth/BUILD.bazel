@@ -8,9 +8,13 @@ go_library(
     deps = [
         "//astore/common:go_default_library",
         "//astore/rpc:auth-go",
+        "//lib/cache:go_default_library",
         "//lib/client/ccontext:go_default_library",
+        "//lib/kcerts:go_default_library",
+        "//lib/logger:go_default_library",
         "@com_github_pkg_browser//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_x_crypto//nacl/box:go_default_library",
+        "@org_golang_x_crypto//ssh:go_default_library",
     ],
 )

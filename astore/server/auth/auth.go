@@ -9,6 +9,7 @@ import (
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
@@ -34,6 +35,7 @@ type Server struct {
 	principals            []string
 	marshalledCAPublicKey []byte
 	userCertTTL           time.Duration
+	log                   logger.Logger
 }
 
 type Jar struct {
@@ -102,6 +104,13 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		var nonce [common.NonceLength]byte
 		if _, err := io.ReadFull(s.rng, nonce[:]); err != nil {
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
+		}
+		// if the ca signer is nil that means the CA was never passed in flags
+		if s.caSigner == nil {
+			return &auth.TokenResponse{
+				Nonce: nonce[:],
+				Token: box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
+			}, nil
 		}
 		effectivePrincipals := append(s.principals, authData.Creds.Identity.Username)
 		userPrivateKey, userCert, err := kcerts.GenerateUserSSHCert(s.caSigner, ssh.UserCert, effectivePrincipals, s.userCertTTL)
