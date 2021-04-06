@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"errors"
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"math/rand"
@@ -79,6 +78,9 @@ func WithTimeLimit(limit time.Duration) Modifier {
 
 func WithCA(fileContent []byte) Modifier {
 	return func(server *Server) error {
+		if len(fileContent) == 0 {
+			return nil
+		}
 		signer, err := ssh.ParsePrivateKey(fileContent)
 		if err != nil {
 			return err
@@ -92,9 +94,6 @@ func WithCA(fileContent []byte) Modifier {
 func WithPrincipals(raw string) Modifier {
 	return func(server *Server) error {
 		splitString := strings.Split(raw, ",")
-		if len(splitString) == 0 || (len(splitString) == 1 && splitString[0] == "") {
-			return errors.New("there cannot be 0 principals in the auth server")
-		}
 		server.principals = splitString
 		return nil
 	}

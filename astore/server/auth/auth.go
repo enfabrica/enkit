@@ -103,6 +103,13 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if _, err := io.ReadFull(s.rng, nonce[:]); err != nil {
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
 		}
+		// if the ca signer is nil that means the CA was never passed in flags
+		if s.caSigner == nil {
+			return &auth.TokenResponse{
+				Nonce: nonce[:],
+				Token: box.Seal(nil, []byte(token), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
+			}, nil
+		}
 		userPrivateKey, userCert, err := kcerts.GenerateUserSSHCert(s.caSigner, ssh.UserCert, s.principals, s.userCertTTL)
 		if err != nil {
 			return nil, fmt.Errorf("error generating certificates: %w", err)
