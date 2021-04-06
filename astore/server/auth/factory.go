@@ -31,7 +31,7 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.DurationVar(&f.TimeLimit, prefix+"time-limit", f.TimeLimit, "How long to wait at most for the user to complete authentication, before freeing resources")
 	set.DurationVar(&f.UserCertTimeLimit, prefix+"user-cert-ttl", 24*time.Hour, "How long a user's ssh certificates are valid for before they expire")
 	set.StringVar(&f.Principals, prefix+"principals", f.Principals, "Authorized ssh users which the ability to auth, in a comma separated string e.g. \"john,root,admin,smith\"")
-	set.ByteFileVar(&f.CA, prefix+"ca", "/etc/ssh/ca.pem", "Path to the certificate authority private file")
+	set.ByteFileVar(&f.CA, prefix+"ca", "", "Path to the certificate authority private file")
 	return f
 }
 
@@ -80,7 +80,7 @@ func WithTimeLimit(limit time.Duration) Modifier {
 func WithCA(fileContent []byte) Modifier {
 	return func(server *Server) error {
 		if len(fileContent) == 0 {
-			server.log.Warnf("CA file not found - will operate without certificates")
+			server.log.Warnf("CA file not specified - will operate without certificates")
 			return nil
 		}
 		signer, err := ssh.ParsePrivateKey(fileContent)
