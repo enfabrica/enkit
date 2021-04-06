@@ -9,6 +9,7 @@ import (
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/logger"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/codes"
@@ -33,6 +34,7 @@ type Server struct {
 	principals            []string
 	marshalledCAPublicKey []byte
 	userCertTTL           time.Duration
+	log                   logger.Logger
 }
 
 type Jar struct {

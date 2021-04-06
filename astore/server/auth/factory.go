@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"github.com/enfabrica/enkit/lib/logger"
 	"golang.org/x/crypto/ssh"
 	"math/rand"
 	"strings"
@@ -79,6 +80,7 @@ func WithTimeLimit(limit time.Duration) Modifier {
 func WithCA(fileContent []byte) Modifier {
 	return func(server *Server) error {
 		if len(fileContent) == 0 {
+			server.log.Warnf("CA file not found - will operate without certificates")
 			return nil
 		}
 		signer, err := ssh.ParsePrivateKey(fileContent)
@@ -102,6 +104,13 @@ func WithPrincipals(raw string) Modifier {
 func WithUserCertTimeLimit(duration time.Duration) Modifier {
 	return func(server *Server) error {
 		server.userCertTTL = duration
+		return nil
+	}
+}
+
+func WithLogger(log logger.Logger) Modifier {
+	return func(server *Server) error {
+		server.log = log
 		return nil
 	}
 }
