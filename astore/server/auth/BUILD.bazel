@@ -13,6 +13,7 @@ go_library(
         "//astore/rpc:auth-go",
         "//lib/kcerts:go_default_library",
         "//lib/kflags:go_default_library",
+        "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
