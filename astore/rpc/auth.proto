@@ -26,9 +26,20 @@ message TokenResponse {
   repeated string cahosts = 6; // List of hosts the CA should be trusted for
 }
 
+message HostCertificateRequest {
+  repeated string principals = 1; // List of principals you want to be able too ssh into this server
+}
+
+message HostCertificateResponse {
+  bytes capublickey = 1; // The CA public key
+  bytes hostcert = 2; // The signed host certificate
+}
+
 service Auth {
   // Use to retrieve the url to visit to create an authentication token.
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   // Use to retrieve an authentication token.
   rpc Token(TokenRequest) returns (TokenResponse) {}
+
+  rpc HostCertificate(HostCertificateRequest) returns (HostCertificateResponse) {}
 }
