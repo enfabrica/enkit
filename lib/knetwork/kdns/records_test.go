@@ -118,6 +118,8 @@ func TestController(t *testing.T) {
 	assert.Equal(t, 5, len(aRecords))
 
 	time.Sleep(6 * time.Second)
+	// Doing this because I think there might be a mem leak but cannot find it with pprof or any analyzer. I might just be paranoid or not
+	// know how unbuffered channel work under the hood that well
 	m2 := &runtime.MemStats{}
 	runtime.ReadMemStats(m2)
 	fmt.Println("before:", m.HeapAlloc, "versus after:", m2.HeapAlloc)
