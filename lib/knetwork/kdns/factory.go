@@ -3,14 +3,16 @@ package kdns
 import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/logger/klog"
-	"github.com/miekg/dns"
 	"net"
 )
 
 func NewDNS(mods ...DNSModifier) (*DnsServer, error) {
 	s := &DnsServer{
-		routeMap: make(map[string][]string),
-		Logger:   &logger.NilLogger{},
+		requestControllerChan: make(chan struct {
+			Return chan *RecordController
+			Origin string
+		}),
+		Logger: &logger.NilLogger{},
 	}
 	for _, mod := range mods {
 		if err := mod(s); err != nil {
@@ -39,9 +41,6 @@ func WithPort(p int) DNSModifier {
 func WithDomains(domains []string) DNSModifier {
 	return func(s *DnsServer) error {
 		s.domains = domains
-		for _, d :=  range domains {
-			s.routeMap[dns.Fqdn(d)] = &BaseRecord{}
-		}
 		return nil
 	}
 }
@@ -59,4 +58,3 @@ func WithHost(ip string) DNSModifier {
 		return nil
 	}
 }
-
