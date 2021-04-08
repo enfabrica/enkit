@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/spf13/cobra"
 	"os"
@@ -83,7 +84,11 @@ func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 	ecmd.Stdin = os.Stdin
 	ecmd.Stdout = os.Stdout
 	ecmd.Stderr = os.Stderr
-
+	agent, err := kcerts.FindSSHAgent(r.BaseFlags.Local, r.Log)
+	if err != nil {
+		return err
+	}
+	ecmd = agent.AddToCmd(ecmd)
 	if err := ecmd.Start(); err != nil {
 		return fmt.Errorf("failed to start command %s: %w", ecmd, err)
 	}
