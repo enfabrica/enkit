@@ -27,12 +27,12 @@ message TokenResponse {
 }
 
 message HostCertificateRequest {
-  repeated string principals = 1; // List of principals you want to be able too ssh into this server
+  repeated string hosts = 1; // List of dns names you want this server to be authorized to be. Does not have to be valid TLDs.
 }
 
 message HostCertificateResponse {
-  bytes capublickey = 1; // The CA public key
-  bytes hostcert = 2; // The signed host certificate
+  bytes capublickey = 1; // The CA public key.
+  bytes hostcert = 2; // The signed host certificate.
 }
 
 service Auth {
@@ -40,6 +40,6 @@ service Auth {
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   // Use to retrieve an authentication token.
   rpc Token(TokenRequest) returns (TokenResponse) {}
-
+  // Used to retrieve an SSH certificate for a host.
   rpc HostCertificate(HostCertificateRequest) returns (HostCertificateResponse) {}
 }
