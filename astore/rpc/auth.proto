@@ -26,9 +26,20 @@ message TokenResponse {
   repeated string cahosts = 6; // List of hosts the CA should be trusted for
 }
 
+message HostCertificateRequest {
+  bytes hostcert = 1; // The public key of the host that will be returned as signed by the CA
+}
+
+message HostCertificateResponse {
+  bytes capublickey = 1; // The CA public key.
+  bytes signedhostcert = 2; // The signed host certificate passed in the request.
+}
+
 service Auth {
   // Use to retrieve the url to visit to create an authentication token.
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   // Use to retrieve an authentication token.
   rpc Token(TokenRequest) returns (TokenResponse) {}
+  // Used to retrieve an SSH certificate for a host.
+  rpc HostCertificate(HostCertificateRequest) returns (HostCertificateResponse) {}
 }
