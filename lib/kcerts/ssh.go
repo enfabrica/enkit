@@ -118,6 +118,10 @@ func (a SSHAgent) AddCertificates(privateKey *rsa.PrivateKey, publicKey ssh.Publ
 	})
 }
 
+func (a SSHAgent) GetEnv() []string {
+	return []string{fmt.Sprintf("SSH_AUTH_SOCK=%s", a.Socket), fmt.Sprintf("SSH_AGENT_PID=%d", a.PID)}
+}
+
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // It will pull, in order: from the env, from the cache, create new.
 func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
