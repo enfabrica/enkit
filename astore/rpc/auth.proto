@@ -27,12 +27,12 @@ message TokenResponse {
 }
 
 message HostCertificateRequest {
-  repeated string hosts = 1; // List of dns names you want this server to be authorized to be. Does not have to be valid TLDs.
+  bytes hostcert = 1; // The public key of the host that will be returned as signed by the CA
 }
 
 message HostCertificateResponse {
   bytes capublickey = 1; // The CA public key.
-  bytes hostcert = 2; // The signed host certificate.
+  bytes signedhostcert = 2; // The signed host certificate passed in the request.
 }
 
 service Auth {
