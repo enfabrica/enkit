@@ -38,18 +38,6 @@ type Server struct {
 	log                   logger.Logger
 }
 
-func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertificateRequest) (*auth.HostCertificateResponse, error) {
-	_, hostCert, err := kcerts.GenerateUserSSHCert(s.caSigner, ssh.HostCert, request.Hosts, s.userCertTTL)
-	if err != nil {
-		return nil, err
-	}
-	resp := &auth.HostCertificateResponse{
-		Capublickey: s.marshalledCAPublicKey,
-		Hostcert:    ssh.MarshalAuthorizedKey(hostCert),
-	}
-	return resp, nil
-}
-
 type Jar struct {
 	created time.Time
 	channel chan oauth.AuthData
