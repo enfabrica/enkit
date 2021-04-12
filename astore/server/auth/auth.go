@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
@@ -40,6 +41,9 @@ type Server struct {
 
 func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertificateRequest) (*auth.HostCertificateResponse, error) {
 	b, _ := pem.Decode(request.Hostcert)
+	if b == nil {
+		return nil, errors.New("the public key was empty, or was an invlaid block")
+	}
 	pubKey, err := ssh.ParsePublicKey(b.Bytes)
 	if err != nil {
 		return nil, err
