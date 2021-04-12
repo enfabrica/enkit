@@ -220,3 +220,22 @@ func makeKeys() (*rsa.PrivateKey, ssh.PublicKey, error) {
 	}
 	return privateKey, publicKey, err
 }
+
+// SignPublicKey will sign and return credentials based on the CA signer and given parameters
+// to generate a user cert, certType must be 1, and host certs ust have certType 2
+func SignPublicKey(ca ssh.Signer, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
+	from := time.Now().UTC()
+	to := time.Now().UTC().Add(ttl * time.Hour)
+	cert := &ssh.Certificate{
+		CertType:        certType,
+		Key:             pub,
+		ValidAfter:      uint64(from.Unix()),
+		ValidBefore:     uint64(to.Unix()),
+		ValidPrincipals: principals,
+		Permissions:     ssh.Permissions{},
+	}
+	if err := cert.SignCert(rand.Reader, ca); err != nil {
+		return nil, err
+	}
+	return cert, nil
+}

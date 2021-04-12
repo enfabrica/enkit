@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
@@ -36,6 +37,25 @@ type Server struct {
 	marshalledCAPublicKey []byte
 	userCertTTL           time.Duration
 	log                   logger.Logger
+}
+
+func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertificateRequest) (*auth.HostCertificateResponse, error) {
+	b, _ := pem.Decode(request.Hostcert)
+	if b == nil {
+		return nil, errors.New("the public key was empty, or was an invlaid block")
+	}
+	pubKey, err := ssh.ParsePublicKey(b.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	cert, err := kcerts.SignPublicKey(s.caSigner, ssh.HostCert, request.Hosts, s.userCertTTL, pubKey)
+	if err != nil {
+		return nil, err
+	}
+	return &auth.HostCertificateResponse{
+		Capublickey:    s.marshalledCAPublicKey,
+		Signedhostcert: ssh.MarshalAuthorizedKey(cert),
+	}, nil
 }
 
 type Jar struct {
