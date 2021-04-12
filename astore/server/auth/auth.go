@@ -38,6 +38,22 @@ type Server struct {
 	log                   logger.Logger
 }
 
+func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertificateRequest) (*auth.HostCertificateResponse, error) {
+	b, _ := pem.Decode(request.Hostcert)
+	pubKey, err := ssh.ParsePublicKey(b.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	cert, err := kcerts.SignPublicKey(s.caSigner, ssh.HostCert, request.Hosts, s.userCertTTL, pubKey)
+	if err != nil {
+		return nil, err
+	}
+	return &auth.HostCertificateResponse{
+		Capublickey:    s.marshalledCAPublicKey,
+		Signedhostcert: ssh.MarshalAuthorizedKey(cert),
+	}, nil
+}
+
 type Jar struct {
 	created time.Time
 	channel chan oauth.AuthData

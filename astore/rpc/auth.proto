@@ -28,6 +28,7 @@ message TokenResponse {
 
 message HostCertificateRequest {
   bytes hostcert = 1; // The public key of the host that will be returned as signed by the CA
+  repeated string hosts = 2; // A list of DNS names you wish for the host to have.
 }
 
 message HostCertificateResponse {
