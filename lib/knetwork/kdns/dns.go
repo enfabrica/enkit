@@ -11,13 +11,11 @@ type DnsServer struct {
 	Listener net.Listener
 	Logger   logger.Logger
 	Port     int
-	// recordControllers is a read-only map that only gets populated at start. It contains controllers for all the domains
-	// that are supported
+
 	domains   []string
 	host      string
 	dnsServer *dns.Server
 
-	// controllerMap contains all controllers
 	requestControllerChan chan struct {
 		Return chan *RecordController
 		Origin string
