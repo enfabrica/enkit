@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["login.go"],
+    importpath = "github.com/enfabrica/enkit/lib/enauth",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//astore/common:go_default_library",
+        "//astore/rpc:auth-go",
+        "//lib/config/identity:go_default_library",
+        "//lib/kcerts:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/retry:go_default_library",
+        "//lib/srand:go_default_library",
+        "@org_golang_x_crypto//nacl/box:go_default_library",
+        "@org_golang_x_crypto//ssh:go_default_library",
+    ],
+)

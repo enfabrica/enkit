@@ -1,10 +1,15 @@
 package mnode
 
-import "github.com/enfabrica/enkit/machinist"
+import (
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/retry"
+	"log"
+)
 
 func New(mods ...NodeModifier) (*Node, error) {
 	n := &Node{
-		SharedFlags: &machinist.SharedFlags{},
+		Log: logger.DefaultLogger{Printer: log.Printf},
+		Repeater: retry.New(),
 	}
 	for _, m := range mods {
 		if err := m(n); err != nil {

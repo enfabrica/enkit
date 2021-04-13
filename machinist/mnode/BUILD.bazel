@@ -3,6 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "auth.go",
+        "commands.go",
         "factory.go",
         "flags.go",
         "mnode.go",
@@ -10,8 +12,15 @@ go_library(
     importpath = "github.com/enfabrica/enkit/machinist/mnode",
     visibility = ["//visibility:public"],
     deps = [
+        "//astore/rpc:auth-go",
+        "//lib/enauth:go_default_library",
+        "//lib/kcerts:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/retry:go_default_library",
         "//machinist:go_default_library",
         "//machinist/rpc:machinist-go",
+        "@com_github_spf13_cobra//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_x_crypto//ssh:go_default_library",
     ],
 )

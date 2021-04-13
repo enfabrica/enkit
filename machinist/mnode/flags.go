@@ -1,9 +1,26 @@
 package mnode
 
 import (
+	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/machinist"
 	"google.golang.org/grpc"
 )
+
+type NodeFlags struct {
+	Name     string
+	Tags     []string
+	DnsNames []string
+	ms       *machinist.SharedFlags
+}
+
+func (nf *NodeFlags) MachinistFlags() *machinist.SharedFlags {
+	return nf.ms
+}
+
+func (nf NodeFlags) ToModifiers() []NodeModifier {
+	var toReturn []NodeModifier
+	return toReturn
+}
 
 type NodeModifier func(node *Node) error
 
@@ -53,6 +70,13 @@ func WithTags(tags []string) NodeModifier {
 func WithDialFunc(f func() (*grpc.ClientConn, error)) NodeModifier {
 	return func(node *Node) error {
 		node.DialFunc = f
+		return nil
+	}
+}
+
+func WithAuthClient(c auth.AuthClient) NodeModifier {
+	return func(node *Node) error {
+		node.AuthClient = c
 		return nil
 	}
 }

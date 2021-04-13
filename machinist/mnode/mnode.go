@@ -3,23 +3,27 @@ package mnode
 import (
 	"context"
 	"fmt"
-	"github.com/enfabrica/enkit/machinist"
+	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/retry"
 	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"google.golang.org/grpc"
 	"time"
 )
 
 type Node struct {
-	Client machinist_rpc.ControllerClient
-	*machinist.SharedFlags
-	Name string
-	Tags []string
+	Name     string
+	DnsNames []string
+	Tags     []string
+	Token    string
+
+	MachinistClient machinist_rpc.ControllerClient
+	AuthClient      auth.AuthClient
+	Repeater        *retry.Options
+	Log             logger.Logger
+
 	// Dial func will override any existing options to connect
 	DialFunc func() (*grpc.ClientConn, error)
-}
-
-func (n *Node) Flags() *machinist.SharedFlags {
-	return n.SharedFlags
 }
 
 func (n *Node) Init() error {
@@ -28,7 +32,7 @@ func (n *Node) Init() error {
 		if err != nil {
 			return err
 		}
-		n.Client = machinist_rpc.NewControllerClient(conn)
+		n.MachinistClient = machinist_rpc.NewControllerClient(conn)
 		return nil
 	}
 	panic("not implemented yet")
@@ -36,7 +40,7 @@ func (n *Node) Init() error {
 
 func (n *Node) BeginPolling() error {
 	ctx := context.Background()
-	pollStream, err := n.Client.Poll(ctx)
+	pollStream, err := n.MachinistClient.Poll(ctx)
 	if err != nil {
 		return err
 	}
