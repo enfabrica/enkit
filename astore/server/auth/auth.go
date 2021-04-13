@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -132,8 +131,17 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 				Token: box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			}, nil
 		}
+		// if the ca signer was present, continuing with public keys
+		b, _ := pem.Decode(req.Publickey)
+		if b == nil {
+			return nil, errors.New("public key not sent on a CA enabled server")
+		}
+		savedPubKey, err := ssh.ParsePublicKey(b.Bytes)
+		if err != nil {
+			return nil, err
+		}
 		effectivePrincipals := append(s.principals, authData.Creds.Identity.Username)
-		userPrivateKey, userCert, err := kcerts.GenerateUserSSHCert(s.caSigner, ssh.UserCert, effectivePrincipals, s.userCertTTL)
+		userCert, err := kcerts.SignPublicKey(s.caSigner, ssh.UserCert, effectivePrincipals, s.userCertTTL, savedPubKey)
 		if err != nil {
 			return nil, fmt.Errorf("error generating certificates: %w", err)
 		}
@@ -145,10 +153,6 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 			// which to trust
 			Cahosts: []string{"*"},
 			Cert:    ssh.MarshalAuthorizedKey(userCert),
-			Key: pem.EncodeToMemory(&pem.Block{
-				Type:  "RSA PRIVATE KEY",
-				Bytes: x509.MarshalPKCS1PrivateKey(userPrivateKey),
-			}),
 		}, nil
 	}
 

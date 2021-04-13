@@ -495,10 +495,10 @@ func (a *Authenticator) PerformLogin(w http.ResponseWriter, r *http.Request, lm 
 }
 
 type AuthData struct {
-	Creds  *CredentialsCookie
-	Cookie string
-	Target string
-	State  interface{}
+	Creds         *CredentialsCookie
+	Cookie        string
+	Target        string
+	State         interface{}
 }
 
 func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (AuthData, error) {
