@@ -2,6 +2,7 @@ package mnode
 
 import (
 	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/machinist"
 	"google.golang.org/grpc"
 )
@@ -11,6 +12,7 @@ type NodeFlags struct {
 	Tags     []string
 	DnsNames []string
 	ms       *machinist.SharedFlags
+	af       *client.AuthFlags
 }
 
 func (nf *NodeFlags) MachinistFlags() *machinist.SharedFlags {
@@ -19,6 +21,11 @@ func (nf *NodeFlags) MachinistFlags() *machinist.SharedFlags {
 
 func (nf NodeFlags) ToModifiers() []NodeModifier {
 	var toReturn []NodeModifier
+	toReturn = append(toReturn,
+		WithName(nf.Name),
+		WithTags(nf.Tags),
+		WithAuthFlags(nf.af),
+	)
 	return toReturn
 }
 
@@ -45,7 +52,7 @@ func WithAuthServer(url string) NodeModifier {
 func WithMachinistFlags(mods ...machinist.Modifier) NodeModifier {
 	return func(n *Node) error {
 		for _, mod := range mods {
-			if err := mod(n); err != nil {
+			if err := mod(n.nf); err != nil {
 				return err
 			}
 		}
@@ -55,14 +62,14 @@ func WithMachinistFlags(mods ...machinist.Modifier) NodeModifier {
 
 func WithName(name string) NodeModifier {
 	return func(node *Node) error {
-		node.Name = name
+		node.nf.Name = name
 		return nil
 	}
 }
 
 func WithTags(tags []string) NodeModifier {
 	return func(node *Node) error {
-		node.Tags = tags
+		node.nf.Tags = tags
 		return nil
 	}
 }
@@ -74,9 +81,13 @@ func WithDialFunc(f func() (*grpc.ClientConn, error)) NodeModifier {
 	}
 }
 
-func WithAuthClient(c auth.AuthClient) NodeModifier {
+func WithAuthFlags(af *client.AuthFlags) NodeModifier {
 	return func(node *Node) error {
-		node.AuthClient = c
+		cc, err := af.Connect()
+		if err != nil {
+			return err
+		}
+		node.AuthClient = auth.NewAuthClient(cc)
 		return nil
 	}
 }

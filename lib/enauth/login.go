@@ -26,7 +26,7 @@ type EnkitCredentials struct {
 	SSHCertificate *ssh.Certificate
 }
 
-// PerformLogin will login with the provider auth client and logger. Generally
+// PerformLogin will login with the provider auth client, retry and logger.
 func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.Options, user string) (*EnkitCredentials, error) {
 	username, domain := identity.SplitUsername(user, "")
 	rng := rand.New(srand.Source)

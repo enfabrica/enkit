@@ -12,11 +12,6 @@ import (
 )
 
 type Node struct {
-	Name     string
-	DnsNames []string
-	Tags     []string
-	Token    string
-
 	MachinistClient machinist_rpc.ControllerClient
 	AuthClient      auth.AuthClient
 	Repeater        *retry.Options
@@ -24,6 +19,8 @@ type Node struct {
 
 	// Dial func will override any existing options to connect
 	DialFunc func() (*grpc.ClientConn, error)
+
+	nf *NodeFlags
 }
 
 func (n *Node) Init() error {
@@ -47,8 +44,8 @@ func (n *Node) BeginPolling() error {
 	initialRequest := &machinist_rpc.PollRequest{
 		Req: &machinist_rpc.PollRequest_Register{
 			Register: &machinist_rpc.ClientRegister{
-				Name: n.Name,
-				Tag:  n.Tags,
+				Name: n.nf.Name,
+				Tag:  n.nf.Tags,
 			},
 		},
 	}

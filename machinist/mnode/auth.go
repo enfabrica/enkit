@@ -20,7 +20,7 @@ func (n *Node) Enroll(user string) error {
 		return err
 	}
 	hreq := &auth.HostCertificateRequest{
-		Hosts: n.DnsNames,
+		Hosts:    n.nf.DnsNames,
 		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pub)}),
 	}
 	resp, err := n.AuthClient.HostCertificate(context.TODO(), hreq)
