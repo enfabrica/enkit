@@ -124,18 +124,16 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if _, err := io.ReadFull(s.rng, nonce[:]); err != nil {
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
 		}
-		// if the ca signer is nil that means the CA was never passed in flags
-		if s.caSigner == nil {
+		b, _ := pem.Decode(req.Publickey)
+		// if the ca signer is nil that means the CA was never passed in flags, if the request never sent a public key
+		// then so ssh certs will be sent back
+		if s.caSigner == nil || b == nil {
 			return &auth.TokenResponse{
 				Nonce: nonce[:],
 				Token: box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			}, nil
 		}
 		// if the ca signer was present, continuing with public keys
-		b, _ := pem.Decode(req.Publickey)
-		if b == nil {
-			return nil, errors.New("public key not sent on a CA enabled server")
-		}
 		savedPubKey, err := ssh.ParsePublicKey(b.Bytes)
 		if err != nil {
 			return nil, err
