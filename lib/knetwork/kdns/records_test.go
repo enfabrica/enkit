@@ -2,8 +2,11 @@ package kdns
 
 import (
 	"fmt"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
+	"log"
 	"runtime"
 	"testing"
 	"time"
@@ -13,20 +16,8 @@ func TestController(t *testing.T) {
 	m := &runtime.MemStats{}
 	runtime.ReadMemStats(m)
 
-	controller := NewRecordController()
+	controller := NewRecordController(logger.DefaultLogger{Printer: log.Printf})
 
-	var errList []RecordControllerErr
-	var countErrors = make(chan bool, 1)
-	go func() {
-		for {
-			select {
-			case a := <-controller.ErrorChan:
-				errList = append(errList, a)
-			case <-countErrors:
-				assert.Equal(t, 4, len(errList))
-			}
-		}
-	}()
 	var rr []dns.RR
 	testTxt := []string{
 		"my life for aiur", "for the swarm", "foo bar baz",
@@ -74,7 +65,6 @@ func TestController(t *testing.T) {
 		assert.Equal(t, true, ok)
 	}
 	assert.Equal(t, 6, len(txtRecords))
-	countErrors <- true
 	// i'm running this because I think there might be a memleak that I couldn't find on pprof. I might be paranoid or
 	// the behaviour of unbuffered channels have changed
 
@@ -123,5 +113,6 @@ func TestController(t *testing.T) {
 	m2 := &runtime.MemStats{}
 	runtime.ReadMemStats(m2)
 	fmt.Println("before:", m.HeapAlloc, "versus after:", m2.HeapAlloc)
-
+	controller.Close()
+	defer goleak.VerifyNone(t)
 }

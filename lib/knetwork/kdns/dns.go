@@ -20,11 +20,15 @@ type DnsServer struct {
 		Return chan *RecordController
 		Origin string
 	}
+
+	shutdown chan bool
+	shutdownSuccess chan bool
 }
 
 // Run starts the server and is blocking. It will returning an error on close if it did not exist gracefully. To close the
 // DnsServer gracefully, call Stop
 func (s *DnsServer) Run() error {
+
 	mux := dns.NewServeMux()
 	for _, domain := range s.domains {
 		mux.HandleFunc(dns.Fqdn(domain), s.HandleIncoming)
@@ -43,15 +47,11 @@ func (s *DnsServer) Run() error {
 }
 
 func (s *DnsServer) Stop() error {
+	s.shutdown <- true
+	<- s.shutdownSuccess
 	return s.dnsServer.Shutdown()
 }
 
-func logControllerError(log logger.Logger, errChan chan RecordControllerErr) {
-	for {
-		e := <-errChan
-		log.Errorf("%s", e)
-	}
-}
 
 // AddEntry will append a
 func (s *DnsServer) AddEntry(name string, rr dns.RR) {
@@ -86,15 +86,21 @@ func (s *DnsServer) ControllerForName(origin string) *RecordController {
 
 func (s DnsServer) HandleControllers() {
 	controllerMap := map[string]*RecordController{}
+	defer close(s.requestControllerChan)
 	for {
 		select {
 		case o := <-s.requestControllerChan:
 			if controllerMap[o.Origin] == nil {
-				c := NewRecordController()
-				go logControllerError(s.Logger, c.ErrorChan)
+				c := NewRecordController(s.Logger)
 				controllerMap[o.Origin] = c
 			}
 			o.Return <- controllerMap[o.Origin]
+		case _ = <- s.shutdown:
+			for _, c := range controllerMap {
+				c.Close()
+			}
+			s.shutdownSuccess <- true
+			return
 		}
 	}
 }

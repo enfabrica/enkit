@@ -3,6 +3,7 @@ package kdns
 import (
 	"errors"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/miekg/dns"
 	"strings"
 )
@@ -20,13 +21,14 @@ var (
 	RecordWrite      RecordOp = 2
 	RecordWriteForce RecordOp = 3
 	RecordEdit       RecordOp = 4
+	Shutdown         RecordOp = 5
 )
 
 // RecordController is a controller that specifically controls a single domain. It handles adding, removing and editing
 // dns records in place and should never error out. All methods write errors to the controllers error channel, and operate on
 // a fire and forget methodology.
 type RecordController struct {
-	ErrorChan chan RecordControllerErr
+	Log logger.Logger
 
 	aRecords   chan []dns.RR
 	aRecordOps chan recordOperation
@@ -64,9 +66,16 @@ func handleOperation(src []dns.RR, operation recordOperation) []dns.RR {
 
 func (rc *RecordController) watchARecords() {
 	var aRecords []dns.RR
+	defer rc.Log.Warnf("exiting a records")
+	defer close(rc.aRecords)
+	defer close(rc.aRecordOps)
 	for {
 		select {
 		case operation := <-rc.aRecordOps:
+			if operation.Type == Shutdown {
+				rc.Log.Warnf("shutting down A record server")
+				return
+			}
 			aRecords = handleOperation(aRecords, operation)
 		case rc.aRecords <- aRecords:
 		}
@@ -78,6 +87,9 @@ func (rc *RecordController) watchTxtRecords() {
 	for {
 		select {
 		case operation := <-rc.txtRecordOps:
+			if operation.Type == Shutdown {
+				return
+			}
 			txtRecords = handleOperation(txtRecords, operation)
 		case rc.txtRecords <- txtRecords:
 		}
@@ -107,8 +119,8 @@ func (rc *RecordController) AddRecords(rr []dns.RR) {
 		case dns.TypeTXT:
 			rc.txtRecordOps <- recordOperation{Type: RecordWrite, Record: r}
 		default:
-			rc.ErrorChan <- fmt.Errorf("kdns currently does not support record type %s: full record: %v",
-				r.Header().String(), r.String())
+			rc.Log.Errorf("%s", fmt.Errorf("kdns currently does not support record type %s: full record: %v",
+				r.Header().String(), r.String()))
 		}
 	}
 }
@@ -125,8 +137,7 @@ func (rc *RecordController) SetRecords(rr []dns.RR) {
 		case dns.TypeTXT:
 			txtRecords = append(txtRecords, r)
 		default:
-			rc.ErrorChan <- fmt.Errorf("kdns currently does not support record type %s: full record: %v",
-				r.Header().String(), r.String())
+			rc.Log.Errorf("%s", fmt.Errorf("kdns currently does not support record type %s: full record: %v", r.Header().String(), r.String()))
 		}
 	}
 	if len(txtRecords) != 0 {
@@ -149,7 +160,7 @@ func (rc *RecordController) EditRecords(rrs []dns.RR, keywords []string) {
 		case dns.TypeTXT:
 			txtRecords = append(txtRecords, r)
 		default:
-			rc.ErrorChan <- fmt.Errorf("%w: %v", UnSupportedTypeErr, r.Header().Rrtype)
+			rc.Log.Errorf("%s", fmt.Errorf("%w: %v", UnSupportedTypeErr, r.Header().Rrtype))
 		}
 	}
 	if len(aRecords) != 0 {
@@ -169,18 +180,18 @@ func (rc *RecordController) DeleteRecords(keywords []string, recordType uint16) 
 	case dns.TypeTXT:
 		rc.txtRecordOps <- recordOperation{Type: RecordDelete, Keywords: keywords}
 	default:
-		rc.ErrorChan <- fmt.Errorf("%w: %v", UnSupportedTypeErr, recordType)
+		rc.Log.Errorf("%s", fmt.Errorf("%w: %v", UnSupportedTypeErr, recordType))
 	}
 }
 
 // NewRecordController create a new controller for a specified origin, or basename;
-func NewRecordController() *RecordController {
+func NewRecordController(l logger.Logger) *RecordController {
 	rc := &RecordController{
-		ErrorChan:    make(chan RecordControllerErr),
 		aRecordOps:   make(chan recordOperation),
 		aRecords:     make(chan []dns.RR),
 		txtRecordOps: make(chan recordOperation),
 		txtRecords:   make(chan []dns.RR),
+		Log:          l,
 	}
 	rc.start()
 	return rc
@@ -200,4 +211,9 @@ func DeleteIfContains(keywords []string, src []dns.RR) []dns.RR {
 		}
 	}
 	return toReturn
+}
+
+func (rc RecordController) Close() {
+	rc.aRecordOps <- recordOperation{Type: Shutdown}
+	rc.txtRecordOps <- recordOperation{Type: Shutdown}
 }

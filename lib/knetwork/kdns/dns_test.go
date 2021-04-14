@@ -7,6 +7,7 @@ import (
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 	"net"
 	"testing"
 	"time"
@@ -34,7 +35,10 @@ func TestDNS(t *testing.T) {
 	go func() {
 		assert.Nil(t, dnsServer.Run())
 	}()
-	defer dnsServer.Stop()
+	defer func() {
+		assert.Nil(t, dnsServer.Stop())
+		goleak.VerifyNone(t)
+	}()
 
 	tips := []string{"10.9.9.9", "10.90.80.70"}
 	var rrs []dns.RR
@@ -78,4 +82,5 @@ func TestDNS(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ips))
 	assert.NotContains(t, ips, "10.9.9.9")
+
 }
