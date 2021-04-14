@@ -89,7 +89,7 @@ func (s *DnsServer) ControllerForName(origin string) *RecordController {
 	return <-returnChan
 }
 
-// NewOrExistingControllerForName will return the controller specified for a specific domain or subdomain. If it does not exist, it
+// NewControllerForName will return the controller specified for a specific domain or subdomain. If it does not exist, it
 // will create a new one.
 func (s *DnsServer) NewControllerForName(origin string) *RecordController {
 	returnChan := make(chan *RecordController, 1)
