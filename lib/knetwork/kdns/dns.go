@@ -21,7 +21,12 @@ type DnsServer struct {
 		Origin string
 	}
 
-	shutdown chan bool
+	newOrExistingControllerChan chan struct {
+		Return chan *RecordController
+		Origin string
+	}
+
+	shutdown        chan bool
 	shutdownSuccess chan bool
 }
 
@@ -48,33 +53,33 @@ func (s *DnsServer) Run() error {
 
 func (s *DnsServer) Stop() error {
 	s.shutdown <- true
-	<- s.shutdownSuccess
+	<-s.shutdownSuccess
 	return s.dnsServer.Shutdown()
 }
-
 
 // AddEntry will append a
 func (s *DnsServer) AddEntry(name string, rr dns.RR) {
 	cleanedName := dns.Fqdn(name)
-	c := s.ControllerForName(cleanedName)
+	c := s.NewControllerForName(cleanedName)
 	c.AddRecords([]dns.RR{rr})
 }
 
 // SetEntry will hard replace an entry. Consider it a force AddEntry
 func (s *DnsServer) SetEntry(name string, records []dns.RR) {
 	cleanedName := dns.Fqdn(name)
-	c := s.ControllerForName(cleanedName)
+	c := s.NewControllerForName(cleanedName)
 	c.SetRecords(records)
 }
 
 // RemoveFromEntry will delete any entries that container the keywords in the record type.
 func (s *DnsServer) RemoveFromEntry(name string, keywords []string, rType uint16) {
 	cleanedName := dns.Fqdn(name)
-	c := s.ControllerForName(cleanedName)
+	c := s.NewControllerForName(cleanedName)
 	c.DeleteRecords(keywords, rType)
 }
 
-//ControllerForName will return the controller specified for a specific domain or subdomain
+// ControllerForName will return the controller specified for a specific domain or subdomain. If it does not exist, it
+// will return nil
 func (s *DnsServer) ControllerForName(origin string) *RecordController {
 	returnChan := make(chan *RecordController, 1)
 	s.requestControllerChan <- struct {
@@ -84,18 +89,31 @@ func (s *DnsServer) ControllerForName(origin string) *RecordController {
 	return <-returnChan
 }
 
+// NewOrExistingControllerForName will return the controller specified for a specific domain or subdomain. If it does not exist, it
+// will create a new one.
+func (s *DnsServer) NewControllerForName(origin string) *RecordController {
+	returnChan := make(chan *RecordController, 1)
+	s.newOrExistingControllerChan <- struct {
+		Return chan *RecordController
+		Origin string
+	}{Return: returnChan, Origin: dns.Fqdn(origin)}
+	return <-returnChan
+}
+
 func (s DnsServer) HandleControllers() {
 	controllerMap := map[string]*RecordController{}
 	defer close(s.requestControllerChan)
+	defer close(s.newOrExistingControllerChan)
 	for {
 		select {
-		case o := <-s.requestControllerChan:
+		case o := <-s.newOrExistingControllerChan:
 			if controllerMap[o.Origin] == nil {
-				c := NewRecordController(s.Logger)
-				controllerMap[o.Origin] = c
+				controllerMap[o.Origin] = NewRecordController(s.Logger)
 			}
 			o.Return <- controllerMap[o.Origin]
-		case _ = <- s.shutdown:
+		case o := <-s.requestControllerChan:
+			o.Return <- controllerMap[o.Origin]
+		case _ = <-s.shutdown:
 			for _, c := range controllerMap {
 				c.Close()
 			}
@@ -123,9 +141,13 @@ func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg)
 // ParseDNS will only handle dns requests from domains that it is specified to handle. I will modify the *dns.Msg inplace
 func (s *DnsServer) ParseDNS(m *dns.Msg) {
 	for _, q := range m.Question {
-		rrs := s.ControllerForName(q.Name).FetchRecords(q.Qtype)
-		for _, txt := range rrs {
-			m.Answer = append(m.Answer, txt)
+		c := s.ControllerForName(q.Name)
+		if c != nil {
+			rrs := c.FetchRecords(q.Qtype)
+			for _, txt := range rrs {
+				m.Answer = append(m.Answer, txt)
+			}
 		}
+
 	}
 }

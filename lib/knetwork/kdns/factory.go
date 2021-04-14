@@ -12,8 +12,12 @@ func NewDNS(mods ...DNSModifier) (*DnsServer, error) {
 			Return chan *RecordController
 			Origin string
 		}),
-		Logger:   &logger.NilLogger{},
-		shutdown: make(chan bool, 1),
+		newOrExistingControllerChan: make(chan struct {
+			Return chan *RecordController
+			Origin string
+		}),
+		Logger:          &logger.NilLogger{},
+		shutdown:        make(chan bool, 1),
 		shutdownSuccess: make(chan bool, 1),
 	}
 	for _, mod := range mods {
