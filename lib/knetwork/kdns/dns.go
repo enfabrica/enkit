@@ -30,8 +30,8 @@ type DnsServer struct {
 	shutdownSuccess chan bool
 }
 
-// Run starts the server and is blocking. It will returning an error on close if it did not exist gracefully. To close the
-// DnsServer gracefully, call Stop
+// Run starts the server and is blocking. It will return an error on close if it did not exit gracefully. To close the
+// DnsServer gracefully, call Stop.
 func (s *DnsServer) Run() error {
 
 	mux := dns.NewServeMux()
@@ -57,7 +57,7 @@ func (s *DnsServer) Stop() error {
 	return s.dnsServer.Shutdown()
 }
 
-// AddEntry will append a
+// AddEntry will append a entries to domain
 func (s *DnsServer) AddEntry(name string, rr dns.RR) {
 	cleanedName := dns.Fqdn(name)
 	c := s.NewControllerForName(cleanedName)
