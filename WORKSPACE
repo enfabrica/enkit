@@ -46,3 +46,10 @@ yarn_install(
     package_json = "//ui/ptunnel:package.json",
     yarn_lock = "//ui/ptunnel:yarn.lock",
 )
+
+http_archive(
+    name = "gtest",
+    url = "https://github.com/google/googletest/archive/release-1.10.0.zip",
+    strip_prefix = "googletest-release-1.10.0",
+    sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
+)

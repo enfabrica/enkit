@@ -1,0 +1,36 @@
+exports_files(glob(["*.c", "*.h"]), visibility = [    "//visibility:public"])
+
+cc_library(
+  name = "confparse",
+  copts = [
+    "-D_POSIX_C_SOURCE=200809L",
+    "-pedantic",
+    "-Wall",
+    "-std=c17",
+  ],
+  hdrs = [
+      "confparse.h",
+  ],
+  srcs = [
+      "confparse.c",
+  ],
+  visibility = [
+    "//visibility:public",
+  ],
+)
+
+cc_test(
+  name = "confparse_test",
+  copts = [
+    "-std=c++2a",
+    "-Wall",
+    "-pedantic",
+  ],
+  srcs = [
+    "confparse_test.cc",
+  ],
+  deps = [
+    ":confparse",
+    "@gtest//:gtest_main",
+  ],
+)
