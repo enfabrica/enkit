@@ -5,5 +5,9 @@ go_library(
     srcs = ["license.go"],
     importpath = "github.com/enfabrica/enkit/manager/common",
     visibility = ["//visibility:public"],
-    deps = ["//manager/rpc:go_default_library"],
+    deps = [
+        "//astore/server/astore:go_default_library",
+        "//manager/rpc:go_default_library",
+        "@org_golang_google_grpc//metadata:go_default_library",
+    ],
 )

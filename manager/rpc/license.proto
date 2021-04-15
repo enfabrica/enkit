@@ -2,38 +2,26 @@ syntax = "proto3";
 
 package license;
 
-message AcquireRequest {
+message KeepAliveMessage{
+	string hash = 1; // Job ID of previous request by the same client
+	string vendor = 2; // Xilinx or Cadence
+	string feature = 3; // Vivado, Xcelium, etc
+}
+
+message PollingRequest{
 	string vendor = 1; // Xilinx or Cadence
 	string feature = 2; // Vivado, Xcelium, etc
 	int32 quantity = 3; // Number of licenses
+	string user = 4; // Username
+	string hash = 5; // Job ID of previous request by the same client
 }
 
-message AcquireResponse {
-	bool available = 1; // License was acquired
-	bool waiting = 2; // Waiting for license to be available
-	bool missing = 3; // Vendor and/or feature not found
-}
-
-message ReleaseRequest {
-	string vendor = 1; // Xilinx or Cadence
-	string feature = 2; // Vivado, Xcelium, etc
-	int32 quantity = 3; // Number of licenses
-}
-
-message ReleaseResponse {
-	bool success = 1;
-}
-
-message KeepAliveRequest {
-	bool heartbeat = 1; // Interval in between keepalive messages in seconds
-}
-
-message KeepAliveResponse {
-	bool heartbeat = 1;
+message PollingResponse{
+	bool acquired = 1; // status of the acquired license
+	string hash = 2; // Job ID of previous request by the same client
 }
 
 service License {
-	rpc Acquire(AcquireRequest) returns (AcquireResponse) {}
-	rpc Release(ReleaseRequest) returns (ReleaseResponse) {}
-	rpc KeepAlive(KeepAliveRequest) returns (KeepAliveResponse) {} 
+	rpc KeepAlive(stream KeepAliveMessage) returns (stream KeepAliveMessage) {}
+	rpc Polling(stream PollingRequest) returns (stream PollingResponse) {}
 }
