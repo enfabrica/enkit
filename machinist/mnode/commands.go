@@ -8,33 +8,38 @@ import (
 )
 
 func NewRootCommand() *cobra.Command {
-	var n *Node
-	nf := NodeFlags{
-		af: client.DefaultAuthFlags(),
-		ms: &machinist.SharedFlags{},
+	nf := &NodeFlags{
+		Name:     "hello",
+		Tags:     []string{},
+		DnsNames: []string{},
+		af:       client.DefaultAuthFlags(),
+		ms:       &machinist.SharedFlags{},
 	}
 	c := &cobra.Command{
 		Use: "node [OPTIONS] [SUBCOMMANDS]",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			newN, err := New(nf.ToModifiers()...)
-			if err != nil {
-				return err
-			}
-			n = newN
-			return nil
-		},
+	}
+	fFunc := func() (*Node, error) {
+		newN, err := New(nf)
+		if err != nil {
+			return nil, err
+		}
+		return newN, err
 	}
 	kflags := &kcobra.FlagSet{FlagSet: c.PersistentFlags()}
 	nf.af.Register(kflags, "")
-	c.AddCommand(NewEnrollCommand(n))
+	c.AddCommand(NewEnrollCommand(fFunc))
 	return c
 }
 
-func NewEnrollCommand(n *Node) *cobra.Command {
+func NewEnrollCommand(factoryFunc FactoryFunc) *cobra.Command {
 	c := &cobra.Command{
 		Use:  "enroll [username] [OPTIONS]",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			n, err := factoryFunc()
+			if err != nil {
+				return err
+			}
 			return n.Enroll(args[0])
 		},
 	}

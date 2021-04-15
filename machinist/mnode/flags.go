@@ -19,7 +19,7 @@ func (nf *NodeFlags) MachinistFlags() *machinist.SharedFlags {
 	return nf.ms
 }
 
-func (nf NodeFlags) ToModifiers() []NodeModifier {
+func (nf *NodeFlags) ToModifiers() []NodeModifier {
 	var toReturn []NodeModifier
 	toReturn = append(toReturn,
 		WithName(nf.Name),
@@ -91,3 +91,4 @@ func WithAuthFlags(af *client.AuthFlags) NodeModifier {
 		return nil
 	}
 }
+

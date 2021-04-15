@@ -48,7 +48,7 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	if err != nil {
 		return nil, fmt.Errorf("Could not contact the authentication server. Is your connectivity working? Is the server up?\nFor debugging: %w", err)
 	}
-
+	l.Infof("Authentication url is %s", ares.Url)
 	servPub, err := common.KeyFromSlice(ares.Key)
 	if err != nil {
 		return nil, fmt.Errorf("server provided invalid key - please retry - %s", err)

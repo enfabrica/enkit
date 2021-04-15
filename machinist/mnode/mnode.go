@@ -74,6 +74,7 @@ func (n *Node) BeginPolling() error {
 }
 
 func (n *Node) Enroll(username string) error {
+	fmt.Printf("node in enroll is %v \n", n)
 	_, err := enauth.PerformLogin(n.AuthClient, n.Log, n.Repeater, username)
 	if err != nil {
 		return err
