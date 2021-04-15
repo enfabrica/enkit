@@ -2,11 +2,15 @@ package mnode
 
 import (
 	"context"
+	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/lib/enauth"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"
 	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
+	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
 	"time"
 )
@@ -67,4 +71,26 @@ func (n *Node) BeginPolling() error {
 			}
 		}
 	}
+}
+
+func (n *Node) Enroll(username string) error {
+	_, err := enauth.PerformLogin(n.AuthClient, n.Log, n.Repeater, username)
+	if err != nil {
+		return err
+	}
+	privKey, pubKey, err := kcerts.MakeKeys()
+	if err != nil {
+		return err
+	}
+	hcr := &auth.HostCertificateRequest{
+		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
+		Hosts:    []string{"localhost"},
+	}
+	resp, err := n.AuthClient.HostCertificate(context.Background(), hcr)
+	if err != nil {
+		return err
+	}
+	fmt.Println(resp)
+	fmt.Println(privKey)
+	return nil
 }
