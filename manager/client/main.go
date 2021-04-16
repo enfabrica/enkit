@@ -77,7 +77,10 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 		if err != nil {
 			log.Fatalf("Error receiving response: %s \n", err)
 		}
-		log.Printf("Client %s waiting for %d %s feature %s license \n", hash, quantity, vendor, feature)
+        // no need to continuously log after the initial request
+        if waiting == 0 {
+            log.Printf("Client %s waiting for %d %s feature %s license \n", hash, quantity, vendor, feature)
+        }
 		time.Sleep(interval)
 		waiting += interval
 	}
