@@ -1,11 +1,11 @@
 package main
 
 import (
+	common "github.com/enfabrica/enkit/manager/common"
+	rpc "github.com/enfabrica/enkit/manager/rpc"
+	"google.golang.org/grpc"
 	"log"
 	"net"
-	"google.golang.org/grpc"
-	rpc "github.com/enfabrica/enkit/manager/rpc"
-	common "github.com/enfabrica/enkit/manager/common"
 )
 
 func main() {

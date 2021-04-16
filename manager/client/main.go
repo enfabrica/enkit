@@ -1,16 +1,16 @@
 package main
 
 import (
-	"fmt"
-	"io"
-	"os"
-	"os/user"
-	"os/exec"
-	"time"
-	"log"
 	"context"
-	"google.golang.org/grpc"
+	"fmt"
 	rpc_license "github.com/enfabrica/enkit/manager/rpc"
+	"google.golang.org/grpc"
+	"io"
+	"log"
+	"os"
+	"os/exec"
+	"os/user"
+	"time"
 )
 
 func run(status chan bool, cmd string, args ...string) error {
