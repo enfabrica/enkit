@@ -79,7 +79,7 @@ func (n *Node) BeginPolling() error {
 
 func (n *Node) Enroll(username string) error {
 	fmt.Printf("node in enroll is %v \n", n)
-	_, err := enauth.PerformLogin(n.AuthClient, n.Log, n.Repeater, username)
+	creds, err := enauth.PerformLogin(n.AuthClient, n.Log, n.Repeater, username)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (n *Node) Enroll(username string) error {
 	}
 	hcr := &auth.HostCertificateRequest{
 		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "OPENSSH PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
-		Hosts:    []string{"localhost"},
+		Hosts:    n.config.DnsNames,
 	}
 	resp, err := n.AuthClient.HostCertificate(context.Background(), hcr)
 	if err != nil {
@@ -109,6 +109,10 @@ func (n *Node) Enroll(username string) error {
 	}
 	n.Log.Infof("Writing SSHD Configuration")
 	if err := ioutil.WriteFile(n.config.SSHDConfigurationLocation, sshdConfigContent, 0644); err != nil {
+		return err
+	}
+	n.Log.Infof("Writing CA Public Key Configuration")
+	if err := ioutil.WriteFile(n.config.CaPublicKeyLocation, []byte(creds.CAPublicKey), 0644); err != nil {
 		return err
 	}
 	n.Log.Infof("Writing Host Key")

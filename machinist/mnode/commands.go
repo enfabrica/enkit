@@ -9,7 +9,7 @@ import (
 
 func NewRootCommand() *cobra.Command {
 	config := &Config{
-		Name:     "hello",
+		Name:     "",
 		Tags:     []string{},
 		DnsNames: []string{},
 		af:       client.DefaultAuthFlags(),
@@ -27,6 +27,9 @@ func NewRootCommand() *cobra.Command {
 	}
 	kflags := &kcobra.FlagSet{FlagSet: c.PersistentFlags()}
 	config.af.Register(kflags, "node-")
+	c.PersistentFlags().StringVar(&config.Name, "name", "no-name", "the name of this node. If a node already exists with this name, polling the machinist server will fail")
+	c.PersistentFlags().StringArrayVar(&config.DnsNames, "dns-names", []string{"localhost"}, "the list of dns names you want this node to have")
+	c.PersistentFlags().StringArrayVar(&config.Tags, "tags", []string{}, "the list of tags you want this node to have. Setting this will unset the cache")
 	c.PersistentFlags().StringVar(&config.CaPublicKeyLocation, "ca-key-file", "/etc/ssh/machinist_ca.pub", "the file location of the CA's public key from the auth server. If the file already exists, defers to the rewrite flag")
 	c.PersistentFlags().StringVar(&config.HostKeyLocation, "host-key-file", "/etc/ssh/machinist_host_key", "the location where to save the machinist host key")
 	c.PersistentFlags().StringVar(&config.SSHDConfigurationLocation, "sshd-configuration-file", "/etc/ssh/sshd_config.d/machinist.conf", "the location where to save the machinist host key")
