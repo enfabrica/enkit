@@ -85,7 +85,7 @@ func WithCA(fileContent []byte) Modifier {
 		}
 		signer, err := ssh.ParsePrivateKey(fileContent)
 		if err != nil {
-			return err
+			return fmt.Errorf("Could not parse CA key - %w", err)
 		}
 		server.caSigner = signer
 		server.marshalledCAPublicKey = ssh.MarshalAuthorizedKey(signer.PublicKey())
