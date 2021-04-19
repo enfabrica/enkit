@@ -133,7 +133,7 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 				Token: box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			}, nil
 		}
-		// if the ca signer was present, continuing with public keys
+		// If the ca signer was present, continuing with public keys.
 		savedPubKey, err := ssh.ParsePublicKey(b.Bytes)
 		if err != nil {
 			return nil, err
@@ -148,7 +148,7 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 			Token:       box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			Capublickey: s.marshalledCAPublicKey,
 			// Always trust the CA for now since the DNS gets resolved behind tunnel and therefore the client doesn't know
-			// which to trust
+			// which to trust.
 			Cahosts: []string{"*"},
 			Cert:    ssh.MarshalAuthorizedKey(userCert),
 		}, nil
