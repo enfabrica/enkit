@@ -189,7 +189,7 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 // GenerateUserSSHCert will sign and return credentials based on the CA signer and given parameters
 // to generate a user cert, certType must be 1, and host certs ust have certType 2
 func GenerateUserSSHCert(ca ssh.Signer, certType uint32, principals []string, ttl time.Duration) (*rsa.PrivateKey, *ssh.Certificate, error) {
-	priv, pub, err := makeKeys()
+	priv, pub, err := MakeKeys()
 	if err != nil {
 		return priv, nil, err
 	}
@@ -209,7 +209,7 @@ func GenerateUserSSHCert(ca ssh.Signer, certType uint32, principals []string, tt
 	return priv, cert, nil
 }
 
-func makeKeys() (*rsa.PrivateKey, ssh.PublicKey, error) {
+func MakeKeys() (*rsa.PrivateKey, ssh.PublicKey, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, err

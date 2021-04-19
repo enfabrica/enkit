@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -125,15 +124,22 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if _, err := io.ReadFull(s.rng, nonce[:]); err != nil {
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
 		}
-		// if the ca signer is nil that means the CA was never passed in flags
-		if s.caSigner == nil {
+		b, _ := pem.Decode(req.Publickey)
+		// If the ca signer is nil that means the CA was never passed in flags, if the request never sent a public key
+		// then so ssh certs will be sent back.
+		if s.caSigner == nil || b == nil {
 			return &auth.TokenResponse{
 				Nonce: nonce[:],
 				Token: box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			}, nil
 		}
+		// If the ca signer was present, continuing with public keys.
+		savedPubKey, err := ssh.ParsePublicKey(b.Bytes)
+		if err != nil {
+			return nil, err
+		}
 		effectivePrincipals := append(s.principals, authData.Creds.Identity.Username)
-		userPrivateKey, userCert, err := kcerts.GenerateUserSSHCert(s.caSigner, ssh.UserCert, effectivePrincipals, s.userCertTTL)
+		userCert, err := kcerts.SignPublicKey(s.caSigner, ssh.UserCert, effectivePrincipals, s.userCertTTL, savedPubKey)
 		if err != nil {
 			return nil, fmt.Errorf("error generating certificates: %w", err)
 		}
@@ -142,13 +148,9 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 			Token:       box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			Capublickey: s.marshalledCAPublicKey,
 			// Always trust the CA for now since the DNS gets resolved behind tunnel and therefore the client doesn't know
-			// which to trust
+			// which to trust.
 			Cahosts: []string{"*"},
 			Cert:    ssh.MarshalAuthorizedKey(userCert),
-			Key: pem.EncodeToMemory(&pem.Block{
-				Type:  "RSA PRIVATE KEY",
-				Bytes: x509.MarshalPKCS1PrivateKey(userPrivateKey),
-			}),
 		}, nil
 	}
 

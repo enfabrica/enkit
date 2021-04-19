@@ -2,7 +2,7 @@ package auth
 
 import (
 	"context"
-	"crypto/x509"
+	"crypto/rsa"
 	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
@@ -77,8 +77,13 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	fmt.Printf("\t%s\n\nTo complete authentication with @%s.\n"+
 		"I'll be waiting for you, but hurry! The request may timeout.\nHit Ctl+C with no regrets to abort.\n", ares.Url, domain)
 	browser.OpenURL(ares.Url)
+	privateKey, pubKey, err := kcerts.MakeKeys()
+	if err != nil {
+		return "", fmt.Errorf("error generating ssh credentials: %w", err)
+	}
 	treq := &auth.TokenRequest{
-		Url: ares.Url,
+		Url:       ares.Url,
+		Publickey: pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
 	}
 
 	var tres *auth.TokenResponse
@@ -114,23 +119,18 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		o.Logger.Infof("operating without CA certificates")
 		return string(decrypted), err
 	}
-	if err = loadSSHKey(tres, o.Store, o.Logger); err != nil {
+	if err = loadSSHKey(tres, o.Store, o.Logger, privateKey); err != nil {
 		return "", err
 	}
 	return string(decrypted), err
 }
 
-func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger) error {
+func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey *rsa.PrivateKey) error {
 	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
 	if err != nil {
 		return err
 	}
 	publicCertKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Cert)
-	if err != nil {
-		return err
-	}
-	r, _ := pem.Decode(tres.Key)
-	privateKey, err := x509.ParsePKCS1PrivateKey(r.Bytes)
 	if err != nil {
 		return err
 	}
