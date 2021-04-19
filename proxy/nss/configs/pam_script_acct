@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+# Move this script to: /etc/security/pam_script_acct.
+#
+# If you configure PAM correctly, it will be invoked when a user session is
+# started, and will create the user on the system on the fly.
+
+function error() {
+  echo "$@" 1>&2
+  logger -p auth.warning "autouser pam - $@" &>/dev/null || true
+  exit 1
+}
+
+# Exit with failure if there's any user creation problem.
+# Failure exit will cause PAM to fail login.
+set -e
+
+test -n "$PAM_USER" -a -n "$AUTOUSER_ORIGINAL" -a -n "$AUTOUSER_AUTOGEN" || {
+  error "User creation script invoked without all the environment variables."
+}
+
+test "$PAM_USER" == "$AUTOUSER_ORIGINAL" || {
+  error "$PAM_USER and $AUTOUSER_ORIGINAL disagree - leftover? race condition?"
+}
+
+test "$PAM_SERVICE" == "sshd" || {
+  error "User creation script invoked for non-ssh login"
+}
+
+test "$AUTOUSER_AUTOGEN" == "true" || {
+  exit 0 # nothing to do.
+}
+
+# If there is a one GID per user policy, implement it.
+test "$AUTOUSER_GID" != "$AUTOUSER_UID" || {
+  logger -p auth.info "autouser pam - adding group for $AUTOUSER_NAME $AUTOUSER_GID - vars" "$(printenv|grep AUTOUSER)" &>/dev/null || true
+  groupadd --gid "$AUTOUSER_GID" "$AUTOUSER_NAME"
+  trap "delgroup --only-if-empty \"$AUTOUSER_NAME\"; logger \"autouser - group $AUTOUSER_NAME, attempted removal\"; exit 1" EXIT
+}
+logger -p auth.info "autouser pam - adding user $AUTOUSER_NAME $AUTOUSER_UID - vars" "$(printenv|grep AUTOUSER)" &>/dev/null || true
+useradd --uid "$AUTOUSER_UID" --gid "$AUTOUSER_GID" -m -s "$AUTOUSER_SHELL" "$AUTOUSER_NAME" &> /tmp/error.log
+trap - EXIT
