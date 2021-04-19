@@ -125,7 +125,7 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
 		}
 		b, _ := pem.Decode(req.Publickey)
-		// if the ca signer is nil that means the CA was never passed in flags, if the request never sent a public key
+		// If the ca signer is nil that means the CA was never passed in flags, if the request never sent a public key
 		// then so ssh certs will be sent back
 		if s.caSigner == nil || b == nil {
 			return &auth.TokenResponse{
