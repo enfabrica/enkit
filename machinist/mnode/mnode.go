@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/enauth"
@@ -78,7 +79,9 @@ func (n *Node) BeginPolling() error {
 }
 
 func (n *Node) Enroll(username string) error {
-	fmt.Printf("node in enroll is %v \n", n)
+	if os.Geteuid() != 0 {
+		return errors.New("this command must be run as root since it touches the /etc/ssh directory")
+	}
 	creds, err := enauth.PerformLogin(n.AuthClient, n.Log, n.Repeater, username)
 	if err != nil {
 		return err
