@@ -114,7 +114,7 @@ func (n *Node) Enroll(username string) error {
 	n.Log.Infof("Writing Host Key")
 	encodedPrivKey := pem.EncodeToMemory(
 		&pem.Block{
-			Type:  "OPENSSH PRIVATE KEY",
+			Type:  "RSA PRIVATE KEY",
 			Bytes: x509.MarshalPKCS1PrivateKey(privKey),
 		},
 	)
