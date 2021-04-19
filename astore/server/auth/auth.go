@@ -43,7 +43,7 @@ func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertific
 	if b == nil {
 		return nil, errors.New("the public key was empty, or was an invlaid block")
 	}
-	pubKey, err := ssh.ParsePublicKey(b.Bytes)
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(b.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if b == nil {
 			return nil, errors.New("public key not sent on a CA enabled server")
 		}
-		savedPubKey, err := ssh.ParsePublicKey(b.Bytes)
+		savedPubKey, _, _, _, err := ssh.ParseAuthorizedKey(b.Bytes)
 		if err != nil {
 			return nil, err
 		}
