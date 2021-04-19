@@ -84,7 +84,6 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 		return nil, fmt.Errorf("server returned invalid nonce, please try again - %s", err)
 	}
 	var cert *ssh.Certificate
-	fmt.Println("sent cert is ", string(tres.Cert))
 	if b, _ := pem.Decode(tres.Cert); b != nil {
 		p, _, _, _, err := ssh.ParseAuthorizedKey(b.Bytes)
 		if err != nil {
