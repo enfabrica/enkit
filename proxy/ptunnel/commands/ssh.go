@@ -77,9 +77,9 @@ func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 		params += " " + r.Extra
 	}
 
-	//args = append([]string{
-	//	fmt.Sprintf("-oProxyCommand=%s%s %%h %%p", r.Tunnel, params),
-	//}, args...)
+	args = append([]string{
+		fmt.Sprintf("-oProxyCommand=%s%s %%h %%p", r.Tunnel, params),
+	}, args...)
 
 	ecmd := exec.Command(found, args...)
 	ecmd.Stdin = os.Stdin
