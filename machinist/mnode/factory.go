@@ -1,7 +1,6 @@
 package mnode
 
 import (
-	"fmt"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"
@@ -11,11 +10,11 @@ import (
 
 type FactoryFunc = func() (*Node, error)
 
-func New(nf *NodeFlags, mods ...NodeModifier) (*Node, error) {
+func New(nf *Config, mods ...NodeModifier) (*Node, error) {
 	n := &Node{
 		Log:      logger.DefaultLogger{Printer: log.Printf},
 		Repeater: retry.New(retry.WithWait(5*time.Second), retry.WithAttempts(5)),
-		nf:       nf,
+		config:   nf,
 	}
 	for _, m := range mods {
 		if err := m(n); err != nil {
@@ -23,8 +22,7 @@ func New(nf *NodeFlags, mods ...NodeModifier) (*Node, error) {
 		}
 	}
 	if n.AuthClient == nil {
-		fmt.Println("initializing auth client")
-		conn, err := n.nf.af.Connect()
+		conn, err := n.config.af.Connect()
 		if err != nil {
 			return nil, err
 		}

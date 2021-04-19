@@ -2,6 +2,7 @@ package mnode
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
@@ -12,6 +13,9 @@ import (
 	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -24,7 +28,7 @@ type Node struct {
 	// Dial func will override any existing options to connect
 	DialFunc func() (*grpc.ClientConn, error)
 
-	nf *NodeFlags
+	config *Config
 }
 
 func (n *Node) Init() error {
@@ -48,8 +52,8 @@ func (n *Node) BeginPolling() error {
 	initialRequest := &machinist_rpc.PollRequest{
 		Req: &machinist_rpc.PollRequest_Register{
 			Register: &machinist_rpc.ClientRegister{
-				Name: n.nf.Name,
-				Tag:  n.nf.Tags,
+				Name: n.config.Name,
+				Tag:  n.config.Tags,
 			},
 		},
 	}
@@ -84,14 +88,54 @@ func (n *Node) Enroll(username string) error {
 		return err
 	}
 	hcr := &auth.HostCertificateRequest{
-		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
+		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "OPENSSH PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
 		Hosts:    []string{"localhost"},
 	}
 	resp, err := n.AuthClient.HostCertificate(context.Background(), hcr)
 	if err != nil {
 		return err
 	}
-	fmt.Println(resp)
-	fmt.Println(privKey)
+	if fName, exists := anyFileExist(
+		n.config.CaPublicKeyLocation,
+		n.config.HostKeyLocation, n.config.HostCertificate()); exists && !n.config.ReWriteConfigs {
+		return fmt.Errorf("cannot rewrite %s because it exists and rewriting is disabled", fName)
+	}
+	if err := os.MkdirAll(filepath.Dir(n.config.SSHDConfigurationLocation), os.ModePerm); err != nil {
+		return err
+	}
+	sshdConfigContent, err := ReadSSHDContent(n.config.CaPublicKeyLocation, n.config.HostKeyLocation, n.config.HostCertificate())
+	if err != nil {
+		return err
+	}
+	n.Log.Infof("Writing SSHD Configuration")
+	if err := ioutil.WriteFile(n.config.SSHDConfigurationLocation, sshdConfigContent, 0644); err != nil {
+		return err
+	}
+	n.Log.Infof("Writing Host Key")
+	encodedPrivKey := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "OPENSSH PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+		},
+	)
+	if err := ioutil.WriteFile(n.config.HostKeyLocation, encodedPrivKey, 0600); err != nil {
+		return err
+	}
+	n.Log.Infof("Writing Host Cert")
+	if err := ioutil.WriteFile(n.config.HostCertificate(), resp.Signedhostcert, 0644); err != nil {
+		return err
+	}
 	return nil
+}
+
+func anyFileExist(names ...string) (string, bool) {
+	for _, name := range names {
+		if _, err := os.Stat(name); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+		}
+		return name, true
+	}
+	return "", false
 }

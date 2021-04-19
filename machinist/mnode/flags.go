@@ -7,28 +7,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-type NodeFlags struct {
-	Name     string
-	Tags     []string
-	DnsNames []string
-	ms       *machinist.SharedFlags
-	af       *client.AuthFlags
-}
-
-func (nf *NodeFlags) MachinistFlags() *machinist.SharedFlags {
-	return nf.ms
-}
-
-func (nf *NodeFlags) ToModifiers() []NodeModifier {
-	var toReturn []NodeModifier
-	toReturn = append(toReturn,
-		WithName(nf.Name),
-		WithTags(nf.Tags),
-		WithAuthFlags(nf.af),
-	)
-	return toReturn
-}
-
 type NodeModifier func(node *Node) error
 
 func WithInviteToken(token string) NodeModifier {
@@ -52,7 +30,7 @@ func WithAuthServer(url string) NodeModifier {
 func WithMachinistFlags(mods ...machinist.Modifier) NodeModifier {
 	return func(n *Node) error {
 		for _, mod := range mods {
-			if err := mod(n.nf); err != nil {
+			if err := mod(n.config); err != nil {
 				return err
 			}
 		}
@@ -62,14 +40,14 @@ func WithMachinistFlags(mods ...machinist.Modifier) NodeModifier {
 
 func WithName(name string) NodeModifier {
 	return func(node *Node) error {
-		node.nf.Name = name
+		node.config.Name = name
 		return nil
 	}
 }
 
 func WithTags(tags []string) NodeModifier {
 	return func(node *Node) error {
-		node.nf.Tags = tags
+		node.config.Tags = tags
 		return nil
 	}
 }
@@ -91,4 +69,3 @@ func WithAuthFlags(af *client.AuthFlags) NodeModifier {
 		return nil
 	}
 }
-

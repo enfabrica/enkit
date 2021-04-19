@@ -12,6 +12,7 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/enfabrica/enkit/lib/srand"
+	"github.com/pkg/browser"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
 	"math/rand"
@@ -48,7 +49,10 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	if err != nil {
 		return nil, fmt.Errorf("Could not contact the authentication server. Is your connectivity working? Is the server up?\nFor debugging: %w", err)
 	}
-	l.Infof("Authentication url is %s", ares.Url)
+	l.Infof("Authentication url is %s, attempting to open with your Os's default browser", ares.Url)
+	if err := browser.OpenURL(ares.Url); err != nil {
+		l.Warnf("Could not open auth url in default browser, you might have to navigate there yourself")
+	}
 	servPub, err := common.KeyFromSlice(ares.Key)
 	if err != nil {
 		return nil, fmt.Errorf("server provided invalid key - please retry - %s", err)
@@ -80,8 +84,9 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 		return nil, fmt.Errorf("server returned invalid nonce, please try again - %s", err)
 	}
 	var cert *ssh.Certificate
+	fmt.Println("sent cert is ", string(tres.Cert))
 	if b, _ := pem.Decode(tres.Cert); b != nil {
-		p, err := ssh.ParsePublicKey(b.Bytes)
+		p, _, _, _, err := ssh.ParseAuthorizedKey(b.Bytes)
 		if err != nil {
 			return nil, err
 		}
