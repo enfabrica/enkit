@@ -2,12 +2,6 @@ syntax = "proto3";
 
 package license;
 
-message KeepAliveMessage{
-	string hash = 1; // Job ID of previous request by the same client
-	string vendor = 2; // Xilinx or Cadence
-	string feature = 3; // Vivado, Xcelium, etc
-}
-
 message PollingRequest{
 	string vendor = 1; // Xilinx or Cadence
 	string feature = 2; // Vivado, Xcelium, etc
@@ -22,6 +16,5 @@ message PollingResponse{
 }
 
 service License {
-	rpc KeepAlive(stream KeepAliveMessage) returns (stream KeepAliveMessage) {}
 	rpc Polling(stream PollingRequest) returns (stream PollingResponse) {}
 }
