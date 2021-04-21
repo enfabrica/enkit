@@ -139,7 +139,6 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 	if err != nil {
 		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
 	}
-
 	grpcs := grpc.NewServer(
 		grpc.StreamInterceptor(ogrpc.StreamInterceptor(authWeb, "/auth.Auth/")),
 		grpc.UnaryInterceptor(ogrpc.UnaryInterceptor(authWeb, "/auth.Auth/")),
@@ -234,7 +233,7 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		}
 
 		if key, ok := data.State.(common.Key); ok {
-			authServer.FeedToken(key, data.Cookie)
+			authServer.FeedToken(key, data)
 		}
 		if !handled {
 			ShowResult(w, r, "thumbs-up", "Good Job!", messageSuccess, http.StatusOK)

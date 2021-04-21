@@ -67,3 +67,18 @@ container_pull(
     tag = "20.04",
 )
 
+load("@build_bazel_rules_nodejs//:index.bzl", "yarn_install")
+
+yarn_install(
+    # Name this npm so that Bazel Label references look like @npm//package
+    name = "npm",
+    package_json = "//ui/ptunnel:package.json",
+    yarn_lock = "//ui/ptunnel:yarn.lock",
+)
+
+http_archive(
+    name = "gtest",
+    sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
+    strip_prefix = "googletest-release-1.10.0",
+    url = "https://github.com/google/googletest/archive/release-1.10.0.zip",
+)
