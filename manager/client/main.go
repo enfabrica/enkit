@@ -71,7 +71,7 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 	if acquired {
 		log.Printf("Successfully acquired %d %s feature %s license from server \n", quantity, vendor, feature)
 		// 12 hours in seconds
-		run(60*60*12, cmd, args...)
+		run(60*60*12*time.Second, cmd, args...)
 	}
 }
 

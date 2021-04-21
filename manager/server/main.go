@@ -6,10 +6,13 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
+	"os"
+	"fmt"
 )
 
 func main() {
-	listen, err := net.Listen("tcp", ":8080")
+	port := fmt.Sprintf(":%s", os.Args[1])
+	listen, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}

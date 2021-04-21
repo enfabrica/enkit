@@ -60,11 +60,10 @@ load("@io_bazel_rules_docker//repositories:pip_repositories.bzl", "pip_deps")
 pip_deps()
 load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
 container_pull(
-    name = "ubuntu-20.04",
-    digest = "sha256:2e70e9c81838224b5311970dbf7ed16802fbfe19e7a70b3cbfa3d7522aa285b4",
-    registry = "index.docker.io",
-    repository = "library/ubuntu",
-    tag = "20.04",
+    name = "golang_base",
+    digest = "sha256:75f63d4edd703030d4312dc7528a349ca34d48bec7bd754652b2d47e5a0b7873",
+    registry = "gcr.io",
+    repository = "distroless/base",
 )
 
 load("@build_bazel_rules_nodejs//:index.bzl", "yarn_install")
