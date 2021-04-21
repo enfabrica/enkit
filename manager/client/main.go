@@ -15,27 +15,18 @@ import (
 )
 
 func run(timeout time.Duration, cmd string, args ...string) {
-	channel := make(chan bool)
-	defer close(channel)
-	go func(status chan bool, cmd string, args ...string) {
-		job := exec.Command(cmd, args...)
-		err := job.Run()
-		if err != nil {
-			status <- true
-		} else {
-			status <- false
-		}
-	}(channel, cmd, args...)
-	go func() {
-		time.Sleep(timeout * time.Second)
-		log.Fatalf("Job \"%s %s\" timeout exceeded after %d seconds \n", cmd, strings.Join(args, " "), timeout)
-	}()
-	status := <-channel
-	if status {
-		log.Fatalf("Job failed to complete: %s %s \n", cmd, strings.Join(args, " "))
-	} else {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+    defer cancel()
+    job := exec.CommandContext(ctx, cmd, args...)
+    err := job.Run()
+    if ctx.Err() == context.DeadlineExceeded {
+		log.Fatalf("Job failed to complete after %d seconds: %s %s \n", timeout, cmd, strings.Join(args, " "))
+    }
+    if err != nil {
+        log.Fatalf("Job \"%s %s\" failed with error %s", cmd, strings.Join(args, " "), err)
+    } else {
 		log.Printf("Job completed successfully: %s %s \n", cmd, strings.Join(args, " "))
-	}
+    }
 }
 
 func polling(client rpc_license.LicenseClient, username string, quantity int32, vendor string, feature string,

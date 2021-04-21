@@ -23,24 +23,24 @@ type LicenseCounter struct {
 func (c *LicenseCounter) increment(vendor string, num int, hash string) int {
 	c.counterMutex.Lock()
 	defer c.counterMutex.Unlock()
-	if c.licenses[vendor].Used < c.licenses[vendor].Total {
-		log.Printf("License acquired by %s \n", hash)
-		c.licenses[vendor].Used += num
-	} else {
-		log.Fatalf("Cannot acquire more licenses than available \n")
+	if c.licenses[vendor].Used >= c.licenses[vendor].Total {
+        log.Printf("Cannot acquire more licenses than available \n")
+        return c.licenses[vendor].Used
 	}
+	log.Printf("License acquired by %s \n", hash)
+	c.licenses[vendor].Used += num
 	return c.licenses[vendor].Used
 }
 
 func (c *LicenseCounter) decrement(vendor string, num int, hash string) int {
 	c.counterMutex.Lock()
 	defer c.counterMutex.Unlock()
-	if c.licenses[vendor].Used-num >= 0 {
-		log.Printf("License released by %s \n", hash)
-		c.licenses[vendor].Used -= num
-	} else {
-		log.Fatalf("Cannot release a negative number of licenses \n")
+	if c.licenses[vendor].Used-num < 0 {
+		log.Printf("Cannot release a negative number of licenses \n")
+        return c.licenses[vendor].Total
 	}
+	log.Printf("License released by %s \n", hash)
+	c.licenses[vendor].Used -= num
 	return c.licenses[vendor].Total
 }
 
@@ -68,7 +68,7 @@ func (c *LicenseCounter) dequeue(key string, vendor string) {
 	log.Printf("Client %s removed from the %s queue \n", key, vendor)
 }
 
-func (c *LicenseCounter) del(key string, vendor string) int {
+func (c *LicenseCounter) del(key string, vendor string) {
 	index := -1
 	c.clientMutex.Lock()
 	defer c.clientMutex.Unlock()
@@ -82,9 +82,8 @@ func (c *LicenseCounter) del(key string, vendor string) int {
 		}
 	}
 	if index == -1 {
-		log.Fatalf("%s is not in queue \n", key)
+		log.Printf("%s is not in queue \n", key)
 	}
-	return index
 }
 
 func (c *LicenseCounter) peekQueue(vendor string, hash string) bool {
@@ -122,6 +121,7 @@ type Server struct {
 func (s *Server) Polling(stream rpc_license.License_PollingServer) error {
 	var hash string
 	var vendor string
+	var status error
 	s.rng = rand.New(rand.NewSource(rand.Int63()))
 	for {
 		recv, err := stream.Recv()
@@ -161,10 +161,10 @@ func (s *Server) Polling(stream rpc_license.License_PollingServer) error {
 			licenseCounter.dequeue(hash, vendor)
 			err := stream.Send(&rpc_license.PollingResponse{Acquired: true, Hash: hash})
 			if err != nil {
+                status = err
 				log.Printf("Failed to send message back to client %s: %s \n", hash, err)
-			} else {
-				break
 			}
+            break
 		} else {
 			err := stream.Send(&rpc_license.PollingResponse{Acquired: false, Hash: hash})
 			if err != nil {
@@ -175,7 +175,6 @@ func (s *Server) Polling(stream rpc_license.License_PollingServer) error {
 		}
 	}
 	// license acquired
-	var status error
 	for {
 		_, err := stream.Recv()
 		if err == io.EOF || err == nil {
