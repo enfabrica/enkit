@@ -122,6 +122,7 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	if err = loadSSHKey(tres, o.Store, o.Logger, privateKey); err != nil {
 		return "", err
 	}
+	fmt.Println("successfully added certs to machine")
 	return string(decrypted), err
 }
 
