@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/rsa"
-	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
@@ -77,13 +75,13 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	fmt.Printf("\t%s\n\nTo complete authentication with @%s.\n"+
 		"I'll be waiting for you, but hurry! The request may timeout.\nHit Ctl+C with no regrets to abort.\n", ares.Url, domain)
 	browser.OpenURL(ares.Url)
-	privateKey, pubKey, err := kcerts.MakeKeys()
+	pubKey, privateKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
 	if err != nil {
 		return "", fmt.Errorf("error generating ssh credentials: %w", err)
 	}
 	treq := &auth.TokenRequest{
 		Url:       ares.Url,
-		Publickey: pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
+		Publickey: pubKey,
 	}
 
 	var tres *auth.TokenResponse
@@ -125,7 +123,7 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	return string(decrypted), err
 }
 
-func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey *rsa.PrivateKey) error {
+func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey interface{}) error {
 	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
 	if err != nil {
 		return err

@@ -6,11 +6,16 @@ import (
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/srand"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/nacl/box"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/cache"
 	"math/rand"
 	"strings"
 	"testing"
+	"io/ioutil"
 )
 
 func TestInvalid(t *testing.T) {
@@ -20,7 +25,7 @@ func TestInvalid(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func Authenticate(t *testing.T, rng *rand.Rand, server *Server) *auth.TokenResponse {
+func Authenticate(t *testing.T, rng *rand.Rand, server *Server, pubkey []byte) *auth.TokenResponse {
 	pub, priv, err := box.GenerateKey(rng)
 	assert.Nil(t, err, err)
 
@@ -51,6 +56,7 @@ func Authenticate(t *testing.T, rng *rand.Rand, server *Server) *auth.TokenRespo
 
 	treq := &auth.TokenRequest{
 		Url: aresp.Url,
+		Publickey: pubkey,
 	}
 	tresp, err := server.Token(context.Background(), treq)
 	assert.Nil(t, err, err)
@@ -73,8 +79,7 @@ func TestBasicAuth(t *testing.T) {
 	assert.Nil(t, err, err)
 	assert.NotNil(t, server)
 
-	tresp := Authenticate(t, rng, server)
-	assert.Equal(t, 0, len(tresp.Key), "%v", tresp.Key)
+	tresp := Authenticate(t, rng, server, nil)
 	assert.Equal(t, 0, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Equal(t, 0, len(tresp.Capublickey), "%v", tresp.Capublickey)
 }
@@ -85,7 +90,7 @@ func TestBasicAuth(t *testing.T) {
 //
 // Feel free to install the corresponding public key on your servers, and enjoy
 // all visistors who scan github repositories for private keys.
-var rsaTestKey = `-----BEGIN OPENSSH PRIVATE KEY-----
+var rsaTestCert = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcn
 NhAAAAAwEAAQAAAYEA8Pz7wKhmfG8z8e2l+wohtUFGEgXhJRgBLJv6iPD0XDzJMerc4X2E
 8H/uxD54Jx8grinUfPb9QzTPMM4OQiggeH+tK438mEwLTe+LBRF6G7TZHzCO5liNrPz9It
@@ -133,17 +138,60 @@ func TestCAAuthBroken(t *testing.T) {
 	assert.Nil(t, server)
 }
 
+func getAgent(t *testing.T) (*kcerts.SSHAgent, error) {
+	tempdir, err := ioutil.TempDir("", "cache")
+	if err != nil {
+		return nil, err
+	}
+
+	c := cache.Local{Root: tempdir}
+	l := logger.DefaultLogger{Printer: t.Logf}
+	return kcerts.FindSSHAgent(&c, l)
+}
+
 func TestCAAuthRSA(t *testing.T) {
 	rng := rand.New(srand.Source)
-
-	server, err := New(rng, WithAuthURL("static-prefix"), WithCA([]byte(rsaTestKey)))
+	server, err := New(rng, WithAuthURL("static-prefix"), WithCA([]byte(rsaTestCert)))
 	assert.Nil(t, err, err)
 	assert.NotNil(t, server)
 
-	tresp := Authenticate(t, rng, server)
-	assert.Less(t, 128, len(tresp.Key), "%v", tresp.Key)
+	agent, err := getAgent(t)
+	assert.Nil(t, err, err)
+	defer agent.Close()
+
+	// Try to sign all the supported key types with the RSA certificate.
+	pubKey, privKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
+	assert.Nil(t, err, err)
+
+	tresp := Authenticate(t, rng, server, pubKey)
 	assert.Less(t, 128, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
+
+	pubParsed, _, _, _, err := ssh.ParseAuthorizedKey(tresp.Cert)
+	err = agent.AddCertificates(privKey, pubParsed, 60)
+	assert.Nil(t, err, err)
+
+	pubKey, privKey, err = kcerts.MakeKeys(kcerts.GenerateED25519)
+	assert.Nil(t, err, err)
+
+	tresp = Authenticate(t, rng, server, pubKey)
+	assert.Less(t, 128, len(tresp.Cert), "%v", tresp.Cert)
+	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
+
+	pubParsed, _, _, _, err = ssh.ParseAuthorizedKey(tresp.Cert)
+	err = agent.AddCertificates(privKey, pubParsed, 60)
+	assert.Nil(t, err, err)
+
+	pubKey, privKey, err = kcerts.MakeKeys(kcerts.GenerateRSA)
+	assert.Nil(t, err, err)
+
+	tresp = Authenticate(t, rng, server, pubKey)
+	assert.Less(t, 128, len(tresp.Cert), "%v", tresp.Cert)
+	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
+
+	pubParsed, _, _, _, err = ssh.ParseAuthorizedKey(tresp.Cert)
+	err = agent.AddCertificates(privKey, pubParsed, 60)
+	assert.Nil(t, err, err)
 }
 
 // This is actually the real private key that gives you access to
@@ -151,7 +199,7 @@ func TestCAAuthRSA(t *testing.T) {
 //
 // (joking of course, if your security scanner goes crazy on this,
 // go read the comment a few paragraphs above).
-var edTestKey = `-----BEGIN OPENSSH PRIVATE KEY-----
+var edTestCert = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 QyNTUxOQAAACDjOVZs0VjbcZ+1Bui+OlOoLxn57G7pqk6CdwEQxTQLxwAAAJhzXgcpc14H
 KQAAAAtzc2gtZWQyNTUxOQAAACDjOVZs0VjbcZ+1Bui+OlOoLxn57G7pqk6CdwEQxTQLxw
@@ -162,14 +210,29 @@ GfnsbumqToJ3ARDFNAvHAAAAEWNjb250YXZhbGxpQG5vcmFkAQIDBA==
 func TestCAAuthED25519(t *testing.T) {
 	rng := rand.New(srand.Source)
 
-	server, err := New(rng, WithAuthURL("static-prefix"), WithCA([]byte(edTestKey)))
+	server, err := New(rng, WithAuthURL("static-prefix"), WithCA([]byte(edTestCert)))
 	assert.Nil(t, err, err)
 	assert.NotNil(t, server)
 
-	tresp := Authenticate(t, rng, server)
+	// Try to sign all the supported key types with the ED25519 certificate.
+	pubKey, _, err := kcerts.MakeKeys(kcerts.GenerateDefault)
+	assert.Nil(t, err, err)
 
-	// ed25519 keys are significantly smaller.
-	assert.Less(t, 80, len(tresp.Key), tresp.Key)
-	assert.Less(t, 80, len(tresp.Cert), tresp.Cert)
-	assert.Less(t, 80, len(tresp.Capublickey), tresp.Capublickey)
+	tresp := Authenticate(t, rng, server, pubKey)
+	assert.Less(t, 80, len(tresp.Cert), "%v", tresp.Cert)
+	assert.Less(t, 80, len(tresp.Capublickey), "%v", tresp.Capublickey)
+
+	pubKey, _, err = kcerts.MakeKeys(kcerts.GenerateED25519)
+	assert.Nil(t, err, err)
+
+	tresp = Authenticate(t, rng, server, pubKey)
+	assert.Less(t, 80, len(tresp.Cert), "%v", tresp.Cert)
+	assert.Less(t, 80, len(tresp.Capublickey), "%v", tresp.Capublickey)
+
+	pubKey, _, err = kcerts.MakeKeys(kcerts.GenerateRSA)
+	assert.Nil(t, err, err)
+
+	tresp = Authenticate(t, rng, server, pubKey)
+	assert.Less(t, 80, len(tresp.Cert), "%v", tresp.Cert)
+	assert.Less(t, 80, len(tresp.Capublickey), "%v", tresp.Capublickey)
 }
