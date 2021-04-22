@@ -9,11 +9,11 @@ go_library(
         "flags.go",
         "mnode.go",
         "templates.go",
-        ":mnode_sshd_conf",
     ],
     importpath = "github.com/enfabrica/enkit/machinist/mnode",
     visibility = ["//visibility:public"],
     deps = [
+        ":machinist_assets",
         "//astore/rpc:auth-go",
         "//lib/client:go_default_library",
         "//lib/enauth:go_default_library",
@@ -29,12 +29,49 @@ go_library(
     ],
 )
 
+go_library(
+    name = "machinist_assets",
+    srcs = [
+        "autouser_binary",
+        "mnode_sshd_conf",
+        "nss_autouser_config",
+        "pam_script",
+    ],
+    importpath = "github.com/enfabrica/enkit/machinist/machinist_assets",
+)
+
 go_embed_data(
     name = "mnode_sshd_conf",
     src = "assets/machinist_sshd.conf.gotmpl",
-    package = "mnode",
+    package = "machinist_assets",
     string = True,
     var = "SSHDTemplate",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "nss_autouser_config",
+    src = "assets/nss-autouser.conf.gotmpl",
+    package = "machinist_assets",
+    string = True,
+    var = "NssConfig",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "autouser_binary",
+    srcs = [
+        "//proxy/nss:nss_autouser",
+    ],  # Technically cc_library outputs a .a and .so, doesn't matter which but this embeds both TODO(adam): strip out .a just for sizing reasons
+    package = "machinist_assets",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "pam_script",
+    src = "//proxy/nss/configs:pam_script_acct",
+    package = "machinist_assets",
+    var = "PamScript",
     visibility = ["//visibility:public"],
 )
 
@@ -45,5 +82,8 @@ go_test(
         "templates_test.go",
     ],
     embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    deps = [
+        ":machinist_assets",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
 )

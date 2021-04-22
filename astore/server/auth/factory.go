@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/ed25519"
+	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/logger"
 	"golang.org/x/crypto/ssh"
@@ -83,13 +85,21 @@ func WithCA(fileContent []byte) Modifier {
 			server.log.Warnf("CA file not specified - will operate without certificates")
 			return nil
 		}
-		signer, err := ssh.ParsePrivateKey(fileContent)
+		caPrivateKey, err := ssh.ParseRawPrivateKey(fileContent)
 		if err != nil {
 			return fmt.Errorf("Could not parse CA key - %w", err)
 		}
-		server.caSigner = signer
-		server.marshalledCAPublicKey = ssh.MarshalAuthorizedKey(signer.PublicKey())
-		return nil
+		err = errors.New("keys could not be processed")
+		if key, ok := caPrivateKey.(*ed25519.PrivateKey); ok {
+			server.caSigner = key
+			sshPubKey, err := ssh.NewPublicKey(key.Public())
+			if err != nil {
+				return err
+			}
+			server.marshalledCAPublicKey = ssh.MarshalAuthorizedKey(sshPubKey)
+			return nil
+		}
+		return err
 	}
 }
 

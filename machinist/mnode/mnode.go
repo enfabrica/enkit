@@ -77,7 +77,7 @@ func (n *Node) BeginPolling() error {
 		}
 	}
 }
-
+// Todo(adam): perform rollbacks if enroll fails
 func (n *Node) Enroll(username string) error {
 	if os.Geteuid() != 0 {
 		return errors.New("this command must be run as root since it touches the /etc/ssh directory")
@@ -125,11 +125,24 @@ func (n *Node) Enroll(username string) error {
 			Bytes: x509.MarshalPKCS1PrivateKey(privKey),
 		},
 	)
+
 	if err := ioutil.WriteFile(n.config.HostKeyLocation, encodedPrivKey, 0600); err != nil {
 		return err
 	}
 	n.Log.Infof("Writing Host Cert")
 	if err := ioutil.WriteFile(n.config.HostCertificate(), resp.Signedhostcert, 0644); err != nil {
+		return err
+	}
+	if err := InstallNssAutoUserConf(n.config.NssConfig()); err != nil {
+		return err
+	}
+	if err := InstallNssAutoUser(n.Log); err != nil {
+		return err
+	}
+	if err := InstallPamSSHDFile(n.Log); err != nil {
+		return err
+	}
+	if err := InstallPamScript(n.Log); err != nil {
 		return err
 	}
 	return nil

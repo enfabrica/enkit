@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -31,7 +32,7 @@ type Server struct {
 	authURL string
 	limit   time.Duration
 
-	caSigner              ssh.Signer
+	caSigner              crypto.Signer
 	principals            []string
 	marshalledCAPublicKey []byte
 	userCertTTL           time.Duration
@@ -47,6 +48,7 @@ func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertific
 	if err != nil {
 		return nil, err
 	}
+
 	cert, err := kcerts.SignPublicKey(s.caSigner, ssh.HostCert, request.Hosts, s.userCertTTL, pubKey)
 	if err != nil {
 		return nil, err

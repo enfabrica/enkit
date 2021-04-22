@@ -2,7 +2,7 @@ package auth
 
 import (
 	"context"
-	"crypto/rsa"
+	"crypto/ed25519"
 	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
@@ -104,12 +104,10 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		}
 	}
 	o.Logger.Infof("Polling succeeded - decrypting token")
-
 	nonce, err := common.NonceFromSlice(tres.Nonce)
 	if err != nil {
 		return "", fmt.Errorf("server returned invalid nonce, please try again - %s", err)
 	}
-
 	decrypted, ok := box.Open(nil, tres.Token, nonce.ToByte(), servPub.ToByte(), priv)
 	if !ok {
 		return "", fmt.Errorf("could not decrypt returned token")
@@ -125,7 +123,7 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	return string(decrypted), err
 }
 
-func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey *rsa.PrivateKey) error {
+func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey ed25519.PrivateKey) error {
 	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
 	if err != nil {
 		return err

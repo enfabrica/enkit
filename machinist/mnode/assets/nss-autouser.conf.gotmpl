@@ -1,0 +1,13 @@
+Match sshd:*
+    MinUid 70000       # Very important!!
+    MaxUid 0xfffffff0  # Very important!!
+
+    Shell {{ .DefaultShell}}
+    {{ range .Shells }}
+        Suffix -{{ .Match }}
+            {{ if .Shell }}Shell {{ .Shell }}
+            {{ else -}}
+            {{ end -}}
+            {{ if .Home -}}Home {{ .Home }}
+            {{- end }}
+    {{- end}}

@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "cache.go",
         "certs.go",
+        "signer.go",
         "ssh.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/kcerts",
@@ -23,6 +24,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "certs_test.go",
+        "signer_test.go",
         "ssh_test.go",
     ],
     embed = [":go_default_library"],

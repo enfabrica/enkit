@@ -1,8 +1,9 @@
 package kcerts
 
 import (
+	"crypto"
+	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/rsa"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/logger"
@@ -100,7 +101,7 @@ func (a SSHAgent) Valid() bool {
 	return err == nil
 }
 
-func (a SSHAgent) AddCertificates(privateKey *rsa.PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
+func (a SSHAgent) AddCertificates(privateKey ed25519.PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
 	conn, err := net.Dial("unix", a.Socket)
 	if err != nil {
 		return err
@@ -186,44 +187,19 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 	return s, nil
 }
 
-// GenerateUserSSHCert will sign and return credentials based on the CA signer and given parameters
-// to generate a user cert, certType must be 1, and host certs ust have certType 2
-func GenerateUserSSHCert(ca ssh.Signer, certType uint32, principals []string, ttl time.Duration) (*rsa.PrivateKey, *ssh.Certificate, error) {
-	priv, pub, err := MakeKeys()
-	if err != nil {
-		return priv, nil, err
-	}
-	from := time.Now().UTC()
-	to := time.Now().UTC().Add(ttl * time.Hour)
-	cert := &ssh.Certificate{
-		CertType:        certType,
-		Key:             pub,
-		ValidAfter:      uint64(from.Unix()),
-		ValidBefore:     uint64(to.Unix()),
-		ValidPrincipals: principals,
-		Permissions:     ssh.Permissions{},
-	}
-	if err := cert.SignCert(rand.Reader, ca); err != nil {
-		return nil, nil, err
-	}
-	return priv, cert, nil
-}
 
-func MakeKeys() (*rsa.PrivateKey, ssh.PublicKey, error) {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+func MakeKeys() (ed25519.PrivateKey, ssh.PublicKey, error) {
+	pubKey, priv, err := ed25519.GenerateKey(rand.Reader)
+	publicKey, err := ssh.NewPublicKey(pubKey)
 	if err != nil {
 		return nil, nil, err
 	}
-	publicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	return privateKey, publicKey, err
+	return priv, publicKey, err
 }
 
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters
 // to generate a user cert, certType must be 1, and host certs ust have certType 2
-func SignPublicKey(ca ssh.Signer, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
+func SignPublicKey(ca crypto.Signer, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
 	from := time.Now().UTC()
 	to := time.Now().UTC().Add(ttl * time.Hour)
 	cert := &ssh.Certificate{
@@ -234,7 +210,11 @@ func SignPublicKey(ca ssh.Signer, certType uint32, principals []string, ttl time
 		ValidPrincipals: principals,
 		Permissions:     ssh.Permissions{},
 	}
-	if err := cert.SignCert(rand.Reader, ca); err != nil {
+	newSigner, err := NewSha256SignerFromSigner(ca)
+	if err != nil {
+		return nil, err
+	}
+	if err := cert.SignCert(rand.Reader, newSigner); err != nil {
 		return nil, err
 	}
 	return cert, nil

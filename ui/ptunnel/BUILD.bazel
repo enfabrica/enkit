@@ -48,7 +48,7 @@ react_scripts(
     # Note: this must be named "build" since react-scripts hard-codes that as the output dir
     name = "build",
     args = [
-        "--node_options=--require=./$(execpath chdir.js)",
+        "--node_options=--require=./$(rootpath write_chdir_script)",
         "build",
     ],
     data = _RUNTIME_DEPS + [

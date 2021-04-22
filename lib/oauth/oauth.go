@@ -511,7 +511,6 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	if err := a.authEncoder.Decode([]byte(cookie.Value), &secretExpected); err != nil {
 		return AuthData{}, fmt.Errorf("Cookie decoding failed - %w", err)
 	}
-
 	query := r.URL.Query()
 	state := query.Get("state")
 	var received LoginState

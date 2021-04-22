@@ -35,6 +35,12 @@ func (nf *Config) ToModifiers() []NodeModifier {
 	return toReturn
 }
 
+func (nf *Config) NssConfig() *NssConf  {
+	return &NssConf{
+		DefaultShell: "/bin/bash",
+	}
+}
+
 // HostCertificate will return the path of the HostCertificate based on the path set by HostKeyLocation
 // for example /foo/bar.pem will output /foo/bar-cert.pub
 func (nf *Config) HostCertificate() string {
