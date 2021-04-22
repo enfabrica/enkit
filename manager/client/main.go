@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	rpc_license "github.com/enfabrica/enkit/manager/rpc"
+	grpcCodes "google.golang.org/grpc/codes"
+	grpcStatus "google.golang.org/grpc/status"
 	"google.golang.org/grpc"
 	"io"
 	"log"
@@ -47,16 +49,24 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 			break
 		}
 		if err != nil {
-			log.Fatalf("Error sending message: %s \n", err)
+			log.Fatalf("Error sending  message: %s \n", err)
 		}
 		recv, err := stream.Recv()
-		hash = recv.Hash
-		if recv.Acquired || err == io.EOF {
-			acquired = recv.Acquired
-			break
-		}
 		if err != nil {
-			log.Fatalf("Error receiving response: %s \n", err)
+			errStatus, _ := grpcStatus.FromError(err)
+			if errStatus.Code() == grpcCodes.InvalidArgument {
+				log.Fatalf(errStatus.Message())
+			} else if err == io.EOF {
+				break
+			} else {
+				log.Fatalf("Error receiving message: %s \n", err)
+			}
+		} else {
+			hash = recv.Hash
+			if recv.Acquired {
+				acquired = recv.Acquired
+				break
+			}
 		}
 		// no need to continuously log after the initial request
 		if waiting == 0 {

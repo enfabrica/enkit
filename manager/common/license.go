@@ -3,6 +3,8 @@ package license
 import (
 	astoreServer "github.com/enfabrica/enkit/astore/server/astore"
 	rpc_license "github.com/enfabrica/enkit/manager/rpc"
+	grpcCodes "google.golang.org/grpc/codes"
+	grpcStatus "google.golang.org/grpc/status"
 	"google.golang.org/grpc/metadata"
 	"io"
 	"log"
@@ -10,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"fmt"
 )
 
 type LicenseCounter struct {
@@ -86,6 +89,13 @@ func (c *LicenseCounter) del(key string, vendor string) {
 	}
 }
 
+func (c *LicenseCounter) validLicense(vendor string, feature string) bool {
+	licenses := map[string]map[string]bool{"xilinx": {"vivado": true},
+                                           "cadence": {"xcelium": true}}
+	_, ok := licenses[vendor][feature]
+	return ok
+}
+
 func (c *LicenseCounter) peekQueue(vendor string, hash string) bool {
 	c.clientMutex.Lock()
 	defer c.clientMutex.Unlock()
@@ -106,12 +116,11 @@ type License struct {
 	Used  int
 }
 
-var clients = map[string]*Client{}
 var totalCadenceLic = 3
 var totalXilinxLic = 3
 var licenseCounter = LicenseCounter{
 	licenses: map[string]*License{"xilinx": &License{Used: 0, Total: totalXilinxLic}, "cadence": &License{Used: 0, Total: totalCadenceLic}},
-	clients:  make(map[string]*Client),
+	clients:  map[string]*Client{},
 	queue:    map[string][]string{"xilinx": make([]string, 0), "cadence": make([]string, 0)}}
 
 type Server struct {
@@ -133,6 +142,10 @@ func (s *Server) Polling(stream rpc_license.License_PollingServer) error {
 		if err != nil {
 			licenseCounter.del(hash, vendor)
 			return err
+		}
+		if !licenseCounter.validLicense(recv.Vendor, recv.Feature) {
+			errMsg := fmt.Sprintf("\"%s %s\" is an unsupported vendor feature combination", recv.Vendor, recv.Feature)
+			return grpcStatus.Errorf(grpcCodes.InvalidArgument, errMsg)
 		}
 		md, ok := metadata.FromIncomingContext(stream.Context())
 		if !ok {

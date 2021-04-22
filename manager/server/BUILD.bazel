@@ -22,17 +22,17 @@ go_binary(
 
 go_image(
     name = "license-manager",
+    base = "@golang_base//image",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
-	base = "@golang_base//image",
 )
 
 container_push(
-	name = "upload-server",
-	format = "Docker",
-	image = ":license-manager",
-	registry = "gcr.io",
-	repository = "devops-284019/infra/flexlm",
-	tag = "license-manager-server",
-	visibility = ["//visibility:public"],
+    name = "upload-server",
+    format = "Docker",
+    image = ":license-manager",
+    registry = "gcr.io",
+    repository = "devops-284019/infra/flexlm",
+    tag = "license-manager-server",
+    visibility = ["//visibility:public"],
 )
