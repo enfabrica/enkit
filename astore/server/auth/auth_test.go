@@ -74,7 +74,6 @@ func TestBasicAuth(t *testing.T) {
 	assert.NotNil(t, server)
 
 	tresp := Authenticate(t, rng, server)
-	assert.Equal(t, 0, len(tresp.Key), "%v", tresp.Key)
 	assert.Equal(t, 0, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Equal(t, 0, len(tresp.Capublickey), "%v", tresp.Capublickey)
 }
@@ -141,7 +140,6 @@ func TestCAAuthRSA(t *testing.T) {
 	assert.NotNil(t, server)
 
 	tresp := Authenticate(t, rng, server)
-	assert.Less(t, 128, len(tresp.Key), "%v", tresp.Key)
 	assert.Less(t, 128, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
 }
@@ -169,7 +167,6 @@ func TestCAAuthED25519(t *testing.T) {
 	tresp := Authenticate(t, rng, server)
 
 	// ed25519 keys are significantly smaller.
-	assert.Less(t, 80, len(tresp.Key), tresp.Key)
 	assert.Less(t, 80, len(tresp.Cert), tresp.Cert)
 	assert.Less(t, 80, len(tresp.Capublickey), tresp.Capublickey)
 }

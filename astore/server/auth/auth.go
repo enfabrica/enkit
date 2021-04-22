@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -31,7 +32,7 @@ type Server struct {
 	authURL string
 	limit   time.Duration
 
-	caSigner              ssh.Signer
+	caSigner              crypto.Signer
 	principals            []string
 	marshalledCAPublicKey []byte
 	userCertTTL           time.Duration

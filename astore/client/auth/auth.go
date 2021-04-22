@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/rsa"
 	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
@@ -12,6 +11,7 @@ import (
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/pkg/browser"
+	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
@@ -125,7 +125,8 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	return string(decrypted), err
 }
 
-func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey *rsa.PrivateKey) error {
+
+func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey ed25519.PrivateKey) error {
 	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
 	if err != nil {
 		return err
