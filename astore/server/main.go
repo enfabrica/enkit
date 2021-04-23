@@ -30,7 +30,6 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/enfabrica/enkit/lib/oauth/ogoogle"
 	"github.com/enfabrica/enkit/lib/oauth/ogrpc"
 	"github.com/enfabrica/enkit/lib/server"
 	"github.com/enfabrica/enkit/lib/srand"
@@ -100,7 +99,7 @@ func ListHandler(base, upath string, resp *rpc_astore.ListResponse, err error, w
 	})
 }
 
-func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *oauth.Flags) error {
+func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *oauth.Flags) error {
 	rng := rand.New(srand.Source)
 
 	cookieDomain = strings.TrimSpace(cookieDomain)
@@ -135,7 +134,7 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		return fmt.Errorf("could not initialize auth server - %s", err)
 	}
 
-	authWeb, err := oauth.New(rng, oauth.WithFlags(oauthFlags), ogoogle.Defaults())
+	authWeb, err := oauth.New(rng, oauth.WithFlags(oauthFlags), auth.FetchCredentialOpts(oAuthType))
 	if err != nil {
 		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
 	}
@@ -261,12 +260,13 @@ func main() {
 
 	targetURL := ""
 	cookieDomain := ""
+	oauthType := ""
 	command.Flags().StringVar(&targetURL, "site-url", "", "The URL external users can use to reach this web server")
 	command.Flags().StringVar(&cookieDomain, "cookie-domain", "", "The domain for which the issued authentication cookie is valid. "+
 		"This implicitly authorizes redirection to any URL within the domain.")
-
+	command.Flags().StringVar(&oauthType, "oauth-type", "google", "the type of oauth2 provider that's presented")
 	command.RunE = func(cmd *cobra.Command, args []string) error {
-		return Start(targetURL, cookieDomain, astoreFlags, authFlags, oauthFlags)
+		return Start(targetURL, cookieDomain, oauthType, astoreFlags, authFlags, oauthFlags)
 	}
 
 	kcobra.PopulateDefaults(command, os.Args,
