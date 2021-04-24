@@ -15,6 +15,10 @@ function error() {
 # Failure exit will cause PAM to fail login.
 set -e
 
+test "$AUTOUSER_AUTOGEN" == "true" || {
+  exit 0 # nothing to do.
+}
+
 test -n "$PAM_USER" -a -n "$AUTOUSER_ORIGINAL" -a -n "$AUTOUSER_AUTOGEN" || {
   error "User creation script invoked without all the environment variables."
 }
@@ -25,10 +29,6 @@ test "$PAM_USER" == "$AUTOUSER_ORIGINAL" || {
 
 test "$PAM_SERVICE" == "sshd" || {
   error "User creation script invoked for non-ssh login"
-}
-
-test "$AUTOUSER_AUTOGEN" == "true" || {
-  exit 0 # nothing to do.
 }
 
 # If there is a one GID per user policy, implement it.
