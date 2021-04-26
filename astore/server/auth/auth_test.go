@@ -160,10 +160,10 @@ func TestCAAuthRSA(t *testing.T) {
 	defer agent.Close()
 
 	// Try to sign all the supported key types with the RSA certificate.
-	pubKey, privKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
+	privKey, pubKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
 	assert.Nil(t, err, err)
 
-	tresp := Authenticate(t, rng, server, pubKey)
+	tresp := Authenticate(t, rng, server, ssh.MarshalAuthorizedKey(pubKey))
 	assert.Less(t, 128, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
@@ -171,10 +171,10 @@ func TestCAAuthRSA(t *testing.T) {
 	err = agent.AddCertificates(privKey, pubParsed, 60)
 	assert.Nil(t, err, err)
 
-	pubKey, privKey, err = kcerts.MakeKeys(kcerts.GenerateED25519)
+	privKey, pubKey, err = kcerts.MakeKeys(kcerts.GenerateED25519)
 	assert.Nil(t, err, err)
 
-	tresp = Authenticate(t, rng, server, pubKey)
+	tresp = Authenticate(t, rng, server, ssh.MarshalAuthorizedKey(pubKey))
 	assert.Less(t, 128, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
@@ -182,10 +182,11 @@ func TestCAAuthRSA(t *testing.T) {
 	err = agent.AddCertificates(privKey, pubParsed, 60)
 	assert.Nil(t, err, err)
 
-	pubKey, privKey, err = kcerts.MakeKeys(kcerts.GenerateRSA)
+	privKey, pubKey, err = kcerts.MakeKeys(kcerts.GenerateRSA)
 	assert.Nil(t, err, err)
+	marshalledPubKey := ssh.MarshalAuthorizedKey(pubKey)
 
-	tresp = Authenticate(t, rng, server, pubKey)
+	tresp = Authenticate(t, rng, server, marshalledPubKey)
 	assert.Less(t, 128, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
@@ -215,24 +216,26 @@ func TestCAAuthED25519(t *testing.T) {
 	assert.NotNil(t, server)
 
 	// Try to sign all the supported key types with the ED25519 certificate.
-	pubKey, _, err := kcerts.MakeKeys(kcerts.GenerateDefault)
+	_, pubKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
 	assert.Nil(t, err, err)
-
-	tresp := Authenticate(t, rng, server, pubKey)
+	marshalledPubKey := ssh.MarshalAuthorizedKey(pubKey)
+	tresp := Authenticate(t, rng, server, marshalledPubKey)
 	assert.Less(t, 80, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 80, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
-	pubKey, _, err = kcerts.MakeKeys(kcerts.GenerateED25519)
+	_, pubKey, err = kcerts.MakeKeys(kcerts.GenerateED25519)
 	assert.Nil(t, err, err)
+	marshalledPubKey = ssh.MarshalAuthorizedKey(pubKey)
 
-	tresp = Authenticate(t, rng, server, pubKey)
+	tresp = Authenticate(t, rng, server, marshalledPubKey)
 	assert.Less(t, 80, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 80, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
-	pubKey, _, err = kcerts.MakeKeys(kcerts.GenerateRSA)
+	_, pubKey, err = kcerts.MakeKeys(kcerts.GenerateRSA)
 	assert.Nil(t, err, err)
+	marshalledPubKey = ssh.MarshalAuthorizedKey(pubKey)
 
-	tresp = Authenticate(t, rng, server, pubKey)
+	tresp = Authenticate(t, rng, server, marshalledPubKey)
 	assert.Less(t, 80, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 80, len(tresp.Capublickey), "%v", tresp.Capublickey)
 }

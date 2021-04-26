@@ -1,10 +1,9 @@
 package kcerts
 
 import (
-	"crypto"
 	"crypto/rand"
-	"crypto/rsa"
-	"crypto/ed25519"
+	stdRand "math/rand"
+	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/logger"
@@ -107,7 +106,7 @@ func (a SSHAgent) Valid() bool {
 // privateKey must be a key type accepted by the golang.org/x/ssh/agent AddedKey struct.
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
 // Note that ed25519.PrivateKey should be passed by value.
-func (a SSHAgent) AddCertificates(privateKey ed25519.PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
+func (a SSHAgent) AddCertificates(privateKey *PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
 	conn, err := net.Dial("unix", a.Socket)
 	if err != nil {
 		return err
@@ -119,7 +118,7 @@ func (a SSHAgent) AddCertificates(privateKey ed25519.PrivateKey, publicKey ssh.P
 	}
 	agentClient := agent.NewClient(conn)
 	return agentClient.Add(agent.AddedKey{
-		PrivateKey:   privateKey,
+		PrivateKey:   privateKey.Key.Raw(),
 		Certificate:  cert,
 		LifetimeSecs: ttl,
 	})
@@ -193,77 +192,9 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 	return s, nil
 }
 
-// KeyGenerator is A function capable of generating a key pair.
-//
-// The function is expected to return a Public Key, a Private Key,
-// and an error.
-//
-// Only keys supported by x/crypto/ssh.NewPublicKey are supported.
-type KeyGenerator func() (interface{}, interface{}, error)
-
-// MakeKeys uses the speficied key generator to create a pair of ssh keys.
-//
-// The first return value is a marshalled version of the public key,
-// a binary blob suitable for transmission.
-// The second return value is the private key in the original format.
-// This is generally directly usable with functions like agent.Add.
-func MakeKeys(generator KeyGenerator) ([]byte, interface{}, error) {
-	public, private, err := generator()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	encoded, err := EncodePublicKey(public)
-	if err != nil {
-		return nil, nil, err
-	}
-	return encoded, private, nil
-}
-
-func EncodePublicKey(key interface{}) ([]byte, error) {
-	pubKey, err := ssh.NewPublicKey(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return ssh.MarshalAuthorizedKey(pubKey), nil
-}
-
-func GenerateRSA() (interface{}, interface{}, error) {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
-func MakeKeys() (ed25519.PrivateKey, ssh.PublicKey, error) {
-	pubKey, priv, err := ed25519.GenerateKey(rand.Reader)
-	publicKey, err := ssh.NewPublicKey(pubKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &privateKey.PublicKey, privateKey, err
-}
-
-func GenerateED25519() (interface{}, interface{}, error) {
-	return ed25519.GenerateKey(rand.Reader)
-}
-
-var GenerateDefault = GenerateED25519;
-
-// SelectGenerator returns a different generator based on the specified string.
-//
-// Currently it accepts "rsa", or "ed25519".
-func SelectGenerator(name string) KeyGenerator {
-	name = strings.ToLower(name)
-	if name == "rsa" {
-		return GenerateRSA
-	}
-	if name == "ed25519" {
-		return GenerateED25519
-	}
-	return nil
-	return priv, publicKey, err
-}
-
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters
 // to generate a user cert, certType must be 1, and host certs ust have certType 2
-func SignPublicKey(ca crypto.Signer, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
+func SignPublicKey(p *PrivateKey, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
 	from := time.Now().UTC()
 	to := time.Now().UTC().Add(ttl * time.Hour)
 	cert := &ssh.Certificate{
@@ -274,12 +205,101 @@ func SignPublicKey(ca crypto.Signer, certType uint32, principals []string, ttl t
 		ValidPrincipals: principals,
 		Permissions:     ssh.Permissions{},
 	}
-	newSigner, err := NewSha256SignerFromSigner(ca)
+	s, err := p.Signer()
 	if err != nil {
 		return nil, err
 	}
-	if err := cert.SignCert(rand.Reader, newSigner); err != nil {
+	if err := cert.SignCert(rand.Reader, s); err != nil {
 		return nil, err
 	}
 	return cert, nil
+}
+
+func OpenSSHEncode21559PrivateKey(key ed25519.PrivateKey) ([]byte, error) {
+	b := openSSHMarshalED25519PrivateKey(key)
+	return pem.EncodeToMemory(&pem.Block{Type: "OPENSSH PRIVATE KEY", Bytes: b}), nil
+
+}
+
+// Note: copited from https://github.com/mikesmitty/edkey/blob/master/edkey.go
+// TODO(adam): support passwords
+
+//* Writes ed25519 private keys into the new OpenSSH private key format.
+//I have no idea why this isn't implemented anywhere yet, you can do seemingly
+//everything except write it to disk in the OpenSSH private key format. */
+func openSSHMarshalED25519PrivateKey(key ed25519.PrivateKey) []byte {
+	// Add our key header (followed by a null byte)
+	magic := append([]byte("openssh-key-v1"), 0)
+
+	var w struct {
+		CipherName   string
+		KdfName      string
+		KdfOpts      string
+		NumKeys      uint32
+		PubKey       []byte
+		PrivKeyBlock []byte
+	}
+
+	// Fill out the private key fields
+	pk1 := struct {
+		Check1  uint32
+		Check2  uint32
+		Keytype string
+		Pub     []byte
+		Priv    []byte
+		Comment string
+		Pad     []byte `ssh:"rest"`
+	}{}
+
+	// Set our check ints
+	ci := stdRand.Uint32()
+	pk1.Check1 = ci
+	pk1.Check2 = ci
+
+	// Set our key type
+	pk1.Keytype = ssh.KeyAlgoED25519
+
+	// Add the pubkey to the optionally-encrypted block
+	pk, ok := key.Public().(ed25519.PublicKey)
+	if !ok {
+		//fmt.Fprintln(os.Stderr, "ed25519.PublicKey type assertion failed on an ed25519 public key. This should never ever happen.")
+		return nil
+	}
+	pubKey := []byte(pk)
+	pk1.Pub = pubKey
+
+	// Add our private key
+	pk1.Priv = key
+
+	// Might be useful to put something in here at some point
+	pk1.Comment = ""
+
+	// Add some padding to match the encryption block size within PrivKeyBlock (without Pad field)
+	// 8 doesn't match the documentation, but that's what ssh-keygen uses for unencrypted keys. *shrug*
+	bs := 8
+	blockLen := len(ssh.Marshal(pk1))
+	padLen := (bs - (blockLen % bs)) % bs
+	pk1.Pad = make([]byte, padLen)
+
+	// Padding is a sequence of bytes like: 1, 2, 3...
+	for i := 0; i < padLen; i++ {
+		pk1.Pad[i] = byte(i + 1)
+	}
+
+	// Generate the pubkey prefix "\0\0\0\nssh-ed25519\0\0\0 "
+	prefix := []byte{0x0, 0x0, 0x0, 0x0b}
+	prefix = append(prefix, []byte(ssh.KeyAlgoED25519)...)
+	prefix = append(prefix, []byte{0x0, 0x0, 0x0, 0x20}...)
+
+	// Only going to support unencrypted keys for now
+	w.CipherName = "none"
+	w.KdfName = "none"
+	w.KdfOpts = ""
+	w.NumKeys = 1
+	w.PubKey = append(prefix, pubKey...)
+	w.PrivKeyBlock = ssh.Marshal(pk1)
+
+	magic = append(magic, ssh.Marshal(w)...)
+
+	return magic
 }
