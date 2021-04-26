@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "auth.go",
+        "credentials.go",
         "factory.go",
     ],
     importpath = "github.com/enfabrica/enkit/astore/server/auth",
@@ -15,6 +16,8 @@ go_library(
         "//lib/kflags:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
+        "//lib/oauth/ogithub:go_default_library",
+        "//lib/oauth/ogoogle:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
         "@org_golang_x_crypto//nacl/box:go_default_library",
