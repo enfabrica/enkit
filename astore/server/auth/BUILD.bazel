@@ -30,6 +30,9 @@ go_test(
     deps = [
         "//astore/common:go_default_library",
         "//astore/rpc:auth-go",
+        "//lib/cache:go_default_library",
+        "//lib/kcerts:go_default_library",
+        "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
         "//lib/srand:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",

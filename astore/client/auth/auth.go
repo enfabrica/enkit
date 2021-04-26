@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
@@ -11,7 +10,6 @@ import (
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/pkg/browser"
-	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
@@ -77,13 +75,13 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	fmt.Printf("\t%s\n\nTo complete authentication with @%s.\n"+
 		"I'll be waiting for you, but hurry! The request may timeout.\nHit Ctl+C with no regrets to abort.\n", ares.Url, domain)
 	browser.OpenURL(ares.Url)
-	privateKey, pubKey, err := kcerts.MakeKeys()
+	pubKey, privateKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
 	if err != nil {
 		return "", fmt.Errorf("error generating ssh credentials: %w", err)
 	}
 	treq := &auth.TokenRequest{
 		Url:       ares.Url,
-		Publickey: pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
+		Publickey: pubKey,
 	}
 
 	var tres *auth.TokenResponse
@@ -122,12 +120,10 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	if err = loadSSHKey(tres, o.Store, o.Logger, privateKey); err != nil {
 		return "", err
 	}
-	fmt.Println("successfully added certs to machine")
 	return string(decrypted), err
 }
 
-
-func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey ed25519.PrivateKey) error {
+func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey interface{}) error {
 	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
 	if err != nil {
 		return err
