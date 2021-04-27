@@ -10,19 +10,15 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type PrivateKey struct {
-	Key PrivateKeyProvider
-}
-
-func (e PrivateKey) Signer() (ssh.Signer, error) {
-	res, err := NewSSHSigner(e.Key.Signer(), e.Key.SigningAlgo())
+func NewSigner(key PrivateKey) (ssh.Signer, error) {
+	res, err := NewSSHSigner(key.Signer(), key.SigningAlgo())
 	if err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-type PrivateKeyProvider interface {
+type PrivateKey interface {
 	Signer() crypto.Signer
 	SigningAlgo() string
 	Raw() interface{}
@@ -84,7 +80,7 @@ func (r rsaProvider) SSHPemEncode() ([]byte, error) {
 // and an error.
 //
 // Only keys supported by x/crypto/ssh.NewPublicKey are supported.
-type SSHKeyGenerator func() (ssh.PublicKey, *PrivateKey, error)
+type SSHKeyGenerator func() (ssh.PublicKey, PrivateKey, error)
 
 var (
 	_               SSHKeyGenerator = GenerateRSA
@@ -92,7 +88,7 @@ var (
 	GenerateDefault SSHKeyGenerator = GenerateED25519
 )
 
-func GenerateRSA() (ssh.PublicKey, *PrivateKey, error) {
+func GenerateRSA() (ssh.PublicKey, PrivateKey, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return nil, nil, err
@@ -101,10 +97,10 @@ func GenerateRSA() (ssh.PublicKey, *PrivateKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return publicKey, &PrivateKey{Key: rsaProvider{p: privateKey}}, err
+	return publicKey, rsaProvider{p: privateKey}, err
 }
 
-func GenerateED25519() (ssh.PublicKey, *PrivateKey, error) {
+func GenerateED25519() (ssh.PublicKey, PrivateKey, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
@@ -113,21 +109,17 @@ func GenerateED25519() (ssh.PublicKey, *PrivateKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return sshPub, &PrivateKey{Key: ed25519Provider{rawKey: priv}}, err
+	return sshPub, ed25519Provider{rawKey: priv}, err
 }
 
-func FromEC25519(key ed25519.PrivateKey) *PrivateKey {
-	return &PrivateKey{
-		Key: ed25519Provider{
-			rawKey: key,
-		},
+func FromEC25519(key ed25519.PrivateKey) PrivateKey {
+	return ed25519Provider{
+		rawKey: key,
 	}
 }
 
-func FromRSA(key *rsa.PrivateKey) *PrivateKey {
-	return &PrivateKey{
-		Key: rsaProvider{
-			p: key,
-		},
+func FromRSA(key *rsa.PrivateKey) PrivateKey {
+	return rsaProvider{
+		p: key,
 	}
 }

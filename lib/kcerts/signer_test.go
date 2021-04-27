@@ -33,7 +33,7 @@ func TestPemEncodeKeys(t *testing.T) {
 	for _, sourceType := range tableTestTypes {
 		_, priv, err := sourceType()
 		assert.Nil(t, err)
-		pemBytes, err := priv.Key.SSHPemEncode()
+		pemBytes, err := priv.SSHPemEncode()
 		assert.Nil(t, err)
 		_, err = ssh.ParsePrivateKey(pemBytes)
 		assert.Nilf(t, err, "failed demarshalling private key for type %s", sourceType)

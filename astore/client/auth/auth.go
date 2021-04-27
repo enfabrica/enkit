@@ -127,7 +127,7 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	return string(decrypted), err
 }
 
-func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey *kcerts.PrivateKey) error {
+func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey kcerts.PrivateKey) error {
 	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
 	if err != nil {
 		return err

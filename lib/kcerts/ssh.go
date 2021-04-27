@@ -106,7 +106,7 @@ func (a SSHAgent) Valid() bool {
 // privateKey must be a key type accepted by the golang.org/x/ssh/agent AddedKey struct.
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
 // Note that ed25519.PrivateKey should be passed by value.
-func (a SSHAgent) AddCertificates(privateKey *PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
+func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
 	conn, err := net.Dial("unix", a.Socket)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (a SSHAgent) AddCertificates(privateKey *PrivateKey, publicKey ssh.PublicKe
 	}
 	agentClient := agent.NewClient(conn)
 	return agentClient.Add(agent.AddedKey{
-		PrivateKey:   privateKey.Key.Raw(),
+		PrivateKey:   privateKey.Raw(),
 		Certificate:  cert,
 		LifetimeSecs: ttl,
 	})
@@ -194,7 +194,7 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters
 // to generate a user cert, certType must be 1, and host certs ust have certType 2
-func SignPublicKey(p *PrivateKey, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
+func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
 	from := time.Now().UTC()
 	to := time.Now().UTC().Add(ttl * time.Hour)
 	cert := &ssh.Certificate{
@@ -205,7 +205,7 @@ func SignPublicKey(p *PrivateKey, certType uint32, principals []string, ttl time
 		ValidPrincipals: principals,
 		Permissions:     ssh.Permissions{},
 	}
-	s, err := p.Signer()
+	s, err := NewSigner(p)
 	if err != nil {
 		return nil, err
 	}

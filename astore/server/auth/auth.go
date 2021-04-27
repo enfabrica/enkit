@@ -31,7 +31,7 @@ type Server struct {
 	authURL string
 	limit   time.Duration
 
-	caPrivateKey          *kcerts.PrivateKey
+	caPrivateKey          kcerts.PrivateKey
 	principals            []string
 	marshalledCAPublicKey []byte
 	userCertTTL           time.Duration
