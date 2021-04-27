@@ -3,7 +3,6 @@ package client
 import (
 	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/astore/client/auth"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/config"
@@ -16,7 +15,6 @@ import (
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/enfabrica/enkit/lib/progress"
 	"log"
-	"math/rand"
 	"net/http"
 )
 
@@ -26,15 +24,6 @@ type AuthFlags struct {
 
 	// Flags indicating how to connect to the authentication server.
 	*ServerFlags
-}
-
-func (af *AuthFlags) AuthClient(rng *rand.Rand) (*auth.Client, error) {
-	authconn, err := af.Connect()
-	if err != nil {
-		return nil, err
-	}
-
-	return auth.New(rng, authconn), nil
 }
 
 func DefaultAuthFlags() *AuthFlags {

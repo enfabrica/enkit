@@ -2,10 +2,12 @@ package commands
 
 import (
 	"fmt"
-	"github.com/enfabrica/enkit/astore/client/auth"
+	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config/identity"
+	"github.com/enfabrica/enkit/lib/kauth"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/spf13/cobra"
 	"math/rand"
 	"time"
@@ -79,23 +81,23 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	client, err := l.base.AuthClient(l.rng)
+	conn, err := l.base.Connect()
 	if err != nil {
 		return err
 	}
-
-	options := auth.LoginOptions{
-		Context: l.base.Context(),
-		MinWait: l.MinWaitTime,
-		Store:   l.base.Local,
-	}
-
-	token, err := client.Login(username, domain, options)
+	repeater := retry.New(retry.WithWait(l.MinWaitTime), retry.WithRng(l.rng))
+	enCreds, err := kauth.PerformLogin(auth.NewAuthClient(conn), l.base.Log, repeater, username, domain)
 	if err != nil {
 		return err
 	}
+	if err := kauth.SaveCredentials(enCreds, l.base.Local, l.base.Log); err != nil && err != kauth.NoSSHCredentialsErr {
+		l.base.Log.Warnf("error saving credentials, err: %v", err)
+		return err
+	}
+
+	// TODO(adam): delete below when we are comfortable migrating from the token to pure ssh certificates
 	userid := identity.Join(username, domain)
-	err = ids.Save(userid, token)
+	err = ids.Save(userid, enCreds.Token)
 	if err != nil {
 		return fmt.Errorf("could not store identity - %w", err)
 	}
