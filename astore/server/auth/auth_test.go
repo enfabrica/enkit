@@ -160,7 +160,7 @@ func TestCAAuthRSA(t *testing.T) {
 	defer agent.Close()
 
 	// Try to sign all the supported key types with the RSA certificate.
-	privKey, pubKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
+	pubKey, privKey, err := kcerts.GenerateDefault()
 	assert.Nil(t, err, err)
 
 	tresp := Authenticate(t, rng, server, ssh.MarshalAuthorizedKey(pubKey))
@@ -171,7 +171,7 @@ func TestCAAuthRSA(t *testing.T) {
 	err = agent.AddCertificates(privKey, pubParsed, 60)
 	assert.Nil(t, err, err)
 
-	privKey, pubKey, err = kcerts.MakeKeys(kcerts.GenerateED25519)
+	pubKey, privKey, err = kcerts.GenerateED25519()
 	assert.Nil(t, err, err)
 
 	tresp = Authenticate(t, rng, server, ssh.MarshalAuthorizedKey(pubKey))
@@ -182,7 +182,7 @@ func TestCAAuthRSA(t *testing.T) {
 	err = agent.AddCertificates(privKey, pubParsed, 60)
 	assert.Nil(t, err, err)
 
-	privKey, pubKey, err = kcerts.MakeKeys(kcerts.GenerateRSA)
+	pubKey, privKey, err = kcerts.GenerateRSA()
 	assert.Nil(t, err, err)
 	marshalledPubKey := ssh.MarshalAuthorizedKey(pubKey)
 
@@ -216,14 +216,14 @@ func TestCAAuthED25519(t *testing.T) {
 	assert.NotNil(t, server)
 
 	// Try to sign all the supported key types with the ED25519 certificate.
-	_, pubKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
+	pubKey, _, err := kcerts.GenerateDefault()
 	assert.Nil(t, err, err)
 	marshalledPubKey := ssh.MarshalAuthorizedKey(pubKey)
 	tresp := Authenticate(t, rng, server, marshalledPubKey)
 	assert.Less(t, 80, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 80, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
-	_, pubKey, err = kcerts.MakeKeys(kcerts.GenerateED25519)
+	pubKey, _, err = kcerts.GenerateED25519()
 	assert.Nil(t, err, err)
 	marshalledPubKey = ssh.MarshalAuthorizedKey(pubKey)
 
@@ -231,7 +231,7 @@ func TestCAAuthED25519(t *testing.T) {
 	assert.Less(t, 80, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Less(t, 80, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
-	_, pubKey, err = kcerts.MakeKeys(kcerts.GenerateRSA)
+	pubKey, _, err = kcerts.GenerateRSA()
 	assert.Nil(t, err, err)
 	marshalledPubKey = ssh.MarshalAuthorizedKey(pubKey)
 

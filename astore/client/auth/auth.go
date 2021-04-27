@@ -79,7 +79,7 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 			o.Logger.Infof("error opening url, you must open it yourself")
 		}
 	}()
-	privateKey, pubKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
+	pubKey, privateKey, err := kcerts.GenerateED25519()
 	if err != nil {
 		return "", fmt.Errorf("error generating ssh credentials: %w", err)
 	}

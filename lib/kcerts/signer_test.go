@@ -9,15 +9,16 @@ import (
 	"time"
 )
 
-var tableTestTypes = []string {"rsa", "ed25519"}
+var tableTestTypes = []kcerts.SSHKeyGenerator{kcerts.GenerateED25519, kcerts.GenerateRSA}
+
 // TestSha256Signer_PublicKey tests all possible combinations of supported kcerts.PrivateKey signing ssh.PublicKeys
 // It will sign the following ssh certs with the custom algos by their providers
 func TestSha256Signer_PublicKey(t *testing.T) {
 	for _, sourceType := range tableTestTypes {
 		for _, toSignType := range tableTestTypes {
-			sourcePrivKey, _, err := kcerts.MakeKeys(kcerts.SelectGenerator(sourceType))
+			_, sourcePrivKey, err := sourceType()
 			assert.Nil(t, err)
-			_, toBeSigned, err := kcerts.MakeKeys(kcerts.SelectGenerator(toSignType))
+			toBeSigned, _, err := toSignType()
 			r, err := kcerts.SignPublicKey(sourcePrivKey, 1, []string{}, 5*time.Hour, toBeSigned)
 			assert.Nil(t, err)
 			assert.NotNil(t, r)
@@ -28,9 +29,9 @@ func TestSha256Signer_PublicKey(t *testing.T) {
 
 // TestSha256Signer_PublicKey tests all possible combinations of supported kcerts.PrivateKey signing ssh.PublicKeys
 // It will sign the following ssh certs with the custom algos by their providers
-func TestPemEncodeKeys(t *testing.T){
+func TestPemEncodeKeys(t *testing.T) {
 	for _, sourceType := range tableTestTypes {
-		priv, _, err := kcerts.MakeKeys(kcerts.SelectGenerator(sourceType))
+		_, priv, err := sourceType()
 		assert.Nil(t, err)
 		pemBytes, err := priv.Key.SSHPemEncode()
 		assert.Nil(t, err)

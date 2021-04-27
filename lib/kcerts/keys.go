@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"golang.org/x/crypto/ssh"
-	"strings"
 )
 
 type PrivateKey struct {
@@ -85,23 +84,15 @@ func (r rsaProvider) SSHPemEncode() ([]byte, error) {
 // and an error.
 //
 // Only keys supported by x/crypto/ssh.NewPublicKey are supported.
-type SSHKeyGenerator func() (*PrivateKey, ssh.PublicKey, error)
+type SSHKeyGenerator func() (ssh.PublicKey, *PrivateKey, error)
 
-// MakeKeys uses the speficied key generator to create a pair of ssh keys.
-//
-// The first return value is a marshalled version of the public key,
-// a binary blob suitable for transmission.
-// The second return value is the private key in the original format.
-// This is generally directly usable with functions like agent.Add.
-func MakeKeys(generator SSHKeyGenerator) (*PrivateKey, ssh.PublicKey, error) {
-	private, public, err := generator()
-	if err != nil {
-		return nil, nil, err
-	}
-	return private, public, nil
-}
+var (
+	_               SSHKeyGenerator = GenerateRSA
+	_               SSHKeyGenerator = GenerateED25519
+	GenerateDefault SSHKeyGenerator = GenerateED25519
+)
 
-func GenerateRSA() (*PrivateKey, ssh.PublicKey, error) {
+func GenerateRSA() (ssh.PublicKey, *PrivateKey, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return nil, nil, err
@@ -110,10 +101,10 @@ func GenerateRSA() (*PrivateKey, ssh.PublicKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return &PrivateKey{Key: rsaProvider{p: privateKey}}, publicKey, err
+	return publicKey, &PrivateKey{Key: rsaProvider{p: privateKey}}, err
 }
 
-func GenerateED25519() (*PrivateKey, ssh.PublicKey, error) {
+func GenerateED25519() (ssh.PublicKey, *PrivateKey, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
@@ -122,23 +113,7 @@ func GenerateED25519() (*PrivateKey, ssh.PublicKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return &PrivateKey{Key: ed25519Provider{rawKey: priv}}, sshPub, err
-}
-
-var GenerateDefault = GenerateED25519
-
-// SelectGenerator returns a different generator based on the specified string.
-//
-// Currently it accepts "rsa", or "ed25519".
-func SelectGenerator(name string) SSHKeyGenerator {
-	name = strings.ToLower(name)
-	if name == "rsa" {
-		return GenerateRSA
-	}
-	if name == "ed25519" {
-		return GenerateED25519
-	}
-	return nil
+	return sshPub, &PrivateKey{Key: ed25519Provider{rawKey: priv}}, err
 }
 
 func FromEC25519(key ed25519.PrivateKey) *PrivateKey {
