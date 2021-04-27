@@ -5,6 +5,7 @@ import (
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -36,6 +37,6 @@ func TestPemEncodeKeys(t *testing.T) {
 		pemBytes, err := priv.SSHPemEncode()
 		assert.Nil(t, err)
 		_, err = ssh.ParsePrivateKey(pemBytes)
-		assert.Nilf(t, err, "failed demarshalling private key for type %s", sourceType)
+		assert.Nilf(t, err, "failed demarshalling private key for type %s", reflect.TypeOf(priv))
 	}
 }

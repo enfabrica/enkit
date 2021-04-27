@@ -7,7 +7,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/enfabrica/enkit/lib/kcerts/ked25519"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -37,11 +36,11 @@ func (e ed25519Provider) Signer() crypto.Signer {
 }
 
 func (e ed25519Provider) SSHPemEncode() ([]byte, error) {
-	res, err := ked25519.OpenSSHEncode21559PrivateKey(e.rawKey)
+	res, err := x509.MarshalPKCS8PrivateKey(e.rawKey)
 	if err != nil {
 		return nil, err
 	}
-	return res, nil
+	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: res}), nil
 }
 
 func (e ed25519Provider) Raw() interface{} {
