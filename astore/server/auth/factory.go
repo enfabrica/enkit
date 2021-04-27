@@ -91,7 +91,7 @@ func WithCA(fileContent []byte) Modifier {
 		if err != nil {
 			return fmt.Errorf("Could not parse CA key - %w", err)
 		}
-		// Todo(adam): make parsing existing keys cleaner
+		// TODO(adam): make parsing existing keys cleaner
 		if key, ok := caPrivateKey.(*ed25519.PrivateKey); ok {
 			server.caPrivateKey = kcerts.FromEC25519(*key)
 			sshPubKey, err := ssh.NewPublicKey(key.Public())
