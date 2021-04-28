@@ -1,13 +1,13 @@
 package main
 
 import (
+	"fmt"
 	common "github.com/enfabrica/enkit/manager/common"
 	rpc "github.com/enfabrica/enkit/manager/rpc"
 	"google.golang.org/grpc"
 	"log"
 	"net"
 	"os"
-	"fmt"
 )
 
 func main() {

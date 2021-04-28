@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	rpc_license "github.com/enfabrica/enkit/manager/rpc"
+	"google.golang.org/grpc"
 	grpcCodes "google.golang.org/grpc/codes"
 	grpcStatus "google.golang.org/grpc/status"
-	"google.golang.org/grpc"
 	"io"
 	"log"
 	"os"
@@ -18,17 +18,16 @@ import (
 
 func run(timeout time.Duration, cmd string, args ...string) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-    defer cancel()
-    job := exec.CommandContext(ctx, cmd, args...)
-    err := job.Run()
-    if ctx.Err() == context.DeadlineExceeded {
+	defer cancel()
+	job := exec.CommandContext(ctx, cmd, args...)
+	err := job.Run()
+	if ctx.Err() == context.DeadlineExceeded {
 		log.Fatalf("Job failed to complete after %d seconds: %s %s \n", timeout, cmd, strings.Join(args, " "))
-    }
-    if err != nil {
-        log.Fatalf("Job \"%s %s\" failed with error %s", cmd, strings.Join(args, " "), err)
-    } else {
-		log.Printf("Job completed successfully: %s %s \n", cmd, strings.Join(args, " "))
-    }
+	}
+	if err != nil {
+		log.Fatalf("Job \"%s %s\" failed with error %s", cmd, strings.Join(args, " "), err)
+	}
+	log.Printf("Job completed successfully: %s %s \n", cmd, strings.Join(args, " "))
 }
 
 func polling(client rpc_license.LicenseClient, username string, quantity int32, vendor string, feature string,

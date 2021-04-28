@@ -4,15 +4,14 @@ import (
 	astoreServer "github.com/enfabrica/enkit/astore/server/astore"
 	rpc_license "github.com/enfabrica/enkit/manager/rpc"
 	grpcCodes "google.golang.org/grpc/codes"
-	grpcStatus "google.golang.org/grpc/status"
 	"google.golang.org/grpc/metadata"
+	grpcStatus "google.golang.org/grpc/status"
 	"io"
 	"log"
 	"math/rand"
 	"strings"
 	"sync"
 	"time"
-	"fmt"
 )
 
 type LicenseCounter struct {
@@ -27,8 +26,8 @@ func (c *LicenseCounter) increment(vendor string, num int, hash string) int {
 	c.counterMutex.Lock()
 	defer c.counterMutex.Unlock()
 	if c.licenses[vendor].Used >= c.licenses[vendor].Total {
-        log.Printf("Cannot acquire more licenses than available \n")
-        return c.licenses[vendor].Used
+		log.Printf("Cannot acquire more licenses than available \n")
+		return c.licenses[vendor].Used
 	}
 	log.Printf("License acquired by %s \n", hash)
 	c.licenses[vendor].Used += num
@@ -40,7 +39,7 @@ func (c *LicenseCounter) decrement(vendor string, num int, hash string) int {
 	defer c.counterMutex.Unlock()
 	if c.licenses[vendor].Used-num < 0 {
 		log.Printf("Cannot release a negative number of licenses \n")
-        return c.licenses[vendor].Total
+		return c.licenses[vendor].Total
 	}
 	log.Printf("License released by %s \n", hash)
 	c.licenses[vendor].Used -= num
@@ -75,6 +74,11 @@ func (c *LicenseCounter) del(key string, vendor string) {
 	index := -1
 	c.clientMutex.Lock()
 	defer c.clientMutex.Unlock()
+	_, ok := c.queue[vendor]
+	if !ok {
+		log.Printf("Vendor \"%s\" does not exist in the queue \n", vendor)
+		return
+	}
 	for i := 0; i < len(c.queue[vendor]); i++ {
 		if c.queue[vendor][i] == key {
 			c.queue[vendor] = append(c.queue[vendor][:i], c.queue[vendor][i+1:]...)
@@ -91,7 +95,7 @@ func (c *LicenseCounter) del(key string, vendor string) {
 
 func (c *LicenseCounter) validLicense(vendor string, feature string) bool {
 	licenses := map[string]map[string]bool{"xilinx": {"vivado": true},
-                                           "cadence": {"xcelium": true}}
+		"cadence": {"xcelium": true}}
 	_, ok := licenses[vendor][feature]
 	return ok
 }
@@ -128,8 +132,8 @@ type Server struct {
 }
 
 func (s *Server) Polling(stream rpc_license.License_PollingServer) error {
-	var hash string
-	var vendor string
+	hash := ""
+	vendor := ""
 	var status error
 	s.rng = rand.New(rand.NewSource(rand.Int63()))
 	for {
@@ -144,8 +148,7 @@ func (s *Server) Polling(stream rpc_license.License_PollingServer) error {
 			return err
 		}
 		if !licenseCounter.validLicense(recv.Vendor, recv.Feature) {
-			errMsg := fmt.Sprintf("\"%s %s\" is an unsupported vendor feature combination", recv.Vendor, recv.Feature)
-			return grpcStatus.Errorf(grpcCodes.InvalidArgument, errMsg)
+			return grpcStatus.Errorf(grpcCodes.InvalidArgument, "\"%s %s\" is an unsupported vendor feature combination", recv.Vendor, recv.Feature)
 		}
 		md, ok := metadata.FromIncomingContext(stream.Context())
 		if !ok {
@@ -174,10 +177,10 @@ func (s *Server) Polling(stream rpc_license.License_PollingServer) error {
 			licenseCounter.dequeue(hash, vendor)
 			err := stream.Send(&rpc_license.PollingResponse{Acquired: true, Hash: hash})
 			if err != nil {
-                status = err
+				status = err
 				log.Printf("Failed to send message back to client %s: %s \n", hash, err)
 			}
-            break
+			break
 		} else {
 			err := stream.Send(&rpc_license.PollingResponse{Acquired: false, Hash: hash})
 			if err != nil {
