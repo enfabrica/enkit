@@ -7,17 +7,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 	"log"
-	"runtime"
 	"testing"
 	"time"
 )
 
 func TestController(t *testing.T) {
-	m := &runtime.MemStats{}
-	runtime.ReadMemStats(m)
-
+	defer goleak.VerifyNone(t)
 	controller := NewRecordController(logger.DefaultLogger{Printer: log.Printf})
-
+	defer controller.Close()
 	var rr []dns.RR
 	testTxt := []string{
 		"my life for aiur", "for the swarm", "foo bar baz",
@@ -106,13 +103,10 @@ func TestController(t *testing.T) {
 	fmt.Println("records are", aRecords)
 	// Delete 1 add 2
 	assert.Equal(t, 5, len(aRecords))
+	time.Sleep(1 * time.Second)
+	controller = nil
+}
 
-	time.Sleep(6 * time.Second)
-	// Doing this because I think there might be a mem leak but cannot find it with pprof or any analyzer. I might just be paranoid or not
-	// know how unbuffered channel work under the hood that well
-	m2 := &runtime.MemStats{}
-	runtime.ReadMemStats(m2)
-	fmt.Println("before:", m.HeapAlloc, "versus after:", m2.HeapAlloc)
-	controller.Close()
-	defer goleak.VerifyNone(t)
+func BenchController(b *testing.B) {
+
 }

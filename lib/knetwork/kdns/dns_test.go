@@ -15,6 +15,7 @@ import (
 
 // TODO(adam): just table test this
 func TestDNS(t *testing.T) {
+	defer goleak.VerifyNone(t)
 	// Setup
 	l, err := knetwork.AllocatePort()
 	assert.Nil(t, err)
@@ -23,6 +24,12 @@ func TestDNS(t *testing.T) {
 		kdns.WithDomains([]string{"enkit.", "enb."}),
 		kdns.WithListener(l),
 	)
+	defer func() {
+		assert.Nil(t, dnsServer.Stop())
+	}()
+	go func() {
+		assert.Nil(t, dnsServer.Run())
+	}()
 	customResolver := &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -32,13 +39,7 @@ func TestDNS(t *testing.T) {
 			return d.DialContext(ctx, network, l.Addr().String())
 		},
 	}
-	go func() {
-		assert.Nil(t, dnsServer.Run())
-	}()
-	defer func() {
-		assert.Nil(t, dnsServer.Stop())
-		goleak.VerifyNone(t)
-	}()
+
 
 	tips := []string{"10.9.9.9", "10.90.80.70"}
 	var rrs []dns.RR

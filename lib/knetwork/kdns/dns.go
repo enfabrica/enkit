@@ -16,12 +16,12 @@ type DnsServer struct {
 	host      string
 	dnsServer *dns.Server
 
-	requestControllerChan chan struct {
+	readOnlyChan chan struct {
 		Return chan *RecordController
 		Origin string
 	}
 
-	newOrExistingControllerChan chan struct {
+	newOrExistingChan chan struct {
 		Return chan *RecordController
 		Origin string
 	}
@@ -33,10 +33,9 @@ type DnsServer struct {
 // Run starts the server and is blocking. It will return an error on close if it did not exit gracefully. To close the
 // DnsServer gracefully, call Stop.
 func (s *DnsServer) Run() error {
-
 	mux := dns.NewServeMux()
 	for _, domain := range s.domains {
-		mux.HandleFunc(dns.Fqdn(domain), s.HandleIncoming)
+		mux.HandleFunc(dns.CanonicalName(domain), s.HandleIncoming)
 	}
 	s.dnsServer = &dns.Server{Handler: mux}
 	if s.Listener != nil {
@@ -57,35 +56,32 @@ func (s *DnsServer) Stop() error {
 	return s.dnsServer.Shutdown()
 }
 
-// AddEntry will append a entries to domain
+// AddEntry will append a entries to domain.
 func (s *DnsServer) AddEntry(name string, rr dns.RR) {
-	cleanedName := dns.Fqdn(name)
-	c := s.NewControllerForName(cleanedName)
+	c := s.NewControllerForName(dns.CanonicalName(name))
 	c.AddRecords([]dns.RR{rr})
 }
 
-// SetEntry will hard replace an entry. Consider it a force AddEntry
+// SetEntry will hard replace an entry. Consider it a force AddEntry.
 func (s *DnsServer) SetEntry(name string, records []dns.RR) {
-	cleanedName := dns.Fqdn(name)
-	c := s.NewControllerForName(cleanedName)
+	c := s.NewControllerForName(dns.CanonicalName(name))
 	c.SetRecords(records)
 }
 
 // RemoveFromEntry will delete any entries that container the keywords in the record type.
 func (s *DnsServer) RemoveFromEntry(name string, keywords []string, rType uint16) {
-	cleanedName := dns.Fqdn(name)
-	c := s.NewControllerForName(cleanedName)
+	c := s.NewControllerForName(dns.CanonicalName(name))
 	c.DeleteRecords(keywords, rType)
 }
 
 // ControllerForName will return the controller specified for a specific domain or subdomain. If it does not exist, it
-// will return nil
+// will return nil.
 func (s *DnsServer) ControllerForName(origin string) *RecordController {
 	returnChan := make(chan *RecordController, 1)
-	s.requestControllerChan <- struct {
+	s.readOnlyChan <- struct {
 		Return chan *RecordController
 		Origin string
-	}{Return: returnChan, Origin: dns.Fqdn(origin)}
+	}{Return: returnChan, Origin: dns.CanonicalName(origin)}
 	return <-returnChan
 }
 
@@ -93,27 +89,27 @@ func (s *DnsServer) ControllerForName(origin string) *RecordController {
 // will create a new one.
 func (s *DnsServer) NewControllerForName(origin string) *RecordController {
 	returnChan := make(chan *RecordController, 1)
-	s.newOrExistingControllerChan <- struct {
+	s.newOrExistingChan <- struct {
 		Return chan *RecordController
 		Origin string
-	}{Return: returnChan, Origin: dns.Fqdn(origin)}
+	}{Return: returnChan, Origin: dns.CanonicalName(origin)}
 	return <-returnChan
 }
 
 func (s DnsServer) HandleControllers() {
 	controllerMap := map[string]*RecordController{}
-	defer close(s.requestControllerChan)
-	defer close(s.newOrExistingControllerChan)
+	defer close(s.readOnlyChan)
+	defer close(s.newOrExistingChan)
 	for {
 		select {
-		case o := <-s.newOrExistingControllerChan:
+		case o := <-s.newOrExistingChan:
 			if controllerMap[o.Origin] == nil {
 				controllerMap[o.Origin] = NewRecordController(s.Logger)
 			}
 			o.Return <- controllerMap[o.Origin]
-		case o := <-s.requestControllerChan:
+		case o := <-s.readOnlyChan:
 			o.Return <- controllerMap[o.Origin]
-		case _ = <-s.shutdown:
+		case <-s.shutdown:
 			for _, c := range controllerMap {
 				c.Close()
 			}
@@ -138,7 +134,7 @@ func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg)
 	}
 }
 
-// ParseDNS will only handle dns requests from domains that it is specified to handle. I will modify the *dns.Msg inplace
+// ParseDNS will only handle dns requests from domains that it is specified to handle. It will modify the *dns.Msg in place.
 func (s *DnsServer) ParseDNS(m *dns.Msg) {
 	for _, q := range m.Question {
 		c := s.ControllerForName(q.Name)

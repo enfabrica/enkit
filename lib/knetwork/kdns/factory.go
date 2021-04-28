@@ -8,11 +8,11 @@ import (
 
 func NewDNS(mods ...DNSModifier) (*DnsServer, error) {
 	s := &DnsServer{
-		requestControllerChan: make(chan struct {
+		readOnlyChan: make(chan struct {
 			Return chan *RecordController
 			Origin string
 		}),
-		newOrExistingControllerChan: make(chan struct {
+		newOrExistingChan: make(chan struct {
 			Return chan *RecordController
 			Origin string
 		}),

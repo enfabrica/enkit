@@ -26,7 +26,7 @@ var (
 
 // RecordController is a controller that specifically controls a single domain. It handles adding, removing and editing
 // dns records in place and should never error out. All methods write errors to the controllers error channel, and operate on
-// a fire and forget methodology.
+// a fire and forget methodology. I works like a running server, and to prevent leaks you must call Close.
 type RecordController struct {
 	Log logger.Logger
 
