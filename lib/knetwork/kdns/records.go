@@ -197,6 +197,7 @@ func NewRecordController(l logger.Logger) *RecordController {
 	return rc
 }
 
+// DeleteIfContains should never modify the array returned, only make copies.
 func DeleteIfContains(keywords []string, src []dns.RR) []dns.RR {
 	var toReturn []dns.RR
 	for _, r := range src {
