@@ -11,11 +11,7 @@ import (
 )
 
 func NewSigner(key PrivateKey) (ssh.Signer, error) {
-	res, err := NewSSHSigner(key.Signer(), key.SigningAlgo())
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
+	return NewSSHSigner(key.Signer(), key.SigningAlgo())
 }
 
 type PrivateKey interface {
