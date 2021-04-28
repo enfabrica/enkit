@@ -20,10 +20,14 @@ func TestSha256Signer_PublicKey(t *testing.T) {
 			_, sourcePrivKey, err := sourceType()
 			assert.Nil(t, err)
 			toBeSigned, _, err := toSignType()
-			r, err := kcerts.SignPublicKey(sourcePrivKey, 1, []string{}, 5*time.Hour, toBeSigned)
 			assert.Nil(t, err)
-			assert.NotNil(t, r)
-			fmt.Println(r.Type())
+			t.Run(fmt.Sprintf("Source:%v,Sign:%v", reflect.TypeOf(sourcePrivKey), reflect.TypeOf(toBeSigned)), func(t *testing.T) {
+				// code of your test
+				r, err := kcerts.SignPublicKey(sourcePrivKey, 1, []string{}, 5*time.Hour, toBeSigned)
+				assert.Nil(t, err)
+				assert.NotNil(t, r)
+				fmt.Println(r.Type())
+			})
 		}
 	}
 }
