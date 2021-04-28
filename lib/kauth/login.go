@@ -18,6 +18,11 @@ import (
 	"math/rand"
 )
 
+func init() {
+	browser.Stdout = nil
+	browser.Stderr = nil
+}
+
 type EnkitCredentials struct {
 	Token string
 	// The below fields can be possibly empty if the auth server does not support CA certificates.
@@ -49,6 +54,13 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	if err != nil {
 		return nil, fmt.Errorf("Could not contact the authentication server. Is your connectivity working? Is the server up?\nFor debugging: %w", err)
 	}
+	if username != "" {
+		fmt.Printf("Dear %s, please visit:\n\n", username)
+	} else {
+		fmt.Printf("Kind human, please visit:\n\n")
+	}
+	fmt.Printf("\t%s\n\nTo complete authentication with @%s.\n"+
+		"I'll be waiting for you, but hurry! The request may timeout.\nHit Ctl+C with no regrets to abort.\n", ares.Url, domain)
 	l.Infof("Authentication url is %s, attempting to open with your Os's default browser", ares.Url)
 	// browser.OpenURL blocks depending on permissions level and OS. By running it in a goroutine, we ensure that
 	// the login process does not get stuck waiting for the browser window to be closed.
