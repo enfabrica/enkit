@@ -87,13 +87,13 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 	options := auth.LoginOptions{
 		Context: l.base.Context(),
 		MinWait: l.MinWaitTime,
+		Store:   l.base.Local,
 	}
 
 	token, err := client.Login(username, domain, options)
 	if err != nil {
 		return err
 	}
-
 	userid := identity.Join(username, domain)
 	err = ids.Save(userid, token)
 	if err != nil {

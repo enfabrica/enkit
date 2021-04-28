@@ -15,15 +15,25 @@ message AuthenticateResponse {
 
 message TokenRequest {
   string url = 1; // URL returned by server.
+  bytes publickey = 2; // Public key to be signed by the server. Optional.
 }
 
 message TokenResponse {
   bytes nonce = 1; // Nonce used for encryption.
   bytes token = 2; // Encrypted token. Requires the private key corresponding to the public key supplied to open.
-  bytes key = 3; // Private Key used to login
-  bytes cert = 4; // Certificate signed to be used with the Private Key
-  bytes capublickey = 5; // CA Public Key to be added to the authenticated client
-  repeated string cahosts = 6; // List of hosts the CA should be trusted for
+  bytes cert = 4; // Certificate signed to be used with the Private Key, is a signed version of the public key sent in the TokenRequest.
+  bytes capublickey = 5; // CA Public Key to be added to the authenticated client.
+  repeated string cahosts = 6; // List of hosts the CA should be trusted for.
+}
+
+message HostCertificateRequest {
+  bytes hostcert = 1; // The public key of the host that will be returned as signed by the CA
+  repeated string hosts = 2; // A list of DNS names you wish for the host to have.
+}
+
+message HostCertificateResponse {
+  bytes capublickey = 1; // The CA public key.
+  bytes signedhostcert = 2; // The signed host certificate passed in the request.
 }
 
 service Auth {
@@ -31,4 +41,6 @@ service Auth {
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   // Use to retrieve an authentication token.
   rpc Token(TokenRequest) returns (TokenResponse) {}
+  // Used to retrieve an SSH certificate for a host.
+  rpc HostCertificate(HostCertificateRequest) returns (HostCertificateResponse) {}
 }

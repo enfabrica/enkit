@@ -30,6 +30,7 @@ cp "${STYLE_FILE}" '.clang-format'
 # Run clang-format on all the files conforming to the specified format
 find . -type f \( -name '{pattern}' \) -exec "$CLANG_FORMAT" -style={style} -i {} \;
 
-if test -f '.clang-format'; then
+rm '.clang-format'
+if test -f "$OLD_STYLE_FILE"; then
 	cp "$OLD_STYLE_FILE" '.clang-format'
 fi

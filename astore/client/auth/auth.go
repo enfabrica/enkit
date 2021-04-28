@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
+	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/pkg/browser"
 	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
 	"math/rand"
 	"time"
@@ -38,6 +42,7 @@ type LoginOptions struct {
 	// the token and the next. This is meant to prevent busy loops DoSsing
 	// the server, while allowing fast retries in the normal case.
 	MinWait time.Duration
+	Store   cache.Store
 }
 
 func (c *Client) Login(username, domain string, o LoginOptions) (string, error) {
@@ -70,8 +75,13 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	fmt.Printf("\t%s\n\nTo complete authentication with @%s.\n"+
 		"I'll be waiting for you, but hurry! The request may timeout.\nHit Ctl+C with no regrets to abort.\n", ares.Url, domain)
 	browser.OpenURL(ares.Url)
+	pubKey, privateKey, err := kcerts.MakeKeys(kcerts.GenerateDefault)
+	if err != nil {
+		return "", fmt.Errorf("error generating ssh credentials: %w", err)
+	}
 	treq := &auth.TokenRequest{
-		Url: ares.Url,
+		Url:       ares.Url,
+		Publickey: pubKey,
 	}
 
 	var tres *auth.TokenResponse
@@ -98,10 +108,46 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 		return "", fmt.Errorf("server returned invalid nonce, please try again - %s", err)
 	}
 
-	decrypted, ok := box.Open(nil, []byte(tres.Token), nonce.ToByte(), servPub.ToByte(), priv)
+	decrypted, ok := box.Open(nil, tres.Token, nonce.ToByte(), servPub.ToByte(), priv)
 	if !ok {
 		return "", fmt.Errorf("could not decrypt returned token")
 	}
+	// TODO(adam): remove once everyone is on board with ssh certs
+	if len(tres.Capublickey) == 0 || len(tres.Cert) == 0 {
+		o.Logger.Infof("operating without CA certificates")
+		return string(decrypted), err
+	}
+	if err = loadSSHKey(tres, o.Store, o.Logger, privateKey); err != nil {
+		return "", err
+	}
+	return string(decrypted), err
+}
 
-	return string(decrypted), nil
+func loadSSHKey(tres *auth.TokenResponse, store cache.Store, log logger.Logger, privateKey interface{}) error {
+	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Capublickey)
+	if err != nil {
+		return err
+	}
+	publicCertKey, _, _, _, err := ssh.ParseAuthorizedKey(tres.Cert)
+	if err != nil {
+		return err
+	}
+	sshDir, err := kcerts.FindSSHDir()
+	if err != nil {
+		return err
+	}
+	err = kcerts.AddSSHCAToClient(caPublicKey, tres.Cahosts, sshDir)
+	if err != nil {
+		return err
+	}
+	agent, err := kcerts.FindSSHAgent(store, log)
+	if err != nil {
+		return err
+	}
+	defer agent.Close()
+	if err = agent.AddCertificates(privateKey, publicCertKey, uint32((time.Hour * 48).Seconds())); err != nil {
+		return err
+	}
+	log.Infof("successfully added certificates to the ssh agent")
+	return nil
 }
