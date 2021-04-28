@@ -211,4 +211,3 @@ func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.
 	}
 	return cert, nil
 }
-

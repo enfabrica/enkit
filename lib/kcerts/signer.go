@@ -1,10 +1,10 @@
 package kcerts
 
 import (
-"crypto"
-"errors"
-"golang.org/x/crypto/ssh"
-"io"
+	"crypto"
+	"errors"
+	"golang.org/x/crypto/ssh"
+	"io"
 )
 
 type customSigner struct {
@@ -31,7 +31,7 @@ func NewSSHSigner(signer crypto.Signer, algo string) (ssh.Signer, error) {
 	}
 	s := customSigner{
 		signer:    algorithmSigner,
-		algorithm:  algo,
+		algorithm: algo,
 	}
 	return &s, nil
 }
