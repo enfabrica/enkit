@@ -2,9 +2,7 @@ package kauth
 
 import (
 	"context"
-	"crypto/ed25519"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
@@ -28,7 +26,7 @@ type EnkitCredentials struct {
 	// The below fields can be possibly empty if the auth server does not support CA certificates.
 	CaHosts        []string
 	CAPublicKey    string
-	PrivateKey     ed25519.PrivateKey
+	PrivateKey     kcerts.PrivateKey
 	SSHCertificate *ssh.Certificate
 }
 
@@ -69,13 +67,13 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	if err != nil {
 		return nil, fmt.Errorf("server provided invalid key - please retry - %s", err)
 	}
-	sshPub, sshPriv, err := kcerts.MakeKeys(kcerts.GenerateED25519)
+	sshPub, sshPriv, err := kcerts.GenerateED25519()
 	if err != nil {
 		return nil, err
 	}
 	treq := &auth.TokenRequest{
 		Url:       ares.Url,
-		Publickey: pem.EncodeToMemory(&pem.Block{Type: "EC PUBLIC KEY", Bytes: sshPub}),
+		Publickey: pem.EncodeToMemory(&pem.Block{Type: "EC PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(sshPub)}),
 	}
 	var tres *auth.TokenResponse
 	if err := repeater.Run(func() error {
@@ -107,15 +105,11 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	if !ok {
 		return nil, fmt.Errorf("public key sent back is not a valid ssh certificate, but was present")
 	}
-	castedPrivKey, ok := sshPriv.(ed25519.PrivateKey)
-	if !ok {
-		return nil, errors.New("private key was not ed25519, we should never reach here")
-	}
 	return &EnkitCredentials{
 		Token:          string(decrypted),
 		CAPublicKey:    string(tres.Capublickey),
 		CaHosts:        tres.Cahosts,
-		PrivateKey:     castedPrivKey,
+		PrivateKey:     sshPriv,
 		SSHCertificate: cert,
 	}, nil
 }
