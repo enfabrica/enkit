@@ -159,6 +159,6 @@ func NewSSH(base *client.BaseFlags) *SSH {
 	root.Command.Flags().StringVar(&root.Subcommand, "tunnel-command", tcommand, "Subcommand to use with the tunnel command. Defaults to empty if the tunnel command does not end with enkit")
 	root.Command.Flags().StringVar(&root.Extra, "tunnel-extra", "", "Extra arguments to pass to the tunnel command")
 	root.Command.Flags().BoolVar(&root.UseInternalAgent, "use-internal-agent", true, "Use the builtin agent that enkit manages")
-
+	root.Command.AddCommand(NewAgentCommand(root.BaseFlags))
 	return root
 }

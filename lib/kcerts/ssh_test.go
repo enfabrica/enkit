@@ -70,3 +70,30 @@ func TestStartSSHAgent(t *testing.T) {
 	assert.True(t, agentAfterCacheDelete.Valid())
 
 }
+
+func TestSSHAgent_Principals(t *testing.T) {
+	sourcePubKey, sourcePrivKey, err := kcerts.GenerateED25519()
+	assert.Nil(t, err)
+	toBeSigned, toBeSignedPrivateKey, err := kcerts.GenerateED25519()
+	assert.Nil(t, err)
+	tmpDir, err := ioutil.TempDir("", "en")
+	assert.Nil(t, err)
+	// code of your test
+	principalList := []string{"foo", "bar", "baz"}
+	cert, err := kcerts.SignPublicKey(sourcePrivKey, 1, principalList, 5*time.Hour, toBeSigned)
+	localCache := &cache.Local{
+		Root: tmpDir,
+	}
+	l, err := klog.New("test", klog.FromFlags(*klog.DefaultFlags()))
+	assert.Nil(t, err)
+	a, err := kcerts.FindSSHAgent(localCache, l)
+	assert.Nil(t, err)
+	err = a.AddCertificates(toBeSignedPrivateKey, cert, uint32((1 * time.Minute).Seconds()))
+	assert.Nil(t, err)
+	res, err := a.Principals()
+	assert.Nil(t, err)
+	for k, v := range res {
+		assert.Equal(t, ssh.FingerprintLegacyMD5(sourcePubKey), k)
+		assert.Equal(t, v, principalList)
+	}
+}
