@@ -117,7 +117,8 @@ func (a SSHAgent) Principals() (map[string][]string, error) {
 			return nil, err
 		}
 		if cert, ok := p.(*ssh.Certificate); ok {
-			toReturn[ssh.FingerprintLegacyMD5(cert.SignatureKey)] = cert.ValidPrincipals
+			md := ssh.FingerprintLegacyMD5(cert.SignatureKey)
+			toReturn[md] = append(toReturn[md], cert.ValidPrincipals...)
 		}
 	}
 	return toReturn, err
