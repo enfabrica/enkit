@@ -5,17 +5,15 @@ import (
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"time"
 )
 
-var NoSSHCredentialsErr = errors.New("no credentials passed in")
 // SaveCredentials saves the passed in credentials to the current ssh-agent. If the credentials are empty, i.e.
-// the EnkitCredentials only contain EnkitCredentials.Token, it will return NoSSHCredentialsErr.
+// the EnkitCredentials only contain EnkitCredentials.Token, it will return nil as a NoOp.
 func SaveCredentials(credentials *EnkitCredentials, store cache.Store, l logger.Logger) error{
 	if len(credentials.CaHosts) == 0 || credentials.SSHCertificate == nil || len(credentials.PrivateKey) == 0 {
-		return NoSSHCredentialsErr
+		return nil
 	}
 	l.Infof("Saving Credentials")
 	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(credentials.CAPublicKey))

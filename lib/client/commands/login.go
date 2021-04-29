@@ -90,7 +90,7 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := kauth.SaveCredentials(enCreds, l.base.Local, l.base.Log); err != nil && err != kauth.NoSSHCredentialsErr {
+	if err := kauth.SaveCredentials(enCreds, l.base.Local, l.base.Log); err != nil {
 		l.base.Log.Warnf("error saving credentials, err: %v", err)
 		return err
 	}
