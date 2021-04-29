@@ -2,7 +2,6 @@ package kauth
 
 import (
 	"context"
-	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
@@ -71,7 +70,7 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	}
 	treq := &auth.TokenRequest{
 		Url:       ares.Url,
-		Publickey: pem.EncodeToMemory(&pem.Block{Type: "EC PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(sshPub)}),
+		Publickey: ssh.MarshalAuthorizedKey(sshPub),
 	}
 	var tres *auth.TokenResponse
 	if err := repeater.Run(func() error {
