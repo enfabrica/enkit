@@ -28,8 +28,16 @@ This patch does the following:
 3. Execute the script and generate the .tar.gz inside $OUTDIR for your kernel version $KVER
    * `$ENKIT_REPO/kbuild/utils/generate_custom_archive.sh -k $KDIR -t $OUTDIR -v $KVER`
 4. Optional: upload the .tar.gz using astore and make it public
-   * `enkit astore upload $OUTDIR/$KVER.tar.gz@my/astore/path -a $ARCH`
-   * `enkit astore public my/astore/path -a $ARCH`
+   * `enkit astore upload $OUTDIR/$KVER.tar.gz@my/astore/dir/ -a $ARCH`
+   * `enkit astore public my/astore/dir/$KVER.tar.gz -a $ARCH`
+
+ For example, let's say you just built kernel `5.4.0-51-generic-amd64.tar.gz`. To upload it in the `kernel/ubuntu` astore
+ directory and make it available for download on your astore webserver under the `kernel/ubuntu/5.4.0-51-generic-amd64.tar.gz` path,
+ you would need to use:
+
+    enkit astore upload 5.4.0-51-generic-amd64.tar.gz@kernel/ubuntu/ -a $ARCH
+    enkit astore public kernel/ubuntu/5.4.0-51-generic-amd64.tar.gz -a $ARCH
+   
 
 # Workflow to generate a custom rootfs image
 1. Download buildroot release 2020.11.2 (or a newer one if you prefer)
