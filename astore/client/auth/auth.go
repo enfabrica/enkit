@@ -74,11 +74,9 @@ func (c *Client) Login(username, domain string, o LoginOptions) (string, error) 
 	}
 	fmt.Printf("\t%s\n\nTo complete authentication with @%s.\n"+
 		"I'll be waiting for you, but hurry! The request may timeout.\nHit Ctl+C with no regrets to abort.\n", ares.Url, domain)
-	go func() {
-		if err := browser.OpenURL(ares.Url); err != nil {
-			o.Logger.Infof("error opening url, you must open it yourself")
-		}
-	}()
+	if err := browser.OpenURL(ares.Url); err != nil {
+		o.Logger.Infof("error opening url, you must open it yourself")
+	}
 	pubKey, privateKey, err := kcerts.GenerateED25519()
 	if err != nil {
 		return "", fmt.Errorf("error generating ssh credentials: %w", err)
