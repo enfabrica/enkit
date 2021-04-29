@@ -106,7 +106,3 @@ func TestController(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	controller = nil
 }
-
-func BenchController(b *testing.B) {
-
-}
