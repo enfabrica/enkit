@@ -9,7 +9,6 @@ import (
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"
-	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/pkg/browser"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/ssh"
@@ -32,8 +31,7 @@ type EnkitCredentials struct {
 
 // PerformLogin will login with the provider auth client, retry and logger. It does not care about the cache.
 // If you wish to save the result, please call SaveCredentials
-func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.Options, username, domain string) (*EnkitCredentials, error) {
-	rng := rand.New(srand.Source)
+func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.Options, rng *rand.Rand, username, domain string) (*EnkitCredentials, error) {
 	pubBox, privBox, err := box.GenerateKey(rng)
 	if err != nil {
 		return nil, err
