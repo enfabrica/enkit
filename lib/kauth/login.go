@@ -40,10 +40,6 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	if err != nil {
 		return nil, err
 	}
-	sshPub, sshPriv, err := kcerts.MakeKeys(kcerts.GenerateED25519)
-	if err != nil {
-		return nil, err
-	}
 	areq := &auth.AuthenticateRequest{
 		Key:    (*pubBox)[:],
 		User:   username,
@@ -72,6 +68,10 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	servPub, err := common.KeyFromSlice(ares.Key)
 	if err != nil {
 		return nil, fmt.Errorf("server provided invalid key - please retry - %s", err)
+	}
+	sshPub, sshPriv, err := kcerts.MakeKeys(kcerts.GenerateED25519)
+	if err != nil {
+		return nil, err
 	}
 	treq := &auth.TokenRequest{
 		Url:       ares.Url,
