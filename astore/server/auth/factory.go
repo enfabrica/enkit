@@ -117,7 +117,9 @@ func WithCA(fileContent []byte) Modifier {
 func WithPrincipals(raw string) Modifier {
 	return func(server *Server) error {
 		splitString := strings.Split(raw, ",")
-		server.principals = splitString
+		if len(splitString) >= 1 && splitString[0] != "" {
+			server.principals = splitString
+		}
 		return nil
 	}
 }
