@@ -1,10 +1,14 @@
 package auth
 
 import (
+	"crypto/rsa"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
+	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh"
 	"math/rand"
+	"reflect"
 	"strings"
 	"time"
 
@@ -83,13 +87,30 @@ func WithCA(fileContent []byte) Modifier {
 			server.log.Warnf("CA file not specified - will operate without certificates")
 			return nil
 		}
-		signer, err := ssh.ParsePrivateKey(fileContent)
+		caPrivateKey, err := ssh.ParseRawPrivateKey(fileContent)
 		if err != nil {
 			return fmt.Errorf("Could not parse CA key - %w", err)
 		}
-		server.caSigner = signer
-		server.marshalledCAPublicKey = ssh.MarshalAuthorizedKey(signer.PublicKey())
-		return nil
+		// TODO(adam): make parsing existing keys cleaner
+		if key, ok := caPrivateKey.(*ed25519.PrivateKey); ok {
+			server.caPrivateKey = kcerts.FromEC25519(*key)
+			sshPubKey, err := ssh.NewPublicKey(key.Public())
+			if err != nil {
+				return err
+			}
+			server.marshalledCAPublicKey = ssh.MarshalAuthorizedKey(sshPubKey)
+			return nil
+		}
+		if key, ok := caPrivateKey.(*rsa.PrivateKey); ok {
+			server.caPrivateKey = kcerts.FromRSA(key)
+			sshPubKey, err := ssh.NewPublicKey(key.Public())
+			if err != nil {
+				return err
+			}
+			server.marshalledCAPublicKey = ssh.MarshalAuthorizedKey(sshPubKey)
+			return nil
+		}
+		return fmt.Errorf("keys could not be processed, keys of type %v are not supported", reflect.TypeOf(caPrivateKey))
 	}
 }
 
