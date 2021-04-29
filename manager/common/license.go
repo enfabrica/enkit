@@ -136,6 +136,10 @@ func (s *Server) Polling(stream rpc_license.License_PollingServer) error {
 	vendor := ""
 	var status error
 	s.rng = rand.New(rand.NewSource(rand.Int63()))
+	// If the connection with the client terminates prematurely before a license is allocated,
+	// remove the client from the queue but do not decrement the license counter.
+	// If the connection with the client terminates prematurely AFTER the license has been allocated or if the client finishes its job gracefully
+	// (implying that the client has also been removed from the queue already), only decrement the license counter.
 	for {
 		recv, err := stream.Recv()
 		// remove client hash from queue when connection is broken
@@ -181,25 +185,24 @@ func (s *Server) Polling(stream rpc_license.License_PollingServer) error {
 				log.Printf("Failed to send message back to client %s: %s \n", hash, err)
 			}
 			break
-		} else {
-			err := stream.Send(&rpc_license.PollingResponse{Acquired: false, Hash: hash})
-			if err != nil {
-				log.Printf("Failed to send message back to client %s: %s \n", hash, err)
-				licenseCounter.del(hash, vendor)
-				return err
-			}
+		}
+		err = stream.Send(&rpc_license.PollingResponse{Acquired: false, Hash: hash})
+		if err != nil {
+			log.Printf("Failed to send message back to client %s: %s \n", hash, err)
+			licenseCounter.del(hash, vendor)
+			return err
 		}
 	}
-	// license acquired
-	for {
-		_, err := stream.Recv()
-		if err == io.EOF || err == nil {
-			status = nil
-			break
-		} else {
-			status = err
-			break
-		}
+	// License acquired by the client.
+	// Wait for client to close connection after completing job gracefully
+	// or due to termination by user ctrl+c or network disconnect
+	// Only need to decrement license counter because the client has already
+	// been removed from the job queue
+	_, err := stream.Recv()
+	if err == io.EOF || err == nil {
+		status = nil
+	} else {
+		status = err
 	}
 	log.Printf("Client %s disconnected \n", hash)
 	_ = licenseCounter.decrement(vendor, 1, hash)
