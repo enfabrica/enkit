@@ -2,8 +2,6 @@ package kcerts
 
 import (
 	"crypto/rand"
-	"crypto/rsa"
-	"crypto/ed25519"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/logger"
@@ -105,7 +103,7 @@ func (a SSHAgent) Valid() bool {
 // privateKey must be a key type accepted by the golang.org/x/ssh/agent AddedKey struct.
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
 // Note that ed25519.PrivateKey should be passed by value.
-func (a SSHAgent) AddCertificates(privateKey interface{}, publicKey ssh.PublicKey, ttl uint32) error {
+func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
 	conn, err := net.Dial("unix", a.Socket)
 	if err != nil {
 		return err
@@ -117,7 +115,7 @@ func (a SSHAgent) AddCertificates(privateKey interface{}, publicKey ssh.PublicKe
 	}
 	agentClient := agent.NewClient(conn)
 	return agentClient.Add(agent.AddedKey{
-		PrivateKey:   privateKey,
+		PrivateKey:   privateKey.Raw(),
 		Certificate:  cert,
 		LifetimeSecs: ttl,
 	})
@@ -191,73 +189,9 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 	return s, nil
 }
 
-// KeyGenerator is A function capable of generating a key pair.
-//
-// The function is expected to return a Public Key, a Private Key,
-// and an error.
-//
-// Only keys supported by x/crypto/ssh.NewPublicKey are supported.
-type KeyGenerator func() (interface{}, interface{}, error)
-
-// MakeKeys uses the speficied key generator to create a pair of ssh keys.
-//
-// The first return value is a marshalled version of the public key,
-// a binary blob suitable for transmission.
-// The second return value is the private key in the original format.
-// This is generally directly usable with functions like agent.Add.
-func MakeKeys(generator KeyGenerator) ([]byte, interface{}, error) {
-	public, private, err := generator()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	encoded, err := EncodePublicKey(public)
-	if err != nil {
-		return nil, nil, err
-	}
-	return encoded, private, nil
-}
-
-func EncodePublicKey(key interface{}) ([]byte, error) {
-	pubKey, err := ssh.NewPublicKey(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return ssh.MarshalAuthorizedKey(pubKey), nil
-}
-
-func GenerateRSA() (interface{}, interface{}, error) {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &privateKey.PublicKey, privateKey, err
-}
-
-func GenerateED25519() (interface{}, interface{}, error) {
-	return ed25519.GenerateKey(rand.Reader)
-}
-
-var GenerateDefault = GenerateED25519;
-
-// SelectGenerator returns a different generator based on the specified string.
-//
-// Currently it accepts "rsa", or "ed25519".
-func SelectGenerator(name string) KeyGenerator {
-	name = strings.ToLower(name)
-	if name == "rsa" {
-		return GenerateRSA
-	}
-	if name == "ed25519" {
-		return GenerateED25519
-	}
-	return nil
-}
-
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters
 // to generate a user cert, certType must be 1, and host certs ust have certType 2
-func SignPublicKey(ca ssh.Signer, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
+func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
 	from := time.Now().UTC()
 	to := time.Now().UTC().Add(ttl * time.Hour)
 	cert := &ssh.Certificate{
@@ -268,7 +202,11 @@ func SignPublicKey(ca ssh.Signer, certType uint32, principals []string, ttl time
 		ValidPrincipals: principals,
 		Permissions:     ssh.Permissions{},
 	}
-	if err := cert.SignCert(rand.Reader, ca); err != nil {
+	s, err := NewSigner(p)
+	if err != nil {
+		return nil, err
+	}
+	if err := cert.SignCert(rand.Reader, s); err != nil {
 		return nil, err
 	}
 	return cert, nil
