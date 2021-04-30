@@ -41,5 +41,8 @@ func main() {
 	ssh := tcommands.NewSSH(base)
 	root.AddCommand(ssh.Command)
 
+	agentCommand := tcommands.NewAgentCommand(base)
+	root.AddCommand(agentCommand)
+
 	base.Run(kcobra.HideFlags(set), populator, runner)
 }
