@@ -120,7 +120,7 @@ func (a SSHAgent) Principals() ([]AgentCert, error) {
 	for _, key := range keys {
 		p, err := ssh.ParsePublicKey(key.Marshal())
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if cert, ok := p.(*ssh.Certificate); ok {
 			toReturn = append(toReturn, AgentCert{
