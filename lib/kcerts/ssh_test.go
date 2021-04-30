@@ -92,8 +92,8 @@ func TestSSHAgent_Principals(t *testing.T) {
 	assert.Nil(t, err)
 	res, err := a.Principals()
 	assert.Nil(t, err)
-	for k, v := range res {
-		assert.Equal(t, ssh.FingerprintLegacyMD5(sourcePubKey), k)
-		assert.Equal(t, v, principalList)
+	for _, v := range res {
+		assert.Equal(t, ssh.FingerprintLegacyMD5(sourcePubKey), v.MD5)
+		assert.Equal(t, principalList, v.Principals)
 	}
 }

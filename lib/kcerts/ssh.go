@@ -100,9 +100,9 @@ func (a SSHAgent) Valid() bool {
 }
 
 type AgentCert struct {
-	MD5       string
-	Principal []string
-	ValidFor  time.Duration
+	MD5        string
+	Principals []string
+	ValidFor   time.Duration
 }
 
 // Principals returns a map where the keys are the CA's PKS and the certs identities are the values
@@ -124,9 +124,9 @@ func (a SSHAgent) Principals() ([]AgentCert, error) {
 		}
 		if cert, ok := p.(*ssh.Certificate); ok {
 			toReturn = append(toReturn, AgentCert{
-				MD5:       ssh.FingerprintLegacyMD5(cert.SignatureKey),
-				Principal: cert.ValidPrincipals,
-				ValidFor:  time.Unix( int64(cert.ValidBefore), 0).Sub(time.Now()),
+				MD5:        ssh.FingerprintLegacyMD5(cert.SignatureKey),
+				Principals: cert.ValidPrincipals,
+				ValidFor:   time.Unix(int64(cert.ValidBefore), 0).Sub(time.Now()),
 			})
 		}
 	}
