@@ -54,11 +54,8 @@ func RunAgentCommand(bf *client.BaseFlags, config *agentConfig) error {
 		if err != nil {
 			return err
 		}
-		for k, v := range principals {
-			fmt.Printf("For Public Key Signature %s, you can SSH as: \n", k)
-			for _, p := range v {
-				fmt.Printf("\t %s \n", p)
-			}
+		for _, p := range principals {
+			fmt.Printf("PKS: %s Identities: %v ValidFor: %s \n", p.MD5, p.Principal, p.ValidFor.String())
 		}
 	}
 	return nil

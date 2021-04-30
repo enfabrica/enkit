@@ -99,8 +99,14 @@ func (a SSHAgent) Valid() bool {
 	return err == nil
 }
 
+type AgentCert struct {
+	MD5       string
+	Principal []string
+	ValidFor  time.Duration
+}
+
 // Principals returns a map where the keys are the CA's PKS and the certs identities are the values
-func (a SSHAgent) Principals() (map[string][]string, error) {
+func (a SSHAgent) Principals() ([]AgentCert, error) {
 	conn, err := net.Dial("unix", a.Socket)
 	if err != nil {
 		return nil, err
@@ -110,15 +116,18 @@ func (a SSHAgent) Principals() (map[string][]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	toReturn := map[string][]string{}
+	var toReturn []AgentCert
 	for _, key := range keys {
 		p, err := ssh.ParsePublicKey(key.Marshal())
 		if err != nil {
 			return nil, err
 		}
 		if cert, ok := p.(*ssh.Certificate); ok {
-			md := ssh.FingerprintLegacyMD5(cert.SignatureKey)
-			toReturn[md] = append(toReturn[md], cert.ValidPrincipals...)
+			toReturn = append(toReturn, AgentCert{
+				MD5:       ssh.FingerprintLegacyMD5(cert.SignatureKey),
+				Principal: cert.ValidPrincipals,
+				ValidFor:  time.Unix( int64(cert.ValidBefore), 0).Sub(time.Now()),
+			})
 		}
 	}
 	return toReturn, err
