@@ -18,6 +18,8 @@ go_library(
         "//lib/khttp:go_default_library",
         "//lib/khttp/krequest:go_default_library",
         "//lib/khttp/protocol:go_default_library",
+        "//lib/knetwork:go_default_library",
+        "//lib/retry:go_default_library",
         "//proxy/nasshp:go_default_library",
         "//proxy/ptunnel:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",

@@ -82,16 +82,12 @@ func (n *Node) Enroll(username string) error {
 	if os.Geteuid() != 0 {
 		return errors.New("this command must be run as root since it touches the /etc/ssh directory")
 	}
-	creds, err := enauth.PerformLogin(n.AuthClient, n.Log, n.Repeater, username)
-	if err != nil {
-		return err
-	}
-	privKey, pubKey, err := kcerts.MakeKeys()
+	pubKey, privKey, err := kcerts.GenerateED25519()
 	if err != nil {
 		return err
 	}
 	hcr := &auth.HostCertificateRequest{
-		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "OPENSSH PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
+		Hostcert: ssh.MarshalAuthorizedKey(pubKey),
 		Hosts:    n.config.DnsNames,
 	}
 	resp, err := n.AuthClient.HostCertificate(context.Background(), hcr)
@@ -103,6 +99,18 @@ func (n *Node) Enroll(username string) error {
 		n.config.HostKeyLocation, n.config.HostCertificate()); exists && !n.config.ReWriteConfigs {
 		return fmt.Errorf("cannot rewrite %s because it exists and rewriting is disabled", fName)
 	}
+	// Pam Installer Steps
+	n.Log.Infof("Executing Pam installation steps")
+	InstallLibPam()
+	if err := InstallPamSSHDFile(n.Log); err != nil {
+		return err
+	}
+	if err := InstallPamScript(n.Log); err != nil {
+		return err
+	}
+
+	// SSHD installer steps
+
 	if err := os.MkdirAll(filepath.Dir(n.config.SSHDConfigurationLocation), os.ModePerm); err != nil {
 		return err
 	}
@@ -115,20 +123,10 @@ func (n *Node) Enroll(username string) error {
 		return err
 	}
 	n.Log.Infof("Writing CA Public Key Configuration")
-	if err := ioutil.WriteFile(n.config.CaPublicKeyLocation, []byte(creds.CAPublicKey), 0644); err != nil {
+	if err := ioutil.WriteFile(n.config.CaPublicKeyLocation, resp.Capublickey, 0644); err != nil {
 		return err
 	}
-	n.Log.Infof("Writing Host Key")
-	encodedPrivKey := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(privKey),
-		},
-	)
 
-	if err := ioutil.WriteFile(n.config.HostKeyLocation, encodedPrivKey, 0600); err != nil {
-		return err
-	}
 	n.Log.Infof("Writing Host Cert")
 	if err := ioutil.WriteFile(n.config.HostCertificate(), resp.Signedhostcert, 0644); err != nil {
 		return err
@@ -139,12 +137,7 @@ func (n *Node) Enroll(username string) error {
 	if err := InstallNssAutoUser(n.Log); err != nil {
 		return err
 	}
-	if err := InstallPamSSHDFile(n.Log); err != nil {
-		return err
-	}
-	if err := InstallPamScript(n.Log); err != nil {
-		return err
-	}
+
 	return nil
 }
 

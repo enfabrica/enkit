@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "cache.go",
         "certs.go",
+        "keys.go",
         "signer.go",
         "ssh.go",
     ],

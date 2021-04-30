@@ -19,6 +19,10 @@ type Config struct {
 	ReWriteConfigs  bool
 	ms              *machinist.SharedFlags
 	af              *client.AuthFlags
+
+	// Pam Location configs
+	// "/etc/security/pam_script_acct"
+	PamSecurityLocation string
 }
 
 func (nf *Config) MachinistFlags() *machinist.SharedFlags {

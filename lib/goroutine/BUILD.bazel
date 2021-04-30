@@ -5,4 +5,5 @@ go_library(
     srcs = ["gochan.go"],
     importpath = "github.com/enfabrica/enkit/lib/goroutine",
     visibility = ["//visibility:public"],
+    deps = ["//lib/multierror:go_default_library"],
 )

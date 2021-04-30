@@ -31,17 +31,17 @@ type Tunnel struct {
 	ReceiveWin *nasshp.BlockingReceiveWindow
 }
 
-type getOptions struct {
+type GetOptions struct {
 	getOptions     []protocol.Modifier
 	retryOptions   []retry.Modifier
 	connectOptions []ConnectModifier
 }
 
-type GetModifier func(*getOptions) error
+type GetModifier func(*GetOptions) error
 
 type GetModifiers []GetModifier
 
-func (mods GetModifiers) Apply(o *getOptions) error {
+func (mods GetModifiers) Apply(o *GetOptions) error {
 	for _, m := range mods {
 		if err := m(o); err != nil {
 			return err
@@ -51,28 +51,35 @@ func (mods GetModifiers) Apply(o *getOptions) error {
 }
 
 func WithRetryOptions(mods ...retry.Modifier) GetModifier {
-	return func(o *getOptions) error {
+	return func(o *GetOptions) error {
 		o.retryOptions = append(o.retryOptions, mods...)
 		return nil
 	}
 }
 
+// Configures options to use in the GET requests to prepare the tunnel.
+// This mostly affects the GetSID() call, invoked once per attempt to log in.
 func WithGetOptions(mods ...protocol.Modifier) GetModifier {
-	return func(o *getOptions) error {
+	return func(o *GetOptions) error {
 		o.getOptions = append(o.getOptions, mods...)
 		return nil
 	}
 }
 
+// Configures options to use to establish the websocket moving bytes around.
+//
+// This mostly affects the Connect(), ConnectSID() and ConnectURL() call,
+// invoked once per attempt to establish the websocket used as the actual
+// tunnel.
 func WithConnectOptions(mods ...ConnectModifier) GetModifier {
-	return func(o *getOptions) error {
+	return func(o *GetOptions) error {
 		o.connectOptions = append(o.connectOptions, mods...)
 		return nil
 	}
 }
 
-func WithOptions(r *getOptions) GetModifier {
-	return func(o *getOptions) error {
+func WithOptions(r *GetOptions) GetModifier {
+	return func(o *GetOptions) error {
 		*o = *r
 		return nil
 	}
@@ -87,7 +94,7 @@ func GetSID(proxy *url.URL, host string, port uint16, mods ...GetModifier) (stri
 	curl.RawQuery = params.Encode()
 	curl.Path = path.Join(curl.Path, "/proxy")
 
-	options := &getOptions{}
+	options := &GetOptions{}
 	if err := GetModifiers(mods).Apply(options); err != nil {
 		return "", err
 	}
@@ -118,7 +125,7 @@ func GetSID(proxy *url.URL, host string, port uint16, mods ...GetModifier) (stri
 }
 
 func Connect(proxy *url.URL, host string, port uint16, pos, ack uint32, mods ...GetModifier) (*websocket.Conn, error) {
-	options := &getOptions{}
+	options := &GetOptions{}
 	if err := GetModifiers(mods).Apply(options); err != nil {
 		return nil, err
 	}
@@ -375,8 +382,17 @@ func NewTunnel(pool *nasshp.BufferPool, mods ...Modifier) (*Tunnel, error) {
 	return tl, nil
 }
 
+func (t *Tunnel) Close() {
+	err := fmt.Errorf("close requested")
+	t.browser.Close(err)
+	t.SendWin.Fail(err)
+	t.ReceiveWin.Fail(err)
+}
+
 func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ...GetModifier) error {
-	options := &getOptions{}
+	options := &GetOptions{
+		retryOptions: []retry.Modifier{retry.WithAttempts(0), retry.WithLogger(t.log), retry.WithDescription(fmt.Sprintf("connecting to %s:%d via %s", host, port, proxy.String()))},
+	}
 	if err := GetModifiers(mods).Apply(options); err != nil {
 		return err
 	}
@@ -386,7 +402,7 @@ func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ..
 		return err
 	}
 
-	retrier := retry.New(retry.WithAttempts(0), retry.WithLogger(t.log), retry.WithDescription(fmt.Sprintf("connecting to %s", proxy.String())))
+	retrier := retry.New(options.retryOptions...)
 	return retrier.Run(func() error {
 		// Following the nassh documentation, at:
 		//  https://chromium.googlesource.com/apps/libapps/+/4763ff7fa95760c9c85ef3563953cdfb391d209f/nassh/doc/relay-protocol.md

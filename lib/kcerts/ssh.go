@@ -1,8 +1,6 @@
 package kcerts
 
 import (
-	"crypto"
-	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
@@ -101,7 +99,11 @@ func (a SSHAgent) Valid() bool {
 	return err == nil
 }
 
-func (a SSHAgent) AddCertificates(privateKey ed25519.PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
+// AddCertificates loads an ssh certificate into the agent.
+// privateKey must be a key type accepted by the golang.org/x/ssh/agent AddedKey struct.
+// At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
+// Note that ed25519.PrivateKey should be passed by value.
+func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
 	conn, err := net.Dial("unix", a.Socket)
 	if err != nil {
 		return err
@@ -113,7 +115,7 @@ func (a SSHAgent) AddCertificates(privateKey ed25519.PrivateKey, publicKey ssh.P
 	}
 	agentClient := agent.NewClient(conn)
 	return agentClient.Add(agent.AddedKey{
-		PrivateKey:   privateKey,
+		PrivateKey:   privateKey.Raw(),
 		Certificate:  cert,
 		LifetimeSecs: ttl,
 	})
@@ -187,19 +189,9 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 	return s, nil
 }
 
-
-func MakeKeys() (ed25519.PrivateKey, ssh.PublicKey, error) {
-	pubKey, priv, err := ed25519.GenerateKey(rand.Reader)
-	publicKey, err := ssh.NewPublicKey(pubKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	return priv, publicKey, err
-}
-
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters
 // to generate a user cert, certType must be 1, and host certs ust have certType 2
-func SignPublicKey(ca crypto.Signer, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
+func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
 	from := time.Now().UTC()
 	to := time.Now().UTC().Add(ttl * time.Hour)
 	cert := &ssh.Certificate{
@@ -210,11 +202,11 @@ func SignPublicKey(ca crypto.Signer, certType uint32, principals []string, ttl t
 		ValidPrincipals: principals,
 		Permissions:     ssh.Permissions{},
 	}
-	newSigner, err := NewSha256SignerFromSigner(ca)
+	s, err := NewSigner(p)
 	if err != nil {
 		return nil, err
 	}
-	if err := cert.SignCert(rand.Reader, newSigner); err != nil {
+	if err := cert.SignCert(rand.Reader, s); err != nil {
 		return nil, err
 	}
 	return cert, nil

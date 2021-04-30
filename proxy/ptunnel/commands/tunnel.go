@@ -9,6 +9,8 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/krequest"
 	"github.com/enfabrica/enkit/lib/khttp/protocol"
+	"github.com/enfabrica/enkit/lib/knetwork"
+	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/enfabrica/enkit/proxy/nasshp"
 	"github.com/enfabrica/enkit/proxy/ptunnel"
 	"github.com/spf13/cobra"
@@ -99,46 +101,95 @@ func (r *Tunnel) Run(cmd *cobra.Command, args []string) error {
 
 	id := fmt.Sprintf("tunnel by %s on <stdin/stdout> with %s:%d through %s", r.Username(), host, port, proxy)
 	r.Log.Infof("%s - establishing connection", id)
-	return r.RunTunnel(purl, id, host, port, cookie, os.Stdin, os.Stdout)
+
+	err = r.RunTunnel(purl, id, host, port, cookie, os.Stdin, os.Stdout)
+	if err == io.EOF {
+		return nil
+	}
+	return err
 }
 
 func (r *Tunnel) RunListener(proxy *url.URL, host string, port uint16, cookie *http.Cookie, hostport string) error {
-	listener, err := net.Listen("tcp", hostport)
+	addr, err := net.ResolveTCPAddr("tcp", hostport)
+	if err != nil {
+		return err
+	}
+
+	listener, err := net.ListenTCP("tcp", addr)
 	if err != nil {
 		return err
 	}
 	defer listener.Close()
 	for {
-		conn, err := listener.Accept()
+		conn, err := listener.AcceptTCP()
 		if err != nil {
 			return err
 		}
 
-		id := fmt.Sprintf("tunnel by %s on %s with %s:%d through %s from %s", r.Username(), hostport, host, port, proxy, conn.RemoteAddr())
+		id := fmt.Sprintf("tunnel by %s on %s with %s:%d via %s from %s", r.Username(), hostport, host, port, proxy, conn.RemoteAddr())
 		r.Log.Infof("%s - accepted connection", id)
-		go r.RunTunnel(proxy, id, host, port, cookie, conn, conn)
+		go func() {
+			defer conn.Close()
+			r.RunTunnel(proxy, id, host, port, cookie, knetwork.ReadOnlyClose(conn), knetwork.WriteOnlyClose(conn))
+		}()
 	}
 }
 
-func (r *Tunnel) RunTunnel(proxy *url.URL, id, host string, port uint16, cookie *http.Cookie, reader io.Reader, writer io.Writer) error {
+func (r *Tunnel) RunTunnel(proxy *url.URL, id, host string, port uint16, cookie *http.Cookie, reader io.ReadCloser, writer io.WriteCloser) error {
 	pool := nasshp.NewBufferPool(r.BufferSize)
 	tunnel, err := ptunnel.NewTunnel(pool, ptunnel.WithLogger(r.Log), ptunnel.FromFlags(r.TunnelFlags))
 	if err != nil {
 		return err
 	}
-	mods := []ptunnel.GetModifier{}
+	defer tunnel.Close()
+
+	mods := []ptunnel.GetModifier{
+		ptunnel.WithRetryOptions(retry.WithDescription(id)),
+	}
 	if cookie != nil {
-		mods = append(mods, ptunnel.WithGetOptions(protocol.WithRequestOptions(krequest.WithCookie(cookie))))
-		mods = append(mods, ptunnel.WithConnectOptions(ptunnel.WithHeader("Cookie", cookie.String())))
+		loader := func(o *ptunnel.GetOptions) error {
+			// On the very first run of RunTunnel, there is a valid cookie passed on. Why not use it?
+			//
+			// We don't know how long ago that cookie was fetched. RunTunnel can be called hours or
+			// days later, when the first connection is attempted. Unconditionally re-using that cookie
+			// can cause an initial authentication failure, which will most likely result in not even
+			// retrying the connection.
+			//
+			// That said, the code below makes a weak attempt at re-using the last known valid cookie.
+			user, scookie, err := r.IdentityCookie()
+			if err == nil {
+				r.Log.Infof("%s - loaded credentials from disk for %s", id, user)
+				cookie = scookie
+			} else {
+				r.Log.Infof("%s - loading new credentials failed - sticking with old ones", id)
+				scookie = cookie
+			}
+
+			if scookie == nil {
+				return fmt.Errorf("%s - authentication necessary, but no credentials available", id)
+			}
+
+			if err := ptunnel.WithGetOptions(protocol.WithRequestOptions(krequest.WithCookie(scookie)))(o); err != nil {
+				return err
+			}
+			return ptunnel.WithConnectOptions(ptunnel.WithHeader("Cookie", scookie.String()))(o)
+		}
+		mods = append(mods, loader)
 	}
 
-	// TODO: Allow to resume sessions manually? By passing a sid on the CLI?
 	err = goroutine.WaitFirstError(
 		func() error {
 			return tunnel.KeepConnected(proxy, host, port, mods...)
 		},
-		func() error { return tunnel.Receive(writer) },
-		func() error { return tunnel.Send(reader) })
+		func() error {
+			defer func() { writer.Close() }()
+			return tunnel.Receive(writer)
+		},
+		func() error {
+			defer func() { reader.Close() }()
+			return tunnel.Send(reader)
+		},
+	)
 
 	r.Log.Infof("%s - terminated (%v)", id, err)
 	return err

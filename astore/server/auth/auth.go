@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -32,7 +31,7 @@ type Server struct {
 	authURL string
 	limit   time.Duration
 
-	caSigner              crypto.Signer
+	caPrivateKey          kcerts.PrivateKey
 	principals            []string
 	marshalledCAPublicKey []byte
 	userCertTTL           time.Duration
@@ -48,8 +47,7 @@ func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertific
 	if err != nil {
 		return nil, err
 	}
-
-	cert, err := kcerts.SignPublicKey(s.caSigner, ssh.HostCert, request.Hosts, s.userCertTTL, pubKey)
+	cert, err := kcerts.SignPublicKey(s.caPrivateKey, ssh.HostCert, request.Hosts, s.userCertTTL, pubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -126,24 +124,24 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if _, err := io.ReadFull(s.rng, nonce[:]); err != nil {
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
 		}
-		b, _ := pem.Decode(req.Publickey)
+
 		// If the ca signer is nil that means the CA was never passed in flags, if the request never sent a public key
 		// then so ssh certs will be sent back.
-		if s.caSigner == nil || b == nil {
+		if s.caPrivateKey == nil || len(req.Publickey) <= 0 {
 			return &auth.TokenResponse{
 				Nonce: nonce[:],
 				Token: box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			}, nil
 		}
 		// If the ca signer was present, continuing with public keys.
-		savedPubKey, _, _, _, err := ssh.ParseAuthorizedKey(b.Bytes)
+		savedPubKey, _, _, _, err := ssh.ParseAuthorizedKey(req.Publickey)
 		if err != nil {
-			return nil, err
+			return nil, status.Errorf(codes.InvalidArgument, "PublicKey cannot be parsed as an ssh authorized key - %s", err)
 		}
 		effectivePrincipals := append(s.principals, authData.Creds.Identity.Username)
-		userCert, err := kcerts.SignPublicKey(s.caSigner, ssh.UserCert, effectivePrincipals, s.userCertTTL, savedPubKey)
+		userCert, err := kcerts.SignPublicKey(s.caPrivateKey, ssh.UserCert, effectivePrincipals, s.userCertTTL, savedPubKey)
 		if err != nil {
-			return nil, fmt.Errorf("error generating certificates: %w", err)
+			return nil, status.Errorf(codes.Internal, "error signing key - %s", err)
 		}
 		return &auth.TokenResponse{
 			Nonce:       nonce[:],

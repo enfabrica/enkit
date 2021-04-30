@@ -7,20 +7,20 @@ import (
 	"io"
 )
 
-type sha256Signer struct {
+type customSigner struct {
 	algorithm string
 	signer    ssh.AlgorithmSigner
 }
 
-func (s *sha256Signer) PublicKey() ssh.PublicKey {
+func (s *customSigner) PublicKey() ssh.PublicKey {
 	return s.signer.PublicKey()
 }
 
-func (s *sha256Signer) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) {
+func (s *customSigner) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) {
 	return s.signer.SignWithAlgorithm(rand, data, s.algorithm)
 }
 
-func NewSha256SignerFromSigner(signer crypto.Signer) (ssh.Signer, error) {
+func NewSSHSigner(signer crypto.Signer, algo string) (ssh.Signer, error) {
 	sshSigner, err := ssh.NewSignerFromSigner(signer)
 	if err != nil {
 		return nil, err
@@ -29,9 +29,9 @@ func NewSha256SignerFromSigner(signer crypto.Signer) (ssh.Signer, error) {
 	if !ok {
 		return nil, errors.New("unable to cast to ssh.AlgorithmSigner")
 	}
-	s := sha256Signer{
+	s := customSigner{
 		signer:    algorithmSigner,
-		algorithm:  ssh.KeyAlgoED25519,
+		algorithm: algo,
 	}
 	return &s, nil
 }

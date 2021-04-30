@@ -1,12 +1,14 @@
 package auth
 
 import (
-	"crypto/ed25519"
-	"errors"
+	"crypto/rsa"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
+	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh"
 	"math/rand"
+	"reflect"
 	"strings"
 	"time"
 
@@ -89,9 +91,9 @@ func WithCA(fileContent []byte) Modifier {
 		if err != nil {
 			return fmt.Errorf("Could not parse CA key - %w", err)
 		}
-		err = errors.New("keys could not be processed")
+		// TODO(adam): make parsing existing keys cleaner
 		if key, ok := caPrivateKey.(*ed25519.PrivateKey); ok {
-			server.caSigner = key
+			server.caPrivateKey = kcerts.FromEC25519(*key)
 			sshPubKey, err := ssh.NewPublicKey(key.Public())
 			if err != nil {
 				return err
@@ -99,14 +101,25 @@ func WithCA(fileContent []byte) Modifier {
 			server.marshalledCAPublicKey = ssh.MarshalAuthorizedKey(sshPubKey)
 			return nil
 		}
-		return err
+		if key, ok := caPrivateKey.(*rsa.PrivateKey); ok {
+			server.caPrivateKey = kcerts.FromRSA(key)
+			sshPubKey, err := ssh.NewPublicKey(key.Public())
+			if err != nil {
+				return err
+			}
+			server.marshalledCAPublicKey = ssh.MarshalAuthorizedKey(sshPubKey)
+			return nil
+		}
+		return fmt.Errorf("keys could not be processed, keys of type %v are not supported", reflect.TypeOf(caPrivateKey))
 	}
 }
 
 func WithPrincipals(raw string) Modifier {
 	return func(server *Server) error {
 		splitString := strings.Split(raw, ",")
-		server.principals = splitString
+		if len(splitString) >= 1 && splitString[0] != "" {
+			server.principals = splitString
+		}
 		return nil
 	}
 }

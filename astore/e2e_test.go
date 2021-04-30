@@ -9,12 +9,11 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/progress"
 	"github.com/stretchr/testify/assert"
-	"io/ioutil"
 	"log"
 	"testing"
 )
 
-// TODO(aaahrens): fix client so that it's signed urls can depend on an interface for actual e2e testing
+// TODO(aaahrens): fix client so that its signed urls can depend on an interface for actual e2e testing.
 func TestServer(t *testing.T) {
 	astoreDescriptor, killFuncs, err := RunAStoreServer()
 	if killFuncs != nil {
@@ -26,8 +25,6 @@ func TestServer(t *testing.T) {
 	res, _, err := client.List("/test", astore.ListOptions{})
 	assert.Nil(t, err)
 	fmt.Printf("list response is +%v \n", res)
-	b, err := ioutil.ReadFile("./testdata/example.yaml")
-	assert.Nil(t, err)
 	uploadFiles := []astore.FileToUpload{
 		{Local: "./testdata/example.yaml"},
 	}
@@ -58,6 +55,4 @@ func TestServer(t *testing.T) {
 	assert.Nil(t, err)
 
 	fmt.Println("finalizing +%v", resp.Artifact)
-
 }
-
