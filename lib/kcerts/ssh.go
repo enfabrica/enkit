@@ -99,6 +99,40 @@ func (a SSHAgent) Valid() bool {
 	return err == nil
 }
 
+type AgentCert struct {
+	MD5        string
+	Principals []string
+	ValidFor   time.Duration
+}
+
+// Principals returns a map where the keys are the CA's PKS and the certs identities are the values
+func (a SSHAgent) Principals() ([]AgentCert, error) {
+	conn, err := net.Dial("unix", a.Socket)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	keys, err := agent.NewClient(conn).List()
+	if err != nil {
+		return nil, err
+	}
+	var toReturn []AgentCert
+	for _, key := range keys {
+		p, err := ssh.ParsePublicKey(key.Marshal())
+		if err != nil {
+			continue
+		}
+		if cert, ok := p.(*ssh.Certificate); ok {
+			toReturn = append(toReturn, AgentCert{
+				MD5:        ssh.FingerprintLegacyMD5(cert.SignatureKey),
+				Principals: cert.ValidPrincipals,
+				ValidFor:   time.Unix(int64(cert.ValidBefore), 0).Sub(time.Now()),
+			})
+		}
+	}
+	return toReturn, err
+}
+
 // AddCertificates loads an ssh certificate into the agent.
 // privateKey must be a key type accepted by the golang.org/x/ssh/agent AddedKey struct.
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
