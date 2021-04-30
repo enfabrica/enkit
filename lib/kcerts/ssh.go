@@ -226,6 +226,19 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters
 // to generate a user cert, certType must be 1, and host certs ust have certType 2
 func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
+	// OpenSSH controls what the key allows through extensions.
+	// See https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.certkeys
+	var extensions map[string]string
+	if certType == 1 {
+		extensions = map[string]string{
+			"permit-agent-forwarding": "",
+			"permit-x11-forwarding":   "",
+			"permit-port-forwarding":  "",
+			"permit-pty":              "",
+			"permit-user-rc":          "",
+		}
+	}
+
 	from := time.Now().UTC()
 	to := time.Now().UTC().Add(ttl * time.Hour)
 	cert := &ssh.Certificate{
@@ -234,7 +247,9 @@ func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.
 		ValidAfter:      uint64(from.Unix()),
 		ValidBefore:     uint64(to.Unix()),
 		ValidPrincipals: principals,
-		Permissions:     ssh.Permissions{},
+		Permissions: ssh.Permissions{
+			Extensions: extensions,
+		},
 	}
 	s, err := NewSigner(p)
 	if err != nil {
