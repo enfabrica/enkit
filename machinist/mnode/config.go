@@ -17,6 +17,7 @@ type Config struct {
 
 	AutoRestartSSHD bool
 	ReWriteConfigs  bool
+	RequireRoot     bool
 	ms              *machinist.SharedFlags
 	af              *client.AuthFlags
 
@@ -39,7 +40,7 @@ func (nf *Config) ToModifiers() []NodeModifier {
 	return toReturn
 }
 
-func (nf *Config) NssConfig() *NssConf  {
+func (nf *Config) NssConfig() *NssConf {
 	return &NssConf{
 		DefaultShell: "/bin/bash",
 	}

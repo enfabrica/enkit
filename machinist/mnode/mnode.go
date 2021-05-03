@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
-	"github.com/enfabrica/enkit/lib/enauth"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"

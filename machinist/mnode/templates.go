@@ -96,6 +96,7 @@ func ReadNssConf(conf *NssConf) ([]byte, error) {
 	err = tpl.Execute(reader, conf)
 	return reader.Bytes(), err
 }
+
 func InstallPamSSHDFile(l logger.Logger) error {
 	l.Infof("installing pam login file")
 	return ioutil.WriteFile("/etc/pam.d/sshd", []byte("account required  pam_script.so dir=/etc/security"), 0700)
