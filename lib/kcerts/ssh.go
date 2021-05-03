@@ -99,6 +99,40 @@ func (a SSHAgent) Valid() bool {
 	return err == nil
 }
 
+type AgentCert struct {
+	MD5        string
+	Principals []string
+	ValidFor   time.Duration
+}
+
+// Principals returns a map where the keys are the CA's PKS and the certs identities are the values
+func (a SSHAgent) Principals() ([]AgentCert, error) {
+	conn, err := net.Dial("unix", a.Socket)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	keys, err := agent.NewClient(conn).List()
+	if err != nil {
+		return nil, err
+	}
+	var toReturn []AgentCert
+	for _, key := range keys {
+		p, err := ssh.ParsePublicKey(key.Marshal())
+		if err != nil {
+			continue
+		}
+		if cert, ok := p.(*ssh.Certificate); ok {
+			toReturn = append(toReturn, AgentCert{
+				MD5:        ssh.FingerprintLegacyMD5(cert.SignatureKey),
+				Principals: cert.ValidPrincipals,
+				ValidFor:   time.Unix(int64(cert.ValidBefore), 0).Sub(time.Now()),
+			})
+		}
+	}
+	return toReturn, err
+}
+
 // AddCertificates loads an ssh certificate into the agent.
 // privateKey must be a key type accepted by the golang.org/x/ssh/agent AddedKey struct.
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
@@ -192,6 +226,19 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters
 // to generate a user cert, certType must be 1, and host certs ust have certType 2
 func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
+	// OpenSSH controls what the key allows through extensions.
+	// See https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.certkeys
+	var extensions map[string]string
+	if certType == 1 {
+		extensions = map[string]string{
+			"permit-agent-forwarding": "",
+			"permit-x11-forwarding":   "",
+			"permit-port-forwarding":  "",
+			"permit-pty":              "",
+			"permit-user-rc":          "",
+		}
+	}
+
 	from := time.Now().UTC()
 	to := time.Now().UTC().Add(ttl * time.Hour)
 	cert := &ssh.Certificate{
@@ -200,7 +247,9 @@ func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.
 		ValidAfter:      uint64(from.Unix()),
 		ValidBefore:     uint64(to.Unix()),
 		ValidPrincipals: principals,
-		Permissions:     ssh.Permissions{},
+		Permissions: ssh.Permissions{
+			Extensions: extensions,
+		},
 	}
 	s, err := NewSigner(p)
 	if err != nil {
