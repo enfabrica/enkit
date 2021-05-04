@@ -58,6 +58,7 @@ func main() {
 	set.BoolVar(&withoutAuthentication, "without-authentication", false,
 		"allow tunneling even without authentication")
 	set.ByteFileVar(&configbytes, "config", configname, "Default config file location.", kflags.WithFilename(&configname))
+
 	root.RunE = func(cmd *cobra.Command, args []string) error {
 		var config Config
 		if err := marshal.UnmarshalDefault(configname, configbytes, marshal.Json, &config); err != nil {
