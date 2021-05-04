@@ -2,7 +2,6 @@ package kdns
 
 import (
 	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/lib/logger/klog"
 	"net"
 )
 
@@ -30,7 +29,7 @@ func NewDNS(mods ...DNSModifier) (*DnsServer, error) {
 
 type DNSModifier func(s *DnsServer) error
 
-func WithLogger(l *klog.Logger) DNSModifier {
+func WithLogger(l logger.Logger) DNSModifier {
 	return func(s *DnsServer) error {
 		s.Logger = l
 		return nil

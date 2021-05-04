@@ -1,14 +1,21 @@
 package mserver
 
 import (
+	"github.com/enfabrica/enkit/lib/knetwork/kdns"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"log"
 	"sync"
 )
 
 type Controller struct {
+	Log logger.Logger
+
+	domains             []string
 	connectedNodes      map[string]*Node
 	connectedNodesMutex sync.RWMutex
+
+	dnsServer *kdns.DnsServer
 }
 
 func (en *Controller) Nodes() []*Node {
@@ -82,5 +89,23 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 			en.HandleRegister(stream, r.Register)
 			log.Printf("Got REGISTER %#v", *r.Register)
 		}
+	}
+}
+
+func (en *Controller) ServeDns() error {
+	dnsServ, err := kdns.NewDNS(kdns.WithPort(5553),
+		kdns.WithHost("127.0.0.1"),
+		kdns.WithLogger(en.Log),
+		kdns.WithDomains(en.domains))
+	if err != nil {
+		return err
+	}
+	en.dnsServer = dnsServ
+	return dnsServ.Run()
+}
+
+func (en *Controller) addNodeToDns(name string, ips []string)  {
+	for _, d := range en.domains {
+
 	}
 }
