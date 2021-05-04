@@ -1,0 +1,5 @@
+exports_files([
+    "install_libpam-script.sh",
+    "machinist_sshd.conf.gotmpl",
+    "nss-autouser.conf.gotmpl",
+])

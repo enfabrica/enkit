@@ -6,12 +6,16 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/machinist/machinist_assets"
 	"io/ioutil"
+	"os/exec"
 	"strings"
 	"text/template"
 )
 
-func InstallLibPam(){
-
+func InstallLibPam(l logger.Logger) error {
+	cmd := exec.Command("/bin/bash", "-c", string(machinist_assets.InstallLibPamScript))
+	o, err := cmd.Output()
+	l.Infof("output of installer is %s", string(o))
+	return err
 }
 
 func ReadSSHDContent(cafile, hostKey, hostCertificateFile string) ([]byte, error) {
@@ -35,7 +39,7 @@ func ReadSSHDContent(cafile, hostKey, hostCertificateFile string) ([]byte, error
 	return reader.Bytes(), err
 }
 
-// fetchLibNSSAutoUser will fetch the nss_autouser  lib that's embedded.
+// fetchLibNSSAutoUser will fetch the nss_autouser  lib that's embedded. The current build exports one .a and one .so.
 func fetchLibNSSAutoUser() ([]byte, error) {
 	for k, v := range machinist_assets.Data {
 		if strings.Contains(k, ".so") {
@@ -76,14 +80,16 @@ type NssConf struct {
 		Match string
 	}
 }
+// Nss Installer Functions
+
 
 // InstallNssAutoUserConf will read from the nssautouser.conf.gotmpl file, and output in /etc/nss-autouser.conf
-func InstallNssAutoUserConf(conf *NssConf) error {
+func InstallNssAutoUserConf(path string, conf *NssConf) error {
 	fileContent, err := ReadNssConf(conf)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile("/etc/nss-autouser.conf", fileContent, 0600)
+	return ioutil.WriteFile(path, fileContent, 0600)
 }
 
 func ReadNssConf(conf *NssConf) ([]byte, error) {
@@ -97,16 +103,14 @@ func ReadNssConf(conf *NssConf) ([]byte, error) {
 	return reader.Bytes(), err
 }
 
-func InstallPamSSHDFile(l logger.Logger) error {
+
+// Pam Installer Functions
+func InstallPamSSHDFile(path string, l logger.Logger) error {
 	l.Infof("installing pam login file")
-	return ioutil.WriteFile("/etc/pam.d/sshd", []byte("account required  pam_script.so dir=/etc/security"), 0700)
-}
-func InstallPamScript(l logger.Logger, path string) error {
-	l.Infof("Installing Pam script")
-	return ioutil.WriteFile(path, machinist_assets.PamScript, 0755)
+	return ioutil.WriteFile(path, machinist_assets.PamSSHDConfig, 0700)
 }
 
-func InstallCAForSSHD(l logger.Logger, path string, ca []byte) error {
-	l.Infof("Installing CA Public Key to %s", path)
-	return ioutil.WriteFile(path, ca, 0644)
+func InstallPamScript(path string, l logger.Logger) error {
+	l.Infof("Installing Pam Account Script")
+	return ioutil.WriteFile(path, machinist_assets.PamScript, 0755)
 }

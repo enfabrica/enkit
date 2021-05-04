@@ -11,22 +11,15 @@ type Config struct {
 	Tags     []string
 	DnsNames []string
 
-	HostKeyLocation           string
-	CaPublicKeyLocation       string
-	SSHDConfigurationLocation string
-
-	AutoRestartSSHD bool
-	ReWriteConfigs  bool
-	RequireRoot     bool
 	ms              *machinist.SharedFlags
-	af              *client.AuthFlags
-
-	// Pam Location configs
-	// "/etc/security/pam_script_acct"
-	PamSecurityLocation string
+	bf              *client.BaseFlags
+	*enrollConfigs
 }
 
 func (nf *Config) MachinistFlags() *machinist.SharedFlags {
+	if nf.ms == nil {
+		nf.ms = &machinist.SharedFlags{}
+	}
 	return nf.ms
 }
 
@@ -35,7 +28,6 @@ func (nf *Config) ToModifiers() []NodeModifier {
 	toReturn = append(toReturn,
 		WithName(nf.Name),
 		WithTags(nf.Tags),
-		WithAuthFlags(nf.af),
 	)
 	return toReturn
 }

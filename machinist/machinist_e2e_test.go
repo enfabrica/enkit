@@ -74,8 +74,9 @@ func TestJoinServerAndPoll(t *testing.T) {
 }
 
 func joinNodeToMaster(t *testing.T, opts []mnode.NodeModifier) *mnode.Node {
-	n, err := mnode.New(opts...)
+	n, err := mnode.New(&mnode.Config{}, opts...)
 	assert.Nil(t, err)
+	assert.Nil(t, n.Init())
 	go func() {
 		assert.Nil(t, n.BeginPolling())
 	}()

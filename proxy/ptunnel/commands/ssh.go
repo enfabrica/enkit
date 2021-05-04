@@ -88,7 +88,6 @@ func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 
 	if r.UseInternalAgent {
 		agent, err := kcerts.FindSSHAgent(r.BaseFlags.Local, r.Log)
-		fmt.Println("agent socket is ",agent.Socket)
 		if err != nil {
 			return err
 		}

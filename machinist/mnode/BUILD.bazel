@@ -32,16 +32,18 @@ go_library(
     name = "machinist_assets",
     srcs = [
         "autouser_binary",
+        "libpam_script_install",
         "mnode_sshd_conf",
         "nss_autouser_config",
         "pam_script",
+        "pam_sshd_config",
     ],
     importpath = "github.com/enfabrica/enkit/machinist/machinist_assets",
 )
 
 go_embed_data(
     name = "mnode_sshd_conf",
-    src = "assets/machinist_sshd.conf.gotmpl",
+    src = "//machinist/mnode/assets:machinist_sshd.conf.gotmpl",
     package = "machinist_assets",
     string = True,
     var = "SSHDTemplate",
@@ -50,7 +52,7 @@ go_embed_data(
 
 go_embed_data(
     name = "nss_autouser_config",
-    src = "assets/nss-autouser.conf.gotmpl",
+    src = "//machinist/mnode/assets:nss-autouser.conf.gotmpl",
     package = "machinist_assets",
     string = True,
     var = "NssConfig",
@@ -71,6 +73,22 @@ go_embed_data(
     src = "//proxy/nss/configs:pam_script_acct",
     package = "machinist_assets",
     var = "PamScript",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "libpam_script_install",
+    src = "//machinist/mnode/assets:install_libpam-script.sh",
+    package = "machinist_assets",
+    var = "InstallLibPamScript",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "pam_sshd_config",
+    src = "//proxy/nss/configs:sshd",
+    package = "machinist_assets",
+    var = "PamSSHDConfig",
     visibility = ["//visibility:public"],
 )
 

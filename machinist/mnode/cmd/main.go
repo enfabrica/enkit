@@ -1,10 +1,16 @@
 package main
 
 import (
+	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/machinist/mnode"
-	"log"
 )
 
 func main() {
-	defer log.Fatal(mnode.NewRootCommand().Execute())
+	base := client.DefaultBaseFlags("node", "enkit")
+	node := mnode.NewRootCommand()
+
+	set, populator, runner := kcobra.Runner(node, nil, base.IdentityErrorHandler("enkit login"))
+
+	base.Run(set, populator, runner)
 }
