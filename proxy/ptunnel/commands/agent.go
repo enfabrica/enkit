@@ -5,29 +5,36 @@ import (
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/spf13/cobra"
+	"os"
+	"os/exec"
+	"strings"
 )
 
 type agentConfig struct {
 	Print          bool
 	ListIdentities bool
+	RemainingArgs  []string
+	UseHostEnv     bool
 }
 
 func NewAgentCommand(bf *client.BaseFlags) *cobra.Command {
 	agentConfig := &agentConfig{}
 	c := &cobra.Command{
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunAgentCommand(bf, agentConfig)
+			agentConfig.RemainingArgs = args
+			return RunAgentCommand(cmd, bf, agentConfig)
 		},
-		Use:   "agent",
-		Short: "commands for the enkit specific ssh-agent",
+		Use:   "agent -- [Command]",
+		Short: "commands for the enkit specific ssh-agent, anything passed in will execute with SSH_AUTH_SOCK and SSH_AGENT_PID set for the enkti agent.",
 	}
 	// Note the following is intended to be user friendly, identities here are cert principals
 	c.Flags().BoolVarP(&agentConfig.ListIdentities, "list-identities", "l", false, "list the identities loaded current in the agent")
 	c.Flags().BoolVarP(&agentConfig.Print, "print", "p", false, "print the socket and PID of the running agent")
+	c.Flags().BoolVarP(&agentConfig.UseHostEnv, "use-env", "e", false, "Use your terminals env when executing also")
 	return c
 }
 
-func RunAgentCommand(bf *client.BaseFlags, config *agentConfig) error {
+func RunAgentCommand(command *cobra.Command,bf *client.BaseFlags, config *agentConfig) error {
 	agent, err := kcerts.FindSSHAgent(bf.Local, bf.Log)
 	if err != nil {
 		return err
@@ -35,7 +42,6 @@ func RunAgentCommand(bf *client.BaseFlags, config *agentConfig) error {
 	if config.Print {
 		fmt.Printf("The enkit agent is running at socket %s \n", agent.Socket)
 		fmt.Printf("The enkit agent's pid is %d \n", agent.PID)
-
 	}
 	if config.ListIdentities {
 		principals, err := agent.Principals()
@@ -44,6 +50,19 @@ func RunAgentCommand(bf *client.BaseFlags, config *agentConfig) error {
 		}
 		for _, p := range principals {
 			fmt.Printf("PKS: %s Identities: %v ValidFor: %s \n", p.MD5, p.Principals, p.ValidFor.String())
+		}
+	}
+	if len(config.RemainingArgs) >= 1 {
+		cmd := exec.Command("sh", append([]string{"-c"}, strings.Join(config.RemainingArgs[:], " "))...)
+		cmd.Stdout = command.OutOrStdout()
+		cmd.Stderr = command.ErrOrStderr()
+		cmd.Stdin = command.InOrStdin()
+		cmd.Env = agent.GetEnv()
+		if config.UseHostEnv {
+			cmd.Env = append(os.Environ(), cmd.Env...)
+		}
+		if err := cmd.Run(); err != nil {
+			return err
 		}
 	}
 	return nil
