@@ -148,7 +148,6 @@ func NewSSH(base *client.BaseFlags) *SSH {
 	root.Command.Flags().StringVarP(&root.Proxy, "proxy", "p", "", "Full url of the proxy to connect to, must be specified")
 
 	root.Command.Flags().StringVarP(&root.SSH, "ssh", "e", "", "Path to the SSH binary to use. If empty, one will be found for you")
-	root.AddCommand(NewShowAgentCommand(base))
 	exec, _ := os.Executable()
 	tcommand := ""
 	if strings.HasSuffix(exec, "enkit") {
