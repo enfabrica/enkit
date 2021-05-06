@@ -15,8 +15,10 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//lib/knetwork/kdns:go_default_library",
+        "//lib/logger:go_default_library",
         "//machinist:go_default_library",
         "//machinist/rpc:machinist-go",
+        "@com_github_miekg_dns//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )

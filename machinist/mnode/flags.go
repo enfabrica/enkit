@@ -56,3 +56,10 @@ func WithDialFunc(f func() (*grpc.ClientConn, error)) NodeModifier {
 		return nil
 	}
 }
+
+func WithIpsAddresses(ips []string) NodeModifier {
+	return func(node *Node) error {
+		node.Ips = ips
+		return nil
+	}
+}

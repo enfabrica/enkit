@@ -15,7 +15,6 @@ func main() {
 		Use:   "controller",
 		Short: "controller is a server in charge of controlling workers",
 	}
-
 	oauthFlags := oauth.DefaultRedirectorFlags()
 	oauthFlags.Register(&kcobra.FlagSet{command.Flags()}, "")
 

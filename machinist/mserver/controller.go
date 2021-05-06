@@ -1,10 +1,14 @@
 package mserver
 
 import (
+	"errors"
+	"fmt"
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
+	"github.com/miekg/dns"
 	"log"
+	"net"
 	"sync"
 )
 
@@ -55,13 +59,25 @@ func (en *Controller) HandlePing(stream machinist.Controller_PollServer, ping *m
 }
 
 func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, ping *machinist.ClientRegister) error {
+	var parsedIps []net.IP
+	for _, p := range ping.Ips {
+		i := net.ParseIP(p)
+		if i != nil {
+			parsedIps = append(parsedIps, i)
+		}
+	}
+	if len(parsedIps) == 0 {
+		return errors.New("no valid ip sent")
+	}
 	n := &Node{
 		Name: ping.Name,
 		Tags: ping.Tag,
+		Ips:  parsedIps,
 	}
 	en.connectedNodesMutex.Lock()
 	en.connectedNodes[ping.Name] = n
 	en.connectedNodesMutex.Unlock()
+	en.addNodeToDns(ping.Name, n.Ips)
 	return stream.Send(
 		&machinist.PollResponse{
 			Resp: &machinist.PollResponse_Result{
@@ -86,7 +102,9 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 			en.HandlePing(stream, r.Ping)
 
 		case *machinist.PollRequest_Register:
-			en.HandleRegister(stream, r.Register)
+			if err = en.HandleRegister(stream, r.Register); err != nil {
+				return err
+			}
 			log.Printf("Got REGISTER %#v", *r.Register)
 		}
 	}
@@ -104,8 +122,24 @@ func (en *Controller) ServeDns() error {
 	return dnsServ.Run()
 }
 
-func (en *Controller) addNodeToDns(name string, ips []string)  {
+func (en *Controller) addNodeToDns(name string, ips []net.IP) {
 	for _, d := range en.domains {
-
+		dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", name, d))
+		for _, i := range ips {
+			var recordType string
+			if i.To4() != nil {
+				recordType = "A"
+			}
+			if i.To16() != nil {
+				recordType = "AAAA"
+			}
+			if recordType != "" {
+				entry, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, recordType, i.String()))
+				if err != nil {
+					continue
+				}
+				en.dnsServer.AddEntry(dnsName, entry)
+			}
+		}
 	}
 }

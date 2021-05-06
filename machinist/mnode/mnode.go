@@ -14,6 +14,7 @@ type Node struct {
 	*machinist.SharedFlags
 	Name string
 	Tags []string
+	Ips  []string
 	// Dial func will override any existing options to connect
 	DialFunc func() (*grpc.ClientConn, error)
 }
