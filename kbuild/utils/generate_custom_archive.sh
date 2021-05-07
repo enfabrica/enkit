@@ -14,7 +14,7 @@ USAGE:
 
 OPTIONS:
     -k KDIR
-	Build directory containing the compiled Linux tree.
+	Source directory containing the compiled Linux tree.
 
     -t OUTDIR
 	Root directory for containing the generated kernel package.
@@ -38,6 +38,9 @@ have been obtained by:
 2. export ARCH=x
 3. cd KDIR && make defconfig && make menuconfig # Enable/disable stuff.
 4. make
+
+NOTE: The kernel must be built in the source directory.  In other words a
+kernel built with the O=<build-directory> is invalid.
 
 EOF
 }
@@ -74,6 +77,32 @@ exit 1
 EOF
 }
 
+verify_kernel_build() {
+    srcdir="$1"
+
+    # verify kernel has been configured successfully
+    [ -r "${srcdir}/include/config/kernel.release" ] || {
+        echo "ERROR: kernel has not been configured successfully: missing: ${srcdir}/include/config/kernel.release"
+        return 1
+    }
+
+    # verify kernel has been built successfully
+    [ -r "${srcdir}/vmlinux" ] || {
+        echo "ERROR: kernel has not been built successfully: missing: ${srcdir}/vmlinux"
+        return 1
+    }
+
+    # verify kernel source and build directory are the same.  The
+    # sub-directories only contain Makefiles in the source directory.
+    [ -r "${srcdir}/kernel/Makefile" ] || {
+        echo "ERROR: kernel build directory and source directory need to be the same: ${srcdir}"
+        return 1
+    }
+
+    return 0
+
+}
+
 KCONFIG=".config"
 
 while getopts ":k:t:v:c:h" o
@@ -97,6 +126,11 @@ fi
 set -e
 
 SRCDIR=$(realpath -s "$SRCDIR")
+
+verify_kernel_build "$SRCDIR" || {
+    echo "ERROR: Problems verifying kernel build."
+    exit 1
+}
 
 if ! [[ -v KERNELVERSION ]];
 then
