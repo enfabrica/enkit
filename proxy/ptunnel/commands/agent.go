@@ -84,9 +84,9 @@ func RunAgentCommand(command *cobra.Command, bf *client.BaseFlags, args []string
 func NewPrintCommand(parent *cobra.Command, bf *client.BaseFlags) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "print",
-		Short: "alias for agent run -- ssh-add -s",
+		Short: "alias for agent run -- ssh-agent",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunAgentCommand(parent, bf, []string{"ssh-agent", "-s"})
+			return RunAgentCommand(parent, bf, []string{"ssh-agent"})
 		},
 	}
 	return c
