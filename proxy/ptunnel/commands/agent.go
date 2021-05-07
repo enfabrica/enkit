@@ -80,13 +80,23 @@ func RunAgentCommand(command *cobra.Command, bf *client.BaseFlags, args []string
 	}
 	return nil
 }
-
+const PrintSSHTemplate = `
+SSH_AUTH_SOCK=%s; export SSH_AUTH_SOCK;
+SSH_AGENT_PID=%d; export SSH_AGENT_PID;
+echo Agent pid %d;
+`
 func NewPrintCommand(parent *cobra.Command, bf *client.BaseFlags) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "print",
-		Short: "alias for agent run -- ssh-agent",
+		Short: "Prints out the enkit agent as if you ran ssh-agent -s, compatible with bourne shells",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunAgentCommand(parent, bf, []string{"ssh-agent"})
+			agent, err := kcerts.FindSSHAgent(bf.Local, bf.Log)
+			if err != nil {
+				return err
+			}
+			defer agent.Close()
+			fmt.Printf(PrintSSHTemplate, agent.Socket, agent.PID, agent.PID)
+			return nil
 		},
 	}
 	return c
