@@ -2182,8 +2182,8 @@ def go_repositories():
     go_repository(
         name = "org_golang_x_lint",
         importpath = "golang.org/x/lint",
-        sum = "h1:Wh+f8QHJXR411sJR8/vRBTZ7YapZaRvUcLFFJhusH0k=",
-        version = "v0.0.0-20200302205851-738671d3881b",
+        sum = "h1:2M3HP5CCK1Si9FQhwnzYhXdG6DXeebvUHFpre8QvbyI=",
+        version = "v0.0.0-20201208152925-83fdc39ff7b5",
     )
     go_repository(
         name = "org_golang_x_mobile",
@@ -2259,6 +2259,13 @@ def go_repositories():
         sum = "h1:Ezj3JGmsOnG1MoRWQkPBsKLe9DwWD9QeXzTRzzldNVk=",
         version = "v1.6.0",
     )
+    go_repository(
+        name = "org_uber_go_goleak",
+        importpath = "go.uber.org/goleak",
+        sum = "h1:z+mqJhf6ss6BSfSM671tgKyZBFPTTJM+HLxnhPC3wu0=",
+        version = "v1.1.10",
+    )
+
     go_repository(
         name = "org_uber_go_multierr",
         importpath = "go.uber.org/multierr",

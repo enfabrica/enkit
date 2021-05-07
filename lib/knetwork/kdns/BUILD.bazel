@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "dns.go",
+        "factory.go",
+        "records.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/lib/knetwork/kdns",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/logger:go_default_library",
+        "//lib/logger/klog:go_default_library",
+        "@com_github_miekg_dns//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "dns_test.go",
+        "records_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//lib/knetwork:go_default_library",
+        "//lib/logger:go_default_library",
+        "@com_github_miekg_dns//:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+        "@org_uber_go_goleak//:go_default_library",
+    ],
+)
