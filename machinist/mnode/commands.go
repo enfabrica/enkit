@@ -2,15 +2,14 @@ package mnode
 
 import (
 	"github.com/enfabrica/enkit/lib/client"
-	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/machinist"
 	"github.com/spf13/cobra"
 )
 
-func NewRootCommand() *cobra.Command {
+func NewRootCommand(bf *client.BaseFlags) *cobra.Command {
 
 	config := &Config{
-		bf:            client.DefaultBaseFlags("astore", "enkit"),
+		bf:            bf,
 		ms:            &machinist.SharedFlags{},
 		enrollConfigs: &enrollConfigs{},
 	}
@@ -25,8 +24,6 @@ func NewRootCommand() *cobra.Command {
 		}
 		return newN, err
 	}
-
-	config.bf.Register(&kcobra.FlagSet{FlagSet: c.PersistentFlags()}, "")
 
 	// Global Relate Flags
 	c.PersistentFlags().StringArrayVar(&config.Tags, "tags", []string{}, "the list of tags you want this node to have. Setting this will unset the cache")
