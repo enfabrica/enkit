@@ -32,6 +32,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//lib/client:go_default_library",
+        "//lib/kcerts:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
