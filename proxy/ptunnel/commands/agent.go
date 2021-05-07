@@ -11,20 +11,14 @@ import (
 	"strings"
 )
 
-type agentConfig struct {
-	Print         bool
-	RemainingArgs []string
-}
-
 func NewAgentCommand(bf *client.BaseFlags) *cobra.Command {
-	agentConfig := &agentConfig{}
 	c := &cobra.Command{
 		Use:   "agent [SubCommands] -- [Command]",
 		Short: "commands for the enkit specific ssh-agent, anything passed in will execute with SSH_AUTH_SOCK and SSH_AGENT_PID set for the enkti agent.",
 	}
 	// Note the following is intended to be user friendly, identities here are cert principals
-	c.Flags().BoolVarP(&agentConfig.Print, "print", "p", false, "print the socket and PID of the running agent")
-	c.AddCommand(NewRunAgentCommand(c, bf, agentConfig))
+	c.AddCommand(NewRunAgentCommand(c, bf))
+	c.AddCommand(NewPrintCommand(c, bf))
 	c.AddCommand(NewListAgentCommand(bf))
 	return c
 }
@@ -49,27 +43,31 @@ func NewListAgentCommand(bf *client.BaseFlags) *cobra.Command {
 	return c
 }
 
-func NewRunAgentCommand(parent *cobra.Command, bf *client.BaseFlags, config *agentConfig) *cobra.Command {
+func NewRunAgentCommand(parent *cobra.Command, bf *client.BaseFlags) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "run -- [COMMAND]",
 		Short: "Runs the following command using the enkit ssh-agent",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunAgentCommand(parent, bf, config, args)
+			return RunAgentCommand(parent, bf, args)
 		},
 	}
 	return c
 }
 
-func RunAgentCommand(command *cobra.Command, bf *client.BaseFlags, config *agentConfig, args []string) error {
+func RunAgentCommand(command *cobra.Command, bf *client.BaseFlags, args []string) error {
 	agent, err := kcerts.FindSSHAgent(bf.Local, bf.Log)
 	if err != nil {
 		return err
 	}
-	if config.Print {
-		fmt.Printf("The enkit agent is running at socket %s \n", agent.Socket)
-		fmt.Printf("The enkit agent's pid is %d \n", agent.PID)
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "sh"
 	}
-	cmd := exec.Command("sh", append([]string{"-c"}, strings.Join(args[:], " "))...)
+	var kwargs []string
+	if len(args) > 0 {
+		kwargs = append([]string{"-c"}, strings.Join(args[:], " "))
+	}
+	cmd := exec.Command(shell, kwargs...)
 	cmd.Stdout = command.OutOrStdout()
 	cmd.Stderr = command.ErrOrStderr()
 	cmd.Stdin = command.InOrStdin()
@@ -81,4 +79,15 @@ func RunAgentCommand(command *cobra.Command, bf *client.BaseFlags, config *agent
 		return err
 	}
 	return nil
+}
+
+func NewPrintCommand(parent *cobra.Command, bf *client.BaseFlags) *cobra.Command {
+	c := &cobra.Command{
+		Use:   "print",
+		Short: "alias for agent run -- ssh-add -s",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return RunAgentCommand(parent, bf, []string{"ssh-agent", "-s"})
+		},
+	}
+	return c
 }

@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/proxy/ptunnel/commands"
 	"github.com/stretchr/testify/assert"
+	"os/exec"
+	"reflect"
 	"testing"
 )
 
@@ -27,6 +30,5 @@ func TestRunAgentCommand_Error(t *testing.T) {
 	c.SetArgs([]string{"run", "--", "exit", "6"})
 	b := bytes.NewBufferString("")
 	c.SetOut(b)
-	assert.Nil(t, c.Execute())
-	assert.Equal(t, "ERROR: exit status 6", b.String())
+	assert.Equal(t, reflect.TypeOf(kflags.NewStatusError(6, &exec.ExitError{})), reflect.TypeOf(c.Execute()))
 }
