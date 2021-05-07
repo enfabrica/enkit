@@ -80,8 +80,7 @@ func RunAgentCommand(command *cobra.Command, bf *client.BaseFlags, args []string
 	}
 	return nil
 }
-const PrintSSHTemplate = `
-SSH_AUTH_SOCK=%s; export SSH_AUTH_SOCK;
+const PrintSSHTemplate = `SSH_AUTH_SOCK=%s; export SSH_AUTH_SOCK;
 SSH_AGENT_PID=%d; export SSH_AGENT_PID;
 echo Agent pid %d;
 `
