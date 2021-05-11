@@ -1,17 +1,106 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_embed_data", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
     srcs = [
+        "commands.go",
+        "config.go",
         "factory.go",
         "flags.go",
         "mnode.go",
+        "templates.go",
     ],
     importpath = "github.com/enfabrica/enkit/machinist/mnode",
     visibility = ["//visibility:public"],
     deps = [
+        ":machinist_assets",
+        "//astore/rpc:auth-go",
+        "//lib/client:go_default_library",
+        "//lib/kcerts:go_default_library",
+        "//lib/kflags/kcobra:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/retry:go_default_library",
         "//machinist:go_default_library",
         "//machinist/rpc:machinist-go",
+        "@com_github_spf13_cobra//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_x_crypto//ssh:go_default_library",
+    ],
+)
+
+go_library(
+    name = "machinist_assets",
+    srcs = [
+        "autouser_binary",
+        "libpam_script_install",
+        "mnode_sshd_conf",
+        "nss_autouser_config",
+        "pam_script",
+        "pam_sshd_config",
+    ],
+    importpath = "github.com/enfabrica/enkit/machinist/machinist_assets",
+)
+
+go_embed_data(
+    name = "mnode_sshd_conf",
+    src = "//machinist/mnode/assets:machinist_sshd.conf.gotmpl",
+    package = "machinist_assets",
+    string = True,
+    var = "SSHDTemplate",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "nss_autouser_config",
+    src = "//machinist/mnode/assets:nss-autouser.conf.gotmpl",
+    package = "machinist_assets",
+    string = True,
+    var = "NssConfig",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "autouser_binary",
+    srcs = [
+        "//proxy/nss:nss_autouser",
+    ],  # Technically cc_library outputs a .a and .so, doesn't matter which but this embeds both TODO(adam): strip out .a just for sizing reasons
+    package = "machinist_assets",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "pam_script",
+    src = "//proxy/nss/configs:pam_script_acct",
+    package = "machinist_assets",
+    var = "PamScript",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "libpam_script_install",
+    src = "//machinist/mnode/assets:install_libpam-script.sh",
+    package = "machinist_assets",
+    var = "InstallLibPamScript",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "pam_sshd_config",
+    src = "//proxy/nss/configs:sshd",
+    package = "machinist_assets",
+    var = "PamSSHDConfig",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "config_test.go",
+        "templates_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        ":machinist_assets",
+        "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
