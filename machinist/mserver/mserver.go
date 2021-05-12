@@ -42,6 +42,7 @@ func (s *server) Run() error {
 	go func() {
 		s.killChannel <- s.Controller.dnsServer.Run()
 	}()
+
 	return grpcs.Serve(s.Listener)
 }
 

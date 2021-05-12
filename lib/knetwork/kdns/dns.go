@@ -57,6 +57,7 @@ func (s *DnsServer) Run() error {
 		s.dnsServer.Addr = net.JoinHostPort(s.host, strconv.Itoa(s.Port))
 	}
 	go s.HandleControllers()
+	s.Logger.Infof("Serving Dns on %s for domains %v", s.dnsServer.Addr, s.Domains )
 	return s.dnsServer.ListenAndServe()
 }
 

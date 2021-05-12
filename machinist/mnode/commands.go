@@ -31,7 +31,7 @@ func NewRootCommand(bf *client.BaseFlags) *cobra.Command {
 	c.PersistentFlags().StringArrayVar(&config.IpAddresses, "dns-names", []string{"localhost"}, "the list of dns names you want this node to have")
 
 	c.AddCommand(NewEnrollCommand(config.enrollConfigs, factory))
-
+	c.AddCommand(NewPollCommand(bf))
 	return c
 }
 
@@ -81,5 +81,43 @@ func NewEnrollCommand(config *enrollConfigs, factoryFunc FactoryFunc) *cobra.Com
 	c.PersistentFlags().StringVar(&config.CaPublicKeyLocation, "ca-key-file", "/etc/ssh/machinist_ca.pub", "the file location of the CA's public key from the auth server. If the file already exists, defers to the rewrite flag")
 	c.PersistentFlags().BoolVar(&config.ReWriteConfigs, "rewrite", true, "rewrite HostKey and HostCert and TrustedCAKey if it already exists on the system")
 
+	return c
+}
+
+type pollConfig struct {
+	Name string
+	Tags []string
+	Ips  []string
+	Host string
+	Port int
+}
+
+func NewPollCommand(bf *client.BaseFlags) *cobra.Command {
+	pc := &pollConfig{}
+	c := &cobra.Command{
+		Use: "poll",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := &Config{bf: bf,}
+			m, err := New(c,
+				WithName(pc.Name),
+				WithIps(pc.Ips),
+				WithTags(pc.Tags),
+				WithMachinistFlags(
+					machinist.WithHost(pc.Host),
+					machinist.WithPort(pc.Port)))
+			if err != nil {
+				return err
+			}
+			if err = m.Init(); err != nil {
+				return err
+			}
+			return m.BeginPolling()
+		},
+	}
+	c.Flags().StringVar(&pc.Name, "name", "", "")
+	c.Flags().StringArrayVar(&pc.Tags, "tags", []string{}, "")
+	c.Flags().StringArrayVar(&pc.Ips, "ips", []string{}, "")
+	c.Flags().StringVar(&pc.Host, "machinist-host", "localhost", "")
+	c.Flags().IntVar(&pc.Port, "machinist-port", 8081, "")
 	return c
 }

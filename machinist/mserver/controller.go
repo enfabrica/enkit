@@ -114,6 +114,7 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 
 func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 	for _, d := range en.dnsServer.Domains {
+		fmt.Println("domain d is ", d)
 		dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", name, d))
 		var recordTags []dns.RR
 		for _, t := range tags {
@@ -136,6 +137,7 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 				if err != nil {
 					continue
 				}
+				en.Log.Infof("Adding %s to the dns server %s", dnsName, entry)
 				en.dnsServer.AddEntry(dnsName, entry)
 				for _, rt := range recordTags {
 					en.dnsServer.AddEntry(dnsName, rt)

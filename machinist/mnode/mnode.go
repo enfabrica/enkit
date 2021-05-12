@@ -13,8 +13,10 @@ import (
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -39,7 +41,14 @@ func (n *Node) Init() error {
 		n.MachinistClient = machinist_rpc.NewControllerClient(conn)
 		return nil
 	}
-	panic("not implemented yet")
+	h := n.config.ms.Host
+	p := n.config.ms.Port
+	conn ,err := grpc.Dial(net.JoinHostPort(h, strconv.Itoa(p)), grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+	n.MachinistClient = machinist_rpc.NewControllerClient(conn)
+	return nil
 }
 
 func (n *Node) BeginPolling() error {
@@ -48,6 +57,7 @@ func (n *Node) BeginPolling() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("ip addresses are ", n.config.IpAddresses)
 	initialRequest := &machinist_rpc.PollRequest{
 		Req: &machinist_rpc.PollRequest_Register{
 			Register: &machinist_rpc.ClientRegister{
@@ -92,7 +102,6 @@ func (n *Node) Enroll() error {
 	}
 	resp, err := n.AuthClient.HostCertificate(context.Background(), hcr)
 	if err != nil {
-		fmt.Println("error here")
 		return err
 	}
 	if fName, exists := anyFileExist(
