@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -23,5 +23,16 @@ go_library(
         "//proxy/nasshp:go_default_library",
         "//proxy/ptunnel:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["agent_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//lib/client:go_default_library",
+        "//lib/kcerts:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
