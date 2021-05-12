@@ -6,6 +6,8 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//lib/knetwork:go_default_library",
+        "//lib/knetwork/kdns:go_default_library",
         "//machinist/mnode:go_default_library",
         "//machinist/mserver:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",

@@ -5,13 +5,13 @@ go_library(
     srcs = [
         "dns.go",
         "factory.go",
+        "flags.go",
         "records.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/knetwork/kdns",
     visibility = ["//visibility:public"],
     deps = [
         "//lib/logger:go_default_library",
-        "//lib/logger/klog:go_default_library",
         "@com_github_miekg_dns//:go_default_library",
     ],
 )

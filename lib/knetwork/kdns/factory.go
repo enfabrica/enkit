@@ -2,6 +2,7 @@ package kdns
 
 import (
 	"github.com/enfabrica/enkit/lib/logger"
+	"log"
 	"net"
 )
 
@@ -15,9 +16,10 @@ func NewDNS(mods ...DNSModifier) (*DnsServer, error) {
 			Return chan *RecordController
 			Origin string
 		}),
-		Logger:          &logger.NilLogger{},
+		Logger:          &logger.DefaultLogger{Printer: log.Printf},
 		shutdown:        make(chan bool, 1),
 		shutdownSuccess: make(chan bool, 1),
+		Flags:           &Flags{},
 	}
 	for _, mod := range mods {
 		if err := mod(s); err != nil {
@@ -45,14 +47,14 @@ func WithPort(p int) DNSModifier {
 
 func WithDomains(domains []string) DNSModifier {
 	return func(s *DnsServer) error {
-		s.domains = domains
+		s.Domains = domains
 		return nil
 	}
 }
 
 func WithListener(l net.Listener) DNSModifier {
 	return func(s *DnsServer) error {
-		s.Listener = l
+		s.Flags.Listener = l
 		return nil
 	}
 }

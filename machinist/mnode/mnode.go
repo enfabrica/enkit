@@ -36,7 +36,6 @@ func (n *Node) Init() error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("setting controller client")
 		n.MachinistClient = machinist_rpc.NewControllerClient(conn)
 		return nil
 	}
@@ -54,6 +53,7 @@ func (n *Node) BeginPolling() error {
 			Register: &machinist_rpc.ClientRegister{
 				Name: n.config.Name,
 				Tag:  n.config.Tags,
+				Ips: n.config.IpAddresses,
 			},
 		},
 	}
@@ -88,7 +88,7 @@ func (n *Node) Enroll() error {
 	}
 	hcr := &auth.HostCertificateRequest{
 		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
-		Hosts:    n.config.DnsNames,
+		Hosts:    n.config.IpAddresses,
 	}
 	resp, err := n.AuthClient.HostCertificate(context.Background(), hcr)
 	if err != nil {

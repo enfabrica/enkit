@@ -69,3 +69,10 @@ func WithAuthFlags(af *client.AuthFlags) NodeModifier {
 		return nil
 	}
 }
+
+func WithIps(ips []string) NodeModifier  {
+	return func(node *Node) error {
+		node.config.IpAddresses = ips
+		return nil
+	}
+}

@@ -2,6 +2,8 @@ package machinist_test
 
 import (
 	"context"
+	"github.com/enfabrica/enkit/lib/knetwork"
+	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/machinist"
 	"github.com/enfabrica/enkit/machinist/mnode"
 	"github.com/enfabrica/enkit/machinist/mserver"
@@ -14,8 +16,27 @@ import (
 )
 
 func TestJoinServerAndPoll(t *testing.T) {
+	machinistDnsPort, err := knetwork.AllocatePort()
+	assert.Nil(t, err)
+	a, err := machinistDnsPort.Address()
+	assert.Nil(t, err)
+	customResolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: time.Millisecond * time.Duration(10000),
+			}
+			return d.DialContext(ctx, network, machinistDnsPort.Addr().String())
+		},
+	}
 	lis := bufconn.Listen(2048 * 2048)
-	mController, err := mserver.NewController()
+	mController, err := mserver.NewController(
+		mserver.DnsPort(a.Port),
+		mserver.WithKDnsFlags(
+			kdns.WithListener(machinistDnsPort),
+			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
+		),
+	)
 	assert.Nil(t, err)
 	s, err := mserver.New(
 		mserver.WithController(mController),
@@ -42,7 +63,8 @@ func TestJoinServerAndPoll(t *testing.T) {
 
 	go joinNodeToMaster(t, []mnode.NodeModifier{
 		mnode.WithDialFunc(customConnect),
-		mnode.WithName("test-01"),
+		mnode.WithName("test01"),
+		mnode.WithIps([]string{"10.0.0.4"}),
 		mnode.WithTags([]string{"big", "heavy"}),
 		mnode.WithMachinistFlags(
 			machinist.WithListener(lis)),
@@ -50,27 +72,34 @@ func TestJoinServerAndPoll(t *testing.T) {
 
 	go joinNodeToMaster(t, []mnode.NodeModifier{
 		mnode.WithDialFunc(customConnect),
-		mnode.WithName("test-02"),
+		mnode.WithName("test02"),
+		mnode.WithIps([]string{"10.0.0.1"}),
 		mnode.WithTags([]string{"teeny", "weeny"}),
 		mnode.WithMachinistFlags(
 			machinist.WithListener(lis)),
 	})
 
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(150 * time.Millisecond)
 	assert.Equal(t, 2, len(mController.Nodes()))
-	assert.NotNil(t, mController.Node("test-02"))
-	assert.NotNil(t, mController.Node("test-01"))
+	assert.NotNil(t, mController.Node("test02"))
+	assert.NotNil(t, mController.Node("test01"))
 
 	//TODO(adam): table test this
 	for _, v := range mController.Nodes() {
-		if v.Name == "test-01" {
+		if v.Name == "test01" {
 			assert.Equal(t, []string{"big", "heavy"}, v.Tags)
-		} else if v.Name == "test-02" {
+		} else if v.Name == "test02" {
 			assert.Equal(t, []string{"teeny", "weeny"}, v.Tags)
 		} else {
 			t.Fatalf("controller found node %v, which should not be present", v)
 		}
 	}
+	res, err := customResolver.LookupHost(context.TODO(), "test01.enkitdev")
+	assert.Nil(t, err)
+	assert.Equal(t, "10.0.0.4", res[0])
+	tagsRes, err := customResolver.LookupTXT(context.TODO(), "test01.enkit")
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"big", "heavy"}, tagsRes)
 }
 
 func joinNodeToMaster(t *testing.T, opts []mnode.NodeModifier) *mnode.Node {

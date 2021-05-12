@@ -20,6 +20,7 @@ type Controller struct {
 	connectedNodesMutex sync.RWMutex
 
 	dnsServer *kdns.DnsServer
+	dnsPort   int
 }
 
 func (en *Controller) Nodes() []*Node {
@@ -75,9 +76,9 @@ func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, pin
 		Ips:  parsedIps,
 	}
 	en.connectedNodesMutex.Lock()
+	defer en.connectedNodesMutex.Unlock()
 	en.connectedNodes[ping.Name] = n
-	en.connectedNodesMutex.Unlock()
-	en.addNodeToDns(ping.Name, n.Ips)
+	en.addNodeToDns(ping.Name, n.Ips, n.Tags)
 	return stream.Send(
 		&machinist.PollResponse{
 			Resp: &machinist.PollResponse_Result{
@@ -103,6 +104,7 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 
 		case *machinist.PollRequest_Register:
 			if err = en.HandleRegister(stream, r.Register); err != nil {
+				fmt.Println("error handling register", err.Error())
 				return err
 			}
 			log.Printf("Got REGISTER %#v", *r.Register)
@@ -110,27 +112,23 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 	}
 }
 
-func (en *Controller) ServeDns() error {
-	dnsServ, err := kdns.NewDNS(kdns.WithPort(5553),
-		kdns.WithHost("127.0.0.1"),
-		kdns.WithLogger(en.Log),
-		kdns.WithDomains(en.domains))
-	if err != nil {
-		return err
-	}
-	en.dnsServer = dnsServ
-	return dnsServ.Run()
-}
-
-func (en *Controller) addNodeToDns(name string, ips []net.IP) {
-	for _, d := range en.domains {
+func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
+	for _, d := range en.dnsServer.Domains {
 		dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", name, d))
+		var recordTags []dns.RR
+		for _, t := range tags {
+			entry, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "TXT", t))
+			if err != nil {
+				continue
+			}
+			recordTags = append(recordTags, entry)
+		}
 		for _, i := range ips {
 			var recordType string
 			if i.To4() != nil {
 				recordType = "A"
 			}
-			if i.To16() != nil {
+			if i.To16() != nil && recordType == "" {
 				recordType = "AAAA"
 			}
 			if recordType != "" {
@@ -139,6 +137,9 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP) {
 					continue
 				}
 				en.dnsServer.AddEntry(dnsName, entry)
+				for _, rt := range recordTags {
+					en.dnsServer.AddEntry(dnsName, rt)
+				}
 			}
 		}
 	}

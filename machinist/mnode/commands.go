@@ -28,7 +28,7 @@ func NewRootCommand(bf *client.BaseFlags) *cobra.Command {
 	// Global Relate Flags
 	c.PersistentFlags().StringArrayVar(&config.Tags, "tags", []string{}, "the list of tags you want this node to have. Setting this will unset the cache")
 	c.PersistentFlags().StringVar(&config.Name, "name", "no-name", "the name of this node. If a node already exists with this name, polling the machinist server will fail")
-	c.PersistentFlags().StringArrayVar(&config.DnsNames, "dns-names", []string{"localhost"}, "the list of dns names you want this node to have")
+	c.PersistentFlags().StringArrayVar(&config.IpAddresses, "dns-names", []string{"localhost"}, "the list of dns names you want this node to have")
 
 	c.AddCommand(NewEnrollCommand(config.enrollConfigs, factory))
 
