@@ -49,3 +49,29 @@ This patch does the following:
 4. Generate the rootfs image
    * `make`
 5. The image can be found in `output/images`
+
+# Releasing a tagged kernel release to astore
+
+The Enfabrica kernel artifacts in astore are used by multiple developers and
+bazel build/test workflows. To release a specific tag of enfabrica/linux to
+astore:
+
+1. Authenticate with `enkit login $USER@enfabrica.net`
+2. Ensure your Github SSH keys/PATs are setup to allow you to clone from SSH
+endpoints of repositories without interaction (such as
+`git@github.com:enfabrica/linux.git`).
+3. Run `./kbuild/utils/release-kernel.sh -b $BRANCH -t  $TAG ` from the root of
+this repository; where `$BRANCH` is a branch in the enfabrica/linux
+repository and `$TAG` is a sha1/tag of choice.
+4. Modify the Bazel WORKSPACE file in `enfabrica/enkit`, ensuring the
+`kernel_tree_version` and `kernel_tree_image` sections for the kernel you are
+releasing are updated as needed. The `enf-` prefix for the `package` attribute
+denotes the `distro` the `kernel_tree_*` definitions look for, so do not drop
+it.
+
+If you are using the script to test custom kernel builds, remember to override
+the astore deployment path with the `-p` option, pointing it to a personal
+directory under `home/` namespace in astore.
+
+The `release-kernel.sh` script automates the steps laid out in [this document]
+(https://docs.google.com/document/d/1Wp7MElnUfk-56ZnnRflvvr8_3_hTsNR-76g3_oxc_Nk/edit?usp=sharing).
