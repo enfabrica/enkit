@@ -3,7 +3,7 @@ Bazel hooks for compiling and testing linux kernel modules against a specific ke
 
 # Main rules made available
 `kernel_tree_version`* defines a specific kernel tree to compile and test modules against.
-It must point to a .tar.gz with a specific format, most likely built using either [kbuild](https://github.com/enfabrica/enkit/tree/master/kbuild) or [generate_custom_archive.sh](https://github.com/enfabrica/enkit/blob/master/bazel/linux/run_um_kunit_tests.sh).
+It must point to a .tar.gz with a specific format, most likely built using either [kbuild](https://github.com/enfabrica/enkit/tree/master/kbuild) or [generate_custom_archive.sh](https://github.com/enfabrica/enkit/blob/master/kbuild/utils/generate_custom_archive.sh).
 
 `kernel_image_version`* defines an executable kernel image. Currently, this is only required by the *kernel_test* rule to provide a user-mode linux executable image (which is used to launch a kernel local testing environment).
 The *package* attribute must be the same declared by the `kernel_tree_version` relative to the kernel tree used to build this executable image.
