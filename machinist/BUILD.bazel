@@ -2,14 +2,20 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_test(
     name = "go_default_test",
-    srcs = ["machinist_e2e_test.go"],
+    srcs = [
+        "machinist_e2e_test.go",
+        "reserve_test.go",
+        "upload_download_test.go",
+    ],
     embed = [":go_default_library"],
     race = "on",
     deps = [
         "//lib/knetwork:go_default_library",
         "//lib/knetwork/kdns:go_default_library",
+        "//lib/logger:go_default_library",
         "//machinist/mnode:go_default_library",
         "//machinist/mserver:go_default_library",
+        "//machinist/rpc:machinist-go",
         "@com_github_stretchr_testify//assert:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//test/bufconn:go_default_library",
@@ -18,7 +24,14 @@ go_test(
 
 go_library(
     name = "go_default_library",
-    srcs = ["flags.go"],
+    srcs = [
+        "client.go",
+        "flags.go",
+    ],
     importpath = "github.com/enfabrica/enkit/machinist",
     visibility = ["//visibility:public"],
+    deps = [
+        "//lib/logger:go_default_library",
+        "//machinist/rpc:machinist-go",
+    ],
 )

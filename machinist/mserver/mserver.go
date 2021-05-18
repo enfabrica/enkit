@@ -38,11 +38,11 @@ func (s *server) MachinistFlags() *machinist.SharedFlags {
 func (s *server) Run() error {
 	grpcs := grpc.NewServer()
 	machinist_rpc.RegisterControllerServer(grpcs, s.Controller)
+	machinist_rpc.RegisterUserServer(grpcs, s.Controller)
 	s.runningServer = grpcs
 	go func() {
 		s.killChannel <- s.Controller.dnsServer.Run()
 	}()
-
 	return grpcs.Serve(s.Listener)
 }
 

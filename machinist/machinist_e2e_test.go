@@ -2,6 +2,7 @@ package machinist_test
 
 import (
 	"context"
+	"fmt"
 	"github.com/enfabrica/enkit/lib/knetwork"
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/machinist"
@@ -29,7 +30,6 @@ func TestJoinServerAndPoll(t *testing.T) {
 			return d.DialContext(ctx, network, machinistDnsPort.Addr().String())
 		},
 	}
-	lis := bufconn.Listen(2048 * 2048)
 	mController, err := mserver.NewController(
 		mserver.DnsPort(a.Port),
 		mserver.WithKDnsFlags(
@@ -38,6 +38,8 @@ func TestJoinServerAndPoll(t *testing.T) {
 		),
 	)
 	assert.Nil(t, err)
+
+	lis := bufconn.Listen(2048 * 2048)
 	s, err := mserver.New(
 		mserver.WithController(mController),
 		mserver.WithMachinistFlags(
@@ -107,7 +109,10 @@ func joinNodeToMaster(t *testing.T, opts []mnode.NodeModifier) *mnode.Node {
 	assert.Nil(t, err)
 	assert.Nil(t, n.Init())
 	go func() {
-		assert.Nil(t, n.BeginPolling())
+		if err = n.BeginPolling(); err != nil {
+			fmt.Println(err.Error())
+		}
 	}()
+
 	return n
 }

@@ -1,8 +1,10 @@
 package mserver
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/knetwork"
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
@@ -10,10 +12,14 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 type Controller struct {
 	Log logger.Logger
+	// reservedNodes is a map whose keys are the name of the node and value is ReservedNode
+	reservedNodes map[string]*ReservedNode
+	rnMutex       sync.RWMutex
 
 	domains             []string
 	connectedNodes      map[string]*Node
@@ -21,6 +27,51 @@ type Controller struct {
 
 	dnsServer *kdns.DnsServer
 	dnsPort   int
+}
+
+func (en *Controller) Reserve(ctx context.Context, request *machinist.ReserveRequest) (*machinist.ReserveResponse, error) {
+	switch request.Type.String() {
+	case machinist.ReserveRequestType_List.String():
+		var toReturn []*machinist.ReservedMachine
+		en.rnMutex.RLock()
+		defer en.rnMutex.RUnlock()
+		for name, m := range en.reservedNodes {
+			r := &machinist.ReservedMachine{
+				Name:  []byte(name),
+				Ip:    knetwork.IPsToBytes(m.Ips),
+				User:  []byte(m.User),
+				Start: m.Start.Unix(),
+				End:   m.End.Unix(),
+			}
+			toReturn = append(toReturn, r)
+		}
+		return &machinist.ReserveResponse{
+			Machines: toReturn,
+		}, nil
+
+	case machinist.ReserveRequestType_Reserve.String():
+		en.connectedNodesMutex.RLock()
+		defer en.connectedNodesMutex.RUnlock()
+		node := en.connectedNodes[string(request.Name)]
+		if node == nil {
+			return nil, fmt.Errorf("node %s is not in the list of connected nodes", request.Name)
+		}
+		en.rnMutex.Lock()
+		defer en.rnMutex.Unlock()
+		if en.reservedNodes[string(request.Name)] != nil {
+			return nil, fmt.Errorf("node %s is already reserved", request.Name)
+		}
+		rn := &ReservedNode{
+			User:  string(request.User),
+			End:   time.Unix(request.End, 0),
+			Start: time.Unix(request.Start, 0),
+			Node:  node,
+		}
+		en.reservedNodes[string(request.Name)] = rn
+		return &machinist.ReserveResponse{}, nil
+	default:
+		return nil, errors.New("unrecognized reservation request type")
+	}
 }
 
 func (en *Controller) Nodes() []*Node {

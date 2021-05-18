@@ -3,7 +3,6 @@ package mserver
 import (
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/lib/logger"
-	"log"
 )
 
 func NewController(mods ...ControllerModifier) (*Controller, error) {
@@ -12,8 +11,9 @@ func NewController(mods ...ControllerModifier) (*Controller, error) {
 		return nil, err
 	}
 	en := &Controller{
+		reservedNodes: map[string]*ReservedNode{},
 		connectedNodes: map[string]*Node{},
-		Log:            &logger.DefaultLogger{Printer: log.Printf},
+		Log:            &logger.NilLogger{},
 		dnsServer: dnsServ,
 	}
 	for _, m := range mods {

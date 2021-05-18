@@ -16,6 +16,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//lib/client:go_default_library",
+        "//lib/knetwork:go_default_library",
         "//lib/knetwork/kdns:go_default_library",
         "//lib/logger:go_default_library",
         "//machinist:go_default_library",

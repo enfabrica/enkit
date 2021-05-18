@@ -57,7 +57,6 @@ func (n *Node) BeginPolling() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("ip addresses are ", n.config.IpAddresses)
 	initialRequest := &machinist_rpc.PollRequest{
 		Req: &machinist_rpc.PollRequest_Register{
 			Register: &machinist_rpc.ClientRegister{
