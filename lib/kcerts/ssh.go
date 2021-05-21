@@ -239,8 +239,8 @@ func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.
 		}
 	}
 
-	from := time.Now().UTC()
-	to := time.Now().UTC().Add(ttl * time.Hour)
+	from := time.Now()
+	to := time.Now().Add(ttl)
 	cert := &ssh.Certificate{
 		CertType:        certType,
 		Key:             pub,
