@@ -185,7 +185,7 @@ func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
 func FindSSHAgentFromEnv() *SSHAgent {
 	envSSHSock := os.Getenv("SSH_AUTH_SOCK")
 	envSSHPID := os.Getenv("SSH_AGENT_PID")
-	if envSSHSock != "" || envSSHPID != "" {
+	if envSSHSock == "" || envSSHPID == "" {
 		return nil
 	}
 	pid, err := strconv.Atoi(envSSHPID)
