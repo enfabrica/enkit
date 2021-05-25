@@ -22,7 +22,7 @@ func run(timeout time.Duration, cmd string, args ...string) {
 	job := exec.CommandContext(ctx, cmd, args...)
 	err := job.Run()
 	if ctx.Err() == context.DeadlineExceeded {
-		log.Fatalf("Job failed to complete after %d seconds: %s %s \n", timeout, cmd, strings.Join(args, " "))
+		log.Fatalf("Job failed to complete after %.1f seconds: %s %s \n", timeout.Seconds(), cmd, strings.Join(args, " "))
 	}
 	if err != nil {
 		log.Fatalf("Job \"%s %s\" failed with error %s", cmd, strings.Join(args, " "), err)
@@ -32,7 +32,7 @@ func run(timeout time.Duration, cmd string, args ...string) {
 
 func polling(client rpc_license.LicenseClient, username string, quantity int32, vendor string, feature string,
 	cmd string, args ...string) {
-	timeout := 1800 * time.Second
+	timeout := 7200 * time.Second
 	waiting := 0 * time.Second
 	interval := 5 * time.Second
 	stream, err := client.Polling(context.Background())
@@ -75,7 +75,7 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 		waiting += interval
 	}
 	if waiting >= timeout {
-		log.Fatalf("Failed to acquire %d %s feature %s license after %d seconds \n", quantity, vendor, feature, waiting)
+		log.Fatalf("Failed to acquire %d %s feature %s license after %.1f seconds \n", quantity, vendor, feature, waiting.Seconds())
 	}
 	if acquired {
 		log.Printf("Successfully acquired %d %s feature %s license from server \n", quantity, vendor, feature)
