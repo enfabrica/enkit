@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -22,7 +23,7 @@ func run(timeout time.Duration, cmd string, args ...string) {
 	job := exec.CommandContext(ctx, cmd, args...)
 	err := job.Run()
 	if ctx.Err() == context.DeadlineExceeded {
-		log.Fatalf("Job failed to complete after %d seconds: %s %s \n", timeout, cmd, strings.Join(args, " "))
+		log.Fatalf("Job failed to complete after %s: %s %s \n", timeout, cmd, strings.Join(args, " "))
 	}
 	if err != nil {
 		log.Fatalf("Job \"%s %s\" failed with error %s", cmd, strings.Join(args, " "), err)
@@ -31,8 +32,8 @@ func run(timeout time.Duration, cmd string, args ...string) {
 }
 
 func polling(client rpc_license.LicenseClient, username string, quantity int32, vendor string, feature string,
-	cmd string, args ...string) {
-	timeout := 1800 * time.Second
+	timeout int, cmd string, args ...string) {
+	maxTimeout := time.Duration(timeout) * time.Second
 	waiting := 0 * time.Second
 	interval := 5 * time.Second
 	stream, err := client.Polling(context.Background())
@@ -41,7 +42,7 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 	}
 	hash := ""
 	acquired := false
-	for waiting < timeout {
+	for waiting < maxTimeout {
 		request := rpc_license.PollingRequest{Vendor: vendor, Feature: feature, Quantity: quantity, User: username, Hash: hash}
 		err := stream.Send(&request)
 		if err == io.EOF {
@@ -74,8 +75,8 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 		time.Sleep(interval)
 		waiting += interval
 	}
-	if waiting >= timeout {
-		log.Fatalf("Failed to acquire %d %s feature %s license after %d seconds \n", quantity, vendor, feature, waiting)
+	if waiting >= maxTimeout {
+		log.Fatalf("Failed to acquire %d %s feature %s license after %s \n", quantity, vendor, feature, waiting)
 	}
 	if acquired {
 		log.Printf("Successfully acquired %d %s feature %s license from server \n", quantity, vendor, feature)
@@ -87,7 +88,11 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 func main() {
 	var quantity int32 = 1
 	host, port := os.Args[1], os.Args[2]
-	vendor, feature := os.Args[3], os.Args[4]
+	timeout, err := strconv.Atoi(os.Args[3])
+	if err != nil {
+		log.Fatalf("Failed to convert %s to int", os.Args[3])
+	}
+	vendor, feature, cmd, args := os.Args[4], os.Args[5], os.Args[6], os.Args[7:]
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
 	defer conn.Close()
 	if err != nil {
@@ -98,5 +103,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get username: %s \n", err)
 	}
-	polling(client, user.Username, quantity, vendor, feature, os.Args[5], os.Args[6:]...)
+	polling(client, user.Username, quantity, vendor, feature, timeout, cmd, args...)
 }

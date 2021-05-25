@@ -9,6 +9,8 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -120,8 +122,17 @@ type License struct {
 	Used  int
 }
 
-var totalCadenceLic = 3
-var totalXilinxLic = 3
+func strToInt(num string) int {
+	result, err := strconv.Atoi(num)
+	if err != nil {
+		log.Fatalf("Failed to convert %s to int", num)
+	}
+	return result
+}
+
+// Get total number of licenses from container env var
+var totalCadenceLic = strToInt(os.Getenv("CADENCE_LICENSES"))
+var totalXilinxLic = strToInt(os.Getenv("XILINX_LICENSES"))
 var licenseCounter = LicenseCounter{
 	licenses: map[string]*License{"xilinx": &License{Used: 0, Total: totalXilinxLic}, "cadence": &License{Used: 0, Total: totalCadenceLic}},
 	clients:  map[string]*Client{},
