@@ -26,9 +26,9 @@ func run(timeout time.Duration, cmd string, args ...string) {
 		log.Fatalf("Job failed to complete after %s: %s %s\n", timeout, cmd, strings.Join(args, " "))
 	}
 	if err != nil {
-		log.Fatalf("Job \"%s %v\" failed with error %s", cmd, strings.Join(args, " "), err)
+		log.Fatalf("Job \"%s %s\" failed with error %s", cmd, strings.Join(args, " "), err)
 	}
-	log.Printf("Job completed successfully: %s %v\n", cmd, strings.Join(args, " "))
+	log.Printf("Job completed successfully: %s %s\n", cmd, strings.Join(args, " "))
 }
 
 func polling(client rpc_license.LicenseClient, username string, quantity int32, vendor string, feature string,
