@@ -20,6 +20,9 @@ func run(timeout time.Duration, cmd string, args ...string) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	job := exec.CommandContext(ctx, cmd, args...)
+	job.Stdout = os.Stdout
+	job.Stderr = os.Stderr
+
 	err := job.Run()
 	if ctx.Err() == context.DeadlineExceeded {
 		log.Fatalf("Job failed to complete after %d seconds: %s %s \n", timeout, cmd, strings.Join(args, " "))
