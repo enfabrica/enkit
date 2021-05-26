@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	rpc_license "github.com/enfabrica/enkit/manager/rpc"
 	"google.golang.org/grpc"
@@ -12,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -23,17 +23,16 @@ func run(timeout time.Duration, cmd string, args ...string) {
 	job := exec.CommandContext(ctx, cmd, args...)
 	err := job.Run()
 	if ctx.Err() == context.DeadlineExceeded {
-		log.Fatalf("Job failed to complete after %s: %s %s \n", timeout, cmd, strings.Join(args, " "))
+		log.Fatalf("Job failed to complete after %s: %s %s\n", timeout, cmd, strings.Join(args, " "))
 	}
 	if err != nil {
-		log.Fatalf("Job \"%s %s\" failed with error %s", cmd, strings.Join(args, " "), err)
+		log.Fatalf("Job \"%s %v\" failed with error %s", cmd, strings.Join(args, " "), err)
 	}
-	log.Printf("Job completed successfully: %s %s \n", cmd, strings.Join(args, " "))
+	log.Printf("Job completed successfully: %s %v\n", cmd, strings.Join(args, " "))
 }
 
 func polling(client rpc_license.LicenseClient, username string, quantity int32, vendor string, feature string,
-	timeout int, cmd string, args ...string) {
-	maxTimeout := time.Duration(timeout) * time.Second
+	timeout time.Duration, cmd string, args ...string) {
 	waiting := 0 * time.Second
 	interval := 5 * time.Second
 	stream, err := client.Polling(context.Background())
@@ -42,7 +41,7 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 	}
 	hash := ""
 	acquired := false
-	for waiting < maxTimeout {
+	for waiting < timeout {
 		request := rpc_license.PollingRequest{Vendor: vendor, Feature: feature, Quantity: quantity, User: username, Hash: hash}
 		err := stream.Send(&request)
 		if err == io.EOF {
@@ -75,11 +74,11 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 		time.Sleep(interval)
 		waiting += interval
 	}
-	if waiting >= maxTimeout {
-		log.Fatalf("Failed to acquire %d %s feature %s license after %s \n", quantity, vendor, feature, waiting)
+	if waiting >= timeout {
+		log.Fatalf("Failed to acquire %d %s feature %s license after %s\n", quantity, vendor, feature, waiting)
 	}
 	if acquired {
-		log.Printf("Successfully acquired %d %s feature %s license from server \n", quantity, vendor, feature)
+		log.Printf("Successfully acquired %d %s feature %s license from server\n", quantity, vendor, feature)
 		// 12 hours in seconds
 		run(60*60*12*time.Second, cmd, args...)
 	}
@@ -88,11 +87,9 @@ func polling(client rpc_license.LicenseClient, username string, quantity int32, 
 func main() {
 	var quantity int32 = 1
 	host, port := os.Args[1], os.Args[2]
-	timeout, err := strconv.Atoi(os.Args[3])
-	if err != nil {
-		log.Fatalf("Failed to convert %s to int", os.Args[3])
-	}
-	vendor, feature, cmd, args := os.Args[4], os.Args[5], os.Args[6], os.Args[7:]
+	timeout := flag.Duration("timeout", 7200*time.Second, "Max time waiting in license queue")
+	flag.Parse()
+	vendor, feature, cmd, args := os.Args[3], os.Args[4], os.Args[5], os.Args[6:]
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
 	defer conn.Close()
 	if err != nil {
@@ -103,5 +100,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get username: %s \n", err)
 	}
-	polling(client, user.Username, quantity, vendor, feature, timeout, cmd, args...)
+	polling(client, user.Username, quantity, vendor, feature, *timeout, cmd, args...)
 }
