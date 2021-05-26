@@ -11,15 +11,19 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"time"
+	"context"
 
 	"golang.org/x/crypto/nacl/sign"
 )
+
+// Use internally to define keys exported via context.
+type contextKey string
 
 // BinaryEncoders convert an array of bytes into another by applying binary transformations.
 // For example: encryption, signature, ...
 type BinaryEncoder interface {
 	Encode([]byte) ([]byte, error)
-	Decode([]byte) ([]byte, error)
+	Decode(context.Context, []byte) (context.Context, []byte, error)
 }
 
 type ChainedEncoder []BinaryEncoder
@@ -40,25 +44,31 @@ func (ce *ChainedEncoder) Encode(data []byte) ([]byte, error) {
 	return data, nil
 }
 
-func (ce *ChainedEncoder) Decode(data []byte) ([]byte, error) {
+func (ce *ChainedEncoder) Decode(ctx context.Context, data []byte) (context.Context, []byte, error) {
 	encs := ([]BinaryEncoder)(*ce)
+	var first error
 	for ix := range encs {
 		enc := encs[len(encs)-ix-1]
 
 		var err error
-		data, err = enc.Decode(data)
+		ctx, data, err = enc.Decode(ctx, data)
 		if err != nil {
-			return nil, err
+			if first == nil {
+				first = err
+			}
+			if data == nil {
+				break
+			}
 		}
 	}
-	return data, nil
+	return ctx, data, first
 }
 
 // StringEncoders convert an array of bytes into a string safe for specific applications.
 // For example: mime64, url, ...
 type StringEncoder interface {
 	Encode([]byte) (string, error)
-	Decode(string) ([]byte, error)
+	Decode(context.Context, string) (context.Context, []byte, error)
 }
 
 type TimeSource func() time.Time
@@ -88,18 +98,21 @@ func (t *TimeEncoder) Encode(data []byte) ([]byte, error) {
 }
 
 var ExpiredError = fmt.Errorf("signature expired")
+var IssuedTimeKey = contextKey("issued")
 
-func (t *TimeEncoder) Decode(data []byte) ([]byte, error) {
+func (t *TimeEncoder) Decode(ctx context.Context, data []byte) (context.Context, []byte, error) {
 	issued, parsed := binary.Varint(data)
 	if parsed <= 0 {
-		return nil, fmt.Errorf("invalid timestamp in buffer")
+		return ctx, nil, fmt.Errorf("invalid timestamp in buffer")
 	}
 
-	if issued <= 0 || time.Unix(issued, 0).Add(t.validity).Before(t.now()) {
-		return nil, ExpiredError
-	}
+	itime := time.Unix(issued, 0)
+        ctx = context.WithValue(ctx, IssuedTimeKey, itime)
 
-	return data[parsed:], nil
+	if issued <= 0 || itime.Add(t.validity).Before(t.now()) {
+		return ctx, data[parsed:], ExpiredError
+	}
+	return ctx, data[parsed:], nil
 }
 
 type TypeEncoder struct {
@@ -121,17 +134,20 @@ func (t *TypeEncoder) Encode(data interface{}) ([]byte, error) {
 	return t.be.Encode(buffer.Bytes())
 }
 
-func (t *TypeEncoder) Decode(data []byte, output interface{}) error {
-	data, err := t.be.Decode(data)
-	if err != nil {
-		return err
+func (t *TypeEncoder) Decode(ctx context.Context, data []byte, output interface{}) (context.Context, error) {
+	ctx, data, derr := t.be.Decode(ctx, data)
+	if data == nil && derr != nil {
+		return ctx, derr
 	}
 
 	enc := gob.NewDecoder(bytes.NewReader(data))
-	if err := enc.Decode(output); err != nil {
-		return err
+	nerr := enc.Decode(output)
+
+	err := derr
+	if derr == nil {
+		err = nerr
 	}
-	return nil
+	return ctx, err
 }
 
 type SymmetricEncoder struct {
@@ -250,9 +266,9 @@ func (t *SymmetricEncoder) Encode(data []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func (t *SymmetricEncoder) Decode(ciphertext []byte) ([]byte, error) {
+func (t *SymmetricEncoder) Decode(ctx context.Context, ciphertext []byte) (context.Context, []byte, error) {
 	if len(ciphertext) < t.cipher.NonceSize() {
-		return nil, fmt.Errorf("ciphertext too short to contain nonce")
+		return ctx, nil, fmt.Errorf("ciphertext too short to contain nonce")
 	}
 
 	nonce := ciphertext[:t.cipher.NonceSize()]
@@ -260,9 +276,9 @@ func (t *SymmetricEncoder) Decode(ciphertext []byte) ([]byte, error) {
 
 	plaintext, err := t.cipher.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return nil, err
+		return ctx, nil, err
 	}
-	return plaintext, nil
+	return ctx, plaintext, nil
 }
 
 type Base64Encoder struct {
@@ -280,13 +296,13 @@ func (e *Base64Encoder) Encode(data []byte) ([]byte, error) {
 	e.enc.Encode(dst, data)
 	return dst, nil
 }
-func (e *Base64Encoder) Decode(data []byte) ([]byte, error) {
+func (e *Base64Encoder) Decode(ctx context.Context, data []byte) (context.Context, []byte, error) {
 	dst := make([]byte, e.enc.DecodedLen(len(data)))
 	_, err := e.enc.Decode(dst, data)
 	if err != nil {
-		return nil, err
+		return ctx, nil, err
 	}
-	return dst, nil
+	return ctx, dst, nil
 }
 
 type VerifyingKey [32]byte
@@ -369,13 +385,13 @@ func (t *SigningEncoder) Encode(data []byte) ([]byte, error) {
 	return sign.Sign(nil, data, t.signing.ToBytes()), nil
 }
 
-func (t *SigningEncoder) Decode(value []byte) ([]byte, error) {
+func (t *SigningEncoder) Decode(ctx context.Context, value []byte) (context.Context, []byte, error) {
 	if t.verifying == nil {
-		return nil, fmt.Errorf("a verifying key must be supplied to decode data")
+		return ctx, nil, fmt.Errorf("a verifying key must be supplied to decode data")
 	}
 	data, ok := sign.Open(nil, value, t.verifying.ToBytes())
 	if !ok {
-		return nil, fmt.Errorf("signature did not match")
+		return ctx, nil, fmt.Errorf("signature did not match")
 	}
-	return data, nil
+	return ctx, data, nil
 }

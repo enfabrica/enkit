@@ -51,6 +51,7 @@ import (
 	"fmt"
 	"golang.org/x/oauth2"
 	"log"
+	"time"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -219,13 +220,22 @@ func SetCredentials(ctx context.Context, creds *CredentialsCookie) context.Conte
 }
 
 // ParseCredentialsCookie parses a string containing a CredentialsCookie, and returns the corresponding object.
-func (a *Extractor) ParseCredentialsCookie(cookie string) (*CredentialsCookie, error) {
+func (a *Extractor) ParseCredentialsCookie(cookie string) (time.Time, *CredentialsCookie, error) {
 	var credentials CredentialsCookie
-	if err := a.loginEncoder.Decode([]byte(cookie), &credentials); err != nil {
-		return nil, err
-	}
-	return &credentials, nil
+	ctx, err := a.loginEncoder.Decode(context.Background(), []byte(cookie), &credentials)
+	issued, _ := ctx.Value(token.IssuedTimeKey).(time.Time)
+	return issued, &credentials, err
 }
+
+// EncodeCredentials generates a string containing a CredentialsCookie.
+func (a *Extractor) EncodeCredentials(creds CredentialsCookie) (string, error) {
+	cookie, err := a.loginEncoder.Encode(creds)
+	if err != nil {
+		return "", err
+	}
+	return string(cookie), nil
+}
+
 
 // GetCredentialsFromRequest will parse and validate the credentials in an http request.
 //
@@ -237,7 +247,7 @@ func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCook
 		return nil, err
 	}
 
-	credentials, err := a.ParseCredentialsCookie(cookie.Value)
+	_, credentials, err := a.ParseCredentialsCookie(cookie.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -508,14 +518,14 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	}
 
 	var secretExpected []byte
-	if err := a.authEncoder.Decode([]byte(cookie.Value), &secretExpected); err != nil {
+	if _, err := a.authEncoder.Decode(context.Background(), []byte(cookie.Value), &secretExpected); err != nil {
 		return AuthData{}, fmt.Errorf("Cookie decoding failed - %w", err)
 	}
 
 	query := r.URL.Query()
 	state := query.Get("state")
 	var received LoginState
-	if err := a.authEncoder.Decode([]byte(state), &received); err != nil {
+	if _, err := a.authEncoder.Decode(context.Background(), []byte(state), &received); err != nil {
 		return AuthData{}, fmt.Errorf("State decoding failed - %w", err)
 	}
 
@@ -550,7 +560,7 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	}
 
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}
-	ccookie, err := a.loginEncoder.Encode(creds)
+	ccookie, err := a.EncodeCredentials(creds)
 	if err != nil {
 		return AuthData{}, err
 	}
