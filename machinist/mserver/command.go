@@ -10,10 +10,11 @@ import (
 )
 
 type controlPlaneFlags struct {
-	Port    int
-	DnsPort int
-	Domains []string
-	bf      *client.BaseFlags
+	Port     int
+	DnsPort  int
+	Domains  []string
+	BindPort string
+	bf       *client.BaseFlags
 }
 
 func NewCommand(bf *client.BaseFlags) *cobra.Command {
@@ -27,7 +28,7 @@ func NewCommand(bf *client.BaseFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			machinistListener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(config.Port)))
+			machinistListener, err := net.Listen("tcp", net.JoinHostPort(config.BindPort, strconv.Itoa(config.Port)))
 			if err != nil {
 				return err
 			}
@@ -59,5 +60,6 @@ func NewCommand(bf *client.BaseFlags) *cobra.Command {
 	c.PersistentFlags().IntVar(&config.Port, "port", 8081, "Port that machinist will run on to interface between its nodes")
 	c.PersistentFlags().IntVar(&config.DnsPort, "dns-port", 5353, "the udp port that the dns will be served on, also note it will also allocate the tcp socket on it as well")
 	c.PersistentFlags().StringSliceVar(&config.Domains, "domains", []string{}, "domains that the master ControlPlane will be serving")
+	c.PersistentFlags().StringVar(&config.BindPort, "bind-net", "127.0.0.1", "the address to bind the grpc listener to")
 	return c
 }
