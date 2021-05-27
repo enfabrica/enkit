@@ -3,14 +3,14 @@ package main
 import (
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
-	"github.com/enfabrica/enkit/machinist/mserver"
+	"github.com/enfabrica/enkit/machinist/mnode"
 )
 
 func main() {
 	base := client.DefaultBaseFlags("astore", "enkit")
+	node := mnode.NewRootCommand(base)
 
-	root := mserver.NewCommand(base)
-	set, populator, runner := kcobra.Runner(root, nil, base.IdentityErrorHandler("astore login"))
+	set, populator, runner := kcobra.Runner(node, nil, base.IdentityErrorHandler("enkit login"))
 
 	base.Run(set, populator, runner)
 }

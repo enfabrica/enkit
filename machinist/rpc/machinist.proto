@@ -37,9 +37,9 @@ message PollResponse {
 // Client sends a file to the server, as a result of processing an ActionUpload.
 message UploadRequest {
   // required in the first request only.
-  string key = 1;  
+  string key = 1;
   // optional. If it is provided, it is processed in the first request only.
-  int32 total = 2; 
+  int32 total = 2;
 
   bytes data = 3;
 }
@@ -68,4 +68,33 @@ service Controller {
   rpc Upload(stream UploadRequest) returns (UploadResponse) {}
   // The client will invoke Download when the server requests the client to upload a file.
   rpc Download(DownloadRequest) returns (stream DownloadResponse) {}
+}
+
+enum ReserveRequestType {
+  List = 0; // Returns list of currently reserved nodes according to the request.
+  Reserve = 1; // Attempts to reserve a machine.
+}
+
+message ReservedMachine {
+  int64 start = 1; // Start date of the reservation
+  int64 end  = 2; // End date of the reservation
+  bytes user = 3; // User who has reserved the machine
+  repeated bytes ip = 4; // IP address of the reserved machine
+  bytes name = 5; // Name of the machine
+}
+
+message ReserveRequest {
+  ReserveRequestType type = 1;
+  int64 start = 2; // Start date of the reservation
+  int64 end  = 3; // End date of the reservation
+  bytes name = 4; // Name of the machine to reserve
+  bytes user = 5; // User of the machine
+}
+
+message ReserveResponse {
+  repeated ReservedMachine machines = 1; // List of all reserved machines
+}
+
+service User {
+  rpc Reserve(ReserveRequest) returns (ReserveResponse) {}
 }

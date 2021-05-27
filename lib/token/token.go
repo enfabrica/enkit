@@ -8,12 +8,11 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"golang.org/x/crypto/nacl/sign"
 	"io/ioutil"
 	"math/rand"
 	"time"
-
-	"golang.org/x/crypto/nacl/sign"
-)
+	)
 
 // BinaryEncoders convert an array of bytes into another by applying binary transformations.
 // For example: encryption, signature, ...

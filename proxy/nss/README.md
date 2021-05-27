@@ -59,7 +59,7 @@ a user, typicailly:
 
 Regardless of the configuration, to install `libnss_autouser` you need to:
 
-1. Build `libnss_autouser`, `bazelisk build //proxy/nss:libnss_autouser`
+1. Build `nss_autouser`, `bazelisk build //proxy/nss:nss_autouser`
    in the top level directory of this repository, and look for the path
    of the output file in the bazel output.
 

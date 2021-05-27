@@ -1,0 +1,4 @@
+exports_files([
+    "pam_script_acct",
+    "sshd",
+])
