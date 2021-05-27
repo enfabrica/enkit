@@ -108,6 +108,7 @@ func NewPollCommand(bf *client.BaseFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			m.Log = bf.Log
 			if err = m.Init(); err != nil {
 				return err
 			}

@@ -43,7 +43,7 @@ func (n *Node) Init() error {
 	}
 	h := n.config.ms.Host
 	p := n.config.ms.Port
-	conn ,err := grpc.Dial(net.JoinHostPort(h, strconv.Itoa(p)), grpc.WithInsecure())
+	conn, err := grpc.Dial(net.JoinHostPort(h, strconv.Itoa(p)), grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
@@ -62,13 +62,22 @@ func (n *Node) BeginPolling() error {
 			Register: &machinist_rpc.ClientRegister{
 				Name: n.config.Name,
 				Tag:  n.config.Tags,
-				Ips: n.config.IpAddresses,
+				Ips:  n.config.IpAddresses,
 			},
 		},
 	}
 	if err := pollStream.Send(registerRequest); err != nil {
 		return fmt.Errorf("unable to send initial request: %w", err)
 	}
+	go func() {
+		for {
+			<-time.After(5 * time.Second)
+			n.Log.Infof("Sending Register Request")
+			if err := pollStream.Send(registerRequest); err != nil {
+				n.Log.Errorf("%v", fmt.Errorf("unable to send register req: %w", err))
+			}
+		}
+	}()
 	for {
 		select {
 		case <-time.After(1 * time.Second):
@@ -80,14 +89,16 @@ func (n *Node) BeginPolling() error {
 				},
 			}
 			if err := pollStream.Send(pollReq); err != nil {
+				n.Log.Infof("Sending Poll Request")
 				n.Log.Errorf("%v", fmt.Errorf("unable to send poll req: %w", err))
-			}
-		case <- time.After(5 * time.Second):
-			if err := pollStream.Send(registerRequest); err != nil {
-				n.Log.Errorf("%v", fmt.Errorf("unable to send register req: %w", err))
+				ps, err := n.MachinistClient.Poll(ctx)
+				if err != nil {
+					n.Log.Errorf("%v", fmt.Errorf("error reconnecting: %w", err))
+					continue
+				}
+				pollStream = ps
 			}
 		}
-
 	}
 }
 

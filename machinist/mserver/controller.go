@@ -138,10 +138,8 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 					continue
 				}
 				en.Log.Infof("Adding %s to the dns ControlPlane %s", dnsName, entry)
-				en.dnsServer.AddEntry(dnsName, entry)
-				for _, rt := range recordTags {
-					en.dnsServer.AddEntry(dnsName, rt)
-				}
+				en.dnsServer.SetEntry(dnsName, []dns.RR{entry})
+				en.dnsServer.SetEntry(dnsName, recordTags)
 			}
 		}
 	}

@@ -7,10 +7,10 @@ import (
 )
 
 func main() {
-	base := client.DefaultBaseFlags("astore", "enkit")
+	base := client.DefaultBaseFlags("enkit", "enkit")
 	node := mnode.NewRootCommand(base)
 
 	set, populator, runner := kcobra.Runner(node, nil, base.IdentityErrorHandler("enkit login"))
 
-	base.Run(set, populator, runner)
+	base.Run(kcobra.HideFlags(set), populator, runner)
 }

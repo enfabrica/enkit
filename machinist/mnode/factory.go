@@ -21,7 +21,7 @@ func New(nf *Config, mods ...NodeModifier) (*Node, error) {
 			return nil, err
 		}
 	}
-	if n.AuthClient == nil && n.DialFunc == nil{
+	if n.AuthClient == nil && n.DialFunc == nil {
 		conn, err := n.config.bf.Connect()
 		if err != nil {
 			return nil, err
