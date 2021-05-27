@@ -6,8 +6,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-func New(mods ...Modifier) (*server, error) {
-	s := &server{
+func New(mods ...Modifier) (*ControlPlane, error) {
+	s := &ControlPlane{
 		killChannel: make(chan error),
 		Controller: &Controller{
 			connectedNodes: map[string]*Node{},
@@ -22,7 +22,7 @@ func New(mods ...Modifier) (*server, error) {
 	return s, nil
 }
 
-type server struct {
+type ControlPlane struct {
 	insecure      bool
 	runningServer *grpc.Server
 	killChannel   chan error
@@ -31,11 +31,11 @@ type server struct {
 	*machinist.SharedFlags
 }
 
-func (s *server) MachinistFlags() *machinist.SharedFlags {
+func (s *ControlPlane) MachinistFlags() *machinist.SharedFlags {
 	return s.SharedFlags
 }
 
-func (s *server) Run() error {
+func (s *ControlPlane) Run() error {
 	grpcs := grpc.NewServer()
 	machinist_rpc.RegisterControllerServer(grpcs, s.Controller)
 	s.runningServer = grpcs
@@ -46,7 +46,7 @@ func (s *server) Run() error {
 	return grpcs.Serve(s.Listener)
 }
 
-func (s *server) Stop() error {
+func (s *ControlPlane) Stop() error {
 	s.runningServer.Stop()
-	return nil
+	return s.Controller.dnsServer.Stop()
 }

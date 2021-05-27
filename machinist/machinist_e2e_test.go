@@ -30,27 +30,10 @@ func TestJoinServerAndPoll(t *testing.T) {
 		},
 	}
 	lis := bufconn.Listen(2048 * 2048)
-	mController, err := mserver.NewController(
-		mserver.DnsPort(a.Port),
-		mserver.WithKDnsFlags(
-			kdns.WithListener(machinistDnsPort),
-			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
-		),
-	)
-	assert.Nil(t, err)
-	s, err := mserver.New(
-		mserver.WithController(mController),
-		mserver.WithMachinistFlags(
-			machinist.WithListener(lis),
-			machinist.WithInsecure(),
-		))
+	s, mController, err := createNewControlPlane(t, lis, machinistDnsPort, a.Port)
 	assert.Nil(t, err)
 	go func() {
 		assert.Nil(t, s.Run())
-	}()
-	time.Sleep(50 * time.Millisecond)
-	defer func() {
-		assert.Nil(t, s.Stop())
 	}()
 
 	customConnectCtx := context.TODO()
@@ -100,6 +83,9 @@ func TestJoinServerAndPoll(t *testing.T) {
 	tagsRes, err := customResolver.LookupTXT(context.TODO(), "test01.enkit")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"big", "heavy"}, tagsRes)
+
+	assert.Nil(t, s.Stop())
+	time.Sleep(2 * time.Millisecond)
 }
 
 func joinNodeToMaster(t *testing.T, opts []mnode.NodeModifier) *mnode.Node {
@@ -110,4 +96,22 @@ func joinNodeToMaster(t *testing.T, opts []mnode.NodeModifier) *mnode.Node {
 		assert.Nil(t, n.BeginPolling())
 	}()
 	return n
+}
+
+func createNewControlPlane(t *testing.T, l net.Listener, dnsListener net.Listener, p int) (*mserver.ControlPlane, *mserver.Controller, error) {
+	mController, err := mserver.NewController(
+		mserver.DnsPort(p),
+		mserver.WithKDnsFlags(
+			kdns.WithListener(dnsListener),
+			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
+		),
+	)
+	assert.Nil(t, err)
+	s, err := mserver.New(
+		mserver.WithController(mController),
+		mserver.WithMachinistFlags(
+			machinist.WithListener(l),
+			machinist.WithInsecure(),
+		))
+	return s, mController, err
 }

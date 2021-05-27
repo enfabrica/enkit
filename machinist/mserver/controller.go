@@ -137,7 +137,7 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 				if err != nil {
 					continue
 				}
-				en.Log.Infof("Adding %s to the dns server %s", dnsName, entry)
+				en.Log.Infof("Adding %s to the dns ControlPlane %s", dnsName, entry)
 				en.dnsServer.AddEntry(dnsName, entry)
 				for _, rt := range recordTags {
 					en.dnsServer.AddEntry(dnsName, rt)

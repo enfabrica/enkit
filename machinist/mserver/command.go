@@ -51,13 +51,13 @@ func NewCommand(bf *client.BaseFlags) *cobra.Command {
 				return err
 			}
 			defer s.Stop()
-			bf.Log.Infof("Running server now")
+			bf.Log.Infof("Running ControlPlane now")
 			return s.Run()
 		},
 	}
 
 	c.PersistentFlags().IntVar(&config.Port, "port", 8081, "Port that machinist will run on to interface between its nodes")
 	c.PersistentFlags().IntVar(&config.DnsPort, "dns-port", 5353, "the udp port that the dns will be served on, also note it will also allocate the tcp socket on it as well")
-	c.PersistentFlags().StringSliceVar(&config.Domains, "domains", []string{}, "domains that the master server will be serving")
+	c.PersistentFlags().StringSliceVar(&config.Domains, "domains", []string{}, "domains that the master ControlPlane will be serving")
 	return c
 }

@@ -57,8 +57,7 @@ func (n *Node) BeginPolling() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("ip addresses are ", n.config.IpAddresses)
-	initialRequest := &machinist_rpc.PollRequest{
+	registerRequest := &machinist_rpc.PollRequest{
 		Req: &machinist_rpc.PollRequest_Register{
 			Register: &machinist_rpc.ClientRegister{
 				Name: n.config.Name,
@@ -67,7 +66,7 @@ func (n *Node) BeginPolling() error {
 			},
 		},
 	}
-	if err := pollStream.Send(initialRequest); err != nil {
+	if err := pollStream.Send(registerRequest); err != nil {
 		return fmt.Errorf("unable to send initial request: %w", err)
 	}
 	for {
@@ -81,9 +80,14 @@ func (n *Node) BeginPolling() error {
 				},
 			}
 			if err := pollStream.Send(pollReq); err != nil {
-				return fmt.Errorf("unable to send poll req: %w", err)
+				n.Log.Errorf("%v", fmt.Errorf("unable to send poll req: %w", err))
+			}
+		case <- time.After(5 * time.Second):
+			if err := pollStream.Send(registerRequest); err != nil {
+				n.Log.Errorf("%v", fmt.Errorf("unable to send register req: %w", err))
 			}
 		}
+
 	}
 }
 
