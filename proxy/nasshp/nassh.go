@@ -333,7 +333,7 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 		}
 		res, err := net.LookupHost(host)
 		if err != nil {
-			np.log.Infof("%v err looking up host", hostport)
+			np.log.Warnf("%v err looking up host", hostport)
 			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
 			return logid, false
 		}
