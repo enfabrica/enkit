@@ -337,7 +337,7 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
 			return logid, false
 		}
-		verdict := VerdictAllow
+		verdict := VerdictUnknown
 		for _, u := range res {
 			// TODO(adam): make verdict merging configurable from ACL list
 			// TODO(adam): return here after making authz engine
