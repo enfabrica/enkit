@@ -128,17 +128,6 @@ func WithRelayHost(relayHost string) Modifier {
 	}
 }
 
-type Verdict int
-
-const (
-	// Can't decide either way. This is useful for chaning filters.
-	VerdictUnknown Verdict = iota
-	// Let the request in.
-	VerdictAllow
-	// Block the request.
-	VerdictDrop
-)
-
 type Filter func(proto string, hostport string, creds *oauth.CredentialsCookie) Verdict
 
 func WithFilter(filter Filter) Modifier {
@@ -267,14 +256,12 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	host := params.Get("host")
 	port := params.Get("port")
-
 	origin := r.Header.Get("Origin")
 	if origin != "" && OriginMatcher.MatchString(origin) {
 		w.Header().Add("Vary", "Origin")
 		w.Header().Add("Access-Control-Allow-Credentials", "true")
 		w.Header().Add("Access-Control-Allow-Origin", origin)
 	}
-
 	if np.authenticator != nil {
 		creds, err := np.authenticator(w, r, nil)
 		if err != nil {
@@ -338,9 +325,14 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 		}
 		logid = LogId(sid, r, hostport, creds)
 	}
-
 	if np.filter != nil {
 		verdict := np.filter("tcp", hostport, creds)
+		if HostIp(hostport).IsUrl() {
+			for _, u := range HostIp(hostport).Resolve() {
+				// TODO(adam): make verdict merging configurable from ACL list
+				verdict = verdict.MergePreferAllow(np.filter("tcp", u, creds))
+			}
+		}
 		if verdict != VerdictAllow {
 			np.log.Infof("%s was rejected by filter", logid)
 			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)

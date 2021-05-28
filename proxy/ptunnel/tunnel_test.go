@@ -1,19 +1,25 @@
 package ptunnel
 
 import (
+	"fmt"
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/ktest"
+	"github.com/enfabrica/enkit/lib/khttp/protocol"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/lib/token"
 	"github.com/enfabrica/enkit/proxy/nasshp"
+	"github.com/enfabrica/enkit/proxy/utils"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"log"
 	"math/rand"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -128,4 +134,74 @@ func TestBasic(t *testing.T) {
 	assert.Nil(t, err)
 	log.Printf("TR READ DONE")
 	assert.Equal(t, quote2, string(buffer[:r]))
+}
+
+var (
+	hosts     = []string{"google.com", "reddit.com", "myspace.com"}
+	protocols = []string{"udp|", "tcp|", ""}
+	ports     = []int{55, 22, 44}
+
+	bannedHosts = []string{"facebook.com", "nvidia.com", "amd.com"}
+	bannedPorts = []int{1337, 8080, 4433}
+)
+
+func TestHostLookup(t *testing.T) {
+	var testList []string
+	for _, proto := range protocols {
+		for _, host := range hosts {
+			ips, err := net.LookupHost(host)
+			assert.Nil(t, err)
+			assert.GreaterOrEqual(t, len(ips), 1)
+			ip := ips[0]
+			for _, port := range ports {
+				testList = append(testList, strings.Join([]string{proto, ip, ":", strconv.Itoa(port)}, ""))
+			}
+		}
+	}
+	pList, err := utils.NewPatternList(testList)
+	assert.Nil(t, err)
+	rng := rand.New(srand.Source)
+	nassh, err := nasshp.New(rng, nil,
+		nasshp.WithLogging(&logger.DefaultLogger{Printer: log.Printf}),
+		nasshp.WithSymmetricOptions(token.WithGeneratedSymmetricKey(0)),
+		nasshp.WithOriginChecker(func(r *http.Request) bool { return true }),
+		nasshp.WithFilter(pList.Allow),
+	)
+	assert.Nil(t, err)
+	m := http.NewServeMux()
+	nassh.Register(m.HandleFunc)
+	s := httptest.NewServer(m)
+	t.Run("Test Host Resolution with Allowed List", func(t *testing.T) {
+		for _, h := range hosts {
+			for _, p := range ports {
+				t.Run(fmt.Sprintf("Connecting to host: %s with port %d", h, p), testCanConnect(s.URL, h, p, false))
+			}
+		}
+	})
+	t.Run("Test Fail Host Resolution", func(t *testing.T) {
+		for _, h := range bannedHosts {
+			for _, p := range bannedPorts {
+				t.Run(fmt.Sprintf("Connecting to host: %s with port %d", h, p), testCanConnect(s.URL, h, p, true))
+			}
+		}
+	})
+}
+
+func testCanConnect(serverUrl, host string, port int, shouldFail bool) func(t *testing.T) {
+	return func(t *testing.T) {
+		u, err := url.ParseRequestURI(serverUrl)
+		assert.Nil(t, err)
+		u.Path = "/proxy"
+		u.RawQuery = url.Values{"host": {host}, "port": {fmt.Sprintf("%d", port)}}.Encode()
+		fmt.Println("uri is ", u.String())
+		responseString := ""
+		err = protocol.Get(u.String(), protocol.Read(protocol.String(&responseString)))
+		if shouldFail {
+			assert.NotNil(t, err)
+			return
+		}
+		assert.Nil(t, err)
+		//// TODO(adam): make some nice SID utility functions, right now this just checks that the sid is sent
+		assert.GreaterOrEqual(t, len(responseString), 5)
+	}
 }

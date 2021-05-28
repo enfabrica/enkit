@@ -24,10 +24,12 @@ go_test(
     deps = [
         "//lib/khttp:go_default_library",
         "//lib/khttp/ktest:go_default_library",
+        "//lib/khttp/protocol:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/srand:go_default_library",
         "//lib/token:go_default_library",
         "//proxy/nasshp:go_default_library",
+        "//proxy/utils:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
