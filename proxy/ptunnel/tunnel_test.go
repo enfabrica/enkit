@@ -201,7 +201,7 @@ func testCanConnect(serverUrl, host string, port int, shouldFail bool) func(t *t
 			return
 		}
 		assert.Nil(t, err)
-		//// TODO(adam): make some nice SID utility functions, right now this just checks that the sid is sent
+		// TODO(adam): make some nice SID utility functions, right now this just checks that the sid is sent
 		assert.GreaterOrEqual(t, len(responseString), 5)
 	}
 }

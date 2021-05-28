@@ -326,18 +326,26 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 		logid = LogId(sid, r, hostport, creds)
 	}
 	if np.filter != nil {
-		verdict := np.filter("tcp", hostport, creds)
-		if HostIp(hostport).IsUrl() {
-			for _, u := range HostIp(hostport).Resolve() {
+		host, port, err := net.SplitHostPort(hostport)
+		if err != nil {
+			goto DENY
+		}
+		{
+			res, err := net.LookupHost(host)
+			if err != nil {
+				goto DENY
+			}
+			for _, u := range res {
 				// TODO(adam): make verdict merging configurable from ACL list
-				verdict = verdict.MergePreferAllow(np.filter("tcp", u, creds))
+				if verdict := np.filter("tcp", net.JoinHostPort(u, port), creds); verdict == VerdictAllow {
+					return logid, true
+				}
 			}
 		}
-		if verdict != VerdictAllow {
-			np.log.Infof("%s was rejected by filter", logid)
-			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
-			return logid, false
-		}
+	DENY:
+		np.log.Infof("%s was rejected by filter", logid)
+		http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
+		return logid, false
 	}
 	return logid, true
 }
