@@ -128,17 +128,6 @@ func WithRelayHost(relayHost string) Modifier {
 	}
 }
 
-type Verdict int
-
-const (
-	// Can't decide either way. This is useful for chaning filters.
-	VerdictUnknown Verdict = iota
-	// Let the request in.
-	VerdictAllow
-	// Block the request.
-	VerdictDrop
-)
-
 type Filter func(proto string, hostport string, creds *oauth.CredentialsCookie) Verdict
 
 func WithFilter(filter Filter) Modifier {
@@ -267,14 +256,12 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	host := params.Get("host")
 	port := params.Get("port")
-
 	origin := r.Header.Get("Origin")
 	if origin != "" && OriginMatcher.MatchString(origin) {
 		w.Header().Add("Vary", "Origin")
 		w.Header().Add("Access-Control-Allow-Credentials", "true")
 		w.Header().Add("Access-Control-Allow-Origin", origin)
 	}
-
 	if np.authenticator != nil {
 		creds, err := np.authenticator(w, r, nil)
 		if err != nil {
@@ -295,8 +282,7 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("invalid empty host: %s", host), http.StatusBadRequest)
 		return
 	}
-
-	hostport := fmt.Sprintf("%s:%d", host, sp)
+	hostport := net.JoinHostPort(host, strconv.Itoa(int(sp)))
 
 	_, allowed := np.allow(r, w, "", hostport)
 	if !allowed {
@@ -338,14 +324,31 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 		}
 		logid = LogId(sid, r, hostport, creds)
 	}
-
 	if np.filter != nil {
-		verdict := np.filter("tcp", hostport, creds)
-		if verdict != VerdictAllow {
-			np.log.Infof("%s was rejected by filter", logid)
+		host, port, err := net.SplitHostPort(hostport)
+		if err != nil {
+			np.log.Infof("%v err splitting host and port %s", err, hostport)
 			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
 			return logid, false
 		}
+		res, err := net.LookupHost(host)
+		if err != nil {
+			np.log.Warnf("%v err looking up host %s", err, host)
+			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
+			return logid, false
+		}
+		verdict := VerdictUnknown
+		for _, u := range res {
+			// TODO(adam): make verdict merging configurable from ACL list
+			// TODO(adam): return here after making authz engine
+			verdict = verdict.MergeOnlyAcceptAllow(np.filter("tcp", net.JoinHostPort(u, port), creds))
+		}
+		if verdict == VerdictAllow {
+			return logid, true
+		}
+		np.log.Infof("%s was rejected by filter", logid)
+		http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
+		return logid, false
 	}
 	return logid, true
 }
