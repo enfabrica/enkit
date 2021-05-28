@@ -282,8 +282,7 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("invalid empty host: %s", host), http.StatusBadRequest)
 		return
 	}
-
-	hostport := fmt.Sprintf("%s:%d", host, sp)
+	hostport := net.JoinHostPort(host, strconv.Itoa(int(sp)))
 
 	_, allowed := np.allow(r, w, "", hostport)
 	if !allowed {
@@ -328,21 +327,26 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 	if np.filter != nil {
 		host, port, err := net.SplitHostPort(hostport)
 		if err != nil {
-			goto DENY
+			np.log.Infof("%v err splitting host and port", hostport)
+			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
+			return logid, false
 		}
-		{
-			res, err := net.LookupHost(host)
-			if err != nil {
-				goto DENY
-			}
-			for _, u := range res {
-				// TODO(adam): make verdict merging configurable from ACL list
-				if verdict := np.filter("tcp", net.JoinHostPort(u, port), creds); verdict == VerdictAllow {
-					return logid, true
-				}
-			}
+		res, err := net.LookupHost(host)
+		fmt.Println("host ", host, "ips", res)
+		if err != nil {
+			np.log.Infof("%v err looking up host", hostport)
+			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
+			return logid, false
 		}
-	DENY:
+		verdict := VerdictAllow
+		for _, u := range res {
+			// TODO(adam): make verdict merging configurable from ACL list
+			// TODO(adam): return here after making authz engine
+			verdict = verdict.MergeOnlyAcceptAllow(np.filter("tcp", net.JoinHostPort(u, port), creds) )
+		}
+		if verdict == VerdictAllow {
+			return logid, true
+		}
 		np.log.Infof("%s was rejected by filter", logid)
 		http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
 		return logid, false

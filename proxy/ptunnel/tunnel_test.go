@@ -137,7 +137,7 @@ func TestBasic(t *testing.T) {
 }
 
 var (
-	hosts     = []string{"google.com", "reddit.com", "myspace.com"}
+	hosts     = []string{"google.com", "amazon.com", "reddit.com"}
 	protocols = []string{"udp|", "tcp|", ""}
 	ports     = []int{55, 22, 44}
 
@@ -152,9 +152,10 @@ func TestHostLookup(t *testing.T) {
 			ips, err := net.LookupHost(host)
 			assert.Nil(t, err)
 			assert.GreaterOrEqual(t, len(ips), 1)
-			ip := ips[0]
-			for _, port := range ports {
-				testList = append(testList, strings.Join([]string{proto, ip, ":", strconv.Itoa(port)}, ""))
+			for _, ip := range ips {
+				for _, port := range ports {
+					testList = append(testList, strings.Join([]string{proto, ip, ":", strconv.Itoa(port)}, ""))
+				}
 			}
 		}
 	}
@@ -193,7 +194,6 @@ func testCanConnect(serverUrl, host string, port int, shouldFail bool) func(t *t
 		assert.Nil(t, err)
 		u.Path = "/proxy"
 		u.RawQuery = url.Values{"host": {host}, "port": {fmt.Sprintf("%d", port)}}.Encode()
-		fmt.Println("uri is ", u.String())
 		responseString := ""
 		err = protocol.Get(u.String(), protocol.Read(protocol.String(&responseString)))
 		if shouldFail {

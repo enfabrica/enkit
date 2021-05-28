@@ -10,3 +10,10 @@ const (
 	// Block the request.
 	VerdictDrop
 )
+
+func (v Verdict) MergeOnlyAcceptAllow(vv Verdict) Verdict {
+	if v != VerdictAllow || vv != VerdictAllow {
+		return VerdictDrop
+	}
+	return VerdictAllow
+}
