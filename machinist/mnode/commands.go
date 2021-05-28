@@ -1,9 +1,12 @@
 package mnode
 
 import (
+	"fmt"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/machinist"
 	"github.com/spf13/cobra"
+	"os"
+	"strings"
 )
 
 func NewRootCommand(bf *client.BaseFlags) *cobra.Command {
@@ -32,6 +35,7 @@ func NewRootCommand(bf *client.BaseFlags) *cobra.Command {
 
 	c.AddCommand(NewEnrollCommand(config.enrollConfigs, factory))
 	c.AddCommand(NewPollCommand(bf))
+	c.AddCommand(NewSystemdCommand())
 	return c
 }
 
@@ -97,7 +101,7 @@ func NewPollCommand(bf *client.BaseFlags) *cobra.Command {
 	c := &cobra.Command{
 		Use: "poll",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := &Config{bf: bf,}
+			c := &Config{bf: bf}
 			m, err := New(c,
 				WithName(pc.Name),
 				WithIps(pc.Ips),
@@ -120,5 +124,30 @@ func NewPollCommand(bf *client.BaseFlags) *cobra.Command {
 	c.Flags().StringArrayVar(&pc.Ips, "ips", []string{}, "")
 	c.Flags().StringVar(&pc.Host, "machinist-host", "localhost", "")
 	c.Flags().IntVar(&pc.Port, "machinist-port", 8081, "")
+	return c
+}
+
+type SystemdDConfig struct {
+	User        string
+	InstallPath string
+	Command     string
+}
+
+func NewSystemdCommand() *cobra.Command {
+	config := &SystemdDConfig{}
+	c := &cobra.Command{
+		Use:   "systemd -- [COMMAND]",
+		Short: "Outputs a machinist.service compatible with systemd, using the passed in command to machinist",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			res, err := ParseSystemdTemplate(config.User, config.InstallPath, strings.Join(args, " "))
+			if err != nil {
+				return err
+			}
+			fmt.Println(res)
+			return nil
+		},
+	}
+	c.Flags().StringVar(&config.User, "user", os.Getenv("USER"), "the user to install the systemd command as, default to the current user")
+	c.Flags().StringVar(&config.InstallPath, "install-path", "/usr/local/bin/machinist", "the installed path of the machinist binary")
 	return c
 }

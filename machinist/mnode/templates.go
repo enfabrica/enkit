@@ -80,8 +80,8 @@ type NssConf struct {
 		Match string
 	}
 }
-// Nss Installer Functions
 
+// Nss Installer Functions
 
 // InstallNssAutoUserConf will read from the nssautouser.conf.gotmpl file, and output in /etc/nss-autouser.conf
 func InstallNssAutoUserConf(path string, conf *NssConf) error {
@@ -103,7 +103,6 @@ func ReadNssConf(conf *NssConf) ([]byte, error) {
 	return reader.Bytes(), err
 }
 
-
 // Pam Installer Functions
 func InstallPamSSHDFile(path string, l logger.Logger) error {
 	l.Infof("installing pam login file")
@@ -113,4 +112,23 @@ func InstallPamSSHDFile(path string, l logger.Logger) error {
 func InstallPamScript(path string, l logger.Logger) error {
 	l.Infof("Installing Pam Account Script")
 	return ioutil.WriteFile(path, machinist_assets.PamScript, 0755)
+}
+
+func ParseSystemdTemplate(user, installPath, command string) (string, error) {
+	tpl, err := template.New("machinist_service").Parse(string(machinist_assets.SystemdTemplate))
+	if err != nil {
+		return "", err
+	}
+	type ll struct {
+		InstallPath string
+		Command     string
+		User        string
+	}
+	l := ll{
+		User: user, InstallPath: installPath, Command: command,
+	}
+	var r []byte
+	reader := bytes.NewBuffer(r)
+	err = tpl.Execute(reader, l)
+	return string(reader.Bytes()), err
 }

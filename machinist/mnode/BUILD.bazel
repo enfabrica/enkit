@@ -36,6 +36,7 @@ go_library(
         "nss_autouser_config",
         "pam_script",
         "pam_sshd_config",
+        "systemd_template",
     ],
     importpath = "github.com/enfabrica/enkit/machinist/machinist_assets",
 )
@@ -88,6 +89,14 @@ go_embed_data(
     src = "//proxy/nss/configs:sshd",
     package = "machinist_assets",
     var = "PamSSHDConfig",
+    visibility = ["//visibility:public"],
+)
+
+go_embed_data(
+    name = "systemd_template",
+    src = "//machinist/mnode/assets:machinist.service.gotmpl",
+    package = "machinist_assets",
+    var = "SystemdTemplate",
     visibility = ["//visibility:public"],
 )
 
