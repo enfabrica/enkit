@@ -327,13 +327,13 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 	if np.filter != nil {
 		host, port, err := net.SplitHostPort(hostport)
 		if err != nil {
-			np.log.Infof("%v err splitting host and port", hostport)
+			np.log.Infof("%v err splitting host and port %s", err, hostport)
 			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
 			return logid, false
 		}
 		res, err := net.LookupHost(host)
 		if err != nil {
-			np.log.Warnf("%v err looking up host", hostport)
+			np.log.Warnf("%v err looking up host %s", err, host)
 			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
 			return logid, false
 		}
@@ -341,7 +341,7 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 		for _, u := range res {
 			// TODO(adam): make verdict merging configurable from ACL list
 			// TODO(adam): return here after making authz engine
-			verdict = verdict.MergeOnlyAcceptAllow(np.filter("tcp", net.JoinHostPort(u, port), creds) )
+			verdict = verdict.MergeOnlyAcceptAllow(np.filter("tcp", net.JoinHostPort(u, port), creds))
 		}
 		if verdict == VerdictAllow {
 			return logid, true
