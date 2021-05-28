@@ -15,19 +15,28 @@ import (
 )
 
 type ExtractorFlags struct {
+	// Version of the cookie format.
+	Version int
+
 	BaseCookie string
 
 	SymmetricKey      []byte
 	TokenVerifyingKey []byte
 
-	// How long are the generated credentials valid for.
-	// Limit how long user credentials will be accepted for.
+	// When generating credentials, how long should the token be valid for?
 	LoginTime time.Duration
+	// When checking credentials, tokens older than MaxLoginTime will be
+	// rejected no matter what.
+	MaxLoginTime time.Duration
 }
 
 func (f *ExtractorFlags) Register(set kflags.FlagSet, prefix string) *ExtractorFlags {
+	set.IntVar(&f.Version, prefix+"token-version", f.Version,
+		"Which kind of token to generate. 0 indicates version 0, 1 indicates version 1")
 	set.DurationVar(&f.LoginTime, prefix+"login-time", f.LoginTime,
 		"How long should the generated authentication tokens be valid for.")
+	set.DurationVar(&f.MaxLoginTime, prefix+"max-login-time", f.MaxLoginTime,
+		"When verifying a cookie, reject cookies older than this long no matter what.")
 	set.StringVar(&f.BaseCookie, prefix+"base-cookie", "",
 		"Prefix to append to the cookies used for authentication")
 	set.ByteFileVar(&f.SymmetricKey, prefix+"token-encryption-key", "",
@@ -42,7 +51,8 @@ func (f *ExtractorFlags) Register(set kflags.FlagSet, prefix string) *ExtractorF
 func DefaultExtractorFlags() *ExtractorFlags {
 	o := DefaultOptions(nil)
 	return &ExtractorFlags{
-		LoginTime: o.loginTime,
+		LoginTime:    o.loginTime,
+		MaxLoginTime: o.maxLoginTime,
 	}
 }
 
@@ -108,7 +118,7 @@ func DefaultFlags() *Flags {
 	o := DefaultOptions(nil)
 	return &Flags{
 		SigningExtractorFlags: DefaultSigningExtractorFlags(),
-		AuthTime:       o.authTime,
+		AuthTime:              o.authTime,
 	}
 }
 
@@ -264,6 +274,23 @@ func WithLoginTime(lt time.Duration) Modifier {
 	}
 }
 
+func WithVersion(version int) Modifier {
+	return func(opt *Options) error {
+		if version != 0 && version != 1 {
+			return fmt.Errorf("invalid version number %d - only 0 or 1 are valid", version)
+		}
+		opt.version = version
+		return nil
+	}
+}
+
+func WithMaxLoginTime(lt time.Duration) Modifier {
+	return func(opt *Options) error {
+		opt.maxLoginTime = lt
+		return nil
+	}
+}
+
 func WithRedirectorFlags(fl *RedirectorFlags) Modifier {
 	return func(o *Options) error {
 		authURL := fl.AuthURL
@@ -303,7 +330,7 @@ func WithExtractorFlags(fl *ExtractorFlags) Modifier {
 			mods = append(mods, WithSigningOptions(token.UseVerifyingKey(key)))
 		}
 
-		mods = append(mods, WithSymmetricOptions(token.UseSymmetricKey(fl.SymmetricKey)), WithLoginTime(fl.LoginTime))
+		mods = append(mods, WithSymmetricOptions(token.UseSymmetricKey(fl.SymmetricKey)), WithLoginTime(fl.LoginTime), WithMaxLoginTime(fl.MaxLoginTime), WithVersion(fl.Version))
 		return Modifiers(mods).Apply(o)
 	}
 }
@@ -368,9 +395,12 @@ func WithFlags(fl *Flags) Modifier {
 }
 
 type Options struct {
-	rng        *rand.Rand
-	authTime   time.Duration // How long the user has to complete authentication.
-	loginTime  time.Duration // How long the token is valid for after successful authentication.
+	rng          *rand.Rand
+	authTime     time.Duration // How long the user has to complete authentication.
+	loginTime    time.Duration // How long the token is valid for after successful authentication.
+	maxLoginTime time.Duration // Tokens issued more than maxLoginTime ago will always be rejected.
+
+	version    int
 	conf       *oauth2.Config
 	verifier   Verifier
 	baseCookie string
@@ -382,10 +412,11 @@ type Options struct {
 
 func DefaultOptions(rng *rand.Rand) Options {
 	return Options{
-		rng:       rng,
-		authTime:  time.Minute * 30,
-		loginTime: time.Hour * 24,
-		conf:      &oauth2.Config{},
+		rng:          rng,
+		authTime:     time.Minute * 30,
+		loginTime:    time.Hour * 24,
+		maxLoginTime: time.Hour * 24 * 365,
+		conf:         &oauth2.Config{},
 	}
 }
 
@@ -450,8 +481,10 @@ func (opt *Options) NewExtractor() (*Extractor, error) {
 
 	ue := token.NewBase64UrlEncoder()
 	return &Extractor{
-		baseCookie:   opt.baseCookie,
-		loginEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.loginTime), be, se, ue)),
+		version:       opt.version,
+		baseCookie:    opt.baseCookie,
+		loginEncoder0: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.loginTime), be, se, ue)),
+		loginEncoder1: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.maxLoginTime), token.NewExpireEncoder(nil, opt.loginTime), be, se, ue)),
 	}, nil
 }
 

@@ -35,13 +35,20 @@ func Verify(rng *rand.Rand) *cobra.Command {
 			return err
 		}
 
-		issued, creds, err := ext.ParseCredentialsCookie(args[0])
+		meta, creds, err := ext.ParseCredentialsCookie(args[0])
 
+		fmt.Printf("version: %d\n", meta.Version())
 		fmt.Printf("id: %s\n", creds.Identity.Id)
 		fmt.Printf("username: %s\n", creds.Identity.Username)
 		fmt.Printf("org: %s\n", creds.Identity.Organization)
-		fmt.Printf("issued: %s\n", issued)
-		fmt.Printf("expires: %s\n", time.Until(issued.Add(options.ExtractorFlags.LoginTime)))
+		fmt.Printf("issued: %s\n", meta.Issued())
+		now := time.Now()
+		if !meta.Expires().IsZero() {
+			fmt.Printf("expires: %s (duration:%s, in:%s)\n", meta.Expires(), meta.Expires().Sub(meta.Issued()), meta.Expires().Sub(now))
+		}
+		if !meta.Max().IsZero() {
+			fmt.Printf("max: %s (duration:%s, in:%s)\n", meta.Max(), meta.Max().Sub(meta.Issued()), meta.Max().Sub(now))
+		}
 
 		if err != nil {
 			fmt.Printf("error: %s\n", err)
