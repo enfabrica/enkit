@@ -2,6 +2,7 @@ package token
 
 import (
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
@@ -11,7 +12,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"time"
-	"context"
 
 	"golang.org/x/crypto/nacl/sign"
 )
@@ -73,6 +73,13 @@ type StringEncoder interface {
 
 type TimeSource func() time.Time
 
+// TimeEncoder is an encoder that saves the time the data was encoded.
+//
+// On Decode, it checks with the supplied validity and time source, and
+// fails validation if the data is considered expired.
+//
+// When data is expired is determined solely by who is reading the data.
+// Expiry information is not encoded in the token.
 type TimeEncoder struct {
 	validity time.Duration
 	now      TimeSource
@@ -99,6 +106,7 @@ func (t *TimeEncoder) Encode(data []byte) ([]byte, error) {
 
 var ExpiredError = fmt.Errorf("signature expired")
 var IssuedTimeKey = contextKey("issued")
+var MaxTimeKey = contextKey("max")
 
 func (t *TimeEncoder) Decode(ctx context.Context, data []byte) (context.Context, []byte, error) {
 	issued, parsed := binary.Varint(data)
@@ -107,9 +115,59 @@ func (t *TimeEncoder) Decode(ctx context.Context, data []byte) (context.Context,
 	}
 
 	itime := time.Unix(issued, 0)
-        ctx = context.WithValue(ctx, IssuedTimeKey, itime)
+	ctx = context.WithValue(ctx, IssuedTimeKey, itime)
 
-	if issued <= 0 || itime.Add(t.validity).Before(t.now()) {
+	max := itime.Add(t.validity)
+	ctx = context.WithValue(ctx, MaxTimeKey, max)
+
+	if issued <= 0 || max.Before(t.now()) {
+		return ctx, data[parsed:], ExpiredError
+	}
+	return ctx, data[parsed:], nil
+}
+
+// ExpireEncoder is an encoder that saves the time the data expires.
+//
+// On Decode, it checks with the supplied time source, and fails validation if
+// the data is considered expired.
+//
+// Expiry information is encoded in the token by whoever created the data.
+type ExpireEncoder struct {
+	validity time.Duration
+	now      TimeSource
+}
+
+func NewExpireEncoder(source TimeSource, validity time.Duration) *ExpireEncoder {
+	if source == nil {
+		source = time.Now
+	}
+
+	return &ExpireEncoder{
+		validity: validity,
+		now:      source,
+	}
+}
+
+func (t *ExpireEncoder) Encode(data []byte) ([]byte, error) {
+	expireson := t.now().Add(t.validity).Unix()
+
+	timedata := make([]byte, binary.MaxVarintLen64)
+	written := binary.PutVarint(timedata, expireson)
+	return append(timedata[:written], data...), nil
+}
+
+var ExpiresTimeKey = contextKey("expire")
+
+func (t *ExpireEncoder) Decode(ctx context.Context, data []byte) (context.Context, []byte, error) {
+	expires, parsed := binary.Varint(data)
+	if parsed <= 0 {
+		return ctx, nil, fmt.Errorf("invalid timestamp in buffer")
+	}
+
+	expirest := time.Unix(expires, 0)
+	ctx = context.WithValue(ctx, ExpiresTimeKey, expirest)
+
+	if expires <= 0 || expirest.Before(t.now()) {
 		return ctx, data[parsed:], ExpiredError
 	}
 	return ctx, data[parsed:], nil

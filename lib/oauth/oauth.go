@@ -51,11 +51,12 @@ import (
 	"fmt"
 	"golang.org/x/oauth2"
 	"log"
-	"time"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
@@ -69,7 +70,11 @@ type VerifierFactory func(conf *oauth2.Config) (Verifier, error)
 
 // Extractor is an object capable of extracting and verifying authentication information.
 type Extractor struct {
-	loginEncoder *token.TypeEncoder
+	version int
+
+	// Two versions of token.
+	loginEncoder0 *token.TypeEncoder
+	loginEncoder1 *token.TypeEncoder
 
 	// String to prepend to the cookie name.
 	// This is necessary when multiple instances of the oauth library are used within
@@ -219,23 +224,69 @@ func SetCredentials(ctx context.Context, creds *CredentialsCookie) context.Conte
 	return context.WithValue(ctx, "creds", creds)
 }
 
-// ParseCredentialsCookie parses a string containing a CredentialsCookie, and returns the corresponding object.
-func (a *Extractor) ParseCredentialsCookie(cookie string) (time.Time, *CredentialsCookie, error) {
-	var credentials CredentialsCookie
-	ctx, err := a.loginEncoder.Decode(context.Background(), []byte(cookie), &credentials)
+type credentialsKey string
+
+var CredentialsVersionKey = credentialsKey("version")
+
+type CredentialsMeta struct {
+	context.Context
+}
+
+func (ctx CredentialsMeta) Issued() time.Time {
 	issued, _ := ctx.Value(token.IssuedTimeKey).(time.Time)
-	return issued, &credentials, err
+	return issued
+}
+
+func (ctx CredentialsMeta) Expires() time.Time {
+	expire, _ := ctx.Value(token.ExpiresTimeKey).(time.Time)
+	return expire
+}
+
+func (ctx CredentialsMeta) Max() time.Time {
+	max, _ := ctx.Value(token.MaxTimeKey).(time.Time)
+	return max
+}
+
+func (ctx CredentialsMeta) Version() int {
+	version, _ := ctx.Value(CredentialsVersionKey).(int)
+	return version
+}
+
+// ParseCredentialsCookie parses a string containing a CredentialsCookie, and returns the corresponding object.
+func (a *Extractor) ParseCredentialsCookie(cookie string) (CredentialsMeta, *CredentialsCookie, error) {
+	var credentials CredentialsCookie
+	var err error
+	var ctx context.Context
+
+	if strings.HasPrefix(cookie, "1:") {
+		ctx, err = a.loginEncoder1.Decode(context.Background(), []byte(cookie[2:]), &credentials)
+		ctx = context.WithValue(ctx, CredentialsVersionKey, 1)
+	} else {
+		ctx, err = a.loginEncoder0.Decode(context.Background(), []byte(cookie), &credentials)
+	}
+	return CredentialsMeta{ctx}, &credentials, err
 }
 
 // EncodeCredentials generates a string containing a CredentialsCookie.
 func (a *Extractor) EncodeCredentials(creds CredentialsCookie) (string, error) {
-	cookie, err := a.loginEncoder.Encode(creds)
+	var result []byte
+	var cookie string
+	var err error
+	switch a.version {
+	case 0:
+		result, err = a.loginEncoder0.Encode(creds)
+		cookie = string(result)
+	case 1:
+		result, err = a.loginEncoder1.Encode(creds)
+		cookie = "1:" + string(result)
+	default:
+		err = fmt.Errorf("invalid version %d", a.version)
+	}
 	if err != nil {
 		return "", err
 	}
-	return string(cookie), nil
+	return cookie, nil
 }
-
 
 // GetCredentialsFromRequest will parse and validate the credentials in an http request.
 //
@@ -505,10 +556,10 @@ func (a *Authenticator) PerformLogin(w http.ResponseWriter, r *http.Request, lm 
 }
 
 type AuthData struct {
-	Creds         *CredentialsCookie
-	Cookie        string
-	Target        string
-	State         interface{}
+	Creds  *CredentialsCookie
+	Cookie string
+	Target string
+	State  interface{}
 }
 
 func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (AuthData, error) {
