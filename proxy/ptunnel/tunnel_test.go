@@ -154,7 +154,10 @@ func TestHostLookup(t *testing.T) {
 			assert.GreaterOrEqual(t, len(ips), 1)
 			for _, ip := range ips {
 				for _, port := range ports {
-					testList = append(testList, strings.Join([]string{proto, ip, ":", strconv.Itoa(port)}, ""))
+					hostport := net.JoinHostPort(ip, strconv.Itoa(port))
+					hostport = strings.ReplaceAll(hostport, "[", "\\[")
+					hostport = strings.ReplaceAll(hostport, "]", "\\]")
+					testList = append(testList, strings.Join([]string{proto, hostport}, ""))
 				}
 			}
 		}
@@ -191,7 +194,7 @@ func TestHostLookup(t *testing.T) {
 func testCanConnect(serverUrl, host string, port int, shouldFail bool) func(t *testing.T) {
 	return func(t *testing.T) {
 		u, err := url.ParseRequestURI(serverUrl)
-		assert.Nil(t, err)
+		assert.Nil(t, err, "%s", err)
 		u.Path = "/proxy"
 		u.RawQuery = url.Values{"host": {host}, "port": {fmt.Sprintf("%d", port)}}.Encode()
 		responseString := ""
@@ -200,8 +203,8 @@ func testCanConnect(serverUrl, host string, port int, shouldFail bool) func(t *t
 			assert.NotNil(t, err)
 			return
 		}
-		assert.Nil(t, err)
+		assert.Nil(t, err, "%s", err)
 		// TODO(adam): make some nice SID utility functions, right now this just checks that the sid is sent
-		assert.GreaterOrEqual(t, len(responseString), 5)
+		assert.GreaterOrEqual(t, len(responseString), 5, "%s", responseString)
 	}
 }
