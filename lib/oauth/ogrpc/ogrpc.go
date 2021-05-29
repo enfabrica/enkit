@@ -104,7 +104,7 @@ func ProcessMetdata(auth *oauth.Authenticator, ctx context.Context) (context.Con
 	if cookie == nil {
 		return ctx, status.Errorf(codes.Unauthenticated, "no credentials cookie")
 	}
-	creds, err := auth.ParseCredentialsCookie(*cookie)
+	_, creds, err := auth.ParseCredentialsCookie(*cookie)
 	if err != nil {
 		return ctx, status.Errorf(codes.Unauthenticated, "invalid credentials - %s", err)
 	}

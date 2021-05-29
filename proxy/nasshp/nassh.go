@@ -1,6 +1,7 @@
 package nasshp
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -359,7 +360,7 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 	ack := strings.TrimSpace(params.Get("ack"))
 	pos := strings.TrimSpace(params.Get("pos"))
 
-	hostportb, err := np.encoder.Decode([]byte(sid))
+	_, hostportb, err := np.encoder.Decode(context.Background(), []byte(sid))
 	if err != nil {
 		http.Error(w, "invalid sid provided", http.StatusBadRequest)
 		return
