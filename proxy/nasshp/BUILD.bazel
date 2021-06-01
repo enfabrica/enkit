@@ -6,6 +6,7 @@ go_library(
         "blocking.go",
         "browser.go",
         "nassh.go",
+        "types.go",
         "window.go",
     ],
     importpath = "github.com/enfabrica/enkit/proxy/nasshp",

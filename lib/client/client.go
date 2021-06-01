@@ -161,8 +161,8 @@ func (bf *BaseFlags) Register(set kflags.FlagSet, prefix string) *BaseFlags {
 	bf.Local.Register(set, prefix)
 	bf.ProviderFlags.Register(set, prefix)
 
-	set.BoolVar(&bf.OverrideToken, prefix+"override-token", "", "Use this security token instead of loading one from disk")
-	set.BoolVar(&bf.OverrideIdentity, prefix+"override-identity", "", "Use this identity instead of loading one from disk")
+	set.StringVar(&bf.OverrideToken, prefix+"override-token", "", "Use this security token instead of loading one from disk")
+	set.StringVar(&bf.OverrideIdentity, prefix+"override-identity", "", "Use this identity instead of loading one from disk")
 
 	set.StringVar(&bf.CookiePrefix, prefix+"cookie-prefix", "", "Prefix to use in naming the authentication cookie. You should not normally need to change this")
 	set.BoolVar(&bf.NoProgress, prefix+"no-progress", bf.NoProgress, "Disable progress bars")
