@@ -328,13 +328,13 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 	if np.filter != nil {
 		host, port, err := net.SplitHostPort(hostport)
 		if err != nil {
-			np.log.Infof("%v err splitting host and port %s", err, hostport)
+			np.log.Infof("%s - err %v splitting host and port %s", logid, err, hostport)
 			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
 			return logid, false
 		}
 		res, err := net.LookupHost(host)
 		if err != nil {
-			np.log.Warnf("%v err looking up host %s", err, host)
+			np.log.Infof("%s - err %v looking up host %s", logid, err, host)
 			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
 			return logid, false
 		}
