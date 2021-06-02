@@ -1,7 +1,9 @@
 [Unit]
 Description=Machinist Daemon
 After=network.target
-StartLimitIntervalSec=0[Service]
+StartLimitIntervalSec=0
+
+[Service]
 Type=simple
 Restart=always
 RestartSec=1
