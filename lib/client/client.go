@@ -2,7 +2,6 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/config"
@@ -109,7 +108,8 @@ func (bf *BaseFlags) IdentityErrorHandler(message string) kflags.ErrorHandler {
 				identity = "youruser@yourdomain.com"
 			}
 		}
-		return fmt.Errorf("Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s %s",
+		return kflags.NewStatusErrorf(100,
+                        "Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s %s",
 			logger.NewIndentedError(err, "    (for debug only) "), message, identity)
 	}
 }
