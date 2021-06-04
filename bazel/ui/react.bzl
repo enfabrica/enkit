@@ -138,6 +138,7 @@ def react_project(name, srcs, public, package_json, yarn_lock):
         merge_json_name,
         chdir_script_name,
         copy_extras_name,
+        "@npm//:node_modules",
     ]
     react_scripts(
         name = name + "-start",
@@ -164,10 +165,10 @@ def react_project(name, srcs, public, package_json, yarn_lock):
         ],
         data = _RUNTIME_DEPS + [
             "@npm//@types",
-            "@npm//:node_modules"
+            "@npm//:node_modules",
         ],
-        #        env = {
-        #            "BUILD_PATH": "./build",
-        #        },
+        env = {
+            "BUILD_PATH": "./build",
+        },
         output_dir = True,
     )
