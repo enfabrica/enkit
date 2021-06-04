@@ -164,7 +164,7 @@ def react_project(name, srcs, public, package_json, yarn_lock):
         ],
         data = _RUNTIME_DEPS + [
             "@npm//@types",
-            "@npm//web-vitals"
+            "@npm//:node_modules"
         ],
         #        env = {
         #            "BUILD_PATH": "./build",
