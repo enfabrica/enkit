@@ -1,0 +1,22 @@
+load("//bazel/ui:react.bzl", "react_project")
+
+exports_files([
+    "package.json",
+    "merge.js",
+])
+
+filegroup(
+    name = "ui-extras",
+    srcs = [
+        "tsconfig.json",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+react_project(
+    name = "ptunnel",
+    srcs = "//ui/ptunnel:srcs",
+    package_json = "//ui/ptunnel:package.json",
+    public = "//ui/ptunnel:public",
+    yarn_lock = "//ui/ptunnel:yarn.lock",
+)

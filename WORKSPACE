@@ -71,8 +71,8 @@ load("@build_bazel_rules_nodejs//:index.bzl", "yarn_install")
 yarn_install(
     # Name this npm so that Bazel Label references look like @npm//package
     name = "npm",
-    package_json = "//ui/ptunnel:package.json",
-    yarn_lock = "//ui/ptunnel:yarn.lock",
+    package_json = "//ui:package.json",
+    yarn_lock = "//ui:yarn.lock",
 )
 
 http_archive(
