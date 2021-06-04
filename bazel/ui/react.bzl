@@ -82,93 +82,95 @@ resolve_files = rule(
 )
 
 def react_project(name, srcs, public, package_json, yarn_lock):
-    runner_dir_name = name + "-runner"
-    merge_json_name = name + "-merge-json"
-    native.genrule(
-        name = merge_json_name,
-        outs = [paths.join(runner_dir_name, "package.json")],
-        tools = ["//bazel/ui:merge-package.sh"],
-        cmd = "$(location //bazel/ui:merge-package.sh) $(SRCS) > $@",
-        srcs = [
-            package_json,
-            "//ui:package.json",
-        ],
-    )
-    copy_srcs_name = name + "-copy-srcs"
-    copy_files_new_dir(
-        name = copy_srcs_name,
-        source_files = [
-            srcs,
-        ],
-        prefix = "src",
-        base_dir = runner_dir_name,
-    )
-    copy_public_name = name + "-copy-public"
-    copy_files_new_dir(
-        name = copy_public_name,
-        source_files = [
-            public,
-        ],
-        prefix = "public",
-        base_dir = runner_dir_name,
-    )
+    pass
 
-    copy_extras_name = name + "-copy-extras"
-    copy_files_new_dir(
-        name = copy_extras_name,
-        source_files = [
-            "//ui:ui-extras",
-        ],
-        no_prefix = True,
-        base_dir = runner_dir_name,
-    )
+#    runner_dir_name = name + "-runner"
+#    merge_json_name = name + "-merge-json"
+#    native.genrule(
+#        name = merge_json_name,
+#        outs = [paths.join(runner_dir_name, "package.json")],
+#        tools = ["//bazel/ui:merge-package.sh"],
+#        cmd = "$(location //bazel/ui:merge-package.sh) $(SRCS) > $@",
+#        srcs = [
+#            package_json,
+#            "//ui:package.json",
+#        ],
+#    )
+#    copy_srcs_name = name + "-copy-srcs"
+#    copy_files_new_dir(
+#        name = copy_srcs_name,
+#        source_files = [
+#            srcs,
+#        ],
+#        prefix = "src",
+#        base_dir = runner_dir_name,
+#    )
+#    copy_public_name = name + "-copy-public"
+#    copy_files_new_dir(
+#        name = copy_public_name,
+#        source_files = [
+#            public,
+#        ],
+#        prefix = "public",
+#        base_dir = runner_dir_name,
+#    )
+#
+#    copy_extras_name = name + "-copy-extras"
+#    copy_files_new_dir(
+#        name = copy_extras_name,
+#        source_files = [
+#            "//ui:ui-extras",
+#        ],
+#        no_prefix = True,
+#        base_dir = runner_dir_name,
+#    )
+#
+#    chdir_script_name = name + "-write-chdir-script"
+#    write_file(
+#        name = chdir_script_name,
+#        out = paths.join(runner_dir_name, "chdir.js"),
+#        content = ["process.chdir(__dirname)"],
+#    )
+#
+#    _RUNTIME_DEPS = [
+#        "@npm//react",
+#        "@npm//react-dom",
+#        copy_public_name,
+#        copy_srcs_name,
+#        merge_json_name,
+#        chdir_script_name,
+#        copy_extras_name,
+#    ]
+#    react_scripts(
+#        name = name + "-start",
+#        args = [
+#            "--node_options=--require=./$(rootpath :" + chdir_script_name + ")",
+#            "start",
+#        ],
+#        data = _RUNTIME_DEPS,
+#        tags = [
+#            # This tag instructs ibazel to pipe into stdin a event describing actions.
+#            # ibazel send EOF to stdin by default and `react-scripts start` will stop when getting EOF in stdin.
+#            # So use this to prevent EOF.
+#            "ibazel_notify_changes",
+#        ],
+#    )
 
-    chdir_script_name = name + "-write-chdir-script"
-    write_file(
-        name = chdir_script_name,
-        out = paths.join(runner_dir_name, "chdir.js"),
-        content = ["process.chdir(__dirname)"],
-    )
-
-    _RUNTIME_DEPS = [
-        "@npm//react",
-        "@npm//react-dom",
-        copy_public_name,
-        copy_srcs_name,
-        merge_json_name,
-        chdir_script_name,
-        copy_extras_name,
-        "@npm//:node_modules",
-    ]
-    react_scripts(
-        name = name + "-start",
-        args = [
-            "--node_options=--require=./$(rootpath :" + chdir_script_name + ")",
-            "start",
-        ],
-        data = _RUNTIME_DEPS,
-        tags = [
-            # This tag instructs ibazel to pipe into stdin a event describing actions.
-            # ibazel send EOF to stdin by default and `react-scripts start` will stop when getting EOF in stdin.
-            # So use this to prevent EOF.
-            "ibazel_notify_changes",
-        ],
-    )
-
-    react_scripts(
-        # Note: If you want to change the name make sure you update BUILD_PATH below accordingly
-        # https://create-react-app.dev/docs/advanced-configuration/
-        name = name + "-build",
-        args = [
-            "--node_options=--require=./$(execpath :" + chdir_script_name + ")",
-            "build",
-        ],
-        data = _RUNTIME_DEPS + [
-            "@npm//@types",
-            "@npm//:node_modules",
-        ],
-        env = {
-            "BUILD_PATH": "./build",
-        },
-        output_dir = True,
-    )
+#
+#    react_scripts(
+#        # Note: If you want to change the name make sure you update BUILD_PATH below accordingly
+#        # https://create-react-app.dev/docs/advanced-configuration/
+#        name = name + "-build",
+#        args = [
+#            "--node_options=--require=./$(execpath :" + chdir_script_name + ")",
+#            "build",
+#        ],
+#        data = _RUNTIME_DEPS + [
+#            "@npm//@types",
+#            #            "@npm//:node_modules",
+#        ],
+#        env = {
+#            "BUILD_PATH": "./build",
+#        },
+#        output_dir = True,
+#    )
