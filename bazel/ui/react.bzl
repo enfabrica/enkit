@@ -126,6 +126,14 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
         no_prefix = True,
         base_dir = runner_dir_name,
     )
+    copy_files_new_dir(
+        name = name + "-copy-patches",
+        source_files = [
+            "//ui:git-patches",
+        ],
+        prefix = "patches",
+        base_dir = runner_dir_name,
+    )
 
     chdir_script_name = name + "-write-chdir-script"
     write_file(
@@ -140,6 +148,7 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
         merge_json_name,
         chdir_script_name,
         copy_extras_name,
+        name + "-copy-patches",
         "@npm//:node_modules",
     ]
     react_scripts(
@@ -184,7 +193,7 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
             "--no-watchman",
             "--ci",
             "--debug",
-            "--passWithNoTests",
+            #            "--passWithNoTests",
         ],
         data = _RUNTIME_DEPS,
         # Need to set the pwd to avoid jest needing a runfiles helper

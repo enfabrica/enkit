@@ -5,6 +5,13 @@ exports_files([
     "merge.js",
 ])
 
+# Note this patch (May 25th,
+filegroup(
+    name = "git-patches",
+    srcs = glob(["patches/*"]),
+    visibility = ["//visibility:public"],
+)
+
 react_project(
     name = "ptunnel",
     srcs = "//ui/ptunnel:srcs",

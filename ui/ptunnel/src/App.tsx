@@ -20,7 +20,7 @@ function App() {
           Hello World
         </a>
       </header>
-      <Button color="primary">Hello World</Button>;
+      <Button color="primary">Hello Material</Button>;
     </div>
   );
 }
