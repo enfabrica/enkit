@@ -38,10 +38,6 @@ def _copy_files_new_dir_impl(ctx):
             command = "cp $1 $2",
         )
 
-    # Small sanity check
-    if len(all_input_files) != len(all_outputs):
-        fail("Output count should be 1-to-1 with input count.")
-
     return [
         DefaultInfo(
             files = depset(all_outputs),
@@ -179,6 +175,7 @@ def react_project(name, srcs, public, package_json, yarn_lock):
             "--no-watchman",
             "--ci",
             "--debug",
+            "--passWithNoTests",
         ],
         data = _RUNTIME_DEPS,
         # Need to set the pwd to avoid jest needing a runfiles helper
