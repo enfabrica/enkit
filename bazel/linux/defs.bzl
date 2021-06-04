@@ -151,7 +151,7 @@ def _kernel_modules(ctx):
     message = ""
     copy_command = ""
     for m in modules:
-        message += "kernel building: compiling module %s for %s\n" % (m, ki.package)
+        message += "kernel building: compiling module %s for %s" % (m, ki.package)
         rename = m
         if ctx.attr.rename:
             rename = ctx.attr.rename + m
