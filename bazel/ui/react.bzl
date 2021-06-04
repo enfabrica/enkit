@@ -178,6 +178,7 @@ def react_project(name, srcs, public, package_json, yarn_lock):
             "--no-cache",
             "--no-watchman",
             "--ci",
+            "--debug",
         ],
         data = _RUNTIME_DEPS,
         # Need to set the pwd to avoid jest needing a runfiles helper
