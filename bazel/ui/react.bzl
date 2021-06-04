@@ -77,7 +77,7 @@ resolve_files = rule(
     },
 )
 
-def react_project(name, srcs, public, package_json, yarn_lock):
+def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
     runner_dir_name = name + "-runner"
     merge_json_name = name + "-merge-json"
     native.genrule(
@@ -108,11 +108,20 @@ def react_project(name, srcs, public, package_json, yarn_lock):
         prefix = "public",
         base_dir = runner_dir_name,
     )
+    native.filegroup(
+        name = name + "-ui-extras",
+        srcs = [
+            tsconfig,
+            yarn_lock,
+        ],
+        visibility = ["//visibility:public"],
+    )
+
     copy_extras_name = name + "-copy-extras"
     copy_files_new_dir(
         name = copy_extras_name,
         source_files = [
-            "//ui:ui-extras",
+            name + "-ui-extras",
         ],
         no_prefix = True,
         base_dir = runner_dir_name,
