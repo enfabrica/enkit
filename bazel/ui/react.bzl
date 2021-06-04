@@ -155,16 +155,19 @@ def react_project(name, srcs, public, package_json, yarn_lock):
     )
 
     react_scripts(
+        # Note: If you want to change the name make sure you update BUILD_PATH below accordingly
+        # https://create-react-app.dev/docs/advanced-configuration/
         name = name + "-build",
         args = [
-            "--node_options=--require=./$(rootpath :" + chdir_script_name + ")",
+            "--node_options=--require=./$(execpath :" + chdir_script_name + ")",
             "build",
         ],
-        data = _RUNTIME_DEPS,
-        tags = [
-            # This tag instructs ibazel to pipe into stdin a event describing actions.
-            # ibazel send EOF to stdin by default and `react-scripts start` will stop when getting EOF in stdin.
-            # So use this to prevent EOF.
-            "ibazel_notify_changes",
+        data = _RUNTIME_DEPS + [
+            "@npm//@types",
+            "@npm//web-vitals"
         ],
+        #        env = {
+        #            "BUILD_PATH": "./build",
+        #        },
+        output_dir = True,
     )
