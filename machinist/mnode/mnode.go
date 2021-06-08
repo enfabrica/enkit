@@ -8,6 +8,7 @@ import (
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/retry"
 	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"golang.org/x/crypto/ssh"
@@ -92,13 +93,14 @@ func (n *Node) Enroll() error {
 	}
 	resp, err := n.AuthClient.HostCertificate(context.Background(), hcr)
 	if err != nil {
-		fmt.Println("error here")
 		return err
 	}
-	if fName, exists := anyFileExist(
-		n.config.CaPublicKeyLocation,
-		n.config.HostKeyLocation, n.config.HostCertificate()); exists && !n.config.ReWriteConfigs {
-		return fmt.Errorf("cannot rewrite %s because it exists and rewriting is disabled", fName)
+	if  !n.config.ReWriteConfigs {
+		if err = anyFileExist(
+			n.config.CaPublicKeyLocation,
+			n.config.HostKeyLocation, n.config.HostCertificate()); err != nil {
+			return fmt.Errorf("rewriting configs are disabled, failed with err(s): %v",err)
+		}
 	}
 
 	enrollConfig := n.config.enrollConfigs
@@ -153,14 +155,12 @@ func (n *Node) Enroll() error {
 	return nil
 }
 
-func anyFileExist(names ...string) (string, bool) {
+func anyFileExist(names ...string) error {
+	var errs []error
 	for _, name := range names {
 		if _, err := os.Stat(name); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
+			errs = append(errs, err)
 		}
-		return name, true
 	}
-	return "", false
+	return multierror.New(errs)
 }
