@@ -9,7 +9,8 @@ echo GIT_BRANCH "$GIT_BRANCH"
 GIT_ORIGIN_BRANCH="$(git for-each-ref --format='%(upstream:lstrip=-2)' "$(git symbolic-ref -q HEAD)")"
 echo GIT_ORIGIN_BRANCH "$GIT_ORIGIN_BRANCH"
 ## lists all files changed in the current remote branch, space separated
-echo GIT_CHANGES "$(git --no-pager diff --name-only "$GIT_ORIGIN_BRANCH"..."$GIT_SHA" | tr '\r\n' ' ')" # list files locally modified / staged / pending
+echo GIT_CHANGES "$(git --no-pager diff --name-only "$GIT_ORIGIN_BRANCH"..."$GIT_SHA" | tr '\r\n' ' ')"
+
 echo GIT_SHA "$(git rev-parse HEAD)" # SHA of last commit in this branch
 echo GIT_AUTHOR "$(git show -s --format='%ae' $GIT_HASH)" # Author of last commit.
 
