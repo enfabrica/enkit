@@ -5,7 +5,19 @@ load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("//bazel/utils:files.bzl", "rebase_and_copy_files")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-"""Creates a react project after running create-react-app. The main entrypoints
+"""Creates a react project after running create-react-app. You must copy over
+Args:
+    srcs: a list of targets, usual tsx and ts files
+    package_jsons: a list of package.jsons to be zipped. Does nto check for conflics
+    yarn_locks: matching list of yarn.locks for the package.jsons
+    publics: public/ folder of CRA. Can be zipped together
+    tsconfig: singular tsconfig.json
+    patches: list of git-patchs wanted to apply.
+
+Main Commands:
+    >>> ibazel run //<dir>:<name>-start => starts webpack server with hot reloading
+    >>> bazel build //<dir>:<name>-build => builds for production
+    >>> bazel test //<dir>:<name>-test => runs tests
 
 """
 
