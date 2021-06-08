@@ -9,7 +9,8 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 
 """
 
-def react_project(name, srcs, public, package_json, yarn_lock, tsconfig, **kwargs):
+# TODO(adam): fail macro on conflict of yarn lock. cannot have same deps in different package jsons
+def react_project(name, srcs, package_jsons, yarn_locks, publics, tsconfig, patches, **kwargs):
     runner_dir_name = name + "-runner"
     merge_json_name = name + "-merge-json"
     native.genrule(
@@ -17,18 +18,13 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig, **kwarg
         outs = [paths.join(runner_dir_name, "package.json")],
         tools = ["//bazel/ui:merge-package.sh"],
         cmd = "$(location //bazel/ui:merge-package.sh) $(SRCS) > $@",
-        srcs = [
-            package_json,
-            "//ui:package.json",
-        ],
+        srcs = package_jsons,
         **kwargs
     )
     copy_srcs_name = name + "-copy-srcs"
     rebase_and_copy_files(
         name = copy_srcs_name,
-        source_files = [
-            srcs,
-        ],
+        source_files = srcs,
         prefix = "src",
         base_dir = runner_dir_name,
         **kwargs
@@ -36,18 +32,15 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig, **kwarg
     copy_public_name = name + "-copy-public"
     rebase_and_copy_files(
         name = copy_public_name,
-        source_files = [
-            public,
-        ],
+        source_files = publics,
         prefix = "public",
         base_dir = runner_dir_name,
         **kwargs
     )
     native.filegroup(
         name = name + "-ui-extras",
-        srcs = [
+        srcs = yarn_locks + [
             tsconfig,
-            yarn_lock,
         ],
         **kwargs
     )
@@ -62,9 +55,7 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig, **kwarg
     )
     rebase_and_copy_files(
         name = name + "-copy-patches",
-        source_files = [
-            "//ui:git-patches",
-        ],
+        source_files = patches,
         prefix = "patches",
         base_dir = runner_dir_name,
         **kwargs

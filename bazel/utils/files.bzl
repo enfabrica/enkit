@@ -31,11 +31,9 @@ def _rebase_and_copy_files_impl(ctx):
             out_path = paths.join(ctx.attr.base_dir, f.basename)
         out = ctx.actions.declare_file(out_path)
         all_outputs += [out]
-        ctx.actions.run_shell(
-            outputs = [out],
-            inputs = depset([f]),
-            arguments = [f.path, out.path],
-            command = "cp $1 $2",
+        ctx.actions.symlink(
+            output = out,
+            target_file = f,
         )
 
     return [

@@ -5,7 +5,8 @@ exports_files([
     "merge.js",
 ])
 
-# Note this patch (May 25th,
+# Note this patch (May 25th, 2021) has landed in jest 27. React scripts vendors jest, so at a later release of react-scripts
+# the patches won't be necessary.
 filegroup(
     name = "git-patches",
     srcs = glob(["patches/*"]),
@@ -14,9 +15,22 @@ filegroup(
 
 react_project(
     name = "ptunnel",
-    srcs = "//ui/ptunnel:srcs",
-    package_json = "//ui/ptunnel:package.json",
-    public = "//ui/ptunnel:public",
+    srcs = [
+        "//ui/ptunnel:srcs",
+    ],
+    package_jsons = [
+        "//ui:package.json",
+        "//ui/ptunnel:package.json",
+    ],
+    patches = [
+        "//ui:git-patches",
+    ],
+    publics = [
+        "//ui/ptunnel:public",
+    ],
     tsconfig = "//ui/ptunnel:tsconfig.json",
-    yarn_lock = "//ui/ptunnel:yarn.lock",
+    visibility = ["//visibility:public"],
+    yarn_locks = [
+        "//ui/ptunnel:yarn.lock",
+    ],
 )
