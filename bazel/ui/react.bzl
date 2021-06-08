@@ -5,7 +5,7 @@ load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("//bazel/utils:files.bzl", "rebase_and_copy_files")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-"""Creates a react project after runningcreate-react-app
+"""Creates a react project after running create-react-app. The main entrypoints
 
 """
 

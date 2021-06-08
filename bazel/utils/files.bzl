@@ -77,10 +77,14 @@ rebase_and_copy_files = rule(
     attrs = {
         "source_files": attr.label_list(
             mandatory = True,
+            doc = "The list of source files to copy over. Ideally a list of filegroups",
         ),
         "base_dir": attr.string(
             mandatory = True,
+            doc = "the directory to copy files into.",
         ),
-        "prefix": attr.string(),
+        "prefix": attr.string(
+            doc = "The keyword to cut at inclusively to rebase the files.",
+        ),
     },
 )
