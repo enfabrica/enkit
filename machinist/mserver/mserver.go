@@ -31,7 +31,7 @@ type server struct {
 	*machinist.SharedFlags
 }
 
-func (s *server) Flags() *machinist.SharedFlags {
+func (s *server) MachinistFlags() *machinist.SharedFlags {
 	return s.SharedFlags
 }
 
