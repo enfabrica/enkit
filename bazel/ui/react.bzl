@@ -2,82 +2,14 @@ load("@npm//react-scripts:index.bzl", "react_scripts", "react_scripts_test")
 load("@build_bazel_rules_nodejs//:index.bzl", "copy_to_bin", "nodejs_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
+load("//bazel/utils:files.bzl", "rebase_and_copy_files")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//bazel/utils:transform.bzl", "transform")
 
-# doing this until a better option comes along
-def trim_path(path, prefix, base):
-    s = path.split("/")
-    tret = []
-    flag = False
-    for m in s:
-        if m == prefix:
-            flag = True
-        if flag:
-            tret.append(m)
-    return paths.join(base, *tret)
+"""Creates a react project after runningcreate-react-app
 
-def _copy_files_new_dir_impl(ctx):
-    all_input_files = [
-        f
-        for t in ctx.attr.source_files
-        for f in t.files.to_list()
-    ]
-    all_outputs = []
-    for f in all_input_files:
-        if ctx.attr.no_prefix:
-            out_path = paths.join(ctx.attr.base_dir, f.basename)
-        else:
-            out_path = trim_path(f.short_path, ctx.attr.prefix, ctx.attr.base_dir)
-        out = ctx.actions.declare_file(out_path)
-        all_outputs += [out]
-        ctx.actions.run_shell(
-            outputs = [out],
-            inputs = depset([f]),
-            arguments = [f.path, out.path],
-            command = "cp $1 $2",
-        )
+"""
 
-    return [
-        DefaultInfo(
-            files = depset(all_outputs),
-            runfiles = ctx.runfiles(files = all_outputs),
-        ),
-    ]
-
-copy_files_new_dir = rule(
-    implementation = _copy_files_new_dir_impl,
-    attrs = {
-        "source_files": attr.label_list(),
-        "base_dir": attr.string(),
-        "prefix": attr.string(),
-        "no_prefix": attr.bool(
-            default = False,
-        ),
-    },
-)
-
-_TESTS = [
-    "*/src/**/*.test.js*",
-    "*/src/**/*.test.ts*",
-    "*/src/**/*.spec.js*",
-    "*/src/**/*.spec.ts*",
-    "*/src/**/__tests__/**/*.js*",
-    "*/src/**/__tests__/**/*.ts*",
-]
-
-def _resolve_files(ctx):
-    print(ctx.attrs.files.data.to_list())
-    return []
-
-resolve_files = rule(
-    _resolve_files,
-    attrs = {
-        "files": attr.label(),
-    },
-)
-
-def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
+def react_project(name, srcs, public, package_json, yarn_lock, tsconfig, **kwargs):
     runner_dir_name = name + "-runner"
     merge_json_name = name + "-merge-json"
     native.genrule(
@@ -89,24 +21,27 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
             package_json,
             "//ui:package.json",
         ],
+        **kwargs
     )
     copy_srcs_name = name + "-copy-srcs"
-    copy_files_new_dir(
+    rebase_and_copy_files(
         name = copy_srcs_name,
         source_files = [
             srcs,
         ],
         prefix = "src",
         base_dir = runner_dir_name,
+        **kwargs
     )
     copy_public_name = name + "-copy-public"
-    copy_files_new_dir(
+    rebase_and_copy_files(
         name = copy_public_name,
         source_files = [
             public,
         ],
         prefix = "public",
         base_dir = runner_dir_name,
+        **kwargs
     )
     native.filegroup(
         name = name + "-ui-extras",
@@ -114,25 +49,25 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
             tsconfig,
             yarn_lock,
         ],
-        visibility = ["//visibility:public"],
+        **kwargs
     )
 
     copy_extras_name = name + "-copy-extras"
-    copy_files_new_dir(
+    rebase_and_copy_files(
         name = copy_extras_name,
         source_files = [
             name + "-ui-extras",
         ],
-        no_prefix = True,
         base_dir = runner_dir_name,
     )
-    copy_files_new_dir(
+    rebase_and_copy_files(
         name = name + "-copy-patches",
         source_files = [
             "//ui:git-patches",
         ],
         prefix = "patches",
         base_dir = runner_dir_name,
+        **kwargs
     )
 
     chdir_script_name = name + "-write-chdir-script"
@@ -140,6 +75,7 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
         name = chdir_script_name,
         out = paths.join(runner_dir_name, "chdir.js"),
         content = ["process.chdir(__dirname)"],
+        **kwargs
     )
 
     _RUNTIME_DEPS = [
@@ -164,6 +100,7 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
             # So use this to prevent EOF.
             "ibazel_notify_changes",
         ],
+        **kwargs
     )
 
     react_scripts(
@@ -181,6 +118,7 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
             "BUILD_PATH": "./build",
         },
         output_dir = True,
+        **kwargs
     )
 
     react_scripts_test(
@@ -193,11 +131,11 @@ def react_project(name, srcs, public, package_json, yarn_lock, tsconfig):
             "--no-watchman",
             "--ci",
             "--debug",
-            #            "--passWithNoTests",
         ],
         data = _RUNTIME_DEPS,
         # Need to set the pwd to avoid jest needing a runfiles helper
         # Windows users with permissions can use --enable_runfiles
         # to make this test work
         tags = ["no-bazelci-windows"],
+        **kwargs
     )
