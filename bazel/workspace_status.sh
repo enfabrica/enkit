@@ -2,10 +2,14 @@
 # Person building the binary. If unset, assume a generic builder.
 USER=${USER:-builds@enfabrica.net}
 
-# Is this building master? Are there local changes?
+#Prints out current branch
 GIT_BRANCH="$(git branch --show-current)"
 echo GIT_BRANCH "$GIT_BRANCH"
-echo GIT_CHANGES "$(git --no-pager diff --name-only origin/master "$(git rev-parse --abbrev-ref HEAD)")" # list files locally modified / staged / pending
+# prints out the current branch with the current tracked remote from branch. e.g. origin/branch or source/branch
+GIT_ORIGIN_BRANCH="$(git for-each-ref --format='%(upstream:lstrip=-2)' "$(git symbolic-ref -q HEAD)")"
+echo GIT_ORIGIN_BRANCH "$GIT_ORIGIN_BRANCH"
+## lists all files changed in the current remote branch, space separated
+echo GIT_CHANGES "$(git --no-pager diff --name-only "$GIT_ORIGIN_BRANCH"..."$GIT_SHA" | tr '\r\n' ' ')" # list files locally modified / staged / pending
 echo GIT_SHA "$(git rev-parse HEAD)" # SHA of last commit in this branch
 echo GIT_AUTHOR "$(git show -s --format='%ae' $GIT_HASH)" # Author of last commit.
 
