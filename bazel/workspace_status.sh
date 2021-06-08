@@ -1,12 +1,16 @@
 #!/usr/bin/env sh
-CHANGED_FILES=$(git --no-pager diff --name-only origin/master $(git rev-parse --abbrev-ref HEAD))
-GIT_SHA=$(git rev-parse HEAD)
-GIT_USER=$(git config --get user.name 2>&1 || true)
-GIT_EMAIL=$(git config --get user.email 2>&1 || true)
-USER=$USER
+# Person building the binary. If unset, assume a generic builder.
+USER=${USER:-builds@enfabrica.net}
 
-echo GIT_CHANGED_FILES $CHANGED_FILES
-echo GIT_SHA $GIT_SHA
-echo GIT_USER $GIT_USER
-echo GIT_EMAIL $GIT_EMAIL
-echo USER $USER
+# Is this building master? Are there local changes?
+GIT_BRANCH="$(git branch --show-current)"
+echo GIT_BRANCH "$GIT_BRANCH"
+echo GIT_CHANGES "$(git --no-pager diff --name-only origin/master "$(git rev-parse --abbrev-ref HEAD)")" # list files locally modified / staged / pending
+echo GIT_SHA "$(git rev-parse HEAD)" # SHA of last commit in this branch
+echo GIT_AUTHOR "$(git show -s --format='%ae' $GIT_HASH)" # Author of last commit.
+
+# If this is master, the variables below will have the same value as the variables above.
+# If this is NOT master, they will track where from master this branch is derived.
+echo GIT_MASTER_DISTANCE "$(git log --oneline master.."$GIT_BRANCH"|wc -l)" # Number of commits from master.
+echo GIT_MASTER_SHA "$(git merge-base master $GIT_BRANCH)" # SHA of last commit on master.
+echo GIT_MASTER_AUTHOR "$(git show -s --format='%ae' $GIT_MASTER_SHA)" # Author of last commit on master.
