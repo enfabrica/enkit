@@ -158,7 +158,7 @@ func (n *Node) Enroll() error {
 func anyFileExist(names ...string) error {
 	var errs []error
 	for _, name := range names {
-		if _, err := os.Stat(name); err != nil {
+		if _, err := os.Stat(name); err != nil && !os.IsNotExist(err){
 			errs = append(errs, err)
 		}
 	}
