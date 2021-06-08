@@ -95,11 +95,11 @@ func (n *Node) Enroll() error {
 	if err != nil {
 		return err
 	}
-	if  !n.config.ReWriteConfigs {
+	if !n.config.ReWriteConfigs {
 		if err = anyFileExist(
 			n.config.CaPublicKeyLocation,
 			n.config.HostKeyLocation, n.config.HostCertificate()); err != nil {
-			return fmt.Errorf("rewriting configs are disabled, failed with err(s): %v",err)
+			return fmt.Errorf("rewriting configs are disabled, failed with err(s): %v", err)
 		}
 	}
 
