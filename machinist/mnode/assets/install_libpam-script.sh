@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 declare -A osInfo;
 osInfo[/etc/redhat-release]=yum
 osInfo[/etc/arch-release]=pacman

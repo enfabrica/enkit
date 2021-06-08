@@ -77,7 +77,7 @@ func (n *Node) BeginPolling() error {
 	}
 }
 
-// Todo(adam): perform rollbacks if enroll fails
+// TODO(adam): perform rollbacks if enroll fails
 func (n *Node) Enroll() error {
 	if os.Geteuid() != 0 && n.config.RequireRoot {
 		return errors.New("this command must be run as root since it touches the /etc/ssh directory")

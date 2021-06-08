@@ -69,17 +69,17 @@ func NewEnrollCommand(config *enrollConfigs, factoryFunc FactoryFunc) *cobra.Com
 			return n.Enroll()
 		},
 	}
-	// General Flags
+	// General Flags.
 	c.PersistentFlags().BoolVar(&config.RequireRoot, "require-root", true, "should the enroll command require root for execution")
 
-	// NSS Autouser flags
+	// NSS AutoUser flags.
 	c.PersistentFlags().StringVar(&config.LibNssConfLocation, "nss-autouser-conf", "/etc/nss-autouser.conf", "the file location of libnss autouser configuration file")
 
-	// Pam Flags
+	// Pam Flags.
 	c.PersistentFlags().StringVar(&config.PamSecurityLocation, "pam-account-script-file", "/etc/security/pam_script_acct", "the location where to save the machinist host key")
 	c.PersistentFlags().StringVar(&config.PamSSHDLocation, "pam-sshd-file", "/etc/pam.d/sshd", "the location where to save PAM sshd configuration")
 
-	// SSHD Related Flags
+	// SSHD Related Flags.
 	c.PersistentFlags().BoolVar(&config.AutoRestartSSHD, "auto-restart-ssh", true, "if enroll is successful, auto restart sshd by calling service sshd-restart")
 	c.PersistentFlags().StringVar(&config.SSHDConfigurationLocation, "sshd-configuration-file", "/etc/ssh/sshd_config.d/machinist.conf", "the location where to save the machinist host key")
 	c.PersistentFlags().StringVar(&config.HostKeyLocation, "host-key-file", "/etc/ssh/machinist_host_key", "the location where to save the machinist host key, the signed certificate will be written to the same path with -cert.pub appended")
