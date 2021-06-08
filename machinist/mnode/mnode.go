@@ -88,7 +88,7 @@ func (n *Node) Enroll() error {
 	}
 	hcr := &auth.HostCertificateRequest{
 		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
-		Hosts:    n.config.DnsNames,
+		Hosts:    n.config.SSHPrincipals,
 	}
 	resp, err := n.AuthClient.HostCertificate(context.Background(), hcr)
 	if err != nil {

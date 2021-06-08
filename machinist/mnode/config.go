@@ -7,9 +7,9 @@ import (
 )
 
 type Config struct {
-	Name     string
-	Tags     []string
-	DnsNames []string
+	Name          string
+	Tags          []string
+	SSHPrincipals []string
 
 	ms              *machinist.SharedFlags
 	bf              *client.BaseFlags
