@@ -127,7 +127,7 @@ func (r *Tunnel) Run(cmd *cobra.Command, args []string) (err error) {
 	id = fmt.Sprintf("tunnel by %s on <stdin/stdout> with %s:%d through %s", r.Username(), host, port, proxy)
 	r.Log.Infof("%s - establishing connection", id)
 
-	err = r.RunTunnel(purl, id, host, port, cookie, os.Stdin, os.Stdout)
+	err = r.RunTunnel(purl, id, host, port, cookie, os.Stdin, knetwork.NopWriteCloser(os.Stdout))
 	if err == io.EOF {
 		return nil
 	}
