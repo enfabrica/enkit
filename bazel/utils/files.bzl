@@ -18,11 +18,7 @@ def rebase_path(path, prefix, base):
     return paths.join(base, *tret)
 
 def _rebase_and_copy_files_impl(ctx):
-    all_input_files = [
-        f
-        for t in ctx.attr.source_files
-        for f in t.files.to_list()
-    ]
+    all_input_files = ctx.files.source_files
     all_outputs = []
     for f in all_input_files:
         if ctx.attr.prefix:
