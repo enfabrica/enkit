@@ -8,21 +8,21 @@ type SharedFlags struct {
 }
 
 type SharedFlagsProvider interface {
-	Flags() *SharedFlags
+	MachinistFlags() *SharedFlags
 }
 
 type Modifier func(s SharedFlagsProvider) error
 
 func WithListener(l net.Listener) Modifier {
 	return func(s SharedFlagsProvider) error {
-		s.Flags().Listener = l
+		s.MachinistFlags().Listener = l
 		return nil
 	}
 }
 
 func WithInsecure() Modifier {
 	return func(s SharedFlagsProvider) error {
-		s.Flags().Insecure = true
+		s.MachinistFlags().Insecure = true
 		return nil
 	}
 }
