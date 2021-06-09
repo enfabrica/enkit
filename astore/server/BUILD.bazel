@@ -76,14 +76,14 @@ go_library(
 filegroup(
     name = "css",
     srcs = [
+        "@npm//:node_modules/material-design-icons/iconfont/MaterialIcons-Regular.ttf",
+        "@npm//:node_modules/material-design-icons/iconfont/MaterialIcons-Regular.woff",
+        "@npm//:node_modules/material-design-icons/iconfont/MaterialIcons-Regular.woff2",
+        "@npm//:node_modules/material-design-icons/iconfont/material-icons.css",
         "@npm//:node_modules/material-design-lite/material.min.css",
         "@npm//:node_modules/material-design-lite/material.min.css.map",
         "@npm//:node_modules/material-design-lite/material.min.js",
         "@npm//:node_modules/material-design-lite/material.min.js.map",
-        "@npm//:node_modules/material-icons/iconfont/MaterialIcons-Regular.ttf",
-        "@npm//:node_modules/material-icons/iconfont/MaterialIcons-Regular.woff",
-        "@npm//:node_modules/material-icons/iconfont/MaterialIcons-Regular.woff2",
-        "@npm//:node_modules/material-icons/iconfont/material-icons.css",
     ],
 )
 

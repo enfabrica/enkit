@@ -19,8 +19,8 @@ def enkit_init_proto():
 def enkit_init_ts():
     yarn_install(
         name = "npm",
-        package_json = "//:package.json",
-        yarn_lock = "//:yarn.lock",
+        package_json = "//ui:package.json",
+        yarn_lock = "//ui:yarn.lock",
     )
 
 def enkit_init_tools():

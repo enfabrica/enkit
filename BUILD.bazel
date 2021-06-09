@@ -9,15 +9,6 @@ gazelle(
 
 exports_files(
     [
-        "tsconfig.json",
-        "package.json",
-        "yarn.lock",
-    ],
-    visibility = ["//:__subpackages__"],
-)
-
-exports_files(
-    [
         "go.mod",
         "go.sum",
     ],
