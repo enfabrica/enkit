@@ -1,6 +1,7 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-""" Changes a path at a specified keyword to another path, appending the remaining onto it
+"""Changes a path at a specified keyword to another path, appending the remaining onto it.
+
 Examples:
   >>> trim_path("/tree/foo/bar", "foo", "/etc")
   /etc/bar

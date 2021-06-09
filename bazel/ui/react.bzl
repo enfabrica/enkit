@@ -5,7 +5,8 @@ load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("//bazel/utils:files.bzl", "rebase_and_copy_files")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-"""Creates a react project after running create-react-app. You must copy over
+"""Creates a react project after running create-react-app.
+
 Args:
     srcs: a list of targets, usual tsx and ts files
     package_jsons: a list of package.jsons to be zipped. Does nto check for conflics
