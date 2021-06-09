@@ -1,13 +1,12 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-"""Changes a path at a specified keyword to another path, appending the remaining onto it.
-
-Examples:
-  >>> trim_path("/tree/foo/bar", "foo", "/etc")
-  /etc/bar
-"""
-
 def rebase_path(path, prefix, base):
+    """Changes a path at a specified keyword to another path, appending the remaining onto it.
+
+    Examples:
+      >>> trim_path("/tree/foo/bar", "foo", "/etc")
+      /etc/bar
+    """
     s = path.split("/")
     tret = []
     flag = False
@@ -44,11 +43,12 @@ def _rebase_and_copy_files_impl(ctx):
         ),
     ]
 
-"""Copies all files in a directory to another directory, rebasing to a prefix as it goes along. If you wish to copy straight
-into the directory, don't specify prefix.
+"""Copies all files in a directory to another directory, rebasing to a prefix as it goes along.
+
+If you wish to copy straight into the directory, don't specify prefix.
 
 Examples:
-    >>> rebase_and_copy_files(
+        >>> rebase_and_copy_files(
             source_files=[
                 /etc/foo/bar.out,
                 /etc/foo/curr/baz.out
@@ -56,19 +56,19 @@ Examples:
             base_dir=/base,
             prefix=src
         )
-    >>> [
+        [
             /base/src/bar.out,
             /base/src/curr/bar.out,
         ]
 
-    >>> rebase_and_copy_files(
+        >>> rebase_and_copy_files(
             source_files=[
                 /etc/foo/bar.out,
                 /etc/foo/curr/baz.out
             ],
             base_dir=/base
         )
-    >>> [
+        [
             /base/bar.out,
             /base/curr/bar.out,
         ]
