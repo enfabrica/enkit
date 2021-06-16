@@ -1,12 +1,10 @@
 package mnode
 
 import (
-	"fmt"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/machinist"
 	"github.com/spf13/cobra"
 	"os"
-	"strings"
 )
 
 func NewRootCommand(bf *client.BaseFlags) *cobra.Command {
@@ -30,12 +28,15 @@ func NewRootCommand(bf *client.BaseFlags) *cobra.Command {
 
 	// Global Relate Flags
 	c.PersistentFlags().StringArrayVar(&config.Tags, "tags", []string{}, "the list of tags you want this node to have. Setting this will unset the cache")
-	c.PersistentFlags().StringVar(&config.Name, "name", "no-name", "the name of this node. If a node already exists with this name, polling the machinist server will fail")
-	c.PersistentFlags().StringArrayVar(&config.IpAddresses, "dns-names", []string{"localhost"}, "the list of dns names you want this node to have")
+	h, err := os.Hostname()
+	if err != nil {
+		panic(err) // Hostnames are important for ssh configuration, this is a valid panic.
+	}
+	c.PersistentFlags().StringVar(&config.Name, "name", h, "the name of this node. If a node already exists with this name, polling the machinist server will fail")
+	c.PersistentFlags().StringArrayVar(&config.SSHPrincipals, "ssh-principals", []string{"localhost"}, "the list of ssh names you want this node to have, typically these line up with the dns aliases of the machine")
 
 	c.AddCommand(NewEnrollCommand(config.enrollConfigs, factory))
-	c.AddCommand(NewPollCommand(bf))
-	c.AddCommand(NewSystemdCommand())
+
 	return c
 }
 
@@ -68,86 +69,22 @@ func NewEnrollCommand(config *enrollConfigs, factoryFunc FactoryFunc) *cobra.Com
 			return n.Enroll()
 		},
 	}
-	// General Flags
+	// General Flags.
 	c.PersistentFlags().BoolVar(&config.RequireRoot, "require-root", true, "should the enroll command require root for execution")
 
-	// NSS Autouser flags
+	// NSS AutoUser flags.
 	c.PersistentFlags().StringVar(&config.LibNssConfLocation, "nss-autouser-conf", "/etc/nss-autouser.conf", "the file location of libnss autouser configuration file")
 
-	// Pam Flags
+	// Pam Flags.
 	c.PersistentFlags().StringVar(&config.PamSecurityLocation, "pam-account-script-file", "/etc/security/pam_script_acct", "the location where to save the machinist host key")
 	c.PersistentFlags().StringVar(&config.PamSSHDLocation, "pam-sshd-file", "/etc/pam.d/sshd", "the location where to save PAM sshd configuration")
 
-	// SSHD Related Flags
-	c.PersistentFlags().BoolVar(&config.AutoRestartSSHD, "auto-restart-ssh", true, "if enroll is is successful, auto restart sshd by calling service sshd-restart")
+	// SSHD Related Flags.
+	c.PersistentFlags().BoolVar(&config.AutoRestartSSHD, "auto-restart-ssh", true, "if enroll is successful, auto restart sshd by calling service sshd-restart")
 	c.PersistentFlags().StringVar(&config.SSHDConfigurationLocation, "sshd-configuration-file", "/etc/ssh/sshd_config.d/machinist.conf", "the location where to save the machinist host key")
 	c.PersistentFlags().StringVar(&config.HostKeyLocation, "host-key-file", "/etc/ssh/machinist_host_key", "the location where to save the machinist host key, the signed certificate will be written to the same path with -cert.pub appended")
 	c.PersistentFlags().StringVar(&config.CaPublicKeyLocation, "ca-key-file", "/etc/ssh/machinist_ca.pub", "the file location of the CA's public key from the auth server. If the file already exists, defers to the rewrite flag")
 	c.PersistentFlags().BoolVar(&config.ReWriteConfigs, "rewrite", true, "rewrite HostKey and HostCert and TrustedCAKey if it already exists on the system")
 
-	return c
-}
-
-type pollConfig struct {
-	Name string
-	Tags []string
-	Ips  []string
-	Host string
-	Port int
-}
-
-func NewPollCommand(bf *client.BaseFlags) *cobra.Command {
-	pc := &pollConfig{}
-	c := &cobra.Command{
-		Use: "poll",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := &Config{bf: bf}
-			m, err := New(c,
-				WithName(pc.Name),
-				WithIps(pc.Ips),
-				WithTags(pc.Tags),
-				WithMachinistFlags(
-					machinist.WithHost(pc.Host),
-					machinist.WithPort(pc.Port)))
-			if err != nil {
-				return err
-			}
-			m.Log = bf.Log
-			if err = m.Init(); err != nil {
-				return err
-			}
-			return m.BeginPolling()
-		},
-	}
-	c.Flags().StringVar(&pc.Name, "name", "", "")
-	c.Flags().StringArrayVar(&pc.Tags, "tags", []string{}, "")
-	c.Flags().StringArrayVar(&pc.Ips, "ips", []string{}, "")
-	c.Flags().StringVar(&pc.Host, "machinist-host", "localhost", "")
-	c.Flags().IntVar(&pc.Port, "machinist-port", 8081, "")
-	return c
-}
-
-type SystemdDConfig struct {
-	User        string
-	InstallPath string
-	Command     string
-}
-
-func NewSystemdCommand() *cobra.Command {
-	config := &SystemdDConfig{}
-	c := &cobra.Command{
-		Use:   "systemd -- [COMMAND]",
-		Short: "Outputs a machinist.service compatible with systemd, using the passed in command to machinist",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := ParseSystemdTemplate(config.User, config.InstallPath, strings.Join(args, " "))
-			if err != nil {
-				return err
-			}
-			fmt.Println(res)
-			return nil
-		},
-	}
-	c.Flags().StringVar(&config.User, "user", os.Getenv("USER"), "the user to install the systemd command as, default to the current user")
-	c.Flags().StringVar(&config.InstallPath, "install-path", "/usr/local/bin/machinist", "the installed path of the machinist binary")
 	return c
 }

@@ -36,8 +36,9 @@ func NewPatternList(allowed []string) (PatternList, error) {
 
 // Allow is a nasshp.Filter function that returns nasshp.VerdictAllow if the proto and hostport
 // string specified match any pattern in the list created with NewPatternList.
-func (pl PatternList) Allow(proto string, hostport string, creds *oauth.CredentialsCookie) nasshp.Verdict {
-	key := proto + "|" + hostport
+// proto is one word.
+func (pl PatternList) Allow(proto string, ipport string, creds *oauth.CredentialsCookie) nasshp.Verdict {
+	key := proto + "|" + ipport
 	for _, pattern := range pl {
 		match, err := filepath.Match(pattern, key)
 		if err == nil && match {

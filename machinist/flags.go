@@ -1,14 +1,10 @@
 package machinist
 
-import (
-	"net"
-)
+import "net"
 
 type SharedFlags struct {
 	Listener net.Listener
 	Insecure bool
-	Host     string
-	Port     int
 }
 
 type SharedFlagsProvider interface {
@@ -27,19 +23,6 @@ func WithListener(l net.Listener) Modifier {
 func WithInsecure() Modifier {
 	return func(s SharedFlagsProvider) error {
 		s.MachinistFlags().Insecure = true
-		return nil
-	}
-}
-
-func WithHost(h string) Modifier {
-	return func(s SharedFlagsProvider) error {
-		s.MachinistFlags().Host = h
-		return nil
-	}
-}
-func WithPort(p int) Modifier {
-	return func(s SharedFlagsProvider) error {
-		s.MachinistFlags().Port = p
 		return nil
 	}
 }

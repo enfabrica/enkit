@@ -80,8 +80,8 @@ type NssConf struct {
 		Match string
 	}
 }
-
 // Nss Installer Functions
+
 
 // InstallNssAutoUserConf will read from the nssautouser.conf.gotmpl file, and output in /etc/nss-autouser.conf
 func InstallNssAutoUserConf(path string, conf *NssConf) error {
@@ -102,6 +102,7 @@ func ReadNssConf(conf *NssConf) ([]byte, error) {
 	err = tpl.Execute(reader, conf)
 	return reader.Bytes(), err
 }
+
 
 // Pam Installer Functions
 func InstallPamSSHDFile(path string, l logger.Logger) error {

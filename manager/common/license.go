@@ -120,7 +120,7 @@ type License struct {
 	Used  int
 }
 
-var totalCadenceLic = 3
+var totalCadenceLic = 6
 var totalXilinxLic = 3
 var licenseCounter = LicenseCounter{
 	licenses: map[string]*License{"xilinx": &License{Used: 0, Total: totalXilinxLic}, "cadence": &License{Used: 0, Total: totalCadenceLic}},

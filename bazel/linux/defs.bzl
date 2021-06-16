@@ -126,17 +126,17 @@ a kernel_tree on its own is not expected to be hermetic.
     },
 )
 
-KernelModuleInfo = provider(
-    doc = """Maintains the information necessary to represent a compiled kernel module.""",
+KernelModulesInfo = provider(
+    doc = """Maintains the information necessary to represent compiled kernel modules.""",
     fields = {
         "name": "Name of the rule that defined this kernel module.",
         "package": "A string indicating which package this kernel module has been built against. For example, 'centos-kernel-5.3.0-1'.",
-        "module": "File representing the compiled kernel module (.ko).",
+        "modules": "A list of files representing the compiled kernel modules (.ko).",
     },
 )
 
-def _kernel_module(ctx):
-    module = ctx.attr.module
+def _kernel_modules(ctx):
+    modules = ctx.attr.modules
     inputs = ctx.files.srcs + ctx.files.kernel
     srcdir = ctx.file.makefile.dirname
 
@@ -145,54 +145,75 @@ def _kernel_module(ctx):
         if CcInfo in d:
             inputs += d[CcInfo].compilation_context.headers.to_list()
 
-    rename = ctx.attr.rename
-    if not rename:
-        rename = module
-    output = ctx.actions.declare_file(rename)
+    ki = ctx.attr.kernel[KernelTreeInfo]
+
+    outputs = []
+    message = ""
+    copy_command = ""
+    for m in modules:
+        message += "kernel building: compiling module %s for %s" % (m, ki.package)
+        rename = m
+        if ctx.attr.rename:
+            rename = ctx.attr.rename + m
+        output = ctx.actions.declare_file(rename)
+        outputs += [output]
+        copy_command += "cp {src_dir}/{module} {output_long} && ".format(
+            src_dir = srcdir,
+            module = m,
+            output_long = output.path,
+        )
+    copy_command += "true"
 
     extra = ""
     if ctx.attr.extra:
         extra = " ".join(ctx.attr.extra)
 
-    ki = ctx.attr.kernel[KernelTreeInfo]
+    if ctx.attr.silent:
+        silent = "-s"
+    else:
+        silent = ""
+
+    make_args = ctx.attr.make_format_str.format(
+        src_dir = srcdir,
+        kernel_build_dir = "{kr}/{kb}".format(kr = ki.root, kb = ki.build),
+        modules = " ".join(modules))
+
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
-        progress_message = "kernel building: compiling kernel module %s for %s" % (module, ki.package),
-        command = """make -s M=$PWD/{src_dir} -C $PWD/{kernel_root}/{build_dir} {module} {extra_args} &&
-                     cp $PWD/{src_dir}/{module} {output_long} &&
-                     echo ==== NO FATAL ERRORS - MODULE CREATED - bazel-bin/{output_short}""".format(
-            src_dir = srcdir,
-            kernel_root = ki.root,
-            build_dir = ki.build,
+        progress_message = message,
+        command = "make {silent} {make_args} {extra_args} && {copy_command}".format(
+            silent = silent,
+            make_args = make_args,
             extra_args = extra,
-            module = module,
-            output_long = output.path,
-            output_short = output.short_path,
+            copy_command = copy_command,
         ),
-        outputs = [output],
+        outputs = outputs,
         inputs = inputs,
         use_default_shell_env = True,
     )
 
-    return [DefaultInfo(files = depset([output])), KernelModuleInfo(
+    return [DefaultInfo(files = depset([output])), KernelModulesInfo(
         name = ctx.attr.name,
         package = ki.package,
-        module = output,
+        modules = outputs,
     )]
 
-kernel_module_rule = rule(
-    doc = """Builds a kernel module.
+kernel_modules_rule = rule(
+    doc = """Builds kernel modules.
 
-The kernel_module_rule will build the specified files as a kernel module. As kernel modules must be built
-against a specific kernel, the 'kernel' attribute must point to a rule created with 'kernel_tree' or 'kernel_tree_version'
-(really, anything exporting a KernelTreeInfo provider).
+The kernel_modules_rule will build the specified files as kernel
+modules. As kernel modules must be built against a specific kernel,
+the 'kernel' attribute must point to a rule created with 'kernel_tree'
+or 'kernel_tree_version' (really, anything exporting a KernelTreeInfo
+provider).
 
-The attributes are pretty self explanatory. For convenience, though, we recommend using the
-'kernel_module' macro rather than 'kernel_module_tree', as that macro will provide convenient
-defaults for you to save some error prone typing, and enjoy more time doing whatever you do
-when not debugging flaky builds.
+The attributes are pretty self explanatory. For convenience, though,
+we recommend using the 'kernel_module' macro for building a single out
+of tree kernel module, as that macro will provide convenient defaults
+for you to save some error prone typing, and enjoy more time doing
+whatever you do when not debugging flaky builds.
 """,
-    implementation = _kernel_module,
+    implementation = _kernel_modules,
     attrs = {
         "kernel": attr.label(
             mandatory = True,
@@ -204,12 +225,23 @@ when not debugging flaky builds.
             allow_single_file = True,
             doc = "A label pointing to the Makefile to use. Unless you are doing anything funky, normally you would have the string 'Makefile' here.",
         ),
-        "module": attr.string(
+        "modules": attr.string_list(
             mandatory = True,
-            doc = "The name of the file generated by the Makefile. If you are building a module 'e1000.ko', this would be the string 'e1000.ko'.",
+            doc = "The list of kernel modules generated by the Makefile. If you are building a module 'e1000.ko', this would be the list ['e1000.ko'].",
+        ),
+        "make_format_str": attr.string(
+            mandatory = True,
+            doc = """Format string for generating 'make' command line arguments.
+
+Available format values are:
+{src_dir}          - source directory of the Makefile
+{kernel_build_dir} - kernel build directory
+{module}           - module name
+
+""",
         ),
         "rename": attr.string(
-            doc = "How you want the module to be named at the end of the build. If not specified, the output file is not renamed. Building the file multiple times will require different names.",
+            doc = "Prefix to apply to the module names at the end of the build. If not specified, the output files are not renamed.",
         ),
         "silent": attr.bool(
             default = True,
@@ -239,11 +271,50 @@ def _normalize_kernel(kernel):
 
 BUILD_LEFTOVERS = ["**/.*.cmd", "**/*.a", "**/*.o", "**/*.ko", "**/*.order", "**/*.symvers", "**/*.mod", "**/*.mod.c", "**/*.mod.o"]
 
-def kernel_module(*args, **kwargs):
-    """Convenience wrapper around kernel_module_rule, makes it easier to use.
+def _kernel_module_targets(*args, **kwargs):
+    """Common kernel module target setup."""
 
-    The parameters passed to kernel_module are just passed to kernel_module_rule, except for
-    what is listed below.
+    modules = []
+    for m in kwargs.get("modules", kwargs["name"]):
+        if not m.endswith(".ko"):
+            m = m + ".ko"
+        modules += [m]
+    kwargs["modules"] = modules
+
+    kernels = kwargs.pop("kernels", [])
+    if "kernel" in kwargs:
+        kernels.append(kwargs.pop("kernel"))
+
+    if len(kernels) == 1:
+        kwargs["kernel"] = _normalize_kernel(kernels.pop())
+        return kernel_modules_rule(*args, **kwargs)
+
+    targets = []
+    original = kwargs["name"]
+    for kernel in kernels:
+        kernel = _normalize_kernel(kernel)
+        rename = kernel[1:] + "/"
+        name = kernel[1:] + "-" + original
+        targets.append(":" + name)
+
+        kwargs["name"] = name
+        kwargs["kernel"] = kernel
+        kwargs["rename"] = rename
+        kernel_modules_rule(*args, **kwargs)
+
+    # This creates a target with the name chosen by the user that
+    # builds all the modules for all the requested kernels at once.
+    # Without this, the user can only build :all, or the specific
+    # module for a specific kernel.
+    return native.filegroup(name = original, srcs = targets)
+
+def kernel_module(*args, **kwargs):
+    """Convenience wrapper around kernel_modules_rule.
+
+    Use this wrpaper for building a single out of tree kernel module.
+
+    The parameters passed to kernel_module are just passed to
+    kernel_module_rule, except for what is listed below.
 
     Args:
       srcs: list of labels, specifying the source files that constitute the kernel module.
@@ -261,6 +332,7 @@ def kernel_module(*args, **kwargs):
       kernels: list of kernel (same as above). kernel_module will instantiate multiple
             kernel_module_rule, one per kernel, and ensure they all build in parallel.
     """
+
     if "makefile" not in kwargs:
         kwargs["makefile"] = "Makefile"
 
@@ -268,34 +340,48 @@ def kernel_module(*args, **kwargs):
         include = ["**/*.c", "**/*.h", kwargs["makefile"]]
         kwargs["srcs"] = native.glob(include = include, exclude = BUILD_LEFTOVERS, allow_empty = False)
 
-    module = kwargs.get("module", kwargs["name"])
-    if not module.endswith(".ko"):
-        module = module + ".ko"
-    kwargs["module"] = module
+    kwargs["modules"] = [kwargs.pop("module", kwargs["name"])]
 
-    if "kernels" not in kwargs:
-        kwargs["kernel"] = _normalize_kernel(kwargs["kernel"])
-        return kernel_module_rule(*args, **kwargs)
+    if "make_format_str" not in kwargs:
+        kwargs["make_format_str"] = "-C $PWD/{kernel_build_dir} M=$PWD/{src_dir} {modules}"
 
-    kernels = kwargs["kernels"]
-    kwargs.pop("kernels")
+    return _kernel_module_targets(*args, **kwargs)
 
-    targets = []
-    original = kwargs["name"]
-    for kernel in kernels:
-        kernel = _normalize_kernel(kernel)
-        rename = kernel[1:] + "/" + module
-        name = kernel[1:] + "-" + original
-        targets.append(":" + name)
+def nv_driver(*args, **kwargs):
+    """Convenience wrapper around kernel_modules_rule.
 
-        kwargs["name"] = name
-        kwargs["kernel"] = kernel
-        kwargs["rename"] = rename
-        kernel_module_rule(*args, **kwargs)
+    Use this wrpaper for building the NVidia driver modules.
 
-    # This creates a target with the name chosen by the user that builds all the kernel modules at once.
-    # Without this, the user can only build :all, or the specific module for a specific kernel.
-    return native.filegroup(name = original, srcs = targets)
+    The parameters passed to nv_driver are just passed to nv_driver_rule, except for
+    what is listed below.
+
+    Args:
+      srcs: list of labels, specifying the source files that constitute the kernel module.
+            If not specified, nv_driver will provide a reasonable default including all
+            files that are typically part of a kernel module (i.e., the specified makefile
+            and all .c and .h files belonging to the package where the kernel_module rule
+            has been instantiated, see https://docs.bazel.build/versions/master/be/functions.html#glob).
+      modules: list of strings, naming the output modules. Mandatory. Also, it normalizes the
+            names ensuring they have a '.ko' suffix.
+      makefile: string, name of the makefile to build the driver. If not specified, nv_driver
+            assumes it is just called Makefile.
+      kernel: a label, indicating the kernel_tree to build the module against. nv_driver ensures
+            the label starts with an '@', as per bazel convention.
+      kernels: list of kernel (same as above). kernel_module will instantiate multiple
+            kernel_module_rule, one per kernel, and ensure they all build in parallel.
+    """
+
+    if "makefile" not in kwargs:
+        kwargs["makefile"] = "Makefile"
+
+    if "srcs" not in kwargs:
+        include = ["**/*.c", "**/*.h", "Kbuild", "**/*.Kbuild", "conftest.sh", "**/*.o_binary", kwargs["makefile"]]
+        kwargs["srcs"] = native.glob(include = include, exclude = BUILD_LEFTOVERS, allow_empty = False)
+
+    if "make_format_str" not in kwargs:
+        kwargs["make_format_str"] = "-C $PWD/{src_dir} SYSSRC=$PWD/{kernel_build_dir} SYSOUT=$PWD/{kernel_build_dir} -j modules" 
+
+    return _kernel_module_targets(*args, **kwargs)
 
 def _kernel_tree(ctx):
     return [DefaultInfo(files = depset(ctx.files.files)), KernelTreeInfo(
@@ -587,7 +673,10 @@ To create an image suitable for this rule, you can compile a linux source tree u
 def _kernel_test(ctx):
     ki = ctx.attr.kernel_image[KernelImageInfo]
     ri = ctx.attr.rootfs_image[RootfsImageInfo]
-    mi = ctx.attr.module[KernelModuleInfo]
+    mi = ctx.attr.module[KernelModulesInfo]
+
+    # Kernel tests assume only one kernel module
+    module = mi.modules[0]
 
     # Confirm that the kernel test module is compatible with the precompiled linux kernel executable image.
     if ki.package != mi.package:
@@ -597,7 +686,7 @@ def _kernel_test(ctx):
         )
 
     parser = ctx.attr._parser.files_to_run.executable
-    inputs = [ki.image, ri.image, mi.module, parser]
+    inputs = [ki.image, ri.image, module, parser]
     inputs = depset(inputs, transitive = [
         ctx.attr.kernel_image.files,
         ctx.attr.rootfs_image.files,
@@ -611,7 +700,7 @@ def _kernel_test(ctx):
         substitutions = {
             "{kernel}": ki.image.short_path,
             "{rootfs}": ri.image.short_path,
-            "{module}": mi.module.short_path,
+            "{module}": module.short_path,
             "{parser}": parser.short_path,
         },
         is_executable = True,
@@ -640,7 +729,7 @@ The test will run locally inside a user-mode linux process.
         ),
         "module": attr.label(
             mandatory = True,
-            providers = [DefaultInfo, KernelModuleInfo],
+            providers = [DefaultInfo, KernelModulesInfo],
             doc = "The label of the KUnit linux kernel module to be used for testing. It must define a kunit_test_suite so that when loaded, KUnit will start executing its tests.",
         ),
         "_template": attr.label(

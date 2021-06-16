@@ -1,6 +1,7 @@
 package httpp
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/logger"
@@ -37,7 +38,11 @@ func NewProxy(fromurl, tourl string, transform *Transform) (*httputil.ReversePro
 		req.URL.RawPath = ""
 	}
 
-	return &httputil.ReverseProxy{Director: director}, nil
+	proxy := &httputil.ReverseProxy{Director: director}
+	proxy.Transport = &http.Transport{
+	        TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	return proxy, nil
 }
 
 type ProxyCreator func(m *Mapping) (http.Handler, error)

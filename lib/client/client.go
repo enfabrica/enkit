@@ -2,7 +2,6 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/config"
@@ -65,6 +64,10 @@ type BaseFlags struct {
 	// Avoid displaying progress bars.
 	NoProgress bool
 
+	// Allow to override the security token used, and identity.
+	OverrideToken string
+	OverrideIdentity string
+
 	// Logger object. Guaranteed to never be nil, and always be usable.
 	Log *logger.Proxy
 }
@@ -105,7 +108,8 @@ func (bf *BaseFlags) IdentityErrorHandler(message string) kflags.ErrorHandler {
 				identity = "youruser@yourdomain.com"
 			}
 		}
-		return fmt.Errorf("Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s %s",
+		return kflags.NewStatusErrorf(100,
+                        "Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s %s",
 			logger.NewIndentedError(err, "    (for debug only) "), message, identity)
 	}
 }
@@ -129,6 +133,13 @@ func (bf *BaseFlags) IdentityCookie() (string, *http.Cookie, error) {
 }
 
 func (bf *BaseFlags) IdentityToken() (string, string, error) {
+	if bf.OverrideToken != "" || bf.OverrideIdentity != "" {
+		if bf.OverrideIdentity == "" || bf.OverrideToken == "" {
+			return "", "", kflags.NewUsageErrorf("if override-identity or override-token is specified, both need to be specified")
+		}
+		return bf.OverrideIdentity, bf.OverrideToken, nil
+	}
+
 	store, err := bf.IdentityStore()
 	if err != nil {
 		return "", "", err
@@ -149,6 +160,9 @@ func (bf *BaseFlags) Register(set kflags.FlagSet, prefix string) *BaseFlags {
 	bf.AuthFlags.Register(set, prefix)
 	bf.Local.Register(set, prefix)
 	bf.ProviderFlags.Register(set, prefix)
+
+	set.StringVar(&bf.OverrideToken, prefix+"override-token", "", "Use this security token instead of loading one from disk")
+	set.StringVar(&bf.OverrideIdentity, prefix+"override-identity", "", "Use this identity instead of loading one from disk")
 
 	set.StringVar(&bf.CookiePrefix, prefix+"cookie-prefix", "", "Prefix to use in naming the authentication cookie. You should not normally need to change this")
 	set.BoolVar(&bf.NoProgress, prefix+"no-progress", bf.NoProgress, "Disable progress bars")

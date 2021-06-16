@@ -1,6 +1,7 @@
 import React from 'react';
 import logo from './logo.svg';
 import './App.css';
+import { Button } from '@material-ui/core';
 
 function App() {
   return (
@@ -16,9 +17,10 @@ function App() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Learn React
+          Hello World
         </a>
       </header>
+      <Button color="primary">Hello Material</Button>;
     </div>
   );
 }
