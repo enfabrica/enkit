@@ -10,9 +10,11 @@ type Config struct {
 	Name          string
 	Tags          []string
 	SSHPrincipals []string
+	IpAddresses   []string
+	Aliases       []string
 
-	ms              *machinist.SharedFlags
-	bf              *client.BaseFlags
+	ms            *machinist.SharedFlags
+	bf            *client.BaseFlags
 	*enrollConfigs
 }
 

@@ -1,0 +1,6 @@
+package polling
+
+func SendMetricsRequest(){
+
+}
+

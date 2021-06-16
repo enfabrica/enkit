@@ -12,7 +12,7 @@ import (
 func TestMachinistNodeTemplate(t *testing.T) {
 	_, err := mnode.ReadSSHDContent("/bar", "/foo", "/baz")
 	assert.Nil(t, err)
-	for k := range machinist_assets.Data {
+	for k := range machinist_assets.AutoUserBinaries {
 		fmt.Println(k)
 	}
 	c := &mnode.NssConf{

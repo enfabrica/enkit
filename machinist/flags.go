@@ -3,8 +3,10 @@ package machinist
 import "net"
 
 type SharedFlags struct {
-	Listener net.Listener
-	Insecure bool
+	Listener         net.Listener
+	Insecure         bool
+	ControlPlanePort int
+	ControlPlaneHost string
 }
 
 type SharedFlagsProvider interface {

@@ -56,7 +56,6 @@ func (en *Controller) HandlePing(stream machinist.Controller_PollServer, ping *m
 				},
 			},
 		})
-
 }
 
 func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, ping *machinist.ClientRegister) error {

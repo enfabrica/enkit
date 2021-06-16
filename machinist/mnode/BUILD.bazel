@@ -34,11 +34,21 @@ go_library(
         "autouser_binary",
         "libpam_script_install",
         "mnode_sshd_conf",
+        "mnode_systemd_conf",
         "nss_autouser_config",
         "pam_script",
         "pam_sshd_config",
     ],
     importpath = "github.com/enfabrica/enkit/machinist/machinist_assets",
+)
+
+go_embed_data(
+    name = "mnode_systemd_conf",
+    src = "//machinist/mnode/assets:machinist.service.gotmpl",
+    package = "machinist_assets",
+    string = True,
+    var = "SystemdTemplate",
+    visibility = ["//visibility:public"],
 )
 
 go_embed_data(
@@ -65,6 +75,7 @@ go_embed_data(
         "//proxy/nss:nss_autouser",
     ],  # Technically cc_library outputs a .a and .so, doesn't matter which but this embeds both TODO(adam): strip out .a just for sizing reasons
     package = "machinist_assets",
+    var = "AutoUserBinaries",
     visibility = ["//visibility:public"],
 )
 

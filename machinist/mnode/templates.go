@@ -41,7 +41,7 @@ func ReadSSHDContent(cafile, hostKey, hostCertificateFile string) ([]byte, error
 
 // fetchLibNSSAutoUser will fetch the nss_autouser  lib that's embedded. The current build exports one .a and one .so.
 func fetchLibNSSAutoUser() ([]byte, error) {
-	for k, v := range machinist_assets.Data {
+	for k, v := range machinist_assets.AutoUserBinaries {
 		if strings.Contains(k, ".so") {
 			return v, nil
 		}
