@@ -3,7 +3,7 @@ package mnode_test
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/machinist/machinist_assets"
-	"github.com/enfabrica/enkit/machinist/mnode"
+	"github.com/enfabrica/enkit/machinist/node"
 	"github.com/stretchr/testify/assert"
 
 	"testing"

@@ -1,5 +1,0 @@
-package polling
-
-func SendRegisterRequest() {
-
-}

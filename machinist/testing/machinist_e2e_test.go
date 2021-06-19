@@ -1,11 +1,11 @@
-package machinist_test
+package e2e_test
 
 import (
 	"context"
 	"github.com/enfabrica/enkit/lib/knetwork"
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/machinist"
-	"github.com/enfabrica/enkit/machinist/mnode"
+	"github.com/enfabrica/enkit/machinist/node"
 	"github.com/enfabrica/enkit/machinist/mserver"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -89,7 +89,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 }
 
 func joinNodeToMaster(t *testing.T, opts []mnode.NodeModifier) *mnode.Node {
-	n, err := mnode.New(&mnode.Config{}, opts...)
+	n, err := mnode.New(opts...)
 	assert.Nil(t, err)
 	assert.Nil(t, n.Init())
 	go func() {

@@ -7,6 +7,7 @@ type SharedFlags struct {
 	Insecure         bool
 	ControlPlanePort int
 	ControlPlaneHost string
+	MetricsPort      int
 }
 
 type SharedFlagsProvider interface {
