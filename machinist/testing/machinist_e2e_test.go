@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/enfabrica/enkit/lib/knetwork"
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
-	"github.com/enfabrica/enkit/machinist"
-	"github.com/enfabrica/enkit/machinist/node"
+	"github.com/enfabrica/enkit/machinist/config"
+	"github.com/enfabrica/enkit/machinist/machine"
 	"github.com/enfabrica/enkit/machinist/mserver"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -44,22 +44,26 @@ func TestJoinServerAndPoll(t *testing.T) {
 			}), grpc.WithInsecure())
 	}
 
-	go joinNodeToMaster(t, []mnode.NodeModifier{
-		mnode.WithDialFunc(customConnect),
-		mnode.WithName("test01"),
-		mnode.WithIps([]string{"10.0.0.4"}),
-		mnode.WithTags([]string{"big", "heavy"}),
-		mnode.WithMachinistFlags(
-			machinist.WithListener(lis)),
+	go joinNodeToMaster(t, []machine.NodeModifier{
+		machine.WithDialFunc(customConnect),
+		machine.WithName("test01"),
+		machine.WithIps([]string{"10.0.0.4"}),
+		machine.WithTags([]string{"big", "heavy"}),
+		machine.WithMachinistFlags(
+			config.WithListener(lis),
+			config.WithEnableMetrics(false),
+		),
 	})
 
-	go joinNodeToMaster(t, []mnode.NodeModifier{
-		mnode.WithDialFunc(customConnect),
-		mnode.WithName("test02"),
-		mnode.WithIps([]string{"10.0.0.1"}),
-		mnode.WithTags([]string{"teeny", "weeny"}),
-		mnode.WithMachinistFlags(
-			machinist.WithListener(lis)),
+	go joinNodeToMaster(t, []machine.NodeModifier{
+		machine.WithDialFunc(customConnect),
+		machine.WithName("test02"),
+		machine.WithIps([]string{"10.0.0.1"}),
+		machine.WithTags([]string{"teeny", "weeny"}),
+		machine.WithMachinistFlags(
+			config.WithListener(lis),
+			config.WithEnableMetrics(false),
+		),
 	})
 
 	time.Sleep(150 * time.Millisecond)
@@ -88,8 +92,8 @@ func TestJoinServerAndPoll(t *testing.T) {
 	time.Sleep(2 * time.Millisecond)
 }
 
-func joinNodeToMaster(t *testing.T, opts []mnode.NodeModifier) *mnode.Node {
-	n, err := mnode.New(opts...)
+func joinNodeToMaster(t *testing.T, opts []machine.NodeModifier) *machine.Machine {
+	n, err := machine.New(opts...)
 	assert.Nil(t, err)
 	assert.Nil(t, n.Init())
 	go func() {
@@ -110,8 +114,8 @@ func createNewControlPlane(t *testing.T, l net.Listener, dnsListener net.Listene
 	s, err := mserver.New(
 		mserver.WithController(mController),
 		mserver.WithMachinistFlags(
-			machinist.WithListener(l),
-			machinist.WithInsecure(),
+			config.WithListener(l),
+			config.WithInsecure(),
 		))
 	return s, mController, err
 }

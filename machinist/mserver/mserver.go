@@ -1,7 +1,7 @@
 package mserver
 
 import (
-	"github.com/enfabrica/enkit/machinist"
+	"github.com/enfabrica/enkit/machinist/config"
 	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"google.golang.org/grpc"
 )
@@ -12,7 +12,7 @@ func New(mods ...Modifier) (*ControlPlane, error) {
 		Controller: &Controller{
 			connectedNodes: map[string]*Node{},
 		},
-		SharedFlags: &machinist.SharedFlags{},
+		Common: config.DefaultCommonFlags(),
 	}
 	for _, m := range mods {
 		if err := m(s); err != nil {
@@ -27,12 +27,12 @@ type ControlPlane struct {
 	runningServer *grpc.Server
 	killChannel   chan error
 
-	Controller    *Controller
-	*machinist.SharedFlags
+	Controller *Controller
+	*config.Common
 }
 
-func (s *ControlPlane) MachinistFlags() *machinist.SharedFlags {
-	return s.SharedFlags
+func (s *ControlPlane) MachinistCommon() *config.Common {
+	return s.Common
 }
 
 func (s *ControlPlane) Run() error {

@@ -1,21 +1,21 @@
-package mnode_test
+package machine_test
 
 import (
 	"fmt"
+	"github.com/enfabrica/enkit/machinist/machine"
 	"github.com/enfabrica/enkit/machinist/machinist_assets"
-	"github.com/enfabrica/enkit/machinist/node"
 	"github.com/stretchr/testify/assert"
 
 	"testing"
 )
 // Todo(adam): validate tempalte with nss somehow calling the parse lib
 func TestMachinistNodeTemplate(t *testing.T) {
-	_, err := mnode.ReadSSHDContent("/bar", "/foo", "/baz")
+	_, err := machine.ReadSSHDContent("/bar", "/foo", "/baz")
 	assert.Nil(t, err)
 	for k := range machinist_assets.AutoUserBinaries {
 		fmt.Println(k)
 	}
-	c := &mnode.NssConf{
+	c := &machine.NssConf{
 		DefaultShell: "/home/shelly",
 		Shells: []struct {
 			Home  string
@@ -33,7 +33,7 @@ func TestMachinistNodeTemplate(t *testing.T) {
 			},
 		},
 	}
-	out, err := mnode.ReadNssConf(c)
+	out, err := machine.ReadNssConf(c)
 	assert.Nil(t, err)
 	fmt.Print(string(out))
 }

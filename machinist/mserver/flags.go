@@ -1,10 +1,12 @@
 package mserver
 
-import "github.com/enfabrica/enkit/machinist"
+import (
+	"github.com/enfabrica/enkit/machinist/config"
+)
 
 type Modifier func(s *ControlPlane) error
 
-func WithMachinistFlags(mods ...machinist.Modifier) Modifier {
+func WithMachinistFlags(mods ...config.CommonModifier) Modifier {
 	return func(s *ControlPlane) error {
 		for _, mod := range mods {
 			if err := mod(s); err != nil {

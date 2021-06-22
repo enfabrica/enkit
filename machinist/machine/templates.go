@@ -1,4 +1,4 @@
-package mnode
+package machine
 
 import (
 	"bytes"

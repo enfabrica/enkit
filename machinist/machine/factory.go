@@ -1,4 +1,4 @@
-package mnode
+package machine
 
 import (
 	"fmt"
@@ -7,7 +7,6 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/retry"
-	"github.com/enfabrica/enkit/machinist"
 	"github.com/enfabrica/enkit/machinist/config"
 	"google.golang.org/grpc"
 	"log"
@@ -15,12 +14,12 @@ import (
 	"time"
 )
 
-func New(mods ...NodeModifier) (*Node, error) {
-	n := &Node{
+func New(mods ...NodeModifier) (*Machine, error) {
+	n := &Machine{
 		Log:      logger.DefaultLogger{Printer: log.Printf},
 		Repeater: retry.New(retry.WithWait(5*time.Second), retry.WithAttempts(5)),
 		Node: &config.Node{
-
+			Common: config.DefaultCommonFlags(),
 		},
 	}
 	for _, m := range mods {
@@ -29,7 +28,7 @@ func New(mods ...NodeModifier) (*Node, error) {
 		}
 	}
 	if n.AuthClient == nil && n.DialFunc == nil {
-		conn, err := n.config.bf.Connect()
+		conn, err := n.Root.Connect()
 		if err != nil {
 			return nil, err
 		}
@@ -38,12 +37,12 @@ func New(mods ...NodeModifier) (*Node, error) {
 	return n, nil
 }
 
-type NodeModifier func(node *Node) error
+type NodeModifier func(node *Machine) error
 
-func WithMachinistFlags(mods ...machinist.Modifier) NodeModifier {
-	return func(n *Node) error {
+func WithMachinistFlags(mods ...config.CommonModifier) NodeModifier {
+	return func(n *Machine) error {
 		for _, mod := range mods {
-			if err := mod(n.config); err != nil {
+			if err := mod(n); err != nil {
 				return err
 			}
 		}
@@ -52,28 +51,28 @@ func WithMachinistFlags(mods ...machinist.Modifier) NodeModifier {
 }
 
 func WithName(name string) NodeModifier {
-	return func(node *Node) error {
-		node.config.Name = name
+	return func(node *Machine) error {
+		node.Name = name
 		return nil
 	}
 }
 
 func WithTags(tags []string) NodeModifier {
-	return func(node *Node) error {
-		node.config.Tags = tags
+	return func(node *Machine) error {
+		node.Tags = tags
 		return nil
 	}
 }
 
 func WithDialFunc(f func() (*grpc.ClientConn, error)) NodeModifier {
-	return func(node *Node) error {
+	return func(node *Machine) error {
 		node.DialFunc = f
 		return nil
 	}
 }
 
 func WithAuthFlags(af *client.AuthFlags) NodeModifier {
-	return func(node *Node) error {
+	return func(node *Machine) error {
 		cc, err := af.Connect()
 		if err != nil {
 			return err
@@ -84,7 +83,7 @@ func WithAuthFlags(af *client.AuthFlags) NodeModifier {
 }
 
 func WithIps(ips []string) NodeModifier {
-	return func(node *Node) error {
+	return func(node *Machine) error {
 		var errors []error
 		var ipps []net.IP
 		for _, v := range ips {
@@ -98,6 +97,13 @@ func WithIps(ips []string) NodeModifier {
 			return multierror.New(errors)
 		}
 		node.IpAddresses = ips
+		return nil
+	}
+}
+
+func WithConfig(node *config.Node) NodeModifier {
+	return func(machine *Machine) error {
+		machine.Node = node
 		return nil
 	}
 }

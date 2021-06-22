@@ -24,7 +24,11 @@ var (
 )
 
 // SendMetricsRequest polls the controlplane for metrics as well as spin up prometheus' node exporter.
-func SendMetricsRequest(ctx context.Context, c config.Node) error {
+func SendMetricsRequest(ctx context.Context, c *config.Node) error {
+	if !c.EnableMetrics {
+		c.Root.Log.Infof("Metrics are disabled")
+		return nil
+	}
 	h := promhttp.Handler()
 	http.Handle("/metrics", h)
 	return goroutine.WaitFirstError(func() error {

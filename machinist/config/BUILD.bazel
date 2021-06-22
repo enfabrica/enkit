@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "common.go",
-        "node.go",
+        "machine.go",
     ],
     importpath = "github.com/enfabrica/enkit/machinist/config",
     visibility = ["//visibility:public"],
@@ -13,6 +13,6 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["node_test.go"],
+    srcs = ["machine_test.go"],
     embed = [":go_default_library"],
 )

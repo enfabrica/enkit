@@ -1,7 +1,6 @@
 package config
 
 import (
-	"github.com/enfabrica/enkit/lib/client"
 	"path/filepath"
 )
 
@@ -26,9 +25,6 @@ type Node struct {
 	SSHDConfigurationLocation string
 	ReWriteConfigs            bool
 
-
-
-	Root   *client.BaseFlags
 	*Common
 }
 

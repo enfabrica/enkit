@@ -1,4 +1,4 @@
-package mnode
+package machine
 
 import (
 	"github.com/enfabrica/enkit/machinist/config"
@@ -27,11 +27,12 @@ func NewNodeCommand(common *config.Common) *cobra.Command {
 	return c
 }
 
-
 func NewEnrollCommand(conf *config.Node) *cobra.Command {
 	c := &cobra.Command{
 		Use:  "enroll [Name] [OPTIONS]",
 		Args: cobra.ExactArgs(1),
+
+
 		RunE: func(cmd *cobra.Command, args []string) error {
 			n, err := New()
 			if err != nil {
@@ -64,8 +65,16 @@ func NewPollCommand(conf *config.Node) *cobra.Command {
 	c := &cobra.Command{
 		Use: "poll [SUBCOMMANDS] [OPTIONS]",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return nil
+			m, err := New(WithConfig(conf))
+			if err != nil {
+				return err
+			}
+			if err = m.Init(); err != nil {
+				return err
+			}
+			return m.BeginPolling()
 		},
 	}
+	c.PersistentFlags().StringArrayVar(&conf.IpAddresses, "ips", []string{}, "the list of ip addresses bound to this machine")
 	return c
 }

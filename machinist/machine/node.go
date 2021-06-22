@@ -1,4 +1,4 @@
-package mnode
+package machine
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 	"strconv"
 )
 
-type Node struct {
+type Machine struct {
 	MachinistClient machinist_rpc.ControllerClient
 	AuthClient      auth.AuthClient
 	Repeater        *retry.Options
@@ -35,7 +35,11 @@ type Node struct {
 	*config.Node
 }
 
-func (n *Node) Init() error {
+func (n *Machine) MachinistCommon() *config.Common {
+	return n.Common
+}
+
+func (n *Machine) Init() error {
 	if n.DialFunc != nil {
 		conn, err := n.DialFunc()
 		if err != nil {
@@ -54,23 +58,23 @@ func (n *Node) Init() error {
 	return nil
 }
 
-func (n *Node) BeginPolling() error {
+func (n *Machine) BeginPolling() error {
 	ctx := context.Background()
 	return goroutine.WaitFirstError(
 		func() error {
-			return polling.SendRegisterRequests(ctx, n.MachinistClient, n)
+			return polling.SendRegisterRequests(ctx, n.MachinistClient, n.Node)
 		},
 		func() error {
 			return polling.SendKeepAliveRequest(ctx, n.MachinistClient)
 		},
 		func() error {
-			return polling.SendMetricsRequest(ctx)
+			return polling.SendMetricsRequest(ctx, n.Node)
 		},
 	)
 }
 
 // TODO(adam): perform rollbacks if enroll fails
-func (n *Node) Enroll() error {
+func (n *Machine) Enroll() error {
 	if os.Geteuid() != 0 && n.RequireRoot {
 		return errors.New("this command must be run as root since it touches the /etc/ssh directory")
 	}

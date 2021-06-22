@@ -17,7 +17,7 @@ go_library(
         "//lib/client:go_default_library",
         "//lib/knetwork/kdns:go_default_library",
         "//lib/logger:go_default_library",
-        "//machinist:go_default_library",
+        "//machinist/config:go_default_library",
         "//machinist/rpc:machinist-go",
         "@com_github_miekg_dns//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
