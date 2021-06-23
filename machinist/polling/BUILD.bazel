@@ -16,5 +16,6 @@ go_library(
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
+        "@org_uber_go_atomic//:go_default_library",
     ],
 )

@@ -24,6 +24,7 @@ func SendKeepAliveRequest(ctx context.Context, client machinist_rpc.ControllerCl
 			if err := pollStream.Send(pollReq); err != nil {
 				ps, err := client.Poll(ctx)
 				if err != nil {
+					keepAliveErrorCounter.Inc()
 					continue
 				}
 				pollStream = ps

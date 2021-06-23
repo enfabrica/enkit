@@ -1,6 +1,11 @@
 package state
 
-type ControlPlane struct {
+import "sync"
 
+type Machine struct {
 }
 
+type MachineController struct {
+	sync.Mutex
+	Machines []*Machine
+}

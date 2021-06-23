@@ -135,6 +135,7 @@ func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg)
 	m := &dns.Msg{}
 	m.SetReply(incoming)
 	m.Compress = false
+	m.RecursionAvailable = true
 	switch incoming.Opcode {
 	case dns.OpcodeQuery:
 		s.ParseDNS(m)

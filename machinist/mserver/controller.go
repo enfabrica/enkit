@@ -10,11 +10,11 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 type Controller struct {
-	Log logger.Logger
-
+	Log                 logger.Logger
 	domains             []string
 	connectedNodes      map[string]*Node
 	connectedNodesMutex sync.RWMutex
@@ -113,7 +113,6 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 
 func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 	for _, d := range en.dnsServer.Domains {
-		fmt.Println("domain d is ", d)
 		dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", name, d))
 		var recordTags []dns.RR
 		for _, t := range tags {
@@ -141,5 +140,26 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 				en.dnsServer.SetEntry(dnsName, recordTags)
 			}
 		}
+	}
+}
+
+func (en *Controller) ServeAllRecords() {
+	for {
+		ns := en.Nodes()
+		for _, d := range en.dnsServer.Domains {
+			dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", "_all", d))
+			var rs []dns.RR
+			for _, v := range ns {
+				for _, i := range v.Ips {
+					rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "A", i.String()))
+					if err != nil {
+						en.Log.Errorf("err: %v", err)
+					}
+					rs = append(rs, rr)
+				}
+			}
+			en.dnsServer.SetEntry(dnsName, rs)
+		}
+		_ = <-time.After(5 * time.Second)
 	}
 }
