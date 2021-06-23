@@ -1,12 +1,12 @@
-### Welcome to Machinist
-#### What is machinist?
----
+Welcome to Machinist
+--- 
+##### What is machinist?
 Machinist is a bare metal runner and manager,
 It covers ssh authorization, remote execution and monitoring.
 
 It has a hard dependency on enkit authorization server.
  
-### Code Layout:
+##### Code Layout:
 ```
 client/ <- features and commands designed to be executed from an external users machine
 cmd/ <- entrypoint to main package
@@ -19,7 +19,7 @@ state/ <- mutable state models and features
 testing/ <- e2e and integration tests
 ```
 
-### Features
+##### Features
 - DNS server baked in for enrolled machines
 - Exports prometheus metrics
 - SSH Authorization through ssh certificates
