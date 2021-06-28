@@ -10,15 +10,9 @@ load("//bazel:deps.bzl", "enkit_deps")
 enkit_deps()
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk")
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
-# https://golang.org/dl/?mode=json
-go_download_sdk(
-    name = "go_sdk",
-    sdks = {
-        "linux_amd64": ("go1.14.9.linux-amd64.tar.gz", "f0d26ff572c72c9823ae752d3c81819a81a60c753201f51f89637482531c110a"),
-        "darwin_amd64": ("go1.14.9.darwin-amd64.tar.gz", "957926fd883998f3e212ccd422d4282be957204f89eefcf13ee2fdb730e1bab7"),
-    },
-)
+go_register_toolchains(version = "1.16")
 
 load("//bazel:init.bzl", "enkit_init")
 
