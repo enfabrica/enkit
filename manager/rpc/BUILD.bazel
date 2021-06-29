@@ -13,7 +13,7 @@ go_proto_library(
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
     importpath = "github.com/enfabrica/enkit/manager/rpc",
     proto = ":license_proto",
-    visibility = ["//visibility:public"],
+    visibility = ["//visibility:public"]
 )
 
 go_library(
