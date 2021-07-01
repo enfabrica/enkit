@@ -767,6 +767,12 @@ def go_repositories():
         version = "v17.0.0+incompatible",
     )
     go_repository(
+        name = "com_github_google_go_github36",
+        importpath = "github.com/google/go-github/v36",
+        sum = "h1:ndCzM616/oijwufI7nBRa+5eZHLldT+4yIB68ib5ogs=",
+        version = "v36.0.0",
+    )
+    go_repository(
         name = "com_github_google_go_querystring",
         importpath = "github.com/google/go-querystring",
         sum = "h1:Xkwi/a1rcvNg1PPYe5vI8GbeBY/jrVuDX5ASuANWTrk=",
