@@ -83,6 +83,14 @@ fi
 
 BRANCHES_DIR="${HOME}/${REPO}/branches/"
 
+# colors library
+_COLOR_RST="$(tput sgr0)"
+_COLOR_CMD="$(tput bold; tput setaf 12)"
+_COLOR_RSP="$(tput setaf 2)"
+_COLOR_DIE="$(tput bold; tput setaf 15; tput setab 3)"
+_COLOR_WARN="$(tput setaf 11)"
+_COLOR_INFO="$(tput setaf 1)"
+
 function _startup_checks() {
   if [[ ! -x "${GIT}" ]]; then
     _die "${GIT} is not installed."
@@ -141,12 +149,16 @@ function _confirm_or_exit() {
   esac
 }
 
+function _info() {
+  echo >&2 "${_COLOR_INFO}$*${_COLOR_RST}"
+}
+
 function _warn() {
-  echo >&2 "WARNING: $*"
+  echo >&2 "${_COLOR_WARN}WARNING: $*${_COLOR_RST}"
 }
 
 function _die() {
-  echo >&2 "FATAL: $*"
+  echo >&2 "${_COLOR_DIE}FATAL: $*${_COLOR_RST}"
   if [[ -z "${NOSTACK}" ]]; then
     echo >&2 "Stack trace:"
     local i
@@ -161,12 +173,13 @@ function _die() {
 function _cmd() {
   if [[ $DRYRUN -eq 0 ]]; then
     if [[ $VERBOSE -gt 0 ]]; then
-      echo -ne "CMD: "
+      echo -ne "CMD:${_COLOR_CMD}"
       printf " %q" "$@"
-      printf "\n"
+      printf "\n${_COLOR_RST}${_COLOR_RSP}"
     fi
     set +e
     "$@"
+    printf "${_COLOR_RST}"
     RC=$?
     if [[ "${RC}" -ne 0 ]]; then
       if [[ -z "${NOFAIL}" ]]; then
@@ -177,9 +190,9 @@ function _cmd() {
     fi
     set -e
   else
-    echo -n "DRYRUN: "
+    echo -n "${_COLOR_CMD}DRYRUN: "
     printf " %q" "$@"
-    printf "\n"
+    printf "${_COLOR_RST}\n"
   fi
 }
 
@@ -233,7 +246,7 @@ function gee__make_branch() {
   fi
 
   _git worktree add "${BRANCHES_DIR}/${BRNAME}"
-  echo "Created ${BRANCHES_DIR}/${BRNAME}"
+  _info "Created ${BRANCHES_DIR}/${BRNAME}"
 }
 
 function gee__log() {
