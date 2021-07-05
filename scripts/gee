@@ -58,6 +58,8 @@
 
 set -e
 
+TRUE=0
+FALSE=1
 GIT=/usr/bin/git
 GH=/usr/bin/gh
 GHUSER="${GHUSER-:$USER-enf}"
@@ -139,6 +141,10 @@ function _confirm_or_exit() {
   esac
 }
 
+function _warn() {
+  echo >&2 "WARNING: $*"
+}
+
 function _die() {
   echo >&2 "FATAL: $*"
   if [[ -z "${NOSTACK}" ]]; then
@@ -162,11 +168,14 @@ function _cmd() {
     set +e
     "$@"
     RC=$?
-    if [[ "$RC" -ne 0 ]]; then
-      _die "Command failed with exit code ${RC}"
+    if [[ "${RC}" -ne 0 ]]; then
+      if [[ -z "${NOFAIL}" ]]; then
+        _die "Command failed with exit code ${RC}"
+      else
+        _warn "Command failed with exit code ${RC}"
+      fi
     fi
     set -e
-    return $RC
   else
     echo -n "DRYRUN: "
     printf " %q" "$@"
@@ -317,10 +326,18 @@ function _checkout_or_die() {
   fi
 }
 
+function _get_current_branch() {
+  local CB="$("${GIT}" branch --show-current)"
+  if [[ -z "${CB}" ]]; then
+    _die "Could not get current branch in directory $(pwd)"
+  fi
+  echo "${CB}"
+}
+
 HELP+=("update: integrate upstream changes into this branch.")
 function gee__update() {
   local CURRENT_BRANCH
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
     _die "Not in a git branch directory."
   fi
@@ -340,8 +357,12 @@ function gee__update() {
   _checkout_or_die master
   _git merge upstream/master
   _checkout_or_die "${CURRENT_BRANCH}"
+
   _git rebase master
-  _git pull origin "${CURRENT_BRANCH}"
+  if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+    _git ls-remote origin "${CURRENT_BRANCH}"
+    _git pull origin "${CURRENT_BRANCH}"
+  fi
   _git push origin "${CURRENT_BRANCH}"
 }
 
@@ -384,6 +405,20 @@ function gee__lsbranches() {
   done
 }
 
+function _remote_branch_exists() {
+  local REPO="$1"; shift
+  local BRANCH="$1"; shift
+  if [[ -z "${BRANCH}" ]]; then
+    _die "insufficient args"
+  fi
+  local OUTPUT="$("${GIT}" ls-remote "${REPO}" "${BRANCH}")"
+  if [[ -z "${OUTPUT}" ]]; then
+    return "${FALSE}"
+  else
+    return "${TRUE}"
+  fi
+}
+
 HELP+=("commit: commit all changes in this branch")
 function gee__push() { gee__commit "$@"; }
 function gee__commit() {
@@ -396,10 +431,12 @@ function gee__commit() {
   else
     echo "Skipped \"git add --all\" because branch is home dir."
   fi
-  NOSTACK=1 _git commit "$@"
+  NOFAIL=1 NOSTACK=1 _git commit "$@"
   # We always push upstream so that users have a backup in case they lose their
   # laptop:
-  _git pull origin "${CURRENT_BRANCH}"
+  if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+    _git pull origin "${CURRENT_BRANCH}"
+  fi
   _git push origin "${CURRENT_BRANCH}"
 }
 
@@ -448,6 +485,9 @@ function gee__send() {
 
 function gee__submit() { gee__merge "$@"; }
 function gee__merge() {
+  if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+    _die "Remote branch ${CURRENT_BRANCH} does not exist."
+  fi
   _gh pr checks
   _gh pr merge --squash
   _git pull
