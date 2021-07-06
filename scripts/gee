@@ -337,6 +337,7 @@ function _checkout_or_die() {
   if [[ -z "${BRDIR}" ]]; then
     _die "Could not check out ${BRNAME}"
   fi
+  cd "${BRDIR}"
 }
 
 function _get_current_branch() {
@@ -496,6 +497,7 @@ function gee__send() {
 }
   
 
+HELP+=("submit: Merge the approved PR into the parent branch.")
 function gee__submit() { gee__merge "$@"; }
 function gee__merge() {
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
@@ -504,6 +506,25 @@ function gee__merge() {
   _gh pr checks
   _gh pr merge --squash
   _git pull
+}
+
+HELP+=("removebranch: Remove branch")
+function gee__rmbr() { gee__removebranch "$@"; }
+function gee__removebranch() { 
+  local BR="$1"; shift
+  if [[ -z "${BR}" ]]; then
+    _die "Must specify a branch name to remove."
+  fi
+  _checkout_or_die "${BR}"
+  local DIFFS="$(${GIT} diff --name-only)"
+  if [[ ! -z "${DIFFS}" ]]; then
+    echo "The following files have local changes:"
+    echo "  ${DIFFS}"
+    _confirm_or_exit "Are you sure you want to force-remove branch ${BR}? (y/N) "
+  fi
+  _checkout_or_die master
+  _git worktree remove "${BR}"
+  _git branch -D "${BR}"
 }
 
 function main() {
