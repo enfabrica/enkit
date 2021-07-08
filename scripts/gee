@@ -490,7 +490,8 @@ function gee__send() {
     fi
   fi
 
-  _gh pr create
+  _git push origin "${CURRENT_BRANCH}"
+  _gh pr create -H "${GHUSER}/${CURRENT_BRANCH}"
   # _gh pr checks  # not sure why this is problematic.
   _gh pr view
   echo "Add reviewers."
