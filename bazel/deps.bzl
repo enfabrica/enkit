@@ -39,15 +39,14 @@ def enkit_deps():
             ],
         )
 
-    if "rules_proto" not in excludes:
+    if "com_google_protobuf" not in excludes:
         http_archive(
-            name = "rules_proto",
-            sha256 = "e0cab008a9cdc2400a1d6572167bf9c5afc72e19ee2b862d18581051efab42c9",
-            strip_prefix = "rules_proto-c0b62f2f46c85c16cb3b5e9e921f0d00e3101934",
-            urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/c0b62f2f46c85c16cb3b5e9e921f0d00e3101934.tar.gz",
-                "https://github.com/bazelbuild/rules_proto/archive/c0b62f2f46c85c16cb3b5e9e921f0d00e3101934.tar.gz",
-            ],
+	    name = "com_google_protobuf",
+	    sha256 = "c6003e1d2e7fefa78a3039f19f383b4f3a61e81be8c19356f85b6461998ad3db",
+	    strip_prefix = "protobuf-3.17.3",
+	    urls = [
+                "https://github.com/protocolbuffers/protobuf/archive/v3.17.3.tar.gz",
+	    ],
         )
     # rules_docker 0.14.4 is incompatible with rules_pkg 0.3.0 as of Oct/2020.
     #

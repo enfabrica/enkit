@@ -3,11 +3,15 @@ module github.com/enfabrica/enkit
 go 1.14
 
 require (
+	cloud.google.com/go v0.86.0 // indirect
 	cloud.google.com/go/datastore v1.1.0
 	cloud.google.com/go/storage v1.10.0
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6 // indirect
+	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cheggaaa/pb/v3 v3.0.5
+	github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e // indirect
+	github.com/cncf/xds/go v0.0.0-20210323124008-b88cc788a63e // indirect
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/cybozu-go/aptutil v1.4.2-0.20200413001041-3f82d8384481
@@ -17,11 +21,14 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0
+	github.com/envoyproxy/go-control-plane v0.9.9 // indirect
+	github.com/envoyproxy/protoc-gen-validate v0.6.1 // indirect
 	github.com/fatih/color v1.10.0
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/go-lintpack/lintpack v0.5.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-collections/go-datastructures v0.0.0-20150211160725-59788d5eb259 // indirect
+	github.com/golang/glog v0.0.0-20210429001901-424d2337a529 // indirect
 	github.com/golang/protobuf v1.5.2
 	github.com/golangci/errcheck v0.0.0-20181223084120-ef45e06d44b6 // indirect
 	github.com/golangci/go-tools v0.0.0-20190318055746-e32c54105b7c // indirect
@@ -33,6 +40,7 @@ require (
 	github.com/golangci/prealloc v0.0.0-20180630174525-215b22d4de21 // indirect
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/improbable-eng/grpc-web v0.13.0
 	github.com/kataras/muxie v1.1.1
@@ -61,11 +69,13 @@ require (
 	go.uber.org/goleak v1.1.10 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
-	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
-	google.golang.org/api v0.30.0
-	google.golang.org/genproto v0.0.0-20210701191553-46259e63a0a9 // indirect
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
+	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+	google.golang.org/api v0.50.0
+	google.golang.org/genproto v0.0.0-20210708141623-e76da96a951f // indirect
 	google.golang.org/grpc v1.39.0
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0 // indirect
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect

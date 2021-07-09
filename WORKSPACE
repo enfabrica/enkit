@@ -5,26 +5,33 @@ workspace(
     managed_directories = {"@npm": ["ui/node_modules"]},
 )
 
-load("//bazel:deps.bzl", "enkit_deps")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+load("//bazel:deps.bzl", "enkit_deps")
 enkit_deps()
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk")
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+protobuf_deps()
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
-
 go_register_toolchains(version = "1.15")
+go_rules_dependencies()
 
-load("//bazel:init.bzl", "enkit_init")
-
-enkit_init()
-
-# gazelle:repo bazel_gazelle
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+gazelle_dependencies()
 
 load("//bazel:go_repositories.bzl", "go_repositories")
-
 go_repositories()
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@io_bazel_rules_go//extras:embed_data_deps.bzl", "go_embed_data_dependencies")
+go_embed_data_dependencies()
+
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+rules_pkg_dependencies()
+
+load("@com_github_atlassian_bazel_tools//multirun:deps.bzl", "multirun_dependencies")
+multirun_dependencies()
 
 http_archive(
     name = "com_github_bazelbuild_buildtools",
@@ -64,7 +71,6 @@ container_pull(
 )
 
 load("@build_bazel_rules_nodejs//:index.bzl", "yarn_install")
-
 yarn_install(
     # Name this npm so that Bazel Label references look like @npm//package
     name = "npm",
