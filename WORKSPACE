@@ -10,6 +10,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//bazel:deps.bzl", "enkit_deps")
 enkit_deps()
 
+# packages must be loaded in this staggered manner to fix the dependency issue
+# in order for protobuf and grpc to work hence the removal of enkit_init()
 load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk")
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 protobuf_deps()
