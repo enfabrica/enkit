@@ -376,7 +376,6 @@ function gee__update() {
   # TODO(jonathan): Understand when to use rebase instead of merge.
   
   if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
-    _git ls-remote origin "${CURRENT_BRANCH}"
     # TODO(jonathan): Is this really necessary?
     _git pull origin "${CURRENT_BRANCH}"
   fi
