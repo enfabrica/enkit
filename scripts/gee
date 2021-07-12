@@ -59,7 +59,7 @@
 #
 # Updates flow in one direction through these branches:
 #
-#   upstream/master -> origin/master -> master -> $feature -> origin/$feature
+#   upstream/master -> master -> origin/master -> $feature -> origin/$feature
 #
 # The user only commits changes to $feature.
 #
@@ -453,9 +453,12 @@ function gee__update() {
   fi
   _git fetch upstream
   # Merge from upstream/master into master:
-  _git merge master upstream/master
+  _checkout_or_die master
+  _git pull upstream master
+  _git push -u origin master
   # Merge from master into the current branch:
-  _git merge "${CURRENT_BRANCH}" master
+  _checkout_or_die "${CURRENT_BRANCH}"
+  _git merge master
   # TODO(jonathan): Understand when to use rebase instead of merge.
   
   _git push -u origin "${CURRENT_BRANCH}"
