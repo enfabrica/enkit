@@ -300,6 +300,14 @@ function gee__make_branch() {
 
   _git worktree add "${BRANCHES_DIR}/${BRNAME}"
   _info "Created ${BRANCHES_DIR}/${BRNAME}"
+
+  # If the user has created a branch whose name matches an
+  # existing branch in their existing repo, pull those changes
+  # into this branch.
+  if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+    _git pull origin "${CURRENT_BRANCH}"
+    _info "Pulled in changes from origin/${CURRENT_BRANCH}"
+  fi
 }
 
 _register_help "log" "Log of commits since parent branch." <<'EOT'
