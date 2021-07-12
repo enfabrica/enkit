@@ -451,10 +451,6 @@ function gee__update() {
   _git merge "${CURRENT_BRANCH}" master
   # TODO(jonathan): Understand when to use rebase instead of merge.
   
-  if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
-    # TODO(jonathan): Is this really necessary?
-    _git pull origin "${CURRENT_BRANCH}"
-  fi
   _git push -u origin "${CURRENT_BRANCH}"
 }
 
@@ -547,11 +543,11 @@ function gee__commit() {
     echo "Skipped \"git add --all\" because branch is home dir."
   fi
   NOFAIL=1 NOSTACK=1 _git commit "$@"
+  #if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+  #  _git pull origin "${CURRENT_BRANCH}"
+  #fi
   # We always push upstream so that users have a backup in case they lose their
   # laptop:
-  if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
-    _git pull origin "${CURRENT_BRANCH}"
-  fi
   _git push -u origin "${CURRENT_BRANCH}"
 }
 
@@ -562,8 +558,9 @@ Usage: gee pr
 Creates a new pull request from this branch.
 EOT
 
-function gee__mail() { gee__send "$@"; }
-function gee__send() {
+function gee__mail() { gee__pr "$@"; }
+function gee__send() { gee__pr "$@"; }
+function gee__pr() {
   if "${GH}" pr view > /dev/null; then
     echo "PR already exists, use \"git commit\" to update."
     _gh pr view
@@ -600,7 +597,7 @@ function gee__send() {
   # Note: we must label origin as the upstream branch for "gh pr create" to
   # automatically pick the branch to use for the PR request.
   _git push -u origin "${CURRENT_BRANCH}"
-  _gh pr create -H "${GHUSER}/${CURRENT_BRANCH}"
+  _gh pr create
   # _gh pr checks  # not sure why this is problematic.
   _gh pr view
   echo "Add reviewers."
