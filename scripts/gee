@@ -55,6 +55,7 @@
 # the other repos.
 #
 # TODO(jonathan): Bash implementation is a prototype.  rewrite in golang.
+# TODO(jonathan): "git push -u" option is going to change soon.
 
 set -e
 
@@ -298,7 +299,7 @@ function gee__squash() {
   _git reset --soft "${MERGE_BASE}"
   _git commit -a -F "${TMPFILE}"
   rm "${TMPFILE}"
-  _git push origin "+${CURRENT_BRANCH}"  # update remote branch too
+  _git push -u origin "+${CURRENT_BRANCH}"  # update remote branch too
   _git log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}"
 }
   
@@ -377,7 +378,7 @@ function gee__update() {
     _git ls-remote origin "${CURRENT_BRANCH}"
     _git pull origin "${CURRENT_BRANCH}"
   fi
-  _git push origin "${CURRENT_BRANCH}"
+  _git push -u origin "${CURRENT_BRANCH}"
 }
 
 HELP+=("config: configure _git and _gh tools.")
@@ -451,7 +452,7 @@ function gee__commit() {
   if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
     _git pull origin "${CURRENT_BRANCH}"
   fi
-  _git push origin "${CURRENT_BRANCH}"
+  _git push -u origin "${CURRENT_BRANCH}"
 }
 
 HELP+=("send: Send a PR out for review.")
@@ -490,7 +491,9 @@ function gee__send() {
     fi
   fi
 
-  _git push origin "${CURRENT_BRANCH}"
+  # Note: we must label origin as the upstream branch for "gh pr create" to
+  # automatically pick the branch to use for the PR request.
+  _git push -u origin "${CURRENT_BRANCH}"
   _gh pr create -H "${GHUSER}/${CURRENT_BRANCH}"
   # _gh pr checks  # not sure why this is problematic.
   _gh pr view
