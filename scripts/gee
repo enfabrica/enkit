@@ -33,9 +33,14 @@
 # review and immediately start work on it's descendant, "feature2" while
 # "feature1" is undergoing review.
 #
-# Enable "worktree" model by default: every branch gets it's own worktree
-# under a standard directory tree structure.  Directory name is always
-# "<REPO>/branches/<branch>".
+# All gee-maintained repos and branches live under ~/gee.  The directory
+# structure is: "${HOME}/gee/<REPO>/<BRANCH>".
+#
+# Gee uses the "worktree" model by default: every branch gets it's own
+# dedicated directory, and users switch branchs by changing directories.
+# This enables simultaneous work on separate branches, and prevents editor
+# disruption when switching from branch to branch (ie. accidentally saving a
+# change from one branch in a different branch).
 #
 # Branches:
 #    upstream: the original repo we have forked (enfabrica/$REPO)
@@ -72,7 +77,12 @@ declare -a HELP=()
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
+  # Try the old directory layout:
   if [[ "${PWD}" =~ ^${HOME}/([a-z0-9_-]+)/branches/([a-z0-9_-]+) ]]; then
+    REPO="${BASH_REMATCH[1]}"
+  fi
+  # Try the new directory layout:
+  if [[ "${PWD}" =~ ^${HOME}/gee/([a-z0-9_-]+)/([a-z0-9_-]+) ]]; then
     REPO="${BASH_REMATCH[1]}"
   fi
 fi
@@ -82,7 +92,7 @@ if [[ -z "${REPO}" ]]; then
   REPO=internal
 fi
 
-BRANCHES_DIR="${HOME}/${REPO}/branches/"
+BRANCHES_DIR="${HOME}/gee/${REPO}/"
 
 # colors library
 _COLOR_RST="$(tput sgr0)"
