@@ -369,13 +369,15 @@ function gee__update() {
     exit 1
   fi
   _git fetch upstream
-  _checkout_or_die master
-  _git merge upstream/master
-  _checkout_or_die "${CURRENT_BRANCH}"
-
-  _git rebase master
+  # Merge from upstream/master into master:
+  _git merge master upstream/master
+  # Merge from master into the current branch:
+  _git merge "${CURRENT_BRANCH}" master
+  # TODO(jonathan): Understand when to use rebase instead of merge.
+  
   if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
     _git ls-remote origin "${CURRENT_BRANCH}"
+    # TODO(jonathan): Is this really necessary?
     _git pull origin "${CURRENT_BRANCH}"
   fi
   _git push -u origin "${CURRENT_BRANCH}"
