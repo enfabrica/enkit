@@ -55,9 +55,16 @@
 #        updated periodically from upstream/master.
 #    $feature: fork of master (or other $feature), contains
 #        local changes.  May have 0 or 1 PRs associated with it.
+#    origin/$feature: github backup of $feature branch.
 #
-# All work is done in $feature, and this script automates maintenance of
-# the other repos.
+# Updates flow in one direction through these branches:
+#
+#   upstream/master -> origin/master -> master -> $feature -> origin/$feature
+#
+# The user only commits changes to $feature.
+#
+# Changes then migrate from origin/$feature back to upstream/master when a
+# PR is approved and merged.
 #
 # TODO(jonathan): Bash implementation is a prototype.  rewrite in golang.
 # TODO(jonathan): "git push -u" option is going to change soon.
@@ -535,6 +542,12 @@ function gee__push() { gee__commit "$@"; }
 function gee__commit() {
   local CURRENT_BRANCH
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  if [[ "${CURRENT_BRANCH}" == "master" ]]; then
+    _info "You should use \"gee make_branch\" to create a feature branch"
+    _info "and commit your work there, rather than committing work to the"
+    _info "master branch."
+    NOSTACK=1 _die "Commit to master branch denied."
+  fi
   BRANCH_DIR="$(_get_branch_directory "${CURRENT_BRANCH}")"
   echo "${BRANCH_DIR}" "${HOME}"
   if [[ "${BRANCH_DIR}" != "${HOME}" ]]; then
