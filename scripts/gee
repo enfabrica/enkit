@@ -672,6 +672,10 @@ function gee__help() {
 }
 
 function main() {
+  if (( "$#" == 0 )); then
+    gee__help usage
+    exit 0
+  fi
   local cmdname="$1"; shift
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     _startup_checks
