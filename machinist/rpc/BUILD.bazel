@@ -11,11 +11,7 @@ proto_library(
         "machinist.proto",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-    ],
 )
-
-load("@rules_proto//proto:defs.bzl", "proto_library")
 
 go_proto_library(
     name = "machinist-proto-lib",
