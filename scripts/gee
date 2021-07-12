@@ -265,8 +265,12 @@ other branches will be checked out into `~/gee/<repo>/<branch>`.
 EOT
 
 function gee__init() {
-    # Initialize a new _git workspace.
-    # TODO(jonathan): also support ssh
+    if (( "$#" )); then
+      REPO="$1"
+      shift
+      BRANCHES_DIR="${HOME}/gee/${REPO}/"
+      _info "Using repo ${REPO}"
+    fi
     _cmd mkdir -p "${BRANCHES_DIR}"
     local URL UPSTREAM_URL
     URL="git@github.com:${GHUSER}/${REPO}.git"
@@ -304,9 +308,9 @@ function gee__make_branch() {
   # If the user has created a branch whose name matches an
   # existing branch in their existing repo, pull those changes
   # into this branch.
-  if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
-    _git pull origin "${CURRENT_BRANCH}"
-    _info "Pulled in changes from origin/${CURRENT_BRANCH}"
+  if _remote_branch_exists origin "${BRNAME}"; then
+    _git pull origin "${BRNAME}"
+    _info "Pulled in changes from origin/${BRNAME}"
   fi
 }
 
