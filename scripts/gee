@@ -126,11 +126,12 @@ function _register_help() {
   #
   # The "long help" for this command must be presented to this
   # function as stdin.
-  local COMMAND="$1"
+  local COMMAND SHORT LONG ALIAS
+  COMMAND="$1"
   shift
-  local SHORT="$1"
+  SHORT="$1"
   shift
-  local LONG="$(</dev/stdin)"
+  LONG="$(</dev/stdin)"
   HELP+=( "${COMMAND}: ${SHORT}" )
   LONGHELP+=(["${COMMAND}"]="${LONG}")
   while (( "$#" )); do
@@ -658,6 +659,39 @@ function gee__removebranch() {
   _checkout_or_die master
   _git worktree remove "${BR}"
   _git branch -D "${BR}"
+}
+
+_register_help "fix" "Run automatic code formatters over changed files only." <<'EOT'
+Usage: gee fix
+EOT
+
+function gee__fix() {
+  local BDIR B
+  BDIR="$(_get_branch_directory)"
+  cd "${BDIR}"
+
+  local -a FILES=()
+  while read -r fname; do
+    FILES+=( "$(readlink -f "${fname}")" )
+  done < <("${GIT}" diff --name-only master)
+
+  local -a BZL_FILES=()
+  for fname in "${FILES[@]}"; do
+    B="$(basename "${fname}")"
+    if [[ "${B}" =~ \.bzl$|^BUILD|WORKSPACE ]]; then
+      BZL_FILES+=( "${B}" )
+    fi
+  done
+  if (( "${#BZL_FILES[@]}" )); then
+    _info "Fixing ${BZL_FILES[*]}"
+    /usr/bin/bazelisk run \
+        --noshow_progress --noshow_loading_progress --logging=0 \
+        --ui_event_filters=-info,-debug \
+        @com_github_bazelbuild_buildtools//buildifier:buildifier \
+        -- "${BZL_FILES[@]}"
+  fi
+
+  # TODO(jonathan): Add more formatters.
 }
 
 _register_help "help" "Print more help about a command." <<'EOT'
