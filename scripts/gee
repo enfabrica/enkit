@@ -440,10 +440,6 @@ function gee__update() {
   if [[ -z "${CURRENT_BRANCH}" ]]; then
     _die "Not in a git branch directory."
   fi
-  MASTER_BRANCH="$("${GIT}" worktree list | grep -w \\\[master\\\] | awk '{print $1}' )"
-  if [[ -z "${MASTER_BRANCH}" ]]; then
-    MASTER_BRANCH="${BRANCHES_DIR}/master"  # default place where master branch should reside.
-  fi
   local UNCOMMITTED
   UNCOMMITTED="$("${GIT}" status --short -uall | wc -l)"
   if [[ "${UNCOMMITTED}" -gt 0 ]]; then
@@ -483,7 +479,10 @@ Reports which files differ from master.
 EOT
 
 function gee__whatsout() {
-  _git diff --name-only master
+  local BRANCH MERGEBASE
+  BRANCH="$(_get_current_branch)"
+  MERGEBASE="$(git merge-base origin/master "${BRANCH}")"
+  _git diff --name-only "${MERGEBASE}" 
 }
 
 # Report how many commits this branch is ahead/behind master.
@@ -666,14 +665,15 @@ Usage: gee fix
 EOT
 
 function gee__fix() {
-  local BDIR B
+  local BDIR MERGEBASE B
   BDIR="$(_get_branch_directory)"
+  MERGEBASE="$(git merge-base origin/master "${BRANCH}")"
   cd "${BDIR}"
 
   local -a FILES=()
   while read -r fname; do
     FILES+=( "$(readlink -f "${fname}")" )
-  done < <("${GIT}" diff --name-only master)
+  done < <( "${GIT}" diff --name-only "${MERGEBASE}" )
 
   local -a BZL_FILES=()
   for fname in "${FILES[@]}"; do
