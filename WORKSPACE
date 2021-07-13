@@ -12,7 +12,7 @@ enkit_deps()
 load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk")
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
-go_register_toolchains(version = "1.15")
+go_register_toolchains(version = "1.15.14")
 
 load("//bazel:init.bzl", "enkit_init")
 
