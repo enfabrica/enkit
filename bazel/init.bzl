@@ -8,7 +8,7 @@ load("@com_github_atlassian_bazel_tools//multirun:deps.bzl", "multirun_dependenc
 
 def enkit_init_go():
     go_rules_dependencies()
-    go_register_toolchains()
+    go_register_toolchains(version = "1.15.14")
     go_embed_data_dependencies()
     gazelle_dependencies()
 
