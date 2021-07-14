@@ -758,7 +758,7 @@ function gee__help() {
     echo "Commands:"
     for h in "${HELP[@]}"; do
       echo "  $h"
-    done
+    done | sort
   fi
   if [[ "$1" == "usage" ]]; then shift; fi
   while (( "$#" )); do
