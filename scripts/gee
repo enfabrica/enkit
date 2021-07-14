@@ -392,6 +392,10 @@ function gee__squash() {
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
   NUM_COMMITS="$("${GIT}" log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}" | /usr/bin/wc -l)"
+  _info "Current branch: ${CURRENT_BRANCH}"
+  _info "Parent branch: ${PARENT_BRANCH}"
+  _info "Merge base: ${MERGE_BASE}"
+  _info "Number of commits outstanding: ${NUM_COMMITS}"
   if [[ "${NUM_COMMITS}" -lt 2 ]]; then
     echo "${NUM_COMMITS} commits outstanding.  Nothing to squash."
     exit 0
@@ -613,16 +617,23 @@ EOT
 function gee__mail() { gee__pr "$@"; }
 function gee__send() { gee__pr "$@"; }
 function gee__pr() {
-  if "${GH}" pr view > /dev/null; then
-    echo "PR already exists, use \"git commit\" to update."
-    _gh pr view
-    exit 1
-  fi
-
   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
   PARENT_BRANCH="$(_get_parent_branch)"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
+  _info "Current branch: ${CURRENT_BRANCH}"
+  _info "Parent branch: ${PARENT_BRANCH}"
+  _info "Merge base: ${MERGE_BASE}"
+
+  # "gh pr view" arguements are similar to "gh pr create" but not identical.
+  local -a VIEW_ARGS=()
+  VIEW_ARGS+=( --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" )
+
+  if "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
+    echo "PR already exists, use \"git commit\" to update."
+    _gh pr view "${VIEW_ARGS[@]}"
+    exit 1
+  fi
 
   UNCOMMITTED="$("${GIT}" status --short -uall | wc -l)"
   if [[ "${UNCOMMITTED}" -gt 0 ]]; then
@@ -649,9 +660,16 @@ function gee__pr() {
   # Note: we must label origin as the upstream branch for "gh pr create" to
   # automatically pick the branch to use for the PR request.
   _git push -u origin "${CURRENT_BRANCH}"
-  _gh pr create
+  # gh pr is arcane and confusing, but this works:
+  #  -R specifies the repo that we are pushing changes into.
+  #  -H specifies the branch that contains outstanding commits,
+  #     formatted username:branchname.
+  #  -B specifies the branch we want to merge to, defaults to enfabrica:master
+  local -a PR_ARGS
+  PR_ARGS+=( --repo "enfabrica/${REPO}" -H "${GHUSER}:${CURRENT_BRANCH}" )
+  _gh pr create "${PR_ARGS[@]}"
   # _gh pr checks  # not sure why this is problematic.
-  _gh pr view
+  _gh pr view "${VIEW_ARGS[@]}"
   echo "Add reviewers."
 }
   
@@ -663,12 +681,15 @@ Merges an approved pull request.
 EOT
 function gee__submit() { gee__merge "$@"; }
 function gee__merge() {
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
     _die "Remote branch ${CURRENT_BRANCH} does not exist."
   fi
   _gh pr checks
   _gh pr merge --squash
-  _git pull
+  # Use existing update flow:
+  gee__update
 }
 
 _register_help "removebranch" "Remove a branch." <<'EOT'
