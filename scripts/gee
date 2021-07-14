@@ -734,14 +734,12 @@ _register_help "gcd" "Find the current directory in a different branch." <<'EOT'
 Usage: gcd <branch>
 
 The "gcd" command is not meant to be used directly, but is instead designed to
-be called from this bash function:
+be called from the "gcd" bash function.
 
-    function gcd() {
-       local D="$(gee gcd "$@")"
-       if [[ -n "${D}" ]]; then
-         cd "${D}"
-       fi
-    }
+To import this function into your environment, add to your .bashrc
+file:
+
+    source ~/gee/enkit/master/scripts/gee_aliases.bash
 
 TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 EOT
