@@ -169,10 +169,17 @@ function _get_parent_branch() {
   # branch?
   #
   # TODO(jonathan): maybe just store this as metadata.
-  local CURRENT_BRANCH PARENT
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  # TODO(jonathan): definitely store this information as metadata.
+  #  Now that I've used this technique for a while, I've noticed
+  #  that it often gets confused once branches start getting
+  #  merged back into each other (coincident revisions).
+  local BRANCH PARENT
+  BRANCH="$1"
+  if [[ -z "${BRANCH}" ]]; then
+    BRANCH="$("${GIT}" branch --show-current)"
+  fi
   PARENT="$(git show-branch | sed "s/].*//" | grep "\*" \
-    | grep -v "${CURRENT_BRANCH}" | head -n1 \
+    | grep -v "${BRANCH}" | head -n1 \
     | perl -pe 'm/\[(.*?)(\^\d+)?(~\d+)?$/; $_ = $1;')"
   if [[ -z "${PARENT}" ]]; then
     echo "master"
@@ -523,11 +530,13 @@ function gee__whatsout() {
 # Report how many commits this branch is ahead/behind master.
 function _branch_ahead_behind() {
   local branch; branch="$1"
-  local obr; obr="master"
+  local obr;
+  # obr="master"
+  obr="$(_get_parent_branch)"
   local -a counts
   read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
-    printf "%-20s: same as %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+    printf "%-20s: same as %s\n" "${branch}" "${obr}"
   else
     printf "%-20s: %s ahead, %s behind %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
   fi
@@ -551,6 +560,13 @@ function gee__lsbranches() {
       _branch_ahead_behind "${br}"
     fi
   done
+}
+
+function gee__get_parent() {
+  local BRANCH
+  BRANCH="${1:-$(_get_current_branch)}"
+  PARENT="$(_get_parent_branch "${BRANCH}")"
+  echo "${PARENT} is the parent branch of ${BRANCH}"
 }
 
 function _remote_branch_exists() {
