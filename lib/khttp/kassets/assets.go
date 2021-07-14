@@ -1,24 +1,18 @@
-package server
+package kassets
 
 import (
 	"bytes"
 	"compress/gzip"
 	"log"
 	"mime"
-	"net"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/improbable-eng/grpc-web/go/grpcweb"
-	"github.com/soheilhy/cmux"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-
 	"github.com/dustin/go-humanize"
 )
 
@@ -51,13 +45,11 @@ func AcceptsEncoding(accepts, encoding string) bool {
 	return false
 }
 
-type HttpHandler func(w http.ResponseWriter, r *http.Request)
-
-type AssetMapper func(original, name string, handler HttpHandler) []string
+type AssetMapper func(original, name string, handler khttp.FuncHandler) []string
 
 // MuxMapper simply registers a path as is with the mux.
 func MuxMapper(mux *http.ServeMux) AssetMapper {
-	return func(original, name string, handler HttpHandler) []string {
+	return func(original, name string, handler khttp.FuncHandler) []string {
 		mux.HandleFunc(name, handler)
 		return []string{name}
 	}
@@ -70,7 +62,7 @@ func MuxMapper(mux *http.ServeMux) AssetMapper {
 // - removes the .html extension.
 // - maps index.html files to /.
 func BasicMapper(mapper AssetMapper) AssetMapper {
-	return func(original, name string, handler HttpHandler) []string {
+	return func(original, name string, handler khttp.FuncHandler) []string {
 		if name == "/favicon.ico" {
 			return mapper(original, name, handler)
 		}
@@ -91,13 +83,13 @@ func BasicMapper(mapper AssetMapper) AssetMapper {
 }
 
 func PrefixMapper(prefix string, mapper AssetMapper) AssetMapper {
-	return func(original, name string, handler HttpHandler) []string {
+	return func(original, name string, handler khttp.FuncHandler) []string {
 		return mapper(original, path.Join(prefix, name), handler)
 	}
 }
 
 func StripExtensionMapper(mapper AssetMapper) AssetMapper {
-	return func(original, name string, handler HttpHandler) []string {
+	return func(original, name string, handler khttp.FuncHandler) []string {
 		name = strings.TrimSuffix(name, path.Ext(name))
 		return mapper(original, name, handler)
 	}
@@ -276,41 +268,5 @@ func RegisterAssets(stats *AssetStats, assets map[string][]byte, base string, ma
 
 		paths := mapper(name, name, handler)
 		stats.AddMapped(AssetResource{Base: base, Name: name, Size: len(asset), Compressed: clen, Mime: mtype, Paths: paths})
-	}
-}
-
-func Run(mux *http.ServeMux, grpcs *grpc.Server) {
-	reflection.Register(grpcs)
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "6433"
-	}
-
-	log.Printf("Opening port %s - will be available at http://127.0.0.1:%s/", port, port)
-	listener, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		log.Fatalf("failed to listen: %s", err)
-	}
-
-	// Create all listeners.
-	cml := cmux.New(listener)
-	grpcl := cml.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
-	httpl := cml.Match(cmux.Any())
-
-	grpcw := grpcweb.WrapServer(grpcs, grpcweb.WithAllowNonRootResource(true), grpcweb.WithWebsockets(true), grpcweb.WithOriginFunc(func(string) bool { return true }))
-
-	https := &http.Server{Handler: http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		if grpcw.IsGrpcWebRequest(req) {
-			grpcw.ServeHTTP(resp, req)
-		} else {
-			mux.ServeHTTP(resp, req)
-		}
-	})}
-	go grpcs.Serve(grpcl)
-	go https.Serve(httpl)
-
-	if err := cml.Serve(); err != nil {
-		log.Fatalf("Serve failed with error: %s", err)
 	}
 }
