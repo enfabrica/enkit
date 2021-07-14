@@ -557,8 +557,13 @@ function _remote_branch_exists() {
 _register_help "commit" "commit all changes in this branch" "push" <<'EOT'
 Usage: gee commit [<git commit options>]
 
-Commits all outstanding changes, and uploads that commit to the user's private
-github repo.
+Commits all outstanding changes (to the local branch, not the upstream branch),
+and uploads that commit to the user's private github repo.  "commit" can be
+used to checkpoint and back up work in progress.
+
+Example:
+
+    gee commit -m "Added \"gee commit\" command."
 EOT
 
 function gee__push() { gee__commit "$@"; }
