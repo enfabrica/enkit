@@ -73,10 +73,10 @@ set -e
 
 declare -a HELP=()
 declare -A LONGHELP
-TRUE=0
-FALSE=1
-GIT=/usr/bin/git
-GH=/usr/bin/gh
+readonly TRUE=0
+readonly FALSE=1
+readonly GIT=/usr/bin/git
+readonly GH=/usr/bin/gh
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
 DRYRUN="${DRYRUN:-0}"
@@ -523,17 +523,14 @@ function gee__whatsout() {
 # Report how many commits this branch is ahead/behind master.
 function _branch_ahead_behind() {
   local branch; branch="$1"
-  local remote; remote="$("${GIT}" config branch."${branch}".remote)"
-  local obr; obr=""
-  if [[ -z "$remote" ]]; then
-    obr=master
-  else
-    local mergebr; mergebr="$("${GIT}" config branch."${branch}".merge | cut -d / -f 3)"
-    obr=${remote}/${mergebr}
-  fi
+  local obr; obr="master"
   local -a counts
   read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
-  echo -e "${branch}:\t${counts[0]} ahead, ${counts[1]} behind ${obr}"
+  if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
+    printf "%-20s: same as %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+  else
+    printf "%-20s: %s ahead, %s behind %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+  fi
 }
 
 # Get info about all branches.
@@ -550,7 +547,9 @@ function gee__lsbranches() {
   mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
   local br
   for br in "${branches[@]}"; do
-    _branch_ahead_behind "${br}"
+    if [[ "${br}" != "master" ]]; then
+      _branch_ahead_behind "${br}"
+    fi
   done
 }
 
@@ -884,6 +883,7 @@ function main() {
     gee__help usage
     exit 0
   fi
+  _info "WARNING: This is an alpha release of gee, use at your own risk!"
   local cmdname="$1"; shift
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     _startup_checks
