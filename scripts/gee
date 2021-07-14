@@ -333,6 +333,26 @@ function gee__log() {
   _git log "${PARENT_BRANCH}..${CURRENT_BRANCH}"
 }
 
+_register_help "diff" "Differences in this branch." <<'EOT'
+Usage: gee diff [<files...>]
+
+Shows changes since this branch diverged from it's parent branch.
+
+If <files...> are omited, defaults to all files.
+EOT
+
+function gee__diff() {
+  local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE
+  PARENT_BRANCH="$(_get_parent_branch)"
+  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
+  if (( "$#" )); then
+    _git diff "${PARENT_BRANCH}...${CURRENT_BRANCH}" -- "$@"
+  else
+    _git diff "${PARENT_BRANCH}...${CURRENT_BRANCH}"
+  fi
+}
+
 _register_help "squash" "Squash all commits in this branch." <<'EOT'
 Usage: gee squash
 
