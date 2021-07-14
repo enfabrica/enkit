@@ -1,3 +1,4 @@
+// Returns the default config store used in the enkit repository.
 package defcon
 
 import (
