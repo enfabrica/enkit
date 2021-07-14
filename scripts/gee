@@ -607,16 +607,61 @@ function gee__commit() {
   _git push -u origin "${CURRENT_BRANCH}"
 }
 
-_register_help "pr" "Creates a pull request from this branch." \
+_register_help "edit_pr" "Edit an existing pull request." "edpr" <<'EOT'
+Usage: gee edpr <args>
+
+Edit an outstanding pull request.
+
+All arguments are passed to "gh pr edit".
+EOT
+
+function gee__edpr() { gee__edit_pr "$@"; }
+function gee__edit_pr() {
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  # "gh pr view" arguements are similar to "gh pr create" but not identical.
+  local -a VIEW_ARGS=()
+  VIEW_ARGS+=( --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" )
+
+  if ! "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
+    NOSTACK=1 _die "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
+  fi
+
+  # The same view options also work for pr edit:
+  gh pr edit "${VIEW_ARGS[@]}" "$@"
+}
+
+_register_help "view_pr" "View an existing pull request." <<'EOT'
+Usage: gee view_pr
+
+Edit an outstanding pull request.
+EOT
+
+function gee__view_pr() {
+  # "gh pr view" arguements are similar to "gh pr create" but not identical.
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  local -a VIEW_ARGS=()
+  VIEW_ARGS+=( --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" )
+
+  if ! "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
+    NOSTACK=1 _die "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
+  fi
+
+  gh pr view "${VIEW_ARGS[@]}"
+}
+
+_register_help "make_pr" "Creates a pull request from this branch." \
   "mail" "send" <<'EOT'
-Usage: gee pr
+Usage: gee mkpr
 
 Creates a new pull request from this branch.
 EOT
 
-function gee__mail() { gee__pr "$@"; }
-function gee__send() { gee__pr "$@"; }
-function gee__pr() {
+function gee__mail() { gee__make_pr "$@"; }
+function gee__send() { gee__make_pr "$@"; }
+function gee__mkpr() { gee__make_pr "$@"; }
+function gee__make_pr() {
   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
   PARENT_BRANCH="$(_get_parent_branch)"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
