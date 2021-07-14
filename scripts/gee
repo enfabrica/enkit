@@ -77,8 +77,7 @@ TRUE=0
 FALSE=1
 GIT=/usr/bin/git
 GH=/usr/bin/gh
-GHUSER="${GHUSER-:$USER-enf}"
-SSH="${SSH-:1}"  # enable ssh access by default?
+GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
 DRYRUN="${DRYRUN:-0}"
 REPO="${REPO:-}"
@@ -110,12 +109,35 @@ _COLOR_DIE="$(tput bold; tput setaf 15; tput setab 3)"
 _COLOR_WARN="$(tput setaf 11)"
 _COLOR_INFO="$(tput setaf 1)"
 
+function _get_ghuser_via_ssh() {
+    # Check if we can connect via ssh to github.
+    # TODO(jonathan): Takes 0.7 seconds.  Maybe only do this as-needed?
+    local OUTPUT
+    set +e
+    OUTPUT="$(ssh -T git@github.com 2>&1)"
+    set -e
+    if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
+      GHUSER="${BASH_REMATCH[1]}"
+    else
+      _info "ssh -T git@github.com got:"
+      _info "  ${OUTPUT}"
+      _info "Please see:"
+      _info "  https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh"
+      NOSTACK=1 _die "Could not authenticate to github using ssh."
+    fi
+  }
+
 function _startup_checks() {
   if [[ ! -x "${GIT}" ]]; then
     _die "${GIT} is not installed."
   fi
   if [[ ! -x "${GH}" ]]; then
     _die "${GH} is not installed."
+  fi
+
+  # If GHUSER is unset, find username via ssh to github.
+  if [[ -z "${GHUSER}" ]]; then
+    _get_ghuser_via_ssh
   fi
 }
 
@@ -743,6 +765,15 @@ function gee__gcd() {
   REL_PATH="${ABS_PATH/$CURRENT_ROOT\//}"
 
   echo "${NEW_ROOT}/${REL_PATH}"
+}
+
+_register_help "hello" "Check connectivity to github." <<'EOT'
+Usage: gee hello
+EOT
+
+function gee__hello() {
+  _get_ghuser_via_ssh
+  _info "Hello, ${GHUSER}.  Connectivity to github is AOK."
 }
 
 _register_help "help" "Print more help about a command." <<'EOT'
