@@ -301,6 +301,11 @@ function gee__init() {
       BRANCHES_DIR="${HOME}/gee/${REPO}/"
       _info "Using repo ${REPO}"
     fi
+    _QUIET=1 gee__hello
+    if [[ -d "${BRANCHES_DIR}/master" ]]; then
+      NOSTACK=1 _die \
+        "Initialized workspace already exists in ${BRANCHES_DIR}"
+    fi
     _cmd mkdir -p "${BRANCHES_DIR}"
     local URL UPSTREAM_URL
     URL="git@github.com:${GHUSER}/${REPO}.git"
@@ -769,11 +774,18 @@ function gee__gcd() {
 
 _register_help "hello" "Check connectivity to github." <<'EOT'
 Usage: gee hello
+
+Verifies that the user can communicate with github using ssh.
+
+For more information:
+  https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh
 EOT
 
 function gee__hello() {
   _get_ghuser_via_ssh
-  _info "Hello, ${GHUSER}.  Connectivity to github is AOK."
+  if [[ -z "${_QUIET}" ]]; then
+    _info "Hello, ${GHUSER}.  Connectivity to github is AOK."
+  fi
 }
 
 _register_help "help" "Print more help about a command." <<'EOT'
