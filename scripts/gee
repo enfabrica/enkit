@@ -159,7 +159,7 @@ function _get_parent_branch() {
   fi
 }
 
-function _get_branch_directory() {
+function _get_branch_rootdir() {
   # Return the root directory of a git branch
   local BRANCH_NAME BRDIR
   BRANCH_NAME="$1"
@@ -170,7 +170,7 @@ function _get_branch_directory() {
     | grep -w "\[${BRANCH_NAME}\]" \
     | awk '{print $1}' )"
   if [[ -z "${BRDIR}" ]]; then
-    _die "_get_branch_directory failed for ${BRANCH_NAME}"
+    _die "_get_branch_rootdir failed for ${BRANCH_NAME}"
   fi
   echo "${BRDIR}"
 }
@@ -404,22 +404,6 @@ function gee__squash() {
   _git log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}"
 }
 
-# oh yeah, this can't work -- reformulate this as an alias.
-# HELP+=("change_branch: change to the same relative path in another branch.")
-# function gee__chbr() { gee__change_branch "$@"; }
-# function gee__change_branch() {
-#   BRNAME="$1"; shift
-#   local CURRENT_BRANCH
-#   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
-#   if [[ -z "${CURRENT_BRANCH}" ]]; then
-#     echo "ERROR: Not in git branch directory."
-#     exit 1
-#   fi
-#   REL_PATH="$("${GIT}" rev-parse --show-prefix)"
-#   cd "${BRANCHES_DIR}/${BRNAME}/${REL_PATH}"
-#   pwd
-# }
-
 function _checkout_or_die() {
   # we want to check out a branch.  Maybe there is already a
   # worktree.  Maybe we need to create a worktree.  Let's do
@@ -427,10 +411,10 @@ function _checkout_or_die() {
   local BRNAME BRDIR
   BRNAME="$1"; shift
   # Do we already have a worktree?
-  BRDIR="$(_get_branch_directory "${BRNAME}")"
+  BRDIR="$(_get_branch_rootdir "${BRNAME}")"
   if [[ -z "${BRANCHES_DIR}" ]]; then
     _git worktree add "${BRANCHES_DIR}/${BRNAME}"
-    BRDIR="$(_get_branch_directory "${BRNAME}")"
+    BRDIR="$(_get_branch_rootdir "${BRNAME}")"
   fi
   if [[ -z "${BRDIR}" ]]; then
     _die "Could not check out ${BRNAME}"
@@ -576,7 +560,7 @@ function gee__commit() {
     _info "master branch."
     NOSTACK=1 _die "Commit to master branch denied."
   fi
-  BRANCH_DIR="$(_get_branch_directory "${CURRENT_BRANCH}")"
+  BRANCH_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
   echo "${BRANCH_DIR}" "${HOME}"
   if [[ "${BRANCH_DIR}" != "${HOME}" ]]; then
     _git add --all
@@ -691,7 +675,7 @@ EOT
 
 function gee__fix() {
   local BDIR MERGEBASE B
-  BDIR="$(_get_branch_directory)"
+  BDIR="$(_get_branch_rootdir)"
   MERGEBASE="$(git merge-base origin/master "${BRANCH}")"
   cd "${BDIR}"
 
@@ -717,6 +701,48 @@ function gee__fix() {
   fi
 
   # TODO(jonathan): Add more formatters.
+}
+
+_register_help "gcd" "Find the current directory in a different branch." <<'EOT'
+Usage: gcd <branch>
+
+The "gcd" command is not meant to be used directly, but is instead designed to
+be called from this bash function:
+
+    function gcd() {
+       local D="$(gee gcd "$@")"
+       if [[ -n "${D}" ]]; then
+         cd "${D}"
+       fi
+    }
+
+TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
+EOT
+
+function gee__gcd() {
+  local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH
+  BRANCH="$1"
+  if [[ -z "${BRANCH}" ]]; then
+    BRANCH="$(_get_current_branch)"
+  fi
+  # check whether BRANCH exists: 
+  BRDIR="$("${GIT}" worktree list | grep -w "\[${BRANCH}\]")"
+  if [[ -z "${BRDIR}" ]]; then
+    _die "Branch \"${BRANCH}\" doesn't exist in the worktree."
+  fi
+  # TODO(jonathan): Maybe create a new branch if it doesn't already exist?
+
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if [[ -z "${CURRENT_BRANCH}" ]]; then _die "Not in a git branch."; fi
+  # TODO(jonathan): maybe error out if we're not below ~/gee ?
+  CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+ 
+  NEW_ROOT="$(_get_branch_rootdir "${BRANCH}")"
+  # TODO(jonathan): Create a better error message if _get_branch_rootdir fails.
+  ABS_PATH="$(readlink -f .)"
+  REL_PATH="${ABS_PATH/$CURRENT_ROOT\//}"
+
+  echo "${NEW_ROOT}/${REL_PATH}"
 }
 
 _register_help "help" "Print more help about a command." <<'EOT'
