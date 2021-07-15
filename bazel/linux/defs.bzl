@@ -312,7 +312,7 @@ def _kernel_module_targets(*args, **kwargs):
     # builds all the modules for all the requested kernels at once.
     # Without this, the user can only build :all, or the specific
     # module for a specific kernel.
-    return native.filegroup(name = original, srcs = targets)
+    return native.filegroup(name = original, srcs = targets, visibility = kwargs.get("visibility"))
 
 def kernel_module(*args, **kwargs):
     """Convenience wrapper around kernel_modules_rule.
