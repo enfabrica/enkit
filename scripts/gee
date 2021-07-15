@@ -109,6 +109,10 @@ _COLOR_DIE="$(tput bold; tput setaf 15; tput setab 3)"
 _COLOR_WARN="$(tput setaf 11)"
 _COLOR_INFO="$(tput setaf 1)"
 
+##########################################################################
+# helper functions
+##########################################################################
+
 function _get_ghuser_via_ssh() {
     # Check if we can connect via ssh to github.
     # TODO(jonathan): Takes 0.7 seconds.  Maybe only do this as-needed?
@@ -123,16 +127,16 @@ function _get_ghuser_via_ssh() {
       _info "  ${OUTPUT}"
       _info "Please see:"
       _info "  https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh"
-      NOSTACK=1 _die "Could not authenticate to github using ssh."
+      _fatal "Could not authenticate to github using ssh."
     fi
   }
 
 function _startup_checks() {
   if [[ ! -x "${GIT}" ]]; then
-    _die "${GIT} is not installed."
+    _fatal "${GIT} is not installed."
   fi
   if [[ ! -x "${GH}" ]]; then
-    _die "${GH} is not installed."
+    _fatal "${GH} is not installed."
   fi
 
   # If GHUSER is unset, find username via ssh to github.
@@ -219,14 +223,25 @@ function _confirm_or_exit() {
   esac
 }
 
+# "The user wants to read this."
 function _info() {
   echo >&2 "${_COLOR_INFO}$*${_COLOR_RST}"
 }
 
+# Warn the user.  "The user should read this."
 function _warn() {
   echo >&2 "${_COLOR_WARN}WARNING: $*${_COLOR_RST}"
 }
 
+# Use _fatal for user errors that don't require a stack dump.
+# "The user is going to be sad when they see this."
+function _fatal() {
+  echo >&2 "${_COLOR_DIE}FATAL: $*${_COLOR_RST}"
+  exit 1
+}
+
+# Use _die to report internal errors that require a stack dump.
+# "The user is going to be mad when they see this."
 function _die() {
   echo >&2 "${_COLOR_DIE}FATAL: $*${_COLOR_RST}"
   if [[ -z "${NOSTACK}" ]]; then
@@ -253,7 +268,7 @@ function _cmd() {
     RC=$?
     if [[ "${RC}" -ne 0 ]]; then
       if [[ -z "${NOFAIL}" ]]; then
-        _die "Command failed with exit code ${RC}"
+        _fatal "Command failed with exit code ${RC}"
       else
         _warn "Command failed with exit code ${RC}"
       fi
@@ -288,6 +303,74 @@ function _install_gh_tool() {
   fi
 }
 
+function _count_diffs() {
+  local BRANCH_A BRANCH_B DIFFS
+  BRANCH_A="$1"
+  BRANCH_B="$2"
+  "${GIT}" diff --name-only "${BRANCH_A}..${BRANCH_B}" | wc -l
+}
+
+function _branch_ahead_behind() {
+  # Report how many commits this branch is ahead/behind master.
+  local branch; branch="$1"
+  local obr;
+  # doesn't work: obr="$(_get_parent_branch)"
+  obr="master"
+  local -a counts
+  read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
+  if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
+    printf "%-20s: same as %s\n" "${branch}" "${obr}"
+  else
+    printf "%-20s: %s ahead, %s behind %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+  fi
+}
+
+function _remote_branch_exists() {
+  local REPO="$1"; shift
+  local BRANCH="$1"; shift
+  if [[ -z "${BRANCH}" ]]; then
+    _die "insufficient args"
+  fi
+  local OUTPUT
+  OUTPUT="$("${GIT}" ls-remote "${REPO}" "${BRANCH}")"
+  if [[ -z "${OUTPUT}" ]]; then
+    return "${FALSE}"
+  else
+    return "${TRUE}"
+  fi
+}
+
+function _checkout_or_die() {
+  # we want to check out a branch.  Maybe there is already a
+  # worktree.  Maybe we need to create a worktree.  Let's do
+  # whatever is necessary.
+  local BRNAME BRDIR
+  BRNAME="$1"; shift
+  # Do we already have a worktree?
+  BRDIR="$(_get_branch_rootdir "${BRNAME}")"
+  if [[ -z "${BRANCHES_DIR}" ]]; then
+    _git worktree add "${BRANCHES_DIR}/${BRNAME}"
+    BRDIR="$(_get_branch_rootdir "${BRNAME}")"
+  fi
+  if [[ -z "${BRDIR}" ]]; then
+    _die "Could not check out ${BRNAME}"
+  fi
+  cd "${BRDIR}"
+}
+
+function _get_current_branch() {
+  local CB
+  CB="$("${GIT}" branch --show-current)"
+  if [[ -z "${CB}" ]]; then
+    _die "Could not get current branch in directory $(pwd)"
+  fi
+  echo "${CB}"
+}
+
+##########################################################################
+# help command
+##########################################################################
+
 _register_help "init" "initialize a new git workspace" <<'EOT'
 Usage: gee init [<repo>]
 
@@ -310,7 +393,7 @@ function gee__init() {
     fi
     _QUIET=1 gee__hello
     if [[ -d "${BRANCHES_DIR}/master" ]]; then
-      NOSTACK=1 _die \
+      _fatal \
         "Initialized workspace already exists in ${BRANCHES_DIR}"
     fi
     _cmd mkdir -p "${BRANCHES_DIR}"
@@ -326,25 +409,39 @@ function gee__init() {
     echo "Created ${BRANCHES_DIR}/master"
 }
 
+##########################################################################
+# make_branch command
+##########################################################################
+
 _register_help "make_branch" "create a new branch based on the current branch." \
   "mkbr" <<'EOT'
-Usage: gee mkbr <branch-name>
+Usage: gee mkbr <branch-name> [<commit-ish>]
 
 Create a new branch based on the current branch.  The new branch will be located in the
 directory:
   ~/gee/<repo>/<branch-name>
+
+If <commit-ish> is provided, sets the HEAD of the newly created branch to that
+revision.
 EOT
 
 function gee__mkbr() { gee__make_branch "$@"; }
 function gee__make_branch() {
+  local BRNAME SHA CURRENT_BRANCH
+  # TODO(jonathan): Let the user name the branch to branch from.
   BRNAME="$1"; shift
-  local CURRENT_BRANCH
+  SHA="$1"
+
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
-    _die "Not in a git branch directory."
+    _fatal "Not in a git branch directory."
   fi
 
-  _git worktree add "${BRANCHES_DIR}/${BRNAME}"
+  local -a ARGS=( worktree add "${BRANCHES_DIR}/${BRNAME}" )
+  if [[ -n "${SHA}" ]]; then
+    ARGS+=( "${SHA}" )
+  fi
+  _git "${ARGS[@]}"
   _info "Created ${BRANCHES_DIR}/${BRNAME}"
 
   # If the user has created a branch whose name matches an
@@ -356,6 +453,10 @@ function gee__make_branch() {
   fi
 }
 
+##########################################################################
+# log command
+##########################################################################
+
 _register_help "log" "Log of commits since parent branch." <<'EOT'
 Usage: gee log
 EOT
@@ -366,6 +467,10 @@ function gee__log() {
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   _git log "${PARENT_BRANCH}..${CURRENT_BRANCH}"
 }
+
+##########################################################################
+# diff command
+##########################################################################
 
 _register_help "diff" "Differences in this branch." <<'EOT'
 Usage: gee diff [<files...>]
@@ -386,6 +491,10 @@ function gee__diff() {
     _git diff "${PARENT_BRANCH}...${CURRENT_BRANCH}"
   fi
 }
+
+##########################################################################
+# squash command
+##########################################################################
 
 _register_help "squash" "Squash all commits in this branch." <<'EOT'
 Usage: gee squash
@@ -442,32 +551,9 @@ function gee__squash() {
   _git log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}"
 }
 
-function _checkout_or_die() {
-  # we want to check out a branch.  Maybe there is already a
-  # worktree.  Maybe we need to create a worktree.  Let's do
-  # whatever is necessary.
-  local BRNAME BRDIR
-  BRNAME="$1"; shift
-  # Do we already have a worktree?
-  BRDIR="$(_get_branch_rootdir "${BRNAME}")"
-  if [[ -z "${BRANCHES_DIR}" ]]; then
-    _git worktree add "${BRANCHES_DIR}/${BRNAME}"
-    BRDIR="$(_get_branch_rootdir "${BRNAME}")"
-  fi
-  if [[ -z "${BRDIR}" ]]; then
-    _die "Could not check out ${BRNAME}"
-  fi
-  cd "${BRDIR}"
-}
-
-function _get_current_branch() {
-  local CB
-  CB="$("${GIT}" branch --show-current)"
-  if [[ -z "${CB}" ]]; then
-    _die "Could not get current branch in directory $(pwd)"
-  fi
-  echo "${CB}"
-}
+##########################################################################
+# update command
+##########################################################################
 
 _register_help "update" "integrate upstream changes into this branch." <<'EOT'
 Usage: gee update
@@ -490,18 +576,28 @@ function gee__update() {
     echo "Run \"gee commit\" and try again."
     exit 1
   fi
+
   _git fetch upstream
   # Merge from upstream/master into master:
   _checkout_or_die master
   _git pull upstream master
+  if [[ "$(_count_diffs upstream/master master)" != 0 ]]; then
+    _fatal "git pull operation failed."
+  fi
   _git push -u origin master
-  # Merge from master into the current branch:
+
+  # Merge (ff-only) from master into the current branch:
   _checkout_or_die "${CURRENT_BRANCH}"
-  _git merge master
-  # TODO(jonathan): Understand when to use rebase instead of merge.
-  
+  _git merge --ff-only master
+  if [[ "$(_count_diffs upstream/master master)" != 0 ]]; then
+    _fatal "git merge operation failed."
+  fi
   _git push -u origin "${CURRENT_BRANCH}"
 }
+
+##########################################################################
+# config command
+##########################################################################
 
 _register_help "config" "configure _git and _gh tools." <<'EOT'
 Usage: gee config
@@ -513,6 +609,10 @@ EOT
 function gee__config() {
   _gh config "$@"
 }
+
+##########################################################################
+# whatsout command
+##########################################################################
 
 _register_help "whatsout" "list locally changed files in this branch." <<'EOT'
 Usage: gee whatsout
@@ -527,22 +627,10 @@ function gee__whatsout() {
   _git diff --name-only "${MERGEBASE}" 
 }
 
-# Report how many commits this branch is ahead/behind master.
-function _branch_ahead_behind() {
-  local branch; branch="$1"
-  local obr;
-  # obr="master"
-  obr="$(_get_parent_branch)"
-  local -a counts
-  read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
-  if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
-    printf "%-20s: same as %s\n" "${branch}" "${obr}"
-  else
-    printf "%-20s: %s ahead, %s behind %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
-  fi
-}
+##########################################################################
+# lsbranches command
+##########################################################################
 
-# Get info about all branches.
 _register_help "lsbranches" "list information about each branch." <<'EOT'
 Usage: gee lsbranches
 
@@ -562,6 +650,10 @@ function gee__lsbranches() {
   done
 }
 
+##########################################################################
+# get_parent command
+##########################################################################
+
 function gee__get_parent() {
   local BRANCH
   BRANCH="${1:-$(_get_current_branch)}"
@@ -569,20 +661,9 @@ function gee__get_parent() {
   echo "${PARENT} is the parent branch of ${BRANCH}"
 }
 
-function _remote_branch_exists() {
-  local REPO="$1"; shift
-  local BRANCH="$1"; shift
-  if [[ -z "${BRANCH}" ]]; then
-    _die "insufficient args"
-  fi
-  local OUTPUT
-  OUTPUT="$("${GIT}" ls-remote "${REPO}" "${BRANCH}")"
-  if [[ -z "${OUTPUT}" ]]; then
-    return "${FALSE}"
-  else
-    return "${TRUE}"
-  fi
-}
+##########################################################################
+# commit command
+##########################################################################
 
 _register_help "commit" "commit all changes in this branch" "push" <<'EOT'
 Usage: gee commit [<git commit options>]
@@ -604,7 +685,7 @@ function gee__commit() {
     _info "You should use \"gee make_branch\" to create a feature branch"
     _info "and commit your work there, rather than committing work to the"
     _info "master branch."
-    NOSTACK=1 _die "Commit to master branch denied."
+    _fatal "Commit to master branch denied."
   fi
   BRANCH_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
   echo "${BRANCH_DIR}" "${HOME}"
@@ -621,6 +702,10 @@ function gee__commit() {
   # laptop:
   _git push -u origin "${CURRENT_BRANCH}"
 }
+
+##########################################################################
+# edit_pr command
+##########################################################################
 
 _register_help "edit_pr" "Edit an existing pull request." "edpr" <<'EOT'
 Usage: gee edpr <args>
@@ -639,12 +724,16 @@ function gee__edit_pr() {
   VIEW_ARGS+=( --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" )
 
   if ! "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
-    NOSTACK=1 _die "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
+    _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
   fi
 
   # The same view options also work for pr edit:
   gh pr edit "${VIEW_ARGS[@]}" "$@"
 }
+
+##########################################################################
+# view_pr command
+##########################################################################
 
 _register_help "view_pr" "View an existing pull request." <<'EOT'
 Usage: gee view_pr
@@ -660,11 +749,15 @@ function gee__view_pr() {
   VIEW_ARGS+=( --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" )
 
   if ! "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
-    NOSTACK=1 _die "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
+    _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
   fi
 
   gh pr view "${VIEW_ARGS[@]}"
 }
+
+##########################################################################
+# make_pr command
+##########################################################################
 
 _register_help "make_pr" "Creates a pull request from this branch." \
   "mail" "send" <<'EOT'
@@ -734,48 +827,69 @@ function gee__make_pr() {
 }
   
 
-_register_help "submit" "Merge the approved PR into the parent branch." <<'EOT'
-Usage: gee submit
+##########################################################################
+# submit_pr command
+##########################################################################
+
+_register_help "submit_pr" "Merge the approved PR into the parent branch." <<'EOT'
+Usage: gee submit_pr
 
 Merges an approved pull request.
 EOT
-function gee__submit() { gee__merge "$@"; }
+function gee__submit_pr() { gee__merge "$@"; }
 function gee__merge() {
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
     _die "Remote branch ${CURRENT_BRANCH} does not exist."
   fi
-  _gh pr checks
-  _gh pr merge --squash
+  local DIFFS
+  DIFFS="$("${GIT}" diff --name-only origin/${CURRENT_BRANCH}..${CURRENT_BRANCH} | wc -l)"
+  if (( "${DIFFS}" != 0 )); then
+    _fatal "Will not submit: current branch has uncommitted changes."
+  fi
+  _gh pr merge --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}"
   # Use existing update flow:
   gee__update
 }
 
-_register_help "removebranch" "Remove a branch." <<'EOT'
+##########################################################################
+# removebranch command
+##########################################################################
+
+_register_help "remove_branch" "Remove a branch." <<'EOT'
 Usage: gee removebranch <branch-name>
 
 Removes a branch and it's associated directory.
 EOT
 
 function gee__rmbr() { gee__removebranch "$@"; }
-function gee__removebranch() { 
+function gee__remove_branch() { 
   local BR="$1"; shift
   if [[ -z "${BR}" ]]; then
     _die "Must specify a branch name to remove."
   fi
   _checkout_or_die "${BR}"
   local DIFFS
-  DIFFS="$(${GIT} diff --name-only)"
+  DIFFS="$(${GIT} diff --name-only master.."${BR}" )"
   if [[ -n "${DIFFS}" ]]; then
-    echo "The following files have local changes:"
+    echo "The following files have local changes relative to master:"
     echo "  ${DIFFS}"
     _confirm_or_exit "Are you sure you want to force-remove branch ${BR}? (y/N) "
   fi
+  local SHA
+  SHA="$("${GIT}" reflog)"
+
   _checkout_or_die master
   _git worktree remove "${BR}"
   _git branch -D "${BR}"
+  _git push origin --delete "${BR}"
+  _info "Deleted ${BR}.  To undo: gee make_branch ${BR} ${SHA}"
 }
+
+##########################################################################
+# fix command
+##########################################################################
 
 _register_help "fix" "Run automatic code formatters over changed files only." <<'EOT'
 Usage: gee fix
@@ -810,6 +924,10 @@ function gee__fix() {
 
   # TODO(jonathan): Add more formatters.
 }
+
+##########################################################################
+# gcd command
+##########################################################################
 
 _register_help "gcd" "Find the current directory in a different branch." <<'EOT'
 Usage: gcd <branch>
@@ -846,10 +964,15 @@ function gee__gcd() {
   NEW_ROOT="$(_get_branch_rootdir "${BRANCH}")"
   # TODO(jonathan): Create a better error message if _get_branch_rootdir fails.
   ABS_PATH="$(readlink -f .)"
-  REL_PATH="${ABS_PATH/$CURRENT_ROOT\//}"
+  REL_PATH="${ABS_PATH/$CURRENT_ROOT/}"
+  REL_PATH="${REL_PATH/\//}"
 
   echo "${NEW_ROOT}/${REL_PATH}"
 }
+
+##########################################################################
+# hello command
+##########################################################################
 
 _register_help "hello" "Check connectivity to github." <<'EOT'
 Usage: gee hello
@@ -866,6 +989,10 @@ function gee__hello() {
     _info "Hello, ${GHUSER}.  Connectivity to github is AOK."
   fi
 }
+
+##########################################################################
+# help command
+##########################################################################
 
 _register_help "help" "Print more help about a command." <<'EOT'
 Usage: gee help <command>
@@ -893,6 +1020,10 @@ function gee__help() {
     fi
   done
 }
+
+##########################################################################
+# main
+##########################################################################
 
 function main() {
   if (( "$#" == 0 )); then
