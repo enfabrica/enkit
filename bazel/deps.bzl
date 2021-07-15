@@ -3,6 +3,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 def enkit_deps():
     excludes = native.existing_rules().keys()
 
+
     if "io_bazel_rules_go" not in excludes:
         http_archive(
             name = "io_bazel_rules_go",
@@ -38,17 +39,15 @@ def enkit_deps():
             ],
         )
 
-    if "rules_proto" not in excludes:
+    if "com_google_protobuf" not in excludes:
         http_archive(
-            name = "rules_proto",
-            sha256 = "aa1ee19226f707d44bee44c720915199c20c84a23318bb0597ed4e5c873ccbd5",
-            strip_prefix = "rules_proto-40298556293ae502c66579620a7ce867d5f57311",
-            urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/40298556293ae502c66579620a7ce867d5f57311.tar.gz",
-                "https://github.com/bazelbuild/rules_proto/archive/40298556293ae502c66579620a7ce867d5f57311.tar.gz",
-            ],
+	    name = "com_google_protobuf",
+	    sha256 = "c6003e1d2e7fefa78a3039f19f383b4f3a61e81be8c19356f85b6461998ad3db",
+	    strip_prefix = "protobuf-3.17.3",
+	    urls = [
+                "https://github.com/protocolbuffers/protobuf/archive/v3.17.3.tar.gz",
+	    ],
         )
-
     # rules_docker 0.14.4 is incompatible with rules_pkg 0.3.0 as of Oct/2020.
     #
     # When you update this dependency, please make sure rules_docker has been updated as well,
@@ -72,3 +71,4 @@ def enkit_deps():
                 "https://github.com/atlassian/bazel-tools/archive/5c3b9306e703c6669a6ce064dd6dde69f69cba35.zip",
             ],
         )
+
