@@ -168,28 +168,37 @@ function _register_help() {
 }
 
 function _get_parent_branch() {
-  # Return the name of the branch that contains the nearest
-  # commit to my current commit, that is not in my current
-  # branch?
-  #
-  # TODO(jonathan): maybe just store this as metadata.
-  # TODO(jonathan): definitely store this information as metadata.
-  #  Now that I've used this technique for a while, I've noticed
-  #  that it often gets confused once branches start getting
-  #  merged back into each other (coincident revisions).
-  local BRANCH PARENT
+  # Return the name of the branch that is the parent of this
+  # branch.
+  local BRANCH
   BRANCH="$1"
   if [[ -z "${BRANCH}" ]]; then
     BRANCH="$("${GIT}" branch --show-current)"
   fi
+
+  # BRANCH should be in the parents file.  Let's check there first:
+  local -A PARENTS
+  _read_parents_file
+  if [[ -v PARENTS["${BRANCH}"] ]]; then
+    echo "${PARENTS[$BRANCH]}"
+    return
+  fi
+  _warn "Strangely, ${BRANCH} was missing from ~/gee/${REPO}/.gee/parents."
+
+  # This shouldn't happen, but if it does, we can still make a pretty
+  # good guess by looking for the closest other branch:
+  local PARENT
   PARENT="$(git show-branch | sed "s/].*//" | grep "\*" \
     | grep -v "${BRANCH}" | head -n1 \
     | perl -pe 'm/\[(.*?)(\^\d+)?(~\d+)?$/; $_ = $1;')"
-  if [[ -z "${PARENT}" ]]; then
-    echo "master"
-  else
+  if [[ -n "${PARENT}" ]]; then
     echo "${PARENT}"
+    return
   fi
+  _warn "Strangely, show-branch could identify a parent for ${BRANCH}."
+
+  # Nothing worked!  Default to "master".
+  echo "master"
 }
 
 function _get_branch_rootdir() {
@@ -367,8 +376,35 @@ function _get_current_branch() {
   echo "${CB}"
 }
 
+function _read_parents_file() {
+  local PATH=~/gee/"${REPO}/.gee/parents"
+  declare -A PARENTS=()
+  local KEY VALUE
+  if [[ ! -d ~/gee/"${REPO}/.gee" ]]; then
+    /usr/bin/mkdir ~/gee/"${REPO}/.gee"
+  fi
+  if [[ ! -f "${PATH}" ]]; then
+    /usr/bin/touch "${PATH}"
+  fi
+  while read -r KEY VALUE; do
+    PARENTS["${KEY}"]="${VALUE}"
+  done < "${PATH}"
+}
+
+function _write_parents_file() {
+  local PATH=~/gee/"${REPO}/.gee/parents"
+  local KEY VALUE
+  if [[ ! -d ~/gee/"${REPO}/.gee" ]]; then
+    /usr/bin/mkdir ~/gee/"${REPO}/.gee"
+  fi
+  for KEY in "${!PARENTS[@]}"; do
+    VALUE="${PARENTS[$KEY]}"
+    printf "%q %q\n" "${KEY}" "${VALUE}"
+  done > "${PATH}"
+}
+
 ##########################################################################
-# help command
+# init command
 ##########################################################################
 
 _register_help "init" "initialize a new git workspace" <<'EOT'
@@ -396,7 +432,7 @@ function gee__init() {
       _fatal \
         "Initialized workspace already exists in ${BRANCHES_DIR}"
     fi
-    _cmd mkdir -p "${BRANCHES_DIR}"
+    _cmd mkdir -p "${BRANCHES_DIR}/.gee"
     local URL UPSTREAM_URL
     URL="git@github.com:${GHUSER}/${REPO}.git"
     UPSTREAM_URL=git@github.com:enfabrica/"${REPO}.git"
@@ -443,6 +479,11 @@ function gee__make_branch() {
   fi
   _git "${ARGS[@]}"
   _info "Created ${BRANCHES_DIR}/${BRNAME}"
+
+  local -A PARENTS
+  _read_parents_file
+  PARENTS["${BRNAME}"]="${CURRENT_BRANCH}"
+  _write_parents_file
 
   # If the user has created a branch whose name matches an
   # existing branch in their existing repo, pull those changes
