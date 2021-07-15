@@ -14,7 +14,7 @@
 #   have a backup of their work.  Also, nothing special has to be done
 #   to update an outstanding PR.
 #
-# * Enforce an "ssh"-authenticated workflow.  TODO(jonathan): implement.
+# * Enforce an "ssh"-authenticated workflow.
 #
 # workflow:
 #   gee init  # only do this once, per repo, ever.
@@ -115,7 +115,7 @@ _COLOR_INFO="$(tput setaf 1)"
 
 function _get_ghuser_via_ssh() {
     # Check if we can connect via ssh to github.
-    # TODO(jonathan): Takes 0.7 seconds.  Maybe only do this as-needed?
+    # Takes 0.7 seconds.  Use only as-needed.
     local OUTPUT
     set +e
     OUTPUT="$(ssh -T git@github.com 2>&1)"
@@ -228,6 +228,13 @@ function _confirm_or_exit() {
        exit 1
        ;;
   esac
+}
+
+# "The developer wants to read this."
+function _debug() {
+  if (( "${DEBUG}" > 0 )); then
+    echo >&2 "$*"
+  fi
 }
 
 # "The user wants to read this."
@@ -439,7 +446,7 @@ function gee__init() {
     _cmd cd "${BRANCHES_DIR}/master"
     _git remote add upstream "${UPSTREAM_URL}"
     _git remote -v
-    echo "Created ${BRANCHES_DIR}/master"
+    _info "Created ${BRANCHES_DIR}/master"
 }
 
 ##########################################################################
@@ -551,8 +558,7 @@ function gee__squash() {
   _info "Merge base: ${MERGE_BASE}"
   _info "Number of commits outstanding: ${NUM_COMMITS}"
   if [[ "${NUM_COMMITS}" -lt 2 ]]; then
-    echo "${NUM_COMMITS} commits outstanding.  Nothing to squash."
-    exit 0
+    _fatal "${NUM_COMMITS} commits outstanding.  Nothing to squash."
   fi
   TMPFILE="$(mktemp)"
   (
@@ -575,9 +581,9 @@ function gee__squash() {
   sed -i "/^#/d" "${TMPFILE}"
   perl -p -i -e 's/(^\s*\n){2,}/\n/gmso' "${TMPFILE}"
   if grep -q "^\[" "${TMPFILE}"; then
-    echo "You must replace the summary line.  Aborting."
+    echo "You must replace the summary line."
     echo "Commit message saved here: ${TMPFILE}"
-    exit 1
+    _fatal Aborted.
   fi
   head -n 1 "${TMPFILE}"
   _confirm_or_exit "Are you sure you want to squash ${NUM_COMMITS} commits? (y/N)  "
@@ -598,9 +604,6 @@ Usage: gee update
 EOT
 
 function gee__update() {
-  # TODO(jonathan): this command currently only merges from upstream/master
-  # into the current branch.  We need to support chains of branches (ie to
-  # recurse through all parent branches and update each one).
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
@@ -612,7 +615,7 @@ function gee__update() {
     echo "Branch contains ${UNCOMMITTED} uncommitted changes:"
     _git status --short -uall
     echo "Run \"gee commit\" and try again."
-    exit 1
+    _fatal Aborted.
   fi
 
   # Merge from upstream/master into master:
@@ -635,7 +638,7 @@ function gee__update() {
     CHAIN=( "${B}" "${CHAIN[@]}" )
     B="$(_get_parent_branch "${B}")"
     if (( "${#CHAIN[@]}" > 50 )); then
-      echo "CHAIN: ${CHAIN[@]}"
+      _info "CHAIN: ${CHAIN[*]}"
       _die "Branch chain is longer than 50, that can't be right."
     fi
   done
@@ -745,7 +748,7 @@ function gee__commit() {
     _fatal "Commit to master branch denied."
   fi
   BRANCH_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
-  echo "${BRANCH_DIR}" "${HOME}"
+  _debug "${BRANCH_DIR}" "${HOME}"
   if [[ "${BRANCH_DIR}" != "${HOME}" ]]; then
     _git add --all
   else
@@ -842,7 +845,7 @@ function gee__make_pr() {
   if "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
     echo "PR already exists, use \"git commit\" to update."
     _gh pr view "${VIEW_ARGS[@]}"
-    exit 1
+    _fatal Aborted.
   fi
 
   UNCOMMITTED="$("${GIT}" status --short -uall | wc -l)"
@@ -850,17 +853,16 @@ function gee__make_pr() {
     echo "Branch contains ${UNCOMMITTED} uncommitted changes:"
     _git status --short -uall
     echo "Run \"gee commit\" and try again."
-    exit 1
+    _fatal Aborted.
   fi
 
   NUM_COMMITS="$("${GIT}" log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}" | wc -l)"
   if [[ "${NUM_COMMITS}" -eq 0 ]]; then
-    echo "No changes in this branch."
-    exit 1
+    _fatal "No changes in this branch."
   fi
   if [[ "${NUM_COMMITS}" -gt 1 ]]; then
     local YN
-    echo "There are ${NUM_COMMITS} commits outstanding."
+    _info "There are ${NUM_COMMITS} commits outstanding."
     read -rp "Do you want to squash before sending this PR? (y/N)  " YN
     if [[ "$YN" =~ ^[yY] ]]; then
       gee__squash
@@ -901,12 +903,14 @@ function gee__merge() {
     _die "Remote branch ${CURRENT_BRANCH} does not exist."
   fi
   local DIFFS
-  DIFFS="$("${GIT}" diff --name-only origin/${CURRENT_BRANCH}..${CURRENT_BRANCH} | wc -l)"
+  DIFFS="$("${GIT}" diff --name-only \
+    "origin/${CURRENT_BRANCH}..${CURRENT_BRANCH}" | wc -l)"
   if (( "${DIFFS}" != 0 )); then
     _fatal "Will not submit: current branch has uncommitted changes."
   fi
   _gh pr merge --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}"
   # Use existing update flow:
+  # TODO(jonathan): this is a scenario where rebase makes more sense?
   gee__update
 }
 
@@ -949,7 +953,7 @@ function gee__remove_branch() {
   PREV_PARENT="${PARENTS["${BR}"]}"
   if [[ -z "${PREV_PARENT}" ]]; then PREV_PARENT="master"; fi
   unset PARENTS["${BR}"]
-  local K V
+  local K
   for K in "${!PARENTS[@]}"; do
     if [[ "${PARENTS["$K"]}" == "${BR}" ]]; then
       PARENTS["$K"]="${PREV_PARENT}"
@@ -1013,8 +1017,8 @@ file:
 
     source ~/gee/enkit/master/scripts/gee_aliases.bash
 
-TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 EOT
+# TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 
 function gee__gcd() {
   local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH
