@@ -1,3 +1,4 @@
+// Config loaders to read/write files in directories.
 package directory
 
 import (
@@ -12,8 +13,9 @@ type Directory struct {
 	path string
 }
 
-// OpenHomeDir returns a Loader() capable of loading and creating config
-// files in the default location for user configs.
+// OpenHomeDir returns a Loader capable of loading and creating config
+// files in the system default configuration directory for the current
+// user. 
 //
 // On Linux systems, this generally means ~/.config/<app>/<namespace>/.
 func OpenHomeDir(app string, namespaces ...string) (*Directory, error) {
@@ -39,6 +41,8 @@ func Refresh() {
 	configdir.Refresh()
 }
 
+// OpenDir returns a Loader capable of loading and creating config
+// files in the specified directory.
 func OpenDir(base string, sub ...string) (*Directory, error) {
 	path := filepath.Join(append([]string{base}, sub...)...)
 	return &Directory{path: path}, nil

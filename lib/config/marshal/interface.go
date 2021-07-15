@@ -1,3 +1,4 @@
+// Generic marshalling and unmarshalling interfaces.
 package marshal
 
 // Implement the Marshaller interface to provide mechanisms to turn objects into string, and vice-versa.

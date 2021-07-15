@@ -1,3 +1,4 @@
+// A config Store able to load and store configs via simple HTTP requests.
 package remote
 
 import (

@@ -11,6 +11,8 @@ import (
 	"os"
 )
 
+type FuncHandler func(w http.ResponseWriter, r *http.Request)
+
 type Flags struct {
 	HttpPort    int
 	HttpAddress string

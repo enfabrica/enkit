@@ -32,6 +32,7 @@ import (
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/oauth/ogrpc"
 	"github.com/enfabrica/enkit/lib/server"
+	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -146,14 +147,14 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 	rpc_auth.RegisterAuthServer(grpcs, authServer)
 
 	mux := http.NewServeMux()
-	stats := server.AssetStats{}
+	stats := kassets.AssetStats{}
 
 	// Public configs, those are accessible to anyone on the internet.
 	mux.HandleFunc("/configs/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("%s On %s", kconfig.YodaSays, time.Now()), http.StatusNotFound)
 	})
-	server.RegisterAssets(&stats, assets.Data, "", server.BasicMapper(server.MuxMapper(mux)))
-	server.RegisterAssets(&stats, configs.Data, "", server.PrefixMapper("/configs", server.StripExtensionMapper(server.BasicMapper(server.MuxMapper(mux)))))
+	kassets.RegisterAssets(&stats, assets.Data, "", kassets.BasicMapper(kassets.MuxMapper(mux)))
+	kassets.RegisterAssets(&stats, configs.Data, "", kassets.PrefixMapper("/configs", kassets.StripExtensionMapper(kassets.BasicMapper(kassets.MuxMapper(mux)))))
 	stats.Log(log.Printf)
 
 	// Published artifacts, web page for human consumption, lists the options available for download.
