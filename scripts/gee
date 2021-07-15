@@ -177,8 +177,6 @@ function _get_parent_branch() {
   fi
 
   # BRANCH should be in the parents file.  Let's check there first:
-  local -A PARENTS
-  _read_parents_file
   if [[ -v PARENTS["${BRANCH}"] ]]; then
     echo "${PARENTS[$BRANCH]}"
     return
@@ -378,7 +376,6 @@ function _get_current_branch() {
 
 function _read_parents_file() {
   local PATH=~/gee/"${REPO}/.gee/parents"
-  declare -A PARENTS=()
   local KEY VALUE
   if [[ ! -d ~/gee/"${REPO}/.gee" ]]; then
     /usr/bin/mkdir ~/gee/"${REPO}/.gee"
@@ -618,22 +615,41 @@ function gee__update() {
     exit 1
   fi
 
-  _git fetch upstream
   # Merge from upstream/master into master:
   _checkout_or_die master
+  _git fetch upstream
   _git pull upstream master
   if [[ "$(_count_diffs upstream/master master)" != 0 ]]; then
     _fatal "git pull operation failed."
   fi
   _git push -u origin master
 
-  # Merge (ff-only) from master into the current branch:
-  _checkout_or_die "${CURRENT_BRANCH}"
-  _git merge --ff-only master
-  if [[ "$(_count_diffs upstream/master master)" != 0 ]]; then
-    _fatal "git merge operation failed."
-  fi
-  _git push -u origin "${CURRENT_BRANCH}"
+  local -A PARENTS
+  _read_parents_file
+
+  # Build a chain of branches to update.
+  local -a CHAIN=()
+  local B
+  B="${CURRENT_BRANCH}"
+  while [[ "${B}" != master ]]; do
+    CHAIN=( "${B}" "${CHAIN[@]}" )
+    B="$(_get_parent_branch "${B}")"
+    if (( "${#CHAIN[@]}" > 50 )); then
+      echo "CHAIN: ${CHAIN[@]}"
+      _die "Branch chain is longer than 50, that can't be right."
+    fi
+  done
+
+  local PREVIOUS_B
+  PREVIOUS_B="master"
+  for B in "${CHAIN[@]}"; do
+    _info "Updating ${B} from ${PREVIOUS_B}"
+    # Merge (ff) from master into the current branch:
+    _checkout_or_die "${B}"
+    _git merge --ff "${PREVIOUS_B}" -m "Routine merge from ${PREVIOUS_B}"
+    _git push -u origin "${B}"
+    PREVIOUS_B="${B}"
+  done
 }
 
 ##########################################################################
@@ -895,7 +911,7 @@ function gee__merge() {
 }
 
 ##########################################################################
-# removebranch command
+# remove_branch command
 ##########################################################################
 
 _register_help "remove_branch" "Remove a branch." <<'EOT'
@@ -925,6 +941,22 @@ function gee__remove_branch() {
   _git worktree remove "${BR}"
   _git branch -D "${BR}"
   _git push origin --delete "${BR}"
+
+  # Remove branch from parents file, and fix up children's parents.
+  local -a PARENTS
+  _read_parents_file
+  local PREV_PARENT
+  PREV_PARENT="${PARENTS["${BR}"]}"
+  if [[ -z "${PREV_PARENT}" ]]; then PREV_PARENT="master"; fi
+  unset PARENTS["${BR}"]
+  local K V
+  for K in "${!PARENTS[@]}"; do
+    if [[ "${PARENTS["$K"]}" == "${BR}" ]]; then
+      PARENTS["$K"]="${PREV_PARENT}"
+    fi
+  done
+  _write_parents_file
+
   _info "Deleted ${BR}.  To undo: gee make_branch ${BR} ${SHA}"
 }
 
