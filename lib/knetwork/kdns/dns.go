@@ -8,11 +8,11 @@ import (
 )
 
 type DnsServer struct {
-	Listener net.Listener
-	Logger   logger.Logger
-	Port     int
+	Flags  *Flags
+	Logger logger.Logger
+	Port   int
+	Domains   []string
 
-	domains   []string
 	host      string
 	dnsServer *dns.Server
 
@@ -30,23 +30,34 @@ type DnsServer struct {
 	shutdownSuccess chan bool
 }
 
+func (s *DnsServer) DnsFlags() *Flags {
+	return s.Flags
+}
+
 // Run starts the server and is blocking. It will return an error on close if it did not exit gracefully. To close the
 // DnsServer gracefully, call Stop.
 func (s *DnsServer) Run() error {
 	mux := dns.NewServeMux()
-	for _, domain := range s.domains {
-		mux.HandleFunc(dns.CanonicalName(domain), s.HandleIncoming)
+	for _, domain := range s.Domains {
+		mux.HandleFunc(dns.Fqdn(domain), s.HandleIncoming)
 	}
 	s.dnsServer = &dns.Server{Handler: mux}
-	if s.Listener != nil {
-		s.dnsServer.Listener = s.Listener
-		s.dnsServer.Net = "udp"
-		s.dnsServer.Addr = s.Listener.Addr().String()
+	s.dnsServer.Net = "udp"
+	if s.Flags.Listener != nil {
+		s.dnsServer.Listener = s.Flags.Listener
+		s.dnsServer.Addr = s.Flags.Listener.Addr().String()
+	} else {
+		l, err := net.Listen(net.JoinHostPort(s.host, strconv.Itoa(s.Port)), "tcp")
+		if err != nil {
+			return err
+		}
+		s.dnsServer.Listener = l
 	}
 	if s.Port != 0 {
 		s.dnsServer.Addr = net.JoinHostPort(s.host, strconv.Itoa(s.Port))
 	}
 	go s.HandleControllers()
+	s.Logger.Infof("Serving Dns on %s for domains %v", s.dnsServer.Addr, s.Domains )
 	return s.dnsServer.ListenAndServe()
 }
 
@@ -96,7 +107,7 @@ func (s *DnsServer) NewControllerForName(origin string) *RecordController {
 	return <-returnChan
 }
 
-func (s DnsServer) HandleControllers() {
+func (s *DnsServer) HandleControllers() {
 	controllerMap := map[string]*RecordController{}
 	defer close(s.readOnlyChan)
 	defer close(s.newOrExistingChan)
@@ -124,6 +135,7 @@ func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg)
 	m := &dns.Msg{}
 	m.SetReply(incoming)
 	m.Compress = false
+	m.RecursionAvailable = true
 	switch incoming.Opcode {
 	case dns.OpcodeQuery:
 		s.ParseDNS(m)
@@ -134,7 +146,7 @@ func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg)
 	}
 }
 
-// ParseDNS will only handle dns requests from domains that it is specified to handle. It will modify the *dns.Msg in place.
+// ParseDNS will only handle dns requests from Domains that it is specified to handle. It will modify the *dns.Msg in place.
 func (s *DnsServer) ParseDNS(m *dns.Msg) {
 	for _, q := range m.Question {
 		c := s.ControllerForName(q.Name)
@@ -144,6 +156,5 @@ func (s *DnsServer) ParseDNS(m *dns.Msg) {
 				m.Answer = append(m.Answer, txt)
 			}
 		}
-
 	}
 }

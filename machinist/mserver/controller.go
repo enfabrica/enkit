@@ -1,14 +1,26 @@
 package mserver
 
 import (
+	"errors"
+	"fmt"
+	"github.com/enfabrica/enkit/lib/knetwork/kdns"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
+	"github.com/miekg/dns"
 	"log"
+	"net"
 	"sync"
+	"time"
 )
 
 type Controller struct {
+	Log                 logger.Logger
+	domains             []string
 	connectedNodes      map[string]*Node
 	connectedNodesMutex sync.RWMutex
+
+	dnsServer *kdns.DnsServer
+	dnsPort   int
 }
 
 func (en *Controller) Nodes() []*Node {
@@ -44,17 +56,28 @@ func (en *Controller) HandlePing(stream machinist.Controller_PollServer, ping *m
 				},
 			},
 		})
-
 }
 
 func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, ping *machinist.ClientRegister) error {
+	var parsedIps []net.IP
+	for _, p := range ping.Ips {
+		i := net.ParseIP(p)
+		if i != nil {
+			parsedIps = append(parsedIps, i)
+		}
+	}
+	if len(parsedIps) == 0 {
+		return errors.New("no valid ip sent")
+	}
 	n := &Node{
 		Name: ping.Name,
 		Tags: ping.Tag,
+		Ips:  parsedIps,
 	}
 	en.connectedNodesMutex.Lock()
+	defer en.connectedNodesMutex.Unlock()
 	en.connectedNodes[ping.Name] = n
-	en.connectedNodesMutex.Unlock()
+	en.addNodeToDns(ping.Name, n.Ips, n.Tags)
 	return stream.Send(
 		&machinist.PollResponse{
 			Resp: &machinist.PollResponse_Result{
@@ -79,8 +102,64 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 			en.HandlePing(stream, r.Ping)
 
 		case *machinist.PollRequest_Register:
-			en.HandleRegister(stream, r.Register)
+			if err = en.HandleRegister(stream, r.Register); err != nil {
+				fmt.Println("error handling register", err.Error())
+				return err
+			}
 			log.Printf("Got REGISTER %#v", *r.Register)
 		}
+	}
+}
+
+func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
+	for _, d := range en.dnsServer.Domains {
+		dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", name, d))
+		var recordTags []dns.RR
+		for _, t := range tags {
+			entry, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "TXT", t))
+			if err != nil {
+				continue
+			}
+			recordTags = append(recordTags, entry)
+		}
+		for _, i := range ips {
+			var recordType string
+			if i.To4() != nil {
+				recordType = "A"
+			}
+			if i.To16() != nil && recordType == "" {
+				recordType = "AAAA"
+			}
+			if recordType != "" {
+				entry, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, recordType, i.String()))
+				if err != nil {
+					continue
+				}
+				en.Log.Infof("Adding %s to the dns ControlPlane %s", dnsName, entry)
+				en.dnsServer.SetEntry(dnsName, []dns.RR{entry})
+				en.dnsServer.SetEntry(dnsName, recordTags)
+			}
+		}
+	}
+}
+
+func (en *Controller) ServeAllRecords() {
+	for {
+		ns := en.Nodes()
+		for _, d := range en.dnsServer.Domains {
+			dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", "_all", d))
+			var rs []dns.RR
+			for _, v := range ns {
+				for _, i := range v.Ips {
+					rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "A", i.String()))
+					if err != nil {
+						en.Log.Errorf("err: %v", err)
+					}
+					rs = append(rs, rr)
+				}
+			}
+			en.dnsServer.SetEntry(dnsName, rs)
+		}
+		_ = <-time.After(5 * time.Second)
 	}
 }

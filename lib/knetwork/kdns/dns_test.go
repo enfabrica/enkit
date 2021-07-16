@@ -49,8 +49,12 @@ func TestDNS(t *testing.T) {
 		rrs = append(rrs, r)
 	}
 	// Actual Test
-	dnsServer.AddEntry("hello.enkit", rrs[0])
-	dnsServer.AddEntry("hello.enkit", rrs[1])
+	go func() {
+		dnsServer.AddEntry("hello.enkit", rrs[0])
+	}()
+	go func() {
+		dnsServer.AddEntry("hello.enkit", rrs[1])
+	}()
 	time.Sleep(150 * time.Millisecond)
 
 	// Double check that the dns server only uses our domains
@@ -58,7 +62,6 @@ func TestDNS(t *testing.T) {
 	assert.NotNil(t, err)
 
 	ips, err := customResolver.LookupHost(context.TODO(), "hello.enkit")
-	fmt.Println("cleaned hello.enkt is ", dns.Fqdn("hello.enkit"))
 	assert.Nil(t, err)
 	for _, aa := range ips {
 		fmt.Println(aa)

@@ -1,4 +1,4 @@
-package mnode
+package machine
 
 import (
 	"context"
@@ -6,20 +6,24 @@ import (
 	"errors"
 	"fmt"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/retry"
+	"github.com/enfabrica/enkit/machinist/config"
+	"github.com/enfabrica/enkit/machinist/polling"
 	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
-	"time"
+	"strconv"
 )
 
-type Node struct {
+type Machine struct {
 	MachinistClient machinist_rpc.ControllerClient
 	AuthClient      auth.AuthClient
 	Repeater        *retry.Options
@@ -28,59 +32,50 @@ type Node struct {
 	// Dial func will override any existing options to connect
 	DialFunc func() (*grpc.ClientConn, error)
 
-	config *Config
+	*config.Node
 }
 
-func (n *Node) Init() error {
+func (n *Machine) MachinistCommon() *config.Common {
+	return n.Common
+}
+
+func (n *Machine) Init() error {
 	if n.DialFunc != nil {
 		conn, err := n.DialFunc()
 		if err != nil {
 			return err
 		}
-		fmt.Println("setting controller client")
 		n.MachinistClient = machinist_rpc.NewControllerClient(conn)
 		return nil
 	}
-	panic("not implemented yet")
-}
-
-func (n *Node) BeginPolling() error {
-	ctx := context.Background()
-	pollStream, err := n.MachinistClient.Poll(ctx)
+	h := n.ControlPlaneHost
+	p := n.ControlPlanePort
+	conn, err := grpc.Dial(net.JoinHostPort(h, strconv.Itoa(p)), grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
-	initialRequest := &machinist_rpc.PollRequest{
-		Req: &machinist_rpc.PollRequest_Register{
-			Register: &machinist_rpc.ClientRegister{
-				Name: n.config.Name,
-				Tag:  n.config.Tags,
-			},
+	n.MachinistClient = machinist_rpc.NewControllerClient(conn)
+	return nil
+}
+
+func (n *Machine) BeginPolling() error {
+	ctx := context.Background()
+	return goroutine.WaitFirstError(
+		func() error {
+			return polling.SendRegisterRequests(ctx, n.MachinistClient, n.Node)
 		},
-	}
-	if err := pollStream.Send(initialRequest); err != nil {
-		return fmt.Errorf("unable to send initial request: %w", err)
-	}
-	for {
-		select {
-		case <-time.After(1 * time.Second):
-			pollReq := &machinist_rpc.PollRequest{
-				Req: &machinist_rpc.PollRequest_Ping{
-					Ping: &machinist_rpc.ClientPing{
-						Payload: []byte(``),
-					},
-				},
-			}
-			if err := pollStream.Send(pollReq); err != nil {
-				return fmt.Errorf("unable to send poll req: %w", err)
-			}
-		}
-	}
+		func() error {
+			return polling.SendKeepAliveRequest(ctx, n.MachinistClient)
+		},
+		func() error {
+			return polling.SendMetricsRequest(ctx, n.Node)
+		},
+	)
 }
 
 // TODO(adam): perform rollbacks if enroll fails
-func (n *Node) Enroll() error {
-	if os.Geteuid() != 0 && n.config.RequireRoot {
+func (n *Machine) Enroll() error {
+	if os.Geteuid() != 0 && n.RequireRoot {
 		return errors.New("this command must be run as root since it touches the /etc/ssh directory")
 	}
 	pubKey, privKey, err := kcerts.GenerateED25519()
@@ -89,35 +84,36 @@ func (n *Node) Enroll() error {
 	}
 	hcr := &auth.HostCertificateRequest{
 		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
-		Hosts:    n.config.SSHPrincipals,
+		Hosts:    n.SSHPrincipals,
 	}
 	resp, err := n.AuthClient.HostCertificate(context.Background(), hcr)
 	if err != nil {
 		return err
 	}
-	if !n.config.ReWriteConfigs {
+	if !n.ReWriteConfigs {
 		if err = anyFileExist(
-			n.config.CaPublicKeyLocation,
-			n.config.HostKeyLocation, n.config.HostCertificate()); err != nil {
+			n.CaPublicKeyLocation,
+			n.HostKeyLocation, n.HostCertificate()); err != nil {
 			return fmt.Errorf("rewriting configs are disabled, failed with err(s): %v", err)
 		}
 	}
 
-	enrollConfig := n.config.enrollConfigs
 	// Pam Installer Steps
 	n.Log.Infof("Executing Pam installation steps")
 	if err := InstallLibPam(n.Log); err != nil {
 		return err
 	}
-	if err := InstallPamSSHDFile(enrollConfig.PamSSHDLocation, n.Log); err != nil {
+	if err := InstallPamSSHDFile(n.PamSSHDLocation, n.Log); err != nil {
 		return err
 	}
-	if err := InstallPamScript(enrollConfig.PamSecurityLocation, n.Log); err != nil {
+	if err := InstallPamScript(n.PamSecurityLocation, n.Log); err != nil {
 		return err
 	}
 
 	//// Nss AutoUser Setup
-	if err := InstallNssAutoUserConf(n.config.LibNssConfLocation, n.config.NssConfig()); err != nil {
+	if err := InstallNssAutoUserConf(n.LibNssConfLocation, &NssConf{
+		DefaultShell: "/bin/bash",
+	}); err != nil {
 		return err
 	}
 	if err := InstallNssAutoUser(n.Log); err != nil {
@@ -125,23 +121,23 @@ func (n *Node) Enroll() error {
 	}
 
 	// SSHD installer steps
-	if err := os.MkdirAll(filepath.Dir(n.config.SSHDConfigurationLocation), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(n.SSHDConfigurationLocation), os.ModePerm); err != nil {
 		return err
 	}
-	sshdConfigContent, err := ReadSSHDContent(n.config.CaPublicKeyLocation, n.config.HostKeyLocation, n.config.HostCertificate())
+	sshdConfigContent, err := ReadSSHDContent(n.CaPublicKeyLocation, n.HostKeyLocation, n.HostCertificate())
 	if err != nil {
 		return err
 	}
 	n.Log.Infof("Writing SSHD Configuration")
-	if err := ioutil.WriteFile(n.config.SSHDConfigurationLocation, sshdConfigContent, 0644); err != nil {
+	if err := ioutil.WriteFile(n.SSHDConfigurationLocation, sshdConfigContent, 0644); err != nil {
 		return err
 	}
 	n.Log.Infof("Writing CA Public Key Configuration")
-	if err := ioutil.WriteFile(n.config.CaPublicKeyLocation, resp.Capublickey, 0644); err != nil {
+	if err := ioutil.WriteFile(n.CaPublicKeyLocation, resp.Capublickey, 0644); err != nil {
 		return err
 	}
 	n.Log.Infof("Writing Host Cert")
-	if err := ioutil.WriteFile(n.config.HostCertificate(), resp.Signedhostcert, 0644); err != nil {
+	if err := ioutil.WriteFile(n.HostCertificate(), resp.Signedhostcert, 0644); err != nil {
 		return err
 	}
 	n.Log.Infof("Writing Host Key")
@@ -149,7 +145,7 @@ func (n *Node) Enroll() error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(n.config.HostKeyLocation, pemBytes, 0644); err != nil {
+	if err := ioutil.WriteFile(n.HostKeyLocation, pemBytes, 0644); err != nil {
 		return err
 	}
 	return nil
@@ -158,7 +154,7 @@ func (n *Node) Enroll() error {
 func anyFileExist(names ...string) error {
 	var errs []error
 	for _, name := range names {
-		if _, err := os.Stat(name); err != nil && !os.IsNotExist(err){
+		if _, err := os.Stat(name); err != nil && !os.IsNotExist(err) {
 			errs = append(errs, err)
 		}
 	}

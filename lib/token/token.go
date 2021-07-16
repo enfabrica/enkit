@@ -9,12 +9,11 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"golang.org/x/crypto/nacl/sign"
 	"io/ioutil"
 	"math/rand"
 	"time"
-
-	"golang.org/x/crypto/nacl/sign"
-)
+	)
 
 // Use internally to define keys exported via context.
 type contextKey string
