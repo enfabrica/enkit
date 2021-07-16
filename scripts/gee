@@ -232,7 +232,7 @@ function _confirm_or_exit() {
 
 # "The developer wants to read this."
 function _debug() {
-  if (( "${DEBUG}" > 0 )); then
+  if (( "${DEBUG:-0}" > 0 )); then
     echo >&2 "$*"
   fi
 }
