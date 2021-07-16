@@ -947,8 +947,9 @@ function gee__make_pr() {
     _fatal Aborted.
   fi
 
-  NUM_COMMITS="$("${GIT}" log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}" | wc -l)"
+  NUM_COMMITS="$("${GIT}" log --oneline "${DEST_BRANCH}..${CURRENT_BRANCH}" | wc -l)"
   if [[ "${NUM_COMMITS}" -eq 0 ]]; then
+    _debug "command: ${GIT} log --oneline ${DEST_BRANCH}..${CURRENT_BRANCH}"
     _fatal "No changes in this branch."
   fi
 
