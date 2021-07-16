@@ -328,8 +328,9 @@ function _branch_ahead_behind() {
   # Report how many commits this branch is ahead/behind master.
   local branch; branch="$1"
   local obr;
-  # doesn't work: obr="$(_get_parent_branch)"
-  obr="master"
+  local -A PARENTS
+  _read_parents_file
+  obr="$(_get_parent_branch)"
   local -a counts
   read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
@@ -508,6 +509,8 @@ EOT
 
 function gee__log() {
   local PARENT_BRANCH CURRENT_BRANCH
+  local -A PARENTS
+  _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   _git log "${PARENT_BRANCH}..${CURRENT_BRANCH}"
@@ -527,6 +530,8 @@ EOT
 
 function gee__diff() {
   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE
+  local -A PARENTS
+  _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
@@ -548,7 +553,12 @@ Squash all commits in this branch to a single commit.
 EOT
 
 function gee__squash() {
+  # Note: there is no longer any need to squash before sending out for review,
+  # as we always merge with "gh pr merge --squash".
+  # TODO(jonathan): Deprecate this?
   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE TMPFILE NUM_COMMITS
+  local -A PARENTS
+  _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
@@ -714,10 +724,38 @@ function gee__lsbranches() {
 # get_parent command
 ##########################################################################
 
+_register_help "get_parent" "Which branch is this branch branched from?" <<'EOT'
+Usage: gee get_parent
+EOT
+
 function gee__get_parent() {
   local BRANCH
   BRANCH="${1:-$(_get_current_branch)}"
+  local -A PARENTS
+  _read_parents_file
   PARENT="$(_get_parent_branch "${BRANCH}")"
+  echo "${PARENT} is the parent branch of ${BRANCH}"
+}
+
+##########################################################################
+# set_parent command
+##########################################################################
+
+_register_help "set_parent" "Set another branch as parent of this branch." <<'EOT'
+Usage: gee set_parent <parent-branch>
+EOT
+
+function gee__set_parent() {
+  local BRANCH PARENT 
+  BRANCH="$(_get_current_branch)"
+  PARENT="$1"
+  if [[ -z "${PARENT}" ]]; then
+    _fatal "Must specify a parent branch."
+  fi
+  local -A PARENTS
+  _read_parents_file
+  PARENTS["${BRANCH}"]="$1"
+  _write_parents_file
   echo "${PARENT} is the parent branch of ${BRANCH}"
 }
 
@@ -830,12 +868,14 @@ function gee__mail() { gee__make_pr "$@"; }
 function gee__send() { gee__make_pr "$@"; }
 function gee__mkpr() { gee__make_pr "$@"; }
 function gee__make_pr() {
-  local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
-  PARENT_BRANCH="$(_get_parent_branch)"
+  local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
+  declare -A PARENTS
+  _read_parents_file
+  DEST_BRANCH="upstream/master"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
-  MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
+  MERGE_BASE="$("${GIT}" merge-base "${DEST_BRANCH}" "${CURRENT_BRANCH}")"
   _info "Current branch: ${CURRENT_BRANCH}"
-  _info "Parent branch: ${PARENT_BRANCH}"
+  _info "Destination branch: ${DEST_BRANCH}"
   _info "Merge base: ${MERGE_BASE}"
 
   # "gh pr view" arguements are similar to "gh pr create" but not identical.
@@ -860,14 +900,9 @@ function gee__make_pr() {
   if [[ "${NUM_COMMITS}" -eq 0 ]]; then
     _fatal "No changes in this branch."
   fi
-  if [[ "${NUM_COMMITS}" -gt 1 ]]; then
-    local YN
-    _info "There are ${NUM_COMMITS} commits outstanding."
-    read -rp "Do you want to squash before sending this PR? (y/N)  " YN
-    if [[ "$YN" =~ ^[yY] ]]; then
-      gee__squash
-    fi
-  fi
+
+  # Note: there is no longer any need to squash before sending out for review,
+  # as we always merge with "gh pr merge --squash".
 
   # Note: we must label origin as the upstream branch for "gh pr create" to
   # automatically pick the branch to use for the PR request.
@@ -908,7 +943,7 @@ function gee__merge() {
   if (( "${DIFFS}" != 0 )); then
     _fatal "Will not submit: current branch has uncommitted changes."
   fi
-  _gh pr merge --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}"
+  _gh pr merge --squash --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}"
   # Use existing update flow:
   # TODO(jonathan): this is a scenario where rebase makes more sense?
   gee__update
@@ -919,12 +954,12 @@ function gee__merge() {
 ##########################################################################
 
 _register_help "remove_branch" "Remove a branch." <<'EOT'
-Usage: gee removebranch <branch-name>
+Usage: gee remove_branch <branch-name>
 
 Removes a branch and it's associated directory.
 EOT
 
-function gee__rmbr() { gee__removebranch "$@"; }
+function gee__rmbr() { gee__remove_branch "$@"; }
 function gee__remove_branch() { 
   local BR="$1"; shift
   if [[ -z "${BR}" ]]; then
@@ -939,7 +974,7 @@ function gee__remove_branch() {
     _confirm_or_exit "Are you sure you want to force-remove branch ${BR}? (y/N) "
   fi
   local SHA
-  SHA="$("${GIT}" reflog)"
+  SHA="$("${GIT}" reflog | head -n 1 | awk '{print $1}' )"
 
   _checkout_or_die master
   _git worktree remove "${BR}"
