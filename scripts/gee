@@ -724,7 +724,7 @@ function gee__update() {
   _set_main
   _checkout_or_die "${MAIN}"
   _git fetch upstream
-  _git pull rebase upstream "${MAIN}"
+  _git pull --rebase upstream "${MAIN}"
   if [[ "$(_count_diffs "upstream/${MAIN}" "${MAIN}")" != 0 ]]; then
     _fatal "git pull operation failed."
   fi
