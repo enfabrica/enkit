@@ -2,17 +2,19 @@
 #
 # gee: git enabled enfabrication.
 #
-# A wrapper for our standard git workflow.
+# A wrapper for our standard git workflow.  This is a starting point, designed
+# to capture one correct and reliable way of using git, that can be refined
+# over time without having to teach every user the deep way of git.
 #
 # A few features:
 # 
-# * We always use "worktree" -- that is, every branch gets a unique
-#   directory in the user's home directory.  (At the moment, this costs
-#   about 0.2GB for each branch, which feels cheap.)
+# * We always use "worktree" -- that is, every branch gets a unique directory
+#   in the user's home directory.  (At the moment, this costs about 0.2GB for
+#   each branch, which feels cheap.)
 #
-# * "gee submit" always pushes changes to github so that users will
-#   have a backup of their work.  Also, nothing special has to be done
-#   to update an outstanding PR.
+# * "gee submit" always pushes changes to github so that users will have a
+#   backup of their work.  Also, nothing special has to be done to update an
+#   outstanding PR.
 #
 # * Enforce an "ssh"-authenticated workflow.
 #
@@ -27,18 +29,18 @@
 #   gee submit  # merge that pr request
 #   gee cleanup  # prune branches without local changes.
 #
-# Additionally, we want the ability to chain feature branches that build
-# on one another, and we want "gee update" to recursively traverse chains
-# of branches.  A user should be able to send branch "feature1" off for
-# review and immediately start work on it's descendant, "feature2" while
-# "feature1" is undergoing review.
+# Additionally, we want the ability to chain feature branches that build on one
+# another, and we want "gee update" to recursively traverse chains of branches.
+# A user should be able to send branch "feature1" off for review and
+# immediately start work on it's descendant, "feature2" while "feature1" is
+# undergoing review.
 #
 # All gee-maintained repos and branches live under ~/gee.  The directory
 # structure is: "${HOME}/gee/<REPO>/<BRANCH>".
 #
 # Gee uses the "worktree" model by default: every branch gets it's own
-# dedicated directory, and users switch branchs by changing directories.
-# This enables simultaneous work on separate branches, and prevents editor
+# dedicated directory, and users switch branchs by changing directories.  This
+# enables simultaneous work on separate branches, and prevents editor
 # disruption when switching from branch to branch (ie. accidentally saving a
 # change from one branch in a different branch).
 #
@@ -48,25 +50,29 @@
 #              changes from here.
 #    origin:   the user's forked repo ($GHUSER/$REPO)
 #              we pull and push to this repo.
-#    upstream/master: top of tree
-#    origin/master: user's top-of-tree with no local changes,
-#        updated periodically from upstream/master.
-#    master: local repo top of tree, no local changes,
-#        updated periodically from upstream/master.
-#    $feature: fork of master (or other $feature), contains
+#    upstream/main: top of tree
+#    origin/main: user's top-of-tree with no local changes,
+#        updated periodically from upstream/main.
+#    main: local repo top of tree, no local changes,
+#        updated periodically from upstream/main.
+#    $feature: fork of main (or other $feature), contains
 #        local changes.  May have 0 or 1 PRs associated with it.
 #    origin/$feature: github backup of $feature branch.
 #
 # Updates flow in one direction through these branches:
 #
-#   upstream/master -> master -> origin/master -> $feature -> origin/$feature
+#   upstream/main -> main -> origin/main -> $feature -> origin/$feature
 #
 # The user only commits changes to $feature.
 #
-# Changes then migrate from origin/$feature back to upstream/master when a
-# PR is approved and merged.
+# Changes then migrate from origin/$feature back to upstream/main when a PR is
+# approved and merged.
 #
-# TODO(jonathan): Bash implementation is a prototype.  rewrite in golang.
+# Note: We are transitioning from "master" to "main."  Gee always tries to find
+# a "main" remote branch first, but falls back to "master" if "main" does not
+# exist.
+#
+# TODO(jonathan): Bash implementation is a prototype.  rewrite in golang?
 # TODO(jonathan): "git push -u" option is going to change soon.
 
 set -e
@@ -77,10 +83,13 @@ readonly TRUE=0
 readonly FALSE=1
 readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
-readonly KEYFILE="${HOME}/.ssh/gee_github_ed25519"
+readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
 DRYRUN="${DRYRUN:-0}"
+UPSTREAM="${UPSTREAM:-enfabrica}"
+TESTMODE="${TESTMODE:-0}"
+MAIN="" # Unknown, call _set_main to set.
 REPO="${REPO:-}"
 
 if [[ -z "${REPO}" ]]; then
@@ -93,6 +102,11 @@ if [[ -z "${REPO}" ]]; then
   if [[ "${PWD}" =~ ^${HOME}/gee/([a-z0-9_-]+)/([a-z0-9_-]+) ]]; then
     REPO="${BASH_REMATCH[1]}"
   fi
+  # Try the test directory layout:
+  if [[ "${PWD}" =~ ^${HOME}/testgee/([a-z0-9_-]+)/([a-z0-9_-]+) ]]; then
+    TESTMODE=1
+    REPO="${BASH_REMATCH[1]}"
+  fi
 fi
 
 # If all else fails, default to internal
@@ -100,7 +114,13 @@ if [[ -z "${REPO}" ]]; then
   REPO=internal
 fi
 
-BRANCHES_DIR="${HOME}/gee/${REPO}/"
+REPO_DIR="${HOME}/gee/${REPO}/"
+
+if (( "${TESTMODE}" )); then
+  UPSTREAM="${GHUSER}"
+  REPO="testing"
+  REPO_DIR="${HOME}/testgee/${REPO}/"
+fi
 
 # colors library
 _COLOR_RST="$(tput sgr0)"
@@ -113,6 +133,23 @@ _COLOR_INFO="$(tput setaf 1)"
 ##########################################################################
 # helper functions
 ##########################################################################
+
+function _set_main() {
+  if [[ -n "${MAIN}" ]]; then return; fi
+  local UPSTREAM_URL
+  UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
+  if "${GIT}" ls-remote --exit-code --quiet \
+      --heads "${UPSTREAM_URL}" main > /dev/null; then
+    MAIN="main"
+    return
+  fi
+  if "${GIT}" ls-remote --exit-code --quiet \
+      --heads "${UPSTREAM_URL}" master > /dev/null; then
+    MAIN="master"
+    return
+  fi
+  _fatal "Remote ${UPSTREAM_URL} contains neither main nor master branch."
+}
 
 function _check_ssh() {
   # Check if we can connect via ssh to github.
@@ -128,8 +165,8 @@ function _check_ssh() {
     _warn "Could not authenticate to github using ssh."
     _info "ssh -T git@github.com got:"
     _info "  ${OUTPUT}"
-    if [[ -f "${KEYFILE}" ]]; then
-      _info "Perhaps you need to run: ssh-add ${KEYFILE}"
+    if [[ -f "${SSHKEYFILE}" ]]; then
+      _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
     fi
     return 1
   fi
@@ -156,26 +193,26 @@ function _startup_checks() {
 }
 
 function _ssh_enroll() {
-  if [[ ! -f "${KEYFILE}" ]]; then
-    _cmd ssh-keygen -f "${KEYFILE}" -t ed25519 -C "${USER}@enfabrica.net"
+  if [[ ! -f "${SSHKEYFILE}" ]]; then
+    _cmd ssh-keygen -f "${SSHKEYFILE}" -t ed25519 -C "${USER}@enfabrica.net"
   else
-    _info "Reusing existing ${KEYFILE}"
+    _info "Reusing existing ${SSHKEYFILE}"
   fi
-  if [[ ! -f "${KEYFILE}" ]]; then
-    _fatal "Key file ${KEYFILE} was not created."
+  if [[ ! -f "${SSHKEYFILE}" ]]; then
+    _fatal "Key file ${SSHKEYFILE} was not created."
   fi
 
   # TODO(jonathan): Is this necessary?
   cat <<EOT >> ~/.ssh/config
 # gee: block start
 Host *.github.com
-  IdentityFile ${KEYFILE}
+  IdentityFile ${SSHKEYFILE}
 # gee: block stop
 EOT
 
-  _cmd ssh-add "${KEYFILE}"
+  _cmd ssh-add "${SSHKEYFILE}"
 
-  _gh ssh-key add "${KEYFILE}.pub" --title "gee-created-key"
+  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
   # The user might have to open their web browser at this point:
   read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
 
@@ -224,7 +261,7 @@ function _get_parent_branch() {
     echo "${PARENTS[$BRANCH]}"
     return
   fi
-  _warn "Strangely, ${BRANCH} was missing from ~/gee/${REPO}/.gee/parents."
+  _warn "Strangely, ${BRANCH} was missing from ${REPO_DIR}/.gee/parents."
 
   # This shouldn't happen, but if it does, we can still make a pretty
   # good guess by looking for the closest other branch:
@@ -238,8 +275,9 @@ function _get_parent_branch() {
   fi
   _warn "Strangely, show-branch could identify a parent for ${BRANCH}."
 
-  # Nothing worked!  Default to "master".
-  echo "master"
+  # Nothing worked!  Default to "${MAIN}".
+  _set_main
+  echo "${MAIN}"
 }
 
 function _get_branch_rootdir() {
@@ -293,7 +331,7 @@ function _warn() {
 # Use _fatal for user errors that don't require a stack dump.
 # "The user is going to be sad when they see this."
 function _fatal() {
-  echo >&2 "${_COLOR_DIE}FATAL: $*${_COLOR_RST}"
+  printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}\n" "$@"
   exit 1
 }
 
@@ -330,6 +368,7 @@ function _cmd() {
       fi
     fi
     set -e
+    return "${RC}"
   else
     echo -n "${_COLOR_CMD}DRYRUN: "
     printf " %q" "$@"
@@ -367,7 +406,7 @@ function _count_diffs() {
 }
 
 function _branch_ahead_behind() {
-  # Report how many commits this branch is ahead/behind master.
+  # Report how many commits this branch is ahead/behind main.
   local branch; branch="$1"
   local obr;
   local -A PARENTS
@@ -405,8 +444,8 @@ function _checkout_or_die() {
   BRNAME="$1"; shift
   # Do we already have a worktree?
   BRDIR="$(_get_branch_rootdir "${BRNAME}")"
-  if [[ -z "${BRANCHES_DIR}" ]]; then
-    _git worktree add "${BRANCHES_DIR}/${BRNAME}"
+  if [[ -z "${REPO_DIR}" ]]; then
+    _git worktree add "${REPO_DIR}/${BRNAME}"
     BRDIR="$(_get_branch_rootdir "${BRNAME}")"
   fi
   if [[ -z "${BRDIR}" ]]; then
@@ -425,10 +464,10 @@ function _get_current_branch() {
 }
 
 function _read_parents_file() {
-  local PATH=~/gee/"${REPO}/.gee/parents"
+  local PATH="${REPO_DIR}/.gee/parents"
   local KEY VALUE
-  if [[ ! -d ~/gee/"${REPO}/.gee" ]]; then
-    /usr/bin/mkdir ~/gee/"${REPO}/.gee"
+  if [[ ! -d "${REPO_DIR}/.gee" ]]; then
+    /usr/bin/mkdir "${REPO_DIR}/.gee"
   fi
   if [[ ! -f "${PATH}" ]]; then
     /usr/bin/touch "${PATH}"
@@ -439,10 +478,10 @@ function _read_parents_file() {
 }
 
 function _write_parents_file() {
-  local PATH=~/gee/"${REPO}/.gee/parents"
+  local PATH="${REPO_DIR}/.gee/parents"
   local KEY VALUE
-  if [[ ! -d ~/gee/"${REPO}/.gee" ]]; then
-    /usr/bin/mkdir ~/gee/"${REPO}/.gee"
+  if [[ ! -d "${REPO_DIR}/.gee" ]]; then
+    /usr/bin/mkdir "${REPO_DIR}/.gee"
   fi
   for KEY in "${!PARENTS[@]}"; do
     VALUE="${PARENTS[$KEY]}"
@@ -463,41 +502,43 @@ Arguments:
          If repo is not specified, `internal` is used by default.
 
 `gee init` creates a new gee-controlled workspace in the user's home directory.
-The directory `~/gee/<repo>/master` will be created and populated, and all
+The directory `~/gee/<repo>/main` will be created and populated, and all
 other branches will be checked out into `~/gee/<repo>/<branch>`.
 EOT
 
 function gee__init() {
-    if (( "$#" )); then
-      REPO="$1"
-      shift
-      BRANCHES_DIR="${HOME}/gee/${REPO}/"
-      _info "Using repo ${REPO}"
-    fi
+  local R
+  R="${1:-"${REPO}"}"
+  REPO="${R}"
+  REPO_DIR="${HOME}/gee/${REPO}/"
+  if (( "${TESTMODE}" )); then
+    REPO_DIR="${HOME}/testgee/${REPO}/"
+  fi
+  _set_main
+  _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
 
-    if ! _check_ssh; then
-      _warn "Cannot connect to github over ssh."
-      _confirm_or_exit "Would you like to set up ssh access now? (y/N)  "
-      _ssh_enroll
-    fi
+  if ! _check_ssh; then
+    _warn "Cannot connect to github over ssh."
+    _confirm_or_exit "Would you like to set up ssh access now? (y/N)  "
+    _ssh_enroll
+  fi
 
-    gee__hello
+  gee__hello
 
-    if [[ -d "${BRANCHES_DIR}/master" ]]; then
-      _fatal \
-        "Initialized workspace already exists in ${BRANCHES_DIR}"
-    fi
-    _cmd mkdir -p "${BRANCHES_DIR}/.gee"
-    local URL UPSTREAM_URL
-    URL="git@github.com:${GHUSER}/${REPO}.git"
-    UPSTREAM_URL=git@github.com:enfabrica/"${REPO}.git"
-    # TODO(jonathan): also create and push an ssh key if ssh access
-    # isn't already enabled.
-    _git clone "${URL}" "${BRANCHES_DIR}/master"
-    _cmd cd "${BRANCHES_DIR}/master"
-    _git remote add upstream "${UPSTREAM_URL}"
-    _git remote -v
-    _info "Created ${BRANCHES_DIR}/master"
+  if [[ -d "${REPO_DIR}/${MAIN}" ]]; then
+    _fatal \
+      "Initialized workspace already exists in ${REPO_DIR}"
+  fi
+  _cmd mkdir -p "${REPO_DIR}/.gee"
+  local URL UPSTREAM_URL
+  URL="git@github.com:${GHUSER}/${REPO}.git"
+  UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
+  _git clone "${URL}" "${REPO_DIR}/${MAIN}"
+  _cmd cd "${REPO_DIR}/${MAIN}"
+  _git remote add upstream "${UPSTREAM_URL}"
+  _git fetch upstream
+  _git remote -v
+  _info "Created ${REPO_DIR}/${MAIN}"
 }
 
 ##########################################################################
@@ -528,12 +569,12 @@ function gee__make_branch() {
     _fatal "Not in a git branch directory."
   fi
 
-  local -a ARGS=( worktree add "${BRANCHES_DIR}/${BRNAME}" )
+  local -a ARGS=( worktree add "${REPO_DIR}/${BRNAME}" )
   if [[ -n "${SHA}" ]]; then
     ARGS+=( "${SHA}" )
   fi
   _git "${ARGS[@]}"
-  _info "Created ${BRANCHES_DIR}/${BRNAME}"
+  _info "Created ${REPO_DIR}/${BRNAME}"
 
   local -A PARENTS
   _read_parents_file
@@ -640,13 +681,14 @@ function gee__squash() {
   "${EDITOR:-vim}" "${TMPFILE}"
   sed -i "/^#/d" "${TMPFILE}"
   perl -p -i -e 's/(^\s*\n){2,}/\n/gmso' "${TMPFILE}"
-  if grep -q "^\[" "${TMPFILE}"; then
+  if grep -q "^\[REPLACE" "${TMPFILE}"; then
     echo "You must replace the summary line."
     echo "Commit message saved here: ${TMPFILE}"
     _fatal Aborted.
   fi
   head -n 1 "${TMPFILE}"
-  _confirm_or_exit "Are you sure you want to squash ${NUM_COMMITS} commits? (y/N)  "
+  _confirm_or_exit \
+    "Are you sure you want to squash ${NUM_COMMITS} commits? (y/N)  "
 
   _git reset --soft "${MERGE_BASE}"
   _git commit -a -F "${TMPFILE}"
@@ -678,14 +720,15 @@ function gee__update() {
     _fatal Aborted.
   fi
 
-  # Merge from upstream/master into master:
-  _checkout_or_die master
+  # Merge from upstream/main into main:
+  _set_main
+  _checkout_or_die "${MAIN}"
   _git fetch upstream
-  _git pull upstream master
-  if [[ "$(_count_diffs upstream/master master)" != 0 ]]; then
+  _git pull rebase upstream "${MAIN}"
+  if [[ "$(_count_diffs "upstream/${MAIN}" "${MAIN}")" != 0 ]]; then
     _fatal "git pull operation failed."
   fi
-  _git push -u origin master
+  _git push -u origin "${MAIN}"
 
   local -A PARENTS
   _read_parents_file
@@ -694,7 +737,7 @@ function gee__update() {
   local -a CHAIN=()
   local B
   B="${CURRENT_BRANCH}"
-  while [[ "${B}" != master ]]; do
+  while [[ "${B}" != "${MAIN}" ]]; do
     CHAIN=( "${B}" "${CHAIN[@]}" )
     B="$(_get_parent_branch "${B}")"
     if (( "${#CHAIN[@]}" > 50 )); then
@@ -704,12 +747,14 @@ function gee__update() {
   done
 
   local PREVIOUS_B
-  PREVIOUS_B="master"
+  PREVIOUS_B="${MAIN}"
   for B in "${CHAIN[@]}"; do
     _info "Updating ${B} from ${PREVIOUS_B}"
-    # Merge (ff) from master into the current branch:
+    # Merge (ff) from ${MAIN} into the current branch:
     _checkout_or_die "${B}"
-    _git merge --ff "${PREVIOUS_B}" -m "Routine merge from ${PREVIOUS_B}"
+    _git rebase "${PREVIOUS_B}" "${B}"
+    # TODO(jonathan): are we sure we don't want merge -ff?
+    #  _git merge --ff "${PREVIOUS_B}" -m "Routine merge from ${PREVIOUS_B}"
     _git push -u origin "${B}"
     PREVIOUS_B="${B}"
   done
@@ -738,13 +783,14 @@ function gee__config() {
 _register_help "whatsout" "list locally changed files in this branch." <<'EOT'
 Usage: gee whatsout
 
-Reports which files differ from master.
+Reports which files differ from main.
 EOT
 
 function gee__whatsout() {
   local BRANCH MERGEBASE
   BRANCH="$(_get_current_branch)"
-  MERGEBASE="$(git merge-base origin/master "${BRANCH}")"
+  _set_main
+  MERGEBASE="$(git merge-base "origin/${MAIN}" "${BRANCH}")"
   _git diff --name-only "${MERGEBASE}" 
 }
 
@@ -764,8 +810,9 @@ function gee__lsbranches() {
   local -a branches;
   mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
   local br
+  _set_main
   for br in "${branches[@]}"; do
-    if [[ "${br}" != "master" ]]; then
+    if [[ "${br}" != "${MAIN}" ]]; then
       _branch_ahead_behind "${br}"
     fi
   done
@@ -830,11 +877,12 @@ function gee__push() { gee__commit "$@"; }
 function gee__commit() {
   local CURRENT_BRANCH
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
-  if [[ "${CURRENT_BRANCH}" == "master" ]]; then
+  _set_main
+  if [[ "${CURRENT_BRANCH}" == "${MAIN}" ]]; then
     _info "You should use \"gee make_branch\" to create a feature branch"
     _info "and commit your work there, rather than committing work to the"
-    _info "master branch."
-    _fatal "Commit to master branch denied."
+    _info "${MAIN} branch."
+    _fatal "Commit to ${MAIN} branch denied."
   fi
   BRANCH_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
   _debug "${BRANCH_DIR}" "${HOME}"
@@ -869,15 +917,21 @@ function gee__edit_pr() {
   local CURRENT_BRANCH
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   # "gh pr view" arguements are similar to "gh pr create" but not identical.
-  local -a VIEW_ARGS=()
-  VIEW_ARGS+=( --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" )
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+  local -a VIEW_ARGS=(
+    --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
+  )
 
   if ! "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
     _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
   fi
 
   # The same view options also work for pr edit:
-  gh pr edit "${VIEW_ARGS[@]}" "$@"
+  _gh pr edit "${VIEW_ARGS[@]}" "$@"
 }
 
 ##########################################################################
@@ -894,14 +948,20 @@ function gee__view_pr() {
   # "gh pr view" arguements are similar to "gh pr create" but not identical.
   local CURRENT_BRANCH
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
-  local -a VIEW_ARGS=()
-  VIEW_ARGS+=( --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" )
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+  local -a VIEW_ARGS=(
+    --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
+  )
 
   if ! "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
     _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
   fi
 
-  gh pr view "${VIEW_ARGS[@]}"
+  _gh pr view "${VIEW_ARGS[@]}"
 }
 
 ##########################################################################
@@ -920,9 +980,11 @@ function gee__send() { gee__make_pr "$@"; }
 function gee__mkpr() { gee__make_pr "$@"; }
 function gee__make_pr() {
   local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
+  _git fetch upstream
   declare -A PARENTS
   _read_parents_file
-  DEST_BRANCH="upstream/master"
+  _set_main
+  DEST_BRANCH="upstream/${MAIN}"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   MERGE_BASE="$("${GIT}" merge-base "${DEST_BRANCH}" "${CURRENT_BRANCH}")"
   _info "Current branch: ${CURRENT_BRANCH}"
@@ -930,8 +992,13 @@ function gee__make_pr() {
   _info "Merge base: ${MERGE_BASE}"
 
   # "gh pr view" arguements are similar to "gh pr create" but not identical.
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
   local -a VIEW_ARGS=()
-  VIEW_ARGS+=( --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" )
+  VIEW_ARGS+=( --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}" )
 
   if "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
     echo "PR already exists, use \"git commit\" to update."
@@ -963,9 +1030,9 @@ function gee__make_pr() {
   #  -R specifies the repo that we are pushing changes into.
   #  -H specifies the branch that contains outstanding commits,
   #     formatted username:branchname.
-  #  -B specifies the branch we want to merge to, defaults to enfabrica:master
+  #  -B specifies the branch we want to merge to, defaults to ${UPSTREAM}:${MAIN}
   local -a PR_ARGS
-  PR_ARGS+=( --repo "enfabrica/${REPO}" -H "${GHUSER}:${CURRENT_BRANCH}" )
+  PR_ARGS+=( --repo "${UPSTREAM}/${REPO}" -H "${GHUSER}:${CURRENT_BRANCH}" )
   _gh pr create "${PR_ARGS[@]}"
   # _gh pr checks  # not sure why this is problematic.
   _gh pr view "${VIEW_ARGS[@]}"
@@ -995,10 +1062,61 @@ function gee__merge() {
   if (( "${DIFFS}" != 0 )); then
     _fatal "Will not submit: current branch has uncommitted changes."
   fi
-  _gh pr merge --squash --repo "enfabrica/${REPO}" "${GHUSER}:${CURRENT_BRANCH}"
-  # Use existing update flow:
-  # TODO(jonathan): this is a scenario where rebase makes more sense?
-  gee__update
+
+  # Get some information about this PR before we merge.
+  _set_main
+  local MERGEBASE
+  MERGEBASE="$( "${GIT}" merge-base "upstream/${MAIN}" "origin/${CURRENT_BRANCH}" )"
+  _info "Merge base: ${MERGEBASE}"
+  local -a COMMITS
+  mapfile -t COMMITS < <( "${GIT}" log --pretty=oneline "${MERGEBASE}"..HEAD | awk '{print $1}' )
+  local -a FILES
+  mapfile -t FILES < <( "${GIT}" diff --name-only "${MERGEBASE}"..HEAD )
+  _info "PR contains ${#COMMITS[@]} commits, changing ${#FILES[@]} files."
+
+  _confirm_or_exit "About to merge.  Confirm? (y/N)  "
+ 
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+  _gh pr merge --squash --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
+  _git fetch upstream
+
+  # Confirm that the merge was successful:
+  mapfile -t DIFFS < <( "${GIT}" diff --name-only \
+      "upstream/${MAIN}..${CURRENT_BRANCH}" -- "${FILES[@]}" )
+  if (( "${#DIFFS[@]}" != 0 )); then
+    # TODO(jonathan): should this be a warning?
+    _fatal "Uh oh!  Even after merge, these files have local changes:" \
+      "  ${DIFFS[*]}"
+  fi
+
+  # 1. Rebase all descendant branches onto ${MAIN}.
+  local -a CHILDREN
+  mapfile -t CHILDREN < \
+    <( "${GIT}" branch --format='%(refname:short)' \
+    --contains "${COMMITS[0]}" )
+  local CHILD
+  for CHILD in "${CHILDREN[@]}"; do
+    _info "Rebasing ${CHILD}"
+    _checkout_or_die "${CHILD}"
+    # make sure child has no uncommitted work:
+    "${GIT}" diff --quiet || \
+      _git commit -a -m "Automatic pre-rebase checkpoint."
+    # rebase:
+    _git rebase --onto upstream/${MAIN} \
+      "${CURRENT_BRANCH}" "${CHILD}"
+    # force-push to update remote repository
+    _git push -u origin "+${CHILD}"
+  done
+  _checkout_or_die "${CURRENT_BRANCH}"
+   
+  # 2. reset this to be the same as ${MAIN} so work can
+  # continue:
+  _git checkout -B "${CURRENT_BRANCH}" upstream/${MAIN}
+  _git push -u origin "+${CURRENT_BRANCH}"
 }
 
 ##########################################################################
@@ -1018,27 +1136,28 @@ function gee__remove_branch() {
     _die "Must specify a branch name to remove."
   fi
   _checkout_or_die "${BR}"
+  _set_main
   local DIFFS
-  DIFFS="$(${GIT} diff --name-only master.."${BR}" )"
+  DIFFS="$(${GIT} diff --name-only "${MAIN}..${BR}" )"
   if [[ -n "${DIFFS}" ]]; then
-    echo "The following files have local changes relative to master:"
+    echo "The following files have local changes relative to ${MAIN}:"
     echo "  ${DIFFS}"
     _confirm_or_exit "Are you sure you want to force-remove branch ${BR}? (y/N) "
   fi
   local SHA
   SHA="$("${GIT}" reflog | head -n 1 | awk '{print $1}' )"
 
-  _checkout_or_die master
+  _checkout_or_die "${MAIN}"
   _git worktree remove "${BR}"
   _git branch -D "${BR}"
-  _git push origin --delete "${BR}"
+  NOFAIL=1 _git push origin --delete "${BR}"
 
   # Remove branch from parents file, and fix up children's parents.
   local -a PARENTS
   _read_parents_file
   local PREV_PARENT
   PREV_PARENT="${PARENTS["${BR}"]}"
-  if [[ -z "${PREV_PARENT}" ]]; then PREV_PARENT="master"; fi
+  if [[ -z "${PREV_PARENT}" ]]; then PREV_PARENT="${MAIN}"; fi
   unset PARENTS["${BR}"]
   local K
   for K in "${!PARENTS[@]}"; do
@@ -1062,7 +1181,8 @@ EOT
 function gee__fix() {
   local BDIR MERGEBASE B
   BDIR="$(_get_branch_rootdir)"
-  MERGEBASE="$(git merge-base origin/master "${BRANCH}")"
+  _set_main
+  MERGEBASE="$(git merge-base origin/${MAIN} "${BRANCH}")"
   cd "${BDIR}"
 
   local -a FILES=()
