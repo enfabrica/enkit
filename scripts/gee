@@ -124,8 +124,9 @@ fi
 
 # colors library
 _COLOR_RST="$(tput sgr0)"
-_COLOR_CMD="$(tput bold; tput setaf 12)"
-_COLOR_RSP="$(tput setaf 2)"
+_COLOR_CMD="$(tput bold; tput setaf 12; tput rev)"
+#_COLOR_CMD="$(tput bold; tput setaf 14; tput setab 16)"
+_COLOR_DBG="$(tput setaf 2)"
 _COLOR_DIE="$(tput bold; tput setaf 15; tput setab 3)"
 _COLOR_WARN="$(tput setaf 11)"
 _COLOR_INFO="$(tput setaf 1)"
@@ -314,18 +315,18 @@ function _confirm_or_exit() {
 # "The developer wants to read this."
 function _debug() {
   if (( "${DEBUG:-0}" > 0 )); then
-    echo >&2 "$*"
+    printf >&2 "${_COLOR_DBG}DBG: %s${_COLOR_RST}\n" "$@"
   fi
 }
 
 # "The user wants to read this."
 function _info() {
-  echo >&2 "${_COLOR_INFO}$*${_COLOR_RST}"
+  printf >&2 "${_COLOR_INFO}%s${_COLOR_RST}\n" "$@"
 }
 
 # Warn the user.  "The user should know this."
 function _warn() {
-  echo >&2 "${_COLOR_WARN}WARNING: $*${_COLOR_RST}"
+  printf >&2 "${_COLOR_WARN}WARNING: %s${_COLOR_RST}\n" "$@"
 }
 
 # Use _fatal for user errors that don't require a stack dump.
@@ -338,7 +339,7 @@ function _fatal() {
 # Use _die to report internal errors that require a stack dump.
 # "The user is going to be mad when they see this."
 function _die() {
-  echo >&2 "${_COLOR_DIE}FATAL: $*${_COLOR_RST}"
+  printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}" "$@"
   if [[ -z "${NOSTACK}" ]]; then
     echo >&2 "Stack trace:"
     local i
@@ -351,11 +352,13 @@ function _die() {
 }
 
 function _cmd() {
+  local COLS ESCAPED_CMD
+  COLS="$(tput cols)"
+  COLS=$(( COLS - 5 ))
+  ESCAPED_CMD="$( printf " %q" "$@")"
   if [[ $DRYRUN -eq 0 ]]; then
     if [[ $VERBOSE -gt 0 ]]; then
-      echo -ne "CMD:${_COLOR_CMD}"
-      printf " %q" "$@"
-      printf "%s\n" "${_COLOR_RST}"
+      printf "${_COLOR_CMD}CMD: %-${COLS}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
     fi
     set +e
     "$@"
@@ -370,9 +373,7 @@ function _cmd() {
     set -e
     return "${RC}"
   else
-    echo -n "${_COLOR_CMD}DRYRUN: "
-    printf " %q" "$@"
-    printf "%s\n" "${_COLOR_RST}"
+    printf "${_COLOR_CMD}DRY: %-${COLS}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
   fi
 }
 
@@ -711,14 +712,6 @@ function gee__update() {
   if [[ -z "${CURRENT_BRANCH}" ]]; then
     _die "Not in a git branch directory."
   fi
-  local UNCOMMITTED
-  UNCOMMITTED="$("${GIT}" status --short -uall | wc -l)"
-  if [[ "${UNCOMMITTED}" -gt 0 ]]; then
-    echo "Branch contains ${UNCOMMITTED} uncommitted changes:"
-    _git status --short -uall
-    echo "Run \"gee commit\" and try again."
-    _fatal Aborted.
-  fi
 
   # Merge from upstream/main into main:
   _set_main
@@ -752,7 +745,14 @@ function gee__update() {
     _info "Updating ${B} from ${PREVIOUS_B}"
     # Merge (ff) from ${MAIN} into the current branch:
     _checkout_or_die "${B}"
-    _git rebase "${PREVIOUS_B}" "${B}"
+    local -a UNCOMMITTED
+    mapfile -t UNCOMMITTED < <( "${GIT}" status --short -uall )
+    if (( "${#UNCOMMITTED[@]}" )); then
+      _warn "Branch contains ${#UNCOMMITTED[@]} uncommitted changes:" \
+        "${UNCOMMITTED[@]}" \
+        "Changes will be stashed but not propagated to children."
+    fi
+    _git rebase --autostash "${PREVIOUS_B}" "${B}"
     # TODO(jonathan): are we sure we don't want merge -ff?
     #  _git merge --ff "${PREVIOUS_B}" -m "Routine merge from ${PREVIOUS_B}"
     _git push -u origin "${B}"
