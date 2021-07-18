@@ -354,11 +354,12 @@ function _die() {
 function _cmd() {
   local COLS ESCAPED_CMD
   COLS="$(tput cols)"
-  COLS=$(( COLS - 5 ))
   ESCAPED_CMD="$( printf " %q" "$@")"
   if [[ $DRYRUN -eq 0 ]]; then
     if [[ $VERBOSE -gt 0 ]]; then
-      printf "${_COLOR_CMD}CMD: %-${COLS}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+      local C
+      C=$(( COLS - 4 ))
+      printf "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
     fi
     set +e
     "$@"
@@ -373,7 +374,9 @@ function _cmd() {
     set -e
     return "${RC}"
   else
-    printf "${_COLOR_CMD}DRY: %-${COLS}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+    local C
+    C=$(( COLS - 7 ))
+    printf "${_COLOR_CMD}DRYRUN:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
   fi
 }
 
