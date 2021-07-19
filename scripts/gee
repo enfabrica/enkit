@@ -79,6 +79,8 @@ set -e
 
 declare -a HELP=()
 declare -A LONGHELP
+declare -A PARENTS     # initialized by _load_parents_file
+declare -A MERGEBASES  # initialized by _load_parents_file
 readonly TRUE=0
 readonly FALSE=1
 readonly GIT=/usr/bin/git
@@ -256,6 +258,7 @@ function _get_parent_branch() {
     BRANCH="$("${GIT}" branch --show-current)"
   fi
 
+  _read_parents_file
   # BRANCH should be in the parents file.  Let's check there first:
   if [[ -v PARENTS["${BRANCH}"] ]]; then
     echo "${PARENTS[$BRANCH]}"
@@ -421,7 +424,6 @@ function _branch_ahead_behind() {
   # Report how many commits this branch is ahead/behind main.
   local branch; branch="$1"
   local obr;
-  local -A PARENTS
   _read_parents_file
   obr="$(_get_parent_branch)"
   local -a counts
@@ -446,6 +448,37 @@ function _remote_branch_exists() {
   else
     return "${TRUE}"
   fi
+}
+
+function _rebase_child_onto_parent() {
+  # This function searches the reflog to try to find the commit id of the last
+  # time this branch was rebased (presumably, from its parent).  Failing that,
+  # we use the commit id that this branch was created from.  Call this commit
+  # id "MB".
+  #
+  # Then, we rebase this child onto it's parent, using only the commits between
+  # MB and HEAD.
+  #
+  # The goal here is to be able to successfully rebase a child onto a parent,
+  # even if the parent itself has already been rebased or had it's history
+  # changed by a squash operation.
+  local CHILD="$1"
+  local PARENT="$2"
+  local MB
+  read -r MB < <(
+    "${GIT}" reflog show --no-abbrev "${CHILD}" \
+      | grep -e ": rebase finished: " -e ": branch: Created from HEAD" \
+      | head -n 1 | awk '{print $1}' )
+  local -a COMMITS
+  mapfile -t COMMITS < <(
+  "${GIT}" log --oneline "${MB}..${CHILD}" )
+  _info "Rebasing ${CHILD} onto ${PARENT}."
+  # TODO(jonathan): Maybe make this _debug:
+  _info "Will apply these commits:" \
+        "${COMMITS[@]}"
+    
+  _git rebase --autostash --onto "${PARENT}" "${MB}" "${CHILD}"
+  _git push -u origin "+${CHILD}"
 }
 
 function _checkout_or_die() {
@@ -475,7 +508,24 @@ function _get_current_branch() {
   echo "${CB}"
 }
 
+# The parents file keeps track of two things:
+#   - parent: the branch that spawned the current branch
+#   - mb: the commit id of the mergebase with the parent branch
+#
+# mb is updated every time a branch is rebased, and is used to keep track of
+# the last mergebase of a child branch, even if the parent branch gets rebased.
+# This allows us to defer rebase operations of children, even after parents get
+# rebased.
+#
+# TODO(jonathan): is there a better way to track this information?
+# TODO(jonathan): maybe we don't need to track MB after all?
+
+# Lazy-load parents metadata:
 function _read_parents_file() {
+  if (( "${#PARENTS[@]}" )); then
+    # PARENTS is already loaded.
+    return
+  fi
   local PATH="${REPO_DIR}/.gee/parents"
   local KEY VALUE
   if [[ ! -d "${REPO_DIR}/.gee" ]]; then
@@ -484,22 +534,35 @@ function _read_parents_file() {
   if [[ ! -f "${PATH}" ]]; then
     /usr/bin/touch "${PATH}"
   fi
-  while read -r KEY VALUE; do
-    PARENTS["${KEY}"]="${VALUE}"
+  local BRANCH PARENTMB 
+  while read -r BRANCH PARENT MB; do
+    PARENTS["${BRANCH}"]="${PARENT}"
+    MERGEBASES["${BRANCH}"]="${MERGEBASE}"
   done < "${PATH}"
 }
 
 function _write_parents_file() {
+  if (( "${#PARENTS[@]}" == 0 )); then
+    # PARENTS isn't loaded, so don't write it.
+    return
+  fi
   local PATH="${REPO_DIR}/.gee/parents"
-  local KEY VALUE
   if [[ ! -d "${REPO_DIR}/.gee" ]]; then
     /usr/bin/mkdir "${REPO_DIR}/.gee"
   fi
+  local KEY VALUE MB
   for KEY in "${!PARENTS[@]}"; do
-    VALUE="${PARENTS[$KEY]}"
-    printf "%q %q\n" "${KEY}" "${VALUE}"
+    VALUE="${PARENTS["$KEY"]}"
+    MB="${MERGEBASES["$KEY"]}"
+    printf "%q %q %q\n" "${KEY}" "${VALUE}" "${MB}"
   done > "${PATH}"
 }
+
+# Ensure we always save the PARENTS file, even if we die:
+function _cleanup() {
+  _write_parents_file
+}
+trap _cleanup EXIT
 
 function _join() {
   # Usage:  _join <delimiter> <elements...>
@@ -625,7 +688,6 @@ function gee__make_branch() {
   _git "${ARGS[@]}"
   _info "Created ${REPO_DIR}/${BRNAME}"
 
-  local -A PARENTS
   _read_parents_file
   PARENTS["${BRNAME}"]="${CURRENT_BRANCH}"
   _write_parents_file
@@ -649,7 +711,6 @@ EOT
 
 function gee__log() {
   local PARENT_BRANCH CURRENT_BRANCH
-  local -A PARENTS
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
@@ -670,7 +731,6 @@ EOT
 
 function gee__diff() {
   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE
-  local -A PARENTS
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
@@ -697,7 +757,6 @@ function gee__squash() {
   # as we always merge with "gh pr merge --squash".
   # TODO(jonathan): Deprecate this?
   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE TMPFILE NUM_COMMITS
-  local -A PARENTS
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
@@ -771,7 +830,6 @@ function gee__update() {
   fi
   _git push -u origin "${MAIN}"
 
-  local -A PARENTS
   _read_parents_file
 
   # Build a chain of branches to update.
@@ -791,19 +849,23 @@ function gee__update() {
   PREVIOUS_B="${MAIN}"
   for B in "${CHAIN[@]}"; do
     _info "Updating ${B} from ${PREVIOUS_B}"
-    # Merge (ff) from ${MAIN} into the current branch:
+
     _checkout_or_die "${B}"
-    local -a UNCOMMITTED
-    mapfile -t UNCOMMITTED < <( "${GIT}" status --short -uall )
-    if (( "${#UNCOMMITTED[@]}" )); then
-      _warn "Branch contains ${#UNCOMMITTED[@]} uncommitted changes:" \
-        "${UNCOMMITTED[@]}" \
-        "Child branches won't get uncommitted changes."
+
+    # Check if we're rebasing onto a branch with uncommitted changes:
+    if [[ "${B}" != "${CURRENT_BRANCH}" ]]; then
+      local -a UNCOMMITTED
+      mapfile -t UNCOMMITTED < <( "${GIT}" status --short -uall )
+      if (( "${#UNCOMMITTED[@]}" )); then
+        _warn "Branch ${B} contains ${#UNCOMMITTED[@]} uncommitted changes:" \
+          "${UNCOMMITTED[@]}" \
+          "Child branches won't get uncommitted changes."
+      fi
+      # rebase always uses --autostash, so we'll proceed.
     fi
-    _git rebase --autostash "${PREVIOUS_B}" "${B}"
-    # TODO(jonathan): are we sure we don't want merge -ff?
-    #  _git merge --ff "${PREVIOUS_B}" -m "Routine merge from ${PREVIOUS_B}"
-    _git push -u origin "+${B}"
+
+    # Rebase from PREVIOUS_B onto B
+    _rebase_child_onto_parent "${B}" "${PREVIOUS_B}"
     PREVIOUS_B="${B}"
   done
 }
@@ -877,7 +939,6 @@ EOT
 function gee__get_parent() {
   local BRANCH
   BRANCH="${1:-$(_get_current_branch)}"
-  local -A PARENTS
   _read_parents_file
   PARENT="$(_get_parent_branch "${BRANCH}")"
   echo "${PARENT} is the parent branch of ${BRANCH}"
@@ -898,7 +959,6 @@ function gee__set_parent() {
   if [[ -z "${PARENT}" ]]; then
     _fatal "Must specify a parent branch."
   fi
-  local -A PARENTS
   _read_parents_file
   PARENTS["${BRANCH}"]="$1"
   _write_parents_file
@@ -1148,29 +1208,8 @@ function gee__merge() {
     _fatal "Uh oh!  Even after merge, these files have local changes:" \
       "  ${DIFFS[*]}"
   fi
-
-  # 1. Rebase all descendant branches onto ${MAIN}.
-  local -a CHILDREN
-  mapfile -t CHILDREN < \
-    <( "${GIT}" branch --format='%(refname:short)' \
-    --contains "${COMMITS[0]}" )
-  local CHILD
-  for CHILD in "${CHILDREN[@]}"; do
-    _info "Rebasing ${CHILD}"
-    _checkout_or_die "${CHILD}"
-    # make sure child has no uncommitted work:
-    "${GIT}" diff --quiet || \
-      _git commit -a -m "Automatic pre-rebase checkpoint."
-    # rebase:
-    _git rebase --onto upstream/${MAIN} \
-      "${CURRENT_BRANCH}" "${CHILD}"
-    # force-push to update remote repository
-    _git push -u origin "+${CHILD}"
-  done
-  _checkout_or_die "${CURRENT_BRANCH}"
    
-  # 2. reset this to be the same as ${MAIN} so work can
-  # continue:
+  # Reset this to be the same as ${MAIN}:
   _git checkout -B "${CURRENT_BRANCH}" upstream/${MAIN}
   _git push -u origin "+${CURRENT_BRANCH}"
 }
