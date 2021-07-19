@@ -659,7 +659,7 @@ function gee__init() {
 
   # Make fork if needed
   if ! "${GH}" repo list | grep "^${GHUSER}/${REPO}" > /dev/null; then
-    _gh repo fork --clone "${UPSTREAM}/${REPO}"
+    _gh repo fork --clone=false "${UPSTREAM}/${REPO}"
   fi
   _git clone "${URL}" "${REPO_DIR}/${MAIN}"
   _cmd cd "${REPO_DIR}/${MAIN}"
