@@ -467,16 +467,17 @@ function _rebase_child_onto_parent() {
   local MB
   read -r MB < <(
     "${GIT}" reflog show --no-abbrev "${CHILD}" \
-      | grep -e ": rebase finished: " -e ": branch: Created from HEAD" \
+      --grep-reflog "^rebase finished: " \
+      --grep-reflog "^branch: Created from " \
+      --grep-reflog "^reset: moving to " \
       | head -n 1 | awk '{print $1}' )
   local -a COMMITS
   mapfile -t COMMITS < <(
-  "${GIT}" log --oneline "${MB}..${CHILD}" )
-  _info "Rebasing ${CHILD} onto ${PARENT}."
-  # TODO(jonathan): Maybe make this _debug:
-  _info "Will apply these commits:" \
+    "${GIT}" log --oneline "${MB}..${CHILD}" )
+  _info "Rebasing ${CHILD} onto ${PARENT} (${#COMMITS[@]} commits since ${MB}))."
+  _debug "Will apply these commits:" \
         "${COMMITS[@]}"
-    
+   
   _git rebase --autostash --onto "${PARENT}" "${MB}" "${CHILD}"
   _git push -u origin "+${CHILD}"
 }
@@ -848,8 +849,6 @@ function gee__update() {
   local PREVIOUS_B
   PREVIOUS_B="${MAIN}"
   for B in "${CHAIN[@]}"; do
-    _info "Updating ${B} from ${PREVIOUS_B}"
-
     _checkout_or_die "${B}"
 
     # Check if we're rebasing onto a branch with uncommitted changes:
