@@ -56,6 +56,12 @@ type Transform struct {
 	// value of the From.Host map. You can override that value with SetHost.
 	SetHost string
 
+	// Re-map request headers. If the string is empty, the header is stripped.
+	// This is useful to propagate non-RFC compliant headers, or to strip headers.
+	// For example, by setting MapRequestHeaders to "Sec-Websocket-Key" to "Sec-WebSocket-Key"
+	// the case for WebSocket will be changed.
+	MapRequestHeaders map[string]string
+
 	stripCookie     []*regexp.Regexp
 	noSlashFromPath string
 }
@@ -88,6 +94,21 @@ func (t *Transform) Apply(req *http.Request) bool {
 	}
 	if t.SetHost != "" {
 		req.Host = t.SetHost
+	}
+
+	for expected, desired := range t.MapRequestHeaders {
+		if len(desired) <= 0 {
+			delete(req.Header, expected)
+			continue
+		}
+
+		value, found := req.Header[expected]
+		if !found {
+			continue
+		}
+
+		delete(req.Header, expected)
+		req.Header[desired] = value
 	}
 
 	switch t.XForwardedFor {
