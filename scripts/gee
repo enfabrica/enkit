@@ -83,6 +83,7 @@ readonly TRUE=0
 readonly FALSE=1
 readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
+readonly JQ=/usr/bin/jq
 readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
@@ -223,8 +224,6 @@ EOT
     _fatal "Something wrong wrong: still can't authenticate to github via ssh."
   fi
 }
-
-  
 
 function _register_help() {
   # Registers help text about a gee command.
@@ -388,17 +387,26 @@ function _git() {
   _cmd "${GIT}" "$@"
 }
 
-function _install_gh_tool() {
+function _install_tools() {
   # If your dev image is missing the github-cli tool, this should install it.
-  local KRFILE; KRFILE="/usr/share/keyrings/githubcli-archive-keyring.gpg"
-  /usr/bin/curl -fsSL \
-    https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-    | sudo /usr/bin/apt-key --keyring "${KRFILE}" add -
-  echo "deb [arch=amd64 signed-by=${KRFILE}] https://cli.github.com/packages stable main" \
-    | sudo /usr/bin/tee /etc/apt/sources.list.d/githubcli-archive.list
-  sudo /usr/bin/apt update && sudo /usr/bin/apt install gh
-  if [ ! -x ${GH} ]; then
-    _die "Could not install gh."
+  if [ ! -x "${GH}" ]; then
+    local KRFILE; KRFILE="/usr/share/keyrings/githubcli-archive-keyring.gpg"
+    /usr/bin/curl -fsSL \
+      https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | sudo /usr/bin/apt-key --keyring "${KRFILE}" add -
+    echo "deb [arch=amd64 signed-by=${KRFILE}] https://cli.github.com/packages stable main" \
+      | sudo /usr/bin/tee /etc/apt/sources.list.d/githubcli-archive.list
+    sudo /usr/bin/apt update && sudo /usr/bin/apt install gh
+    if [ ! -x ${GH} ]; then
+      _fatal "Could not install gh."
+    fi
+  fi
+
+  if [ ! -x "${JQ}" ]; then
+    sudo /usr/bin/apt install jq
+    if [ ! -x "${JQ}" ]; then
+      _fatal "Could not install jq."
+    fi
   fi
 }
 
@@ -493,6 +501,39 @@ function _write_parents_file() {
   done > "${PATH}"
 }
 
+function _join() {
+  # Usage:  _join <delimiter> <elements...>
+  # Example: _join "," "${ARRAY[@]}"
+  local DELIM="$1"; shift
+  local TEXT="$1"; shift
+  TEXT+="$(printf "${DELIM}%s" "$@")"
+  echo "${TEXT}"
+}
+
+function _get_pull_requests() {
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  # "gh pr view" arguments are similar to "gh pr create" but not identical.
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+  "${GH}" pr view \
+    --repo="${UPSTREAM}/${REPO}" "${FROM_BRANCH}" \
+    --json "state,number" \
+    --jq '[.state, .number] | join(" ")'
+}
+
+function _list_open_pr_numbers() {
+  _get_pull_requests | grep ^OPEN | awk '{print $2}'
+}
+
+function _list_merged_pr_numbers() {
+  _get_pull_requests | grep ^MERGED | awk '{print $2}'
+}
+
+
 ##########################################################################
 # init command
 ##########################################################################
@@ -518,6 +559,10 @@ function gee__init() {
   if (( "${TESTMODE}" )); then
     REPO_DIR="${HOME}/testgee/${REPO}/"
   fi
+
+  # ensure all tools are installed.
+  _install_tools
+
   _set_main
   _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
 
@@ -753,12 +798,12 @@ function gee__update() {
     if (( "${#UNCOMMITTED[@]}" )); then
       _warn "Branch contains ${#UNCOMMITTED[@]} uncommitted changes:" \
         "${UNCOMMITTED[@]}" \
-        "Changes will be stashed but not propagated to children."
+        "Child branches won't get uncommitted changes."
     fi
     _git rebase --autostash "${PREVIOUS_B}" "${B}"
     # TODO(jonathan): are we sure we don't want merge -ff?
     #  _git merge --ff "${PREVIOUS_B}" -m "Routine merge from ${PREVIOUS_B}"
-    _git push -u origin "${B}"
+    _git push -u origin "+${B}"
     PREVIOUS_B="${B}"
   done
 }
@@ -919,7 +964,7 @@ function gee__edpr() { gee__edit_pr "$@"; }
 function gee__edit_pr() {
   local CURRENT_BRANCH
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
-  # "gh pr view" arguements are similar to "gh pr create" but not identical.
+  # "gh pr view" arguments are similar to "gh pr create" but not identical.
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
     # gh-cli treats this as a special case for some reason.
@@ -935,6 +980,21 @@ function gee__edit_pr() {
 
   # The same view options also work for pr edit:
   _gh pr edit "${VIEW_ARGS[@]}" "$@"
+}
+
+##########################################################################
+# pr_debug command
+#
+# gh api for querying pull requests is pretty wonky, this is a temporary
+# command used to get some visibility into the API.
+##########################################################################
+
+function gee__pr_debug() {
+  local -a PRS=()
+  mapfile -t PRS < <( _list_open_pr_numbers )
+  _info "Open pull requests: ${PRS[@]}"
+  mapfile -t PRS < <( _list_merged_pr_numbers )
+  _info "Merged pull requests: ${PRS[@]}"
 }
 
 ##########################################################################
@@ -994,18 +1054,11 @@ function gee__make_pr() {
   _info "Destination branch: ${DEST_BRANCH}"
   _info "Merge base: ${MERGE_BASE}"
 
-  # "gh pr view" arguements are similar to "gh pr create" but not identical.
-  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
-  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
-    # gh-cli treats this as a special case for some reason.
-    FROM_BRANCH="${CURRENT_BRANCH}"
-  fi
-  local -a VIEW_ARGS=()
-  VIEW_ARGS+=( --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}" )
-
-  if "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
-    echo "PR already exists, use \"git commit\" to update."
-    _gh pr view "${VIEW_ARGS[@]}"
+  local -a OPEN_PRS
+  mapfile -t OPEN_PRS < <( _list_open_pr_numbers )
+  if (( "${#OPEN_PRS[@]}" )); then
+    _info "Open PR exists: ${OPEN_PRS[*]}" \
+          "Use \"gee commit\" to update existing PR."
     _fatal Aborted.
   fi
 
