@@ -485,9 +485,9 @@ function _rebase_child_onto_parent() {
         "${COMMITS[@]}"
 
   local PARENT_HEAD="$("${GIT}" reflog "${PARENT}" | head -n 1 | awk '{print $1}')"
-  _git tag "${CHILD}.REBASE_BACKUP" 
+  _git tag -f "${CHILD}.REBASE_BACKUP" 
   _git rebase --autostash --onto "${PARENT_HEAD}" "${MB}" "${CHILD}"
-  _git tag "${CHILD}.REBASE_MB" "${PARENT_HEAD}"
+  _git tag -f "${CHILD}.REBASE_MB" "${PARENT_HEAD}"
   _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
   _git push -u origin "+${CHILD}"
 }
