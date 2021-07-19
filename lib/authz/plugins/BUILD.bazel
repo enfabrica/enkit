@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["resources.go"],
+    importpath = "github.com/enfabrica/enkit/lib/authz/plugins",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_open_policy_agent_opa//ast:go_default_library",
+        "@com_github_open_policy_agent_opa//rego:go_default_library",
+        "@com_github_open_policy_agent_opa//types:go_default_library",
+    ],
+)
