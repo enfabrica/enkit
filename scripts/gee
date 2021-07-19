@@ -482,8 +482,10 @@ function _rebase_child_onto_parent() {
   _info "Rebasing ${CHILD} onto ${PARENT} (${#COMMITS[@]} commits since ${MB}))."
   _debug "Will apply these commits:" \
         "${COMMITS[@]}"
-   
+  
+  _git tag "${CHILD}.REBASE_BACKUP" 
   _git rebase --autostash --onto "${PARENT}" "${MB}" "${CHILD}"
+  _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
   _git push -u origin "+${CHILD}"
 }
 
