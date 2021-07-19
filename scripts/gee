@@ -120,8 +120,8 @@ fi
 REPO_DIR="${HOME}/gee/${REPO}/"
 
 if (( "${TESTMODE}" )); then
-  UPSTREAM="${GHUSER}"
-  REPO="testing"
+  UPSTREAM="enfabrica"
+  REPO="github-playground"
   REPO_DIR="${HOME}/testgee/${REPO}/"
 fi
 
@@ -142,17 +142,13 @@ function _set_main() {
   if [[ -n "${MAIN}" ]]; then return; fi
   local UPSTREAM_URL
   UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
-  if "${GIT}" ls-remote --exit-code --quiet \
-      --heads "${UPSTREAM_URL}" main > /dev/null; then
-    MAIN="main"
-    return
+  MAIN="$(
+    "${GIT}" remote show "${UPSTREAM_URL}" \
+      | awk '/HEAD branch/ {print $NF}'
+  )"
+  if [[ -z "${MAIN}" ]]; then
+    _fatal "Can't identify default branch for ${UPSTREAM_URL}."
   fi
-  if "${GIT}" ls-remote --exit-code --quiet \
-      --heads "${UPSTREAM_URL}" master > /dev/null; then
-    MAIN="master"
-    return
-  fi
-  _fatal "Remote ${UPSTREAM_URL} contains neither main nor master branch."
 }
 
 function _check_ssh() {
@@ -350,6 +346,7 @@ function _die() {
       (( i++ ))
     done
   fi
+  printf >&2 "Please notify: jonathan@enfabrica.net"
   exit 1
 }
 
@@ -464,13 +461,21 @@ function _rebase_child_onto_parent() {
   # changed by a squash operation.
   local CHILD="$1"
   local PARENT="$2"
-  local MB
+  local MB=""
   read -r MB < <(
     "${GIT}" reflog show --no-abbrev "${CHILD}" \
       --grep-reflog "^rebase finished: " \
       --grep-reflog "^branch: Created from " \
-      --grep-reflog "^reset: moving to " \
       | head -n 1 | awk '{print $1}' )
+  if [[  -z "${MB}" ]]; then
+    read -r MB < <(
+      "${GIT}" reflog show --no-abbrev "${CHILD}" \
+        --grep-reflog "^reset: moving to " \
+        | tail -n 1 | awk '{print $1}' )
+  fi
+  if [[ -z "${MB}" ]]; then
+    _die "Could not find merge-base for branch ${CHILD}"
+  fi
   local -a COMMITS
   mapfile -t COMMITS < <(
     "${GIT}" log --oneline "${MB}..${CHILD}" )
@@ -646,6 +651,11 @@ function gee__init() {
   local URL UPSTREAM_URL
   URL="git@github.com:${GHUSER}/${REPO}.git"
   UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
+
+  # Make fork if needed
+  if ! "${GH}" repo list | grep "^${GHUSER}/${REPO}" > /dev/null; then
+    _gh repo fork --clone "${UPSTREAM}/${REPO}"
+  fi
   _git clone "${URL}" "${REPO_DIR}/${MAIN}"
   _cmd cd "${REPO_DIR}/${MAIN}"
   _git remote add upstream "${UPSTREAM_URL}"
