@@ -480,6 +480,8 @@ function _rebase_child_onto_parent() {
   local PARENT="$2"
   local MB=""
   # TODO(jonathan): maybe use ${CHILD}.REBASE_MB tag if it exists?
+  local REBASE_MB
+  read -r REBASE_MB < <( git rev-list -n 1 "${CHILD}.REBASE_MB" )
   read -r MB < <(
     "${GIT}" reflog show --no-abbrev "${CHILD}" \
       --grep-reflog "^rebase finished: " \
@@ -493,6 +495,11 @@ function _rebase_child_onto_parent() {
   fi
   if [[ -z "${MB}" ]]; then
     _die "Could not find merge-base for branch ${CHILD}"
+  fi
+  if [[ "${REBASE_MB}" != "${MB}" ]]; then
+    _warn "REBASE_MB and reflog-extracted MB don't match." \
+      "${CHILD}.REBASE_MB=${REBASE_MB}" \
+      "MB=${MB}"
   fi
   local -a COMMITS
   mapfile -t COMMITS < <(
@@ -645,6 +652,16 @@ function _list_merged_pr_numbers() {
   _get_pull_requests | grep ^MERGED | awk '{print $2}'
 }
 
+function _gh_pr_view() {
+  local CURRENT_BRANCH;
+  CURRENT_BRANCH="$(_get_current_branch)"
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+  _gh pr view --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
+}
 
 ##########################################################################
 # init command
@@ -1175,22 +1192,18 @@ function gee__edpr() { gee__edit_pr "$@"; }
 function gee__edit_pr() {
   local CURRENT_BRANCH
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
-  # "gh pr view" arguments are similar to "gh pr create" but not identical.
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
     # gh-cli treats this as a special case for some reason.
     FROM_BRANCH="${CURRENT_BRANCH}"
   fi
-  local -a VIEW_ARGS=(
-    --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
-  )
 
-  if ! "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
+  if ! _gh_pr_view > /dev/null; then
     _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
   fi
 
   # The same view options also work for pr edit:
-  _gh pr edit "${VIEW_ARGS[@]}" "$@"
+  _gh pr edit --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}" "$@"
 }
 
 ##########################################################################
@@ -1219,23 +1232,9 @@ Edit an outstanding pull request.
 EOT
 
 function gee__view_pr() {
-  # "gh pr view" arguements are similar to "gh pr create" but not identical.
-  local CURRENT_BRANCH
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
-  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
-  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
-    # gh-cli treats this as a special case for some reason.
-    FROM_BRANCH="${CURRENT_BRANCH}"
-  fi
-  local -a VIEW_ARGS=(
-    --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
-  )
-
-  if ! "${GH}" pr view "${VIEW_ARGS[@]}" > /dev/null; then
+  if ! _gh_pr_view; then
     _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
   fi
-
-  _gh pr view "${VIEW_ARGS[@]}"
 }
 
 ##########################################################################
@@ -1303,7 +1302,7 @@ function gee__make_pr() {
   PR_ARGS+=( --repo "${UPSTREAM}/${REPO}" -H "${GHUSER}:${CURRENT_BRANCH}" )
   _gh pr create "${PR_ARGS[@]}"
   # _gh pr checks  # not sure why this is problematic.
-  _gh pr view "${VIEW_ARGS[@]}"
+  _gh_pr_view
   echo "Add reviewers."
 }
   
@@ -1423,34 +1422,54 @@ function gee__remove_branch() {
 
 _register_help "fix" "Run automatic code formatters over changed files only." <<'EOT'
 Usage: gee fix
+
+Runs a set of language formatting tools over open files in this branch.
 EOT
 
 function gee__fix() {
+  local BRANCH
+  BRANCH="$(_get_current_branch)"
   local BDIR MERGEBASE B
-  BDIR="$(_get_branch_rootdir)"
   _set_main
   MERGEBASE="$(git merge-base "origin/${MAIN}" "${BRANCH}")"
+  BDIR="$(_get_branch_rootdir)"
   cd "${BDIR}"
 
   local -a FILES=()
-  while read -r fname; do
-    FILES+=( "$(readlink -f "${fname}")" )
+  local FNAME
+  while read -r FNAME; do
+    FILES+=( "$(readlink -f "${FNAME}")" )
   done < <( "${GIT}" diff --name-only "${MERGEBASE}" )
 
+  # buildifier:
   local -a BZL_FILES=()
-  for fname in "${FILES[@]}"; do
-    B="$(basename "${fname}")"
+  for FNAME in "${FILES[@]}"; do
+    B="$(basename "${FNAME}")"
     if [[ "${B}" =~ \.bzl$|^BUILD|WORKSPACE ]]; then
-      BZL_FILES+=( "${B}" )
+      BZL_FILES+=( "${FNAME}" )
     fi
   done
   if (( "${#BZL_FILES[@]}" )); then
-    _info "Fixing ${BZL_FILES[*]}"
-    /usr/bin/bazelisk run \
+    _info "buildifier: Fixing ${BZL_FILES[*]}"
+    _cmd /usr/bin/bazelisk run \
         --noshow_progress --noshow_loading_progress --logging=0 \
         --ui_event_filters=-info,-debug \
         @com_github_bazelbuild_buildtools//buildifier:buildifier \
-        -- "${BZL_FILES[@]}"
+        -- \
+        -v --add_tables "${BDIR}/bazel/buildifier.tables.json" \
+        "${BZL_FILES[@]}"
+  fi
+
+  # clang-format:
+  local -a CLANG_FILES=()
+  for FNAME in "${FILES[@]}"; do
+    if [[ "${FNAME}" =~ \.h$|\.c$|\.cc$|\.cpp ]]; then
+      CLANG_FILES+=( "${FNAME}" )
+    fi
+  done
+  if (( "${#CLANG_FILES[@]}" )); then
+    _info "clang-format: Fixing ${CLANG_FILES[*]}"
+    _cmd /usr/bin/clang-format-10 --verbose --style=Google -i "${CLANG_FILES[@]}"
   fi
 
   # TODO(jonathan): Add more formatters.
