@@ -189,6 +189,13 @@ function _check_ssh() {
   fi
 }
 
+function _check_cwd() {
+  local DIR="$(pwd)"
+  if ! [[ "$DIR" =~ ^"${HOME}"/gee/[a-zA-Z0-9_]+/ ]]; then
+    _fatal "This command must be run from with a branch directory beneath ~/gee."
+  fi
+}
+
 function _get_ghuser_via_ssh() {
   if ! _check_ssh; then
     _fatal "Could not determine github username."
@@ -742,6 +749,7 @@ EOT
 
 function gee__mkbr() { gee__make_branch "$@"; }
 function gee__make_branch() {
+  _check_cwd
   local BRNAME SHA CURRENT_BRANCH
   # TODO(jonathan): Let the user name the branch to branch from.
   BRNAME="$1"; shift
@@ -781,6 +789,7 @@ Usage: gee log
 EOT
 
 function gee__log() {
+  _check_cwd
   local PARENT_BRANCH CURRENT_BRANCH
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
@@ -801,6 +810,7 @@ If <files...> are omited, defaults to all files.
 EOT
 
 function gee__diff() {
+  _check_cwd
   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
@@ -824,6 +834,7 @@ Squash all commits in this branch to a single commit.
 EOT
 
 function gee__squash() {
+  _check_cwd
   # Note: there is no longer any need to squash before sending out for review,
   # as we always merge with "gh pr merge --squash".
   # TODO(jonathan): Deprecate this?
@@ -886,6 +897,7 @@ Usage: gee update
 EOT
 
 function gee__update() {
+  _check_cwd
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
@@ -916,6 +928,7 @@ read the log messages carefully.
 EOT
 
 function gee__rupdate() {
+  _check_cwd
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
@@ -989,6 +1002,7 @@ function _order_branches() {
 }
 
 function gee__update_all() {
+  _check_cwd
   local -a CONFLICTS=()
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
@@ -1065,6 +1079,7 @@ Reports which files differ from main.
 EOT
 
 function gee__whatsout() {
+  _check_cwd
   local BRANCH MERGEBASE
   BRANCH="$(_get_current_branch)"
   _set_main
@@ -1085,6 +1100,7 @@ EOT
 function gee__lsb() { gee__lsbranches "$@"; }
 function gee__lsbr() { gee__lsbranches "$@"; }
 function gee__lsbranches() {
+  _check_cwd
   local -a branches;
   mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
   local br
@@ -1105,6 +1121,7 @@ Usage: gee get_parent
 EOT
 
 function gee__get_parent() {
+  _check_cwd
   local BRANCH
   BRANCH="${1:-$(_get_current_branch)}"
   _read_parents_file
@@ -1121,6 +1138,7 @@ Usage: gee set_parent <parent-branch>
 EOT
 
 function gee__set_parent() {
+  _check_cwd
   local BRANCH PARENT 
   BRANCH="$(_get_current_branch)"
   PARENT="$1"
@@ -1151,6 +1169,7 @@ EOT
 
 function gee__push() { gee__commit "$@"; }
 function gee__commit() {
+  _check_cwd
   local CURRENT_BRANCH
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   _set_main
@@ -1190,6 +1209,7 @@ EOT
 
 function gee__edpr() { gee__edit_pr "$@"; }
 function gee__edit_pr() {
+  _check_cwd
   local CURRENT_BRANCH
   CURRENT_BRANCH="$("${GIT}" branch --show-current)"
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
@@ -1214,6 +1234,7 @@ function gee__edit_pr() {
 ##########################################################################
 
 function gee__pr_debug() {
+  _check_cwd
   local -a PRS=()
   mapfile -t PRS < <( _list_open_pr_numbers )
   _info "Open pull requests: ${PRS[*]}"
@@ -1232,6 +1253,7 @@ Edit an outstanding pull request.
 EOT
 
 function gee__view_pr() {
+  _check_cwd
   if ! _gh_pr_view; then
     _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
   fi
@@ -1252,6 +1274,7 @@ function gee__mail() { gee__make_pr "$@"; }
 function gee__send() { gee__make_pr "$@"; }
 function gee__mkpr() { gee__make_pr "$@"; }
 function gee__make_pr() {
+  _check_cwd
   local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
   _git fetch upstream
   declare -A PARENTS
@@ -1318,6 +1341,7 @@ Merges an approved pull request.
 EOT
 function gee__submit_pr() { gee__merge "$@"; }
 function gee__merge() {
+  _check_cwd
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
@@ -1377,6 +1401,7 @@ EOT
 
 function gee__rmbr() { gee__remove_branch "$@"; }
 function gee__remove_branch() { 
+  _check_cwd
   local BR="$1"; shift
   if [[ -z "${BR}" ]]; then
     _die "Must specify a branch name to remove."
@@ -1427,6 +1452,7 @@ Runs a set of language formatting tools over open files in this branch.
 EOT
 
 function gee__fix() {
+  _check_cwd
   local BRANCH
   BRANCH="$(_get_current_branch)"
   local BDIR MERGEBASE B
@@ -1494,6 +1520,7 @@ EOT
 # TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 
 function gee__gcd() {
+  _check_cwd
   local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH
   BRANCH="$1"
   if [[ -z "${BRANCH}" ]]; then
