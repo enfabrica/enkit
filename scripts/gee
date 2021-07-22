@@ -547,14 +547,22 @@ function _checkout_or_die() {
   BRNAME="$1"; shift
   # Do we already have a worktree?
   BRDIR="$(_get_branch_rootdir "${BRNAME}")"
-  if [[ -z "${REPO_DIR}" ]]; then
+  if [[ -z "${BRDIR}" ]]; then
     _git worktree add "${REPO_DIR}/${BRNAME}"
     BRDIR="$(_get_branch_rootdir "${BRNAME}")"
+    _info "Created ${BRDIR}"
   fi
   if [[ -z "${BRDIR}" ]]; then
     _die "Could not check out ${BRNAME}"
   fi
   cd "${BRDIR}"
+  local OBRANCH
+  OBRANCH="$(_get_current_branch)"
+  if [[ "${OBRANCH}" != "${BRANCH}" ]]; then
+    _warn "${BRDIR} pointed to branch ${OBRANCH} instead of ${BRANCH}."
+    _git checkout "${BRANCH}"
+    _info "... Fixed."
+  fi
 }
 
 function _get_current_branch() {
@@ -1023,7 +1031,7 @@ function gee__update_all() {
   _read_parents_file
 
   # Build an ordered list of branches to update
-  local -a ALL_BRANCHES
+  local -a ALL_BRANCHES=()
   mapfile -t ALL_BRANCHES < <( "${GIT}" branch --format="%(refname:short)" )
   local -a CHAIN=()
   local B
@@ -1591,6 +1599,44 @@ EOT
 function gee__create_ssh_key() {
   _ssh_enroll
   gee__hello
+}
+
+##########################################################################
+# repair command
+##########################################################################
+
+_register_help "repair" "Repair your gee workspace." <<'EOT'
+Usage: gee repair <command>
+
+Gee tries to control some metadata and attempts to file away some of the
+sharp edges from git.  Sometimes, bypassing gee to use git directly can
+cause some of gee's metadata to become stale.  This command fixes up
+any missing or incorrect metadata.
+EOT
+
+function gee__repair() {
+  # Make sure each worklist directory is pointing at the right branch
+  ORIG_DIR="$(pwd)"
+  local DIR BRANCH OBRANCH
+  for DIR in "${REPO_DIR}"*; do
+    BRANCH="$(basename "${DIR}")"
+    cd "${DIR}"
+    OBRANCH="$(_get_current_branch)"
+    if [[ "${OBRANCH}" != "${BRANCH}" ]]; then
+      _warn "${BRDIR} pointed to branch ${OBRANCH} instead of ${BRANCH}."
+      _git checkout "${BRANCH}"
+      _info "... Fixed."
+    fi
+  done
+
+  # Make sure each branch has a worklist directory
+  local -a ALL_BRANCHES=()
+  mapfile -t ALL_BRANCHES < <( "${GIT}" branch --format="%(refname:short)" )
+  for BRANCH  in "${ALL_BRANCHES[@]}"; do
+    _checkout_or_die "${BRANCH}"
+  done
+
+  _info "Done."
 }
 
 ##########################################################################
