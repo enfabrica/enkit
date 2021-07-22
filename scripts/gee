@@ -446,7 +446,7 @@ function _branch_ahead_behind() {
   local branch; branch="$1"
   local obr;
   _read_parents_file
-  obr="$(_get_parent_branch)"
+  obr="$(_get_parent_branch ${branch})"
   local -a counts
   read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
