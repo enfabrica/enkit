@@ -488,7 +488,6 @@ function _rebase_child_onto_parent() {
   local MB=""
   # TODO(jonathan): maybe use ${CHILD}.REBASE_MB tag if it exists?
   local REBASE_MB
-  read -r REBASE_MB < <( git rev-list -n 1 "${CHILD}.REBASE_MB" )
   read -r MB < <(
     "${GIT}" reflog show --no-abbrev "${CHILD}" \
       --grep-reflog "^rebase finished: " \
@@ -503,10 +502,18 @@ function _rebase_child_onto_parent() {
   if [[ -z "${MB}" ]]; then
     _die "Could not find merge-base for branch ${CHILD}"
   fi
+  if [[ -z "$( "${GIT}" tag --list "${CHILD}.REBASE_MB" )" ]]; then
+    _warn "Could not find ${CHILD}.REBASE_MB tag, taking best guess."
+    REBASE_MB="${MB}"
+  else
+    read -r REBASE_MB < <( git rev-list -n 1 "${CHILD}.REBASE_MB" )
+  fi
   if [[ "${REBASE_MB}" != "${MB}" ]]; then
     _warn "REBASE_MB and reflog-extracted MB don't match." \
       "${CHILD}.REBASE_MB=${REBASE_MB}" \
       "MB=${MB}"
+    # Use <branch>.REBASE_MB as ultimate source of truth:
+    MB="${REBASE_MB}"
   fi
   local -a COMMITS
   mapfile -t COMMITS < <(
