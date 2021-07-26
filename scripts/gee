@@ -190,7 +190,8 @@ function _check_ssh() {
 }
 
 function _check_cwd() {
-  local DIR="$(pwd)"
+  local DIR
+  DIR="$(pwd)"
   if ! [[ "$DIR" =~ ^"${HOME}"/gee/[a-zA-Z0-9_]+/ ]]; then
     _fatal "This command must be run from with a branch directory beneath ~/gee."
   fi
@@ -411,6 +412,10 @@ function _git() {
   _cmd "${GIT}" "$@"
 }
 
+function _git_can_fail() {
+  NOFAIL=1 _git "$@"
+}
+
 function _install_tools() {
   # If your dev image is missing the github-cli tool, this should install it.
   if [ ! -x "${GH}" ]; then
@@ -446,7 +451,7 @@ function _branch_ahead_behind() {
   local branch; branch="$1"
   local obr;
   _read_parents_file
-  obr="$(_get_parent_branch ${branch})"
+  obr="$(_get_parent_branch "${branch}")"
   local -a counts
   read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
@@ -489,10 +494,14 @@ function _rebase_child_onto_parent() {
   # TODO(jonathan): maybe use ${CHILD}.REBASE_MB tag if it exists?
   local REBASE_MB
   read -r MB < <(
-    "${GIT}" reflog show --no-abbrev "${CHILD}" \
-      --grep-reflog "^rebase finished: " \
-      --grep-reflog "^branch: Created from " \
-      | head -n 1 | awk '{print $1}' )
+    "${GIT}" merge-base "${PARENT}" "${CHILD}" )
+  if [[ -z "${MB}" ]]; then
+    read -r MB < <(
+      "${GIT}" reflog show --no-abbrev "${CHILD}" \
+        --grep-reflog "^rebase finished: " \
+        --grep-reflog "^branch: Created from " \
+        | head -n 1 | awk '{print $1}' )
+  fi
   if [[  -z "${MB}" ]]; then
     read -r MB < <(
       "${GIT}" reflog show --no-abbrev "${CHILD}" \
@@ -512,8 +521,9 @@ function _rebase_child_onto_parent() {
     _warn "REBASE_MB and reflog-extracted MB don't match." \
       "${CHILD}.REBASE_MB=${REBASE_MB}" \
       "MB=${MB}"
-    # Use <branch>.REBASE_MB as ultimate source of truth:
-    MB="${REBASE_MB}"
+    # # Use <branch>.REBASE_MB as ultimate source of truth:
+    # MB="${REBASE_MB}"
+    # Use MB as the ultimate source of truth.
   fi
   local -a COMMITS
   mapfile -t COMMITS < <(
@@ -525,41 +535,82 @@ function _rebase_child_onto_parent() {
   local PARENT_HEAD
   PARENT_HEAD="$("${GIT}" rev-parse "${PARENT}")"
   _git tag -f "${CHILD}.REBASE_BACKUP" 
-  if ! _git rebase --autostash --onto "${PARENT_HEAD}" "${MB}" "${CHILD}"; then
-    local STATUS
-    mapfile -t STATUS < <( "${GIT}" status );
-    _info "Merge conflicts." "${STATUS[@]}" \
-          "To abort: gcd ${CHILD}; git rebase --abort"
-    _warn "Merge conflict in branch ${CHILD}, must be manually resolved."
-    return 1
+  local CHILD_DIR
+  CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
+  if ! _git_can_fail rebase --autostash --onto "${PARENT_HEAD}" "${MB}" "${CHILD}"; then
+    pushd "${CHILD_DIR}"
+    _git status
+    _info "Entering subshell: resolve conflicts then exit."
+    # TODO(jonathan): make a fancy prompt for this subshell.
+    bash
+
+    if _is_rebase_in_progress; then
+      _fatal "Exited without resolving rebase conflict."
+    fi
+
+    if _git_can_fail merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
+      _info "Rebase merge confirmed."
+    else
+      _warn "User did not resolve rebase conflicts in subshell."
+      local STATUS
+      mapfile -t STATUS < <( "${GIT}" status );
+      _info "Merge conflicts." "${STATUS[@]}" \
+            "To abort: gcd ${CHILD}; git rebase --abort"
+      _warn "Merge conflict in branch ${CHILD}, must be manually resolved."
+      return 1
+    fi
+    popd
   fi
 
+  # TODO(jonathan): this never runs if rebase has a merge conflict:
   _git tag -f "${CHILD}.REBASE_MB" "${PARENT_HEAD}"
   _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
   _git push -u origin "+${CHILD}"
 }
 
+function _is_rebase_in_progress() {
+  local G
+  G="$(git rev-parse --git-dir)"
+  if compgen -G "${G}/rebase*" > /dev/null; then
+    return 0  # 0=true
+  else
+    return 1  # 1=false
+  fi
+}
+
+function gee__tag_rebase_mb() {
+  local CHILD
+  CHILD="$(_get_current_branch)"
+  _read_parents_file
+  PARENT="$(_get_parent_branch "${CHILD}")"
+  PARENT_HEAD="$("${GIT}" rev-parse "${PARENT}")"
+  _git tag -f "${CHILD}.REBASE_MB" "${PARENT_HEAD}"
+  _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
+  _git push -u origin "+${CHILD}"
+}
+
+
 function _checkout_or_die() {
   # we want to check out a branch.  Maybe there is already a
   # worktree.  Maybe we need to create a worktree.  Let's do
   # whatever is necessary.
-  local BRNAME BRDIR
-  BRNAME="$1"; shift
+  local BRANCH BRDIR
+  BRANCH="$1"; shift
   # Do we already have a worktree?
-  BRDIR="$(_get_branch_rootdir "${BRNAME}")"
+  BRDIR="$(_get_branch_rootdir "${BRANCH}")"
   if [[ -z "${BRDIR}" ]]; then
-    _git worktree add "${REPO_DIR}/${BRNAME}"
-    BRDIR="$(_get_branch_rootdir "${BRNAME}")"
+    _git worktree add "${REPO_DIR}/${BRANCH}"
+    BRDIR="$(_get_branch_rootdir "${BRANCH}")"
     _info "Created ${BRDIR}"
   fi
   if [[ -z "${BRDIR}" ]]; then
-    _die "Could not check out ${BRNAME}"
+    _die "Could not check out ${BRANCH}"
   fi
   cd "${BRDIR}"
-  local OBRANCH
-  OBRANCH="$(_get_current_branch)"
-  if [[ "${OBRANCH}" != "${BRANCH}" ]]; then
-    _warn "${BRDIR} pointed to branch ${OBRANCH} instead of ${BRANCH}."
+  local CUR_BRANCH
+  CUR_BRANCH="$(_get_current_branch)"
+  if [[ "${CUR_BRANCH}" != "${BRANCH}" ]]; then
+    _warn "${BRDIR} pointed to branch ${CUR_BRANCH} instead of ${BRANCH}."
     _git checkout "${BRANCH}"
     _info "... Fixed."
   fi
@@ -1635,6 +1686,34 @@ function gee__repair() {
   for BRANCH  in "${ALL_BRANCHES[@]}"; do
     _checkout_or_die "${BRANCH}"
   done
+
+  # Repair the PARENT file if it gets corrupted or removed, by attempting to
+  # guess the parent for each branch.
+  _read_parents_file
+  local DIRTY=0
+  _set_main
+  for BRANCH  in "${ALL_BRANCHES[@]}"; do
+    if [[ "${BRANCH}" == "${MAIN}" ]]; then continue; fi
+    if [[ -z "${PARENTS["${BRANCH}"]}" ]]; then
+      _warn "${BRANCH} is missing \"parent\" metadata."
+      _checkout_or_die "${BRANCH}"
+      # Try to guess which branch is this branch's parent:
+      # TODO(jonathan): There is almost certainly a better way using rev-list.
+      local PARENT
+      PARENT="$(git show-branch | sed "s/].*//" | grep "\*" \
+        | grep -v -w "${BRANCH}" | head -n1 \
+        | perl -pe 'm/\[([a-zA-Z0-9_-]+?)(\^\d+)?(~\d+)?$/; $_ = $1;' )"
+      if [[ -z "${PARENT}" ]]; then
+        PARENT="${MAIN}"
+      fi
+      PARENTS["${BRANCH}"]="${PARENT}"
+      DIRTY=1
+      _info "Guessed that ${PARENT} is the parent of ${BRANCH}"
+    fi
+  done
+  if (( DIRTY )); then
+    _write_parents_file
+  fi
 
   _info "Done."
 }
