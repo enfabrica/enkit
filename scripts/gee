@@ -159,7 +159,7 @@ function _gee_rebase_prompt() {
 	local detached=no
 
 	local repo_info rev_parse_exit_code
-	repo_info="$("${GIT}" rev-parse --git-dir --is-inside-git-dir \
+	repo_info="$(git rev-parse --git-dir --is-inside-git-dir \
 		--is-bare-repository --is-inside-work-tree \
 		--short HEAD 2>/dev/null)"
 	rev_parse_exit_code="$?"
@@ -245,9 +245,10 @@ function _gee_rebase_prompt() {
   local d
   d="$(pwd)"
 
-  local COLOR
+  local COLOR RST
   COLOR="$(tput bold; tput rev)"
-  printf -- "${COLOR}%s%s %s${_COLOR_RST}\n$ " "${b}" "${r}" "${d}"
+  RST="$(tput sgr0)"
+  printf -- "${COLOR}%s%s%s %s${RST}\n$ " "${GEE_STATUS}" "${b}" "${r}" "${d}"
 
 	return $exit
 }
@@ -600,6 +601,12 @@ function _rebase_child_onto_parent() {
   local CHILD="$1"
   local PARENT="$2"
   local MB=""
+
+  _set_main
+  if [[ "${PARENT}" == "${MAIN}" ]]; then
+    _update_main
+  fi
+
   # TODO(jonathan): maybe use ${CHILD}.REBASE_MB tag if it exists?
   local REBASE_MB
   read -r MB < <(
@@ -651,8 +658,12 @@ function _rebase_child_onto_parent() {
     _git status
     _info "Entering subshell: resolve conflicts then exit."
     # TODO(jonathan): make a fancy prompt for this subshell.
-    export PROMPT_COMMAND="_git_rebase_prompt"
-    bash
+    export PROMPT_COMMAND="git status; _gee_rebase_prompt"
+    export GEE_STATUS="\"exit\" to return to gee: "
+    export PS1=""
+    export -f __git_eread
+    export -f _gee_rebase_prompt
+    bash --noprofile --norc
 
     if _is_rebase_in_progress; then
       _fatal "Exited without resolving rebase conflict."
@@ -1080,13 +1091,17 @@ function gee__update() {
     _die "Not in a git branch directory."
   fi
 
-  # Merge from upstream/main into main:
-  _update_main
-
   _read_parents_file
 
   local PREVIOUS_B
   PREVIOUS_B="$(_get_parent_branch "${CURRENT_BRANCH}")"
+
+  _set_main
+  if [[ "${PREVIOUS_B}" == "${MAIN}" ]]; then
+    # only update main branch if we're merging from it.
+    _update_main
+  fi
+
   _checkout_or_die "${CURRENT_BRANCH}"
   # Rebase from PREVIOUS_B onto B
   _rebase_child_onto_parent "${CURRENT_BRANCH}" "${PREVIOUS_B}"
