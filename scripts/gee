@@ -651,6 +651,7 @@ function _rebase_child_onto_parent() {
   local PARENT_HEAD
   PARENT_HEAD="$("${GIT}" rev-parse "${PARENT}")"
   _git tag -f "${CHILD}.REBASE_BACKUP" 
+  _checkout_or_die "${CHILD}"
   local CHILD_DIR
   CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
   if ! _git_can_fail rebase --autostash --onto "${PARENT_HEAD}" "${MB}" "${CHILD}"; then
