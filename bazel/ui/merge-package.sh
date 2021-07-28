@@ -2,6 +2,8 @@
 args=("$@")
 counter=0
 ss=""
+jq_path=$1
+shift
 while [ "$1" != "" ]; do
   if [ -z "$ss" ]; then
     ss=".[0]"
@@ -11,4 +13,4 @@ while [ "$1" != "" ]; do
   counter=$((counter+1))
   shift
 done
-echo "$(jq -s "$ss" "${args[@]}")"
+$jq_path -s "$ss" "${args[@]:1}"
