@@ -248,6 +248,9 @@ function _gee_rebase_prompt() {
   local COLOR RST
   COLOR="$(tput bold; tput rev)"
   RST="$(tput sgr0)"
+  if [[ -n "${GEE_HELP}" ]]; then
+    printf "%s\n" "${GEE_HELP}"
+  fi
   printf -- "${COLOR}%s%s%s %s${RST}\n$ " "${GEE_STATUS}" "${b}" "${r}" "${d}"
 
 	return $exit
@@ -522,6 +525,26 @@ function _git() {
   _cmd "${GIT}" "$@"
 }
 
+function _silent_cmd() {
+  local ESCAPED_CMD
+  ESCAPED_CMD="$( printf " %q" "$@")"
+  if [[ $DRYRUN -eq 0 ]]; then
+    set +e
+    "$@" > /dev/null
+    RC=$?
+    set -e
+    if [[ "${RC}" -ne 0 ]]; then
+      _info "CMD: ${ESCAPED_CMD}"
+      if [[ -z "${NOFAIL}" ]]; then
+        _fatal "Command failed with exit code ${RC}"
+      else
+        _warn "Command failed with exit code ${RC}"
+      fi
+    fi
+    return "${RC}"
+  fi
+}
+
 function _git_can_fail() {
   NOFAIL=1 _git "$@"
 }
@@ -587,6 +610,70 @@ function _remote_branch_exists() {
 }
 
 function _rebase_child_onto_parent() {
+  # It turns out that I'm not smarted than a million git developers.  Let's not
+  # be too clever and just use the default rebase flow, assuming we know
+  # exactly which parent branch to use.
+  local CHILD="$1"
+  local PARENT="$2"
+  local MB=""
+
+  _set_main
+  if [[ "${PARENT}" == "${MAIN}" ]]; then
+    _update_main
+  fi
+
+  MB=$("${GIT}" merge-base "${PARENT}" "${CHILD}")  
+  local -a COMMITS
+  mapfile -t COMMITS < <(
+    "${GIT}" log --oneline "${MB}..${CHILD}" )
+  _info "" "Rebasing ${CHILD} onto ${PARENT} (${#COMMITS[@]} commits since ${MB}))."
+  _debug "Will apply these commits:" \
+        "${COMMITS[@]}"
+
+  _checkout_or_die "${CHILD}"
+  _silent_cmd "${GIT}" tag -f "${CHILD}.REBASE_BACKUP"
+  local CHILD_DIR
+  CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
+  cd "${CHILD_DIR}"
+  if ! _git_can_fail rebase --autostash "${PARENT}" "${CHILD}"; then
+    _git status
+    _info "Entering subshell: resolve conflicts then exit."
+    # TODO(jonathan): make a fancy prompt for this subshell.
+    export PROMPT_COMMAND="git status; _gee_rebase_prompt"
+    export GEE_HELP=""
+    GEE_HELP+="You are interactively rebasing a branch with conflicts.\n"
+    GEE_HELP+="  To see where conflicts are: git status\n"
+    GEE_HELP+="  To run gits 3-way merge tool: git mergetool\n"
+    GEE_HELP+="  To mark a file as resolved: git add <file>\n"
+    GEE_HELP+="  To continue rebase operation: git rebase --continue\n"
+    GEE_HELP+="  To give up and go back to original state: git rebase --abort\n"
+    export GEE_STATUS="GEE-SUBSHELL: "
+    export PS1=""
+    export -f __git_eread
+    export -f _gee_rebase_prompt
+    bash --noprofile --norc
+
+    if _is_rebase_in_progress; then
+      local STATUS
+      mapfile -t STATUS < <( "${GIT}" status );
+      _warn "${STATUS[@]}"
+      _warn "Merge conflict in branch ${CHILD}, must be manually resolved."
+      _fatal "Exited without resolving rebase conflict."
+    fi
+
+    if _git_can_fail merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
+      _info "Rebase merge confirmed."
+    else
+      _warn "Rebase did not succeed, aborting."
+      return 1
+    fi
+  fi
+
+  _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
+  _git push --quiet -u origin "+${CHILD}"
+}
+
+function _ABANDONED_rebase_child_onto_parent() {
   # This function searches the reflog to try to find the commit id of the last
   # time this branch was rebased (presumably, from its parent).  Failing that,
   # we use the commit id that this branch was created from.  Call this commit
@@ -687,7 +774,7 @@ function _rebase_child_onto_parent() {
   # TODO(jonathan): this never runs if rebase has a merge conflict:
   _git tag -f "${CHILD}.REBASE_MB" "${PARENT_HEAD}"
   _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
-  _git push -u origin "+${CHILD}"
+  _git push --quiet -u origin "+${CHILD}"
 }
 
 function _is_rebase_in_progress() {
@@ -705,10 +792,10 @@ function gee__tag_rebase_mb() {
   CHILD="$(_get_current_branch)"
   _read_parents_file
   PARENT="$(_get_parent_branch "${CHILD}")"
+  _info "Setting ${CHILD}.REBASE_MB to be head of ${PARENT}"
   PARENT_HEAD="$("${GIT}" rev-parse "${PARENT}")"
   _git tag -f "${CHILD}.REBASE_MB" "${PARENT_HEAD}"
-  _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
-  _git push -u origin "+${CHILD}"
+  _git push --quiet -u origin "+${CHILD}"
 }
 
 
@@ -756,7 +843,7 @@ function _update_main() {
   if [[ "$(_count_diffs "upstream/${MAIN}" "${MAIN}")" != 0 ]]; then
     _fatal "git pull operation failed."
   fi
-  _git push -u origin "${MAIN}"
+  _git push --quiet -u origin "${MAIN}"
 }
 
 # The parents file keeps track of two things:
@@ -1127,12 +1214,11 @@ function gee__rupdate() {
     _die "Not in a git branch directory."
   fi
 
-  # Merge from upstream/main into main:
-  _update_main
 
   _read_parents_file
 
   # Build a chain of branches to update.
+  _set_main
   local -a CHAIN=()
   local B
   B="${CURRENT_BRANCH}"
