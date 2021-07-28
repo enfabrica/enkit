@@ -139,11 +139,17 @@ def _kernel_modules(ctx):
     modules = ctx.attr.modules
     inputs = ctx.files.srcs + ctx.files.kernel
     srcdir = ctx.file.makefile.dirname
+    extra_symbols = ""
 
     for d in ctx.attr.deps:
         inputs += d.files.to_list()
         if CcInfo in d:
             inputs += d[CcInfo].compilation_context.headers.to_list()
+        for f in d.files.to_list():
+            if f.basename == "Module.symvers":
+                extra_symbols += f.short_path + " "
+
+    print(extra_symbols)
 
     ki = ctx.attr.kernel[KernelTreeInfo]
 
@@ -173,6 +179,9 @@ def _kernel_modules(ctx):
     extra = ""
     if ctx.attr.extra:
         extra = " ".join(ctx.attr.extra)
+
+    if extra_symbols:
+        extra += " KBUILD_EXTRA_SYMBOLS=\"%s\"" % (extra_symbols)
 
     if ctx.attr.silent:
         silent = "-s"
