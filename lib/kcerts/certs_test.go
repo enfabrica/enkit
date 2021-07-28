@@ -110,3 +110,17 @@ func verifyRSAEncryption(key *rsa.PrivateKey) error {
 
 	return nil
 }
+
+func TestCertTTL(t *testing.T) {
+	_, sourcePrivKey, err := kcerts.GenerateED25519()
+	assert.Nil(t, err)
+	toBeSigned, _, err := kcerts.GenerateED25519()
+	assert.Nil(t, err)
+	// code of your test
+	principalList := []string{"foo", "bar", "baz"}
+	cert, err := kcerts.SignPublicKey(sourcePrivKey, 1, principalList, 5*time.Hour, toBeSigned)
+	returnedNoCurrtime := kcerts.SSHCertTTL(cert, false)
+	returnedWithCurrTime := kcerts.SSHCertTTL(cert, true)
+	assert.Equal(t, returnedNoCurrtime, 5 * time.Hour)
+	assert.Less(t, returnedWithCurrTime.Seconds(), returnedNoCurrtime.Seconds())
+}

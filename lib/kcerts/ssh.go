@@ -137,7 +137,7 @@ func (a SSHAgent) Principals() ([]AgentCert, error) {
 // privateKey must be a key type accepted by the golang.org/x/ssh/agent AddedKey struct.
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
 // Note that ed25519.PrivateKey should be passed by value.
-func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey, ttl uint32) error {
+func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey) error {
 	conn, err := net.Dial("unix", a.Socket)
 	if err != nil {
 		return err
@@ -151,7 +151,7 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 	return agentClient.Add(agent.AddedKey{
 		PrivateKey:   privateKey.Raw(),
 		Certificate:  cert,
-		LifetimeSecs: ttl,
+		LifetimeSecs: uint32(SSHCertTTL(cert, true).Seconds()),
 	})
 }
 

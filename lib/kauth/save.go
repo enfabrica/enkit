@@ -6,7 +6,6 @@ import (
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"golang.org/x/crypto/ssh"
-	"time"
 )
 
 // SaveCredentials saves the passed in credentials to the current ssh-agent. If the credentials are empty, i.e.
@@ -34,7 +33,8 @@ func SaveCredentials(credentials *EnkitCredentials, store cache.Store, l logger.
 		return err
 	}
 	defer agent.Close()
-	if err = agent.AddCertificates(credentials.PrivateKey, credentials.SSHCertificate, uint32((time.Hour * 48).Seconds())); err != nil {
+
+	if err = agent.AddCertificates(credentials.PrivateKey, credentials.SSHCertificate); err != nil {
 		return err
 	}
 	l.Infof("Successfully saved certificates to your local ssh agent")

@@ -7,6 +7,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"golang.org/x/crypto/ssh"
 	"math/big"
 	"net"
 	"time"
@@ -200,4 +201,13 @@ func NewOptions(mods ...Modifier) (*certOptions, error) {
 		}
 	}
 	return co, nil
+}
+
+// SSHCertTTL returns the remaining ttl of a cert, either when compared to current time, or it's total expiry.
+func SSHCertTTL(cert *ssh.Certificate, useCurrentTime bool) time.Duration {
+	before := time.Unix(int64(cert.ValidAfter), 0)
+	if useCurrentTime {
+		before = time.Now()
+	}
+	return time.Unix(int64(cert.ValidBefore), 0).Sub(before)
 }
