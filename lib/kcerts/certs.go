@@ -203,11 +203,11 @@ func NewOptions(mods ...Modifier) (*certOptions, error) {
 	return co, nil
 }
 
-// SSHCertTTL returns the remaining ttl of a cert, either when compared to current time, or it's total expiry.
+// SSHCertTotalTTL returns the total ttl of a cert.
 func SSHCertTotalTTL(cert *ssh.Certificate) time.Duration {
 	return time.Unix(int64(cert.ValidBefore), 0).Sub(time.Unix(int64(cert.ValidAfter), 0))
 }
-
+// SSHCertRemainingTTL returns the remaining ttl of a cert  when compared to current time.
 func SSHCertRemainingTTL(cert *ssh.Certificate) time.Duration {
 	return time.Unix(int64(cert.ValidBefore), 0).Sub(time.Now())
 }
