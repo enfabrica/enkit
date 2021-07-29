@@ -159,8 +159,9 @@ function _gee_rebase_prompt() {
 	local detached=no
 
 	local repo_info rev_parse_exit_code
-	repo_info="$(git rev-parse --git-dir --is-inside-git-dir \
-		--is-bare-repository --is-inside-work-tree \
+	repo_info="$(git rev-parse \
+    --git-dir \
+    --is-inside-git-dir \
 		--short HEAD 2>/dev/null)"
 	rev_parse_exit_code="$?"
 
@@ -312,7 +313,7 @@ function _check_cwd() {
 
 function _get_ghuser_via_ssh() {
   if ! _check_ssh; then
-    _fatal "Could not determine github username."
+    _fatal "Could not determine github username.  Perhaps set GHUSER environment variable?"
   fi
 }
 
@@ -582,9 +583,11 @@ function _count_diffs() {
 function _branch_ahead_behind() {
   # Report how many commits this branch is ahead/behind main.
   local branch; branch="$1"
-  local obr;
+  local obr="$2";
   _read_parents_file
-  obr="$(_get_parent_branch "${branch}")"
+  if [[ -z "${obr}" ]]; then
+    obr="$(_get_parent_branch "${branch}")"
+  fi
   local -a counts
   read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
@@ -610,15 +613,16 @@ function _remote_branch_exists() {
 }
 
 function _rebase_child_onto_parent() {
-  # It turns out that I'm not smarted than a million git developers.  Let's not
-  # be too clever and just use the default rebase flow, assuming we know
-  # exactly which parent branch to use.
+  # It turns out that I'm not smarter than a million git developers.  Let's not
+  # be too clever here.  It turns out that ordinary rebase already does a good
+  # job of handilng the scenario where a parent has been rebased.
   local CHILD="$1"
   local PARENT="$2"
   local MB=""
 
   _set_main
   if [[ "${PARENT}" == "${MAIN}" ]]; then
+    # ensure main gets updated from remote upstream main.
     _update_main
   fi
 
@@ -636,21 +640,26 @@ function _rebase_child_onto_parent() {
   CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
   cd "${CHILD_DIR}"
   if ! _git_can_fail rebase --autostash "${PARENT}" "${CHILD}"; then
-    _git status
-    _info "Entering subshell: resolve conflicts then exit."
+    _warn "Rebase operation had conflicts."
     # TODO(jonathan): make a fancy prompt for this subshell.
     export PROMPT_COMMAND="git status; _gee_rebase_prompt"
+    local BOLD RST
+    BOLD="$(tput bold)"
+    RST="$(tput sgr0)"
     export GEE_HELP=""
     GEE_HELP+="You are interactively rebasing a branch with conflicts.\n"
-    GEE_HELP+="  To see where conflicts are: git status\n"
-    GEE_HELP+="  To run gits 3-way merge tool: git mergetool\n"
-    GEE_HELP+="  To mark a file as resolved: git add <file>\n"
-    GEE_HELP+="  To continue rebase operation: git rebase --continue\n"
-    GEE_HELP+="  To give up and go back to original state: git rebase --abort\n"
-    export GEE_STATUS="GEE-SUBSHELL: "
+    GEE_HELP+="  To see where conflicts are: ${BOLD}git status${RST}\n"
+    GEE_HELP+="  To run a 3-way merge tool: ${BOLD}git mergetool${RST}\n"
+    GEE_HELP+="  To mark a file as fixed: ${BOLD}git add <file>${RST}\n"
+    GEE_HELP+="  To continue rebase after fixing: ${BOLD}git rebase --continue${RST}\n"
+    GEE_HELP+="  To give up and go back to original state: ${BOLD}git rebase --abort${RST}\n"
+    GEE_HELP+="  To return to gee: ${BOLD}exit${RST}\n"
+    export GEE_STATUS="GEE-REBASE-SUBSHELL: "
     export PS1=""
     export -f __git_eread
     export -f _gee_rebase_prompt
+    _git status
+    _info "Entering subshell: resolve conflicts and then exit."
     bash --noprofile --norc
 
     if _is_rebase_in_progress; then
@@ -673,110 +682,6 @@ function _rebase_child_onto_parent() {
   _git push --quiet -u origin "+${CHILD}"
 }
 
-function _ABANDONED_rebase_child_onto_parent() {
-  # This function searches the reflog to try to find the commit id of the last
-  # time this branch was rebased (presumably, from its parent).  Failing that,
-  # we use the commit id that this branch was created from.  Call this commit
-  # id "MB".
-  #
-  # Then, we rebase this child onto it's parent, using only the commits between
-  # MB and HEAD.
-  #
-  # The goal here is to be able to successfully rebase a child onto a parent,
-  # even if the parent itself has already been rebased or had it's history
-  # changed by a squash operation.
-  local CHILD="$1"
-  local PARENT="$2"
-  local MB=""
-
-  _set_main
-  if [[ "${PARENT}" == "${MAIN}" ]]; then
-    _update_main
-  fi
-
-  # TODO(jonathan): maybe use ${CHILD}.REBASE_MB tag if it exists?
-  local REBASE_MB
-  read -r MB < <(
-    "${GIT}" merge-base "${PARENT}" "${CHILD}" )
-  if [[ -z "${MB}" ]]; then
-    read -r MB < <(
-      "${GIT}" reflog show --no-abbrev "${CHILD}" \
-        --grep-reflog "^rebase finished: " \
-        --grep-reflog "^branch: Created from " \
-        | head -n 1 | awk '{print $1}' )
-  fi
-  if [[  -z "${MB}" ]]; then
-    read -r MB < <(
-      "${GIT}" reflog show --no-abbrev "${CHILD}" \
-        --grep-reflog "^reset: moving to " \
-        | tail -n 1 | awk '{print $1}' )
-  fi
-  if [[ -z "${MB}" ]]; then
-    _die "Could not find merge-base for branch ${CHILD}"
-  fi
-  if [[ -z "$( "${GIT}" tag --list "${CHILD}.REBASE_MB" )" ]]; then
-    _warn "Could not find ${CHILD}.REBASE_MB tag, taking best guess."
-    REBASE_MB="${MB}"
-  else
-    read -r REBASE_MB < <( git rev-list -n 1 "${CHILD}.REBASE_MB" )
-  fi
-  if [[ "${REBASE_MB}" != "${MB}" ]]; then
-    _warn "REBASE_MB and reflog-extracted MB don't match." \
-      "${CHILD}.REBASE_MB=${REBASE_MB}" \
-      "MB=${MB}"
-    # # Use <branch>.REBASE_MB as ultimate source of truth:
-    # MB="${REBASE_MB}"
-    # Use MB as the ultimate source of truth.
-  fi
-  local -a COMMITS
-  mapfile -t COMMITS < <(
-    "${GIT}" log --oneline "${MB}..${CHILD}" )
-  _info "" "Rebasing ${CHILD} onto ${PARENT} (${#COMMITS[@]} commits since ${MB}))."
-  _debug "Will apply these commits:" \
-        "${COMMITS[@]}"
-
-  local PARENT_HEAD
-  PARENT_HEAD="$("${GIT}" rev-parse "${PARENT}")"
-  _git tag -f "${CHILD}.REBASE_BACKUP" 
-  _checkout_or_die "${CHILD}"
-  local CHILD_DIR
-  CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
-  if ! _git_can_fail rebase --autostash --onto "${PARENT_HEAD}" "${MB}" "${CHILD}"; then
-    pushd "${CHILD_DIR}"
-    _git status
-    _info "Entering subshell: resolve conflicts then exit."
-    # TODO(jonathan): make a fancy prompt for this subshell.
-    export PROMPT_COMMAND="git status; _gee_rebase_prompt"
-    export GEE_STATUS="\"exit\" to return to gee: "
-    export PS1=""
-    export -f __git_eread
-    export -f _gee_rebase_prompt
-    bash --noprofile --norc
-
-    if _is_rebase_in_progress; then
-      _fatal "Exited without resolving rebase conflict."
-    fi
-
-    if _git_can_fail merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
-      _info "Rebase merge confirmed."
-    else
-      _warn "User did not resolve rebase conflicts in subshell."
-      local STATUS
-      mapfile -t STATUS < <( "${GIT}" status );
-      _info "Merge conflicts." "${STATUS[@]}" \
-            "To abort: gcd ${CHILD}; git rebase --abort"
-      _warn "Merge conflict in branch ${CHILD}, must be manually resolved."
-      return 1
-    fi
-    popd
-  fi
-
-  # TODO(jonathan): this never runs if rebase has a merge conflict:
-  _git tag -f "${CHILD}.REBASE_MB" "${PARENT_HEAD}"
-  _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
-  _git push --quiet -u origin "+${CHILD}"
-}
-
 function _is_rebase_in_progress() {
   local G
   G="$(git rev-parse --git-dir)"
@@ -786,18 +691,6 @@ function _is_rebase_in_progress() {
     return 1  # 1=false
   fi
 }
-
-function gee__tag_rebase_mb() {
-  local CHILD
-  CHILD="$(_get_current_branch)"
-  _read_parents_file
-  PARENT="$(_get_parent_branch "${CHILD}")"
-  _info "Setting ${CHILD}.REBASE_MB to be head of ${PARENT}"
-  PARENT_HEAD="$("${GIT}" rev-parse "${PARENT}")"
-  _git tag -f "${CHILD}.REBASE_MB" "${PARENT_HEAD}"
-  _git push --quiet -u origin "+${CHILD}"
-}
-
 
 function _checkout_or_die() {
   # we want to check out a branch.  Maybe there is already a
