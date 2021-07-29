@@ -16,6 +16,8 @@ message ClientRegister {
   string name = 2;
   // Tags assigned to this machine.
   repeated string tag = 3;
+  // IP Addresses to be allocated to the node
+  repeated string ips = 4;
 }
 
 message ClientPing {

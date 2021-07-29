@@ -1,4 +1,4 @@
-package mnode
+package machine
 
 import (
 	"bytes"
@@ -41,7 +41,7 @@ func ReadSSHDContent(cafile, hostKey, hostCertificateFile string) ([]byte, error
 
 // fetchLibNSSAutoUser will fetch the nss_autouser  lib that's embedded. The current build exports one .a and one .so.
 func fetchLibNSSAutoUser() ([]byte, error) {
-	for k, v := range machinist_assets.Data {
+	for k, v := range machinist_assets.AutoUserBinaries {
 		if strings.Contains(k, ".so") {
 			return v, nil
 		}
@@ -113,4 +113,23 @@ func InstallPamSSHDFile(path string, l logger.Logger) error {
 func InstallPamScript(path string, l logger.Logger) error {
 	l.Infof("Installing Pam Account Script")
 	return ioutil.WriteFile(path, machinist_assets.PamScript, 0755)
+}
+
+func ParseSystemdTemplate(user, installPath, command string) (string, error) {
+	tpl, err := template.New("machinist_service").Parse(string(machinist_assets.SystemdTemplate))
+	if err != nil {
+		return "", err
+	}
+	type ll struct {
+		InstallPath string
+		Command     string
+		User        string
+	}
+	l := ll{
+		User: user, InstallPath: installPath, Command: command,
+	}
+	var r []byte
+	reader := bytes.NewBuffer(r)
+	err = tpl.Execute(reader, l)
+	return string(reader.Bytes()), err
 }
