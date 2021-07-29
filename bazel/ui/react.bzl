@@ -4,6 +4,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("//bazel/utils:files.bzl", "rebase_and_copy_files")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("//bazel/utils:binary.bzl", "declare_binary")
 
 """Creates a react project after running create-react-app.
 
@@ -29,8 +30,8 @@ def react_project(name, srcs, package_jsons, yarn_locks, publics, tsconfig, patc
     native.genrule(
         name = merge_json_name,
         outs = [paths.join(runner_dir_name, "package.json")],
-        tools = ["//bazel/ui:merge-package.sh"],
-        cmd = "$(location //bazel/ui:merge-package.sh) $(SRCS) > $@",
+        tools = ["//bazel/ui:merge-package.sh", "//bazel/ui:jq"],
+        cmd = "$(location //bazel/ui:merge-package.sh) $(location //bazel/ui:jq) $(SRCS) > $@",
         srcs = package_jsons,
         **kwargs
     )
