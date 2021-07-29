@@ -1,15 +1,6 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
 def _download_binary(ctx):
-    """Downloads a single binary that is not tarballed.
-
-    Example:
-          download_binary(
-                name = "jq_macos_amd64",
-                binary_name = "jq",
-                uri = "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-osx-amd64",
-            )
-    """
     ctx.download(
         url = [
             ctx.attr.uri,
@@ -24,6 +15,15 @@ def _download_binary(ctx):
 
 download_binary = repository_rule(
     _download_binary,
+    doc = """Downloads a single binary that is not tarballed.
+
+               Example:
+                     download_binary(
+                           name = "jq_macos_amd64",
+                           binary_name = "jq",
+                           uri = "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-osx-amd64",
+                       )
+               """,
     attrs = {
         "binary_name": attr.string(
             mandatory = True,
@@ -35,20 +35,6 @@ download_binary = repository_rule(
 )
 
 def _declare_binary(ctx):
-    """Declares a single binary, used as a wrapper around a select() statement
-
-    Example:
-        declare_binary(
-            name = "jq",
-            binary = select({
-                "@platforms//os:linux": "@jq_linux_amd64//:jq",
-                "@platforms//os:osx": "@jq_macos_amd64//:jq",
-            }),
-            binary_name = "jq",
-            visibility = ["//visibility:public"],
-        )
-
-    """
     out = ctx.actions.declare_file(ctx.attr.binary_name)
     ctx.actions.symlink(
         output = out,
@@ -58,6 +44,20 @@ def _declare_binary(ctx):
 
 declare_binary = rule(
     _declare_binary,
+    doc = """Declares a single binary, used as a wrapper around a select() statement
+
+              Example:
+                  declare_binary(
+                      name = "jq",
+                      binary = select({
+                          "@platforms//os:linux": "@jq_linux_amd64//:jq",
+                          "@platforms//os:osx": "@jq_macos_amd64//:jq",
+                      }),
+                      binary_name = "jq",
+                      visibility = ["//visibility:public"],
+                  )
+
+              """,
     attrs = {
         "binary_name": attr.string(
             mandatory = True,
