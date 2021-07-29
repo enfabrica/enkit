@@ -34,7 +34,7 @@ func SaveCredentials(credentials *EnkitCredentials, store cache.Store, l logger.
 	}
 	defer agent.Close()
 
-	if err = agent.AddCertificates(credentials.PrivateKey, credentials.SSHCertificate); err != nil {
+	if err := agent.AddCertificates(credentials.PrivateKey, credentials.SSHCertificate); err != nil {
 		return err
 	}
 	l.Infof("Successfully saved certificates to your local ssh agent")

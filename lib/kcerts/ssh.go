@@ -151,7 +151,7 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 	return agentClient.Add(agent.AddedKey{
 		PrivateKey:   privateKey.Raw(),
 		Certificate:  cert,
-		LifetimeSecs: uint32(SSHCertTTL(cert, true).Seconds()),
+		LifetimeSecs: uint32(SSHCertRemainingTTL(cert).Seconds()),
 	})
 }
 

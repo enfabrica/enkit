@@ -119,8 +119,13 @@ func TestCertTTL(t *testing.T) {
 	// code of your test
 	principalList := []string{"foo", "bar", "baz"}
 	cert, err := kcerts.SignPublicKey(sourcePrivKey, 1, principalList, 5*time.Hour, toBeSigned)
-	returnedNoCurrtime := kcerts.SSHCertTTL(cert, false)
-	returnedWithCurrTime := kcerts.SSHCertTTL(cert, true)
-	assert.Equal(t, returnedNoCurrtime, 5 * time.Hour)
-	assert.Less(t, returnedWithCurrTime.Seconds(), returnedNoCurrtime.Seconds())
+	certTotalTTL := kcerts.SSHCertTotalTTL(cert)
+	certRemainingTTL := kcerts.SSHCertRemainingTTL(cert)
+
+	assert.Equal(t, certTotalTTL, 5 * time.Hour)
+	assert.Greater(t, int(certTotalTTL), 0)
+
+	assert.Less(t, certRemainingTTL.Seconds(), certTotalTTL.Seconds())
+	assert.Greater(t, int(certRemainingTTL), 0)
+
 }
