@@ -174,10 +174,6 @@ function _gee_rebase_prompt() {
 		short_sha="${repo_info##*$'\n'}"
 		repo_info="${repo_info%$'\n'*}"
 	fi
-	local inside_worktree="${repo_info##*$'\n'}"
-	repo_info="${repo_info%$'\n'*}"
-	local bare_repo="${repo_info##*$'\n'}"
-	repo_info="${repo_info%$'\n'*}"
 	local inside_gitdir="${repo_info##*$'\n'}"
 	local g="${repo_info%$'\n'*}"
 
@@ -278,7 +274,7 @@ function _set_main() {
       | awk '/HEAD branch/ {print $NF}'
   )"
   if [[ -z "${MAIN}" ]]; then
-    _fatal "Can't identify default branch for ${UPSTREAM_URL}."
+    _die "Can't identify default branch for ${UPSTREAM_URL}."
   fi
 }
 
@@ -313,7 +309,7 @@ function _check_cwd() {
 
 function _get_ghuser_via_ssh() {
   if ! _check_ssh; then
-    _fatal "Could not determine github username.  Perhaps set GHUSER environment variable?"
+    _fatal "Could not determine github username."
   fi
 }
 
@@ -351,9 +347,11 @@ EOT
 
   _cmd ssh-add "${SSHKEYFILE}"
 
-  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
+  _gh auth login
   # The user might have to open their web browser at this point:
   read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+
+  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
 
   _gh ssh-key list
 
@@ -390,7 +388,7 @@ function _get_parent_branch() {
   local BRANCH
   BRANCH="$1"
   if [[ -z "${BRANCH}" ]]; then
-    BRANCH="$("${GIT}" branch --show-current)"
+    BRANCH="$(_get_current_branch)"
   fi
 
   _read_parents_file
@@ -423,7 +421,7 @@ function _get_branch_rootdir() {
   local BRANCH_NAME BRDIR
   BRANCH_NAME="$1"
   if [[ -z "${BRANCH_NAME}" ]]; then
-    BRANCH_NAME="$("${GIT}" branch --show-current)"
+	  BRANCH_NAME="$(_get_current_branch)"
   fi
   BRDIR="$("${GIT}" worktree list \
     | grep -w "\[${BRANCH_NAME}\]" \
@@ -476,7 +474,7 @@ function _fatal() {
 # Use _die to report internal errors that require a stack dump.
 # "The user is going to be mad when they see this."
 function _die() {
-  printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}" "$@"
+  printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}\n" "$@"
   if [[ -z "${NOSTACK}" ]]; then
     echo >&2 "Stack trace:"
     local i
@@ -504,7 +502,7 @@ function _cmd() {
     RC=$?
     if [[ "${RC}" -ne 0 ]]; then
       if [[ -z "${NOFAIL}" ]]; then
-        _fatal "Command failed with exit code ${RC}"
+        _die "Command failed with exit code ${RC}"
       else
         _warn "Command failed with exit code ${RC}"
       fi
@@ -720,7 +718,7 @@ function _checkout_or_die() {
 
 function _get_current_branch() {
   local CB
-  CB="$("${GIT}" branch --show-current)"
+  CB="$("${GIT}" rev-parse --abbrev-ref HEAD)"
   if [[ -z "${CB}" ]]; then
     _die "Could not get current branch in directory $(pwd)"
   fi
@@ -806,7 +804,7 @@ function _join() {
 
 function _get_pull_requests() {
   local CURRENT_BRANCH
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  CURRENT_BRANCH="$(_get_current_branch)"
   # "gh pr view" arguments are similar to "gh pr create" but not identical.
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
@@ -867,9 +865,6 @@ function gee__init() {
   # ensure all tools are installed.
   _install_tools
 
-  _set_main
-  _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
-
   if ! _check_ssh; then
     _warn "Cannot connect to github over ssh."
     _confirm_or_exit "Would you like to set up ssh access now? (y/N)  "
@@ -877,6 +872,10 @@ function gee__init() {
   fi
 
   gee__hello
+
+  # _set_main -- won't work without a cloned repo.
+  MAIN=main
+  _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
 
   if [[ -d "${REPO_DIR}/${MAIN}" ]]; then
     _fatal \
@@ -923,7 +922,7 @@ function gee__make_branch() {
   BRNAME="$1"; shift
   SHA="$1"
 
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
     _fatal "Not in a git branch directory."
   fi
@@ -961,7 +960,7 @@ function gee__log() {
   local PARENT_BRANCH CURRENT_BRANCH
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  CURRENT_BRANCH="$(_get_current_branch)"
   _git log "${PARENT_BRANCH}..${CURRENT_BRANCH}"
 }
 
@@ -982,7 +981,7 @@ function gee__diff() {
   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  CURRENT_BRANCH="$(_get_current_branch)"
   MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
   if (( "$#" )); then
     _git diff "${PARENT_BRANCH}...${CURRENT_BRANCH}" -- "$@"
@@ -1009,7 +1008,7 @@ function gee__squash() {
   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE TMPFILE NUM_COMMITS
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  CURRENT_BRANCH="$(_get_current_branch)"
   MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
   NUM_COMMITS="$("${GIT}" log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}" | /usr/bin/wc -l)"
   _info "Current branch: ${CURRENT_BRANCH}"
@@ -1342,7 +1341,7 @@ function gee__push() { gee__commit "$@"; }
 function gee__commit() {
   _check_cwd
   local CURRENT_BRANCH
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  CURRENT_BRANCH="$(_get_current_branch)"
   _set_main
   if [[ "${CURRENT_BRANCH}" == "${MAIN}" ]]; then
     _info "You should use \"gee make_branch\" to create a feature branch"
@@ -1382,7 +1381,7 @@ function gee__edpr() { gee__edit_pr "$@"; }
 function gee__edit_pr() {
   _check_cwd
   local CURRENT_BRANCH
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  CURRENT_BRANCH="$(_get_current_branch)"
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
     # gh-cli treats this as a special case for some reason.
@@ -1452,7 +1451,7 @@ function gee__make_pr() {
   _read_parents_file
   _set_main
   DEST_BRANCH="upstream/${MAIN}"
-  CURRENT_BRANCH="$("${GIT}" branch --show-current)"
+  CURRENT_BRANCH="$(_get_current_branch)"
   MERGE_BASE="$("${GIT}" merge-base "${DEST_BRANCH}" "${CURRENT_BRANCH}")"
   _info "Current branch: ${CURRENT_BRANCH}"
   _info "Destination branch: ${DEST_BRANCH}"
