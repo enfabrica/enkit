@@ -1,50 +1,72 @@
 #!/bin/bash
-#
+
+read -r -d '' USAGE <<'EOT'
 # gee: git enabled enfabrication.
-#
-# A wrapper for our standard git workflow.  This is a starting point, designed
-# to capture one correct and reliable way of using git, that can be refined
-# over time without having to teach every user the deep way of git.
-#
-# A few features:
-# 
-# * We always use "worktree" -- that is, every branch gets a unique directory
-#   in the user's home directory.  (At the moment, this costs about 0.2GB for
-#   each branch, which feels cheap.)
-#
-# * "gee submit" always pushes changes to github so that users will have a
-#   backup of their work.  Also, nothing special has to be done to update an
-#   outstanding PR.
-#
-# * Enforce an "ssh"-authenticated workflow.
-#
-# workflow:
-#   gee init  # only do this once, per repo, ever.
-#   gee mkbr # make a new feature branch
-#   gee commit  # commit changes
-#   gee update  # merge upstream changes
-#   gee rupdate  # merge upstream changes, recursively.
-#   gee squash # Squash all changes to a single commit.
-#   gee mail  # send a pr request
-#   gee commit # update that pr request (again)
-#   gee submit  # merge that pr request
-#   gee cleanup  # prune branches without local changes.
-#
-# Additionally, we want the ability to chain feature branches that build on one
-# another, and we want "gee update" to recursively traverse chains of branches.
-# A user should be able to send branch "feature1" off for review and
-# immediately start work on it's descendant, "feature2" while "feature1" is
-# undergoing review.
-#
-# All gee-maintained repos and branches live under ~/gee.  The directory
-# structure is: "${HOME}/gee/<REPO>/<BRANCH>".
-#
-# Gee uses the "worktree" model by default: every branch gets it's own
-# dedicated directory, and users switch branchs by changing directories.  This
-# enables simultaneous work on separate branches, and prevents editor
-# disruption when switching from branch to branch (ie. accidentally saving a
-# change from one branch in a different branch).
-#
+
+gee is a wrapper around the "git" and "gh-cli" tools.  It implements a standard
+and supported workflow.  It also "shows its work" by showing each git command
+it executes, helping users learn git.
+
+## Features:
+
+* Uses the "worktree" feature so that every branch is always visible in its
+  own directory, and switching branches is accomplished by changing directory.
+  All branch directories are named ~/gee/<REPO>/<BRANCH>
+
+* All local commits are automatically backed up to github.
+
+* Tracks lineage of branches-of-branches.
+
+* Sets up and enforces use of ssh for all interactions with github.
+
+* Supports multi-homed development (user can do work on various hosts without
+  NFS-mounted home directories).
+
+## Simple use:
+
+1. Run "gee init" to clone and check out the enfabrica/internal repo.  This
+   only needs to be done once per home directory.
+
+2. "cd ~/gee/internal/main" to start in the main branch.
+
+3. Make a feature branch: "gee make_branch my_feature"
+   Then: "cd $(gee gcd my_feature)"
+
+4. Make some changes, and call "gee commit" whenever needed to checkpoint
+   your work.
+
+5. Call "gee update" to pull new changes from upstream.
+
+6. When ready to send your change out for review:
+
+    gee fix  # runs all automatic code formatters
+    gee commit -a -m "ran gee fix"
+    gee make_pr  # creates a pull request.
+
+7. You can continue to make updates to your branch, and update your
+   PR by running "gee commit".
+
+8. When approved, run "gee submit_pr" to merge your change.
+
+## More complex use:
+
+You can continue to develop a second feature while the first feature is out for
+review.
+
+1. Make a branch of a branch:
+
+     cd $(gee gcd my_feature)
+     gee mkbr my_feature2
+
+3. Do work in the child branch:
+
+     cd $(gee gcd my_feature2)
+
+2. Recursively update a chain of branches:
+
+     gee rupdate
+
+EOT
 # Branches:
 #    upstream: the original repo we have forked (enfabrica/$REPO)
 #              we issue pull requests to this repo, and we integrate
@@ -59,16 +81,16 @@
 #    $feature: fork of main (or other $feature), contains
 #        local changes.  May have 0 or 1 PRs associated with it.
 #    origin/$feature: github backup of $feature branch.
-#
+# 
 # Updates flow in one direction through these branches:
-#
+# 
 #   upstream/main -> main -> origin/main -> $feature -> origin/$feature
-#
+# 
 # The user only commits changes to $feature.
-#
+# 
 # Changes then migrate from origin/$feature back to upstream/main when a PR is
 # approved and merged.
-#
+# 
 # Note: We are transitioning from "master" to "main."  Gee always tries to find
 # a "main" remote branch first, but falls back to "master" if "main" does not
 # exist.
@@ -99,6 +121,7 @@ UPSTREAM="${UPSTREAM:-enfabrica}"
 TESTMODE="${TESTMODE:-0}"
 MAIN="" # Unknown, call _set_main to set.
 REPO="${REPO:-}"
+PAGER="${PAGER:-less}"
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
@@ -983,7 +1006,8 @@ function gee__init() {
 
 _register_help "make_branch" "create a new branch based on the current branch." \
   "mkbr" <<'EOT'
-Usage: gee mkbr <branch-name> [<commit-ish>]
+Usage: gee make_branch <branch-name> [<commit-ish>]
+Aliases: mkbr
 
 Create a new branch based on the current branch.  The new branch will be located in the
 directory:
@@ -1083,70 +1107,73 @@ function gee__diff() {
   fi
 }
 
-##########################################################################
-# squash command
-##########################################################################
-
-_register_help "squash" "Squash all commits in this branch." <<'EOT'
-Usage: gee squash
-
-Squash all commits in this branch to a single commit.
-EOT
-
-function gee__squash() {
-  _check_cwd
-  # Note: there is no longer any need to squash before sending out for review,
-  # as we always merge with "gh pr merge --squash".
-  # TODO(jonathan): Deprecate this?
-  local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE TMPFILE NUM_COMMITS
-  _read_parents_file
-  PARENT_BRANCH="$(_get_parent_branch)"
-  CURRENT_BRANCH="$(_get_current_branch)"
-  MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
-  NUM_COMMITS="$("${GIT}" log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}" | /usr/bin/wc -l)"
-  _info "Current branch: ${CURRENT_BRANCH}"
-  _info "Parent branch: ${PARENT_BRANCH}"
-  _info "Merge base: ${MERGE_BASE}"
-  _info "Number of commits outstanding: ${NUM_COMMITS}"
-  if [[ "${NUM_COMMITS}" -lt 2 ]]; then
-    _fatal "${NUM_COMMITS} commits outstanding.  Nothing to squash."
-  fi
-  TMPFILE="$(mktemp)"
-  (
-    echo "# Comment lines will be removed."
-    echo "# One line summary:"
-    echo "[REPLACE THIS LINE]"
-    echo ""
-    echo "# Details:"
-    echo ""
-    echo "Files:"
-    "${GIT}" diff --name-only "${MERGE_BASE}" | sed 's/^/    /'
-    echo ""
-    echo "# Previous commit messages:"
-    echo "#"
-    "${GIT}" log --format=medium "${PARENT_BRANCH}..${CURRENT_BRANCH}" | \
-      sed 's/^/# /'
-    echo ""
-  ) >"${TMPFILE}"
-  "${EDITOR:-vim}" "${TMPFILE}"
-  sed -i "/^#/d" "${TMPFILE}"
-  perl -p -i -e 's/(^\s*\n){2,}/\n/gmso' "${TMPFILE}"
-  if grep -q "^\[REPLACE" "${TMPFILE}"; then
-    echo "You must replace the summary line."
-    echo "Commit message saved here: ${TMPFILE}"
-    _fatal Aborted.
-  fi
-  head -n 1 "${TMPFILE}"
-  _confirm_or_exit \
-    "Are you sure you want to squash ${NUM_COMMITS} commits? (y/N)  "
-
-  _git reset --soft "${MERGE_BASE}"
-  _git add --all
-  _git commit -a -F "${TMPFILE}"
-  rm "${TMPFILE}"
-  _git push -u origin "+${CURRENT_BRANCH}"  # update remote branch too
-  _git log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}"
-}
+## DEPRECATED: we always squash when submitting a PR, this command adds a lot
+## of complexity but very little value.
+## TODO(jonathan): delete this after we are sure we don't need it.
+## ##########################################################################
+## # squash command
+## ##########################################################################
+## 
+## _register_help "squash" "Squash all commits in this branch." <<'EOT'
+## Usage: gee squash
+## 
+## Squash all commits in this branch to a single commit.
+## EOT
+## 
+## function gee__squash() {
+##   _check_cwd
+##   # Note: there is no longer any need to squash before sending out for review,
+##   # as we always merge with "gh pr merge --squash".
+##   # TODO(jonathan): Deprecate this?
+##   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE TMPFILE NUM_COMMITS
+##   _read_parents_file
+##   PARENT_BRANCH="$(_get_parent_branch)"
+##   CURRENT_BRANCH="$(_get_current_branch)"
+##   MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
+##   NUM_COMMITS="$("${GIT}" log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}" | /usr/bin/wc -l)"
+##   _info "Current branch: ${CURRENT_BRANCH}"
+##   _info "Parent branch: ${PARENT_BRANCH}"
+##   _info "Merge base: ${MERGE_BASE}"
+##   _info "Number of commits outstanding: ${NUM_COMMITS}"
+##   if [[ "${NUM_COMMITS}" -lt 2 ]]; then
+##     _fatal "${NUM_COMMITS} commits outstanding.  Nothing to squash."
+##   fi
+##   TMPFILE="$(mktemp)"
+##   (
+##     echo "# Comment lines will be removed."
+##     echo "# One line summary:"
+##     echo "[REPLACE THIS LINE]"
+##     echo ""
+##     echo "# Details:"
+##     echo ""
+##     echo "Files:"
+##     "${GIT}" diff --name-only "${MERGE_BASE}" | sed 's/^/    /'
+##     echo ""
+##     echo "# Previous commit messages:"
+##     echo "#"
+##     "${GIT}" log --format=medium "${PARENT_BRANCH}..${CURRENT_BRANCH}" | \
+##       sed 's/^/# /'
+##     echo ""
+##   ) >"${TMPFILE}"
+##   "${EDITOR:-vim}" "${TMPFILE}"
+##   sed -i "/^#/d" "${TMPFILE}"
+##   perl -p -i -e 's/(^\s*\n){2,}/\n/gmso' "${TMPFILE}"
+##   if grep -q "^\[REPLACE" "${TMPFILE}"; then
+##     echo "You must replace the summary line."
+##     echo "Commit message saved here: ${TMPFILE}"
+##     _fatal Aborted.
+##   fi
+##   head -n 1 "${TMPFILE}"
+##   _confirm_or_exit \
+##     "Are you sure you want to squash ${NUM_COMMITS} commits? (y/N)  "
+## 
+##   _git reset --soft "${MERGE_BASE}"
+##   _git add --all
+##   _git commit -a -F "${TMPFILE}"
+##   rm "${TMPFILE}"
+##   _git push -u origin "+${CURRENT_BRANCH}"  # update remote branch too
+##   _git log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}"
+## }
 
 ##########################################################################
 # update command
@@ -1154,8 +1181,10 @@ function gee__squash() {
 
 _register_help "update" "integrate changes from parent into this branch." <<'EOT'
 Usage: gee update
+Aliases: up
 EOT
 
+function gee__up() { gee__update; }
 function gee__update() {
   _check_cwd
   local CURRENT_BRANCH
@@ -1243,7 +1272,7 @@ function gee__rupdate() {
 # update_all command
 ##########################################################################
 
-_register_help "rupdate" "Update all branches." <<'EOT'
+_register_help "update_all" "Update all branches." <<'EOT'
 Usage: gee update_all
 
 Warning: this command may cause merge conflicts in other branches.  Be sure to
@@ -1316,22 +1345,6 @@ function gee__update_all() {
 }
 
 ##########################################################################
-# config command
-##########################################################################
-
-_register_help "config" "configure _git and _gh tools." <<'EOT'
-Usage: gee config
-
-This function is under development and doesn't do much yet.
-It should probably be merged with the gee init command.
-EOT
-
-function gee__config() {
-  _warn "gee config: Not implemented yet."
-  echo "For now, use \"git config\" and \"gh config\"."
-}
-
-##########################################################################
 # whatsout command
 ##########################################################################
 
@@ -1356,6 +1369,7 @@ function gee__whatsout() {
 
 _register_help "lsbranches" "list information about each branch." <<'EOT'
 Usage: gee lsbranches
+Aliases: lsb lsbr
 
 List information about each branch.
 EOT
@@ -1463,7 +1477,8 @@ function gee__commit() {
 ##########################################################################
 
 _register_help "edit_pr" "Edit an existing pull request." "edpr" <<'EOT'
-Usage: gee edpr <args>
+Usage: gee edit_pr <args>
+Aliases: edpr
 
 Edit an outstanding pull request.
 
@@ -1528,7 +1543,8 @@ function gee__view_pr() {
 
 _register_help "make_pr" "Creates a pull request from this branch." \
   "mail" "send" <<'EOT'
-Usage: gee mkpr
+Usage: gee make_pr
+Aliases: mkpr
 
 Creates a new pull request from this branch.
 EOT
@@ -1599,6 +1615,7 @@ function gee__make_pr() {
 
 _register_help "submit_pr" "Merge the approved PR into the parent branch." <<'EOT'
 Usage: gee submit_pr
+Aliases: merge
 
 Merges an approved pull request.
 EOT
@@ -1658,6 +1675,7 @@ function gee__merge() {
 
 _register_help "remove_branch" "Remove a branch." <<'EOT'
 Usage: gee remove_branch <branch-name>
+Aliases: rmbr
 
 Removes a branch and it's associated directory.
 EOT
@@ -1925,26 +1943,27 @@ Usage: gee help <command>
 EOT
 
 function gee__help() {
-  if (( "$#" == 0 )) || [[ "$1" == "usage" ]]; then
-    echo "gee: git enfabrication enabler"
-    echo ""
-    echo "gee is a wrapper script around git that implements a standard workflow."
-    echo ""
-    echo "Commands:"
-    for h in "${HELP[@]}"; do
-      echo "  $h"
-    done | sort
-  fi
-  if [[ "$1" == "usage" ]]; then shift; fi
-  while (( "$#" )); do
-    local COMMAND="$1"
-    shift
-    if [ "${LONGHELP[${COMMAND}]+_}" ]; then
-      echo "${LONGHELP[${COMMAND}]}"
-    else
-      echo "${COMMAND}: there is no help for this."
+  (
+    if (( "$#" == 0 )) || [[ "$1" == "usage" ]]; then
+      echo "${USAGE}"
+      echo ""
+      echo "## Commands:"
+      echo ""
+      for h in "${HELP[@]}"; do
+        echo "  $h"
+      done | sort
     fi
-  done
+    if [[ "$1" == "usage" ]]; then shift; fi
+    while (( "$#" )); do
+      local COMMAND="$1"
+      shift
+      if [ "${LONGHELP[${COMMAND}]+_}" ]; then
+        echo "${LONGHELP[${COMMAND}]}"
+      else
+        echo "${COMMAND}: there is no help for this."
+      fi
+    done
+  ) | "${PAGER}"
 }
 
 ##########################################################################
