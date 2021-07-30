@@ -9,7 +9,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"io/ioutil"
-	"math"
 	"net"
 	"os"
 	"os/exec"
@@ -149,14 +148,17 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 		return fmt.Errorf("public key is not a valid ssh certificate")
 	}
 	agentClient := agent.NewClient(conn)
-	ttl := SSHCertRemainingTTL(cert).Seconds()
-	if math.Signbit(ttl) {
-		return fmt.Errorf("TTL of certificate is %v, which is negative and not allowed", ttl)
+	nowTime := time.Now().Unix()
+	if after := int64(cert.ValidAfter); after < 0 || nowTime < int64(cert.ValidAfter) {
+		return fmt.Errorf("ssh: cert is not yet valid")
+	}
+	if before := int64(cert.ValidBefore); cert.ValidBefore != uint64(ssh.CertTimeInfinity) && (nowTime >= before || before < 0) {
+		return fmt.Errorf("ssh: cert has expired")
 	}
 	return agentClient.Add(agent.AddedKey{
 		PrivateKey:   privateKey.Raw(),
 		Certificate:  cert,
-		LifetimeSecs: uint32(ttl),
+		LifetimeSecs: uint32(SSHCertRemainingTTL(cert).Seconds()),
 	})
 }
 
