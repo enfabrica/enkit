@@ -278,6 +278,39 @@ function _set_main() {
   fi
 }
 
+function _set_ghuser() {
+  if [[ -n "${GHUSER}" ]]; then
+    return 0
+  fi
+
+  # try to get ghuser from ssh interface:
+  local OUTPUT
+  set +e
+  OUTPUT="$(ssh -T git@github.com 2>&1)"
+  set -e
+  if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
+    GHUSER="${BASH_REMATCH[1]}"
+    return 0
+  fi
+
+  # let's just ask the user
+  _warn "Can't automatically determine your github username."
+  read -r -i "${USER}-enf" -p "What is your github username?  " -e GHUSER
+
+  if [[ -z "${GHUSER}" ]]; then
+    _fatal "Cannot proceed without a github username."
+  fi
+  local RESP
+  read -r -p \
+    "Is it okay to add "export GHUSER=${GHUSER}" to your .bashrc file? (y/N)  " \
+    RESP
+  case "${RESP}" in
+    [Yy]*)
+      printf "\nexport GHUSER=%q\n" "${GHUSER}" >> ~/.bashrc
+      ;;
+  esac
+}
+
 function _check_ssh() {
   # Check if we can connect via ssh to github.
   # Takes 0.7 seconds.  Use only as-needed.
@@ -323,7 +356,39 @@ function _startup_checks() {
 
   # If GHUSER is unset, find username via ssh to github.
   if [[ -z "${GHUSER}" ]]; then
-    _get_ghuser_via_ssh
+    _set_ghuser
+  fi
+
+  local GIT_EMAIL
+  GIT_EMAIL="$("${GIT}" config --get user.email )"
+  if [[ -z "${GIT_EMAIL}" ]]; then
+    _warn "git user.email setting is empty."
+    read -e -r -i "${USER}@enfabrica.net" -p \
+      "What email address should git use for you?   " \
+      GIT_EMAIL
+    if [[ -z "${GIT_EMAIL}" ]]; then
+      _fatal "git needs user.email to be set."
+    fi
+    _git config --global user.email "${GIT_EMAIL}"
+  fi
+
+  local GIT_NAME
+  GIT_NAME="$("${GIT}" config --get user.name)"
+  if [[ -z "${GIT_NAME}" ]]; then
+    _warn "git user.name setting is empty."
+    read -e -r -i "${USER}" -p \
+      "What name should git use for you?   " \
+      GIT_NAME
+    if [[ -z "${GIT_NAME}" ]]; then
+      _fatal "git needs user.name to be set."
+    fi
+    _git config --global user.name "${GIT_NAME}"
+  fi
+
+  # check ssh agent
+  if ! ssh-add -l > /dev/null; then
+    _warn "Could not connect to ssh-agent."
+    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
   fi
 }
 
