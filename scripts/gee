@@ -265,6 +265,23 @@ function _contains_element() {
   return 1
 }
 
+# returns a new array
+function _egrep_array() {
+  local OUTPUT="$1"
+  local REGEX="$2"
+  unset "${OUTPUT}"
+  OUTPUT+=()
+  readarray -t "${OUTPUT}" < <( printf "%s\n" "$@" | grep -E "${REGEX}" )
+}
+
+function _set_alias_if_missing() {
+  local ALIAS="$1"
+  local DEFN="$2"
+  if ! "${GIT}" config --get "alias.${ALIAS}" >/dev/null; then
+    _git config --global "alias.${ALIAS}" "${DEFN}"
+  fi
+}
+
 function _set_main() {
   if [[ -n "${MAIN}" ]]; then return; fi
   local UPSTREAM_URL
@@ -548,7 +565,7 @@ function _die() {
       (( i++ ))
     done
   fi
-  printf >&2 "Please notify: jonathan@enfabrica.net"
+  printf >&2 "Please notify: jonathan@enfabrica.net\n"
   exit 1
 }
 
@@ -762,14 +779,11 @@ function _checkout_or_die() {
   local BRANCH BRDIR
   BRANCH="$1"; shift
   # Do we already have a worktree?
-  BRDIR="$(_get_branch_rootdir "${BRANCH}")"
-  if [[ -z "${BRDIR}" ]]; then
+  BRDIR="${REPO_DIR}/${BRANCH}"
+  if ! [[ -d "${BRDIR}" ]]; then
     _git worktree add "${REPO_DIR}/${BRANCH}"
     BRDIR="$(_get_branch_rootdir "${BRANCH}")"
     _info "Created ${BRDIR}"
-  fi
-  if [[ -z "${BRDIR}" ]]; then
-    _die "Could not check out ${BRANCH}"
   fi
   cd "${BRDIR}"
   local CUR_BRANCH
@@ -1022,11 +1036,25 @@ EOT
 
 function gee__log() {
   _check_cwd
-  local PARENT_BRANCH CURRENT_BRANCH
-  _read_parents_file
-  PARENT_BRANCH="$(_get_parent_branch)"
-  CURRENT_BRANCH="$(_get_current_branch)"
-  _git log "${PARENT_BRANCH}..${CURRENT_BRANCH}"
+  local -a ARGS=( "$@" )
+  local -a RANGE=()
+  _egrep_array RANGE '^\w*\.\.\.\w*$' "$@"
+  if (( ${#RANGE[@]} == 0 )); then
+    local PARENT_BRANCH CURRENT_BRANCH
+    _read_parents_file
+    PARENT_BRANCH="$(_get_parent_branch)"
+    CURRENT_BRANCH="$(_get_current_branch)"
+    ARGS+=("${PARENT_BRANCH}...${CURRENT_BRANCH}")
+  fi
+  local -a PRETTYLOG=(
+      log
+      --color
+      --graph 
+      "--pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'"
+      --abbrev-commit
+  )
+  _set_alias_if_missing logp "${PRETTYLOG[*]}"
+  _git logp "${ARGS[@]}"
 }
 
 ##########################################################################
@@ -1853,6 +1881,7 @@ function gee__repair() {
   local -a ALL_BRANCHES=()
   mapfile -t ALL_BRANCHES < <( "${GIT}" branch --format="%(refname:short)" )
   for BRANCH  in "${ALL_BRANCHES[@]}"; do
+    echo "co ${BRANCH}"
     _checkout_or_die "${BRANCH}"
   done
 
