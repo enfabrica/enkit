@@ -335,14 +335,17 @@ function _set_ghuser() {
 
   # let's just ask the user
   _warn "Can't automatically determine your github username."
-  read -r -i "${USER}-enf" -p "What is your github username?  " -e GHUSER
+  if [[ -n "${USER}" ]]; then
+    GHUSER="${USER}-enf"
+  fi
+  read -r -i "${GHUSER}" -p "What is your github username?  " -e GHUSER
 
   if [[ -z "${GHUSER}" ]]; then
     _fatal "Cannot proceed without a github username."
   fi
   local RESP
   read -r -p \
-    "Is it okay to add "export GHUSER=${GHUSER}" to your .bashrc file? (y/N)  " \
+    "Is it okay to add \"export GHUSER=${GHUSER}\" to your .bashrc file? (y/N)  " \
     RESP
   case "${RESP}" in
     [Yy]*)
@@ -361,15 +364,26 @@ function _check_ssh() {
   if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
     GHUSER="${BASH_REMATCH[1]}"
     return 0
-  else
-    _warn "Could not authenticate to github using ssh."
+  fi
+  _warn "Could not authenticate to github using ssh."
+  _info "ssh -T git@github.com got:"
+  _info "  ${OUTPUT}"
+  if [[ -f "${SSHKEYFILE}" ]]; then
+    _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
+    _cmd ssh-add "${SSHKEYFILE}"
+    _info "Trying again..."
+    set +e
+    OUTPUT="$(ssh -T git@github.com 2>&1)"
+    set -e
+    if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
+      GHUSER="${BASH_REMATCH[1]}"
+      return 0
+    fi
+    _warn "Still couldn't authenticate to github using ssh."
     _info "ssh -T git@github.com got:"
     _info "  ${OUTPUT}"
-    if [[ -f "${SSHKEYFILE}" ]]; then
-      _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
-    fi
-    return 1
   fi
+  return 1
 }
 
 function _check_cwd() {
@@ -400,7 +414,7 @@ function _startup_checks() {
   fi
 
   local GIT_EMAIL
-  GIT_EMAIL="$("${GIT}" config --get user.email )"
+  GIT_EMAIL="$("${GIT}" config --get user.email || /bin/true)"
   if [[ -z "${GIT_EMAIL}" ]]; then
     _warn "git user.email setting is empty."
     read -e -r -i "${USER}@enfabrica.net" -p \
@@ -413,7 +427,7 @@ function _startup_checks() {
   fi
 
   local GIT_NAME
-  GIT_NAME="$("${GIT}" config --get user.name)"
+  GIT_NAME="$("${GIT}" config --get user.name || /bin/true)"
   if [[ -z "${GIT_NAME}" ]]; then
     _warn "git user.name setting is empty."
     read -e -r -i "${USER}" -p \
@@ -429,10 +443,38 @@ function _startup_checks() {
   if ! ssh-add -l > /dev/null; then
     _warn "Could not connect to ssh-agent."
     _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+    local RESP
+    read -r -p \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+      RESP
+    case "${RESP}" in
+      [Yy]*)
+        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+        ;;
+    esac
+    eval `enkit agent print`
   fi
 }
 
 function _ssh_enroll() {
+  if [[ -z "${SSH_AUTH_SOCK}" ]]; then
+    _warn "No ssh-agent is running."
+    _info "Please add \"eval \`enkit agent print\`\" to your .bashrc"
+    local RESP
+    read -r -p \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+      RESP
+    case "${RESP}" in
+      [Yy]*)
+        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+        ;;
+    esac
+    eval `enkit agent print`
+  fi
+  if [[ -z "${SSH_AUTH_SOCK}" ]]; then
+    _fatal "gee requires ssh-agent to be running.  Fix and retry."
+  fi
+
   if [[ ! -f "${SSHKEYFILE}" ]]; then
     _cmd ssh-keygen -f "${SSHKEYFILE}" -t ed25519 -C "${USER}@enfabrica.net"
   else
@@ -452,7 +494,11 @@ EOT
 
   _cmd ssh-add "${SSHKEYFILE}"
 
-  _gh auth login
+  _gh config set git_protocol ssh
+  # Override BROWSER because xdg-open opens links2 on some systems, and
+  # links2 doesn't support github.
+  BROWSER="bash -c \"echo Open this URL: \$*\" --" \
+    _gh auth login
   # The user might have to open their web browser at this point:
   read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
 
