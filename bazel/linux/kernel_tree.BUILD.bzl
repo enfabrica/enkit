@@ -1,6 +1,6 @@
 filegroup(
     name = "{name}-tree",
-    srcs = glob(["**/*"]),
+    srcs = glob(["*"], allow_empty=False, exclude_directories=0),
     visibility = [
         "//visibility:public",
     ],
