@@ -525,10 +525,12 @@ function _register_help() {
   shift
   LONG="$(</dev/stdin)"
   HELP+=( "${COMMAND}: ${SHORT}" )
+  local -a ALISES="$@"
+  if (( "${#ALIASES[@]}" )); then
+    LONG="Aliases: ${ALIASES[*]}\n${LONG}"
+  fi
   LONGHELP+=(["${COMMAND}"]="${LONG}")
-  while (( "$#" )); do
-    local ALIAS="$1"
-    shift
+  for ALIAS in "${ALIASES[@]}"; do
     LONGHELP+=(["${ALIAS}"]="${LONG}")
   done
 }
@@ -1063,8 +1065,10 @@ function gee__init() {
 # make_branch command
 ##########################################################################
 
-_register_help "make_branch" "create a new branch based on the current branch." \
-  "mkbr" <<'EOT'
+_register_help "make_branch" \
+  "Create a new child branch based on the current branch." \
+  "mkbr" \
+  <<'EOT'
 Usage: gee make_branch <branch-name> [<commit-ish>]
 Aliases: mkbr
 
@@ -1113,7 +1117,8 @@ function gee__make_branch() {
 # log command
 ##########################################################################
 
-_register_help "log" "Log of commits since parent branch." <<'EOT'
+_register_help "log" \
+  "Log of commits since parent branch." <<'EOT'
 Usage: gee log
 EOT
 
@@ -1144,7 +1149,8 @@ function gee__log() {
 # diff command
 ##########################################################################
 
-_register_help "diff" "Differences in this branch." <<'EOT'
+_register_help "diff" \
+  "Differences in this branch." <<'EOT'
 Usage: gee diff [<files...>]
 
 Shows changes since this branch diverged from it's parent branch.
@@ -1238,9 +1244,11 @@ function gee__diff() {
 # update command
 ##########################################################################
 
-_register_help "update" "integrate changes from parent into this branch." <<'EOT'
+_register_help "update" \
+  "integrate changes from parent into this branch." \
+  "up" \
+  <<'EOT'
 Usage: gee update
-Aliases: up
 
 "gee update" attempts to rebase this branch atop its parent branch.
 
@@ -1249,7 +1257,7 @@ user can either resolve the conflicts and continue, or abort the entire
 operation.
 EOT
 
-function gee__up() { gee__update; }
+function gee__up() { gee__update "$@"; }
 function gee__update() {
   _check_cwd
   local CURRENT_BRANCH
@@ -1278,7 +1286,9 @@ function gee__update() {
 # rupdate command
 ##########################################################################
 
-_register_help "rupdate" "Recursively integrate changes from parents into this branch." <<'EOT'
+_register_help "rupdate" \
+  "Recursively integrate changes from parents into this branch." \
+  "rup" <<'EOT'
 Usage: gee rupdate
 
 "gee rupdate" recursively rebases each branch onto it's parent.
@@ -1289,6 +1299,7 @@ operation.  Note that the merge conflict can be in a parent of the current
 branch.
 EOT
 
+function gee__rup() { gee__rupdate "$@"; }
 function gee__rupdate() {
   _check_cwd
   local CURRENT_BRANCH
@@ -1341,7 +1352,9 @@ function gee__rupdate() {
 # update_all command
 ##########################################################################
 
-_register_help "update_all" "Update all branches." <<'EOT'
+_register_help "update_all" \
+  "Update all branches."  \
+  "up_all" <<'EOT'
 Usage: gee update_all
 
 "gee update_all" updates all local branches (in the correct order),
@@ -1366,6 +1379,7 @@ function _order_branches() {
   CHAIN+=( "${B}" )
 }
 
+function gee__up_all() { gee__update_all "$@"; }
 function gee__update_all() {
   _check_cwd
   local -a CONFLICTS=()
@@ -1421,7 +1435,8 @@ function gee__update_all() {
 # whatsout command
 ##########################################################################
 
-_register_help "whatsout" "list locally changed files in this branch." <<'EOT'
+_register_help "whatsout" \
+  "List locally changed files in this branch." <<'EOT'
 Usage: gee whatsout
 
 Reports which files differ from main.
@@ -1439,12 +1454,20 @@ function gee__whatsout() {
 ##########################################################################
 # lsbranches command
 ##########################################################################
+# TODO(jonathan): maybe display a tree?
+# TODO(jonathan): maybe display this suggestion from Jacob Adelmann:
+# branchp = !git for-each-ref \
+#   --sort=committerdate refs/heads/ \
+#   --format='%(HEAD) %(color:yellow)%(refname:short)%(color:reset) - %(color:red)%(objectname:short)%(color:reset) - %(contents:subject) - %(authorname) (%(color:green)%(committerdate:relative)%(color:reset))'
 
-_register_help "lsbranches" "list information about each branch." <<'EOT'
+_register_help "lsbranches" \
+  "List information about each branch." \
+  "lsb" "lsbr" <<'EOT'
 Usage: gee lsbranches
-Aliases: lsb lsbr
 
-List information about each branch.
+List information about all branches.
+
+NOTE: the output of this command is likely to change in the near future.
 EOT
 
 function gee__lsb() { gee__lsbranches "$@"; }
@@ -1466,7 +1489,8 @@ function gee__lsbranches() {
 # get_parent command
 ##########################################################################
 
-_register_help "get_parent" "Which branch is this branch branched from?" <<'EOT'
+_register_help "get_parent" \
+  "Which branch is this branch branched from?" <<'EOT'
 Usage: gee get_parent
 EOT
 
@@ -1483,8 +1507,13 @@ function gee__get_parent() {
 # set_parent command
 ##########################################################################
 
-_register_help "set_parent" "Set another branch as parent of this branch." <<'EOT'
+_register_help "set_parent" \
+  "Set another branch as parent of this branch." <<'EOT'
 Usage: gee set_parent <parent-branch>
+
+Gee keeps track of which branch each branch is branched from.  You can
+change the parent of the current branch with this command, but be sure
+to do a "gee update" operation afterwards.
 EOT
 
 function gee__set_parent() {
@@ -1505,7 +1534,9 @@ function gee__set_parent() {
 # commit command
 ##########################################################################
 
-_register_help "commit" "commit all changes in this branch" "push" <<'EOT'
+_register_help "commit" \
+  "Commit all changes in this branch" \
+  "push" "c" <<'EOT'
 Usage: gee commit [<git commit options>]
 
 Commits all outstanding changes (to the local branch, not the upstream branch),
@@ -1518,6 +1549,7 @@ Example:
 EOT
 
 function gee__push() { gee__commit "$@"; }
+function gee__c() { gee__commit "$@"; }
 function gee__commit() {
   _check_cwd
   local CURRENT_BRANCH
@@ -1546,12 +1578,34 @@ function gee__commit() {
 }
 
 ##########################################################################
+# pr_list command
+##########################################################################
+_register_help "pr_list" \
+  "List outstanding PRs" \
+  "lspr" "list_pr" "prls" <<'EOT'
+Usage: gee pr_list
+
+Lists PRs that you created, and that are assigned to you.
+EOT
+function gee__lspr() { gee__pr_list "$@"; }
+function gee__list_pr() { gee__pr_list "$@"; }
+function gee__prls() { gee__pr_list "$@"; }
+function gee__pr_list() {
+  _info "PRs authored by you:"
+  _gh --repo "${UPSTREAM}/${REPO}" pr list --author "@me"
+
+  echo ""
+  _info "PRs assigned to you:"
+  _gh --repo "${UPSTREAM}/${REPO}" pr list --assignee "@me"
+}
+
+##########################################################################
 # edit_pr command
 ##########################################################################
 
-_register_help "edit_pr" "Edit an existing pull request." "edpr" <<'EOT'
+_register_help "edit_pr" \
+  "Edit an existing pull request." "edpr" <<'EOT'
 Usage: gee edit_pr <args>
-Aliases: edpr
 
 Edit an outstanding pull request.
 
@@ -1597,7 +1651,8 @@ function gee__pr_debug() {
 # view_pr command
 ##########################################################################
 
-_register_help "view_pr" "View an existing pull request." <<'EOT'
+_register_help "view_pr" \
+  "View an existing pull request." <<'EOT'
 Usage: gee view_pr
 
 Edit an outstanding pull request.
@@ -1614,10 +1669,10 @@ function gee__view_pr() {
 # make_pr command
 ##########################################################################
 
-_register_help "make_pr" "Creates a pull request from this branch." \
+_register_help "make_pr" \
+  "Creates a pull request from this branch." \
   "mail" "send" <<'EOT'
 Usage: gee make_pr
-Aliases: mkpr
 
 Creates a new pull request from this branch.
 EOT
@@ -1686,9 +1741,10 @@ function gee__make_pr() {
 # submit_pr command
 ##########################################################################
 
-_register_help "submit_pr" "Merge the approved PR into the parent branch." <<'EOT'
+_register_help "submit_pr" \
+  "Merge the approved PR into the parent branch." \
+  "merge" <<'EOT'
 Usage: gee submit_pr
-Aliases: merge
 
 Merges an approved pull request.
 EOT
@@ -1746,9 +1802,8 @@ function gee__merge() {
 # remove_branch command
 ##########################################################################
 
-_register_help "remove_branch" "Remove a branch." <<'EOT'
+_register_help "remove_branch" "Remove a branch." "rmbr" <<'EOT'
 Usage: gee remove_branch <branch-name>
-Aliases: rmbr
 
 Removes a branch and it's associated directory.
 EOT
@@ -1803,6 +1858,9 @@ _register_help "fix" "Run automatic code formatters over changed files only." <<
 Usage: gee fix
 
 Runs a set of language formatting tools over open files in this branch.
+
+Note: "gee fix" (which fixes code in a branch) is different from "gee repair"
+(which checks the gee directory for errors and repairs them).
 EOT
 
 function gee__fix() {
@@ -1858,6 +1916,10 @@ function gee__fix() {
 ##########################################################################
 # gcd command
 ##########################################################################
+# TODO(jonathan): add an option to make a branch if missing.
+# TODO(jonathan): make this work from outside a gee branch.
+# TODO(jonathan): add g4d-like functionality such as gcd branch/some/path
+#                 and gcd branch/? to find last-edited directory.
 
 _register_help "gcd" "Find the current directory in a different branch." <<'EOT'
 Usage: gcd <branch>
@@ -1869,6 +1931,10 @@ To import this function into your environment, add to your .bashrc
 file:
 
     source ~/gee/enkit/master/scripts/gee_aliases.bash
+
+Or for a quick version:
+
+    function gcd() { cd "$(gee gcd "$@")"; }
 
 EOT
 # TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
