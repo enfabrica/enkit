@@ -114,6 +114,7 @@ readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
 readonly JQ=/usr/bin/jq
 readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
+readonly NEWLINE=$'\n'
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
 DRYRUN="${DRYRUN:-0}"
@@ -171,11 +172,14 @@ function __git_eread ()
 	test -r "$1" && IFS=$'\r\n' read "$2" <"$1"
 }
 
+# This function might be improved in the future for users to use as a
+# bash COMMAND_PROMPT command, but needs improvements.
 function gee__prompt() {
   _gee_rebase_prompt
 }
 
 function _gee_rebase_prompt() {
+  # Prompt to be used while in an interactive conflict resolution shell.
   # cribbed from git-prompt.sh
 	# preserve exit status
 	local exit=$?
@@ -525,9 +529,10 @@ function _register_help() {
   shift
   LONG="$(</dev/stdin)"
   HELP+=( "${COMMAND}: ${SHORT}" )
-  local -a ALISES="$@"
-  if (( "${#ALIASES[@]}" )); then
-    LONG="Aliases: ${ALIASES[*]}\n${LONG}"
+  local -a ALIASES
+  IFS=$'\n' ALIASES=($(sort <<<"$*")); unset IFS
+  if (( "${#ALIASES[@]}" > 0 )); then
+    LONG="Aliases: ${ALIASES[*]}${NEWLINE}${LONG}"
   fi
   LONGHELP+=(["${COMMAND}"]="${LONG}")
   for ALIAS in "${ALIASES[@]}"; do
@@ -976,8 +981,8 @@ function _get_pull_requests() {
   fi
   "${GH}" pr view \
     --repo="${UPSTREAM}/${REPO}" "${FROM_BRANCH}" \
-    --json "state,number" \
-    --jq '[.state, .number] | join(" ")'
+    --json "state,number,title" \
+    --jq '[.state, .number, .title] | join(" ")'
 }
 
 function _list_open_pr_numbers() {
@@ -1591,10 +1596,14 @@ function gee__lspr() { gee__pr_list "$@"; }
 function gee__list_pr() { gee__pr_list "$@"; }
 function gee__prls() { gee__pr_list "$@"; }
 function gee__pr_list() {
+  _info "PRs associated with this branch:"
+  _get_pull_requests
+  echo ""
+
   _info "PRs authored by you:"
   _gh --repo "${UPSTREAM}/${REPO}" pr list --author "@me"
-
   echo ""
+
   _info "PRs assigned to you:"
   _gh --repo "${UPSTREAM}/${REPO}" pr list --assignee "@me"
 }
@@ -1603,8 +1612,9 @@ function gee__pr_list() {
 # edit_pr command
 ##########################################################################
 
-_register_help "edit_pr" \
-  "Edit an existing pull request." "edpr" <<'EOT'
+_register_help "pr_edit" \
+  "Edit an existing pull request." \
+  "edpr" "pred" "edit_pr" <<'EOT'
 Usage: gee edit_pr <args>
 
 Edit an outstanding pull request.
@@ -1612,8 +1622,10 @@ Edit an outstanding pull request.
 All arguments are passed to "gh pr edit".
 EOT
 
-function gee__edpr() { gee__edit_pr "$@"; }
-function gee__edit_pr() {
+function gee__edpr() { gee__pr_edit "$@"; }
+function gee__pred() { gee__pr_edit "$@"; }
+function gee__edit_pr() { gee__pr_edit "$@"; }
+function gee__pr_edit() { 
   _check_cwd
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
@@ -1651,14 +1663,16 @@ function gee__pr_debug() {
 # view_pr command
 ##########################################################################
 
-_register_help "view_pr" \
-  "View an existing pull request." <<'EOT'
-Usage: gee view_pr
+_register_help "pr_view" \
+  "View an existing pull request." \
+  "view_pr" <<'EOT'
+Usage: gee pr_view
 
-Edit an outstanding pull request.
+View an outstanding pull request.
 EOT
 
-function gee__view_pr() {
+function gee__view_pr() { gee__pr_view "$@"; }
+function gee__pr_view() {
   _check_cwd
   if ! _gh_pr_view; then
     _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
@@ -1669,18 +1683,22 @@ function gee__view_pr() {
 # make_pr command
 ##########################################################################
 
-_register_help "make_pr" \
+_register_help "pr_make" \
   "Creates a pull request from this branch." \
-  "mail" "send" <<'EOT'
-Usage: gee make_pr
+  "mail" "send" "make_pr" "mkpr" "prmk" <<'EOT'
+Usage: gee make_pr <gh-options>
 
 Creates a new pull request from this branch.
+
+Uses the same options as "gh pr create".
 EOT
 
-function gee__mail() { gee__make_pr "$@"; }
-function gee__send() { gee__make_pr "$@"; }
-function gee__mkpr() { gee__make_pr "$@"; }
-function gee__make_pr() {
+function gee__mail() { gee__pr_make "$@"; }
+function gee__send() { gee__pr_make "$@"; }
+function gee__mkpr() { gee__pr_make "$@"; }
+function gee__prmk() { gee__pr_make "$@"; }
+function gee__make_pr() { gee__pr_make "$@"; }
+function gee__pr_make() {
   _check_cwd
   local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
   _git fetch upstream
@@ -1730,6 +1748,7 @@ function gee__make_pr() {
   #  -B specifies the branch we want to merge to, defaults to ${UPSTREAM}:${MAIN}
   local -a PR_ARGS
   PR_ARGS+=( --repo "${UPSTREAM}/${REPO}" -H "${GHUSER}:${CURRENT_BRANCH}" )
+  PR_ARGS+=( "$@" )
   _gh pr create "${PR_ARGS[@]}"
   # _gh pr checks  # not sure why this is problematic.
   _gh_pr_view
@@ -1741,15 +1760,16 @@ function gee__make_pr() {
 # submit_pr command
 ##########################################################################
 
-_register_help "submit_pr" \
+_register_help "pr_submit" \
   "Merge the approved PR into the parent branch." \
-  "merge" <<'EOT'
+  "merge" "submit_pr" <<'EOT'
 Usage: gee submit_pr
 
 Merges an approved pull request.
 EOT
-function gee__submit_pr() { gee__merge "$@"; }
-function gee__merge() {
+function gee__submit_pr() { gee__pr_submit "$@"; }
+function gee__merge() { gee__pr_submit "$@"; }
+function gee__pr_submit() {
   _check_cwd
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
