@@ -785,8 +785,9 @@ function _rebase_child_onto_parent() {
   mapfile -t OPEN_PRS < <( _list_open_pr_numbers )
   if (( "${#OPEN_PRS[@]}" )); then
     _warn "Open PR exists for branch ${CHILD}: ${OPEN_PRS[*]}"
-    _info "Rebasing a branch with an outstanding PR will make review of that PR" \
-          "more difficult.  Are you sure you want to do this?"
+    _info "If a reviewer is already looking at your PR, rebasing this branch" \
+          "will break the reviewer's ability to see what has changed when" \
+          "you commit new changes.  Are you sure you want to do this?"
     if ! _confirm_default_no ; then
       _warn "Skipped update of branch ${CHILD}."
       return 0
