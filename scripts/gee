@@ -590,7 +590,7 @@ function _get_branch_rootdir() {
   echo "${BRDIR}"
 }
 
-function _confirm_or_exit() {
+function _confirm_default_no() {
   local _PROMPT RESP
   _PROMPT="$*"
   if [[ -z "${_PROMPT}" ]]; then
@@ -598,11 +598,15 @@ function _confirm_or_exit() {
   fi
   read -rp "${_PROMPT}" RESP
   case "${RESP}" in
-    [Yy]*) ;;
-    *) echo "Aborting."
-       exit 1
-       ;;
+    [Yy]*) return 0 ;;
+    *)     return 1 ;;
   esac
+}
+
+function _confirm_or_exit() {
+  if ! _confirm_default_no "$@"; then
+    _fatal "Exiting."
+  fi
 }
 
 # "The developer wants to read this."
@@ -775,6 +779,19 @@ function _rebase_child_onto_parent() {
   local CHILD="$1"
   local PARENT="$2"
   local MB=""
+
+  # check if child branch has an outstanding PR:
+  local -a OPEN_PRS
+  mapfile -t OPEN_PRS < <( _list_open_pr_numbers )
+  if (( "${#OPEN_PRS[@]}" )); then
+    _warn "Open PR exists for branch ${CHILD}: ${OPEN_PRS[*]}"
+    _info "Rebasing a branch with an outstanding PR will make review of that PR" \
+          "more difficult.  Are you sure you want to do this?"
+    if ! _confirm_default_no ; then
+      _warn "Skipped update of branch ${CHILD}."
+      return 0
+    fi
+  fi
 
   _set_main
   if [[ "${PARENT}" == "${MAIN}" ]]; then
