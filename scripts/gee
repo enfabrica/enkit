@@ -581,7 +581,7 @@ function _get_branch_rootdir() {
   if [[ -z "${BRANCH_NAME}" ]]; then
 	  BRANCH_NAME="$(_get_current_branch)"
   fi
-  BRDIR="$("${GIT}" worktree list \
+  BRDIR="$(cd "${HOME}/gee/${REPO}/${MAIN}"; "${GIT}" worktree list \
     | grep -w "\[${BRANCH_NAME}\]" \
     | awk '{print $1}' )"
   if [[ -z "${BRDIR}" ]]; then
@@ -902,7 +902,25 @@ function _checkout_or_die() {
   fi
 }
 
+function _in_gee_repo() {
+  # Return "main" if we are outside of a gee repo:
+  local D
+  D="$(/usr/bin/pwd)"
+  if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+ ]]; then
+    return "${TRUE}"
+  else
+    return "${FALSE}"
+  fi
+}
+
 function _get_current_branch() {
+  # Outside of a gee repo, current branch is always "main":
+  _set_main
+  if ! _in_gee_repo; then
+    echo "${MAIN}"
+    return
+  fi
+  # Inside of a gee repo, use git rev-parse:
   local CB
   CB="$("${GIT}" rev-parse --abbrev-ref HEAD)"
   if [[ -z "${CB}" ]]; then
@@ -1189,9 +1207,9 @@ function gee__diff() {
   CURRENT_BRANCH="$(_get_current_branch)"
   MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
   if (( "$#" )); then
-    _git diff "${PARENT_BRANCH}...${CURRENT_BRANCH}" -- "$@"
+    _git_can_fail diff "${PARENT_BRANCH}...${CURRENT_BRANCH}" -- "$@"
   else
-    _git diff "${PARENT_BRANCH}...${CURRENT_BRANCH}"
+    _git_can_fail diff "${PARENT_BRANCH}...${CURRENT_BRANCH}"
   fi
 }
 
@@ -1957,7 +1975,8 @@ function gee__fix() {
 # TODO(jonathan): add an option to make a branch if missing.
 # TODO(jonathan): make this work from outside a gee branch.
 # TODO(jonathan): add g4d-like functionality such as gcd branch/some/path
-#                 and gcd branch/? to find last-edited directory.
+#                 and gcd branch@? to find last-edited directory.
+# TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 
 _register_help "gcd" "Find the current directory in a different branch." <<'EOT'
 Usage: gcd <branch>
@@ -1975,33 +1994,40 @@ Or for a quick version:
     function gcd() { cd "$(gee gcd "$@")"; }
 
 EOT
-# TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 
 function gee__gcd() {
-  _check_cwd
   local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH
   BRANCH="$1"
   if [[ -z "${BRANCH}" ]]; then
     BRANCH="$(_get_current_branch)"
   fi
-  # check whether BRANCH exists: 
-  BRDIR="$("${GIT}" worktree list | grep -w "\[${BRANCH}\]")"
-  if [[ -z "${BRDIR}" ]]; then
-    _die "Branch \"${BRANCH}\" doesn't exist in the worktree."
+
+  if _in_gee_repo; then
+    CURRENT_BRANCH="$(_get_current_branch)"
+    if [[ -z "${CURRENT_BRANCH}" ]]; then
+      _die "Failed to get name of current branch."
+    fi
+    CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+    ABS_PATH="$(readlink -f .)"
+    REL_PATH="${ABS_PATH#"${CURRENT_ROOT}"}"
+    REL_PATH="${REL_PATH#\/}"
+  else
+    REL_PATH=""
   fi
-  # TODO(jonathan): Maybe create a new branch if it doesn't already exist?
-
-  CURRENT_BRANCH="$(_get_current_branch)"
-  if [[ -z "${CURRENT_BRANCH}" ]]; then _die "Not in a git branch."; fi
-  # TODO(jonathan): maybe error out if we're not below ~/gee ?
-  CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
  
+  # check whether BRANCH exists: 
+  _set_main
+  local BRDIR
+  if ! BRDIR="$(cd "${HOME}/gee/${REPO}/${MAIN}"; "${GIT}" worktree list | grep -w "\[${BRANCH}\]")"; then
+    _fatal "Branch \"${BRANCH}\" not in worktree.  Maybe use make_branch?"
+  fi
+  if [[ -z "${BRDIR}" ]]; then
+    _fatal "Branch \"${BRANCH}\" not in worktree.  Maybe use make_branch?"
+  fi
   NEW_ROOT="$(_get_branch_rootdir "${BRANCH}")"
-  # TODO(jonathan): Create a better error message if _get_branch_rootdir fails.
-  ABS_PATH="$(readlink -f .)"
-  REL_PATH="${ABS_PATH/$CURRENT_ROOT/}"
-  REL_PATH="${REL_PATH/\//}"
-
+  if [[ -z "${NEW_ROOT}" ]]; then
+    _die "Could not find root of branch ${BRANCH}.  Very strange!"
+  fi
   echo "${NEW_ROOT}/${REL_PATH}"
 }
 
@@ -2152,7 +2178,6 @@ function main() {
     gee__help usage
     exit 0
   fi
-  _info "WARNING: This is an alpha release of gee, use at your own risk!"
   local cmdname="$1"; shift
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     _startup_checks
