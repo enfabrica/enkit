@@ -146,12 +146,14 @@ if [[ -z "${REPO}" ]]; then
   REPO=internal
 fi
 
-REPO_DIR="${HOME}/gee/${REPO}/"
+GEE_DIR="${HOME}/gee"
+REPO_DIR="${GEE_DIR}/${REPO}/"
 
 if (( "${TESTMODE}" )); then
   UPSTREAM="enfabrica"
   REPO="github-playground"
-  REPO_DIR="${HOME}/testgee/${REPO}/"
+  GEE_DIR="${HOME}/testgee"
+  REPO_DIR="${GEE_DIR}/${REPO}/"
 fi
 
 # colors library
@@ -393,7 +395,7 @@ function _check_ssh() {
 function _check_cwd() {
   local DIR
   DIR="$(pwd)"
-  if ! [[ "$DIR" =~ ^"${HOME}"/gee/[a-zA-Z0-9_]+/ ]]; then
+  if ! [[ "$DIR" =~ ^"${GEE_DIR}"/[a-zA-Z0-9_-]+/ ]]; then
     _fatal "This command must be run from with a branch directory beneath ~/gee."
   fi
 }
@@ -582,7 +584,7 @@ function _get_branch_rootdir() {
 	  BRANCH_NAME="$(_get_current_branch)"
   fi
   _set_main
-  BRDIR="$(cd "${HOME}/gee/${REPO}/${MAIN}"; "${GIT}" worktree list \
+  BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list \
     | grep -w "\[${BRANCH_NAME}\]" \
     | awk '{print $1}' )"
   if [[ -z "${BRDIR}" ]]; then
@@ -1063,7 +1065,7 @@ function gee__init() {
   local R
   R="${1:-"${REPO}"}"
   REPO="${R}"
-  REPO_DIR="${HOME}/gee/${REPO}/"
+  REPO_DIR="${GEE_DIR}/${REPO}/"
   if (( "${TESTMODE}" )); then
     REPO_DIR="${HOME}/testgee/${REPO}/"
   fi
@@ -2020,7 +2022,7 @@ function gee__gcd() {
   # check whether BRANCH exists: 
   _set_main
   local BRDIR
-  if ! BRDIR="$(cd "${HOME}/gee/${REPO}/${MAIN}"; "${GIT}" worktree list | grep -w "\[${BRANCH}\]")"; then
+  if ! BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list | grep -w "\[${BRANCH}\]")"; then
     _fatal "Branch \"${BRANCH}\" not in worktree.  Maybe use make_branch?"
   fi
   if [[ -z "${BRDIR}" ]]; then
