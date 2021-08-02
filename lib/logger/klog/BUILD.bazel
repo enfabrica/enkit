@@ -63,12 +63,6 @@ go_library(
             "@org_uber_go_zap//:go_default_library",
             "@org_uber_go_zap//zapcore:go_default_library",
         ],
-        "@io_bazel_rules_go//go/platform:nacl": [
-            "//lib/kflags:go_default_library",
-            "@com_github_tchap_zapext//zapsyslog:go_default_library",
-            "@org_uber_go_zap//:go_default_library",
-            "@org_uber_go_zap//zapcore:go_default_library",
-        ],
         "@io_bazel_rules_go//go/platform:netbsd": [
             "//lib/kflags:go_default_library",
             "@com_github_tchap_zapext//zapsyslog:go_default_library",
