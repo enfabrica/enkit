@@ -581,6 +581,7 @@ function _get_branch_rootdir() {
   if [[ -z "${BRANCH_NAME}" ]]; then
 	  BRANCH_NAME="$(_get_current_branch)"
   fi
+  _set_main
   BRDIR="$(cd "${HOME}/gee/${REPO}/${MAIN}"; "${GIT}" worktree list \
     | grep -w "\[${BRANCH_NAME}\]" \
     | awk '{print $1}' )"
@@ -821,13 +822,13 @@ function _rebase_child_onto_parent() {
     BOLD="$(tput bold)"
     RST="$(tput sgr0)"
     export GEE_HELP=""
-    GEE_HELP+="You are interactively rebasing a branch with conflicts.\n"
-    GEE_HELP+="  To see where conflicts are: ${BOLD}git status${RST}\n"
-    GEE_HELP+="  To run a 3-way merge tool: ${BOLD}git mergetool${RST}\n"
-    GEE_HELP+="  To mark a file as fixed: ${BOLD}git add <file>${RST}\n"
-    GEE_HELP+="  To continue rebase after fixing: ${BOLD}git rebase --continue${RST}\n"
-    GEE_HELP+="  To give up and go back to original state: ${BOLD}git rebase --abort${RST}\n"
-    GEE_HELP+="  To return to gee: ${BOLD}exit${RST}\n"
+    GEE_HELP+="You are interactively rebasing a branch with conflicts.${NEWLINE}"
+    GEE_HELP+="  To see where conflicts are: ${BOLD}git status${RST}${NEWLINE}"
+    GEE_HELP+="  To run a 3-way merge tool: ${BOLD}git mergetool${RST}${NEWLINE}"
+    GEE_HELP+="  To mark a file as fixed: ${BOLD}git add <file>${RST}${NEWLINE}"
+    GEE_HELP+="  To continue rebase after fixing: ${BOLD}git rebase --continue${RST}${NEWLINE}"
+    GEE_HELP+="  To give up and go back to original state: ${BOLD}git rebase --abort${RST}${NEWLINE}"
+    GEE_HELP+="  To return to gee: ${BOLD}exit${RST}${NEWLINE}"
     export GEE_STATUS="GEE-REBASE-SUBSHELL: "
     export PS1=""
     export -f __git_eread
@@ -1018,7 +1019,8 @@ function _get_pull_requests() {
   "${GH}" pr view \
     --repo="${UPSTREAM}/${REPO}" "${FROM_BRANCH}" \
     --json "state,number,title" \
-    --jq '[.state, .number, .title] | join(" ")'
+    --jq '[.state, .number, .title] | join(" ")' \
+    || /bin/true
 }
 
 function _list_open_pr_numbers() {
