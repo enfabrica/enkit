@@ -39,13 +39,13 @@ buildifier(
     name = "buildifier",
 )
 
-load("//bazel/linting/scripts:defs.bzl", "lint")
+load("//bazel/linting:defs.bzl", "lint")
 
+# TODO(adam): write a simple gazelle-like binary that walks the tree and puts this in any default_library that has a
+# main
 lint(
     name = "lint",
     go_libs = [
-        "//astore/client:go_default_library",
-    ],
-    rust_libs = [
+        "//machinist/cmd:go_default_library",
     ],
 )

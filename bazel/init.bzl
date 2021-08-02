@@ -6,6 +6,7 @@ load("@build_bazel_rules_nodejs//:index.bzl", "yarn_install")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@com_github_atlassian_bazel_tools//multirun:deps.bzl", "multirun_dependencies")
 load("//bazel/ui:deps.bzl", "install_ui_deps")
+load("//bazel/linting:deps.bzl", "lint_deps_init")
 
 def enkit_init_go():
     go_rules_dependencies()
@@ -34,3 +35,4 @@ def enkit_init():
     enkit_init_ts()
     enkit_init_tools()
     install_ui_deps()
+    lint_deps_init()
