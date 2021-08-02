@@ -1099,10 +1099,19 @@ function gee__init() {
     _gh repo fork --clone=false "${UPSTREAM}/${REPO}"
   fi
   _git clone "${URL}" "${REPO_DIR}/${MAIN}"
-  _cmd cd "${REPO_DIR}/${MAIN}"
+  cd "${REPO_DIR}/${MAIN}"
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
   _git remote -v
+ 
+  # Fix the name of the main branch to match the actual branch name: 
+  local OLD_MAIN="${MAIN}"
+  unset MAIN
+  _set_main
+  cd "${REPO_DIR}"
+  mv "${OLD_MAIN}" "${MAIN}"
+  cd "${MAIN}"
+
   _info "Created ${REPO_DIR}/${MAIN}"
 }
 
