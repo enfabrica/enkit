@@ -30,9 +30,9 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/enfabrica/enkit/lib/oauth/ogoogle"
 	"github.com/enfabrica/enkit/lib/oauth/ogrpc"
 	"github.com/enfabrica/enkit/lib/server"
+	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -100,7 +100,7 @@ func ListHandler(base, upath string, resp *rpc_astore.ListResponse, err error, w
 	})
 }
 
-func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *oauth.Flags) error {
+func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *oauth.Flags) error {
 	rng := rand.New(srand.Source)
 
 	cookieDomain = strings.TrimSpace(cookieDomain)
@@ -135,11 +135,10 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		return fmt.Errorf("could not initialize auth server - %s", err)
 	}
 
-	authWeb, err := oauth.New(rng, oauth.WithFlags(oauthFlags), ogoogle.Defaults())
+	authWeb, err := oauth.New(rng, oauth.WithFlags(oauthFlags), auth.FetchCredentialOpts(oAuthType))
 	if err != nil {
 		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
 	}
-
 	grpcs := grpc.NewServer(
 		grpc.StreamInterceptor(ogrpc.StreamInterceptor(authWeb, "/auth.Auth/")),
 		grpc.UnaryInterceptor(ogrpc.UnaryInterceptor(authWeb, "/auth.Auth/")),
@@ -148,14 +147,14 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 	rpc_auth.RegisterAuthServer(grpcs, authServer)
 
 	mux := http.NewServeMux()
-	stats := server.AssetStats{}
+	stats := kassets.AssetStats{}
 
 	// Public configs, those are accessible to anyone on the internet.
 	mux.HandleFunc("/configs/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("%s On %s", kconfig.YodaSays, time.Now()), http.StatusNotFound)
 	})
-	server.RegisterAssets(&stats, assets.Data, "", server.BasicMapper(server.MuxMapper(mux)))
-	server.RegisterAssets(&stats, configs.Data, "", server.PrefixMapper("/configs", server.StripExtensionMapper(server.BasicMapper(server.MuxMapper(mux)))))
+	kassets.RegisterAssets(&stats, assets.Data, "", kassets.BasicMapper(kassets.MuxMapper(mux)))
+	kassets.RegisterAssets(&stats, configs.Data, "", kassets.PrefixMapper("/configs", kassets.StripExtensionMapper(kassets.BasicMapper(kassets.MuxMapper(mux)))))
 	stats.Log(log.Printf)
 
 	// Published artifacts, web page for human consumption, lists the options available for download.
@@ -234,7 +233,7 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		}
 
 		if key, ok := data.State.(common.Key); ok {
-			authServer.FeedToken(key, data.Cookie)
+			authServer.FeedToken(key, data)
 		}
 		if !handled {
 			ShowResult(w, r, "thumbs-up", "Good Job!", messageSuccess, http.StatusOK)
@@ -262,12 +261,13 @@ func main() {
 
 	targetURL := ""
 	cookieDomain := ""
+	oauthType := ""
 	command.Flags().StringVar(&targetURL, "site-url", "", "The URL external users can use to reach this web server")
 	command.Flags().StringVar(&cookieDomain, "cookie-domain", "", "The domain for which the issued authentication cookie is valid. "+
 		"This implicitly authorizes redirection to any URL within the domain.")
-
+	command.Flags().StringVar(&oauthType, "oauth-type", "google", "the type of oauth2 provider that's presented")
 	command.RunE = func(cmd *cobra.Command, args []string) error {
-		return Start(targetURL, cookieDomain, astoreFlags, authFlags, oauthFlags)
+		return Start(targetURL, cookieDomain, oauthType, astoreFlags, authFlags, oauthFlags)
 	}
 
 	kcobra.PopulateDefaults(command, os.Args,

@@ -1,0 +1,16 @@
+load("//bazel/utils:binary.bzl", "declare_binary")
+
+exports_files([
+    "react.bzl",
+    "merge-package.sh",
+])
+
+declare_binary(
+    name = "jq",
+    binary = select({
+        "@platforms//os:linux": "@jq_linux_amd64//:jq",
+        "@platforms//os:osx": "@jq_macos_amd64//:jq",
+    }),
+    binary_name = "jq",
+    visibility = ["//visibility:public"],
+)

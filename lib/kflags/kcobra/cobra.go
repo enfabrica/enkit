@@ -46,7 +46,7 @@ type options struct {
 	ehandlers []kflags.ErrorHandler
 	printer   kflags.Printer
 	argv      []string
-	runner    func() error
+	runner    []func() error
 	helper    func(*cobra.Command, []string) bool
 }
 
@@ -63,6 +63,7 @@ func (mods Modifiers) Apply(c *cobra.Command, o *options) error {
 	return nil
 }
 
+// WithPrinter sets a function to use for logging.
 func WithPrinter(log kflags.Printer) Modifier {
 	return func(c *cobra.Command, o *options) error {
 		o.printer = log
@@ -70,6 +71,9 @@ func WithPrinter(log kflags.Printer) Modifier {
 	}
 }
 
+// WithErrorHandler sets a function that will be invoked for each error returned by the program.
+// This is useful to allow to implement logic to handle specific errors in specific ways, or
+// to augment the error message with more details.
 func WithErrorHandler(eh ...kflags.ErrorHandler) Modifier {
 	return func(c *cobra.Command, o *options) error {
 		o.ehandlers = append(o.ehandlers, eh...)
@@ -77,6 +81,7 @@ func WithErrorHandler(eh ...kflags.ErrorHandler) Modifier {
 	}
 }
 
+// WithArgs sets the argv used by the parser. If not set, defaults to os.Args.
 func WithArgs(argv []string) Modifier {
 	return func(c *cobra.Command, o *options) error {
 		o.argv = argv
@@ -84,9 +89,11 @@ func WithArgs(argv []string) Modifier {
 	}
 }
 
+// Adds a function to run before the actual program.
+// This is useful to perform - for example - additional initialization.
 func WithRunner(runner func() error) Modifier {
 	return func(c *cobra.Command, o *options) error {
-		o.runner = runner
+		o.runner = append(o.runner, runner)
 		return nil
 	}
 }
@@ -112,12 +119,13 @@ func Run(root *cobra.Command, mods ...Modifier) {
 	}
 	root.SetArgs(o.argv)
 
-	if o.runner != nil {
+	if len(o.runner) > 0 {
 		original := root.PersistentPreRunE
 		root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-			err := o.runner()
-			if err != nil {
-				return err
+			for _, runner := range o.runner {
+				if err := runner(); err != nil {
+					return err
+				}
 			}
 			if original != nil {
 				return original(cmd, args)
@@ -177,8 +185,11 @@ func Runner(root *cobra.Command, argv []string, eh ...kflags.ErrorHandler) (*Fla
 		argv = os.Args
 	}
 
-	runner := func(fs kflags.FlagSet, p kflags.Printer) {
+	runner := func(fs kflags.FlagSet, p kflags.Printer, init kflags.Init) {
 		mods := Modifiers{WithArgs(argv), WithErrorHandler(eh...), WithPrinter(p)}
+		if init != nil {
+			mods = append(mods, WithRunner(init))
+		}
 		runnable, ok := fs.(Runnable)
 		if ok {
 			mods = append(mods, WithRunner(runnable.Run))

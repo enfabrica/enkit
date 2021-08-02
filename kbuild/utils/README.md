@@ -5,7 +5,17 @@ In short, starting from a compiled custom kernel, it can generate a .tar.gz with
 This is particularly useful for generating .tar.gz packages to be used for testing,
 since most of the kernel config used for testing are usually disabled in the debian and ubuntu repositories (e.g. KUnit).
 
-# Workflow
+The *buildroot_2020.11.2-Add-scripts-and-config-for-kunit-rootfs-image.patch* patch can be applied to buildroot 2020.11.2 release (should work for newer releases as well, the patch doesn't change buildroot internal) to generate a slim 60MiB image, suitable for executing KUnit tests defined through the *kernel_test* bazel rule.
+This patch does the following:
+* Provide buildroot with a sane default configuration for the kernel testing use case
+* Provide the *kunit_post_build.sh* script. Buildroot will run this script after generating the rootfs image to:
+  * Modify the default getty prompt to a simple shell, bypassing the login prompt
+  * Add a new startup script (*run_kunit_tests.sh*)
+* Provide the *run_kunit_tests.sh* script which:
+  * Mounts the hostfs
+  * Loads all kernel modules available there (triggering kunit tests execution)
+
+# Workflow to generate a custom kernel archive
 1. Download the kernel source code from somewhere into $KDIR
    * `git clone --depth 1 https://github.com/torvalds/linux.git $KDIR && cd $KDIR`
 2. Configure and compile the kernel
@@ -18,5 +28,50 @@ since most of the kernel config used for testing are usually disabled in the deb
 3. Execute the script and generate the .tar.gz inside $OUTDIR for your kernel version $KVER
    * `$ENKIT_REPO/kbuild/utils/generate_custom_archive.sh -k $KDIR -t $OUTDIR -v $KVER`
 4. Optional: upload the .tar.gz using astore and make it public
-   * `enkit astore upload $OUTDIR/$KVER.tar.gz@my/astore/path -a $ARCH`
-   * `enkit astore public my/astore/path -a $ARCH`
+   * `enkit astore upload $OUTDIR/$KVER.tar.gz@my/astore/dir/ -a $ARCH`
+   * `enkit astore public my/astore/dir/$KVER.tar.gz -a $ARCH`
+
+ For example, let's say you just built kernel `5.4.0-51-generic-amd64.tar.gz`. To upload it in the `kernel/ubuntu` astore
+ directory and make it available for download on your astore webserver under the `kernel/ubuntu/5.4.0-51-generic-amd64.tar.gz` path,
+ you would need to use:
+
+    enkit astore upload 5.4.0-51-generic-amd64.tar.gz@kernel/ubuntu/ -a $ARCH
+    enkit astore public kernel/ubuntu/5.4.0-51-generic-amd64.tar.gz -a $ARCH
+   
+
+# Workflow to generate a custom rootfs image
+1. Download buildroot release 2020.11.2 (or a newer one if you prefer)
+   * `wget https://github.com/buildroot/buildroot/archive/refs/tags/2020.02.12.tar.gz`
+2. Apply the local buildroot patch
+   * `git am buildroot_2020.11.2-Add-scripts-and-config-for-kunit-rootfs-image.patch`
+3. Optional: modify the default buildroot config
+   * `make menuconfig # Modify the default provided by the patch`
+4. Generate the rootfs image
+   * `make`
+5. The image can be found in `output/images`
+
+# Releasing a tagged kernel release to astore
+
+The Enfabrica kernel artifacts in astore are used by multiple developers and
+bazel build/test workflows. To release a specific tag of enfabrica/linux to
+astore:
+
+1. Authenticate with `enkit login $USER@enfabrica.net`
+2. Ensure your Github SSH keys/PATs are setup to allow you to clone from SSH
+endpoints of repositories without interaction (such as
+`git@github.com:enfabrica/linux.git`).
+3. Run `./kbuild/utils/release-kernel.sh -b $BRANCH -t  $TAG ` from the root of
+this repository; where `$BRANCH` is a branch in the enfabrica/linux
+repository and `$TAG` is a sha1/tag of choice.
+4. Modify the Bazel WORKSPACE file in `enfabrica/enkit`, ensuring the
+`kernel_tree_version` and `kernel_tree_image` sections for the kernel you are
+releasing are updated as needed. The `enf-` prefix for the `package` attribute
+denotes the `distro` the `kernel_tree_*` definitions look for, so do not drop
+it.
+
+If you are using the script to test custom kernel builds, remember to override
+the astore deployment path with the `-p` option, pointing it to a personal
+directory under `home/` namespace in astore.
+
+The `release-kernel.sh` script automates the steps laid out in [this document]
+(https://docs.google.com/document/d/1Wp7MElnUfk-56ZnnRflvvr8_3_hTsNR-76g3_oxc_Nk/edit?usp=sharing).

@@ -6,18 +6,42 @@
 
 usage()
 {
-        cat <<EOF
-Generate a kbuild compliant .tar.gz starting from a compiled custom linux source tree.
-usage: ${0##*/} OPTS
-    -k KDIR      Directory containing the compiled custom linux source tree
-    -t OUTDIR    Root directory for containing the generated kernel package
-    -v KVER      Kernel version (used to name the package)
-This will generate a KVER.tar.gz file inside OUTDIR, built from the pre-compiled kernel in KDIR.
-The pre-compiled kernel is expected to have been obtained by:
+	cat <<EOF
+Generate a kbuild compliant .tar.gz starting from a compiled custom Linux source tree.
+
+USAGE:
+    ${0##*/} -k KDIR -t OUTDIR [-v KVER] [-c KCONFIG]
+
+OPTIONS:
+    -k KDIR
+	Source directory containing the compiled Linux tree.
+
+    -t OUTDIR
+	Root directory for containing the generated kernel package.
+
+    -v KVER
+	Optional. Kernel version (used to name the package).  The
+	default is to use the kernel version found in the compiled
+	kernel build directory.
+
+    -c KCONFIG
+	Optional. Kernel config file, relative to kernel build
+	directory.  The default is to use ".config".
+
+DESCRIPTION:
+
+This command will generate a tar archive inside OUTDIR, built from the
+pre-compiled kernel in KDIR.  The pre-compiled kernel is expected to
+have been obtained by:
+
 1. Downloading kernel source code from somewhere into KDIR
 2. export ARCH=x
 3. cd KDIR && make defconfig && make menuconfig # Enable/disable stuff.
 4. make
+
+NOTE: The kernel must be built in the source directory.  In other words a
+kernel built with the O=<build-directory> is invalid.
+
 EOF
 }
 
@@ -53,40 +77,89 @@ exit 1
 EOF
 }
 
-while getopts ":k:t:v:h" o
+verify_kernel_build() {
+    srcdir="$1"
+
+    # verify kernel has been configured successfully
+    [ -r "${srcdir}/include/config/kernel.release" ] || {
+        echo "ERROR: kernel has not been configured successfully: missing: ${srcdir}/include/config/kernel.release"
+        return 1
+    }
+
+    # verify kernel has been built successfully
+    [ -r "${srcdir}/vmlinux" ] || {
+        echo "ERROR: kernel has not been built successfully: missing: ${srcdir}/vmlinux"
+        return 1
+    }
+
+    # verify kernel source and build directory are the same.  The
+    # sub-directories only contain Makefiles in the source directory.
+    [ -r "${srcdir}/kernel/Makefile" ] || {
+        echo "ERROR: kernel build directory and source directory need to be the same: ${srcdir}"
+        return 1
+    }
+
+    return 0
+
+}
+
+KCONFIG=".config"
+
+while getopts ":k:t:v:c:h" o
 do
         case $o in
                 k) SRCDIR="$OPTARG";;
                 t) INSTALLDIR="$OPTARG";;
                 v) KERNELVERSION="$OPTARG";;
+                c) KCONFIG="$OPTARG";;
                 h) usage; exit 0;;
-                *) usage; exit 1;;
+                *) echo "Error: Unknown argument."; usage; exit 1;;
         esac
 done
 
-if ! [[ -v SRCDIR ]] || ! [[ -v INSTALLDIR ]] || ! [[ -v KERNELVERSION ]];
+if ! [[ -v SRCDIR ]] || ! [[ -v INSTALLDIR ]];
 then
 	usage
 	exit 1
 fi
 
+set -e
+
 SRCDIR=$(realpath -s "$SRCDIR")
+
+verify_kernel_build "$SRCDIR" || {
+    echo "ERROR: Problems verifying kernel build."
+    exit 1
+}
+
+if ! [[ -v KERNELVERSION ]];
+then
+	KERNELVERSION=$(cat "${SRCDIR}/include/config/kernel.release")
+fi
+
+RT_KCONFIG="${SRCDIR}/$KCONFIG"
+if ! [[ -r $RT_KCONFIG ]];
+then
+	echo "Error: Unable to find kernel config '$KCONFIG' in kernel build directory."
+	usage
+	exit 1
+fi
+
 INSTALLDIR=$(realpath -s "$INSTALLDIR")
 TARGETDIR="${INSTALLDIR}/usr/src/linux-headers-${KERNELVERSION}"
 SCRIPTNAME="install-${KERNELVERSION}.sh"
 
-set -e
-mkdir -p "${TARGETDIR}/arch"
-mkdir -p "${TARGETDIR}/include"
-mkdir -p "${TARGETDIR}/scripts"
+rm -rf "$INSTALLDIR"
+mkdir -p "${TARGETDIR}"
 mkdir -p "${INSTALLDIR}/lib/modules/${KERNELVERSION}/build"
 
 generate_install_script "${INSTALLDIR}/${SCRIPTNAME}"
-chmod 755 ${INSTALLDIR}/${SCRIPTNAME}
-cp -r $SRCDIR/scripts/* $TARGETDIR/scripts/
-cp -r $SRCDIR/arch/* $TARGETDIR/arch/
-cp -r $SRCDIR/include/* $TARGETDIR/include/
-cp -r $SRCDIR/Makefile $SRCDIR/.config $SRCDIR/Module.symvers $TARGETDIR/
+chmod 755 "${INSTALLDIR}/${SCRIPTNAME}"
+for d in scripts tools arch include ; do
+	cp -a "$SRCDIR/${d}" "$TARGETDIR/"
+done
+cp -a "$SRCDIR/Makefile" "$SRCDIR/Module.symvers" "$TARGETDIR/"
+cp -a "$RT_KCONFIG" "$TARGETDIR/.config"
 (
 	cd "$INSTALLDIR"
 	tar -czvf "${KERNELVERSION}.tar.gz" "${SCRIPTNAME}" "usr" "lib"

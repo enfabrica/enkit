@@ -55,11 +55,13 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
-	"github.com/enfabrica/enkit/lib/server"
+	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/token"
 )
 
@@ -68,7 +70,11 @@ type VerifierFactory func(conf *oauth2.Config) (Verifier, error)
 
 // Extractor is an object capable of extracting and verifying authentication information.
 type Extractor struct {
-	loginEncoder *token.TypeEncoder
+	version int
+
+	// Two versions of token.
+	loginEncoder0 *token.TypeEncoder
+	loginEncoder1 *token.TypeEncoder
 
 	// String to prepend to the cookie name.
 	// This is necessary when multiple instances of the oauth library are used within
@@ -189,8 +195,8 @@ func (a *Authenticator) LoginURL(target string, state interface{}) (string, []by
 
 // Mapper configures all the URLs to redirect to / unless an authentication cookie is provided by the browser.
 // Further, it configures / to redirect and perform oauth authentication.
-func (auth *Authenticator) Mapper(mapper server.AssetMapper, lm ...LoginModifier) server.AssetMapper {
-	return func(original, name string, handler server.HttpHandler) []string {
+func (auth *Authenticator) Mapper(mapper kassets.AssetMapper, lm ...LoginModifier) kassets.AssetMapper {
+	return func(original, name string, handler khttp.FuncHandler) []string {
 		ext := filepath.Ext(original)
 		switch {
 		case name == "/favicon.ico":
@@ -218,13 +224,68 @@ func SetCredentials(ctx context.Context, creds *CredentialsCookie) context.Conte
 	return context.WithValue(ctx, "creds", creds)
 }
 
+type credentialsKey string
+
+var CredentialsVersionKey = credentialsKey("version")
+
+type CredentialsMeta struct {
+	context.Context
+}
+
+func (ctx CredentialsMeta) Issued() time.Time {
+	issued, _ := ctx.Value(token.IssuedTimeKey).(time.Time)
+	return issued
+}
+
+func (ctx CredentialsMeta) Expires() time.Time {
+	expire, _ := ctx.Value(token.ExpiresTimeKey).(time.Time)
+	return expire
+}
+
+func (ctx CredentialsMeta) Max() time.Time {
+	max, _ := ctx.Value(token.MaxTimeKey).(time.Time)
+	return max
+}
+
+func (ctx CredentialsMeta) Version() int {
+	version, _ := ctx.Value(CredentialsVersionKey).(int)
+	return version
+}
+
 // ParseCredentialsCookie parses a string containing a CredentialsCookie, and returns the corresponding object.
-func (a *Extractor) ParseCredentialsCookie(cookie string) (*CredentialsCookie, error) {
+func (a *Extractor) ParseCredentialsCookie(cookie string) (CredentialsMeta, *CredentialsCookie, error) {
 	var credentials CredentialsCookie
-	if err := a.loginEncoder.Decode([]byte(cookie), &credentials); err != nil {
-		return nil, err
+	var err error
+	var ctx context.Context
+
+	if strings.HasPrefix(cookie, "1:") {
+		ctx, err = a.loginEncoder1.Decode(context.Background(), []byte(cookie[2:]), &credentials)
+		ctx = context.WithValue(ctx, CredentialsVersionKey, 1)
+	} else {
+		ctx, err = a.loginEncoder0.Decode(context.Background(), []byte(cookie), &credentials)
 	}
-	return &credentials, nil
+	return CredentialsMeta{ctx}, &credentials, err
+}
+
+// EncodeCredentials generates a string containing a CredentialsCookie.
+func (a *Extractor) EncodeCredentials(creds CredentialsCookie) (string, error) {
+	var result []byte
+	var cookie string
+	var err error
+	switch a.version {
+	case 0:
+		result, err = a.loginEncoder0.Encode(creds)
+		cookie = string(result)
+	case 1:
+		result, err = a.loginEncoder1.Encode(creds)
+		cookie = "1:" + string(result)
+	default:
+		err = fmt.Errorf("invalid version %d", a.version)
+	}
+	if err != nil {
+		return "", err
+	}
+	return cookie, nil
 }
 
 // GetCredentialsFromRequest will parse and validate the credentials in an http request.
@@ -237,7 +298,7 @@ func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCook
 		return nil, err
 	}
 
-	credentials, err := a.ParseCredentialsCookie(cookie.Value)
+	_, credentials, err := a.ParseCredentialsCookie(cookie.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +316,7 @@ func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCook
 //
 // Normally, you should use WithCredentialsOrRedirect(). Use this function only if you
 // expect your handler to be invoked with or without credentials.
-func (a *Extractor) WithCredentials(handler server.HttpHandler) server.HttpHandler {
+func (a *Extractor) WithCredentials(handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		creds, err := a.GetCredentialsFromRequest(r)
 		if creds != nil && err == nil {
@@ -269,7 +330,7 @@ func (a *Extractor) WithCredentials(handler server.HttpHandler) server.HttpHandl
 //
 // Same as WithCredentials, except that invalid credentials result in a redirect to the specified target.
 // GetCredentials() invoked from the handler is guaranteed to return a non null result.
-func (a *Authenticator) WithCredentialsOrRedirect(handler server.HttpHandler, target string) server.HttpHandler {
+func (a *Authenticator) WithCredentialsOrRedirect(handler khttp.FuncHandler, target string) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		creds, err := a.GetCredentialsFromRequest(r)
 		if creds == nil || err != nil {
@@ -282,7 +343,7 @@ func (a *Authenticator) WithCredentialsOrRedirect(handler server.HttpHandler, ta
 }
 
 // WithCredentialsOrError invokes the handler if credentials are available, errors out if not.
-func (a *Authenticator) WithCredentialsOrError(handler server.HttpHandler) server.HttpHandler {
+func (a *Authenticator) WithCredentialsOrError(handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		creds, err := a.GetCredentialsFromRequest(r)
 		if creds == nil || err != nil {
@@ -314,7 +375,7 @@ func (a *Authenticator) WithCredentialsOrError(handler server.HttpHandler) serve
 // with your own code, ensuring it is an absolute URL.
 //
 // Note that login handlers need to be registered with your oauth provider.
-func (a *Authenticator) MakeLoginHandler(handler server.HttpHandler, lm ...LoginModifier) server.HttpHandler {
+func (a *Authenticator) MakeLoginHandler(handler khttp.FuncHandler, lm ...LoginModifier) khttp.FuncHandler {
 	loginHandler := a.LoginHandler(lm...)
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -361,7 +422,7 @@ func (a *Authenticator) MakeLoginHandler(handler server.HttpHandler, lm ...Login
 // Note that this call does not allow you to carry any additional state.
 // Use session cookies for that part instead, or get parameters.
 //
-func (a *Authenticator) LoginHandler(lm ...LoginModifier) server.HttpHandler {
+func (a *Authenticator) LoginHandler(lm ...LoginModifier) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := a.PerformLogin(w, r, lm...)
 		if err != nil {
@@ -386,7 +447,7 @@ func (a *Authenticator) LoginHandler(lm ...LoginModifier) server.HttpHandler {
 //
 // Note that auth handlers need to be registered with your oauth provider.
 //
-func (a *Authenticator) MakeAuthHandler(handler server.HttpHandler) server.HttpHandler {
+func (a *Authenticator) MakeAuthHandler(handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, handled, err := a.PerformAuth(w, r)
 		if err == nil && data.Creds != nil {
@@ -415,7 +476,7 @@ func (a *Authenticator) MakeAuthHandler(handler server.HttpHandler) server.HttpH
 // In case of error, an ugly error message is displayed.
 //
 // Use MakeAuthHandler to customize the behavior.
-func (a *Authenticator) AuthHandler() server.HttpHandler {
+func (a *Authenticator) AuthHandler() khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, handled, err := a.PerformAuth(w, r)
 		if err != nil {
@@ -508,14 +569,14 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	}
 
 	var secretExpected []byte
-	if err := a.authEncoder.Decode([]byte(cookie.Value), &secretExpected); err != nil {
+	if _, err := a.authEncoder.Decode(context.Background(), []byte(cookie.Value), &secretExpected); err != nil {
 		return AuthData{}, fmt.Errorf("Cookie decoding failed - %w", err)
 	}
 
 	query := r.URL.Query()
 	state := query.Get("state")
 	var received LoginState
-	if err := a.authEncoder.Decode([]byte(state), &received); err != nil {
+	if _, err := a.authEncoder.Decode(context.Background(), []byte(state), &received); err != nil {
 		return AuthData{}, fmt.Errorf("State decoding failed - %w", err)
 	}
 
@@ -550,7 +611,7 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	}
 
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}
-	ccookie, err := a.loginEncoder.Encode(creds)
+	ccookie, err := a.EncodeCredentials(creds)
 	if err != nil {
 		return AuthData{}, err
 	}

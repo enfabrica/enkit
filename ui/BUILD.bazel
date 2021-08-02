@@ -1,0 +1,36 @@
+load("//bazel/ui:react.bzl", "react_project")
+
+exports_files([
+    "package.json",
+    "merge.js",
+])
+
+# Note this patch (May 25th, 2021) has landed in jest 27. React scripts vendors jest, so at a later release of react-scripts
+# the patches won't be necessary.
+filegroup(
+    name = "git-patches",
+    srcs = glob(["patches/*"]),
+    visibility = ["//visibility:public"],
+)
+
+react_project(
+    name = "ptunnel",
+    srcs = [
+        "//ui/ptunnel:srcs",
+    ],
+    package_jsons = [
+        "//ui:package.json",
+        "//ui/ptunnel:package.json",
+    ],
+    patches = [
+        "//ui:git-patches",
+    ],
+    publics = [
+        "//ui/ptunnel:public",
+    ],
+    tsconfig = "//ui/ptunnel:tsconfig.json",
+    visibility = ["//visibility:public"],
+    yarn_locks = [
+        "//ui/ptunnel:yarn.lock",
+    ],
+)

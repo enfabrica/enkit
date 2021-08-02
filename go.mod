@@ -20,7 +20,8 @@ require (
 	github.com/fatih/color v1.10.0
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/go-lintpack/lintpack v0.5.2 // indirect
-	github.com/golang/protobuf v1.4.2
+	github.com/golang-collections/go-datastructures v0.0.0-20150211160725-59788d5eb259 // indirect
+	github.com/golang/protobuf v1.5.1
 	github.com/golangci/errcheck v0.0.0-20181223084120-ef45e06d44b6 // indirect
 	github.com/golangci/go-tools v0.0.0-20190318055746-e32c54105b7c // indirect
 	github.com/golangci/goconst v0.0.0-20180610141641-041c5f2b40f3 // indirect
@@ -36,6 +37,7 @@ require (
 	github.com/kataras/muxie v1.1.1
 	github.com/kirsle/configdir v0.0.0-20170128060238-e45d2f54772f
 	github.com/klauspost/cpuid v1.2.0 // indirect
+	github.com/miekg/dns v1.1.41 // indirect
 	github.com/mitchellh/mapstructure v1.3.3
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -53,16 +55,17 @@ require (
 	github.com/tchap/zapext v1.0.0
 	github.com/ugorji/go v1.1.4 // indirect
 	github.com/ulikunitz/xz v0.5.8
-	github.com/valyala/quicktemplate v1.6.3 // indirect
 	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
+	go.uber.org/goleak v1.1.10 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
+	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
 	golang.org/x/sys v0.0.0-20210309074719-68d13333faf2 // indirect
 	google.golang.org/api v0.30.0
-	google.golang.org/grpc v1.32.0
+	google.golang.org/grpc v1.36.0
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect

@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+	"context"
 )
 
 func TestSimple(t *testing.T) {
@@ -23,7 +24,7 @@ func TestSimple(t *testing.T) {
 
 	data, err := be.Encode([]byte{1, 2, 3, 4})
 	assert.Nil(t, err)
-	original, err := be.Decode(data)
+	_, original, err := be.Decode(context.Background(), data)
 	assert.Nil(t, err)
 	assert.Equal(t, []byte{1, 2, 3, 4}, original)
 }
@@ -44,7 +45,7 @@ func TestTypeEncoder(t *testing.T) {
 	assert.NotEqual(t, data1, data2)
 
 	var result string
-	err = te.Decode(data1, &result)
+	_, err = te.Decode(context.Background(), data1, &result)
 	assert.Nil(t, err)
 	assert.Equal(t, "this is a string", result)
 }
@@ -66,13 +67,13 @@ func TestTimeEncoder(t *testing.T) {
 	assert.NotNil(t, data)
 
 	ts = ts.Add(time.Second * 2)
-	arr, err := te.Decode(data)
+	_, arr, err := te.Decode(context.Background(), data)
 	assert.Nil(t, err)
 	assert.NotNil(t, arr)
 	assert.Equal(t, []byte{0, 1, 2, 3, 4}, arr)
 
 	// Now the timer has expired.
 	ts = ts.Add(time.Second * 3)
-	arr, err = te.Decode(data)
+	_, arr, err = te.Decode(context.Background(), data)
 	assert.NotNil(t, err)
 }

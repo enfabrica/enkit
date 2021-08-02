@@ -1,0 +1,68 @@
+cc_library(
+    name = "nss_autouser",
+    srcs = [
+        "nss-autouser.c",
+        "//proxy/nss/confparse:confparse.c",
+    ],
+    hdrs = [
+        "nss-autouser.h",
+        "//proxy/nss/confparse:confparse.h",
+    ],
+    copts = [
+        "-D_POSIX_C_SOURCE=200809L",
+        "-pedantic",
+        "-Wall",
+        "-std=c17",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "nss_autouser-nostatic",
+    srcs = [
+        "nss-autouser.c",
+    ],
+    outs = [
+        "nss-autouser-nostatic.c",
+    ],
+    cmd = "sed -e 's@^static @@' < $< > $@",
+)
+
+cc_library(
+    name = "nss_autouser-fortesting",
+    srcs = [
+        ":nss_autouser-nostatic",
+    ],
+    hdrs = [
+        "nss-autouser.h",
+    ],
+    copts = [
+        "-DAU_CONFIG_PATH=\\\"./nss-autouser.conf\\\"",
+        "-D_POSIX_C_SOURCE=200809L",
+        "-Iproxy/nss",
+        "-pedantic",
+        "-Wall",
+        "-std=c17",
+    ],
+    deps = [
+        "//proxy/nss/confparse",
+    ],
+)
+
+cc_test(
+    name = "nss_autouser_test",
+    srcs = [
+        "nss-autouser_test.cc",
+    ],
+    copts = [
+        "-std=c++2a",
+        "-Wall",
+        "-pedantic",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":nss_autouser-fortesting",
+        "//proxy/nss/confparse",
+        "@gtest//:gtest_main",
+    ],
+)

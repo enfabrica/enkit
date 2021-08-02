@@ -1,0 +1,37 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+# gazelle:exclude e2e_test.go
+go_test(
+    name = "go_default_test",
+    srcs = ["server_test.go"],
+    data = glob(["testdata/**"]),
+    deps = [
+        "//astore/atesting:go_default_library",
+        "//astore/rpc:astore-go",
+        "//astore/server/astore:go_default_library",
+        "//lib/srand:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//test/bufconn:go_default_library",
+    ],
+)
+
+go_test(
+    name = "e2e_test",
+    srcs = ["e2e_test.go"],
+    data = glob(["testdata/**"]),
+    local = True,
+    tags = ["manual"],
+    deps = [
+        "//astore/atesting:go_default_library",
+        "//astore/client/astore:go_default_library",
+        "//astore/rpc:astore-go",
+        "//astore/server/astore:go_default_library",
+        "//lib/client/ccontext:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/progress:go_default_library",
+        "//lib/srand:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//test/bufconn:go_default_library",
+    ],
+)

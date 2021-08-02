@@ -2,8 +2,6 @@ package client
 
 import (
 	"errors"
-	"fmt"
-	"github.com/enfabrica/enkit/astore/client/auth"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/config"
@@ -16,7 +14,6 @@ import (
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/enfabrica/enkit/lib/progress"
 	"log"
-	"math/rand"
 	"net/http"
 )
 
@@ -26,15 +23,6 @@ type AuthFlags struct {
 
 	// Flags indicating how to connect to the authentication server.
 	*ServerFlags
-}
-
-func (af *AuthFlags) AuthClient(rng *rand.Rand) (*auth.Client, error) {
-	authconn, err := af.Connect()
-	if err != nil {
-		return nil, err
-	}
-
-	return auth.New(rng, authconn), nil
 }
 
 func DefaultAuthFlags() *AuthFlags {
@@ -76,6 +64,10 @@ type BaseFlags struct {
 	// Avoid displaying progress bars.
 	NoProgress bool
 
+	// Allow to override the security token used, and identity.
+	OverrideToken string
+	OverrideIdentity string
+
 	// Logger object. Guaranteed to never be nil, and always be usable.
 	Log *logger.Proxy
 }
@@ -116,13 +108,14 @@ func (bf *BaseFlags) IdentityErrorHandler(message string) kflags.ErrorHandler {
 				identity = "youruser@yourdomain.com"
 			}
 		}
-		return fmt.Errorf("Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s %s",
+		return kflags.NewStatusErrorf(100,
+                        "Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s %s",
 			logger.NewIndentedError(err, "    (for debug only) "), message, identity)
 	}
 }
 
 func (bf *BaseFlags) IdentityStore() (identity.IdentityStore, error) {
-	bf.Log.Infof("Loading credentials from store '%s", bf.ConfigName)
+	bf.Log.Infof("Loading credentials from store '%s'", bf.ConfigName)
 	id, err := identity.NewStore(bf.ConfigName, bf.ConfigOpener)
 	if err != nil {
 		return nil, kflags.NewIdentityError(err)
@@ -140,6 +133,13 @@ func (bf *BaseFlags) IdentityCookie() (string, *http.Cookie, error) {
 }
 
 func (bf *BaseFlags) IdentityToken() (string, string, error) {
+	if bf.OverrideToken != "" || bf.OverrideIdentity != "" {
+		if bf.OverrideIdentity == "" || bf.OverrideToken == "" {
+			return "", "", kflags.NewUsageErrorf("if override-identity or override-token is specified, both need to be specified")
+		}
+		return bf.OverrideIdentity, bf.OverrideToken, nil
+	}
+
 	store, err := bf.IdentityStore()
 	if err != nil {
 		return "", "", err
@@ -147,10 +147,11 @@ func (bf *BaseFlags) IdentityToken() (string, string, error) {
 
 	identity := bf.Identity()
 	username, token, err := store.Load(identity)
-	bf.Log.Infof("Using credentials of '%s' for requested '%s'", username, bf.Printable())
 	if err != nil {
+		bf.Log.Infof("Error loading credentials for '%s' - %s", bf.Printable(), err)
 		return "", "", kflags.NewIdentityError(err)
 	}
+	bf.Log.Infof("Using credentials of '%s' for requested '%s'", username, bf.Printable())
 	return username, token, nil
 }
 
@@ -159,6 +160,9 @@ func (bf *BaseFlags) Register(set kflags.FlagSet, prefix string) *BaseFlags {
 	bf.AuthFlags.Register(set, prefix)
 	bf.Local.Register(set, prefix)
 	bf.ProviderFlags.Register(set, prefix)
+
+	set.StringVar(&bf.OverrideToken, prefix+"override-token", "", "Use this security token instead of loading one from disk")
+	set.StringVar(&bf.OverrideIdentity, prefix+"override-identity", "", "Use this identity instead of loading one from disk")
 
 	set.StringVar(&bf.CookiePrefix, prefix+"cookie-prefix", "", "Prefix to use in naming the authentication cookie. You should not normally need to change this")
 	set.BoolVar(&bf.NoProgress, prefix+"no-progress", bf.NoProgress, "Disable progress bars")
@@ -171,21 +175,29 @@ func (bf *BaseFlags) LoadFlagAssets(populator kflags.Populator, assets map[strin
 
 func (bf *BaseFlags) Run(set kflags.FlagSet, populator kflags.Populator, run kflags.Runner) {
 	bf.Register(set, "")
+	// At this point, all flags have the default value set from the .go files.
+	// Change the defaults based on environment variables.
 	if err := populator(kflags.NewEnvAugmenter()); err != nil {
 		bf.Log.Infof("Setting default flags from environment failed with: %s", err)
 	}
 
+	// Now that we have (possibly) user chosen defaults, load the defaults
+	// from the configured default provider.
+	//
+	// This will likely result in fetching the flags from https/astore.
 	if err := bf.UpdateFlagDefaults(populator, ""); err != nil {
 		bf.Log.Infof("Updating default flags for domain failed with: %s", err)
 	}
 
-	run(set, bf.Log.Infof)
+	// Finally, run the command.
+	run(set, bf.Log.Infof, bf.Init)
 }
 
 // Initializes a BaseFlags object after all flags have been parsed.
 //
-// Invoked automatically by Run and every time flags are changed.
-func (bf *BaseFlags) Init() {
+// Invoked automatically by Run once defaults are loaded.
+// Must be invoked every time base flags change value, to refresh the corresponding objects.
+func (bf *BaseFlags) Init() error {
 	// The newly loaded flags may change how logging needs to be performed.
 	// Let's recreate the logging objects.
 	var newlog logger.Logger
@@ -196,9 +208,15 @@ func (bf *BaseFlags) Init() {
 	}
 
 	bf.Log.Replace(newlog)
+	return err
 }
 
+// UpdateFlagDefaults updates the default value of flags by fetching the
+// configuration from an https/astore server.
 func (bf *BaseFlags) UpdateFlagDefaults(populator kflags.Populator, domain string) error {
+	// Try to load an authentication cookie before even trying.
+	// This may just work based on env variables, or previously loaded defaults, but
+	// it's optional - keep going if this fails.
 	username, cookie, err := bf.IdentityCookie()
 	if err != nil {
 		bf.Log.Infof("could not retrieve authentication cookie - continuing without (error: %s)", err)
@@ -217,10 +235,10 @@ func (bf *BaseFlags) UpdateFlagDefaults(populator kflags.Populator, domain strin
 		Domain:      domain,
 	}
 
+	// Load the new flags, and re-initialize the internal objects.
 	if err := provider.SetFlagDefaults(populator, bf.ProviderFlags, options); err != nil {
 		bf.Log.Infof("could not retrieve remote defaults - continuing without (error: %s)", err)
 	}
-
 	bf.Init()
 	return nil
 }

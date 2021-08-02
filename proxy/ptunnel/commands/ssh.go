@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/spf13/cobra"
 	"os"
@@ -19,9 +20,10 @@ type SSH struct {
 	Extra      string
 	Subcommand string
 
-	Proxy      string
-	BufferSize int
-	SSH        string
+	Proxy            string
+	BufferSize       int
+	SSH              string
+	UseInternalAgent bool
 }
 
 func (r *SSH) Username() string {
@@ -83,6 +85,15 @@ func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 	ecmd.Stdin = os.Stdin
 	ecmd.Stdout = os.Stdout
 	ecmd.Stderr = os.Stderr
+
+	if r.UseInternalAgent {
+		agent, err := kcerts.FindSSHAgent(r.BaseFlags.Local, r.Log)
+		if err != nil {
+			return err
+		}
+		ecmd.Env = append(os.Environ(), agent.GetEnv()...)
+	}
+
 
 	if err := ecmd.Start(); err != nil {
 		return fmt.Errorf("failed to start command %s: %w", ecmd, err)
@@ -147,6 +158,6 @@ func NewSSH(base *client.BaseFlags) *SSH {
 	root.Command.Flags().StringVar(&root.Tunnel, "tunnel", exec, "Path to the tunnel binary to use. Note that the binary will be invoked differently depending on the name of the binary")
 	root.Command.Flags().StringVar(&root.Subcommand, "tunnel-command", tcommand, "Subcommand to use with the tunnel command. Defaults to empty if the tunnel command does not end with enkit")
 	root.Command.Flags().StringVar(&root.Extra, "tunnel-extra", "", "Extra arguments to pass to the tunnel command")
-
+	root.Command.Flags().BoolVar(&root.UseInternalAgent, "use-internal-agent", true, "Use the builtin agent that enkit manages")
 	return root
 }

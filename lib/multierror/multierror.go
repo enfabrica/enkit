@@ -10,7 +10,7 @@ type MultiError []error
 // New creates a MultiError from a list of errors.
 //
 // This is just a convenience wrapper to ensure that if there is no error,
-// if errs has len() == 0, error is nil.
+// if errs has len() == 0, or all errors are nil, nil is returned.
 //
 // In facts, you could normally convert a []error{} into a MultiError by simply
 // using a cast: MultiError(errs). However, a simple cast would lead to a non
@@ -19,7 +19,12 @@ func New(errs []error) error {
 	if len(errs) == 0 {
 		return nil
 	}
-	return MultiError(errs)
+	for _, err := range errs {
+		if err != nil {
+			return MultiError(errs)
+		}
+	}
+	return nil
 }
 
 // NewOr creates a MultiError from a list of errors, or returns the fallback error.
@@ -30,7 +35,12 @@ func NewOr(errs []error, fallback error) error {
 	if len(errs) == 0 {
 		return fallback
 	}
-	return MultiError(errs)
+	for _, err := range errs {
+		if err != nil {
+			return MultiError(errs)
+		}
+	}
+	return fallback
 }
 
 // Unwrap for MultiError always returns nil, as there is no reasonable way to implement it.
@@ -61,12 +71,15 @@ func (me MultiError) Is(target error) bool {
 }
 
 func (me MultiError) Error() string {
-	if len(me) == 1 {
+	if len(me) == 1 && me[0] != nil {
 		return me[0].Error()
 	}
 
 	messages := []string{}
 	for _, err := range me {
+		if err == nil {
+			continue
+		}
 		messages = append(messages, err.Error())
 	}
 	return "Multiple errors:\n  " + strings.Join(messages, "\n  ")

@@ -20,10 +20,10 @@ go_library(
         "//lib/kflags:go_default_library",
         "//lib/kflags/kcobra:go_default_library",
         "//lib/kflags/kconfig:go_default_library",
+        "//lib/khttp/kassets:go_default_library",
         "//lib/khttp/kcookie:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
-        "//lib/oauth/ogoogle:go_default_library",
         "//lib/oauth/ogrpc:go_default_library",
         "//lib/server:go_default_library",
         "//lib/srand:go_default_library",
@@ -77,14 +77,14 @@ go_library(
 filegroup(
     name = "css",
     srcs = [
+        "@npm//:node_modules/material-design-icons/iconfont/MaterialIcons-Regular.ttf",
+        "@npm//:node_modules/material-design-icons/iconfont/MaterialIcons-Regular.woff",
+        "@npm//:node_modules/material-design-icons/iconfont/MaterialIcons-Regular.woff2",
+        "@npm//:node_modules/material-design-icons/iconfont/material-icons.css",
         "@npm//:node_modules/material-design-lite/material.min.css",
         "@npm//:node_modules/material-design-lite/material.min.css.map",
         "@npm//:node_modules/material-design-lite/material.min.js",
         "@npm//:node_modules/material-design-lite/material.min.js.map",
-        "@npm//:node_modules/material-icons/iconfont/MaterialIcons-Regular.ttf",
-        "@npm//:node_modules/material-icons/iconfont/MaterialIcons-Regular.woff",
-        "@npm//:node_modules/material-icons/iconfont/MaterialIcons-Regular.woff2",
-        "@npm//:node_modules/material-icons/iconfont/material-icons.css",
     ],
 )
 

@@ -1,15 +1,26 @@
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
+# To update and generate the BUILD.bazel files, run:
+#     bazelisk run //:gazelle
+#
+# This will scan the source code, and bazed on imports, generate
+# or update the BUILD.bazel files. Run every time you change imports,
+# create a new library or binary.
+#
+# To update the list of dependencies downloaded by bazel, run:
+#     bazelisk run //:gazelle -- update-repos -from_file=go.mod -to_macro=bazel/go_repositories.bzl%go_repositories
+#
+# This will read the go.mod file, and based on that, add statements
+# to download the correct dependency for bazel to download. The dependency
+# is added to the bazel/go_repositories.bzl file.
+#
+# TODO: we should have dedicated targets for the two operations.
+#
 # gazelle:exclude node_modules
 # gazelle:prefix github.com/enfabrica/enkit
 gazelle(
     name = "gazelle",
     prefix = "github.com/enfabrica/enkit",
-)
-
-exports_files(
-    ["tsconfig.json"],
-    visibility = ["//:__subpackages__"],
 )
 
 exports_files(
@@ -22,6 +33,8 @@ exports_files(
 
 load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 
+# To automatically format all .bzl files and all BUILD.bzl files, run:
+#     bazelisk run //:buildifier
 buildifier(
     name = "buildifier",
 )
