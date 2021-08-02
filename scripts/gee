@@ -1334,6 +1334,7 @@ function gee__update() {
   _checkout_or_die "${CURRENT_BRANCH}"
   # Rebase from PREVIOUS_B onto B
   _rebase_child_onto_parent "${CURRENT_BRANCH}" "${PREVIOUS_B}"
+  _info Done.
 }
 
 ##########################################################################
@@ -1400,6 +1401,7 @@ function gee__rupdate() {
     _rebase_child_onto_parent "${B}" "${PREVIOUS_B}"
     PREVIOUS_B="${B}"
   done
+  _info Done.
 }
 
 ##########################################################################
@@ -1483,6 +1485,7 @@ function gee__update_all() {
   if (( "${#CONFLICTS[@]}" )); then
     _fatal "The following branches had merge conflicts:" "${CONFLICTS[@]}"
   fi
+  _info Done.
 }
 
 ##########################################################################
@@ -1801,7 +1804,13 @@ function gee__pr_make() {
   _gh pr create "${PR_ARGS[@]}"
   # _gh pr checks  # not sure why this is problematic.
   _gh_pr_view
-  echo "Add reviewers."
+  local NUM_REVIEWERS
+  NUM_REVIEWERS="$(gh pr view \
+    --repo "${UPSTREAM}/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" \
+    --json reviewRequests --jq '.reviewRequests | length')"
+  if (( NUM_REVIEWERS == 0 )); then
+    _warn "Don't forget to add reviewers!"
+  fi
 }
   
 
