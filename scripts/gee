@@ -1628,9 +1628,8 @@ function _write_parents_file() {
   done > "${PATH}"
 }
 
-ABNORMAL=1
+# Ensure we always save the PARENTS file, even if we die:
 function _cleanup() {
-  # Ensure we always save the PARENTS file, even if we die:
   _write_parents_file
   # Warn the user if we terminated abnormally (for example, if set -e fired).
   if (( ABNORMAL == 1 )); then
@@ -2812,12 +2811,6 @@ function gee__pr_make() {
     _fatal "No changes in this branch."
   fi
 
-  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
-  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
-    # gh-cli treats this as a special case for some reason.
-    FROM_BRANCH="${CURRENT_BRANCH}"
-  fi
-
   # Note: there is no longer any need to squash before sending out for review,
   # as we always merge with "gh pr merge --squash".
 
@@ -3533,7 +3526,6 @@ function main() {
       _startup_checks
     fi
     "gee__${cmdname}" "$@"
-    ABNORMAL=0
   else
     echo "Unknown command ${cmdname}"
     echo ""
