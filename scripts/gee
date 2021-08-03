@@ -1630,13 +1630,11 @@ function gee__commit() {
   else
     echo "Skipped \"git add --all\" because branch is home dir."
   fi
-  NOFAIL=1 NOSTACK=1 _git commit "$@"
-  #if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
-  #  _git pull origin "${CURRENT_BRANCH}"
-  #fi
-  # We always push upstream so that users have a backup in case they lose their
-  # laptop:
-  _git push -u origin "${CURRENT_BRANCH}"
+  if _git_can_fail commit "$@"; then
+    # We always push upstream so that users have a backup in case they lose their
+    # laptop:
+    _git push -u origin "${CURRENT_BRANCH}"
+  fi
 }
 
 ##########################################################################
