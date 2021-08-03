@@ -1,41 +1,34 @@
 #!/usr/bin/env bash
 
-
 #Golang setup
 export PATH="${PWD}/${GO_LOCATION}/bin:$PATH"
-export SOURCE_LINT="$(find $PWD -name ${GO_LIBRARY_NAME})"
+SOURCE_LINT="$(find "$PWD" -name "${GO_LIBRARY_NAME}")"
 export GOPATH=$SOURCE_LINT
-echo "go path is " $GOPATH
-ls $GOPATH
+# Store golang-ci binary
 GOLANGCI_LINT=$PWD/$GOLANGCI_LINT
-echo "running lint on directory $(find $PWD -name enfabrica)/enkit"
-#
+
 ## this is necessary for cache + homdir lib errors
 export HOME="$PWD"
 mkdir -p .cache
 
-#
-#
 ##create output files
-mkdir -p $(dirname ${LINT_OUTPUT})
-touch ${LINT_OUTPUT}
+mkdir -p "$(dirname "${LINT_OUTPUT}")"
+touch "${LINT_OUTPUT}"
 export LINT_OUTPUT="$PWD/${LINT_OUTPUT}"
 
 #fetch list of changed files from genrule
 readarray -t changed_files <<< "$(cat "${GIT_DATA}")"
-echo "Changed files are ${changed_files[*]}"
+
+# $Target is the prefix of the generated gopath bundle from rules go. e.g. __astore__server_default_library
+cd "$(find  "$PWD" -name "$TARGET"_source)" || exit
+
+# Now in the generated gopath vendor find enkit
 cd "$(find "$PWD" -name enfabrica)"/enkit || exit
 
-$GOLANGCI_LINT run ./... --issues-exit-code 0 2>&1 | sed 's/.*'enkit'//' | sed -e 's/^\///' |tee ${LINT_OUTPUT}
-#$GOLANGCI_LINT run ./... --issues-exit-code 0 2>&1 | tee ${LINT_OUTPUT}
-##golangci-lint run ./...
-#for i in "${changed_files[@]}"
-#do
-#  if [[ $i == *.go ]]; then
-#    go_package=$(dirname $i)
-#    $GOLANGCI_LINT run "$go_package" --verbose --issues-exit-code 0 2>&1 | sed 's/.*'enkit'//' | tee ${LINT_OUTPUT}
-#  fi
-#done
+echo "here"
+# run lint, strip relative pathing and strip leading /
+$GOLANGCI_LINT run ./... --exclude-use-default=false --allow-parallel-runners -D=typecheck --issues-exit-code 0 2>&1 | sed 's/.*'enkit'//' | sed -e 's/^\///' | tee "${LINT_OUTPUT}"
+
 
 
 

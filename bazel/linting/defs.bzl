@@ -37,19 +37,27 @@ def _go_lint_impl(ctx):
     for lib in ctx.attr.go_libraries:
         inputs.extend(lib.files.to_list())
 
-    ctx.actions.run(
-        inputs = depset(inputs),
-        outputs = [ctx.outputs.out],
-        progress_message = "Running linter into",
-        executable = ctx.files._lint_script[0],
-        tools = [go.go, ctx.files._golangci_lint[0]],
-        env = {
-            "GO_LOCATION": go.sdk.root_file.dirname,
-            "GO_LIBRARY_NAME": library_name,
-            "LINT_OUTPUT": ctx.outputs.out.path,
-            "GIT_DATA": inputs[0].path,
-            "GOLANGCI_LINT": ctx.files._golangci_lint[0].path,
-        },
+    outfiles = []
+    for target in ctx.attr.targets:
+        outfile = ctx.actions.declare_file(target + ".txt")
+        outfiles.append(outfile)
+        ctx.actions.run(
+            inputs = depset(inputs),
+            outputs = [outfile],
+            progress_message = "Running linter into",
+            executable = ctx.files._lint_script[0],
+            tools = [go.go, ctx.files._golangci_lint[0]],
+            env = {
+                "GO_LOCATION": go.sdk.root_file.dirname,
+                "GO_LIBRARY_NAME": library_name,
+                "LINT_OUTPUT": outfile.path,
+                "GIT_DATA": inputs[0].path,
+                "GOLANGCI_LINT": ctx.files._golangci_lint[0].path,
+                "TARGET": target,
+            },
+        )
+    return DefaultInfo(
+        files = depset(outfiles),
     )
 
 go_lint = rule(
@@ -57,6 +65,9 @@ go_lint = rule(
     attrs = {
         "go_libraries": attr.label_list(
             aspects = [dep_aspect],
+        ),
+        "targets": attr.string_list(
+            mandatory = True,
         ),
         "_lint_script": attr.label(
             default = Label("//bazel/linting/scripts:lint_go.sh"),
@@ -71,16 +82,17 @@ go_lint = rule(
             allow_files = True,
             default = "//bazel/linting/scripts:golangci-lint",
         ),
+        "_merge_script": attr.label(
+            allow_files = True,
+            default = "//bazel/linting/scripts:merge.sh",
+        ),
         "deps": attr.label_list(),
     },
     toolchains = ["@io_bazel_rules_go//go:toolchain"],
-    outputs = {
-        "out": "go_lint_result.txt",
-    },
 )
 
 #go_libs takes in a gopath compliant repo.
-def lint(name, go_libs):
+def lint(go_libs):
     native.genrule(
         name = "parse_git_changes",
         outs = [
@@ -93,7 +105,7 @@ def lint(name, go_libs):
         stamp = 1,
     )
     go_path_rules = []
-    go_lint_ouputs = []
+    go_lint_targets = []
     for go_lib in go_libs:
         short_name = go_lib.replace("/", "_").replace(":", "_")
         go_path(
@@ -102,12 +114,52 @@ def lint(name, go_libs):
             mode = "copy",
         )
         go_path_rules.append("//:" + short_name + "_source")
-        go_lint_ouputs.append(short_name + ".txt")
-
+        go_lint_targets.append(short_name)
     go_lint(
         name = "lint_go",
         go_libraries = go_path_rules,
+        targets = go_lint_targets,
         deps = [
             ":parse_git_changes",
         ],
     )
+
+def _check_lint(ctx):
+    outfile = ctx.actions.declare_file("meow.txt")
+    args = ctx.actions.args()
+    args.add(outfile.path)
+    for f in ctx.files.lint:
+        args.add(f.path)
+
+    ctx.actions.run(
+        executable = ctx.files._lint_script[0],
+        inputs = ctx.files.lint,
+        outputs = [outfile],
+        arguments = [args],
+        progress_message = "Parsing lint files",
+        tools = ctx.files._lint_script,
+        env = {
+            "OUT": outfile.path,
+            "STRATEGY": ctx.attr.strategy,
+            "GIT_FILE": "",
+        },
+    )
+    return DefaultInfo(
+        files = depset([outfile]),
+    )
+
+parse_lint = rule(
+    _check_lint,
+    attrs = {
+        "lint": attr.label(
+            mandatory = True,
+        ),
+        "_lint_script": attr.label(
+            default = "//bazel/linting/scripts:merge.sh",
+            allow_files = True,
+        ),
+        "strategy": attr.string(
+            default = "ALL",
+        ),
+    },
+)

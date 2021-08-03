@@ -39,13 +39,17 @@ buildifier(
     name = "buildifier",
 )
 
-load("//bazel/linting:defs.bzl", "lint")
+load("//bazel/linting:defs.bzl", "lint", "parse_lint")
 
-# TODO(adam): write a simple gazelle-like binary that walks the tree and puts this in any default_library that has a
-# main
+# TODO(adam): write a simple gazelle-like binary that walks the tree and puts any default_library that has a main as a lint rule
 lint(
-    name = "lint",
     go_libs = [
         "//machinist/cmd:go_default_library",
+        "//astore/server:go_default_library",
     ],
+)
+
+parse_lint(
+    name = "lint-all",
+    lint = ":lint_go",
 )

@@ -3,6 +3,7 @@ load("//bazel/utils:binary.bzl", "declare_binary")
 exports_files([
     "git.sh",
     "lint_go.sh",
+    "merge.sh",
 ])
 
 declare_binary(

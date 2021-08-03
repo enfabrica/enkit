@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/dustin/go-humanize"
 )
 
 func AcceptsEncoding(accepts, encoding string) bool {
