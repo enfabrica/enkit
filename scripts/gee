@@ -1,0 +1,2215 @@
+#!/bin/bash
+
+read -r -d '' USAGE <<'EOT'
+# gee: git enabled enfabrication.
+
+gee is a wrapper around the "git" and "gh-cli" tools.  It implements a standard
+and supported workflow.  "gee" is also an instructional tool: by showing each
+command it executes, gee helps users learn git.
+
+## Features:
+
+* Uses the "worktree" feature so that every branch is always visible in its
+  own directory, and switching branches is accomplished by changing directory.
+  All branch directories are named ~/gee/<REPO>/<BRANCH>
+
+* All local commits are automatically backed up to github.
+
+* Tracks lineage of branches-of-branches.
+
+* Sets up and enforces use of ssh for all interactions with github.
+
+* Supports multi-homed development (user can do work on various hosts without
+  NFS-mounted home directories).
+
+## Simple use:
+
+1. Run "gee init" to clone and check out the enfabrica/internal repo.  This
+   only needs to be done once per home directory.
+
+2. "cd ~/gee/internal/main" to start in the main branch.
+
+3. Make a feature branch: "gee make_branch my_feature"
+   Then: "cd $(gee gcd my_feature)"
+
+4. Make some changes, and call "gee commit" whenever needed to checkpoint
+   your work.
+
+5. Call "gee update" to pull new changes from upstream.
+
+6. When ready to send your change out for review:
+
+    gee fix  # runs all automatic code formatters
+    gee commit -a -m "ran gee fix"
+    gee make_pr  # creates a pull request.
+
+7. You can continue to make updates to your branch, and update your
+   PR by running "gee commit".
+
+8. When approved, run "gee submit_pr" to merge your change.
+
+## More complex use:
+
+You can continue to develop a second feature while the first feature is out for
+review.
+
+1. Make a branch of a branch:
+
+     cd $(gee gcd my_feature)
+     gee mkbr my_feature2
+
+3. Do work in the child branch:
+
+     cd $(gee gcd my_feature2)
+
+2. Recursively update a chain of branches:
+
+     gee rupdate
+
+EOT
+# Branches:
+#    upstream: the original repo we have forked (enfabrica/$REPO)
+#              we issue pull requests to this repo, and we integrate
+#              changes from here.
+#    origin:   the user's forked repo ($GHUSER/$REPO)
+#              we pull and push to this repo.
+#    upstream/main: top of tree
+#    origin/main: user's top-of-tree with no local changes,
+#        updated periodically from upstream/main.
+#    main: local repo top of tree, no local changes,
+#        updated periodically from upstream/main.
+#    $feature: fork of main (or other $feature), contains
+#        local changes.  May have 0 or 1 PRs associated with it.
+#    origin/$feature: github backup of $feature branch.
+# 
+# Updates flow in one direction through these branches:
+# 
+#   upstream/main -> main -> origin/main -> $feature -> origin/$feature
+# 
+# The user only commits changes to $feature.
+# 
+# Changes then migrate from origin/$feature back to upstream/main when a PR is
+# approved and merged.
+# 
+# Note: We are transitioning from "master" to "main."  Gee always tries to find
+# a "main" remote branch first, but falls back to "master" if "main" does not
+# exist.
+#
+# TODO(jonathan): Bash implementation is a prototype.  rewrite in golang?
+# TODO(jonathan): "git push -u" option is going to change soon.
+
+set -e
+
+if [[ -n "${DEBUG}" ]]; then
+  set -x
+fi
+
+declare -a HELP=()
+declare -A LONGHELP
+declare -A PARENTS     # initialized by _load_parents_file
+declare -A MERGEBASES  # initialized by _load_parents_file
+readonly TRUE=0
+readonly FALSE=1
+readonly GIT=/usr/bin/git
+readonly GH=/usr/bin/gh
+readonly JQ=/usr/bin/jq
+readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
+readonly NEWLINE=$'\n'
+GHUSER="${GHUSER:-}"  # can be set by _startup_checks
+VERBOSE="${VERBOSE:-1}"
+DRYRUN="${DRYRUN:-0}"
+UPSTREAM="${UPSTREAM:-enfabrica}"
+TESTMODE="${TESTMODE:-0}"
+MAIN="" # Unknown, call _set_main to set.
+REPO="${REPO:-}"
+PAGER="${PAGER:-less}"
+
+if [[ -z "${REPO}" ]]; then
+  # Examine the directory to see if we're in a repo already.
+  # Try the old directory layout:
+  if [[ "${PWD}" =~ ^${HOME}/([a-z0-9_-]+)/branches/([a-z0-9_-]+) ]]; then
+    REPO="${BASH_REMATCH[1]}"
+  fi
+  # Try the new directory layout:
+  if [[ "${PWD}" =~ ^${HOME}/gee/([a-z0-9_-]+)/([a-z0-9_-]+) ]]; then
+    REPO="${BASH_REMATCH[1]}"
+  fi
+  # Try the test directory layout:
+  if [[ "${PWD}" =~ ^${HOME}/testgee/([a-z0-9_-]+)/([a-z0-9_-]+) ]]; then
+    TESTMODE=1
+    REPO="${BASH_REMATCH[1]}"
+  fi
+fi
+
+# If all else fails, default to internal
+if [[ -z "${REPO}" ]]; then
+  REPO=internal
+fi
+
+GEE_DIR="${HOME}/gee"
+REPO_DIR="${GEE_DIR}/${REPO}/"
+
+if (( "${TESTMODE}" )); then
+  UPSTREAM="enfabrica"
+  REPO="github-playground"
+  GEE_DIR="${HOME}/testgee"
+  REPO_DIR="${GEE_DIR}/${REPO}/"
+fi
+
+# colors library
+_COLOR_RST="$(tput sgr0)"
+_COLOR_CMD="$(tput bold; tput setaf 12; tput rev)"
+#_COLOR_CMD="$(tput bold; tput setaf 14; tput setab 16)"
+_COLOR_DBG="$(tput setaf 2)"
+_COLOR_DIE="$(tput bold; tput setaf 15; tput setab 3)"
+_COLOR_WARN="$(tput setaf 11)"
+_COLOR_INFO="$(tput setaf 1)"
+
+##########################################################################
+# helper functions
+##########################################################################
+
+function __git_eread ()
+{
+	test -r "$1" && IFS=$'\r\n' read -r "$2" <"$1"
+}
+
+# This function might be improved in the future for users to use as a
+# bash COMMAND_PROMPT command, but needs improvements.
+function gee__prompt() {
+  _gee_rebase_prompt
+}
+
+function _gee_rebase_prompt() {
+  # Prompt to be used while in an interactive conflict resolution shell.
+  # cribbed from git-prompt.sh
+	# preserve exit status
+	local exit=$?
+	local detached=no
+
+	local repo_info rev_parse_exit_code
+	repo_info="$(git rev-parse \
+    --git-dir \
+    --is-inside-git-dir \
+		--short HEAD 2>/dev/null)"
+	rev_parse_exit_code="$?"
+
+	if [ -z "$repo_info" ]; then
+		return $exit
+	fi
+
+	local short_sha=""
+	if [ "$rev_parse_exit_code" = "0" ]; then
+		short_sha="${repo_info##*$'\n'}"
+		repo_info="${repo_info%$'\n'*}"
+	fi
+	local inside_gitdir="${repo_info##*$'\n'}"
+	local g="${repo_info%$'\n'*}"
+
+	if [ "true" = "$inside_gitdir" ] &&
+	   [ -n "${GIT_PS1_HIDE_IF_PWD_IGNORED-}" ] &&
+	   [ "$(git config --bool bash.hideIfPwdIgnored)" != "false" ] &&
+	   git check-ignore -q .
+	then
+		return $exit
+	fi
+
+	local r=""
+	local b=""
+	local step=""
+	local total=""
+	if [ -d "$g/rebase-merge" ]; then
+		__git_eread "$g/rebase-merge/head-name" b
+		__git_eread "$g/rebase-merge/msgnum" step
+		__git_eread "$g/rebase-merge/end" total
+		r="|REBASE"
+	else
+		if [ -d "$g/rebase-apply" ]; then
+			__git_eread "$g/rebase-apply/next" step
+			__git_eread "$g/rebase-apply/last" total
+			if [ -f "$g/rebase-apply/rebasing" ]; then
+				__git_eread "$g/rebase-apply/head-name" b
+				r="|REBASE"
+			elif [ -f "$g/rebase-apply/applying" ]; then
+				r="|AM"
+			else
+				r="|AM/REBASE"
+			fi
+		elif [ -f "$g/MERGE_HEAD" ]; then
+			r="|MERGING"
+		elif [ -f "$g/BISECT_LOG" ]; then
+			r="|BISECTING"
+		fi
+
+		if [ -n "$b" ]; then
+			:
+		elif [ -h "$g/HEAD" ]; then
+			# symlink symbolic ref
+			b="$(git symbolic-ref HEAD 2>/dev/null)"
+		else
+			local head=""
+			if ! __git_eread "$g/HEAD" head; then
+				return $exit
+			fi
+			# is it a symbolic ref?
+			b="${head#ref: }"
+			if [ "$head" = "$b" ]; then
+				detached=yes
+				b="$( git describe --tags --exact-match HEAD 2>/dev/null)" ||
+				b="$short_sha..."
+				b="($b)"
+			fi
+		fi
+	fi
+
+	if [ -n "$step" ] && [ -n "$total" ]; then
+    r="$r ($step/$total)"
+	fi
+
+	b=${b##refs/heads/}
+
+  local d
+  d="$(pwd)"
+
+  local COLOR RST
+  COLOR="$(tput bold; tput rev)"
+  RST="$(tput sgr0)"
+  if [[ -n "${GEE_HELP}" ]]; then
+    printf "%s\n" "${GEE_HELP}"
+  fi
+  printf -- "${COLOR}%s%s%s %s${RST}\n$ " "${GEE_STATUS}" "${b}" "${r}" "${d}"
+
+	return $exit
+}
+
+function _contains_element() {
+  local MATCH="$1"
+  shift
+  local E
+  for E in "$@"; do
+    if [[ "$E" == "${MATCH}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# returns a new array
+function _egrep_array() {
+  local OUTPUT="$1"
+  local REGEX="$2"
+  unset "${OUTPUT}"
+  declare -a "${OUTPUT}"
+  readarray -t "${OUTPUT}" < <( printf "%s\n" "$@" | grep -E "${REGEX}" )
+}
+
+function _set_alias_if_missing() {
+  local ALIAS="$1"
+  local DEFN="$2"
+  if ! "${GIT}" config --get "alias.${ALIAS}" >/dev/null; then
+    _git config --global "alias.${ALIAS}" "${DEFN}"
+  fi
+}
+
+function _set_main() {
+  if [[ -n "${MAIN}" ]]; then return; fi
+  local UPSTREAM_URL
+  UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
+  MAIN="$(
+    "${GIT}" remote show "${UPSTREAM_URL}" \
+      | awk '/HEAD branch/ {print $NF}'
+  )"
+  if [[ -z "${MAIN}" ]]; then
+    _die "Can't identify default branch for ${UPSTREAM_URL}."
+  fi
+}
+
+function _set_ghuser() {
+  if [[ -n "${GHUSER}" ]]; then
+    return 0
+  fi
+
+  # try to get ghuser from ssh interface:
+  local OUTPUT
+  set +e
+  OUTPUT="$(ssh -T git@github.com 2>&1)"
+  set -e
+  if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
+    GHUSER="${BASH_REMATCH[1]}"
+    return 0
+  fi
+
+  # let's just ask the user
+  _warn "Can't automatically determine your github username."
+  if [[ -n "${USER}" ]]; then
+    GHUSER="${USER}-enf"
+  fi
+  read -r -i "${GHUSER}" -p "What is your github username?  " -e GHUSER
+
+  if [[ -z "${GHUSER}" ]]; then
+    _fatal "Cannot proceed without a github username."
+  fi
+  local RESP
+  read -r -p \
+    "Is it okay to add \"export GHUSER=${GHUSER}\" to your .bashrc file? (y/N)  " \
+    RESP
+  case "${RESP}" in
+    [Yy]*)
+      printf "\nexport GHUSER=%q\n" "${GHUSER}" >> ~/.bashrc
+      ;;
+  esac
+}
+
+function _check_ssh() {
+  # Check if we can connect via ssh to github.
+  # Takes 0.7 seconds.  Use only as-needed.
+  local OUTPUT
+  set +e
+  OUTPUT="$(ssh -T git@github.com 2>&1)"
+  set -e
+  if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
+    GHUSER="${BASH_REMATCH[1]}"
+    return 0
+  fi
+  _warn "Could not authenticate to github using ssh."
+  _info "ssh -T git@github.com got:"
+  _info "  ${OUTPUT}"
+  if [[ -f "${SSHKEYFILE}" ]]; then
+    _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
+    _cmd ssh-add "${SSHKEYFILE}"
+    _info "Trying again..."
+    set +e
+    OUTPUT="$(ssh -T git@github.com 2>&1)"
+    set -e
+    if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
+      GHUSER="${BASH_REMATCH[1]}"
+      return 0
+    fi
+    _warn "Still couldn't authenticate to github using ssh."
+    _info "ssh -T git@github.com got:"
+    _info "  ${OUTPUT}"
+  fi
+  return 1
+}
+
+function _check_cwd() {
+  local DIR
+  DIR="$(pwd)"
+  if ! [[ "$DIR" =~ ^"${GEE_DIR}"/[a-zA-Z0-9_-]+/ ]]; then
+    _fatal "This command must be run from with a branch directory beneath ~/gee."
+  fi
+}
+
+function _get_ghuser_via_ssh() {
+  if ! _check_ssh; then
+    _fatal "Could not determine github username."
+  fi
+}
+
+function _startup_checks() {
+  if [[ ! -x "${GIT}" ]]; then
+    _fatal "${GIT} is not installed."
+  fi
+  if [[ ! -x "${GH}" ]]; then
+    _fatal "${GH} is not installed."
+  fi
+
+  # If GHUSER is unset, find username via ssh to github.
+  if [[ -z "${GHUSER}" ]]; then
+    _set_ghuser
+  fi
+
+  local GIT_EMAIL
+  GIT_EMAIL="$("${GIT}" config --get user.email || /bin/true)"
+  if [[ -z "${GIT_EMAIL}" ]]; then
+    _warn "git user.email setting is empty."
+    read -e -r -i "${USER}@enfabrica.net" -p \
+      "What email address should git use for you?   " \
+      GIT_EMAIL
+    if [[ -z "${GIT_EMAIL}" ]]; then
+      _fatal "git needs user.email to be set."
+    fi
+    _git config --global user.email "${GIT_EMAIL}"
+  fi
+
+  local GIT_NAME
+  GIT_NAME="$("${GIT}" config --get user.name || /bin/true)"
+  if [[ -z "${GIT_NAME}" ]]; then
+    _warn "git user.name setting is empty."
+    read -e -r -i "${USER}" -p \
+      "What name should git use for you?   " \
+      GIT_NAME
+    if [[ -z "${GIT_NAME}" ]]; then
+      _fatal "git needs user.name to be set."
+    fi
+    _git config --global user.name "${GIT_NAME}"
+  fi
+
+  # check ssh agent
+  if ! ssh-add -l > /dev/null; then
+    _warn "Could not connect to ssh-agent."
+    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+    local RESP
+    read -r -p \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+      RESP
+    case "${RESP}" in
+      [Yy]*)
+        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+        ;;
+    esac
+    eval `enkit agent print`
+  fi
+}
+
+function _ssh_enroll() {
+  if [[ -z "${SSH_AUTH_SOCK}" ]]; then
+    _warn "No ssh-agent is running."
+    _info "Please add \"eval \`enkit agent print\`\" to your .bashrc"
+    local RESP
+    read -r -p \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+      RESP
+    case "${RESP}" in
+      [Yy]*)
+        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+        ;;
+    esac
+    eval `enkit agent print`
+  fi
+  if [[ -z "${SSH_AUTH_SOCK}" ]]; then
+    _fatal "gee requires ssh-agent to be running.  Fix and retry."
+  fi
+
+  if [[ ! -f "${SSHKEYFILE}" ]]; then
+    _cmd ssh-keygen -f "${SSHKEYFILE}" -t ed25519 -C "${USER}@enfabrica.net"
+  else
+    _info "Reusing existing ${SSHKEYFILE}"
+  fi
+  if [[ ! -f "${SSHKEYFILE}" ]]; then
+    _fatal "Key file ${SSHKEYFILE} was not created."
+  fi
+
+  # TODO(jonathan): Is this necessary?
+  cat <<EOT >> ~/.ssh/config
+# gee: block start
+Host *.github.com
+  IdentityFile ${SSHKEYFILE}
+# gee: block stop
+EOT
+
+  _cmd ssh-add "${SSHKEYFILE}"
+
+  _gh config set git_protocol ssh
+  # Override BROWSER because xdg-open opens links2 on some systems, and
+  # links2 doesn't support github.
+  BROWSER="bash -c \"echo Open this URL: \$*\" --" \
+    _gh auth login
+  # The user might have to open their web browser at this point:
+  read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+
+  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
+
+  _gh ssh-key list
+
+  if ! _check_ssh; then
+    _fatal "Something wrong wrong: still can't authenticate to github via ssh."
+  fi
+}
+
+function _register_help() {
+  # Registers help text about a gee command.
+  #
+  # Usage: _register_help <command> <shorthelp> <aliases...>
+  #
+  # The "long help" for this command must be presented to this
+  # function as stdin.
+  local COMMAND SHORT LONG ALIAS
+  COMMAND="$1"
+  shift
+  SHORT="$1"
+  shift
+  LONG="$(</dev/stdin)"
+  HELP+=( "${COMMAND}: ${SHORT}" )
+  local -a ALIASES
+  ALIASES=("$@")
+  if (( "${#ALIASES[@]}" > 0 )); then
+    LONG="Aliases: ${ALIASES[*]}${NEWLINE}${LONG}"
+  fi
+  LONGHELP+=(["${COMMAND}"]="${LONG}")
+  for ALIAS in "${ALIASES[@]}"; do
+    LONGHELP+=(["${ALIAS}"]="${LONG}")
+  done
+}
+
+function _get_parent_branch() {
+  # Return the name of the branch that is the parent of this
+  # branch.
+  local BRANCH
+  BRANCH="$1"
+  if [[ -z "${BRANCH}" ]]; then
+    BRANCH="$(_get_current_branch)"
+  fi
+
+  _read_parents_file
+  # BRANCH should be in the parents file.  Let's check there first:
+  if [[ -v PARENTS["${BRANCH}"] ]]; then
+    echo "${PARENTS[$BRANCH]}"
+    return
+  fi
+  _warn "Strangely, ${BRANCH} was missing from ${REPO_DIR}/.gee/parents."
+
+  # This shouldn't happen, but if it does, we can still make a pretty
+  # good guess by looking for the closest other branch:
+  local PARENT
+  PARENT="$(git show-branch | sed "s/].*//" | grep "\*" \
+    | grep -v "${BRANCH}" | head -n1 \
+    | perl -pe 'm/\[(.*?)(\^\d+)?(~\d+)?$/; $_ = $1;')"
+  if [[ -n "${PARENT}" ]]; then
+    echo "${PARENT}"
+    return
+  fi
+  _warn "Strangely, show-branch could identify a parent for ${BRANCH}."
+
+  # Nothing worked!  Default to "${MAIN}".
+  _set_main
+  echo "${MAIN}"
+}
+
+function _get_branch_rootdir() {
+  # Return the root directory of a git branch
+  local BRANCH_NAME BRDIR
+  BRANCH_NAME="$1"
+  if [[ -z "${BRANCH_NAME}" ]]; then
+	  BRANCH_NAME="$(_get_current_branch)"
+  fi
+  _set_main
+  BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list \
+    | grep -w "\[${BRANCH_NAME}\]" \
+    | awk '{print $1}' )"
+  if [[ -z "${BRDIR}" ]]; then
+    _die "_get_branch_rootdir failed for ${BRANCH_NAME}"
+  fi
+  echo "${BRDIR}"
+}
+
+function _confirm_default_no() {
+  local _PROMPT RESP
+  _PROMPT="$*"
+  if [[ -z "${_PROMPT}" ]]; then
+    _PROMPT="Confirm? (y/N)  "
+  fi
+  read -rp "${_PROMPT}" RESP
+  case "${RESP}" in
+    [Yy]*) return 0 ;;
+    *)     return 1 ;;
+  esac
+}
+
+function _confirm_or_exit() {
+  if ! _confirm_default_no "$@"; then
+    _fatal "Exiting."
+  fi
+}
+
+# "The developer wants to read this."
+function _debug() {
+  if (( "${DEBUG:-0}" > 0 )); then
+    printf >&2 "${_COLOR_DBG}DBG: %s${_COLOR_RST}\n" "$@"
+  fi
+}
+
+# "The user wants to read this."
+function _info() {
+  printf >&2 "${_COLOR_INFO}%s${_COLOR_RST}\n" "$@"
+}
+
+# Warn the user.  "The user should know this."
+function _warn() {
+  printf >&2 "${_COLOR_WARN}WARNING: %s${_COLOR_RST}\n" "$@"
+}
+
+# Use _fatal for user errors that don't require a stack dump.
+# "The user is going to be sad when they see this."
+function _fatal() {
+  printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}\n" "$@"
+  exit 1
+}
+
+# Use _die to report internal errors that require a stack dump.
+# "The user is going to be mad when they see this."
+function _die() {
+  printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}\n" "$@"
+  if [[ -z "${NOSTACK}" ]]; then
+    echo >&2 "Stack trace:"
+    local i
+    i=0
+    while caller "${i}"; do
+      (( i++ ))
+    done
+  fi
+  printf >&2 "Please notify: jonathan@enfabrica.net\n"
+  exit 1
+}
+
+function _cmd() {
+  local COLS ESCAPED_CMD
+  COLS="$(tput cols)"
+  ESCAPED_CMD="$( printf " %q" "$@")"
+  if [[ $DRYRUN -eq 0 ]]; then
+    if [[ $VERBOSE -gt 0 ]]; then
+      local C
+      C=$(( COLS - 4 ))
+      printf "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+    fi
+    set +e
+    "$@"
+    RC=$?
+    if [[ "${RC}" -ne 0 ]]; then
+      if [[ -z "${NOFAIL}" ]]; then
+        _die "Command failed with exit code ${RC}"
+      else
+        _warn "Command failed with exit code ${RC}"
+      fi
+    fi
+    set -e
+    return "${RC}"
+  else
+    local C
+    C=$(( COLS - 7 ))
+    printf "${_COLOR_CMD}DRYRUN:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+  fi
+}
+
+function _gh() {
+  _cmd "${GH}" "$@"
+}
+
+function _git() {
+  _cmd "${GIT}" "$@"
+}
+
+function _silent_cmd() {
+  local ESCAPED_CMD
+  ESCAPED_CMD="$( printf " %q" "$@")"
+  if [[ $DRYRUN -eq 0 ]]; then
+    set +e
+    "$@" > /dev/null
+    RC=$?
+    set -e
+    if [[ "${RC}" -ne 0 ]]; then
+      _info "CMD: ${ESCAPED_CMD}"
+      if [[ -z "${NOFAIL}" ]]; then
+        _fatal "Command failed with exit code ${RC}"
+      else
+        _warn "Command failed with exit code ${RC}"
+      fi
+    fi
+    return "${RC}"
+  fi
+}
+
+function _git_can_fail() {
+  NOFAIL=1 _git "$@"
+}
+
+function _install_tools() {
+  # If your dev image is missing the github-cli tool, this should install it.
+  if [ ! -x "${GH}" ]; then
+    local KRFILE; KRFILE="/usr/share/keyrings/githubcli-archive-keyring.gpg"
+    /usr/bin/curl -fsSL \
+      https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | sudo /usr/bin/apt-key --keyring "${KRFILE}" add -
+    echo "deb [arch=amd64 signed-by=${KRFILE}] https://cli.github.com/packages stable main" \
+      | sudo /usr/bin/tee /etc/apt/sources.list.d/githubcli-archive.list
+    sudo /usr/bin/apt update && sudo /usr/bin/apt install gh
+    if [ ! -x ${GH} ]; then
+      _fatal "Could not install gh."
+    fi
+  fi
+
+  if [ ! -x "${JQ}" ]; then
+    sudo /usr/bin/apt install jq
+    if [ ! -x "${JQ}" ]; then
+      _fatal "Could not install jq."
+    fi
+  fi
+}
+
+function _count_diffs() {
+  local BRANCH_A BRANCH_B DIFFS
+  BRANCH_A="$1"
+  BRANCH_B="$2"
+  "${GIT}" diff --name-only "${BRANCH_A}..${BRANCH_B}" | wc -l
+}
+
+function _branch_ahead_behind() {
+  # Report how many commits this branch is ahead/behind main.
+  local branch; branch="$1"
+  local obr="$2";
+  _read_parents_file
+  if [[ -z "${obr}" ]]; then
+    obr="$(_get_parent_branch "${branch}")"
+  fi
+  local -a counts
+  read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
+  if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
+    printf "%-20s: same as %s\n" "${branch}" "${obr}"
+  else
+    printf "%-20s: %s ahead, %s behind %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+  fi
+}
+
+function _remote_branch_exists() {
+  local REPO="$1"; shift
+  local BRANCH="$1"; shift
+  if [[ -z "${BRANCH}" ]]; then
+    _die "insufficient args"
+  fi
+  local OUTPUT
+  OUTPUT="$("${GIT}" ls-remote "${REPO}" "${BRANCH}")"
+  if [[ -z "${OUTPUT}" ]]; then
+    return "${FALSE}"
+  else
+    return "${TRUE}"
+  fi
+}
+
+function _rebase_child_onto_parent() {
+  # It turns out that I'm not smarter than a million git developers.  Let's not
+  # be too clever here.  It turns out that ordinary rebase already does a good
+  # job of handilng the scenario where a parent has been rebased.
+  local CHILD="$1"
+  local PARENT="$2"
+  local MB=""
+
+  # check if child branch has an outstanding PR:
+  local -a OPEN_PRS
+  mapfile -t OPEN_PRS < <( _list_open_pr_numbers )
+  if (( "${#OPEN_PRS[@]}" )); then
+    _warn "Open PR exists for branch ${CHILD}: ${OPEN_PRS[*]}"
+    _info "If a reviewer is already looking at your PR, rebasing this branch" \
+          "will break the reviewer's ability to see what has changed when" \
+          "you commit new changes.  Are you sure you want to do this?"
+    if ! _confirm_default_no ; then
+      _warn "Skipped update of branch ${CHILD}."
+      return 0
+    fi
+  fi
+
+  _set_main
+  if [[ "${PARENT}" == "${MAIN}" ]]; then
+    # ensure main gets updated from remote upstream main.
+    _update_main
+  fi
+
+  MB=$("${GIT}" merge-base "${PARENT}" "${CHILD}")  
+  local -a COMMITS
+  mapfile -t COMMITS < <(
+    "${GIT}" log --oneline "${MB}..${CHILD}" )
+  _info "" "Rebasing ${CHILD} onto ${PARENT} (${#COMMITS[@]} commits since ${MB}))."
+  _debug "Will apply these commits:" \
+        "${COMMITS[@]}"
+
+  _checkout_or_die "${CHILD}"
+  _silent_cmd "${GIT}" tag -f "${CHILD}.REBASE_BACKUP"
+  local CHILD_DIR
+  CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
+  cd "${CHILD_DIR}"
+  if ! _git_can_fail rebase --autostash "${PARENT}" "${CHILD}"; then
+    _warn "Rebase operation had conflicts."
+    # TODO(jonathan): make a fancy prompt for this subshell.
+    export PROMPT_COMMAND="git status; _gee_rebase_prompt"
+    local BOLD RST
+    BOLD="$(tput bold)"
+    RST="$(tput sgr0)"
+    export GEE_HELP=""
+    GEE_HELP+="You are interactively rebasing a branch with conflicts.${NEWLINE}"
+    GEE_HELP+="  To see where conflicts are: ${BOLD}git status${RST}${NEWLINE}"
+    GEE_HELP+="  To run a 3-way merge tool: ${BOLD}git mergetool${RST}${NEWLINE}"
+    GEE_HELP+="  To mark a file as fixed: ${BOLD}git add <file>${RST}${NEWLINE}"
+    GEE_HELP+="  To continue rebase after fixing: ${BOLD}git rebase --continue${RST}${NEWLINE}"
+    GEE_HELP+="  To give up and go back to original state: ${BOLD}git rebase --abort${RST}${NEWLINE}"
+    GEE_HELP+="  To return to gee: ${BOLD}exit${RST}${NEWLINE}"
+    export GEE_STATUS="GEE-REBASE-SUBSHELL: "
+    export PS1=""
+    export -f __git_eread
+    export -f _gee_rebase_prompt
+    _git status
+    _info "Entering subshell: resolve conflicts or abort and then exit."
+    bash --noprofile --norc
+
+    # TODO(jonathan): consider not letting the user escape until rebase either
+    # succeeds or is aborted:
+    # while _is_rebase_in_progress; do
+    #   if _is_rebase_in_progress; then
+    #     # attempt to continue
+    #     _git_can_fail rebase --continue
+    #   fi
+    #   if _is_rebase_in_progress; then
+    #     _info "Entering subshell: resolve conflicts or abort and then exit."
+    #     bash --noprofile --norc
+    #   fi
+    # done
+
+    if _is_rebase_in_progress; then
+      local STATUS
+      mapfile -t STATUS < <( "${GIT}" status );
+      _warn "${STATUS[@]}"
+      _warn "Merge conflict in branch ${CHILD}, must be manually resolved."
+      _fatal "Exited without resolving rebase conflict."
+    fi
+
+    if _git_can_fail merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
+      _info "Rebase merge confirmed."
+    else
+      _warn "Rebase did not succeed, aborting."
+      return 1
+    fi
+  fi
+
+  _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
+  _git push --quiet -u origin "+${CHILD}"
+}
+
+function _is_rebase_in_progress() {
+  local G
+  G="$(git rev-parse --git-dir)"
+  if compgen -G "${G}/rebase*" > /dev/null; then
+    return 0  # 0=true
+  else
+    return 1  # 1=false
+  fi
+}
+
+function _checkout_or_die() {
+  # we want to check out a branch.  Maybe there is already a
+  # worktree.  Maybe we need to create a worktree.  Let's do
+  # whatever is necessary.
+  local BRANCH BRDIR
+  BRANCH="$1"; shift
+  # Do we already have a worktree?
+  BRDIR="${REPO_DIR}/${BRANCH}"
+  if ! [[ -d "${BRDIR}" ]]; then
+    _git worktree add "${REPO_DIR}/${BRANCH}"
+    BRDIR="$(_get_branch_rootdir "${BRANCH}")"
+    _info "Created ${BRDIR}"
+  fi
+  cd "${BRDIR}"
+  local CUR_BRANCH
+  CUR_BRANCH="$(_get_current_branch)"
+  if [[ "${CUR_BRANCH}" != "${BRANCH}" ]]; then
+    _warn "${BRDIR} pointed to branch ${CUR_BRANCH} instead of ${BRANCH}."
+    _git checkout "${BRANCH}"
+    _info "... Fixed."
+  fi
+}
+
+function _in_gee_repo() {
+  # Return "main" if we are outside of a gee repo:
+  local D
+  D="$(/usr/bin/pwd)"
+  if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+ ]]; then
+    return "${TRUE}"
+  else
+    return "${FALSE}"
+  fi
+}
+
+function _get_current_branch() {
+  # Outside of a gee repo, current branch is always "main":
+  _set_main
+  if ! _in_gee_repo; then
+    echo "${MAIN}"
+    return
+  fi
+  # Inside of a gee repo, use git rev-parse:
+  local CB
+  CB="$("${GIT}" rev-parse --abbrev-ref HEAD)"
+  if [[ -z "${CB}" ]]; then
+    _die "Could not get current branch in directory $(pwd)"
+  fi
+  echo "${CB}"
+}
+
+function _update_main() {
+  # Merge from upstream/main into main:
+  _set_main
+  _checkout_or_die "${MAIN}"
+  _git fetch upstream
+  _git pull --rebase upstream "${MAIN}"
+  if [[ "$(_count_diffs "upstream/${MAIN}" "${MAIN}")" != 0 ]]; then
+    _fatal "git pull operation failed."
+  fi
+  _git push --quiet -u origin "${MAIN}"
+}
+
+# The parents file keeps track of two things:
+#   - parent: the branch that spawned the current branch
+#   - mb: the commit id of the mergebase with the parent branch
+#
+# mb is updated every time a branch is rebased, and is used to keep track of
+# the last mergebase of a child branch, even if the parent branch gets rebased.
+# This allows us to defer rebase operations of children, even after parents get
+# rebased.
+#
+# TODO(jonathan): is there a better way to track this information?
+# TODO(jonathan): maybe we don't need to track MB after all?
+
+# Lazy-load parents metadata:
+function _read_parents_file() {
+  if (( "${#PARENTS[@]}" )); then
+    # PARENTS is already loaded.
+    return
+  fi
+  local PATH="${REPO_DIR}/.gee/parents"
+  local KEY VALUE
+  if [[ ! -d "${REPO_DIR}/.gee" ]]; then
+    /usr/bin/mkdir "${REPO_DIR}/.gee"
+  fi
+  if [[ ! -f "${PATH}" ]]; then
+    /usr/bin/touch "${PATH}"
+  fi
+  local BRANCH PARENT MB 
+  while read -r BRANCH PARENT MB; do
+    PARENTS["${BRANCH}"]="${PARENT}"
+    MERGEBASES["${BRANCH}"]="${MERGEBASE}"
+  done < "${PATH}"
+}
+
+function _write_parents_file() {
+  if (( "${#PARENTS[@]}" == 0 )); then
+    # PARENTS isn't loaded, so don't write it.
+    return
+  fi
+  local PATH="${REPO_DIR}/.gee/parents"
+  if [[ ! -d "${REPO_DIR}/.gee" ]]; then
+    /usr/bin/mkdir "${REPO_DIR}/.gee"
+  fi
+  local KEY VALUE MB
+  for KEY in "${!PARENTS[@]}"; do
+    VALUE="${PARENTS["$KEY"]}"
+    MB="${MERGEBASES["$KEY"]}"
+    printf "%q %q %q\n" "${KEY}" "${VALUE}" "${MB}"
+  done > "${PATH}"
+}
+
+# Ensure we always save the PARENTS file, even if we die:
+function _cleanup() {
+  _write_parents_file
+}
+trap _cleanup EXIT
+
+function _join() {
+  # Usage:  _join <delimiter> <elements...>
+  # Example: _join "," "${ARRAY[@]}"
+  local DELIM="$1"; shift
+  local TEXT="$1"; shift
+  TEXT+="$(printf "${DELIM}%s" "$@")"
+  echo "${TEXT}"
+}
+
+function _get_pull_requests() {
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  # "gh pr view" arguments are similar to "gh pr create" but not identical.
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+  "${GH}" pr view \
+    --repo="${UPSTREAM}/${REPO}" "${FROM_BRANCH}" \
+    --json "state,number,title" \
+    --jq '[.state, .number, .title] | join(" ")' \
+    || /bin/true
+}
+
+function _list_open_pr_numbers() {
+  _get_pull_requests | grep ^OPEN | awk '{print $2}'
+}
+
+function _list_merged_pr_numbers() {
+  _get_pull_requests | grep ^MERGED | awk '{print $2}'
+}
+
+function _gh_pr_view() {
+  local CURRENT_BRANCH;
+  CURRENT_BRANCH="$(_get_current_branch)"
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+  _gh pr view --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
+}
+
+##########################################################################
+# init command
+##########################################################################
+
+_register_help "init" "initialize a new git workspace" <<'EOT'
+Usage: gee init [<repo>]
+
+Arguments:
+
+   repo: Specifies which enfabrica repository to check out.
+         If repo is not specified, `internal` is used by default.
+
+`gee init` creates a new gee-controlled workspace in the user's home directory.
+The directory `~/gee/<repo>/main` will be created and populated, and all
+other branches will be checked out into `~/gee/<repo>/<branch>`.
+EOT
+
+function gee__init() {
+  local R
+  R="${1:-"${REPO}"}"
+  REPO="${R}"
+  REPO_DIR="${GEE_DIR}/${REPO}/"
+  if (( "${TESTMODE}" )); then
+    REPO_DIR="${HOME}/testgee/${REPO}/"
+  fi
+
+  # ensure all tools are installed.
+  _install_tools
+
+  if ! _check_ssh; then
+    _warn "Cannot connect to github over ssh."
+    _confirm_or_exit "Would you like to set up ssh access now? (y/N)  "
+    _ssh_enroll
+  fi
+
+  gee__hello
+
+  # _set_main -- won't work without a cloned repo.
+  MAIN=main
+  _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
+
+  if [[ -d "${REPO_DIR}/${MAIN}" ]]; then
+    _fatal \
+      "Initialized workspace already exists in ${REPO_DIR}"
+  fi
+  _cmd mkdir -p "${REPO_DIR}/.gee"
+  local URL UPSTREAM_URL
+  URL="git@github.com:${GHUSER}/${REPO}.git"
+  UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
+
+  # Make fork if needed
+  if ! "${GH}" repo list | grep "^${GHUSER}/${REPO}" > /dev/null; then
+    _gh repo fork --clone=false "${UPSTREAM}/${REPO}"
+  fi
+  _git clone "${URL}" "${REPO_DIR}/${MAIN}"
+  cd "${REPO_DIR}/${MAIN}"
+  _git remote add upstream "${UPSTREAM_URL}"
+  _git fetch upstream
+  _git remote -v
+ 
+  # Fix the name of the main branch to match the actual branch name: 
+  local OLD_MAIN="${MAIN}"
+  unset MAIN
+  _set_main
+  cd "${REPO_DIR}"
+  mv "${OLD_MAIN}" "${MAIN}"
+  cd "${MAIN}"
+
+  _info "Created ${REPO_DIR}/${MAIN}"
+}
+
+##########################################################################
+# make_branch command
+##########################################################################
+
+_register_help "make_branch" \
+  "Create a new child branch based on the current branch." \
+  "mkbr" \
+  <<'EOT'
+Usage: gee make_branch <branch-name> [<commit-ish>]
+Aliases: mkbr
+
+Create a new branch based on the current branch.  The new branch will be located in the
+directory:
+  ~/gee/<repo>/<branch-name>
+
+If <commit-ish> is provided, sets the HEAD of the newly created branch to that
+revision.
+EOT
+
+function gee__mkbr() { gee__make_branch "$@"; }
+function gee__make_branch() {
+  _check_cwd
+  local BRNAME SHA CURRENT_BRANCH
+  # TODO(jonathan): Let the user name the branch to branch from.
+  BRNAME="$1"; shift
+  SHA="$1"
+
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if [[ -z "${CURRENT_BRANCH}" ]]; then
+    _fatal "Not in a git branch directory."
+  fi
+
+  local -a ARGS=( worktree add "${REPO_DIR}/${BRNAME}" )
+  if [[ -n "${SHA}" ]]; then
+    ARGS+=( "${SHA}" )
+  fi
+  _git "${ARGS[@]}"
+  _info "Created ${REPO_DIR}/${BRNAME}"
+
+  _read_parents_file
+  PARENTS["${BRNAME}"]="${CURRENT_BRANCH}"
+  _write_parents_file
+
+  # If the user has created a branch whose name matches an
+  # existing branch in their existing repo, pull those changes
+  # into this branch.
+  if _remote_branch_exists origin "${BRNAME}"; then
+    _git pull origin "${BRNAME}"
+    _info "Pulled in changes from origin/${BRNAME}"
+  fi
+}
+
+##########################################################################
+# log command
+##########################################################################
+
+_register_help "log" \
+  "Log of commits since parent branch." <<'EOT'
+Usage: gee log
+EOT
+
+function gee__log() {
+  _check_cwd
+  local -a ARGS=( "$@" )
+  local -a RANGE=()
+  _egrep_array RANGE '^\w*\.\.\.\w*$' "$@"
+  if (( ${#RANGE[@]} == 0 )); then
+    local PARENT_BRANCH CURRENT_BRANCH
+    _read_parents_file
+    PARENT_BRANCH="$(_get_parent_branch)"
+    CURRENT_BRANCH="$(_get_current_branch)"
+    ARGS+=("${PARENT_BRANCH}...${CURRENT_BRANCH}")
+  fi
+  local -a PRETTYLOG=(
+      log
+      --color
+      --graph 
+      "--pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'"
+      --abbrev-commit
+  )
+  _set_alias_if_missing logp "${PRETTYLOG[*]}"
+  _git logp "${ARGS[@]}"
+}
+
+##########################################################################
+# diff command
+##########################################################################
+
+_register_help "diff" \
+  "Differences in this branch." <<'EOT'
+Usage: gee diff [<files...>]
+
+Shows changes since this branch diverged from it's parent branch.
+
+If <files...> are omited, defaults to all files.
+EOT
+
+function gee__diff() {
+  _check_cwd
+  local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE
+  _read_parents_file
+  PARENT_BRANCH="$(_get_parent_branch)"
+  CURRENT_BRANCH="$(_get_current_branch)"
+  MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
+  if (( "$#" )); then
+    _git_can_fail diff "${PARENT_BRANCH}...${CURRENT_BRANCH}" -- "$@"
+  else
+    _git_can_fail diff "${PARENT_BRANCH}...${CURRENT_BRANCH}"
+  fi
+}
+
+## DEPRECATED: we always squash when submitting a PR, this command adds a lot
+## of complexity but very little value.
+## TODO(jonathan): delete this after we are sure we don't need it.
+## ##########################################################################
+## # squash command
+## ##########################################################################
+## 
+## _register_help "squash" "Squash all commits in this branch." <<'EOT'
+## Usage: gee squash
+## 
+## Squash all commits in this branch to a single commit.
+## EOT
+## 
+## function gee__squash() {
+##   _check_cwd
+##   # Note: there is no longer any need to squash before sending out for review,
+##   # as we always merge with "gh pr merge --squash".
+##   # TODO(jonathan): Deprecate this?
+##   local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE TMPFILE NUM_COMMITS
+##   _read_parents_file
+##   PARENT_BRANCH="$(_get_parent_branch)"
+##   CURRENT_BRANCH="$(_get_current_branch)"
+##   MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
+##   NUM_COMMITS="$("${GIT}" log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}" | /usr/bin/wc -l)"
+##   _info "Current branch: ${CURRENT_BRANCH}"
+##   _info "Parent branch: ${PARENT_BRANCH}"
+##   _info "Merge base: ${MERGE_BASE}"
+##   _info "Number of commits outstanding: ${NUM_COMMITS}"
+##   if [[ "${NUM_COMMITS}" -lt 2 ]]; then
+##     _fatal "${NUM_COMMITS} commits outstanding.  Nothing to squash."
+##   fi
+##   TMPFILE="$(mktemp)"
+##   (
+##     echo "# Comment lines will be removed."
+##     echo "# One line summary:"
+##     echo "[REPLACE THIS LINE]"
+##     echo ""
+##     echo "# Details:"
+##     echo ""
+##     echo "Files:"
+##     "${GIT}" diff --name-only "${MERGE_BASE}" | sed 's/^/    /'
+##     echo ""
+##     echo "# Previous commit messages:"
+##     echo "#"
+##     "${GIT}" log --format=medium "${PARENT_BRANCH}..${CURRENT_BRANCH}" | \
+##       sed 's/^/# /'
+##     echo ""
+##   ) >"${TMPFILE}"
+##   "${EDITOR:-vim}" "${TMPFILE}"
+##   sed -i "/^#/d" "${TMPFILE}"
+##   perl -p -i -e 's/(^\s*\n){2,}/\n/gmso' "${TMPFILE}"
+##   if grep -q "^\[REPLACE" "${TMPFILE}"; then
+##     echo "You must replace the summary line."
+##     echo "Commit message saved here: ${TMPFILE}"
+##     _fatal Aborted.
+##   fi
+##   head -n 1 "${TMPFILE}"
+##   _confirm_or_exit \
+##     "Are you sure you want to squash ${NUM_COMMITS} commits? (y/N)  "
+## 
+##   _git reset --soft "${MERGE_BASE}"
+##   _git add --all
+##   _git commit -a -F "${TMPFILE}"
+##   rm "${TMPFILE}"
+##   _git push -u origin "+${CURRENT_BRANCH}"  # update remote branch too
+##   _git log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}"
+## }
+
+##########################################################################
+# update command
+##########################################################################
+
+_register_help "update" \
+  "integrate changes from parent into this branch." \
+  "up" \
+  <<'EOT'
+Usage: gee update
+
+"gee update" attempts to rebase this branch atop its parent branch.
+
+If a merge conflict occurs, "gee" drops the user into a sub-shell where the
+user can either resolve the conflicts and continue, or abort the entire
+operation.
+EOT
+
+function gee__up() { gee__update "$@"; }
+function gee__update() {
+  _check_cwd
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if [[ -z "${CURRENT_BRANCH}" ]]; then
+    _die "Not in a git branch directory."
+  fi
+
+  _read_parents_file
+
+  local PREVIOUS_B
+  PREVIOUS_B="$(_get_parent_branch "${CURRENT_BRANCH}")"
+
+  _set_main
+  if [[ "${PREVIOUS_B}" == "${MAIN}" ]]; then
+    # only update main branch if we're merging from it.
+    _update_main
+  fi
+
+  _checkout_or_die "${CURRENT_BRANCH}"
+  # Rebase from PREVIOUS_B onto B
+  _rebase_child_onto_parent "${CURRENT_BRANCH}" "${PREVIOUS_B}"
+  _info Done.
+}
+
+##########################################################################
+# rupdate command
+##########################################################################
+
+_register_help "rupdate" \
+  "Recursively integrate changes from parents into this branch." \
+  "rup" <<'EOT'
+Usage: gee rupdate
+
+"gee rupdate" recursively rebases each branch onto it's parent.
+
+If a merge conflict occurs, "gee" drops the user into a sub-shell where the
+user can either resolve the conflicts and continue, or abort the entire
+operation.  Note that the merge conflict can be in a parent of the current
+branch.
+EOT
+
+function gee__rup() { gee__rupdate "$@"; }
+function gee__rupdate() {
+  _check_cwd
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if [[ -z "${CURRENT_BRANCH}" ]]; then
+    _die "Not in a git branch directory."
+  fi
+
+
+  _read_parents_file
+
+  # Build a chain of branches to update.
+  _set_main
+  local -a CHAIN=()
+  local B
+  B="${CURRENT_BRANCH}"
+  while [[ "${B}" != "${MAIN}" ]]; do
+    CHAIN=( "${B}" "${CHAIN[@]}" )
+    B="$(_get_parent_branch "${B}")"
+    if (( "${#CHAIN[@]}" > 50 )); then
+      _info "CHAIN: ${CHAIN[*]}"
+      _die "Branch chain is longer than 50, that can't be right."
+    fi
+  done
+
+  local PREVIOUS_B
+  PREVIOUS_B="${MAIN}"
+  for B in "${CHAIN[@]}"; do
+    _checkout_or_die "${B}"
+
+    # Check if we're rebasing onto a branch with uncommitted changes:
+    if [[ "${B}" != "${CURRENT_BRANCH}" ]]; then
+      local -a UNCOMMITTED
+      mapfile -t UNCOMMITTED < <( "${GIT}" status --short -uall )
+      if (( "${#UNCOMMITTED[@]}" )); then
+        _warn "Branch ${B} contains ${#UNCOMMITTED[@]} uncommitted changes:" \
+          "${UNCOMMITTED[@]}" \
+          "Child branches won't get uncommitted changes."
+      fi
+      # rebase always uses --autostash, so we'll proceed.
+    fi
+
+    # Rebase from PREVIOUS_B onto B
+    _rebase_child_onto_parent "${B}" "${PREVIOUS_B}"
+    PREVIOUS_B="${B}"
+  done
+  _info Done.
+}
+
+##########################################################################
+# update_all command
+##########################################################################
+
+_register_help "update_all" \
+  "Update all branches."  \
+  "up_all" <<'EOT'
+Usage: gee update_all
+
+"gee update_all" updates all local branches (in the correct order),
+by rebasing child branches onto parent branches.
+
+If a merge conflict occurs, "gee" drops the user into a sub-shell where the
+user can either resolve the conflicts and continue, or abort the entire
+operation.  Note that the merge conflict can be in a parent of the current
+branch.
+EOT
+
+function _order_branches() {
+  local B="$1"
+  echo "$B a ${CHAIN[*]}"
+  if _contains_element "${B}" "${CHAIN[@]}"; then return; fi
+  if [[ "${B}" == "${MAIN}" ]]; then return; fi
+  _order_branches "$(_get_parent_branch "${B}")"
+  if (( "${#CHAIN[@]}" > 500 )); then
+    _info "CHAIN: ${CHAIN[*]}"
+    _die "_order_branches recursed too deeply."
+  fi
+  CHAIN+=( "${B}" )
+}
+
+function gee__up_all() { gee__update_all "$@"; }
+function gee__update_all() {
+  _check_cwd
+  local -a CONFLICTS=()
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if [[ -z "${CURRENT_BRANCH}" ]]; then
+    _die "Not in a git branch directory."
+  fi
+
+  # Merge from upstream/main into main:
+  _update_main
+
+  _read_parents_file
+
+  # Build an ordered list of branches to update
+  local -a ALL_BRANCHES=()
+  mapfile -t ALL_BRANCHES < <( "${GIT}" branch --format="%(refname:short)" )
+  local -a CHAIN=()
+  local B
+  for B in "${ALL_BRANCHES[@]}"; do
+    _order_branches "${B}"
+  done
+  _info "Updating ${CHAIN[*]}"
+
+  local PARENT
+  for B in "${CHAIN[@]}"; do
+    _checkout_or_die "${B}"
+
+    # Check if we're rebasing onto a branch with uncommitted changes:
+    if [[ "${B}" != "${CURRENT_BRANCH}" ]]; then
+      local -a UNCOMMITTED
+      mapfile -t UNCOMMITTED < <( "${GIT}" status --short -uall )
+      if (( "${#UNCOMMITTED[@]}" )); then
+        _warn "Branch ${B} contains ${#UNCOMMITTED[@]} uncommitted changes:" \
+          "${UNCOMMITTED[@]}" \
+          "Child branches won't get uncommitted changes."
+      fi
+      # rebase always uses --autostash, so we'll proceed.
+    fi
+
+    # Rebase from PREVIOUS_B onto B
+    PARENT="$(_get_parent_branch "${B}")"
+    if ! _rebase_child_onto_parent "${B}" "${PARENT}"; then
+      CONFLICTS+=( "${B}" )
+    fi
+  done
+  if (( "${#CONFLICTS[@]}" )); then
+    _fatal "The following branches had merge conflicts:" "${CONFLICTS[@]}"
+  fi
+  _info Done.
+}
+
+##########################################################################
+# whatsout command
+##########################################################################
+
+_register_help "whatsout" \
+  "List locally changed files in this branch." <<'EOT'
+Usage: gee whatsout
+
+Reports which files differ from main.
+EOT
+
+function gee__whatsout() {
+  _check_cwd
+  local BRANCH MERGEBASE
+  BRANCH="$(_get_current_branch)"
+  _set_main
+  MERGEBASE="$(git merge-base "origin/${MAIN}" "${BRANCH}")"
+  _git diff --name-only "${MERGEBASE}" 
+}
+
+##########################################################################
+# lsbranches command
+##########################################################################
+# TODO(jonathan): maybe display a tree?
+# TODO(jonathan): maybe display this suggestion from Jacob Adelmann:
+# branchp = !git for-each-ref \
+#   --sort=committerdate refs/heads/ \
+#   --format='%(HEAD) %(color:yellow)%(refname:short)%(color:reset) - %(color:red)%(objectname:short)%(color:reset) - %(contents:subject) - %(authorname) (%(color:green)%(committerdate:relative)%(color:reset))'
+
+_register_help "lsbranches" \
+  "List information about each branch." \
+  "lsb" "lsbr" <<'EOT'
+Usage: gee lsbranches
+
+List information about all branches.
+
+NOTE: the output of this command is likely to change in the near future.
+EOT
+
+function gee__lsb() { gee__lsbranches "$@"; }
+function gee__lsbr() { gee__lsbranches "$@"; }
+function gee__lsbranches() {
+  _check_cwd
+  local -a branches;
+  mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
+  local br
+  _set_main
+  for br in "${branches[@]}"; do
+    if [[ "${br}" != "${MAIN}" ]]; then
+      _branch_ahead_behind "${br}"
+    fi
+  done
+}
+
+##########################################################################
+# get_parent command
+##########################################################################
+
+_register_help "get_parent" \
+  "Which branch is this branch branched from?" <<'EOT'
+Usage: gee get_parent
+EOT
+
+function gee__get_parent() {
+  _check_cwd
+  local BRANCH
+  BRANCH="${1:-$(_get_current_branch)}"
+  _read_parents_file
+  PARENT="$(_get_parent_branch "${BRANCH}")"
+  echo "${PARENT} is the parent branch of ${BRANCH}"
+}
+
+##########################################################################
+# set_parent command
+##########################################################################
+
+_register_help "set_parent" \
+  "Set another branch as parent of this branch." <<'EOT'
+Usage: gee set_parent <parent-branch>
+
+Gee keeps track of which branch each branch is branched from.  You can
+change the parent of the current branch with this command, but be sure
+to do a "gee update" operation afterwards.
+EOT
+
+function gee__set_parent() {
+  _check_cwd
+  local BRANCH PARENT 
+  BRANCH="$(_get_current_branch)"
+  PARENT="$1"
+  if [[ -z "${PARENT}" ]]; then
+    _fatal "Must specify a parent branch."
+  fi
+  _read_parents_file
+  PARENTS["${BRANCH}"]="$1"
+  _write_parents_file
+  echo "${PARENT} is the parent branch of ${BRANCH}"
+}
+
+##########################################################################
+# commit command
+##########################################################################
+
+_register_help "commit" \
+  "Commit all changes in this branch" \
+  "push" "c" <<'EOT'
+Usage: gee commit [<git commit options>]
+
+Commits all outstanding changes (to the local branch, not the upstream branch),
+and uploads that commit to the user's private github repo.  "commit" can be
+used to checkpoint and back up work in progress.
+
+Example:
+
+    gee commit -m "Added \"gee commit\" command."
+EOT
+
+function gee__push() { gee__commit "$@"; }
+function gee__c() { gee__commit "$@"; }
+function gee__commit() {
+  _check_cwd
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  _set_main
+  if [[ "${CURRENT_BRANCH}" == "${MAIN}" ]]; then
+    _info "You should use \"gee make_branch\" to create a feature branch"
+    _info "and commit your work there, rather than committing work to the"
+    _info "${MAIN} branch."
+    _fatal "Commit to ${MAIN} branch denied."
+  fi
+  BRANCH_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+  _debug "${BRANCH_DIR}" "${HOME}"
+  if [[ "${BRANCH_DIR}" != "${HOME}" ]]; then
+    _git add --all
+  else
+    echo "Skipped \"git add --all\" because branch is home dir."
+  fi
+  NOFAIL=1 NOSTACK=1 _git commit "$@"
+  #if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+  #  _git pull origin "${CURRENT_BRANCH}"
+  #fi
+  # We always push upstream so that users have a backup in case they lose their
+  # laptop:
+  _git push -u origin "${CURRENT_BRANCH}"
+}
+
+##########################################################################
+# pr_list command
+##########################################################################
+_register_help "pr_list" \
+  "List outstanding PRs" \
+  "lspr" "list_pr" "prls" <<'EOT'
+Usage: gee pr_list
+
+Lists PRs that you created, and that are assigned to you.
+EOT
+function gee__lspr() { gee__pr_list "$@"; }
+function gee__list_pr() { gee__pr_list "$@"; }
+function gee__prls() { gee__pr_list "$@"; }
+function gee__pr_list() {
+  _info "PRs associated with this branch:"
+  _get_pull_requests
+  echo ""
+
+  _info "PRs authored by you:"
+  _gh --repo "${UPSTREAM}/${REPO}" pr list --author "@me"
+  echo ""
+
+  _info "PRs assigned to you:"
+  _gh --repo "${UPSTREAM}/${REPO}" pr list --assignee "@me"
+}
+
+##########################################################################
+# edit_pr command
+##########################################################################
+
+_register_help "pr_edit" \
+  "Edit an existing pull request." \
+  "edpr" "pred" "edit_pr" <<'EOT'
+Usage: gee edit_pr <args>
+
+Edit an outstanding pull request.
+
+All arguments are passed to "gh pr edit".
+EOT
+
+function gee__edpr() { gee__pr_edit "$@"; }
+function gee__pred() { gee__pr_edit "$@"; }
+function gee__edit_pr() { gee__pr_edit "$@"; }
+function gee__pr_edit() { 
+  _check_cwd
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+
+  if ! _gh_pr_view > /dev/null; then
+    _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
+  fi
+
+  # The same view options also work for pr edit:
+  _gh pr edit --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}" "$@"
+}
+
+##########################################################################
+# pr_debug command
+#
+# gh api for querying pull requests is pretty wonky, this is a temporary
+# command used to get some visibility into the API.
+##########################################################################
+
+function gee__pr_debug() {
+  _check_cwd
+  local -a PRS=()
+  mapfile -t PRS < <( _list_open_pr_numbers )
+  _info "Open pull requests: ${PRS[*]}"
+  mapfile -t PRS < <( _list_merged_pr_numbers )
+  _info "Merged pull requests: ${PRS[*]}"
+}
+
+##########################################################################
+# view_pr command
+##########################################################################
+
+_register_help "pr_view" \
+  "View an existing pull request." \
+  "view_pr" <<'EOT'
+Usage: gee pr_view
+
+View an outstanding pull request.
+EOT
+
+function gee__view_pr() { gee__pr_view "$@"; }
+function gee__pr_view() {
+  _check_cwd
+  if ! _gh_pr_view; then
+    _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
+  fi
+}
+
+##########################################################################
+# make_pr command
+##########################################################################
+
+_register_help "pr_make" \
+  "Creates a pull request from this branch." \
+  "mail" "send" "make_pr" "mkpr" "prmk" <<'EOT'
+Usage: gee make_pr <gh-options>
+
+Creates a new pull request from this branch.
+
+Uses the same options as "gh pr create".
+EOT
+
+function gee__mail() { gee__pr_make "$@"; }
+function gee__send() { gee__pr_make "$@"; }
+function gee__mkpr() { gee__pr_make "$@"; }
+function gee__prmk() { gee__pr_make "$@"; }
+function gee__make_pr() { gee__pr_make "$@"; }
+function gee__pr_make() {
+  _check_cwd
+  local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
+  _git fetch upstream
+  declare -A PARENTS
+  _read_parents_file
+  _set_main
+  DEST_BRANCH="upstream/${MAIN}"
+  CURRENT_BRANCH="$(_get_current_branch)"
+  MERGE_BASE="$("${GIT}" merge-base "${DEST_BRANCH}" "${CURRENT_BRANCH}")"
+  _info "Current branch: ${CURRENT_BRANCH}"
+  _info "Destination branch: ${DEST_BRANCH}"
+  _info "Merge base: ${MERGE_BASE}"
+
+  local -a OPEN_PRS
+  mapfile -t OPEN_PRS < <( _list_open_pr_numbers )
+  if (( "${#OPEN_PRS[@]}" )); then
+    _info "Open PR exists: ${OPEN_PRS[*]}" \
+          "Use \"gee commit\" to update existing PR."
+    _fatal Aborted.
+  fi
+
+  local UNCOMMITTED
+  UNCOMMITTED="$("${GIT}" status --short -uall | wc -l)"
+  if [[ "${UNCOMMITTED}" -gt 0 ]]; then
+    echo "Branch contains ${UNCOMMITTED} uncommitted changes:"
+    _git status --short -uall
+    echo "Run \"gee commit\" and try again."
+    _fatal Aborted.
+  fi
+
+  NUM_COMMITS="$("${GIT}" log --oneline "${DEST_BRANCH}..${CURRENT_BRANCH}" | wc -l)"
+  if [[ "${NUM_COMMITS}" -eq 0 ]]; then
+    _debug "command: ${GIT} log --oneline ${DEST_BRANCH}..${CURRENT_BRANCH}"
+    _fatal "No changes in this branch."
+  fi
+
+  # Note: there is no longer any need to squash before sending out for review,
+  # as we always merge with "gh pr merge --squash".
+
+  # Note: we must label origin as the upstream branch for "gh pr create" to
+  # automatically pick the branch to use for the PR request.
+  _git push -u origin "${CURRENT_BRANCH}"
+  # gh pr is arcane and confusing, but this works:
+  #  -R specifies the repo that we are pushing changes into.
+  #  -H specifies the branch that contains outstanding commits,
+  #     formatted username:branchname.
+  #  -B specifies the branch we want to merge to, defaults to ${UPSTREAM}:${MAIN}
+  local -a PR_ARGS
+  PR_ARGS+=( --repo "${UPSTREAM}/${REPO}" -H "${GHUSER}:${CURRENT_BRANCH}" )
+  PR_ARGS+=( "$@" )
+  _gh pr create "${PR_ARGS[@]}"
+  # _gh pr checks  # not sure why this is problematic.
+  _gh_pr_view
+  local NUM_REVIEWERS
+  NUM_REVIEWERS="$(gh pr view \
+    --repo "${UPSTREAM}/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" \
+    --json reviewRequests --jq '.reviewRequests | length')"
+  if (( NUM_REVIEWERS == 0 )); then
+    _warn "Don't forget to add reviewers!"
+  fi
+}
+  
+
+##########################################################################
+# submit_pr command
+##########################################################################
+
+_register_help "pr_submit" \
+  "Merge the approved PR into the parent branch." \
+  "merge" "submit_pr" <<'EOT'
+Usage: gee submit_pr
+
+Merges an approved pull request.
+EOT
+function gee__submit_pr() { gee__pr_submit "$@"; }
+function gee__merge() { gee__pr_submit "$@"; }
+function gee__pr_submit() {
+  _check_cwd
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+    _die "Remote branch ${CURRENT_BRANCH} does not exist."
+  fi
+  local DIFFS
+  DIFFS="$("${GIT}" diff --name-only \
+    "origin/${CURRENT_BRANCH}..${CURRENT_BRANCH}" | wc -l)"
+  if (( "${DIFFS}" != 0 )); then
+    _fatal "Will not submit: current branch has uncommitted changes."
+  fi
+
+  # Get some information about this PR before we merge.
+  _set_main
+  local MERGEBASE
+  MERGEBASE="$( "${GIT}" merge-base "upstream/${MAIN}" "origin/${CURRENT_BRANCH}" )"
+  _info "Merge base: ${MERGEBASE}"
+  local -a COMMITS
+  mapfile -t COMMITS < <( "${GIT}" log --pretty=oneline "${MERGEBASE}"..HEAD | awk '{print $1}' )
+  local -a FILES
+  mapfile -t FILES < <( "${GIT}" diff --name-only "${MERGEBASE}"..HEAD )
+  _info "PR contains ${#COMMITS[@]} commits, changing ${#FILES[@]} files."
+
+  _confirm_or_exit "About to merge.  Confirm? (y/N)  "
+ 
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+  _gh pr merge --squash --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
+  _git fetch upstream
+
+  # Confirm that the merge was successful:
+  mapfile -t DIFFS < <( "${GIT}" diff --name-only \
+      "upstream/${MAIN}..${CURRENT_BRANCH}" -- "${FILES[@]}" )
+  if (( "${#DIFFS[@]}" != 0 )); then
+    # TODO(jonathan): should this be a warning?
+    _fatal "Uh oh!  Even after merge, these files have local changes:" \
+      "  ${DIFFS[*]}"
+  fi
+   
+  # Reset this to be the same as ${MAIN}:
+  _git checkout -B "${CURRENT_BRANCH}" "upstream/${MAIN}"
+  _git push -u origin "+${CURRENT_BRANCH}"
+}
+
+##########################################################################
+# remove_branch command
+##########################################################################
+
+_register_help "remove_branch" "Remove a branch." "rmbr" <<'EOT'
+Usage: gee remove_branch <branch-name>
+
+Removes a branch and it's associated directory.
+EOT
+
+function gee__rmbr() { gee__remove_branch "$@"; }
+function gee__remove_branch() { 
+  _check_cwd
+  local BR="$1"; shift
+  if [[ -z "${BR}" ]]; then
+    _die "Must specify a branch name to remove."
+  fi
+  _checkout_or_die "${BR}"
+  _set_main
+  local DIFFS
+  DIFFS="$(${GIT} diff --name-only "${MAIN}..${BR}" )"
+  if [[ -n "${DIFFS}" ]]; then
+    echo "The following files have local changes relative to ${MAIN}:"
+    echo "  ${DIFFS}"
+    _confirm_or_exit "Are you sure you want to force-remove branch ${BR}? (y/N) "
+  fi
+  local SHA
+  SHA="$("${GIT}" reflog | head -n 1 | awk '{print $1}' )"
+
+  _checkout_or_die "${MAIN}"
+  _git worktree remove "${BR}"
+  _git branch -D "${BR}"
+  NOFAIL=1 _git push origin --delete "${BR}"
+
+  # Remove branch from parents file, and fix up children's parents.
+  local -a PARENTS
+  _read_parents_file
+  local PREV_PARENT
+  PREV_PARENT="${PARENTS["${BR}"]}"
+  if [[ -z "${PREV_PARENT}" ]]; then PREV_PARENT="${MAIN}"; fi
+  unset PARENTS["${BR}"]
+  local K
+  for K in "${!PARENTS[@]}"; do
+    if [[ "${PARENTS["$K"]}" == "${BR}" ]]; then
+      PARENTS["$K"]="${PREV_PARENT}"
+    fi
+  done
+  _write_parents_file
+
+  _info "Deleted ${BR}.  To undo: gee make_branch ${BR} ${SHA}"
+}
+
+##########################################################################
+# fix command
+##########################################################################
+
+_register_help "fix" "Run automatic code formatters over changed files only." <<'EOT'
+Usage: gee fix
+
+Runs a set of language formatting tools over open files in this branch.
+
+Note: "gee fix" (which fixes code in a branch) is different from "gee repair"
+(which checks the gee directory for errors and repairs them).
+EOT
+
+function gee__fix() {
+  _check_cwd
+  local BRANCH
+  BRANCH="$(_get_current_branch)"
+  local BDIR MERGEBASE B
+  _set_main
+  MERGEBASE="$(git merge-base "origin/${MAIN}" "${BRANCH}")"
+  BDIR="$(_get_branch_rootdir)"
+  cd "${BDIR}"
+
+  local -a FILES=()
+  local FNAME
+  while read -r FNAME; do
+    FILES+=( "$(readlink -f "${FNAME}")" )
+  done < <( "${GIT}" diff --name-only "${MERGEBASE}" )
+
+  # buildifier:
+  local -a BZL_FILES=()
+  for FNAME in "${FILES[@]}"; do
+    B="$(basename "${FNAME}")"
+    if [[ "${B}" =~ \.bzl$|^BUILD|WORKSPACE ]]; then
+      BZL_FILES+=( "${FNAME}" )
+    fi
+  done
+  if (( "${#BZL_FILES[@]}" )); then
+    _info "buildifier: Fixing ${BZL_FILES[*]}"
+    _cmd /usr/bin/bazelisk run \
+        --noshow_progress --noshow_loading_progress --logging=0 \
+        --ui_event_filters=-info,-debug \
+        @com_github_bazelbuild_buildtools//buildifier:buildifier \
+        -- \
+        -v --add_tables "${BDIR}/bazel/buildifier.tables.json" \
+        "${BZL_FILES[@]}"
+  fi
+
+  # clang-format:
+  local -a CLANG_FILES=()
+  for FNAME in "${FILES[@]}"; do
+    if [[ "${FNAME}" =~ \.h$|\.c$|\.cc$|\.cpp ]]; then
+      CLANG_FILES+=( "${FNAME}" )
+    fi
+  done
+  if (( "${#CLANG_FILES[@]}" )); then
+    _info "clang-format: Fixing ${CLANG_FILES[*]}"
+    _cmd /usr/bin/clang-format-10 --verbose --style=Google -i "${CLANG_FILES[@]}"
+  fi
+
+  # TODO(jonathan): Add more formatters.
+}
+
+##########################################################################
+# gcd command
+##########################################################################
+# TODO(jonathan): add an option to make a branch if missing.
+# TODO(jonathan): make this work from outside a gee branch.
+# TODO(jonathan): add g4d-like functionality such as gcd branch/some/path
+#                 and gcd branch@? to find last-edited directory.
+# TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
+
+_register_help "gcd" "Find the current directory in a different branch." <<'EOT'
+Usage: gcd <branch>
+
+The "gcd" command is not meant to be used directly, but is instead designed to
+be called from the "gcd" bash function.
+
+To import this function into your environment, add to your .bashrc
+file:
+
+    source ~/gee/enkit/master/scripts/gee_aliases.bash
+
+Or for a quick version:
+
+    function gcd() { cd "$(gee gcd "$@")"; }
+
+EOT
+
+function gee__gcd() {
+  local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH
+  BRANCH="$1"
+  if [[ -z "${BRANCH}" ]]; then
+    BRANCH="$(_get_current_branch)"
+  fi
+
+  if _in_gee_repo; then
+    CURRENT_BRANCH="$(_get_current_branch)"
+    if [[ -z "${CURRENT_BRANCH}" ]]; then
+      _die "Failed to get name of current branch."
+    fi
+    CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+    ABS_PATH="$(readlink -f .)"
+    REL_PATH="${ABS_PATH#"${CURRENT_ROOT}"}"
+    REL_PATH="${REL_PATH#\/}"
+  else
+    REL_PATH=""
+  fi
+ 
+  # check whether BRANCH exists: 
+  _set_main
+  local BRDIR
+  if ! BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list | grep -w "\[${BRANCH}\]")"; then
+    _fatal "Branch \"${BRANCH}\" not in worktree.  Maybe use make_branch?"
+  fi
+  if [[ -z "${BRDIR}" ]]; then
+    _fatal "Branch \"${BRANCH}\" not in worktree.  Maybe use make_branch?"
+  fi
+  NEW_ROOT="$(_get_branch_rootdir "${BRANCH}")"
+  if [[ -z "${NEW_ROOT}" ]]; then
+    _die "Could not find root of branch ${BRANCH}.  Very strange!"
+  fi
+  echo "${NEW_ROOT}/${REL_PATH}"
+}
+
+##########################################################################
+# hello command
+##########################################################################
+
+_register_help "hello" "Check connectivity to github." <<'EOT'
+Usage: gee hello
+
+Verifies that the user can communicate with github using ssh.
+
+For more information:
+  https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh
+EOT
+
+function gee__hello() {
+  _get_ghuser_via_ssh
+  if [[ -z "${_QUIET}" ]]; then
+    _info "Hello, ${GHUSER}.  Connectivity to github is AOK."
+  fi
+}
+
+##########################################################################
+# create_ssh_key command
+##########################################################################
+
+_register_help "create_ssh_key" "Create and enroll an ssh key." <<'EOT'
+Usage: gee create_ssh_key
+
+This command will attempt to re-enroll you for ssh access to github.
+
+Normally, "gee init" will ensure that you have ssh access.  This command
+is only available if something else has gone wrong requiring that keys
+be updated.
+EOT
+
+function gee__create_ssh_key() {
+  _ssh_enroll
+  gee__hello
+}
+
+##########################################################################
+# repair command
+##########################################################################
+
+_register_help "repair" "Repair your gee workspace." <<'EOT'
+Usage: gee repair <command>
+
+Gee tries to control some metadata and attempts to file away some of the
+sharp edges from git.  Sometimes, bypassing gee to use git directly can
+cause some of gee's metadata to become stale.  This command fixes up
+any missing or incorrect metadata.
+EOT
+
+function gee__repair() {
+  # Make sure each worklist directory is pointing at the right branch
+  ORIG_DIR="$(pwd)"
+  local DIR BRANCH OBRANCH
+  for DIR in "${REPO_DIR}"*; do
+    BRANCH="$(basename "${DIR}")"
+    cd "${DIR}"
+    OBRANCH="$(_get_current_branch)"
+    if [[ "${OBRANCH}" != "${BRANCH}" ]]; then
+      _warn "${BRDIR} pointed to branch ${OBRANCH} instead of ${BRANCH}."
+      _git checkout "${BRANCH}"
+      _info "... Fixed."
+    fi
+  done
+
+  # Make sure each branch has a worklist directory
+  local -a ALL_BRANCHES=()
+  mapfile -t ALL_BRANCHES < <( "${GIT}" branch --format="%(refname:short)" )
+  for BRANCH  in "${ALL_BRANCHES[@]}"; do
+    echo "co ${BRANCH}"
+    _checkout_or_die "${BRANCH}"
+  done
+
+  # Repair the PARENT file if it gets corrupted or removed, by attempting to
+  # guess the parent for each branch.
+  _read_parents_file
+  local DIRTY=0
+  _set_main
+  for BRANCH  in "${ALL_BRANCHES[@]}"; do
+    if [[ "${BRANCH}" == "${MAIN}" ]]; then continue; fi
+    if [[ -z "${PARENTS["${BRANCH}"]}" ]]; then
+      _warn "${BRANCH} is missing \"parent\" metadata."
+      _checkout_or_die "${BRANCH}"
+      # Try to guess which branch is this branch's parent:
+      # TODO(jonathan): There is almost certainly a better way using rev-list.
+      local PARENT
+      PARENT="$(git show-branch | sed "s/].*//" | grep "\*" \
+        | grep -v -w "${BRANCH}" | head -n1 \
+        | perl -pe 'm/\[([a-zA-Z0-9_-]+?)(\^\d+)?(~\d+)?$/; $_ = $1;' )"
+      if [[ -z "${PARENT}" ]]; then
+        PARENT="${MAIN}"
+      fi
+      PARENTS["${BRANCH}"]="${PARENT}"
+      DIRTY=1
+      _info "Guessed that ${PARENT} is the parent of ${BRANCH}"
+    fi
+  done
+  if (( DIRTY )); then
+    _write_parents_file
+  fi
+
+  _info "Done."
+}
+
+##########################################################################
+# help command
+##########################################################################
+
+_register_help "help" "Print more help about a command." <<'EOT'
+Usage: gee help <command>
+EOT
+
+function gee__help() {
+  (
+    if (( "$#" == 0 )) || [[ "$1" == "usage" ]]; then
+      echo "${USAGE}"
+      echo ""
+      echo "## Commands:"
+      echo ""
+      for h in "${HELP[@]}"; do
+        echo "  $h"
+      done | sort
+    fi
+    if [[ "$1" == "usage" ]]; then shift; fi
+    while (( "$#" )); do
+      local COMMAND="$1"
+      shift
+      if [ "${LONGHELP[${COMMAND}]+_}" ]; then
+        echo "${LONGHELP[${COMMAND}]}"
+      else
+        echo "${COMMAND}: there is no help for this."
+      fi
+    done
+  ) | "${PAGER}"
+}
+
+##########################################################################
+# main
+##########################################################################
+
+function main() {
+  if (( "$#" == 0 )); then
+    gee__help usage
+    exit 0
+  fi
+  local cmdname="$1"; shift
+  if type "gee__${cmdname}" >/dev/null 2>&1; then
+    _startup_checks
+    "gee__${cmdname}" "$@"
+  else
+    echo "Unknown command ${cmdname}"
+    echo ""
+    gee__help usage
+    exit 2
+  fi
+}
+
+main "$@"
