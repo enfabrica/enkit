@@ -837,7 +837,10 @@ function _rebase_child_onto_parent() {
     export -f _gee_rebase_prompt
     _git status
     _info "Entering subshell: resolve conflicts or abort and then exit."
+    set +e
     bash --noprofile --norc
+    _info "Subshell terminated with exit code $?."
+    set -e
 
     # TODO(jonathan): consider not letting the user escape until rebase either
     # succeeds or is aborted:
