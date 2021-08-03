@@ -171,7 +171,7 @@ _COLOR_INFO="$(tput setaf 1)"
 
 function __git_eread ()
 {
-	test -r "$1" && IFS=$'\r\n' read "$2" <"$1"
+	test -r "$1" && IFS=$'\r\n' read -r "$2" <"$1"
 }
 
 # This function might be improved in the future for users to use as a
@@ -206,7 +206,7 @@ function _gee_rebase_prompt() {
 	local inside_gitdir="${repo_info##*$'\n'}"
 	local g="${repo_info%$'\n'*}"
 
-	if [ "true" = "$inside_worktree" ] &&
+	if [ "true" = "$inside_gitdir" ] &&
 	   [ -n "${GIT_PS1_HIDE_IF_PWD_IGNORED-}" ] &&
 	   [ "$(git config --bool bash.hideIfPwdIgnored)" != "false" ] &&
 	   git check-ignore -q .
@@ -299,7 +299,7 @@ function _egrep_array() {
   local OUTPUT="$1"
   local REGEX="$2"
   unset "${OUTPUT}"
-  OUTPUT+=()
+  declare -a "${OUTPUT}"
   readarray -t "${OUTPUT}" < <( printf "%s\n" "$@" | grep -E "${REGEX}" )
 }
 
@@ -532,7 +532,7 @@ function _register_help() {
   LONG="$(</dev/stdin)"
   HELP+=( "${COMMAND}: ${SHORT}" )
   local -a ALIASES
-  IFS=$'\n' ALIASES=($(sort <<<"$*")); unset IFS
+  ALIASES=("$@")
   if (( "${#ALIASES[@]}" > 0 )); then
     LONG="Aliases: ${ALIASES[*]}${NEWLINE}${LONG}"
   fi
