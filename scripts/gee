@@ -980,7 +980,7 @@ function _read_parents_file() {
 function _write_parents_file() {
   if (( "${#PARENTS[@]}" == 0 )); then
     # PARENTS isn't loaded, so don't write it.
-    return
+    return 0
   fi
   local PATH="${REPO_DIR}/.gee/parents"
   if [[ ! -d "${REPO_DIR}/.gee" ]]; then
@@ -994,9 +994,14 @@ function _write_parents_file() {
   done > "${PATH}"
 }
 
-# Ensure we always save the PARENTS file, even if we die:
+ABNORMAL=1
 function _cleanup() {
+  # Ensure we always save the PARENTS file, even if we die:
   _write_parents_file
+  # Warn the user if we terminated abnormally (for example, if set -e fired).
+  if (( ${ABNORMAL} == 1 )); then
+    _warn "Abnormal termination."
+  fi
 }
 trap _cleanup EXIT
 
@@ -1787,6 +1792,12 @@ function gee__pr_make() {
     _fatal "No changes in this branch."
   fi
 
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+
   # Note: there is no longer any need to squash before sending out for review,
   # as we always merge with "gh pr merge --squash".
 
@@ -2160,6 +2171,60 @@ function gee__repair() {
 }
 
 ##########################################################################
+# bash_setup command
+##########################################################################
+
+_register_help "bash_setup" "Configure the bash environment for gee." \
+<<'EOT'
+Usage: eval "$(enkit gee bash_setup)"
+
+The "bash_setup" command emits a set of bash aliases and functions that
+streamline the use of gee.  The following functions are exported:
+
+  "gee": invokes "enkit gee $@"
+  "gcd": rapidly change between gee branch directories.
+EOT
+
+function gee__bash_setup() {
+  cat <<'END_OF_BASH_SETUP'
+function gee() { 
+  if [[ -x ~/bin/gee ]]; then 
+    # use locally installed gee if available.
+    ~/bin/gee "$@";
+  else
+    # use the enkit copy of gee.
+    enkit gee "$@";
+  fi
+}
+
+function gcd() {
+  if (( "$#" == 0 )); then
+    cat <<'EOT'
+Usage: gcd <branch-name>
+
+"gcd" changes the current working directory to the same root-relative directory
+in another branch.
+
+For example:
+
+  cd ~/gee/enkit/branch1/foo/bar
+  # now in ~/gee/enkit/branch1/foo/bar
+  gcd branch2
+  # now in ~/gee/enkit/branch2/foo/bar
+
+EOT
+    return 1
+  fi
+
+  local D="$(gee gcd "$@")"
+  if [[ -n "${D}" ]]; then
+    cd "${D}"
+  fi
+}
+END_OF_BASH_SETUP
+}
+
+##########################################################################
 # help command
 ##########################################################################
 
@@ -2204,10 +2269,12 @@ function main() {
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     _startup_checks
     "gee__${cmdname}" "$@"
+    ABNORMAL=0
   else
     echo "Unknown command ${cmdname}"
     echo ""
     gee__help usage
+    ABNORMAL=0
     exit 2
   fi
 }
