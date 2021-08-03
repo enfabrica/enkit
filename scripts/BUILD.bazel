@@ -1,4 +1,5 @@
 load("@//bazel/astore:defs.bzl", "astore_upload")
+load("@enkit//bazel/enkit:defs.bzl", "enkit_package")
 load("@//bazel:shellutils.bzl", "bats_test", "shellcheck_test")
 
 sh_library(
@@ -27,6 +28,44 @@ astore_upload(
     dir = "test",
     targets = [
         ":gee-script",
+    ],
+    visibility = [
+        "//developer:__subpackages__",
+    ],
+)
+
+# Package all the docker management scripts in a tarball usable by enkit.
+enkit_package(
+    name = "gee-beta",
+    srcs = [ "gee" ],
+    # what does this do?  image = "//developer:deploy-image",
+    manifest = "manifest.yaml",
+
+    # Use override if you want to push a package referring to an existing docker image.
+    # If you are building the docker image and pushing it at the same time that the package is built,
+    # there is no reason to manually provide a sha, it will be automatically computed.
+    #override = "sha256:7ec0f7d6cc239e3f195786bd7d81e562acf575b81950955e08df3a6f9a10bd0d",
+    visibility = [
+        "//developer:__subpackages__",
+    ],
+)
+
+# Use:
+#   bazelisk run :deploy
+#
+# To upload the package to astore. Note that once uploaded, it's hash will change.
+#
+# IMPORTANT: unless you upload the enkit configuration file at the same time, enkit
+# will start rejecting the .tar.gz, as the hash will be invalid.
+#
+# TODO: have the configuration file refer to a specific UID of an uploaded file, so that
+#       even if a new version is uploaded, enkit keeps working by loading the specific
+#       version indicated in the configuration file.
+astore_upload(
+    name = "deploy",
+    dir = "config/enkit/extensions",
+    targets = [
+        ":gee-beta-package.tar.gz",
     ],
     visibility = [
         "//developer:__subpackages__",

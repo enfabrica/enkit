@@ -1,0 +1,9 @@
+command:
+- name: gee
+  short: Runs gee, a git/gh wrapper.
+  long: |-
+    gee is a wrapper for the git/gh version control tools that
+    implements a simple, standard workflow.
+  implementation:
+    local:
+    - gee

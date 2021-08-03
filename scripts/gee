@@ -3386,8 +3386,8 @@ function gcd() {
     cat <<'EOT'
 Usage: gcd <branch-name>
 
-"gcd" changes the current working directory to the same relative directory in
-another branch.
+"gcd" changes the current working directory to the same root-relative directory
+in another branch.
 
 For example:
 
