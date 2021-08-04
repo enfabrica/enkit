@@ -1,0 +1,8 @@
+# use docker-compose up -d to start the server with the correct settings.
+version: "3.3"
+services:
+  monitor:
+    network_mode: "host"
+    image: "gcr.io/devops-284019/infra/monitor:monitor-server"
+    user: "nobody"
+    restart: "unless-stopped"

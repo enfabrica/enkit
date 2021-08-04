@@ -110,3 +110,52 @@ func verifyRSAEncryption(key *rsa.PrivateKey) error {
 
 	return nil
 }
+
+func TestCertTTL(t *testing.T) {
+	_, sourcePrivKey, err := kcerts.GenerateED25519()
+	assert.Nil(t, err)
+	toBeSigned, _, err := kcerts.GenerateED25519()
+	assert.Nil(t, err)
+	// code of your test
+	principalList := []string{"foo", "bar", "baz"}
+	cert, err := kcerts.SignPublicKey(sourcePrivKey, 1, principalList, 5*time.Hour, toBeSigned)
+	certTotalTTL := kcerts.SSHCertTotalTTL(cert)
+	certRemainingTTL := kcerts.SSHCertRemainingTTL(cert)
+
+	assert.Equal(t, certTotalTTL, 5*time.Hour)
+	assert.Greater(t, int(certTotalTTL), 0)
+
+	assert.Less(t, certRemainingTTL.Seconds(), certTotalTTL.Seconds())
+	assert.Greater(t, int(certRemainingTTL), 0)
+
+	infiniteCert := &ssh.Certificate{
+		ValidBefore: ssh.CertTimeInfinity,
+		ValidAfter:  0,
+	}
+	infTTL := kcerts.SSHCertTotalTTL(infiniteCert)
+	assert.Equal(t, infTTL, kcerts.MaxCertTimeDuration)
+
+	nowTime := time.Now().Unix()
+	badCerts := []ssh.Certificate{
+		{
+			ValidAfter: uint64(nowTime + 20),
+			ValidBefore:  50,
+		},
+		{
+			ValidAfter:  uint64(nowTime + 50),
+			ValidBefore: uint64(nowTime + 20),
+		},
+		{
+			ValidAfter:  ssh.CertTimeInfinity,
+			ValidBefore: 0,
+		},
+		{
+			ValidAfter:  ssh.CertTimeInfinity,
+			ValidBefore: ssh.CertTimeInfinity,
+		},
+	}
+	for _, badCert := range badCerts {
+		bttl := kcerts.SSHCertTotalTTL(&badCert)
+		assert.Equalf(t, kcerts.InValidCertTimeDuration, bttl, "%v was not equal to 0", badCert)
+	}
+}

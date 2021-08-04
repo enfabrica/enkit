@@ -18,6 +18,31 @@ go_library(
 
 go_binary(
     name = "monitor",
+    data = [":probes.toml"],
     embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+load("@io_bazel_rules_docker//container:container.bzl", "container_push")
+
+go_image(
+    name = "monitor-image",
+    base = "@golang_base//image",
+    binary = ":monitor",
+    data = [
+      ":probes.toml",
+    ],
+    args = ["$(location :probes.toml)"],
+    visibility = ["//visibility:public"],
+)
+
+container_push(
+    name = "upload-monitor-image",
+    format = "Docker",
+    image = ":monitor-image",
+    registry = "gcr.io",
+    repository = "devops-284019/infra/monitor",
+    tag = "monitor-server",
     visibility = ["//visibility:public"],
 )
