@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"fmt"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/types"
@@ -73,7 +72,6 @@ func ResourceRole(d *DummyService) (*rego.Function, rego.Builtin2) {
 			Memoize: true,
 			Decl:    types.NewFunction(types.Args(types.S, types.S), types.S),
 		}, func(bctx rego.BuiltinContext, op1 *ast.Term, op2 *ast.Term) (*ast.Term, error) {
-			fmt.Println("here")
 			var userName string
 			if err := ast.As(op1.Value, &userName); err != nil {
 				return nil, err

@@ -14,5 +14,7 @@ var (
 	ActionSSH    = Action("ssh")
 )
 
-
+type GroupService interface {
+	UserGroups(username string) ([]string, error)
+}
 

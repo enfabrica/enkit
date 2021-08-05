@@ -40,7 +40,6 @@ func (as *AuthService) Do(ctx context.Context, req *AuthRequest) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(res)
 	if len(res) == 0 {
 		return ErrorOnlyAccessSelfOwned
 	}
