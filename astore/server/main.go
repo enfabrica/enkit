@@ -234,7 +234,6 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 
 		data, handled, err := authWeb.PerformAuth(w, r, copts...)
 		if err != nil {
-			fmt.Println("FINALIZED")
 			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
 			log.Printf("ERROR - could not perform token exchange - %s", err)
 			return
