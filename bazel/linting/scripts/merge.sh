@@ -1,28 +1,22 @@
 #!/bin/bash
-
-echo "here" >> "meow.txt"
-echo "hello world"
-ls
-echo "$OUT"
 if [[ "$STRATEGY" == "ALL" ]]; then
-  sort -ub "$@" >> "$OUT"
+  echo "here"
+  awk '!x[$0]++' "$@" >> "$OUT"
+  exit 0;
 fi
-
-
-line=$(grep STABLE_GIT_MASTER_DIFF "$1" | cut -d " "  -f2-)
-# shellcheck disable=SC2162
-read -a arr <<< "$line"
-for i in "${arr[@]}"
-do
-   echo "$i"
-done
-
-#
-#line=$(grep STABLE_GIT_MASTER_DIFF "$1" | cut -d " "  -f2-)
-#for i in "${changed_files[@]}"
-#do
-#  if [[ $i == *.go ]]; then
-#    go_package=$(dirname $i)
-#    $GOLANGCI_LINT run "$go_package" --verbose --issues-exit-code 0 2>&1 | sed 's/.*'enkit'//' | tee ${LINT_OUTPUT}
-#  fi
-#done
+if [[ "$STRATEGY" == "git" ]]; then
+  GIT_FILE_PATH="$(find "$PWD" -name "bin")"
+#  combining them doesn't work, have 0 idea why
+  REAL_GIT="$(find "$GIT_FILE_PATH" -name "$GIT_FILE")"
+  if [ -z "$GIT_FILE_PATH" ]; then
+      echo "No Git changes found"
+      touch "$OUT"
+      exit 0;
+  fi
+  x="$(cat "$REAL_GIT")"
+  readarray -t arrs <<< "$x"
+  echo "running ${arrs[*]}"
+  HELLO="$(awk '!x[$0]++' "$@")"
+  grep "${arrs[*]}" >> "$OUT"
+  echo "hello" >> "$OUT"
+fi

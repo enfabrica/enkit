@@ -27,8 +27,6 @@ dep_aspect = aspect(
 )
 
 def _go_lint_impl(ctx):
-    lib = ctx.attr.go_libraries[0]
-    library_name = lib.label.name
     go = go_context(ctx)
     inputs = []
     for l in ctx.attr.deps:
@@ -38,13 +36,15 @@ def _go_lint_impl(ctx):
         inputs.extend(lib.files.to_list())
 
     outfiles = []
-    for target in ctx.attr.targets:
+    for index, target in enumerate(ctx.attr.targets):
+        lib = ctx.attr.go_libraries[index]
+        library_name = lib.label.name
         outfile = ctx.actions.declare_file(target + ".txt")
         outfiles.append(outfile)
         ctx.actions.run(
             inputs = depset(inputs),
             outputs = [outfile],
-            progress_message = "Running linter into",
+            progress_message = "Running Linter on GOPATH " + target,
             executable = ctx.files._lint_script[0],
             tools = [go.go, ctx.files._golangci_lint[0]],
             env = {
@@ -57,7 +57,7 @@ def _go_lint_impl(ctx):
             },
         )
     return DefaultInfo(
-        files = depset(outfiles),
+        files = depset(outfiles + ctx.files.deps),
     )
 
 go_lint = rule(
@@ -125,9 +125,19 @@ def lint(go_libs):
     )
 
 def _check_lint(ctx):
-    outfile = ctx.actions.declare_file("meow.txt")
+    """
+
+    """
+    out_name = ""
+    if ctx.attr.strategy.lower() == "all":
+        out_name = "lint_all.txt"
+    elif ctx.attr.strategy.lower() == "git":
+        out_name = "lint_git.txt"
+    else:
+        ctx.fail("Strategy is not valid")
+
+    outfile = ctx.actions.declare_file(out_name)
     args = ctx.actions.args()
-    args.add(outfile.path)
     for f in ctx.files.lint:
         args.add(f.path)
 
@@ -141,7 +151,7 @@ def _check_lint(ctx):
         env = {
             "OUT": outfile.path,
             "STRATEGY": ctx.attr.strategy,
-            "GIT_FILE": "",
+            "GIT_FILE": ctx.attr.git_file,
         },
     )
     return DefaultInfo(
@@ -160,6 +170,9 @@ parse_lint = rule(
         ),
         "strategy": attr.string(
             default = "ALL",
+        ),
+        "git_file": attr.string(
+            default = "git.txt",
         ),
     },
 )

@@ -45,4 +45,4 @@ echo STABLE_GIT_MASTER_AUTHOR "$(git show -s --format='%ae' "$GIT_MASTER_SHA")"
 echo STABLE_GIT_CHANGES "$(git status --porcelain |paste -sd "," -)"
 
 # Spits out the files changed between this branch's remote and the default master branch. Space separated.
-echo STABLE_GIT_MASTER_DIFF "$(git --no-pager diff --name-only "$GIT_ORIGIN_BRANCH"...origin/master | tr '\r\n' ' ')"
+echo STABLE_GIT_MASTER_DIFF "$(git --no-pager diff --name-only "$GIT_ORIGIN_BRANCH"..."$(git rev-parse --abbrev-ref HEAD)" | tr '\r\n' ' ')"

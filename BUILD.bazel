@@ -53,3 +53,9 @@ parse_lint(
     name = "lint-all",
     lint = ":lint_go",
 )
+
+parse_lint(
+    name = "lint-git",
+    lint = ":lint_go",
+    strategy = "git",
+)
