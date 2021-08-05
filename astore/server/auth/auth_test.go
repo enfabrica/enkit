@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 	"io/ioutil"
+	"time"
 )
 
 func TestInvalid(t *testing.T) {
@@ -55,7 +56,7 @@ func Authenticate(t *testing.T, rng *rand.Rand, server *Server, pubkey []byte) *
 	server.FeedToken(*key, oa)
 
 	treq := &auth.TokenRequest{
-		Url: aresp.Url,
+		Url:       aresp.Url,
 		Publickey: pubkey,
 	}
 	tresp, err := server.Token(context.Background(), treq)
@@ -151,7 +152,10 @@ func getAgent(t *testing.T) (*kcerts.SSHAgent, error) {
 
 func TestCAAuthRSA(t *testing.T) {
 	rng := rand.New(srand.Source)
-	server, err := New(rng, WithAuthURL("static-prefix"), WithCA([]byte(rsaTestCert)))
+	server, err := New(rng,
+		WithAuthURL("static-prefix"),
+		WithCA([]byte(rsaTestCert)),
+		WithUserCertTimeLimit(24*time.Hour))
 	assert.Nil(t, err, err)
 	assert.NotNil(t, server)
 
@@ -168,7 +172,7 @@ func TestCAAuthRSA(t *testing.T) {
 	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
 	pubParsed, _, _, _, err := ssh.ParseAuthorizedKey(tresp.Cert)
-	err = agent.AddCertificates(privKey, pubParsed, 60)
+	err = agent.AddCertificates(privKey, pubParsed)
 	assert.Nil(t, err, err)
 
 	pubKey, privKey, err = kcerts.GenerateED25519()
@@ -179,7 +183,7 @@ func TestCAAuthRSA(t *testing.T) {
 	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
 	pubParsed, _, _, _, err = ssh.ParseAuthorizedKey(tresp.Cert)
-	err = agent.AddCertificates(privKey, pubParsed, 60)
+	err = agent.AddCertificates(privKey, pubParsed)
 	assert.Nil(t, err, err)
 
 	pubKey, privKey, err = kcerts.GenerateRSA()
@@ -191,7 +195,7 @@ func TestCAAuthRSA(t *testing.T) {
 	assert.Less(t, 128, len(tresp.Capublickey), "%v", tresp.Capublickey)
 
 	pubParsed, _, _, _, err = ssh.ParseAuthorizedKey(tresp.Cert)
-	err = agent.AddCertificates(privKey, pubParsed, 60)
+	err = agent.AddCertificates(privKey, pubParsed)
 	assert.Nil(t, err, err)
 }
 

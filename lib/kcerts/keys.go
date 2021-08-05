@@ -37,7 +37,7 @@ func (e ed25519Provider) SSHPemEncode() ([]byte, error) {
 }
 
 func (e ed25519Provider) Raw() interface{} {
-	return e.rawKey
+	return &e.rawKey
 }
 
 func (e ed25519Provider) SigningAlgo() string {

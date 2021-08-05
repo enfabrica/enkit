@@ -2,23 +2,12 @@
 
 workspace(
     name = "enkit",
-    managed_directories = {"@npm": ["node_modules"]},
+    managed_directories = {"@npm": ["ui/node_modules"]},
 )
 
 load("//bazel:deps.bzl", "enkit_deps")
 
 enkit_deps()
-
-load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk")
-
-# https://golang.org/dl/?mode=json
-go_download_sdk(
-    name = "go_sdk",
-    sdks = {
-        "linux_amd64": ("go1.14.9.linux-amd64.tar.gz", "f0d26ff572c72c9823ae752d3c81819a81a60c753201f51f89637482531c110a"),
-        "darwin_amd64": ("go1.14.9.darwin-amd64.tar.gz", "957926fd883998f3e212ccd422d4282be957204f89eefcf13ee2fdb730e1bab7"),
-    },
-)
 
 load("//bazel:init.bzl", "enkit_init")
 
@@ -44,6 +33,7 @@ http_archive(
     strip_prefix = "rules_docker-0.14.4",
     urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.14.4/rules_docker-v0.14.4.tar.gz"],
 )
+
 load(
     "@io_bazel_rules_docker//repositories:repositories.bzl",
     container_repositories = "repositories",
@@ -58,7 +48,9 @@ container_deps()
 load("@io_bazel_rules_docker//repositories:pip_repositories.bzl", "pip_deps")
 
 pip_deps()
+
 load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
+
 container_pull(
     name = "golang_base",
     digest = "sha256:75f63d4edd703030d4312dc7528a349ca34d48bec7bd754652b2d47e5a0b7873",
@@ -71,8 +63,8 @@ load("@build_bazel_rules_nodejs//:index.bzl", "yarn_install")
 yarn_install(
     # Name this npm so that Bazel Label references look like @npm//package
     name = "npm",
-    package_json = "//ui/ptunnel:package.json",
-    yarn_lock = "//ui/ptunnel:yarn.lock",
+    package_json = "//ui:package.json",
+    yarn_lock = "//ui:yarn.lock",
 )
 
 http_archive(

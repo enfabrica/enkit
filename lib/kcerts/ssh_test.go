@@ -88,7 +88,7 @@ func TestSSHAgent_Principals(t *testing.T) {
 	assert.Nil(t, err)
 	a, err := kcerts.FindSSHAgent(localCache, l)
 	assert.Nil(t, err)
-	err = a.AddCertificates(toBeSignedPrivateKey, cert, uint32((1 * time.Minute).Seconds()))
+	err = a.AddCertificates(toBeSignedPrivateKey, cert)
 	assert.Nil(t, err)
 	res, err := a.Principals()
 	assert.Nil(t, err)

@@ -1,27 +1,16 @@
 package main
 
 import (
+	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
-	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/spf13/cobra"
+	"github.com/enfabrica/enkit/machinist/mserver"
 )
 
-func Start(oauthFlags *oauth.RedirectorFlags) error {
-	return nil
-}
-
 func main() {
-	command := &cobra.Command{
-		Use:   "controller",
-		Short: "controller is a server in charge of controlling workers",
-	}
+	base := client.DefaultBaseFlags("astore", "enkit")
 
-	oauthFlags := oauth.DefaultRedirectorFlags()
-	oauthFlags.Register(&kcobra.FlagSet{command.Flags()}, "")
+	root := mserver.NewCommand(base)
+	set, populator, runner := kcobra.Runner(root, nil, base.IdentityErrorHandler("astore login"))
 
-	command.RunE = func(cmd *cobra.Command, args []string) error {
-		return Start(oauthFlags)
-	}
-
-	kcobra.Run(command)
+	base.Run(set, populator, runner)
 }

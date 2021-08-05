@@ -135,23 +135,80 @@ KernelModulesInfo = provider(
     },
 )
 
+def _import_kernel_bundle_dep(name, ki, d, inputs, extra_symbols):
+    """Extracts information necessary to import a kernel bundle.
+
+    A kernel bundle represents a single kernel module compiled for
+    multiple kernels. Given a bundle d, a rule named name, trying
+    to compile a module for kernel ki, updates inputs and extra_symbols
+    with the correct list of dependencies.
+
+    Args:
+      name: string, name of the target.
+      ki: KernelTreeInfo provider, describing the target kernel this
+          module is being built for.
+      d: a Target object, obtained from a label or label_list attribute,
+         representing a dependency to link with this module.
+      inputs: list of File objects, updated with additional inputs
+         required by this dependency.
+      extra_symbol: list of File objects, updated with additional
+         Module.symvers files. 
+
+    Returns:
+      Updates inputs and extra_symbols, returns None.
+    """
+
+    matched = 0
+    for sub in d[KernelBundleInfo].modules:
+        matched += int(_import_kernel_modules_dep(name, ki, sub, inputs, extra_symbols))
+
+    if matched <= 0:
+        fail("%s is being built for kernel %s, depends on target %s, but this " +
+             "target is NOT being built for the specified kernel", name, ki.package, d.label.name)
+
+def _import_kernel_modules_dep(name, ki, d, inputs, extra_symbols):
+    """Extract information neessary to import a single kernel dep.
+
+    Just like _import_kernel_bundle_dep, but works on a single module.
+    
+    Returns:
+      True, if the module was compiled for the same kernel, and should
+      be imported. False otherwise.
+    """
+    if d[KernelModulesInfo].package != ki.package:
+        return False
+
+    for f in d.files.to_list():
+        if f.basename == "Module.symvers":
+            extra_symbols.append(f)
+
+    inputs.extend(d.files.to_list())
+    return True
+ 
 def _kernel_modules(ctx):
     modules = ctx.attr.modules
     inputs = ctx.files.srcs + ctx.files.kernel
     srcdir = ctx.file.makefile.dirname
-
-    for d in ctx.attr.deps:
-        inputs += d.files.to_list()
-        if CcInfo in d:
-            inputs += d[CcInfo].compilation_context.headers.to_list()
+    extra_symbols = []
 
     ki = ctx.attr.kernel[KernelTreeInfo]
+
+    for d in ctx.attr.deps:
+        if KernelBundleInfo in d:
+            _import_kernel_bundle_dep(ctx.attr.name, ki, d, inputs, extra_symbols)
+
+        if KernelModulesInfo in d:
+            _import_kernel_modules_dep(ctx.attr.name, ki, d, inputs, extra_symbols)
+   
+        if CcInfo in d:
+            inputs += d[CcInfo].compilation_context.headers.to_list()
+        inputs += d.files.to_list()
 
     outputs = []
     message = ""
     copy_command = ""
     for m in modules:
-        message += "kernel building: compiling module %s for %s\n" % (m, ki.package)
+        message += "kernel building: compiling module %s for %s" % (m, ki.package)
         rename = m
         if ctx.attr.rename:
             rename = ctx.attr.rename + m
@@ -162,11 +219,24 @@ def _kernel_modules(ctx):
             module = m,
             output_long = output.path,
         )
+        output = ctx.actions.declare_file(ctx.attr.rename + "Module.symvers")
+        outputs += [output]
+        copy_command += "cp {src_dir}/Module.symvers {output_long} && ".format(
+            src_dir = srcdir,
+            output_long = output.path,
+        )
     copy_command += "true"
+
+    kernel_build_dir = "{kr}/{kb}".format(kr = ki.root, kb = ki.build)
 
     extra = ""
     if ctx.attr.extra:
         extra = " ".join(ctx.attr.extra)
+
+    extra_symbols = " ".join(["$PWD/" + e.path for e in extra_symbols])
+
+    if extra_symbols:
+        extra += " KBUILD_EXTRA_SYMBOLS=\"%s\"" % (extra_symbols)
 
     if ctx.attr.silent:
         silent = "-s"
@@ -175,7 +245,7 @@ def _kernel_modules(ctx):
 
     make_args = ctx.attr.make_format_str.format(
         src_dir = srcdir,
-        kernel_build_dir = "{kr}/{kb}".format(kr = ki.root, kb = ki.build),
+        kernel_build_dir = kernel_build_dir,
         modules = " ".join(modules))
 
     ctx.actions.run_shell(
@@ -269,6 +339,54 @@ def _normalize_kernel(kernel):
 
     return kernel
 
+KernelBundleInfo = provider(
+    doc = "Represents a set of the same module compiled for different kernels.",
+    fields = {
+        "modules": "List of module targets part of this bundle.",
+    },
+)
+
+def _kernel_modules_bundle(ctx):
+    return [DefaultInfo(files=depset(ctx.files.modules)), KernelBundleInfo(modules = ctx.attr.modules)]
+
+kernel_modules_bundle = rule(
+    doc = """Creates a bundle of kernel modules.
+
+A bundle of kernel modules is a set of kernel modules which are ALL CONSIDERED
+TO BE THE SAME KERNEL MODULE, but built for different kernel versions
+or architecture.
+
+You can then use a kernel_modules_bundle target to either build ALL the
+kernel modules in the bundle, or as a dependency for building yet another
+kernel module.
+
+When used as a dependency, the logic in this file will cause the building
+and linking step to pull in only the modules within the bundle that are
+built for the same kernel (in the future: same architecture).
+
+This is used for managing dependency chains of kernel modules more easily.
+
+For example:
+- You build a _core kernel module for 5 different kernels for your driver.
+  These 5 kernel modules become a bundle.
+
+- You create a new kernel module, only built for 1 specific kernel, that
+  requires your _core module. By having this new module depend on a
+  kernel_modules_bundle() _core module, the logic in this file will
+  pick the correct symbols to link against for the specific kernel
+  version, and error out if the dependency is not available in the
+  version required.
+""",
+    implementation = _kernel_modules_bundle,
+    attrs = {
+        "modules": attr.label_list(
+            mandatory = True,
+            providers = [KernelModulesInfo], 
+            doc = "List of kernel modules part of this bundle",
+        ),
+    },
+)
+
 BUILD_LEFTOVERS = ["**/.*.cmd", "**/*.a", "**/*.o", "**/*.ko", "**/*.order", "**/*.symvers", "**/*.mod", "**/*.mod.c", "**/*.mod.o"]
 
 def _kernel_module_targets(*args, **kwargs):
@@ -306,7 +424,7 @@ def _kernel_module_targets(*args, **kwargs):
     # builds all the modules for all the requested kernels at once.
     # Without this, the user can only build :all, or the specific
     # module for a specific kernel.
-    return native.filegroup(name = original, srcs = targets)
+    return kernel_modules_bundle(name = original, modules = targets, visibility = kwargs.get("visibility"))
 
 def kernel_module(*args, **kwargs):
     """Convenience wrapper around kernel_modules_rule.

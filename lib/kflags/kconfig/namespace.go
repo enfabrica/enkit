@@ -173,6 +173,8 @@ func CreateExecuteAction(packagedir string, commanddir string, argv []string, va
 		subs := BuildMap(vars, flagarg)
 		subs["package_dir"] = packagedir
 		subs["command_dir"] = commanddir
+		enkit, _ := os.Executable()
+		subs["enkit_path"] = enkit
 
 		// The argv configured in the manifest is subject to template variable substitution...
 		argv, err := ExpandArgs(argv, subs)

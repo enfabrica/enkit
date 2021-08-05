@@ -14,6 +14,7 @@ cc_library(
         "-Wall",
         "-std=c17",
     ],
+    visibility = ["//visibility:public"],
 )
 
 genrule(

@@ -7,6 +7,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"golang.org/x/crypto/ssh"
 	"math/big"
 	"net"
 	"time"
@@ -200,4 +201,44 @@ func NewOptions(mods ...Modifier) (*certOptions, error) {
 		}
 	}
 	return co, nil
+}
+
+func checkValidCert(cert *ssh.Certificate) bool {
+	nowTime := time.Now().Unix()
+	if after := int64(cert.ValidAfter); after < 0 || nowTime < int64(cert.ValidAfter) {
+		return false
+	}
+	if before := int64(cert.ValidBefore); cert.ValidBefore != uint64(ssh.CertTimeInfinity) && (nowTime >= before || before < 0) {
+		return false
+	}
+	return true
+}
+
+const (
+	MaxCertTimeDuration = time.Duration(1 << 63 - 1)
+	InValidCertTimeDuration = time.Duration(0)
+)
+
+// SSHCertTotalTTL returns the total ttl of a cert. If the ttl is invalid, it will return a duration of 0.
+// If the cert is infinite, it will return the max time.Duration.
+func SSHCertTotalTTL(cert *ssh.Certificate) time.Duration {
+	if !checkValidCert(cert) {
+		return InValidCertTimeDuration
+	}
+	if cert.ValidBefore == uint64(ssh.CertTimeInfinity) {
+		return MaxCertTimeDuration
+	}
+	return time.Unix(int64(cert.ValidBefore), 0).Sub(time.Unix(int64(cert.ValidAfter), 0))
+}
+
+// SSHCertRemainingTTL returns the remaining ttl of a cert  when compared to current time. If the cert is invalid it
+// will return a ttl of 0. If it is infinite it will return max time.Duration.
+func SSHCertRemainingTTL(cert *ssh.Certificate) time.Duration {
+	if !checkValidCert(cert) {
+		return InValidCertTimeDuration
+	}
+	if cert.ValidBefore == uint64(ssh.CertTimeInfinity) {
+		return MaxCertTimeDuration
+	}
+	return time.Unix(int64(cert.ValidBefore), 0).Sub(time.Now())
 }

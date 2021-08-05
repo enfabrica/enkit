@@ -27,6 +27,7 @@ type WriteOnlyCloser interface {
 type readOnlyCloseAdapter struct {
 	ReadOnlyCloser
 }
+
 func (roca *readOnlyCloseAdapter) Close() error {
 	return roca.CloseRead()
 }
@@ -42,6 +43,7 @@ func ReadOnlyClose(woc ReadOnlyCloser) io.ReadCloser {
 type writeOnlyCloseAdapter struct {
 	WriteOnlyCloser
 }
+
 func (roca *writeOnlyCloseAdapter) Close() error {
 	return roca.CloseWrite()
 }
