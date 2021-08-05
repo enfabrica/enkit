@@ -2,8 +2,10 @@ package oauth
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"golang.org/x/oauth2/github"
+	"golang.org/x/oauth2/google"
 	"io/ioutil"
 	"math/rand"
 	"net/url"
@@ -416,10 +418,18 @@ func WithAdditionalFlow(fileContent []byte) Modifier {
 		if err := json.Unmarshal(fileContent, &d); err != nil {
 			return err
 		}
+		var endpoint oauth2.Endpoint
+		if d.Type == "google" {
+			endpoint = google.Endpoint
+		}else if d.Type == "github" {
+			endpoint = github.Endpoint
+		}else{
+			return errors.New("oauth: additional flow type is not supported")
+		}
 		c := oauth2.Config{
 			ClientID:     d.ClientID,
 			ClientSecret: d.ClientSecret,
-			Endpoint:     github.Endpoint,
+			Endpoint:     endpoint,
 			Scopes:       []string{"email"},
 		}
 		opt.extraAuthConfig = &c

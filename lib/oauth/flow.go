@@ -74,8 +74,10 @@ func (fc *FlowController) MarkAsDone(keyID *common.Key, conf *oauth2.Config) err
 }
 
 func (fc *FlowController) ShouldRedirect(keyID *common.Key) bool {
-	flowID := hex.EncodeToString(keyID[:])
-	flowState := fc.currentFlows[flowID]
+	flowState, err := fc.getState(keyID)
+	if err != nil {
+		return false
+	}
 	if flowState.OptionalUsed && flowState.RequiredUsed {
 		return false
 	}
