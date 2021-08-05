@@ -3,6 +3,7 @@ package oauth
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/oauth2/github"
 	"io/ioutil"
 	"math/rand"
 	"net/url"
@@ -109,6 +110,7 @@ type Flags struct {
 	OauthSecretID  string
 	OauthSecretKey string
 
+	AdditionalOAuth []byte
 	// How long is the token used to authenticate with the oauth servers.
 	// Limit the total time a login can take.
 	AuthTime time.Duration
@@ -131,7 +133,7 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 		"Prefer using the --"+prefix+"secret-file option - as it hides the secret from 'ps'. Secret key of the client to use with the oauth provider")
 	set.DurationVar(&f.AuthTime, prefix+"auth-time", f.AuthTime,
 		"How long should the token forwarded to the remote oauth server be valid for. This bounds how long the oauth authentication process can take at most")
-
+	set.ByteFileVar(&f.AdditionalOAuth, prefix+"add-oauth", "", "file for additional oauth flow to occur before required oauth")
 	f.SigningExtractorFlags.Register(set, prefix)
 	return f
 }
@@ -389,8 +391,39 @@ func WithFlags(fl *Flags) Modifier {
 			fl.TokenVerifyingKey = (*verify.ToBytes())[:]
 		}
 
-		mods = append(mods, WithAuthTime(fl.AuthTime), WithSecrets(fl.OauthSecretID, fl.OauthSecretKey), WithSigningExtractorFlags(fl.SigningExtractorFlags))
+		mods = append(mods,
+			WithAuthTime(fl.AuthTime),
+			WithSecrets(fl.OauthSecretID, fl.OauthSecretKey),
+			WithSigningExtractorFlags(fl.SigningExtractorFlags),
+			WithAdditionalFlow(fl.AdditionalOAuth),
+		)
 		return Modifiers(mods).Apply(o)
+	}
+}
+
+func WithAdditionalFlow(fileContent []byte) Modifier {
+	return func(opt *Options) error {
+		if len(fileContent) == 0 {
+			return nil
+		}
+		type jsonAuth struct {
+			Type         string
+			Name         string
+			ClientID     string `json:"client_id"`
+			ClientSecret string `json:"client_secret"`
+		}
+		d := jsonAuth{}
+		if err := json.Unmarshal(fileContent, &d); err != nil {
+			return err
+		}
+		c := oauth2.Config{
+			ClientID:     d.ClientID,
+			ClientSecret: d.ClientSecret,
+			Endpoint:     github.Endpoint,
+			Scopes:       []string{"email"},
+		}
+		opt.extraAuthConfig = &c
+		return nil
 	}
 }
 
@@ -400,8 +433,10 @@ type Options struct {
 	loginTime    time.Duration // How long the token is valid for after successful authentication.
 	maxLoginTime time.Duration // Tokens issued more than maxLoginTime ago will always be rejected.
 
-	version    int
-	conf       *oauth2.Config
+	version         int
+	conf            *oauth2.Config
+	extraAuthConfig *oauth2.Config
+
 	verifier   Verifier
 	baseCookie string
 	authURL    *url.URL // Only used by the Redirector.
@@ -412,11 +447,11 @@ type Options struct {
 
 func DefaultOptions(rng *rand.Rand) Options {
 	return Options{
-		rng:          rng,
-		authTime:     time.Minute * 30,
-		loginTime:    time.Hour * 24,
-		maxLoginTime: time.Hour * 24 * 365,
-		conf:         &oauth2.Config{},
+		rng:              rng,
+		authTime:         time.Minute * 30,
+		loginTime:        time.Hour * 24,
+		maxLoginTime:     time.Hour * 24 * 365,
+		conf:             &oauth2.Config{},
 	}
 }
 
@@ -438,24 +473,28 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 
 		authEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.authTime), be, token.NewBase64UrlEncoder())),
 
-		conf:     opt.conf,
 		verifier: opt.verifier,
+		Flow: &FlowController{
+			required:     opt.conf,
+			currentFlows: map[string]*FlowState{},
+			optional:     opt.extraAuthConfig,
+		},
 	}
 
-	if authenticator.conf.RedirectURL == "" {
+	if authenticator.Flow.required.RedirectURL == "" {
 		return nil, fmt.Errorf("API used incorrectly - must supply a target auth url with WithTargetURL")
 	}
-	if authenticator.conf.ClientID == "" || authenticator.conf.ClientSecret == "" {
+	if authenticator.Flow.required.ClientID == "" || authenticator.Flow.required.ClientSecret == "" {
 		return nil, fmt.Errorf("API used incorrectly - must supply secrets with WithSecrets")
 	}
 	if authenticator.verifier == nil {
 		return nil, fmt.Errorf("API used incorrectly - must supply verifier with WithFactory")
 	}
-	if len(authenticator.conf.Scopes) == 0 {
+	if len(authenticator.Flow.required.Scopes) == 0 {
 		return nil, fmt.Errorf("API used incorrectly - no scopes configured")
 	}
-	if authenticator.conf.Endpoint.AuthURL == "" || authenticator.conf.Endpoint.TokenURL == "" {
-		return nil, fmt.Errorf("API used incorrectly - endpoint has no AuthURL or TokenURL - %#v", authenticator.conf.Endpoint)
+	if authenticator.Flow.required.Endpoint.AuthURL == "" || authenticator.Flow.required.Endpoint.TokenURL == "" {
+		return nil, fmt.Errorf("API used incorrectly - endpoint has no AuthURL or TokenURL - %#v", authenticator.Flow.required.Endpoint)
 	}
 
 	return authenticator, nil

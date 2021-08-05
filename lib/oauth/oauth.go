@@ -49,6 +49,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/enfabrica/enkit/astore/common"
 	"golang.org/x/oauth2"
 	"log"
 	"math/rand"
@@ -131,7 +132,8 @@ type Authenticator struct {
 	rng         *rand.Rand
 	authEncoder *token.TypeEncoder
 
-	conf     *oauth2.Config
+	Flow            *FlowController
+
 	verifier Verifier
 }
 
@@ -174,21 +176,27 @@ type CredentialsCookie struct {
 // and have it forwarded to you at the end of the authentication.
 //
 // Returns: the url to use, a secure token, and nil or an error, in order.
-func (a *Authenticator) LoginURL(target string, state interface{}) (string, []byte, error) {
+func (a *Authenticator) LoginURL(target string, state interface{}, r *http.Request) (string, []byte, error) {
 	secret := make([]byte, 16)
 	_, err := a.rng.Read(secret)
 	if err != nil {
 		return "", nil, err
 	}
-
 	// This is not necessary. We could just pass the secret to the AuthCodeURL function.
 	// But it needs to be escaped. AuthoCookie.Encode will sign it, as well as Encode it. Cannot hurt.
 	esecret, err := a.authEncoder.Encode(LoginState{Secret: secret, Target: target, State: state})
 	if err != nil {
 		return "", nil, err
 	}
-
-	url := a.conf.AuthCodeURL(string(esecret))
+	k, ok := state.(common.Key)
+	if !ok {
+		return "", nil, fmt.Errorf("error typecasting state")
+	}
+	conf, err := a.Flow.FetchOauthConfig(&k)
+	if err != nil {
+		return "", nil, err
+	}
+	url := conf.AuthCodeURL(string(esecret))
 	///* oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "login"), oauth2.SetAuthURLParam("approval_prompt", "force"), oauth2.SetAuthURLParam("max_age", "0") */)
 	return url, secret, nil
 }
@@ -535,8 +543,9 @@ func (lm LoginModifiers) Apply(lo *LoginOptions) *LoginOptions {
 // PerformLogin writes the response to the request to actually perform the login.
 func (a *Authenticator) PerformLogin(w http.ResponseWriter, r *http.Request, lm ...LoginModifier) error {
 	options := LoginModifiers(lm).Apply(&LoginOptions{})
-	url, secret, err := a.LoginURL(options.Target, options.State)
+	url, secret, err := a.LoginURL(options.Target, options.State, r)
 	if err != nil {
+		fmt.Println("error here", err)
 		return err
 	}
 
@@ -556,10 +565,11 @@ func (a *Authenticator) PerformLogin(w http.ResponseWriter, r *http.Request, lm 
 }
 
 type AuthData struct {
-	Creds  *CredentialsCookie
-	Cookie string
-	Target string
-	State  interface{}
+	Creds      *CredentialsCookie
+	Identities []Identity
+	Cookie     string
+	Target     string
+	State      interface{}
 }
 
 func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (AuthData, error) {
@@ -595,21 +605,34 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 		MaxAge: -1,
 	})
 
+	k, ok := received.State.(common.Key)
+	if !ok {
+		return AuthData{}, fmt.Errorf("unable to type convert state")
+	}
+
 	code := query.Get("code")
 	// FIXME: needs retry logic, timeout?
-	tok, err := a.conf.Exchange(oauth2.NoContext, code)
+	conf, err := a.Flow.FetchOauthConfig(&k)
+	if err != nil {
+		return AuthData{}, fmt.Errorf("flow: failed to extract %w, ", err)
+	}
+	tok, err := conf.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		return AuthData{}, fmt.Errorf("Could not retrieve token - %w", err)
 	}
 	if !tok.Valid() {
 		return AuthData{}, fmt.Errorf("Invalid token retrieved")
 	}
-
+	if err := a.Flow.MarkAsDone(&k, conf); err != nil {
+		return AuthData{}, err
+	}
 	identity, err := a.verifier(tok)
 	if err != nil {
 		return AuthData{}, fmt.Errorf("Invalid token - %w", err)
 	}
-
+	if err := a.Flow.SaveIdentityForFlow(&k, *identity); err != nil {
+		return AuthData{}, err
+	}
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}
 	ccookie, err := a.EncodeCredentials(creds)
 	if err != nil {
@@ -646,7 +669,6 @@ func (a *Authenticator) PerformAuth(w http.ResponseWriter, r *http.Request, co .
 	}
 
 	http.SetCookie(w, a.CredentialsCookie(auth.Cookie, co...))
-
 	if auth.Target != "" {
 		http.Redirect(w, r, auth.Target, http.StatusTemporaryRedirect)
 		return auth, true, nil

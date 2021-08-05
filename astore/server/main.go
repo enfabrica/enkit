@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"os"
 
 	"fmt"
@@ -210,14 +211,20 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 			http.Error(w, "invalid authorization path, tough luck, try again", http.StatusUnauthorized)
 			return
 		}
-		if err := authWeb.PerformLogin(w, r, oauth.WithState(*key), oauth.WithCookieOptions(kcookie.WithPath("/"))); err != nil {
+
+		authWeb.Flow.FirstOrCreateFlow(key)
+		if err := authWeb.PerformLogin(w, r,
+			oauth.WithState(*key),
+			oauth.WithCookieOptions(kcookie.WithPath("/")),
+		); err != nil {
 			http.Error(w, "oauth failed, no idea why, ask someone to look at the logs", http.StatusUnauthorized)
 			log.Printf("ERROR - could not perform login - %s", err)
 			return
 		}
 	})
 
-	// Path /e/ is the landing page at the end of the oauth authentication.
+	// Path /e/ is the landing page at the end of the oauth authentication. If the oauth landing page is a step in a multi-oauth flow,
+	// it will redirect to /a with additional logins.
 	mux.HandleFunc("/e/", func(w http.ResponseWriter, r *http.Request) {
 		copts := []kcookie.Modifier{kcookie.WithPath("/")}
 		if cookieDomain != "" {
@@ -227,12 +234,29 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 
 		data, handled, err := authWeb.PerformAuth(w, r, copts...)
 		if err != nil {
+			fmt.Println("FINALIZED")
 			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
-			log.Printf("ERROR - could not perform login - %s", err)
+			log.Printf("ERROR - could not perform token exchange - %s", err)
+			return
+		}
+		k, ok := data.State.(common.Key)
+		if !ok {
+			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
+			log.Printf("ERROR - could not perform state coercion - %s", err)
+			return
+		}
+		if authWeb.Flow.ShouldRedirect(&k) {
+			http.Redirect(w, r, "/a/"+hex.EncodeToString(k[:]), http.StatusTemporaryRedirect)
 			return
 		}
 
 		if key, ok := data.State.(common.Key); ok {
+			is, err := authWeb.Flow.Identities(&key)
+			if err != nil {
+				ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
+			}
+			//TODO(adam): changes type of feedtoken to look cleaner
+			data.Identities = is
 			authServer.FeedToken(key, data)
 		}
 		if !handled {
