@@ -40,14 +40,14 @@ func (fc *FlowController) saveState(keyID *common.Key, state *FlowState) {
 	fc.currentFlows[flowID] = state
 }
 
-// FirstOrCreateFlow
+// FirstOrCreateFlow initializes a state for the give common.Key
 func (fc *FlowController) FirstOrCreateFlow(keyID *common.Key) {
 	_, err := fc.getState(keyID)
 	if err != nil {
 		fc.saveState(keyID, &FlowState{})
 	}
 }
-
+// FetchOauthConfig returns the current oauth2.Config needed to be exchanged in the flow.
 func (fc *FlowController) FetchOauthConfig(keyID *common.Key) (*oauth2.Config, error) {
 	flowState, err := fc.getState(keyID)
 	if err != nil {
@@ -59,6 +59,8 @@ func (fc *FlowController) FetchOauthConfig(keyID *common.Key) (*oauth2.Config, e
 	return fc.optional, nil
 }
 
+// MarkAsDone will tell the flow that the oauth2.Config has been redeemed for this Identity. The next oauth2.Config
+// fetched from FetchOauthConfig will be different
 func (fc *FlowController) MarkAsDone(keyID *common.Key, conf *oauth2.Config, identity Identity) error {
 	flowState, err := fc.getState(keyID)
 	if err != nil {
@@ -91,6 +93,7 @@ func (fc *FlowController) ShouldRedirect(keyID *common.Key) bool {
 	return true
 }
 
+// Identities will return the primary identity and a list of the optional flow identities redeemed.
 func (fc *FlowController) Identities(keyID *common.Key) (Identity, []Identity, error) {
 	flowState, err := fc.getState(keyID)
 	if err != nil {
