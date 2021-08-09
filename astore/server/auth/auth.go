@@ -138,9 +138,9 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "PublicKey cannot be parsed as an ssh authorized key - %s", err)
 		}
-		effectivePrincipals := s.principals
+		effectivePrincipals := append(s.principals, authData.PrimaryIdentity.Username)
 		for _, i := range authData.Identities {
-			effectivePrincipals = append(effectivePrincipals, i.Username)
+			effectivePrincipals = append(effectivePrincipals, i.GlobalName())
 		}
 		userCert, err := kcerts.SignPublicKey(s.caPrivateKey, ssh.UserCert, effectivePrincipals, s.userCertTTL, savedPubKey)
 		if err != nil {

@@ -132,7 +132,7 @@ type Authenticator struct {
 	rng         *rand.Rand
 	authEncoder *token.TypeEncoder
 
-	Flow            *FlowController
+	Flow *FlowController
 
 	verifier Verifier
 }
@@ -565,11 +565,12 @@ func (a *Authenticator) PerformLogin(w http.ResponseWriter, r *http.Request, lm 
 }
 
 type AuthData struct {
-	Creds      *CredentialsCookie
-	Identities []Identity
-	Cookie     string
-	Target     string
-	State      interface{}
+	Creds           *CredentialsCookie
+	Identities      []Identity
+	PrimaryIdentity Identity
+	Cookie          string
+	Target          string
+	State           interface{}
 }
 
 func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (AuthData, error) {
@@ -623,14 +624,11 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	if !tok.Valid() {
 		return AuthData{}, fmt.Errorf("Invalid token retrieved")
 	}
-	if err := a.Flow.MarkAsDone(&k, conf); err != nil {
-		return AuthData{}, err
-	}
 	identity, err := a.verifier(tok)
 	if err != nil {
 		return AuthData{}, fmt.Errorf("Invalid token - %w", err)
 	}
-	if err := a.Flow.SaveIdentityForFlow(&k, *identity); err != nil {
+	if err := a.Flow.MarkAsDone(&k, conf, *identity); err != nil {
 		return AuthData{}, err
 	}
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}

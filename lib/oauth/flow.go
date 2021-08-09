@@ -9,9 +9,10 @@ import (
 )
 
 type FlowState struct {
-	OptionalUsed bool
-	RequiredUsed bool
-	Identities   []Identity
+	OptionalUsed    bool
+	RequiredUsed    bool
+	Identities      []Identity
+	PrimaryIdentity Identity
 }
 
 type FlowController struct {
@@ -58,21 +59,24 @@ func (fc *FlowController) FetchOauthConfig(keyID *common.Key) (*oauth2.Config, e
 	return fc.optional, nil
 }
 
-func (fc *FlowController) MarkAsDone(keyID *common.Key, conf *oauth2.Config) error {
+func (fc *FlowController) MarkAsDone(keyID *common.Key, conf *oauth2.Config, identity Identity) error {
 	flowState, err := fc.getState(keyID)
 	if err != nil {
 		return err
 	}
 	if conf == fc.optional {
 		flowState.OptionalUsed = true
+		flowState.Identities = append(flowState.Identities, identity)
 	}
 	if conf == fc.required {
 		flowState.RequiredUsed = true
+		flowState.PrimaryIdentity = identity
 	}
 	fc.saveState(keyID, flowState)
 	return nil
 }
-
+// ShouldRedirect tells the server if it should redirect or not. It will always return false if no optional flows are present,
+// otherwise it will return back if the flow is complete.
 func (fc *FlowController) ShouldRedirect(keyID *common.Key) bool {
 	flowState, err := fc.getState(keyID)
 	if err != nil {
@@ -81,23 +85,16 @@ func (fc *FlowController) ShouldRedirect(keyID *common.Key) bool {
 	if flowState.OptionalUsed && flowState.RequiredUsed {
 		return false
 	}
+	if fc.optional == nil {
+		return false
+	}
 	return true
 }
 
-func (fc *FlowController) SaveIdentityForFlow(keyID *common.Key, iden Identity) error {
-	state, err := fc.getState(keyID)
-	if err != nil {
-		return err
-	}
-	state.Identities = append(state.Identities, iden)
-	fc.saveState(keyID, state)
-	return nil
-}
-
-func (fc *FlowController) Identities(keyID *common.Key) ([]Identity, error) {
+func (fc *FlowController) Identities(keyID *common.Key) (Identity, []Identity, error) {
 	flowState, err := fc.getState(keyID)
 	if err != nil {
-		return nil, err
+		return Identity{}, nil, err
 	}
-	return flowState.Identities, nil
+	return flowState.PrimaryIdentity, flowState.Identities, nil
 }

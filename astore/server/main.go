@@ -250,12 +250,13 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 		}
 
 		if key, ok := data.State.(common.Key); ok {
-			is, err := authWeb.Flow.Identities(&key)
+			primary, is, err := authWeb.Flow.Identities(&key)
 			if err != nil {
 				ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
 			}
 			//TODO(adam): changes type of feedtoken to look cleaner
 			data.Identities = is
+			data.PrimaryIdentity = primary
 			authServer.FeedToken(key, data)
 		}
 		if !handled {
