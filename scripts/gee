@@ -130,15 +130,15 @@ PAGER="${PAGER:-less}"
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
   # Try the old directory layout:
-  if [[ "${PWD}" =~ ^${HOME}/([a-z0-9_-]+)/branches/([a-z0-9_-]+) ]]; then
+  if [[ "${PWD}" =~ ^${HOME}/([a-z0-9_-]+)/branches ]]; then
     REPO="${BASH_REMATCH[1]}"
   fi
   # Try the new directory layout:
-  if [[ "${PWD}" =~ ^${HOME}/gee/([a-z0-9_-]+)/([a-z0-9_-]+) ]]; then
+  if [[ "${PWD}" =~ ^${HOME}/gee/([a-z0-9_-]+) ]]; then
     REPO="${BASH_REMATCH[1]}"
   fi
   # Try the test directory layout:
-  if [[ "${PWD}" =~ ^${HOME}/testgee/([a-z0-9_-]+)/([a-z0-9_-]+) ]]; then
+  if [[ "${PWD}" =~ ^${HOME}/testgee/([a-z0-9_-]+) ]]; then
     TESTMODE=1
     REPO="${BASH_REMATCH[1]}"
   fi
@@ -639,6 +639,7 @@ function _warn() {
 # "The user is going to be sad when they see this."
 function _fatal() {
   printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}\n" "$@"
+  ABNORMAL=0  # we died intentionally.
   exit 1
 }
 
@@ -676,6 +677,7 @@ function _cmd() {
         _die "Command failed with exit code ${RC}"
       else
         _warn "Command failed with exit code ${RC}"
+        RC=0
       fi
     fi
     set -e
@@ -1150,16 +1152,17 @@ EOT
 
 function gee__mkbr() { gee__make_branch "$@"; }
 function gee__make_branch() {
-  _check_cwd
   local BRNAME SHA CURRENT_BRANCH
   # TODO(jonathan): Let the user name the branch to branch from.
   BRNAME="$1"; shift
   SHA="$1"
 
+  _set_main
   CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
-    _fatal "Not in a git branch directory."
+    CURRENT_BRANCH="${MAIN}"
   fi
+  _checkout_or_die "${CURRENT_BRANCH}"
 
   local -a ARGS=( worktree add "${REPO_DIR}/${BRNAME}" )
   if [[ -n "${SHA}" ]]; then
@@ -1451,12 +1454,13 @@ function _order_branches() {
 
 function gee__up_all() { gee__update_all "$@"; }
 function gee__update_all() {
-  _check_cwd
   local -a CONFLICTS=()
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
-    _die "Not in a git branch directory."
+    _set_main
+    CURRENT_BRANCH="${MAIN}"
+    _checkout_or_die "${CURRENT_BRANCH}"
   fi
 
   # Merge from upstream/main into main:
@@ -1544,7 +1548,13 @@ EOT
 function gee__lsb() { gee__lsbranches "$@"; }
 function gee__lsbr() { gee__lsbranches "$@"; }
 function gee__lsbranches() {
-  _check_cwd
+  _set_main
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if [[ -z "${CURRENT_BRANCH}" ]]; then
+    CURRENT_BRANCH="${MAIN}"
+  fi
+  _checkout_or_die "${CURRENT_BRANCH}"
+
   local -a branches;
   mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
   local br
@@ -1906,10 +1916,14 @@ EOT
 
 function gee__rmbr() { gee__remove_branch "$@"; }
 function gee__remove_branch() { 
-  _check_cwd
-  local BR="$1"; shift
+  local BR="$1";
   if [[ -z "${BR}" ]]; then
-    _die "Must specify a branch name to remove."
+    BR="$(_get_current_branch)"
+    if [[ -z "${BR}" ]]; then
+      _fatal "Must specify a branch name to remove."
+    fi
+  else
+    shift
   fi
   _checkout_or_die "${BR}"
   _set_main
@@ -1926,7 +1940,11 @@ function gee__remove_branch() {
   _checkout_or_die "${MAIN}"
   _git worktree remove "${BR}"
   _git branch -D "${BR}"
-  NOFAIL=1 _git push origin --delete "${BR}"
+  if _remote_branch_exists origin "${BR}"; then
+    _git_can_fail push origin --delete "${BR}"
+  else
+    _info "Not deleting remote branch ${BR}: was never created."
+  fi
 
   # Remove branch from parents file, and fix up children's parents.
   local -a PARENTS
@@ -2038,8 +2056,9 @@ EOT
 function gee__gcd() {
   local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH
   BRANCH="$1"
+  _set_main
   if [[ -z "${BRANCH}" ]]; then
-    BRANCH="$(_get_current_branch)"
+    BRANCH="${MAIN}"
   fi
 
   if _in_gee_repo; then
@@ -2059,14 +2078,14 @@ function gee__gcd() {
   _set_main
   local BRDIR
   if ! BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list | grep -w "\[${BRANCH}\]")"; then
-    _fatal "Branch \"${BRANCH}\" not in worktree.  Maybe use make_branch?"
+    _fatal "Branch \"${REPO}/${BRANCH}\" not in worktree.  Maybe use make_branch?"
   fi
   if [[ -z "${BRDIR}" ]]; then
-    _fatal "Branch \"${BRANCH}\" not in worktree.  Maybe use make_branch?"
+    _fatal "Branch \"${REPO}/${BRANCH}\" not in worktree.  Maybe use make_branch?"
   fi
   NEW_ROOT="$(_get_branch_rootdir "${BRANCH}")"
   if [[ -z "${NEW_ROOT}" ]]; then
-    _die "Could not find root of branch ${BRANCH}.  Very strange!"
+    _die "Could not find root of branch ${REPO}/${BRANCH}.  Very strange!"
   fi
   echo "${NEW_ROOT}/${REL_PATH}"
 }
