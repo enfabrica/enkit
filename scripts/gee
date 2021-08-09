@@ -3,6 +3,8 @@
 read -r -d '' USAGE <<'EOT'
 # gee: git enabled enfabrication.
 
+gee version: {{VERSION}}
+
 gee is a wrapper around the "git" and "gh-cli" tools.  It implements a standard
 and supported workflow.  "gee" is also an instructional tool: by showing each
 command it executes, gee helps users learn git.
@@ -104,6 +106,7 @@ if [[ -n "${DEBUG}" ]]; then
   set -x
 fi
 
+readonly VERSION="0.1"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -341,6 +344,9 @@ function _set_ghuser() {
 
   # let's just ask the user
   _warn "Can't automatically determine your github username."
+  if [[ -z "${USER}" ]]; then
+    USER="$(whoami)"
+  fi
   if [[ -n "${USER}" ]]; then
     GHUSER="${USER}-enf"
   fi
@@ -837,7 +843,10 @@ function _rebase_child_onto_parent() {
     export -f _gee_rebase_prompt
     _git status
     _info "Entering subshell: resolve conflicts or abort and then exit."
+    set +e
     bash --noprofile --norc
+    _info "Subshell terminated with exit code $?."
+    set -e
 
     # TODO(jonathan): consider not letting the user escape until rebase either
     # succeeds or is aborted:
@@ -980,7 +989,7 @@ function _read_parents_file() {
 function _write_parents_file() {
   if (( "${#PARENTS[@]}" == 0 )); then
     # PARENTS isn't loaded, so don't write it.
-    return
+    return 0
   fi
   local PATH="${REPO_DIR}/.gee/parents"
   if [[ ! -d "${REPO_DIR}/.gee" ]]; then
@@ -994,9 +1003,14 @@ function _write_parents_file() {
   done > "${PATH}"
 }
 
-# Ensure we always save the PARENTS file, even if we die:
+ABNORMAL=1
 function _cleanup() {
+  # Ensure we always save the PARENTS file, even if we die:
   _write_parents_file
+  # Warn the user if we terminated abnormally (for example, if set -e fired).
+  if (( ${ABNORMAL} == 1 )); then
+    _warn "Abnormal termination."
+  fi
 }
 trap _cleanup EXIT
 
@@ -1625,13 +1639,11 @@ function gee__commit() {
   else
     echo "Skipped \"git add --all\" because branch is home dir."
   fi
-  NOFAIL=1 NOSTACK=1 _git commit "$@"
-  #if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
-  #  _git pull origin "${CURRENT_BRANCH}"
-  #fi
-  # We always push upstream so that users have a backup in case they lose their
-  # laptop:
-  _git push -u origin "${CURRENT_BRANCH}"
+  if _git_can_fail commit "$@"; then
+    # We always push upstream so that users have a backup in case they lose their
+    # laptop:
+    _git push -u origin "${CURRENT_BRANCH}"
+  fi
 }
 
 ##########################################################################
@@ -1785,6 +1797,12 @@ function gee__pr_make() {
   if [[ "${NUM_COMMITS}" -eq 0 ]]; then
     _debug "command: ${GIT} log --oneline ${DEST_BRANCH}..${CURRENT_BRANCH}"
     _fatal "No changes in this branch."
+  fi
+
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
   fi
 
   # Note: there is no longer any need to squash before sending out for review,
@@ -2160,6 +2178,82 @@ function gee__repair() {
 }
 
 ##########################################################################
+# bash_setup command
+##########################################################################
+
+_register_help "bash_setup" "Configure the bash environment for gee." \
+<<'EOT'
+Usage: eval "$(enkit gee bash_setup)"
+
+The "bash_setup" command emits a set of bash aliases and functions that
+streamline the use of gee.  The following functions are exported:
+
+  "gee": invokes "enkit gee $@"
+  "gcd": rapidly change between gee branch directories.
+EOT
+
+function gee__bash_setup() {
+  cat <<'END_OF_BASH_SETUP'
+# bash functions for gee
+#
+# This output is meant to be loaded into your shell with this command:
+#
+#   eval "$(enkit gee bash_setup)"
+
+function gee() { 
+  if [[ -x ~/bin/gee ]]; then 
+    # use locally installed gee if available.
+    ~/bin/gee "$@";
+  else
+    # use the enkit copy of gee.
+    enkit gee "$@";
+  fi
+}
+
+function gcd() {
+  if (( "$#" == 0 )); then
+    cat <<'EOT'
+Usage: gcd <branch-name>
+
+"gcd" changes the current working directory to the same relative directory in
+another branch.
+
+For example:
+
+  cd ~/gee/enkit/branch1/foo/bar
+  # now in ~/gee/enkit/branch1/foo/bar
+  gcd branch2
+  # now in ~/gee/enkit/branch2/foo/bar
+
+EOT
+    return 1
+  fi
+
+  local D="$(gee gcd "$@")"
+  if [[ -n "${D}" ]]; then
+    cd "${D}"
+  fi
+}
+END_OF_BASH_SETUP
+}
+
+##########################################################################
+# version command
+##########################################################################
+
+_register_help "version" "Print tool version information." <<'EOT'
+Usage: gee version
+EOT
+
+function gee__version() {
+  echo "gee version ${VERSION}"
+  sha256sum "$0"
+  _cmd git --version
+  _cmd gh --version
+  _cmd jq --version
+}
+
+##########################################################################
 # help command
 ##########################################################################
 
@@ -2170,7 +2264,7 @@ EOT
 function gee__help() {
   (
     if (( "$#" == 0 )) || [[ "$1" == "usage" ]]; then
-      echo "${USAGE}"
+      echo "${USAGE}" | sed "s/{{VERSION}}/${VERSION}/"
       echo ""
       echo "## Commands:"
       echo ""
@@ -2204,10 +2298,12 @@ function main() {
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     _startup_checks
     "gee__${cmdname}" "$@"
+    ABNORMAL=0
   else
     echo "Unknown command ${cmdname}"
     echo ""
     gee__help usage
+    ABNORMAL=0
     exit 2
   fi
 }
