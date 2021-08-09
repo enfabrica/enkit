@@ -106,6 +106,12 @@ if [[ -n "${DEBUG}" ]]; then
   set -x
 fi
 
+# Funny story: sometimes doing a git rebase operation re-creates a directory,
+# leaving the user in a directory associated with a detached node.  When gee is
+# executed in that context, getcwd fails and gee gets understandably confused.
+# However, "cd ." fixes the issue.
+cd .  # getcwd sometimes gets confused after a rebase.
+
 readonly VERSION="0.1"
 declare -a HELP=()
 declare -A LONGHELP
