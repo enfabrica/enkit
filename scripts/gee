@@ -1454,12 +1454,13 @@ function _order_branches() {
 
 function gee__up_all() { gee__update_all "$@"; }
 function gee__update_all() {
-  _check_cwd
   local -a CONFLICTS=()
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
-    _die "Not in a git branch directory."
+    _set_main
+    CURRENT_BRANCH="${MAIN}"
+    _checkout_or_die "${CURRENT_BRANCH}"
   fi
 
   # Merge from upstream/main into main:
@@ -1547,7 +1548,13 @@ EOT
 function gee__lsb() { gee__lsbranches "$@"; }
 function gee__lsbr() { gee__lsbranches "$@"; }
 function gee__lsbranches() {
-  _check_cwd
+  _set_main
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if [[ -z "${CURRENT_BRANCH}" ]]; then
+    CURRENT_BRANCH="${MAIN}"
+  fi
+  _checkout_or_die "${CURRENT_BRANCH}"
+
   local -a branches;
   mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
   local br
