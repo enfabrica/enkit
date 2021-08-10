@@ -1614,7 +1614,7 @@ function _write_parents_file() {
   fi
   if [[ "${#PARENTS[@]}" -eq 0 ]]; then
     _warn "Almost wrote empty parents file!"
-    return
+    return 0
   fi
   local PATH="${REPO_DIR}/.gee/parents"
   if [[ ! -d "${REPO_DIR}/.gee" ]]; then
@@ -1628,8 +1628,9 @@ function _write_parents_file() {
   done > "${PATH}"
 }
 
-# Ensure we always save the PARENTS file, even if we die:
+ABNORMAL=1
 function _cleanup() {
+  # Ensure we always save the PARENTS file, even if we die:
   _write_parents_file
   # Warn the user if we terminated abnormally (for example, if set -e fired).
   if (( ABNORMAL == 1 )); then
@@ -2811,6 +2812,12 @@ function gee__pr_make() {
     _fatal "No changes in this branch."
   fi
 
+  local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
+  if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
+    # gh-cli treats this as a special case for some reason.
+    FROM_BRANCH="${CURRENT_BRANCH}"
+  fi
+
   # Note: there is no longer any need to squash before sending out for review,
   # as we always merge with "gh pr merge --squash".
 
@@ -3379,8 +3386,8 @@ function gcd() {
     cat <<'EOT'
 Usage: gcd <branch-name>
 
-"gcd" changes the current working directory to the same root-relative directory
-in another branch.
+"gcd" changes the current working directory to the same relative directory in
+another branch.
 
 For example:
 
@@ -3526,6 +3533,7 @@ function main() {
       _startup_checks
     fi
     "gee__${cmdname}" "$@"
+    ABNORMAL=0
   else
     echo "Unknown command ${cmdname}"
     echo ""
