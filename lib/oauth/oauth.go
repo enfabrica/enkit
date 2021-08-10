@@ -49,7 +49,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/astore/common"
 	"golang.org/x/oauth2"
 	"log"
 	"math/rand"
@@ -176,7 +175,7 @@ type CredentialsCookie struct {
 // and have it forwarded to you at the end of the authentication.
 //
 // Returns: the url to use, a secure token, and nil or an error, in order.
-func (a *Authenticator) LoginURL(target string, state interface{}, r *http.Request) (string, []byte, error) {
+func (a *Authenticator) LoginURL(target string, state interface{}) (string, []byte, error) {
 	secret := make([]byte, 16)
 	_, err := a.rng.Read(secret)
 	if err != nil {
@@ -188,11 +187,7 @@ func (a *Authenticator) LoginURL(target string, state interface{}, r *http.Reque
 	if err != nil {
 		return "", nil, err
 	}
-	k, ok := state.(common.Key)
-	if !ok {
-		return "", nil, fmt.Errorf("error typecasting state")
-	}
-	conf, err := a.Flow.FetchOauthConfig(&k)
+	conf, err := a.Flow.FetchOauth2Config(state)
 	if err != nil {
 		return "", nil, err
 	}
@@ -543,9 +538,8 @@ func (lm LoginModifiers) Apply(lo *LoginOptions) *LoginOptions {
 // PerformLogin writes the response to the request to actually perform the login.
 func (a *Authenticator) PerformLogin(w http.ResponseWriter, r *http.Request, lm ...LoginModifier) error {
 	options := LoginModifiers(lm).Apply(&LoginOptions{})
-	url, secret, err := a.LoginURL(options.Target, options.State, r)
+	url, secret, err := a.LoginURL(options.Target, options.State)
 	if err != nil {
-		fmt.Println("error here", err)
 		return err
 	}
 
@@ -605,15 +599,9 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 		Name:   authEncoder(a.baseCookie),
 		MaxAge: -1,
 	})
-
-	k, ok := received.State.(common.Key)
-	if !ok {
-		return AuthData{}, fmt.Errorf("unable to type convert state")
-	}
-
 	code := query.Get("code")
 	// FIXME: needs retry logic, timeout?
-	conf, err := a.Flow.FetchOauthConfig(&k)
+	conf, err := a.Flow.FetchOauth2Config(received.State)
 	if err != nil {
 		return AuthData{}, fmt.Errorf("flow: failed to extract %w, ", err)
 	}
@@ -628,7 +616,8 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	if err != nil {
 		return AuthData{}, fmt.Errorf("Invalid token - %w", err)
 	}
-	if err := a.Flow.MarkAsDone(&k, conf, *identity); err != nil {
+	newState, err := a.Flow.MarkAsDone(received.State, conf, *identity)
+	if err != nil {
 		return AuthData{}, err
 	}
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}
@@ -636,7 +625,7 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	if err != nil {
 		return AuthData{}, err
 	}
-	return AuthData{Creds: &creds, Cookie: string(ccookie), Target: received.Target, State: received.State}, nil
+	return AuthData{Creds: &creds, Cookie: string(ccookie), Target: received.Target, State: newState}, nil
 }
 
 // CredentialsCookie will create an http.Cookie object containing the user credentials.

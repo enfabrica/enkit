@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"os"
 
 	"fmt"
@@ -211,10 +210,8 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 			http.Error(w, "invalid authorization path, tough luck, try again", http.StatusUnauthorized)
 			return
 		}
-
-		authWeb.Flow.FirstOrCreateFlow(key)
 		if err := authWeb.PerformLogin(w, r,
-			oauth.WithState(*key),
+			oauth.WithState(authWeb.Flow.NewState(*key)),
 			oauth.WithCookieOptions(kcookie.WithPath("/")),
 		); err != nil {
 			http.Error(w, "oauth failed, no idea why, ask someone to look at the logs", http.StatusUnauthorized)
@@ -231,36 +228,44 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 			// WithSecure and WithSameSite are required to get the cookie forwarded via the NASSH plugin in chrome (for SSH).
 			copts = append(copts, kcookie.WithDomain(cookieDomain), kcookie.WithSecure(true), kcookie.WithSameSite(http.SameSiteNoneMode))
 		}
-
 		data, handled, err := authWeb.PerformAuth(w, r, copts...)
 		if err != nil {
 			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
 			log.Printf("ERROR - could not perform token exchange - %s", err)
 			return
 		}
-		k, ok := data.State.(common.Key)
-		if !ok {
+		shouldRedirect, err := authWeb.Flow.ShouldRedirect(data.State)
+		if err != nil {
 			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
-			log.Printf("ERROR - could not perform state coercion - %s", err)
+			log.Printf("ERROR - could not check for redirect - %s", err)
 			return
 		}
-		if authWeb.Flow.ShouldRedirect(&k) {
-			http.Redirect(w, r, "/a/"+hex.EncodeToString(k[:]), http.StatusTemporaryRedirect)
+		if shouldRedirect {
+			if err := authWeb.PerformLogin(w, r,
+				oauth.WithState(data.State),
+				oauth.WithCookieOptions(kcookie.WithPath("/")),
+			); err != nil {
+				http.Error(w, "oauth failed, no idea why, ask someone to look at the logs", http.StatusUnauthorized)
+				log.Printf("ERROR - could not perform login - %s", err)
+				return
+			}
 			return
 		}
 
-		if key, ok := data.State.(common.Key); ok {
-			primary, is, err := authWeb.Flow.Identities(&key)
-			if err != nil {
-				ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
-			}
+		flowState, err := authWeb.Flow.DecodeState(data.State)
+		if err != nil {
+			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
+			return
+		}
+		if key, ok := flowState.Extra.(common.Key); ok {
 			//TODO(adam): changes type of feedtoken to look cleaner
-			data.Identities = is
-			data.PrimaryIdentity = primary
+			data.Identities = flowState.Identities
+			data.PrimaryIdentity = flowState.PrimaryIdentity
 			authServer.FeedToken(key, data)
 		}
 		if !handled {
 			ShowResult(w, r, "thumbs-up", "Good Job!", messageSuccess, http.StatusOK)
+			return
 		}
 	})
 

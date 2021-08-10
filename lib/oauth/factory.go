@@ -421,9 +421,9 @@ func WithAdditionalFlow(fileContent []byte) Modifier {
 		var endpoint oauth2.Endpoint
 		if d.Type == "google" {
 			endpoint = google.Endpoint
-		}else if d.Type == "github" {
+		} else if d.Type == "github" {
 			endpoint = github.Endpoint
-		}else{
+		} else {
 			return errors.New("oauth: additional flow type is not supported")
 		}
 		c := oauth2.Config{
@@ -457,11 +457,11 @@ type Options struct {
 
 func DefaultOptions(rng *rand.Rand) Options {
 	return Options{
-		rng:              rng,
-		authTime:         time.Minute * 30,
-		loginTime:        time.Hour * 24,
-		maxLoginTime:     time.Hour * 24 * 365,
-		conf:             &oauth2.Config{},
+		rng:          rng,
+		authTime:     time.Minute * 30,
+		loginTime:    time.Hour * 24,
+		maxLoginTime: time.Hour * 24 * 365,
+		conf:         &oauth2.Config{},
 	}
 }
 
@@ -476,18 +476,18 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 		return nil, fmt.Errorf("error setting up authenticating cipher: %w", err)
 	}
 
+	te := token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.authTime), be, token.NewBase64UrlEncoder()))
 	authenticator := &Authenticator{
 		Extractor: *extractor,
 
 		rng: opt.rng,
 
-		authEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.authTime), be, token.NewBase64UrlEncoder())),
-
-		verifier: opt.verifier,
+		authEncoder: te,
+		verifier:    opt.verifier,
 		Flow: &FlowController{
-			required:     opt.conf,
-			currentFlows: map[string]*FlowState{},
-			optional:     opt.extraAuthConfig,
+			required: opt.conf,
+			optional: opt.extraAuthConfig,
+			Enc:      te,
 		},
 	}
 

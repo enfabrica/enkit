@@ -1,103 +1,108 @@
 package oauth
 
 import (
-	"encoding/hex"
+	"context"
+	"encoding/gob"
+	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/astore/common"
+	"github.com/enfabrica/enkit/lib/token"
 	"golang.org/x/oauth2"
-	"sync"
+	"reflect"
 )
 
-type FlowState struct {
-	OptionalUsed    bool
-	RequiredUsed    bool
-	Identities      []Identity
-	PrimaryIdentity Identity
-}
-
 type FlowController struct {
-	currentFlows map[string]*FlowState
-	flowLock     sync.RWMutex
 	required     *oauth2.Config
 	optional     *oauth2.Config
+	Enc          *token.TypeEncoder
 }
 
-func (fc *FlowController) getState(keyID *common.Key) (*FlowState, error) {
-	flowID := hex.EncodeToString(keyID[:])
-	fc.flowLock.RLock()
-	defer fc.flowLock.RUnlock()
-	state := fc.currentFlows[flowID]
-	if state == nil {
-		return nil, fmt.Errorf("flow %s id not exist", flowID)
-	}
-	return state, nil
-}
-
-func (fc *FlowController) saveState(keyID *common.Key, state *FlowState) {
-	fc.flowLock.Lock()
-	defer fc.flowLock.Unlock()
-	flowID := hex.EncodeToString(keyID[:])
-	fc.currentFlows[flowID] = state
-}
-
-// FirstOrCreateFlow initializes a state for the give common.Key
-func (fc *FlowController) FirstOrCreateFlow(keyID *common.Key) {
-	_, err := fc.getState(keyID)
-	if err != nil {
-		fc.saveState(keyID, &FlowState{})
-	}
-}
-// FetchOauthConfig returns the current oauth2.Config needed to be exchanged in the flow.
-func (fc *FlowController) FetchOauthConfig(keyID *common.Key) (*oauth2.Config, error) {
-	flowState, err := fc.getState(keyID)
+// MarkAsDone will tell the flow that the oauth2.Config has been redeemed for this Identity. The next oauth2.Config
+// fetched from FetchOauthConfig will be different. It returns back the modified state to be used in the next oauth2 flow.
+func (fc *FlowController) MarkAsDone(state interface{}, conf *oauth2.Config, identity Identity) (*FlowState, error) {
+	flowState, err := fc.DecodeState(state)
 	if err != nil {
 		return nil, err
 	}
-	if flowState.OptionalUsed || fc.optional == nil {
+	if conf == fc.optional {
+		flowState.OptionalDone = true
+		flowState.Identities = append(flowState.Identities, identity)
+	}
+	if conf == fc.required {
+		flowState.RequiredDone = true
+		flowState.PrimaryIdentity = identity
+	}
+	return flowState, nil
+}
+
+// ShouldRedirect tells the server if it should redirect or not. It will always return false if no optional flows are present,
+// otherwise it will return back if the flow is complete.
+func (fc *FlowController) ShouldRedirect(state interface{}) (bool, error) {
+	fs, err := fc.DecodeState(state)
+	if err != nil {
+		return false, err
+	}
+	if fc.optional == nil {
+		return false, nil
+	}
+	if fs.OptionalDone && fs.RequiredDone {
+		return false, err
+	}
+	return true, nil
+}
+
+// Identities will return the primary identity and a list of the optional flow identities redeemed.
+func (fc *FlowController) Identities(state interface{}) (Identity, []Identity, error) {
+	flowState, err := fc.DecodeState(state)
+	if err != nil {
+		return Identity{}, nil, err
+	}
+	return flowState.PrimaryIdentity, flowState.Identities, nil
+}
+
+type FlowState struct {
+	OptionalDone    bool
+	RequiredDone    bool
+	Identities      []Identity
+	PrimaryIdentity Identity
+	Extra           interface{}
+}
+
+func (fc *FlowController) NewState(Extra interface{}) *FlowState {
+	return &FlowState{
+		OptionalDone: false,
+		RequiredDone: false,
+		Extra:        Extra,
+	}
+}
+
+var errStateNotType = errors.New("state did not match")
+
+func (fc *FlowController) FetchOauth2Config(state interface{}) (*oauth2.Config, error) {
+	fs, err := fc.DecodeState(state)
+	if err != nil {
+		return nil, err
+	}
+	if fc.optional == nil || fs.OptionalDone {
 		return fc.required, nil
 	}
 	return fc.optional, nil
 }
 
-// MarkAsDone will tell the flow that the oauth2.Config has been redeemed for this Identity. The next oauth2.Config
-// fetched from FetchOauthConfig will be different
-func (fc *FlowController) MarkAsDone(keyID *common.Key, conf *oauth2.Config, identity Identity) error {
-	flowState, err := fc.getState(keyID)
-	if err != nil {
-		return err
+func (fc *FlowController) DecodeState(state interface{}) (*FlowState, error) {
+	if fs, ok := state.(*FlowState); ok {
+		return fs, nil
+	} else if fString, ok := state.(string); ok {
+		var flows FlowState
+		if _, err := fc.Enc.Decode(context.Background(), []byte(fString), &flows); err != nil {
+			return nil, fmt.Errorf("%v, was %s expected %s, err %v", errStateNotType, reflect.TypeOf(state), reflect.TypeOf(&FlowState{}), err)
+		}
+		return &flows, nil
+	} else if fs, ok := state.(FlowState); ok {
+		return &fs, nil
 	}
-	if conf == fc.optional {
-		flowState.OptionalUsed = true
-		flowState.Identities = append(flowState.Identities, identity)
-	}
-	if conf == fc.required {
-		flowState.RequiredUsed = true
-		flowState.PrimaryIdentity = identity
-	}
-	fc.saveState(keyID, flowState)
-	return nil
-}
-// ShouldRedirect tells the server if it should redirect or not. It will always return false if no optional flows are present,
-// otherwise it will return back if the flow is complete.
-func (fc *FlowController) ShouldRedirect(keyID *common.Key) bool {
-	flowState, err := fc.getState(keyID)
-	if err != nil {
-		return false
-	}
-	if flowState.OptionalUsed && flowState.RequiredUsed {
-		return false
-	}
-	if fc.optional == nil {
-		return false
-	}
-	return true
+	return nil, fmt.Errorf("%v, was %s expected %s", errStateNotType, reflect.TypeOf(state), reflect.TypeOf(&FlowState{}))
 }
 
-// Identities will return the primary identity and a list of the optional flow identities redeemed.
-func (fc *FlowController) Identities(keyID *common.Key) (Identity, []Identity, error) {
-	flowState, err := fc.getState(keyID)
-	if err != nil {
-		return Identity{}, nil, err
-	}
-	return flowState.PrimaryIdentity, flowState.Identities, nil
+func init() {
+	gob.Register(FlowState{})
 }
