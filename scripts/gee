@@ -12,9 +12,12 @@ showing each command as it executes, gee helps users learn git.
 
 ## Features:
 
-* Uses the "worktree" feature so that every branch is always visible in its
-  own directory, and switching branches is accomplished by changing directory.
-  All branch directories are named ~/gee/<REPO>/<BRANCH>
+* Uses the "worktree" feature so that:
+   * every branch is always visible in its own directory.
+   * switching branches is accomplished by changing directory.
+   * it's harder to accidentally save changes to the wrong branch.
+   * users can have uncommitted changes pending in more than one branch.
+  All branch directories are named ~/gee/<REPO>/<BRANCH>.
 
 * All local commits are automatically backed up to github.
 
@@ -1654,9 +1657,9 @@ function gee__commit() {
   CURRENT_BRANCH="$(_get_current_branch)"
   _set_main
   if [[ "${CURRENT_BRANCH}" == "${MAIN}" ]]; then
-    _info "You should use \"gee make_branch\" to create a feature branch"
-    _info "and commit your work there, rather than committing work to the"
-    _info "${MAIN} branch."
+    _info "gee's workflow doesn't allow changes to the ${MAIN} branch."
+    _info "You should move your changes to another branch.  For example:"
+    _info "  git add -a; git stash; gee mkbr new1; gcd new1; git stash apply"
     _fatal "Commit to ${MAIN} branch denied."
   fi
   BRANCH_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
