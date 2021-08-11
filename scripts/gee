@@ -5,10 +5,10 @@ read -r -d '' USAGE <<'EOT'
 
 gee version: {{VERSION}}
 
-gee is a wrapper around the "git" and "gh-cli" tools.  "gee" encapsulates all
+gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
 tribal knowledge about how to use git the right way (for us), implementing one
 standard and well-supported workflow.  "gee" is also an instructional tool: by
-showing each command it executes, gee helps users learn git.
+showing each command as it executes, gee helps users learn git.
 
 ## Features:
 
@@ -70,6 +70,14 @@ review.
      gee rupdate
 
 EOT
+# Philosophy: automatic, not automagic.
+#
+#    Be as automatic as possible, but never change anything on disk unless the
+#    user explicitly asked us to.  No surprises.
+#
+#    For example, if a tool is missing, tell the user to run "gee repair" but
+#    don't just do it for them.  Prompt before doing something dangerous.
+#
 # Branches:
 #    upstream: the original repo we have forked (enfabrica/$REPO)
 #              we issue pull requests to this repo, and we integrate
@@ -731,6 +739,7 @@ function _git_can_fail() {
 function _install_tools() {
   # If your dev image is missing the github-cli tool, this should install it.
   if [ ! -x "${GH}" ]; then
+    _info "Installing missing tool: gh"
     local KRFILE; KRFILE="/usr/share/keyrings/githubcli-archive-keyring.gpg"
     /usr/bin/curl -fsSL \
       https://cli.github.com/packages/githubcli-archive-keyring.gpg \
@@ -744,6 +753,7 @@ function _install_tools() {
   fi
 
   if [ ! -x "${JQ}" ]; then
+    _info "Installing missing tool: jq"
     sudo /usr/bin/apt install jq
     if [ ! -x "${JQ}" ]; then
       _fatal "Could not install jq."
@@ -2150,6 +2160,13 @@ any missing or incorrect metadata.
 EOT
 
 function gee__repair() {
+  # Make sure all tools are available
+  _install_tools
+
+  if ! _in_gee_repo; then
+    _fatal "Not in a gee repo directory, aborting further repairs."
+  fi
+
   # Make sure each worklist directory is pointing at the right branch
   ORIG_DIR="$(pwd)"
   local DIR BRANCH OBRANCH
@@ -2274,9 +2291,18 @@ EOT
 function gee__version() {
   echo "gee version ${VERSION}"
   sha256sum "$0"
-  _cmd git --version
-  _cmd gh --version
-  _cmd jq --version
+  local TOOL_ERROR=0
+  for tool in "${GIT}" "${GH}" "${JQ}"; do
+    if ! [[ -x "${tool}" ]]; then
+      _warn "${tool}: not installed!"
+      TOOL_ERROR=1
+    else
+      "${tool}" --version
+    fi
+  done
+  if (( TOOL_ERROR )); then
+    _info "Run \"gee repair\" to fix."
+  fi
 }
 
 ##########################################################################
