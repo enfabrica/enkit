@@ -5,9 +5,10 @@ read -r -d '' USAGE <<'EOT'
 
 gee version: {{VERSION}}
 
-gee is a wrapper around the "git" and "gh-cli" tools.  It implements a standard
-and supported workflow.  "gee" is also an instructional tool: by showing each
-command it executes, gee helps users learn git.
+gee is a wrapper around the "git" and "gh-cli" tools.  "gee" encapsulates all
+tribal knowledge about how to use git the right way (for us), implementing one
+standard and well-supported workflow.  "gee" is also an instructional tool: by
+showing each command it executes, gee helps users learn git.
 
 ## Features:
 
