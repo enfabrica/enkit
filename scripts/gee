@@ -1744,7 +1744,7 @@ function gee__pr_list() {
   echo ""
 
   _info "Open PRs authored by you:"
-  "${GH}" --repo enfabrica/internal pr list --author @me --state open \
+  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author @me --state open \
     --json number,reviewDecision,title \
     --jq '.[] | "#\(.number)\t\(.reviewDecision)\t\(.title)"'
   echo ""
