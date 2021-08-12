@@ -988,12 +988,34 @@ function _update_main() {
   # Merge from upstream/main into main:
   _set_main
   _checkout_or_die "${MAIN}"
-  _git fetch upstream
-  _git pull --rebase upstream "${MAIN}"
-  if [[ "$(_count_diffs "upstream/${MAIN}" "${MAIN}")" != 0 ]]; then
-    _fatal "git pull operation failed."
+  # check for local changes
+  local -a CHANGES
+  read -r -a CHANGES < \
+    <( "${GIT}" diff --name-only ) \
+    || /bin/true
+  if [[ "${#CHANGES[@]}" != 0 ]]; then
+    _warn "${MAIN} branch contains uncommitted changes."
   fi
-  _git push --quiet -u origin "${MAIN}"
+  _git fetch upstream
+  local -a COUNTS
+  read -r -a COUNTS < \
+    <( "${GIT}" rev-list --left-right --count "upstream/${MAIN}...${MAIN}" ) \
+    || /bin/true
+  if (( COUNTS[1] > 0 )); then
+    _warn "Branch ${MAIN} contains ${COUNTS[1]} commits of local changes."
+    _info "gee expects ${MAIN} to track upstream/${MAIN} with no local changes."
+    if _confirm_default_no "Do you want to revert these local changes?"; then
+      _git reset --hard "upstream/${MAIN}"
+    fi
+  fi
+  _git pull --rebase upstream "${MAIN}"
+  read -r -a COUNTS < \
+    <( "${GIT}" rev-list --left-right --count "upstream/${MAIN}...${MAIN}" ) \
+    || /bin/true
+  if (( COUNTS[0] != 0 )); then
+    _fatal "pull failed: upstream/${MAIN} is ${COUNTS[1]} commits ahead of ${MAIN}"
+  fi
+  _git push --quiet -u origin "+${MAIN}"
 }
 
 # The parents file keeps track of two things:
