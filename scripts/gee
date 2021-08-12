@@ -5,15 +5,19 @@ read -r -d '' USAGE <<'EOT'
 
 gee version: {{VERSION}}
 
-gee is a wrapper around the "git" and "gh-cli" tools.  It implements a standard
-and supported workflow.  "gee" is also an instructional tool: by showing each
-command it executes, gee helps users learn git.
+gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
+tribal knowledge about how to use git the right way (for us), implementing one
+standard and well-supported workflow.  "gee" is also an instructional tool: by
+showing each command as it executes, gee helps users learn git.
 
 ## Features:
 
-* Uses the "worktree" feature so that every branch is always visible in its
-  own directory, and switching branches is accomplished by changing directory.
-  All branch directories are named ~/gee/<REPO>/<BRANCH>
+* Uses the "worktree" feature so that:
+   * every branch is always visible in its own directory.
+   * switching branches is accomplished by changing directory.
+   * it's harder to accidentally save changes to the wrong branch.
+   * users can have uncommitted changes pending in more than one branch.
+  All branch directories are named ~/gee/<REPO>/<BRANCH>.
 
 * All local commits are automatically backed up to github.
 
@@ -69,6 +73,12 @@ review.
      gee rupdate
 
 EOT
+# Philosophy:
+#
+#    If I have to look it up on stack overflow, it should get encoded in gee.
+#    Automatic but not automagic.  No surprises.  Show your work.  Never change
+#    the system in a way the user doesn't expect.  When in doubt, ask.
+#
 # Branches:
 #    upstream: the original repo we have forked (enfabrica/$REPO)
 #              we issue pull requests to this repo, and we integrate
@@ -112,6 +122,7 @@ fi
 # However, "cd ." fixes the issue.
 cd .  # getcwd sometimes gets confused after a rebase.
 
+# Globals:
 readonly VERSION="0.1"
 declare -a HELP=()
 declare -A LONGHELP
@@ -132,6 +143,7 @@ TESTMODE="${TESTMODE:-0}"
 MAIN="" # Unknown, call _set_main to set.
 REPO="${REPO:-}"
 PAGER="${PAGER:-less}"
+PARENTS_FILE_IS_LOADED=0
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
@@ -175,7 +187,9 @@ _COLOR_WARN="$(tput setaf 11)"
 _COLOR_INFO="$(tput setaf 1)"
 
 ##########################################################################
-# helper functions
+# utility functions
+# 
+# (the good stuff, the commands, are in the next section below.)
 ##########################################################################
 
 function __git_eread ()
@@ -679,10 +693,8 @@ function _cmd() {
     "$@"
     RC=$?
     if [[ "${RC}" -ne 0 ]]; then
-      if [[ -z "${NOFAIL}" ]]; then
-        _die "Command failed with exit code ${RC}"
-      else
-        _warn "Command failed with exit code ${RC}"
+      _warn "Command failed with exit code ${RC}"
+      if ! [[ -z "${NOFAIL}" ]]; then
         RC=0
       fi
     fi
@@ -730,6 +742,7 @@ function _git_can_fail() {
 function _install_tools() {
   # If your dev image is missing the github-cli tool, this should install it.
   if [ ! -x "${GH}" ]; then
+    _info "Installing missing tool: gh"
     local KRFILE; KRFILE="/usr/share/keyrings/githubcli-archive-keyring.gpg"
     /usr/bin/curl -fsSL \
       https://cli.github.com/packages/githubcli-archive-keyring.gpg \
@@ -743,6 +756,7 @@ function _install_tools() {
   fi
 
   if [ ! -x "${JQ}" ]; then
+    _info "Installing missing tool: jq"
     sudo /usr/bin/apt install jq
     if [ ! -x "${JQ}" ]; then
       _fatal "Could not install jq."
@@ -789,6 +803,27 @@ function _remote_branch_exists() {
   fi
 }
 
+function _local_branch_exists() {
+  local BRANCH="$1"; shift
+  _set_main
+  local BRDIR
+  BRDIR="${REPO_DIR}/${BRANCH}"
+  if ! [[ -d "${BRDIR}" ]]; then
+    # try to fix worktree.
+    _git worktree add "${REPO_DIR}/${BRANCH}"
+    BRDIR="$(_get_branch_rootdir "${BRANCH}")"
+    _info "Created ${BRDIR}"
+  fi
+  BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list \
+    | grep -w "\[${BRANCH_NAME}\]" \
+    | awk '{print $1}' )"
+  if [[ -n "${BRDIR}" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 function _rebase_child_onto_parent() {
   # It turns out that I'm not smarter than a million git developers.  Let's not
   # be too clever here.  It turns out that ordinary rebase already does a good
@@ -830,9 +865,10 @@ function _rebase_child_onto_parent() {
   local CHILD_DIR
   CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
   cd "${CHILD_DIR}"
-  if ! _git_can_fail rebase --autostash "${PARENT}" "${CHILD}"; then
+  local PARENT_HEAD
+  PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
+  if ! _git rebase --autostash "${PARENT}" "${CHILD}"; then
     _warn "Rebase operation had conflicts."
-    # TODO(jonathan): make a fancy prompt for this subshell.
     export PROMPT_COMMAND="git status; _gee_rebase_prompt"
     local BOLD RST
     BOLD="$(tput bold)"
@@ -933,6 +969,17 @@ function _in_gee_repo() {
   fi
 }
 
+function _in_gee_branch() {
+  # Return "main" if we are outside of a gee repo:
+  local D
+  D="$(/usr/bin/pwd)"
+  if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+ ]]; then
+    return "${TRUE}"
+  else
+    return "${FALSE}"
+  fi
+}
+
 function _get_current_branch() {
   # Outside of a gee repo, current branch is always "main":
   _set_main
@@ -953,12 +1000,34 @@ function _update_main() {
   # Merge from upstream/main into main:
   _set_main
   _checkout_or_die "${MAIN}"
-  _git fetch upstream
-  _git pull --rebase upstream "${MAIN}"
-  if [[ "$(_count_diffs "upstream/${MAIN}" "${MAIN}")" != 0 ]]; then
-    _fatal "git pull operation failed."
+  # check for local changes
+  local -a CHANGES
+  read -r -a CHANGES < \
+    <( "${GIT}" diff --name-only ) \
+    || /bin/true
+  if [[ "${#CHANGES[@]}" != 0 ]]; then
+    _warn "${MAIN} branch contains uncommitted changes."
   fi
-  _git push --quiet -u origin "${MAIN}"
+  _git fetch upstream
+  local -a COUNTS
+  read -r -a COUNTS < \
+    <( "${GIT}" rev-list --left-right --count "upstream/${MAIN}...${MAIN}" ) \
+    || /bin/true
+  if (( COUNTS[1] > 0 )); then
+    _warn "Branch ${MAIN} contains ${COUNTS[1]} commits of local changes."
+    _info "gee expects ${MAIN} to track upstream/${MAIN} with no local changes."
+    if _confirm_default_no "Do you want to revert these local changes?"; then
+      _git reset --hard "upstream/${MAIN}"
+    fi
+  fi
+  _git pull --rebase upstream "${MAIN}"
+  read -r -a COUNTS < \
+    <( "${GIT}" rev-list --left-right --count "upstream/${MAIN}...${MAIN}" ) \
+    || /bin/true
+  if (( COUNTS[0] != 0 )); then
+    _fatal "pull failed: upstream/${MAIN} is ${COUNTS[1]} commits ahead of ${MAIN}"
+  fi
+  _git push --quiet -u origin "+${MAIN}"
 }
 
 # The parents file keeps track of two things:
@@ -975,8 +1044,7 @@ function _update_main() {
 
 # Lazy-load parents metadata:
 function _read_parents_file() {
-  if (( "${#PARENTS[@]}" )); then
-    # PARENTS is already loaded.
+  if (( PARENTS_FILE_IS_LOADED )); then
     return
   fi
   local PATH="${REPO_DIR}/.gee/parents"
@@ -992,12 +1060,12 @@ function _read_parents_file() {
     PARENTS["${BRANCH}"]="${PARENT}"
     MERGEBASES["${BRANCH}"]="${MERGEBASE}"
   done < "${PATH}"
+  PARENTS_FILE_IS_LOADED=1
 }
 
 function _write_parents_file() {
-  if (( "${#PARENTS[@]}" == 0 )); then
-    # PARENTS isn't loaded, so don't write it.
-    return 0
+  if ! (( PARENTS_FILE_IS_LOADED )); then
+    return
   fi
   local PATH="${REPO_DIR}/.gee/parents"
   if [[ ! -d "${REPO_DIR}/.gee" ]]; then
@@ -1447,7 +1515,6 @@ EOT
 
 function _order_branches() {
   local B="$1"
-  echo "$B a ${CHAIN[*]}"
   if _contains_element "${B}" "${CHAIN[@]}"; then return; fi
   if [[ "${B}" == "${MAIN}" ]]; then return; fi
   _order_branches "$(_get_parent_branch "${B}")"
@@ -1555,11 +1622,12 @@ function gee__lsb() { gee__lsbranches "$@"; }
 function gee__lsbr() { gee__lsbranches "$@"; }
 function gee__lsbranches() {
   _set_main
-  CURRENT_BRANCH="$(_get_current_branch)"
-  if [[ -z "${CURRENT_BRANCH}" ]]; then
-    CURRENT_BRANCH="${MAIN}"
+  if ! _in_gee_repo; then
+    cd "${REPO_DIR}"
   fi
-  _checkout_or_die "${CURRENT_BRANCH}"
+  if ! _in_gee_branch; then
+    cd "${REPO_DIR}/${MAIN}"
+  fi
 
   local -a branches;
   mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
@@ -1643,9 +1711,9 @@ function gee__commit() {
   CURRENT_BRANCH="$(_get_current_branch)"
   _set_main
   if [[ "${CURRENT_BRANCH}" == "${MAIN}" ]]; then
-    _info "You should use \"gee make_branch\" to create a feature branch"
-    _info "and commit your work there, rather than committing work to the"
-    _info "${MAIN} branch."
+    _info "gee's workflow doesn't allow changes to the ${MAIN} branch."
+    _info "You should move your changes to another branch.  For example:"
+    _info "  git add -a; git stash; gee mkbr new1; gcd new1; git stash apply"
     _fatal "Commit to ${MAIN} branch denied."
   fi
   BRANCH_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
@@ -1661,6 +1729,34 @@ function gee__commit() {
     _git push -u origin "${CURRENT_BRANCH}"
   fi
 }
+
+##########################################################################
+# pr_checkout command
+##########################################################################
+_register_help "pr_checkout" \
+  "Create a client containing someone's pull request." <<'EOT'
+Usage: gee pr_checkout <PR>
+
+Creates a new branch containing the specified pull request.
+Lists PRs that you created, and that are assigned to you.
+EOT
+function gee__pr_checkout() {
+  _set_main
+  _checkout_or_die "${MAIN}"
+  local PRNUM="$1"; shift
+  local BRANCH="pullreq_${PRNUM}"
+  if _local_branch_exists "${BRANCH}"; then
+    _confirm_or_exit "Branch ${BRANCH} exists: okay to reset it?  "
+  fi
+  # TODO(jonathan): will this update an existing branch?
+  _git fetch upstream "pull/${PRNUM}/head:${BRANCH}"
+  if ! _local_branch_exists "${BRANCH}"; then
+    gee__mkbr "${BRANCH}"
+  fi
+  _checkout_or_die "${BRANCH}"
+  git push origin "${BRANCH}"
+  _info "Pulled PR #${PRNUM} into branch \"${BRANCH}\""
+} 
 
 ##########################################################################
 # pr_list command
@@ -1680,12 +1776,24 @@ function gee__pr_list() {
   _get_pull_requests
   echo ""
 
-  _info "PRs authored by you:"
-  _gh --repo "${UPSTREAM}/${REPO}" pr list --author "@me"
+  _info "Open PRs authored by you:"
+  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author @me --state open \
+    --json number,reviewDecision,title \
+    --jq '.[] | "#\(.number)\t\(.reviewDecision)\t\(.title)"'
   echo ""
 
-  _info "PRs assigned to you:"
-  _gh --repo "${UPSTREAM}/${REPO}" pr list --assignee "@me"
+  _info "PRs pending your review:"
+  # TODO(jonathan): ugh why doesn't this work?
+  local -a JQSCRIPT=(
+    '.[]'
+    ' | select( .reviewDecision == "REVIEW_REQUIRED" )'
+    ' | select( .reviewRequests[]? | contains({"login":"'"${GHUSER}"'"}))'
+    ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
+  )
+  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
+    --json number,author,createdAt,state,title,reviewDecision,reviewRequests \
+    --jq "${JQSCRIPT[*]}" \
+    | column -t -s $'\t'
 }
 
 ##########################################################################
@@ -1893,6 +2001,8 @@ function gee__pr_submit() {
     # gh-cli treats this as a special case for some reason.
     FROM_BRANCH="${CURRENT_BRANCH}"
   fi
+  # TODO(jonathan): Instead of using --squash, we should squash locally and
+  # then merge.  This will make the later rebase operation cleaner.
   _gh pr merge --squash --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
   _git fetch upstream
 
@@ -2149,13 +2259,36 @@ any missing or incorrect metadata.
 EOT
 
 function gee__repair() {
-  # Make sure each worklist directory is pointing at the right branch
+  # Make sure all tools are available
+  _install_tools
+
+  if ! _in_gee_repo; then
+    _fatal "Not in a gee repo directory, aborting further repairs."
+  fi
+
   ORIG_DIR="$(pwd)"
+
+  # Checks for each directory in the worktree:
   local DIR BRANCH OBRANCH
-  for DIR in "${REPO_DIR}"*; do
+  for DIR in "${REPO_DIR}"/*; do
     BRANCH="$(basename "${DIR}")"
     cd "${DIR}"
     OBRANCH="$(_get_current_branch)"
+
+    # Give user opportunity to abort in-progress rebase operations:
+    if _is_rebase_in_progress; then
+      _warn "Rebase in progress on branch ${OBRANCH}"
+      mapfile -t STATUS < <( "${GIT}" status );
+      _info "${STATUS[@]}"
+      if _confirm_default_no "Do you want to abort this rebase operation now?"; then
+        _git rebase --abort
+        if _is_rebase_in_progress; then
+          _die "Error while aborting rebase operation."
+        fi
+      fi
+    fi
+
+    # Make sure the worktree directory points to the right branch:
     if [[ "${OBRANCH}" != "${BRANCH}" ]]; then
       _warn "${BRDIR} pointed to branch ${OBRANCH} instead of ${BRANCH}."
       _git checkout "${BRANCH}"
@@ -2163,11 +2296,11 @@ function gee__repair() {
     fi
   done
 
-  # Make sure each branch has a worklist directory
+  # Checks for each branch in the local git repository:
   local -a ALL_BRANCHES=()
   mapfile -t ALL_BRANCHES < <( "${GIT}" branch --format="%(refname:short)" )
   for BRANCH  in "${ALL_BRANCHES[@]}"; do
-    echo "co ${BRANCH}"
+    # make sure each branch has a worktree directory:
     _checkout_or_die "${BRANCH}"
   done
 
@@ -2273,9 +2406,18 @@ EOT
 function gee__version() {
   echo "gee version ${VERSION}"
   sha256sum "$0"
-  _cmd git --version
-  _cmd gh --version
-  _cmd jq --version
+  local TOOL_ERROR=0
+  for tool in "${GIT}" "${GH}" "${JQ}"; do
+    if ! [[ -x "${tool}" ]]; then
+      _warn "${tool}: not installed!"
+      TOOL_ERROR=1
+    else
+      "${tool}" --version
+    fi
+  done
+  if (( TOOL_ERROR )); then
+    _info "Run \"gee repair\" to fix."
+  fi
 }
 
 ##########################################################################
@@ -2288,16 +2430,21 @@ EOT
 
 function gee__help() {
   (
-    if (( "$#" == 0 )) || [[ "$1" == "usage" ]]; then
+    if (( "$#" == 0 )); then
+      set -- "usage"
+    fi
+    if [[ "$1" == "usage" ]]; then
       echo "${USAGE}" | sed "s/{{VERSION}}/${VERSION}/"
       echo ""
+    fi
+    if [[ ("$1" == "usage") || ("$1" == "commands") ]]; then
       echo "## Commands:"
       echo ""
       for h in "${HELP[@]}"; do
         echo "  $h"
       done | sort
+      shift;
     fi
-    if [[ "$1" == "usage" ]]; then shift; fi
     while (( "$#" )); do
       local COMMAND="$1"
       shift
@@ -2327,7 +2474,7 @@ function main() {
   else
     echo "Unknown command ${cmdname}"
     echo ""
-    gee__help usage
+    gee__help commands
     ABNORMAL=0
     exit 2
   fi
