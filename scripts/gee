@@ -1761,7 +1761,6 @@ function gee__pr_list() {
     --json number,author,createdAt,state,title,reviewDecision,reviewRequests \
     --jq "${JQSCRIPT[*]}" \
     | column -t -s $'\t'
-  echo ok
 }
 
 ##########################################################################
