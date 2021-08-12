@@ -124,6 +124,7 @@ fi
 # However, "cd ." fixes the issue.
 cd .  # getcwd sometimes gets confused after a rebase.
 
+# Globals:
 readonly VERSION="0.1"
 declare -a HELP=()
 declare -A LONGHELP
@@ -144,6 +145,7 @@ TESTMODE="${TESTMODE:-0}"
 MAIN="" # Unknown, call _set_main to set.
 REPO="${REPO:-}"
 PAGER="${PAGER:-less}"
+PARENTS_FILE_IS_LOADED=0
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
@@ -968,6 +970,17 @@ function _in_gee_repo() {
   fi
 }
 
+function _in_gee_branch() {
+  # Return "main" if we are outside of a gee repo:
+  local D
+  D="$(/usr/bin/pwd)"
+  if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+ ]]; then
+    return "${TRUE}"
+  else
+    return "${FALSE}"
+  fi
+}
+
 function _get_current_branch() {
   # Outside of a gee repo, current branch is always "main":
   _set_main
@@ -1032,8 +1045,7 @@ function _update_main() {
 
 # Lazy-load parents metadata:
 function _read_parents_file() {
-  if (( "${#PARENTS[@]}" )); then
-    # PARENTS is already loaded.
+  if (( PARENTS_FILE_IS_LOADED )); then
     return
   fi
   local PATH="${REPO_DIR}/.gee/parents"
@@ -1049,12 +1061,12 @@ function _read_parents_file() {
     PARENTS["${BRANCH}"]="${PARENT}"
     MERGEBASES["${BRANCH}"]="${MERGEBASE}"
   done < "${PATH}"
+  PARENTS_FILE_IS_LOADED=1
 }
 
 function _write_parents_file() {
-  if (( "${#PARENTS[@]}" == 0 )); then
-    # PARENTS isn't loaded, so don't write it.
-    return 0
+  if ! (( PARENTS_FILE_IS_LOADED )); then
+    return
   fi
   local PATH="${REPO_DIR}/.gee/parents"
   if [[ ! -d "${REPO_DIR}/.gee" ]]; then
@@ -1504,7 +1516,6 @@ EOT
 
 function _order_branches() {
   local B="$1"
-  echo "$B a ${CHAIN[*]}"
   if _contains_element "${B}" "${CHAIN[@]}"; then return; fi
   if [[ "${B}" == "${MAIN}" ]]; then return; fi
   _order_branches "$(_get_parent_branch "${B}")"
@@ -1612,11 +1623,12 @@ function gee__lsb() { gee__lsbranches "$@"; }
 function gee__lsbr() { gee__lsbranches "$@"; }
 function gee__lsbranches() {
   _set_main
-  CURRENT_BRANCH="$(_get_current_branch)"
-  if [[ -z "${CURRENT_BRANCH}" ]]; then
-    CURRENT_BRANCH="${MAIN}"
+  if ! _in_gee_repo; then
+    cd "${REPO_DIR}"
   fi
-  _checkout_or_die "${CURRENT_BRANCH}"
+  if ! _in_gee_branch; then
+    cd "${REPO_DIR}/${MAIN}"
+  fi
 
   local -a branches;
   mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
@@ -2253,13 +2265,29 @@ function gee__repair() {
     _fatal "Not in a gee repo directory, aborting further repairs."
   fi
 
-  # Make sure each worklist directory is pointing at the right branch
   ORIG_DIR="$(pwd)"
+
+  # Checks for each directory in the worktree:
   local DIR BRANCH OBRANCH
-  for DIR in "${REPO_DIR}"*; do
+  for DIR in "${REPO_DIR}"/*; do
     BRANCH="$(basename "${DIR}")"
     cd "${DIR}"
     OBRANCH="$(_get_current_branch)"
+
+    # Give user opportunity to abort in-progress rebase operations:
+    if _is_rebase_in_progress; then
+      _warn "Rebase in progress on branch ${OBRANCH}"
+      mapfile -t STATUS < <( "${GIT}" status );
+      _info "${STATUS[@]}"
+      if _confirm_default_no "Do you want to abort this rebase operation now?"; then
+        _git rebase --abort
+        if _is_rebase_in_progress; then
+          _die "Error while aborting rebase operation."
+        fi
+      fi
+    fi
+
+    # Make sure the worktree directory points to the right branch:
     if [[ "${OBRANCH}" != "${BRANCH}" ]]; then
       _warn "${BRDIR} pointed to branch ${OBRANCH} instead of ${BRANCH}."
       _git checkout "${BRANCH}"
@@ -2267,11 +2295,11 @@ function gee__repair() {
     fi
   done
 
-  # Make sure each branch has a worklist directory
+  # Checks for each branch in the local git repository:
   local -a ALL_BRANCHES=()
   mapfile -t ALL_BRANCHES < <( "${GIT}" branch --format="%(refname:short)" )
   for BRANCH  in "${ALL_BRANCHES[@]}"; do
-    echo "co ${BRANCH}"
+    # make sure each branch has a worktree directory:
     _checkout_or_die "${BRANCH}"
   done
 
