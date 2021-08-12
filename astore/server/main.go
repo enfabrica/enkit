@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/enfabrica/enkit/lib/oauth/ogrpc"
 	"os"
 
 	"fmt"
@@ -146,8 +147,8 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 	//
 	authWeb := oauth.NewMultiOAuth(rng, reqAuth, optAuth)
 	grpcs := grpc.NewServer(
-		//grpc.StreamInterceptor(ogrpc.StreamInterceptor(authWeb, "/auth.Auth/")),
-		//grpc.UnaryInterceptor(ogrpc.UnaryInterceptor(authWeb, "/auth.Auth/")),
+		grpc.StreamInterceptor(ogrpc.StreamInterceptor(reqAuth, "/auth.Auth/")),
+		grpc.UnaryInterceptor(ogrpc.UnaryInterceptor(reqAuth, "/auth.Auth/")),
 	)
 	rpc_astore.RegisterAstoreServer(grpcs, astoreServer)
 	rpc_auth.RegisterAuthServer(grpcs, authServer)
