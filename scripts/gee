@@ -803,6 +803,27 @@ function _remote_branch_exists() {
   fi
 }
 
+function _local_branch_exists() {
+  local BRANCH="$1"; shift
+  _set_main
+  local BRDIR
+  BRDIR="${REPO_DIR}/${BRANCH}"
+  if ! [[ -d "${BRDIR}" ]]; then
+    # try to fix worktree.
+    _git worktree add "${REPO_DIR}/${BRANCH}"
+    BRDIR="$(_get_branch_rootdir "${BRANCH}")"
+    _info "Created ${BRDIR}"
+  fi
+  BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list \
+    | grep -w "\[${BRANCH_NAME}\]" \
+    | awk '{print $1}' )"
+  if [[ -n "${BRDIR}" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 function _rebase_child_onto_parent() {
   # It turns out that I'm not smarter than a million git developers.  Let's not
   # be too clever here.  It turns out that ordinary rebase already does a good
@@ -1677,6 +1698,34 @@ function gee__commit() {
 }
 
 ##########################################################################
+# pr_checkout command
+##########################################################################
+_register_help "pr_checkout" \
+  "Create a client containing someone's pull request." <<'EOT'
+Usage: gee pr_checkout <PR>
+
+Creates a new branch containing the specified pull request.
+Lists PRs that you created, and that are assigned to you.
+EOT
+function gee__pr_checkout() {
+  _set_main
+  _checkout_or_die "${MAIN}"
+  local PRNUM="$1"; shift
+  local BRANCH="pullreq_${PRNUM}"
+  if _local_branch_exists "${BRANCH}"; then
+    _confirm_or_exit "Branch ${BRANCH} exists: okay to reset it?  "
+  fi
+  # TODO(jonathan): will this update an existing branch?
+  _git fetch upstream "pull/${PRNUM}/head:${BRANCH}"
+  if ! _local_branch_exists "${BRANCH}"; then
+    gee__mkbr "${BRANCH}"
+  fi
+  _checkout_or_die "${BRANCH}"
+  git push origin "${BRANCH}"
+  _info "Pulled PR #${PRNUM} into branch \"${BRANCH}\""
+} 
+
+##########################################################################
 # pr_list command
 ##########################################################################
 _register_help "pr_list" \
@@ -1694,12 +1743,25 @@ function gee__pr_list() {
   _get_pull_requests
   echo ""
 
-  _info "PRs authored by you:"
-  _gh --repo "${UPSTREAM}/${REPO}" pr list --author "@me"
+  _info "Open PRs authored by you:"
+  "${GH}" --repo enfabrica/internal pr list --author @me --state open \
+    --json number,reviewDecision,title \
+    --jq '.[] | "#\(.number)\t\(.reviewDecision)\t\(.title)"'
   echo ""
 
-  _info "PRs assigned to you:"
-  _gh --repo "${UPSTREAM}/${REPO}" pr list --assignee "@me"
+  _info "PRs pending your review:"
+  # TODO(jonathan): ugh why doesn't this work?
+  local -a JQSCRIPT=(
+    '.[]'
+    ' | select( .reviewDecision == "REVIEW_REQUIRED" )'
+    ' | select( .reviewRequests[]? | contains({"login":"'"${GHUSER}"'"}))'
+    ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
+  )
+  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
+    --json number,author,createdAt,state,title,reviewDecision,reviewRequests \
+    --jq "${JQSCRIPT[*]}" \
+    | column -t -s $'\t'
+  echo ok
 }
 
 ##########################################################################
