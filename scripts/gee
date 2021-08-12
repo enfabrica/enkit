@@ -693,10 +693,8 @@ function _cmd() {
     "$@"
     RC=$?
     if [[ "${RC}" -ne 0 ]]; then
-      if [[ -z "${NOFAIL}" ]]; then
-        _die "Command failed with exit code ${RC}"
-      else
-        _warn "Command failed with exit code ${RC}"
+      _warn "Command failed with exit code ${RC}"
+      if ! [[ -z "${NOFAIL}" ]]; then
         RC=0
       fi
     fi
@@ -867,9 +865,10 @@ function _rebase_child_onto_parent() {
   local CHILD_DIR
   CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
   cd "${CHILD_DIR}"
-  if ! _git_can_fail rebase --autostash "${PARENT}" "${CHILD}"; then
+  local PARENT_HEAD
+  PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
+  if ! _git rebase --autostash "${PARENT}" "${CHILD}"; then
     _warn "Rebase operation had conflicts."
-    # TODO(jonathan): make a fancy prompt for this subshell.
     export PROMPT_COMMAND="git status; _gee_rebase_prompt"
     local BOLD RST
     BOLD="$(tput bold)"
@@ -2002,6 +2001,8 @@ function gee__pr_submit() {
     # gh-cli treats this as a special case for some reason.
     FROM_BRANCH="${CURRENT_BRANCH}"
   fi
+  # TODO(jonathan): Instead of using --squash, we should squash locally and
+  # then merge.  This will make the later rebase operation cleaner.
   _gh pr merge --squash --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
   _git fetch upstream
 
