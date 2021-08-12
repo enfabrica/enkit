@@ -73,13 +73,11 @@ review.
      gee rupdate
 
 EOT
-# Philosophy: automatic, not automagic.
+# Philosophy:
 #
-#    Be as automatic as possible, but never change anything on disk unless the
-#    user explicitly asked us to.  No surprises.
-#
-#    For example, if a tool is missing, tell the user to run "gee repair" but
-#    don't just do it for them.  Prompt before doing something dangerous.
+#    If I have to look it up on stack overflow, it should get encoded in gee.
+#    Automatic but not automagic.  No surprises.  Show your work.  Never change
+#    the system in a way the user doesn't expect.  When in doubt, ask.
 #
 # Branches:
 #    upstream: the original repo we have forked (enfabrica/$REPO)
@@ -189,7 +187,9 @@ _COLOR_WARN="$(tput setaf 11)"
 _COLOR_INFO="$(tput setaf 1)"
 
 ##########################################################################
-# helper functions
+# utility functions
+# 
+# (the good stuff, the commands, are in the next section below.)
 ##########################################################################
 
 function __git_eread ()
@@ -2429,16 +2429,21 @@ EOT
 
 function gee__help() {
   (
-    if (( "$#" == 0 )) || [[ "$1" == "usage" ]]; then
+    if (( "$#" == 0 )); then
+      set -- "usage"
+    fi
+    if [[ "$1" == "usage" ]]; then
       echo "${USAGE}" | sed "s/{{VERSION}}/${VERSION}/"
       echo ""
+    fi
+    if [[ ("$1" == "usage") || ("$1" == "commands") ]]; then
       echo "## Commands:"
       echo ""
       for h in "${HELP[@]}"; do
         echo "  $h"
       done | sort
+      shift;
     fi
-    if [[ "$1" == "usage" ]]; then shift; fi
     while (( "$#" )); do
       local COMMAND="$1"
       shift
@@ -2468,7 +2473,7 @@ function main() {
   else
     echo "Unknown command ${cmdname}"
     echo ""
-    gee__help usage
+    gee__help commands
     ABNORMAL=0
     exit 2
   fi
