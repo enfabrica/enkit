@@ -131,7 +131,7 @@ type Authenticator struct {
 	rng         *rand.Rand
 	authEncoder *token.TypeEncoder
 
-	Flow *FlowController
+	conf *oauth2.Config
 
 	verifier Verifier
 }
@@ -187,11 +187,7 @@ func (a *Authenticator) LoginURL(target string, state interface{}) (string, []by
 	if err != nil {
 		return "", nil, err
 	}
-	conf, err := a.Flow.FetchOauth2Config(state)
-	if err != nil {
-		return "", nil, err
-	}
-	url := conf.AuthCodeURL(string(esecret))
+	url := a.conf.AuthCodeURL(string(esecret))
 	///* oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "login"), oauth2.SetAuthURLParam("approval_prompt", "force"), oauth2.SetAuthURLParam("max_age", "0") */)
 	return url, secret, nil
 }
@@ -601,11 +597,7 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	})
 	code := query.Get("code")
 	// FIXME: needs retry logic, timeout?
-	conf, err := a.Flow.FetchOauth2Config(received.State)
-	if err != nil {
-		return AuthData{}, fmt.Errorf("flow: failed to extract %w, ", err)
-	}
-	tok, err := conf.Exchange(oauth2.NoContext, code)
+	tok, err := a.conf.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		return AuthData{}, fmt.Errorf("Could not retrieve token - %w", err)
 	}
@@ -616,16 +608,12 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	if err != nil {
 		return AuthData{}, fmt.Errorf("Invalid token - %w", err)
 	}
-	newState, err := a.Flow.MarkAsDone(received.State, conf, *identity)
-	if err != nil {
-		return AuthData{}, err
-	}
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}
 	ccookie, err := a.EncodeCredentials(creds)
 	if err != nil {
 		return AuthData{}, err
 	}
-	return AuthData{Creds: &creds, Cookie: string(ccookie), Target: received.Target, State: newState}, nil
+	return AuthData{Creds: &creds, Cookie: string(ccookie), Target: received.Target, State: received.State}, nil
 }
 
 // CredentialsCookie will create an http.Cookie object containing the user credentials.

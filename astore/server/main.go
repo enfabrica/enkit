@@ -30,7 +30,6 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/enfabrica/enkit/lib/oauth/ogrpc"
 	"github.com/enfabrica/enkit/lib/server"
 	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/srand"
@@ -100,7 +99,7 @@ func ListHandler(base, upath string, resp *rpc_astore.ListResponse, err error, w
 	})
 }
 
-func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *oauth.Flags) error {
+func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *oauth.Flags, optAuthFlags *oauth.Flags) error {
 	rng := rand.New(srand.Source)
 
 	cookieDomain = strings.TrimSpace(cookieDomain)
@@ -115,6 +114,7 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 	// Adjust the URLs the user supplied based on what the web server below does.
 	authFlags.AuthURL = strings.TrimSuffix(targetURL, "/") + "/a/"
 	oauthFlags.TargetURL = strings.TrimSuffix(targetURL, "/") + "/e/"
+	optAuthFlags.TargetURL = strings.TrimSuffix(targetURL, "/") + "/e/"
 
 	listURL := ""
 	downloadURL := ""
@@ -135,13 +135,19 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 		return fmt.Errorf("could not initialize auth server - %s", err)
 	}
 
-	authWeb, err := oauth.New(rng, oauth.WithFlags(oauthFlags), auth.FetchCredentialOpts(oAuthType))
+	reqAuth, err := oauth.New(rng, oauth.WithFlags(oauthFlags), auth.FetchCredentialOpts(oAuthType))
 	if err != nil {
 		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
 	}
+	optAuth, err := oauth.New(rng, oauth.WithFlags(optAuthFlags), auth.FetchCredentialOpts(oAuthType))
+	if err != nil {
+		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
+	}
+	//
+	authWeb := oauth.NewMultiOAuth(rng, reqAuth, optAuth)
 	grpcs := grpc.NewServer(
-		grpc.StreamInterceptor(ogrpc.StreamInterceptor(authWeb, "/auth.Auth/")),
-		grpc.UnaryInterceptor(ogrpc.UnaryInterceptor(authWeb, "/auth.Auth/")),
+		//grpc.StreamInterceptor(ogrpc.StreamInterceptor(authWeb, "/auth.Auth/")),
+		//grpc.UnaryInterceptor(ogrpc.UnaryInterceptor(authWeb, "/auth.Auth/")),
 	)
 	rpc_astore.RegisterAstoreServer(grpcs, astoreServer)
 	rpc_auth.RegisterAuthServer(grpcs, authServer)
@@ -211,7 +217,7 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 			return
 		}
 		if err := authWeb.PerformLogin(w, r,
-			oauth.WithState(authWeb.Flow.NewState(*key)),
+			oauth.WithState(*key),
 			oauth.WithCookieOptions(kcookie.WithPath("/")),
 		); err != nil {
 			http.Error(w, "oauth failed, no idea why, ask someone to look at the logs", http.StatusUnauthorized)
@@ -228,19 +234,13 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 			// WithSecure and WithSameSite are required to get the cookie forwarded via the NASSH plugin in chrome (for SSH).
 			copts = append(copts, kcookie.WithDomain(cookieDomain), kcookie.WithSecure(true), kcookie.WithSameSite(http.SameSiteNoneMode))
 		}
-		data, handled, err := authWeb.PerformAuth(w, r, copts...)
+		data, terminal, err := authWeb.PerformAuth(w, r, copts...)
 		if err != nil {
 			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
 			log.Printf("ERROR - could not perform token exchange - %s", err)
 			return
 		}
-		shouldRedirect, err := authWeb.Flow.ShouldRedirect(data.State)
-		if err != nil {
-			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
-			log.Printf("ERROR - could not check for redirect - %s", err)
-			return
-		}
-		if shouldRedirect {
+		if !terminal {
 			if err := authWeb.PerformLogin(w, r,
 				oauth.WithState(data.State),
 				oauth.WithCookieOptions(kcookie.WithPath("/")),
@@ -252,21 +252,11 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 			return
 		}
 
-		flowState, err := authWeb.Flow.DecodeState(data.State)
-		if err != nil {
-			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
-			return
-		}
-		if key, ok := flowState.Extra.(common.Key); ok {
-			//TODO(adam): changes type of feedtoken to look cleaner
-			data.Identities = flowState.Identities
-			data.PrimaryIdentity = flowState.PrimaryIdentity
+		if key, ok := data.State.(common.Key); ok {
 			authServer.FeedToken(key, data)
 		}
-		if !handled {
-			ShowResult(w, r, "thumbs-up", "Good Job!", messageSuccess, http.StatusOK)
-			return
-		}
+		ShowResult(w, r, "thumbs-up", "Good Job!", messageSuccess, http.StatusOK)
+		return
 	})
 
 	// The root of the web server, nothing to see here.
@@ -287,6 +277,7 @@ func main() {
 	astoreFlags := astore.DefaultFlags().Register(&kcobra.FlagSet{command.Flags()}, "")
 	authFlags := auth.DefaultFlags().Register(&kcobra.FlagSet{command.Flags()}, "")
 	oauthFlags := oauth.DefaultFlags().Register(&kcobra.FlagSet{command.Flags()}, "")
+	optAuthFlags := oauth.DefaultFlags().Register(&kcobra.FlagSet{command.Flags()}, "opt-")
 
 	targetURL := ""
 	cookieDomain := ""
@@ -296,7 +287,7 @@ func main() {
 		"This implicitly authorizes redirection to any URL within the domain.")
 	command.Flags().StringVar(&oauthType, "oauth-type", "google", "the type of oauth2 provider that's presented")
 	command.RunE = func(cmd *cobra.Command, args []string) error {
-		return Start(targetURL, cookieDomain, oauthType, astoreFlags, authFlags, oauthFlags)
+		return Start(targetURL, cookieDomain, oauthType, astoreFlags, authFlags, oauthFlags, optAuthFlags)
 	}
 
 	kcobra.PopulateDefaults(command, os.Args,

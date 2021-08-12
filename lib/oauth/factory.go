@@ -135,7 +135,7 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 		"Prefer using the --"+prefix+"secret-file option - as it hides the secret from 'ps'. Secret key of the client to use with the oauth provider")
 	set.DurationVar(&f.AuthTime, prefix+"auth-time", f.AuthTime,
 		"How long should the token forwarded to the remote oauth server be valid for. This bounds how long the oauth authentication process can take at most")
-	set.ByteFileVar(&f.AdditionalOAuth, prefix+"add-oauth", "", "file for additional oauth flow to occur before required oauth")
+	set.ByteFileVar(&f.AdditionalOAuth, prefix+"oauth-file", "", "file for additional oauth flow to occur before required oauth")
 	f.SigningExtractorFlags.Register(set, prefix)
 	return f
 }
@@ -363,14 +363,18 @@ func WithCookiePrefix(prefix string) Modifier {
 
 func WithFlags(fl *Flags) Modifier {
 	return func(o *Options) error {
-		if len(fl.OauthSecretJSON) == 0 && (fl.OauthSecretID == "" || fl.OauthSecretKey == "") {
-			return fmt.Errorf("you must specify the secret-file or (secret-key and secret-id) options")
+		var mods []Modifier
+		if len(fl.AdditionalOAuth) == 0 {
+			if len(fl.OauthSecretJSON) == 0 && (fl.OauthSecretID == "" || fl.OauthSecretKey == "") {
+				return fmt.Errorf("you must specify the secret-file or (secret-key and secret-id) options")
+			}
+			if len(fl.TargetURL) == 0 {
+				return fmt.Errorf("you must specify the target-url flag")
+			}
 		}
-		if len(fl.TargetURL) == 0 {
-			return fmt.Errorf("you must specify the target-url flag")
+		if fl.TargetURL != "" {
+			mods = append(mods, WithTargetURL(fl.TargetURL))
 		}
-
-		mods := []Modifier{WithTargetURL(fl.TargetURL)}
 		if len(fl.OauthSecretJSON) > 0 {
 			mods = append(mods, WithSecretJSON(fl.OauthSecretJSON))
 		}
@@ -430,9 +434,10 @@ func WithAdditionalFlow(fileContent []byte) Modifier {
 			ClientID:     d.ClientID,
 			ClientSecret: d.ClientSecret,
 			Endpoint:     endpoint,
+			RedirectURL:  opt.conf.RedirectURL,
 			Scopes:       []string{"email"},
 		}
-		opt.extraAuthConfig = &c
+		opt.conf = &c
 		return nil
 	}
 }
@@ -445,7 +450,6 @@ type Options struct {
 
 	version         int
 	conf            *oauth2.Config
-	extraAuthConfig *oauth2.Config
 
 	verifier   Verifier
 	baseCookie string
@@ -484,29 +488,23 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 
 		authEncoder: te,
 		verifier:    opt.verifier,
-		Flow: &FlowController{
-			required: opt.conf,
-			optional: opt.extraAuthConfig,
-			Enc:      te,
-		},
+		conf:        opt.conf,
 	}
-
-	if authenticator.Flow.required.RedirectURL == "" {
+	if authenticator.conf.RedirectURL == "" {
 		return nil, fmt.Errorf("API used incorrectly - must supply a target auth url with WithTargetURL")
 	}
-	if authenticator.Flow.required.ClientID == "" || authenticator.Flow.required.ClientSecret == "" {
+	if authenticator.conf.ClientID == "" || authenticator.conf.ClientSecret == "" {
 		return nil, fmt.Errorf("API used incorrectly - must supply secrets with WithSecrets")
 	}
 	if authenticator.verifier == nil {
 		return nil, fmt.Errorf("API used incorrectly - must supply verifier with WithFactory")
 	}
-	if len(authenticator.Flow.required.Scopes) == 0 {
+	if len(authenticator.conf.Scopes) == 0 {
 		return nil, fmt.Errorf("API used incorrectly - no scopes configured")
 	}
-	if authenticator.Flow.required.Endpoint.AuthURL == "" || authenticator.Flow.required.Endpoint.TokenURL == "" {
-		return nil, fmt.Errorf("API used incorrectly - endpoint has no AuthURL or TokenURL - %#v", authenticator.Flow.required.Endpoint)
+	if authenticator.conf.Endpoint.AuthURL == "" || authenticator.conf.Endpoint.TokenURL == "" {
+		return nil, fmt.Errorf("API used incorrectly - endpoint has no AuthURL or TokenURL - %#v", authenticator.conf.Endpoint)
 	}
-
 	return authenticator, nil
 }
 
