@@ -1067,6 +1067,10 @@ function _write_parents_file() {
   if ! (( PARENTS_FILE_IS_LOADED )); then
     return
   fi
+  if [[ "${#PARENTS[@]}" -eq 0 ]]; then
+    _warn "Almost wrote empty parents file!"
+    return
+  fi
   local PATH="${REPO_DIR}/.gee/parents"
   if [[ ! -d "${REPO_DIR}/.gee" ]]; then
     /usr/bin/mkdir "${REPO_DIR}/.gee"
@@ -2268,7 +2272,7 @@ function gee__repair() {
 
   ORIG_DIR="$(pwd)"
 
-  # Checks for each directory in the worktree:
+  _info "Checking each directory in ${REPO_DIR}..."
   local DIR BRANCH OBRANCH
   for DIR in "${REPO_DIR}"/*; do
     BRANCH="$(basename "${DIR}")"
@@ -2296,7 +2300,7 @@ function gee__repair() {
     fi
   done
 
-  # Checks for each branch in the local git repository:
+  _info "Checking each branch in the local repository..."
   local -a ALL_BRANCHES=()
   mapfile -t ALL_BRANCHES < <( "${GIT}" branch --format="%(refname:short)" )
   for BRANCH  in "${ALL_BRANCHES[@]}"; do
@@ -2306,6 +2310,7 @@ function gee__repair() {
 
   # Repair the PARENT file if it gets corrupted or removed, by attempting to
   # guess the parent for each branch.
+  _info "Checking the parents file..."
   _read_parents_file
   local DIRTY=0
   _set_main
