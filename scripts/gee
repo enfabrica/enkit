@@ -2250,6 +2250,26 @@ function gee__create_ssh_key() {
 }
 
 ##########################################################################
+# share command
+##########################################################################
+
+_register_help "share" "Share your branch." <<'EOT'
+Usage: gee share
+
+Displays URLs that you can paste into emails to share the contents of
+your branch with other users (in advance of sending out a PR).
+EOT
+
+function gee__share() {
+  local CURRENT_BRANCH PARENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  PARENT_BRANCH="$(_get_parent_branch)"
+  _info "These URLs are useful for sharing:"
+  echo  "  https://github.com/${GHUSER}/${REPO}/compare/${PARENT_BRANCH}...${CURRENT_BRANCH}"
+  echo  "  https://github.com/${GHUSER}/${REPO}/tree/${CURRENT_BRANCH}"
+}
+
+##########################################################################
 # repair command
 ##########################################################################
 
