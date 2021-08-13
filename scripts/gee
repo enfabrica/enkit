@@ -1768,30 +1768,61 @@ function gee__pr_checkout() {
 _register_help "pr_list" \
   "List outstanding PRs" \
   "lspr" "list_pr" "prls" <<'EOT'
-Usage: gee pr_list
+Usage: gee pr_list [<user>]
 
-Lists PRs that you created, and that are assigned to you.
+Lists information about PRs associated with the specified user (or yourself, if
+no user is specified).
+
+Example:
+
+$ gee lspr jonathan-enf
+PRs associated with this branch:
+OPEN 1181 codegen tool
+
+Open PRs authored by jonathan-enf:
+#1205   REVIEW_REQUIRED Fix libsystemc build file error.
+#1181   REVIEW_REQUIRED codegen tool
+#1158   REVIEW_REQUIRED Added @gmp//:libgmpxx
+#1148   REVIEW_REQUIRED Added gee to enkit.config.yaml.
+#1136   REVIEW_REQUIRED Unified PtrQueue and Queue implementations.
+#1130   REVIEW_REQUIRED Owners of /poc/{sim,models}
+#1059   REVIEW_REQUIRED CSV file helper library
+
+PRs pending their review:
+#1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
+
 EOT
 function gee__lspr() { gee__pr_list "$@"; }
 function gee__list_pr() { gee__pr_list "$@"; }
 function gee__prls() { gee__pr_list "$@"; }
 function gee__pr_list() {
+  local WHO WHO_3RD_PERSON USER YOUR
+  WHO="@me"
+  WHO_3RD_PERSON="you"
+  USER="${GHUSER}"
+  YOUR="your"
+  if [[ -n "$1" ]]; then
+    WHO="$1"
+    WHO_3RD_PERSON="$1"
+    USER="$1"
+    YOUR="their"
+  fi
   _info "PRs associated with this branch:"
   _get_pull_requests
   echo ""
 
-  _info "Open PRs authored by you:"
-  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author @me --state open \
+  _info "Open PRs authored by ${WHO_3RD_PERSON}:"
+  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author "${WHO}" --state open \
     --json number,reviewDecision,title \
     --jq '.[] | "#\(.number)\t\(.reviewDecision)\t\(.title)"'
   echo ""
 
-  _info "PRs pending your review:"
+  _info "PRs pending ${YOUR} review:"
   # TODO(jonathan): ugh why doesn't this work?
   local -a JQSCRIPT=(
     '.[]'
     ' | select( .reviewDecision == "REVIEW_REQUIRED" )'
-    ' | select( .reviewRequests[]? | contains({"login":"'"${GHUSER}"'"}))'
+    ' | select( .reviewRequests[]? | contains({"login":"'"${USER}"'"}))'
     ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
   )
   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
