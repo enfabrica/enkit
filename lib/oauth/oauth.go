@@ -49,6 +49,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/kcerts"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/oauth2"
 	"log"
 	"math/rand"
@@ -59,9 +61,9 @@ import (
 	"time"
 
 	"github.com/enfabrica/enkit/lib/khttp"
+	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
-	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/token"
 )
 
@@ -151,6 +153,16 @@ type Identity struct {
 // Interpret the result as meaning "user by this name" @ "organization by this name".
 func (i *Identity) GlobalName() string {
 	return i.Username + "@" + i.Organization
+}
+
+func (i *Identity) CertMod() kcerts.CertMod {
+	if i.Organization == "github.com" {
+		return func(certificate *ssh.Certificate) *ssh.Certificate {
+			certificate.Extensions["login@github.com"] = i.Username
+			return certificate
+		}
+	}
+	return kcerts.NoOp
 }
 
 // CredentialsCookie is what is encrypted within the authentication cookie returned

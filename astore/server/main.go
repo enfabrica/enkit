@@ -140,7 +140,7 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 	if err != nil {
 		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
 	}
-	optAuth, err := oauth.New(rng, oauth.WithFlags(optAuthFlags), auth.FetchCredentialOpts(oAuthType))
+	optAuth, err := oauth.New(rng, oauth.WithFlags(optAuthFlags), auth.FetchCredentialOpts("github"))
 	if err != nil {
 		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
 	}

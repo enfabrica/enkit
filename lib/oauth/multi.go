@@ -14,26 +14,21 @@ import (
 	"reflect"
 )
 
-const requiredKey = "required"
-
 type MultiOauth struct {
 	RequiredAuth *Authenticator
-	OptAuth      map[string]*Authenticator
+	OptAuth      []*Authenticator
 	Enc          []*token.TypeEncoder
 }
 
 type MultiOAuthState struct {
-	CompletedFlows []string
-	CurrentFlow    string
-	OptIdentities  []Identity
-	Extra          interface {
-	}
+	CurrentFlow   int
+	OptIdentities []Identity
+	Extra         interface{}
 }
 
 func (mo *MultiOauth) NewState(Extra interface{}) *MultiOAuthState {
 	return &MultiOAuthState{
-		CompletedFlows: []string{},
-		Extra:          Extra,
+		Extra: Extra,
 	}
 }
 
@@ -66,38 +61,19 @@ func (mo *MultiOauth) decodeState(r *http.Request) (*MultiOAuthState, error) {
 	state := query.Get("state")
 	// No state means fresh flow
 	if state == "" {
-		if mo.OptAuth == nil {
-			return &MultiOAuthState{}, nil
-		}
 		return &MultiOAuthState{}, nil
 	}
 	return mo.decodeRaw(state)
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
-// authenticator will return the specified oauth.Authenticator if MultiOAuthState.CurrentFlow is set.
-// if it is not, it will spit our a random optional flow or the last, required flow. It also will set MultiOAuthState.CurrentFlow.
-func (mo *MultiOauth) authenticator(state *MultiOAuthState) (string, *Authenticator) {
-	if state.CurrentFlow != "" {
-		return state.CurrentFlow, mo.OptAuth[state.CurrentFlow]
+// authenticator will return the specified oauth.Authenticator from MultiOAuthState.CurrentFlow.
+// if the index matches the final optional authenticator, it will return the required one.
+func (mo *MultiOauth) authenticator(state *MultiOAuthState) (int, *Authenticator) {
+	if state.CurrentFlow >= len(mo.OptAuth) {
+		return state.CurrentFlow, mo.RequiredAuth
 	}
 	// find the first authen not redeemed, if they are all redeemed return required
-	for k, v := range mo.OptAuth {
-		if !contains(state.CompletedFlows, k) {
-			state.CurrentFlow = k
-			return k, v
-		}
-	}
-	state.CurrentFlow = requiredKey
-	return requiredKey, mo.RequiredAuth
+	return state.CurrentFlow, mo.OptAuth[state.CurrentFlow]
 }
 
 func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods ...kcookie.Modifier) (AuthData, bool, error) {
@@ -105,21 +81,20 @@ func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods .
 	if err != nil {
 		return AuthData{}, false, err
 	}
-	key, a := mo.authenticator(flowState)
+	_, a := mo.authenticator(flowState)
 	data, _, err := a.PerformAuth(w, r, mods...)
 	if err != nil {
 		return AuthData{}, false, err
 	}
 	// This is the terminal condition.
-	if key == requiredKey {
+	if a == mo.RequiredAuth {
 		data.PrimaryIdentity = data.Creds.Identity
 		data.Identities = flowState.OptIdentities
 		data.State = flowState.Extra
 		return data, true, err
 	}
 	flowState.OptIdentities = append(flowState.OptIdentities, data.Creds.Identity)
-	flowState.CompletedFlows = append(flowState.CompletedFlows, key)
-	flowState.CurrentFlow = ""
+	flowState.CurrentFlow += 1
 	data.State = flowState
 	return data, false, err
 }
@@ -136,7 +111,6 @@ func (mo *MultiOauth) PerformLogin(w http.ResponseWriter, r *http.Request, lm ..
 		return err
 	}
 	_, a := mo.authenticator(state)
-
 	// override just in case we had to pack it in, login apply works in FIFO
 	lm = append(lm, WithState(options.State))
 	return a.PerformLogin(w, r, append(lm)...)
@@ -152,26 +126,12 @@ func init() {
 	gob.Register(MultiOAuthState{})
 }
 
-// I want uuids
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func randSeq(rng *rand.Rand, n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rng.Intn(len(letters))]
-	}
-	return string(b)
-}
-
 func NewMultiOAuth(rng *rand.Rand, required *Authenticator, opts ...*Authenticator) *MultiOauth {
 	var encs []*token.TypeEncoder
-	m := map[string]*Authenticator{}
+	var m []*Authenticator
 	for _, v := range opts {
 		encs = append(encs, v.authEncoder)
-		m[randSeq(rng, 25)] = v
 	}
-
-	m[requiredKey] = required
 	encs = append(encs, required.authEncoder)
 
 	return &MultiOauth{

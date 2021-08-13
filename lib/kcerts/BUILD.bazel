@@ -8,6 +8,7 @@ go_library(
         "keys.go",
         "signer.go",
         "ssh.go",
+        "types.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/kcerts",
     visibility = ["//visibility:public"],

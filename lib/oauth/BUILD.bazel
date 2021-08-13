@@ -10,6 +10,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/oauth",
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/kcerts:go_default_library",
         "//lib/kflags:go_default_library",
         "//lib/khttp:go_default_library",
         "//lib/khttp/kassets:go_default_library",
@@ -17,6 +18,7 @@ go_library(
         "//lib/multierror:go_default_library",
         "//lib/oauth/cookie:go_default_library",
         "//lib/token:go_default_library",
+        "@org_golang_x_crypto//ssh:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
         "@org_golang_x_oauth2//github:go_default_library",
         "@org_golang_x_oauth2//google:go_default_library",
