@@ -1,7 +1,7 @@
 #!/bin/bash
 
 read -r -d '' USAGE <<'EOT'
-  __ _  ___  ___ 
+. __ _  ___  ___ 
  / _` |/ _ \/ _ \  git
 | (_| |  __/  __/  enabled
  \__, |\___|\___|  enfabrication
@@ -2530,6 +2530,10 @@ function gee__help() {
 ##########################################################################
 
 function main() {
+  if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    shift
+    set -- "help" "$@"
+  fi
   if (( "$#" == 0 )); then
     gee__help usage
     exit 0
