@@ -1265,7 +1265,8 @@ function gee__make_branch() {
   # existing branch in their existing repo, pull those changes
   # into this branch.
   if _remote_branch_exists origin "${BRNAME}"; then
-    _git pull origin "${BRNAME}"
+    _checkout_or_die "${BRNAME}"
+    _git pull --rebase origin "${BRNAME}"
     _info "Pulled in changes from origin/${BRNAME}"
   fi
 }
