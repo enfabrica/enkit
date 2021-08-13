@@ -83,6 +83,9 @@ EOT
 #    Automatic but not automagic.  No surprises.  Show your work.  Never change
 #    the system in a way the user doesn't expect.  When in doubt, ask.
 #
+#    Do what I mean: I'm lysdexic, so a lot of the commands have reverse order
+#    aliases.
+#
 # Branches:
 #    upstream: the original repo we have forked (enfabrica/$REPO)
 #              we issue pull requests to this repo, and we integrate
@@ -1811,9 +1814,11 @@ function gee__pr_list() {
     USER="$1"
     YOUR="their"
   fi
-  _info "PRs associated with this branch:"
-  _get_pull_requests
-  echo ""
+  if _in_gee_branch; then
+    _info "PRs associated with this branch:"
+    _get_pull_requests
+    echo ""
+  fi
 
   _info "Open PRs authored by ${WHO_3RD_PERSON}:"
   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author "${WHO}" --state open \
@@ -1925,6 +1930,8 @@ function gee__send() { gee__pr_make "$@"; }
 function gee__mkpr() { gee__pr_make "$@"; }
 function gee__prmk() { gee__pr_make "$@"; }
 function gee__make_pr() { gee__pr_make "$@"; }
+function gee__pr_create() { gee__pr_make "$@"; }
+function gee__create_pr() { gee__pr_make "$@"; }
 function gee__pr_make() {
   _check_cwd
   local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
