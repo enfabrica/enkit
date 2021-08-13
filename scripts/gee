@@ -860,6 +860,9 @@ function _rebase_child_onto_parent() {
     _update_main
   fi
 
+  # TODO(jonathan): check if origin is ahead of local, and if so, do a git pull --rebase
+  # operation.  This will allow multi-homed gee to work better.
+
   MB=$("${GIT}" merge-base "${PARENT}" "${CHILD}")  
   local -a COMMITS
   mapfile -t COMMITS < <(
@@ -1938,7 +1941,6 @@ function gee__pr_make() {
   _check_cwd
   local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
   _git fetch upstream
-  declare -A PARENTS
   _read_parents_file
   _set_main
   DEST_BRANCH="upstream/${MAIN}"
@@ -2111,7 +2113,6 @@ function gee__remove_branch() {
   fi
 
   # Remove branch from parents file, and fix up children's parents.
-  local -a PARENTS
   _read_parents_file
   local PREV_PARENT
   PREV_PARENT="${PARENTS["${BR}"]}"
