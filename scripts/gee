@@ -1,7 +1,11 @@
 #!/bin/bash
 
 read -r -d '' USAGE <<'EOT'
-# gee: git enabled enfabrication.
+  __ _  ___  ___ 
+ / _` |/ _ \/ _ \  git
+| (_| |  __/  __/  enabled
+ \__, |\___|\___|  enfabrication
+ |___/           
 
 gee version: {{VERSION}}
 
@@ -28,7 +32,7 @@ showing each command as it executes, gee helps users learn git.
 * Supports multi-homed development (user can do work on various hosts without
   NFS-mounted home directories).
 
-## Simple use:
+## An example of simple use:
 
 1. Run "gee init" to clone and check out the enfabrica/internal repo.  This
    only needs to be done once per home directory.
@@ -54,7 +58,7 @@ showing each command as it executes, gee helps users learn git.
 
 8. When approved, run "gee submit_pr" to merge your change.
 
-## More complex use:
+## An example of more complex use:
 
 You can continue to develop a second feature while the first feature is out for
 review.
