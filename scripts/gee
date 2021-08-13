@@ -151,6 +151,7 @@ MAIN="" # Unknown, call _set_main to set.
 REPO="${REPO:-}"
 PAGER="${PAGER:-less}"
 PARENTS_FILE_IS_LOADED=0
+PWD_CMD="$(which pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
@@ -299,7 +300,7 @@ function _gee_rebase_prompt() {
 	b=${b##refs/heads/}
 
   local d
-  d="$(pwd)"
+  d="$("${PWD_CMD}")"
 
   local COLOR RST
   COLOR="$(tput bold; tput rev)"
@@ -427,7 +428,7 @@ function _check_ssh() {
 
 function _check_cwd() {
   local DIR
-  DIR="$(pwd)"
+  DIR="$("${PWD_CMD}")"
   if ! [[ "$DIR" =~ ^"${GEE_DIR}"/[a-zA-Z0-9_-]+/ ]]; then
     _fatal "This command must be run from with a branch directory beneath ~/gee."
   fi
@@ -968,7 +969,7 @@ function _checkout_or_die() {
 function _in_gee_repo() {
   # Return "main" if we are outside of a gee repo:
   local D
-  D="$(/usr/bin/pwd)"
+  D="$("${PWD_CMD}")"
   if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+ ]]; then
     return "${TRUE}"
   else
@@ -998,7 +999,7 @@ function _get_current_branch() {
   local CB
   CB="$("${GIT}" rev-parse --abbrev-ref HEAD)"
   if [[ -z "${CB}" ]]; then
-    _die "Could not get current branch in directory $(pwd)"
+    _die "Could not get current branch in directory $("${PWD}")"
   fi
   echo "${CB}"
 }
@@ -2332,7 +2333,7 @@ function gee__repair() {
     _fatal "Not in a gee repo directory, aborting further repairs."
   fi
 
-  ORIG_DIR="$(pwd)"
+  ORIG_DIR="$("${PWD_CMD}")"
 
   _info "Checking each directory in ${REPO_DIR}..."
   local DIR BRANCH OBRANCH
