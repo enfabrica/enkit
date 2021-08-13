@@ -139,15 +139,13 @@ func init() {
 
 func NewMultiOAuth(rng *rand.Rand, required *Authenticator, opts ...*Authenticator) *MultiOauth {
 	var encs []*token.TypeEncoder
-	var m []*Authenticator
 	for _, v := range opts {
 		encs = append(encs, v.authEncoder)
 	}
 	encs = append(encs, required.authEncoder)
-
 	return &MultiOauth{
 		RequiredAuth: required,
-		OptAuth:      m,
+		OptAuth:      opts,
 		Enc:          encs,
 	}
 }
