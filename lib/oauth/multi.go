@@ -9,6 +9,7 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/token"
+	"log"
 	"math/rand"
 	"net/http"
 	"reflect"
@@ -37,7 +38,11 @@ var errStateNotType = errors.New("state did not match")
 func (mo *MultiOauth) decodeRaw(state interface{}) (*MultiOAuthState, error) {
 	if fs, ok := state.(*MultiOAuthState); ok {
 		return fs, nil
-	} else if fString, ok := state.(string); ok {
+	}
+	if fs, ok := state.(MultiOAuthState); ok {
+		return &fs, nil
+	}
+	if fString, ok := state.(string); ok {
 		var errs []error
 		for _, enc := range mo.Enc {
 			var loginState LoginState
@@ -49,8 +54,6 @@ func (mo *MultiOauth) decodeRaw(state interface{}) (*MultiOAuthState, error) {
 			}
 		}
 		return nil, multierror.New(errs)
-	} else if fs, ok := state.(MultiOAuthState); ok {
-		return &fs, nil
 	}
 	return nil, fmt.Errorf("%v, was %s expected %s", errStateNotType, reflect.TypeOf(state), reflect.TypeOf(&MultiOAuthState{}))
 }
@@ -96,6 +99,14 @@ func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods .
 	flowState.OptIdentities = append(flowState.OptIdentities, data.Creds.Identity)
 	flowState.CurrentFlow += 1
 	data.State = flowState
+	if err := mo.PerformLogin(w, r,
+		WithState(data.State),
+		WithCookieOptions(kcookie.WithPath("/")),
+	); err != nil {
+		http.Error(w, "oauth failed, no idea why, ask someone to look at the logs", http.StatusUnauthorized)
+		log.Printf("ERROR - could not perform login - %s", err)
+		return AuthData{}, false, err
+	}
 	return data, false, err
 }
 
