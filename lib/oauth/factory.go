@@ -112,7 +112,7 @@ type Flags struct {
 	OauthSecretID  string
 	OauthSecretKey string
 
-	AdditionalOAuth []byte
+	OAuthFile []byte
 	// How long is the token used to authenticate with the oauth servers.
 	// Limit the total time a login can take.
 	AuthTime time.Duration
@@ -135,7 +135,7 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 		"Prefer using the --"+prefix+"secret-file option - as it hides the secret from 'ps'. Secret key of the client to use with the oauth provider")
 	set.DurationVar(&f.AuthTime, prefix+"auth-time", f.AuthTime,
 		"How long should the token forwarded to the remote oauth server be valid for. This bounds how long the oauth authentication process can take at most")
-	set.ByteFileVar(&f.AdditionalOAuth, prefix+"oauth-file", "", "file for additional oauth flow to occur before required oauth")
+	set.ByteFileVar(&f.OAuthFile, prefix+"oauth-file", "", "file for additional oauth flow to occur before required oauth")
 	f.SigningExtractorFlags.Register(set, prefix)
 	return f
 }
@@ -364,7 +364,7 @@ func WithCookiePrefix(prefix string) Modifier {
 func WithFlags(fl *Flags) Modifier {
 	return func(o *Options) error {
 		var mods []Modifier
-		if len(fl.AdditionalOAuth) == 0 {
+		if len(fl.OAuthFile) == 0 {
 			if len(fl.OauthSecretJSON) == 0 && (fl.OauthSecretID == "" || fl.OauthSecretKey == "") {
 				return fmt.Errorf("you must specify the secret-file or (secret-key and secret-id) options")
 			}
@@ -401,13 +401,13 @@ func WithFlags(fl *Flags) Modifier {
 			WithAuthTime(fl.AuthTime),
 			WithSecrets(fl.OauthSecretID, fl.OauthSecretKey),
 			WithSigningExtractorFlags(fl.SigningExtractorFlags),
-			WithAdditionalFlow(fl.AdditionalOAuth),
+			WithOAuthFile(fl.OAuthFile),
 		)
 		return Modifiers(mods).Apply(o)
 	}
 }
 
-func WithAdditionalFlow(fileContent []byte) Modifier {
+func WithOAuthFile(fileContent []byte) Modifier {
 	return func(opt *Options) error {
 		if len(fileContent) == 0 {
 			return nil

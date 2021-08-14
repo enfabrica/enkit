@@ -35,27 +35,18 @@ func (mo *MultiOauth) NewState(Extra interface{}) *MultiOAuthState {
 
 var errStateNotType = errors.New("state did not match")
 
-func (mo *MultiOauth) decodeRaw(state interface{}) (*MultiOAuthState, error) {
-	if fs, ok := state.(*MultiOAuthState); ok {
-		return fs, nil
-	}
-	if fs, ok := state.(MultiOAuthState); ok {
-		return &fs, nil
-	}
-	if fString, ok := state.(string); ok {
-		var errs []error
-		for _, enc := range mo.Enc {
-			var loginState LoginState
-			if _, err := enc.Decode(context.Background(), []byte(fString), &loginState); err != nil {
-				errs = append(errs, fmt.Errorf("%v, was %s expected %s, err %v", errStateNotType, reflect.TypeOf(state), reflect.TypeOf(&MultiOAuthState{}), err))
-			}
-			if s, ok := loginState.State.(MultiOAuthState); ok {
-				return &s, nil
-			}
+func (mo *MultiOauth) decodeString(state string) (*MultiOAuthState, error) {
+	var errs []error
+	for _, enc := range mo.Enc {
+		var loginState LoginState
+		if _, err := enc.Decode(context.Background(), []byte(state), &loginState); err != nil {
+			errs = append(errs, fmt.Errorf("%v, was %s expected %s, err %v", errStateNotType, reflect.TypeOf(state), reflect.TypeOf(&MultiOAuthState{}), err))
 		}
-		return nil, multierror.New(errs)
+		if s, ok := loginState.State.(MultiOAuthState); ok {
+			return &s, nil
+		}
 	}
-	return nil, fmt.Errorf("%v, was %s expected %s", errStateNotType, reflect.TypeOf(state), reflect.TypeOf(&MultiOAuthState{}))
+	return nil, multierror.New(errs)
 }
 
 // decodeState will check if the state alignment is present. If it isnt it will return a
@@ -66,7 +57,7 @@ func (mo *MultiOauth) decodeState(r *http.Request) (*MultiOAuthState, error) {
 	if state == "" {
 		return &MultiOAuthState{}, nil
 	}
-	return mo.decodeRaw(state)
+	return mo.decodeString(state)
 }
 
 // authenticator will return the specified oauth.Authenticator from MultiOAuthState.CurrentFlow.
@@ -112,15 +103,14 @@ func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods .
 
 func (mo *MultiOauth) PerformLogin(w http.ResponseWriter, r *http.Request, lm ...LoginModifier) error {
 	options := LoginModifiers(lm).Apply(&LoginOptions{})
+
 	// if the passed in state does not match what we want, pack in the previous state to unpack later.
-	if _, ok := options.State.(*MultiOAuthState); !ok {
-		options.State = mo.NewState(options.State)
+	state, ok := options.State.(*MultiOAuthState)
+	if !ok {
+		state = mo.NewState(options.State)
+		options.State = state
 	}
 	// if the passed in options arent already a flow state, pack them up to unpack later.
-	state, err := mo.decodeRaw(options.State)
-	if err != nil {
-		return err
-	}
 	_, a := mo.authenticator(state)
 	// override just in case we had to pack it in, login apply works in FIFO
 	lm = append(lm, WithState(options.State))
