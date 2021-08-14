@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net/http"
 	"reflect"
+	"time"
 )
 
 type MultiOauth struct {
@@ -76,6 +77,10 @@ func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods .
 		return AuthData{}, true, err
 	}
 	_, a := mo.authenticator(flowState)
+	// if the current authenticator is not the required one, make all other credential cookies expire now
+	if a != mo.RequiredAuth {
+		mods = append(mods, kcookie.WithExpires(time.Now()))
+	}
 	data, _, err := a.PerformAuth(w, r, mods...)
 	if err != nil {
 		return AuthData{}, true, err
