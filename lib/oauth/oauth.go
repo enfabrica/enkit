@@ -569,10 +569,17 @@ func (a *Authenticator) PerformLogin(w http.ResponseWriter, r *http.Request, lm 
 type AuthData struct {
 	Creds           *CredentialsCookie
 	Identities      []Identity
-	PrimaryIdentity Identity
 	Cookie          string
 	Target          string
 	State           interface{}
+}
+
+func (ad *AuthData) Redirect(w http.ResponseWriter, r *http.Request) bool {
+	if ad.Target == "" {
+		return false
+	}
+	http.Redirect(w, r, ad.Target, http.StatusTemporaryRedirect)
+	return true
 }
 
 func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (AuthData, error) {
@@ -621,11 +628,16 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 		return AuthData{}, fmt.Errorf("Invalid token - %w", err)
 	}
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}
-	ccookie, err := a.EncodeCredentials(creds)
+	return AuthData{Creds: &creds, Target: received.Target, State: received.State}, nil
+}
+
+func (a *Authenticator) SetAuthCookie(ad AuthData, w http.ResponseWriter, co ...kcookie.Modifier) (AuthData, error) {
+	ccookie, err := a.EncodeCredentials(*ad.Creds)
 	if err != nil {
 		return AuthData{}, err
 	}
-	return AuthData{Creds: &creds, Cookie: string(ccookie), Target: received.Target, State: received.State}, nil
+	http.SetCookie(w, a.CredentialsCookie(ad.Cookie, co...))
+	return AuthData{Creds: ad.Creds, Cookie: string(ccookie), Target: ad.Target, State: ad.State}, nil
 }
 
 // CredentialsCookie will create an http.Cookie object containing the user credentials.
@@ -655,12 +667,12 @@ func (a *Authenticator) PerformAuth(w http.ResponseWriter, r *http.Request, co .
 		return AuthData{}, false, err
 	}
 
-	http.SetCookie(w, a.CredentialsCookie(auth.Cookie, co...))
-	if auth.Target != "" {
-		http.Redirect(w, r, auth.Target, http.StatusTemporaryRedirect)
-		return auth, true, nil
+	auth, err = a.SetAuthCookie(auth, w, co...)
+	if err != nil {
+		return AuthData{}, false, err
 	}
-	return auth, false, nil
+
+	return auth, auth.Redirect(w, r), nil
 }
 
 // authEncoder returns the name of the authentication cookie.

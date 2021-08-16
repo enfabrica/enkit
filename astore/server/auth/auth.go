@@ -139,7 +139,7 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 			return nil, status.Errorf(codes.InvalidArgument, "PublicKey cannot be parsed as an ssh authorized key - %s", err)
 		}
 		var certMods []kcerts.CertMod
-		effectivePrincipals := append(s.principals, authData.PrimaryIdentity.Username)
+		effectivePrincipals := append(s.principals, authData.Creds.Identity.Username)
 		for _, i := range authData.Identities {
 			effectivePrincipals = append(effectivePrincipals, i.GlobalName())
 			certMods = append(certMods, i.CertMod())
