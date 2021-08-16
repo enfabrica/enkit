@@ -235,17 +235,19 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 			// WithSecure and WithSameSite are required to get the cookie forwarded via the NASSH plugin in chrome (for SSH).
 			copts = append(copts, kcookie.WithDomain(cookieDomain), kcookie.WithSecure(true), kcookie.WithSameSite(http.SameSiteNoneMode))
 		}
-		data, hasRedirected, err := authWeb.PerformAuth(w, r, copts...)
+		data, terminal, err := authWeb.PerformAuth(w, r, copts...)
 		if err != nil {
 			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
 			log.Printf("ERROR - could not perform token exchange - %s", err)
 			return
 		}
-		if !hasRedirected {
+		if terminal {
 			if key, ok := data.State.(common.Key); ok {
 				authServer.FeedToken(key, data)
 			}
-			ShowResult(w, r, "thumbs-up", "Good Job!", messageSuccess, http.StatusOK)
+			if !oauth.CheckRedirect(w, r, data) {
+				ShowResult(w, r, "thumbs-up", "Good Job!", messageSuccess, http.StatusOK)
+			}
 		}
 		return
 	})

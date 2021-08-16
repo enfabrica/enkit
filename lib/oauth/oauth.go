@@ -644,27 +644,19 @@ func (a *Authenticator) CredentialsCookie(value string, co ...kcookie.Modifier) 
 //
 // In case of error, error is returned, and the rest of the fields are undefined.
 //
-// In case everything goes well, error will be null, and the parsed credentials are returned.
-// The bool indicates if PerformAuth handled the request (true) or not (false).
-//
-// If true is returned, it means that PerformAuth queued a response for the client.
-// The invoking handler should just return. This is generally true if a 'target' was
-// passed to the login handler.
-//
-// If false is returned, the invoking handler needs to provide the content to return
-// to the user.
+// In a single authenticator, it always returns true because in a single authenticator it is always the last one.
 func (a *Authenticator) PerformAuth(w http.ResponseWriter, r *http.Request, co ...kcookie.Modifier) (AuthData, bool, error) {
 	auth, err := a.ExtractAuth(w, r)
 	if err != nil {
-		return AuthData{}, false, err
+		return AuthData{}, true, err
 	}
 
 	auth, err = a.SetAuthCookie(auth, w, co...)
 	if err != nil {
-		return AuthData{}, false, err
+		return AuthData{}, true, err
 	}
 
-	return auth, CheckRedirect(w, r, auth), nil
+	return auth, true, nil
 }
 
 // authEncoder returns the name of the authentication cookie.
