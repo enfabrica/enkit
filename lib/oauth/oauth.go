@@ -567,19 +567,11 @@ func (a *Authenticator) PerformLogin(w http.ResponseWriter, r *http.Request, lm 
 }
 
 type AuthData struct {
-	Creds           *CredentialsCookie
-	Identities      []Identity
-	Cookie          string
-	Target          string
-	State           interface{}
-}
-
-func (ad *AuthData) Redirect(w http.ResponseWriter, r *http.Request) bool {
-	if ad.Target == "" {
-		return false
-	}
-	http.Redirect(w, r, ad.Target, http.StatusTemporaryRedirect)
-	return true
+	Creds      *CredentialsCookie
+	Identities []Identity
+	Cookie     string
+	Target     string
+	State      interface{}
 }
 
 func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (AuthData, error) {
@@ -672,7 +664,7 @@ func (a *Authenticator) PerformAuth(w http.ResponseWriter, r *http.Request, co .
 		return AuthData{}, false, err
 	}
 
-	return auth, auth.Redirect(w, r), nil
+	return auth, CheckRedirect(w, r, auth), nil
 }
 
 // authEncoder returns the name of the authentication cookie.
@@ -688,4 +680,13 @@ func authEncoder(namespace string) string {
 // This cookie is the one used to determine what the user can and cannot do on the UI.
 func (a *Extractor) CredentialsCookieName() string {
 	return cookie.CredentialsCookieName(a.baseCookie)
+}
+
+// CheckRedirect checks AuthData to see if it's state warrants a redirect. Returns if it did redirect
+func CheckRedirect(w http.ResponseWriter, r *http.Request, ad AuthData) bool {
+	if ad.Target == "" {
+		return false
+	}
+	http.Redirect(w, r, ad.Target, http.StatusTemporaryRedirect)
+	return true
 }

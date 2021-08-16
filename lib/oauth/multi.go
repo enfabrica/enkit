@@ -89,7 +89,7 @@ func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods .
 
 		data.Identities = flowState.OptIdentities
 		data.State = flowState.Extra
-		return data, data.Redirect(w, r), err
+		return data, CheckRedirect(w, r, data), err
 	}
 	flowState.OptIdentities = append(flowState.OptIdentities, data.Creds.Identity)
 	flowState.CurrentFlow += 1
