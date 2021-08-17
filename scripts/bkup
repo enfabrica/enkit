@@ -1,0 +1,265 @@
+#!/bin/bash
+read -r -d '' USAGE <<'EOT'
+bkup: a backup utility.
+EOT
+
+set -e
+if [[ -n "${DEBUG}" ]]; then
+  set -x
+fi
+
+declare -a HELP=()
+declare -A LONGHELP
+readonly BINDIR="/home/${USER}/bin"
+readonly RCLONE="${BINDIR}/rclone"
+readonly CONFIGDIR="/home/${USER}/.config/rclone"
+readonly CONFIG="${CONFIGDIR}/rclone.conf"
+readonly EXCLUDEFILE="${CONFIGDIR}/excludefile"
+readonly BUCKET="rclone-devops-284019"
+readonly RPATH="crostini/${USER}"
+
+function _cmd() {
+  local ESCAPED_CMD
+  ESCAPED_CMD="$(printf " %q" "$@")"
+  echo "CMD:${ESCAPED_CMD}"
+  if (( DRYRUN )); then
+    return 0
+  fi
+  "$@"
+}
+
+function _register_help() {
+  # Registers help text about a command.
+  #
+  # Usage: _register_help <command> <shorthelp> <aliases...>
+  #
+  # The "long help" for this command must be presented to this
+  # function as stdin.
+  local COMMAND SHORT LONG ALIAS
+  COMMAND="$1"
+  shift
+  SHORT="$1"
+  shift
+  LONG="$(</dev/stdin)"
+  HELP+=( "${COMMAND}: ${SHORT}" )
+  local -a ALIASES
+  ALIASES=("$@")
+  if (( "${#ALIASES[@]}" > 0 )); then
+    LONG="Aliases: ${ALIASES[*]}${NEWLINE}${LONG}"
+  fi
+  LONGHELP+=(["${COMMAND}"]="${LONG}")
+  for ALIAS in "${ALIASES[@]}"; do
+    LONGHELP+=(["${ALIAS}"]="${LONG}")
+  done
+}
+
+##########################################################################
+# help command
+##########################################################################
+
+_register_help "help" "Print more help about a command." <<'EOT'
+Usage: bkup help <command>
+EOT
+
+function bkup__help() {
+  (
+    if (( "$#" == 0 )); then
+      set -- "usage"
+    fi
+    if [[ "$1" == "usage" ]]; then
+      echo "${USAGE}" | sed "s/{{VERSION}}/${VERSION}/"
+      echo ""
+    fi
+    if [[ ("$1" == "usage") || ("$1" == "commands") ]]; then
+      echo "## Commands:"
+      echo ""
+      for h in "${HELP[@]}"; do
+        echo "  $h"
+      done | sort
+      shift;
+    fi
+    while (( "$#" )); do
+      local COMMAND="$1"
+      shift
+      if [ "${LONGHELP[${COMMAND}]+_}" ]; then
+        echo "${LONGHELP[${COMMAND}]}"
+      else
+        echo "${COMMAND}: there is no help for this."
+      fi
+    done
+  ) | "${PAGER}"
+}
+
+##########################################################################
+# setup command
+##########################################################################
+
+_register_help setup "Set up environment." <<'EOT'
+Usage: bkup setup
+EOT
+
+function _install_rclone() {
+  local URL ZIPFILE
+  URL="https://downloads.rclone.org/rclone-current-linux-amd64.zip"
+  _cmd curl -fsS "${URL}" -o /tmp/rclone.zip
+  _cmd unzip -j /tmp/rclone.zip \*/rclone -d "${BINDIR}"
+  _cmd rm /tmp/rclone.zip
+  _cmd "${RCLONE}" --version
+}
+
+function bkup__setup() {
+  # install rclone
+  if ! [[ -x ${RCLONE} ]]; then
+    _install_rclone
+  fi
+
+  # check rclone version
+  local VERSION CURRENT_VERSION
+  #check installed version of rclone to determine if update is necessary
+  VERSION=$("${RCLONE}" --version 2>>errors | head -n 1)
+  CURRENT_VERSION=$(curl -fsS https://downloads.rclone.org/version.txt)
+  if [[ "$version" != "$current_version" ]]; then
+    echo "Updating rclone from ${VERSION} to ${CURRENT_VERSION}"
+    _install_rclone
+  fi
+
+  # check config dir
+  if ! [[ -d "${CONFIGDIR}" ]]; then
+    _cmd mkdir -p "${CONFIGDIR}"
+  fi
+
+  # check rclone configuration file
+  if ! [[ -e "${CONFIG}" ]]; then
+    cat >"${CONFIG}" <<EOT
+[remote]
+type = google cloud storage
+project_number = ${BUCKET}
+object_acl = private
+bucket_acl = private
+EOT
+    echo "Made ${CONFIG}"
+    # TODO(jonathan): Figure out how to add a token attribute here.
+  fi
+
+  # check for exclude file
+  if ! [[ -e "${EXCLUDEFILE}" ]]; then
+    cat >"${EXCLUDEFILE}" <<'EOT'
+# Exclude these directories from backups:
+bazel-out
+bazel-bin
+.gvfs                           # contains mounted file systems?
+.local/share/gvfs-metadata
+.Private
+Private
+.dbus                           # session-specific
+.cache
+.Trash                          # do I need to say more?
+.local/share/Trash
+.aptitude                       # cached packages lists
+
+#Flash-specific:
+.adobe                          # Cache for flash, maybe others?
+.macromedia   # except for Flash persistence, there is no reason to keep this
+
+#Files:
+rclone
+.bash_history
+.python_history
+.xsession-errors            # contains errors from the current graphical session
+.recently-used              # recently used files
+.recently-used.xbel
+.thumbnails
+EOT
+    echo "Made ${EXCLUDEFILE}"
+  fi
+
+}
+
+##########################################################################
+# backup command
+##########################################################################
+
+_register_help backup "Back up local files." <<'EOT'
+Usage: bkup backup
+
+Backs up user's entire home directory to the cloud.
+EOT
+function bkup__backup() {
+  _startup_checks
+  local -a OPTS=(
+    --links
+    --progress
+  )
+  if [[ -e "${EXCLUDEFILE}" ]]; then
+    OPTS+=( --exclude-from "${EXCLUDEFILE}" )
+  else
+    echo "Error: ${EXCLUDEFILE} is missing."
+    exit 1
+  fi
+  _cmd "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
+}
+
+##########################################################################
+# restore command
+##########################################################################
+
+_register_help backup "Restor local files." <<'EOT'
+Usage: bkup restore [<files>]
+
+Backs up user's entire home directory to the cloud.
+EOT
+function bkup__restore() {
+  _startup_checks
+  local -a OPTS=(
+    --links
+    --progress
+    --exclude-from "${EXCLUDEFILE}"
+  )
+  _cmd "${RCLONE}" -i copy \
+    "remote:${BUCKET}/${RPATH}" \
+    "${HOME}" \
+    "${OPTS[@]}"
+}
+
+##########################################################################
+# main
+##########################################################################
+
+function _require_file() {
+  local FILE="$1"
+  if ! [[ -e "${FILE}" ]]; then
+    echo "${FILE} is missing.  Run \"bkup setup\"."
+    exit 1
+  fi
+}
+
+function _startup_checks() {
+  _require_file "${RCLONE}"
+  _require_file "${CONFIG}"
+  _require_file "${EXCLUDEFILE}"
+  return 0
+}
+
+function main() {
+  if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    shift
+    set -- "help" "$@"
+  fi
+  if (( "$#" == 0 )); then
+    bkup__help usage
+    exit 0
+  fi
+  local cmdname="$1"; shift
+  if type "bkup__${cmdname}" >/dev/null 2>&1; then
+    "bkup__${cmdname}" "$@"
+    ABNORMAL=0
+  else
+    echo "Unknown command ${cmdname}"
+    echo ""
+    bkup__help commands
+    ABNORMAL=0
+    exit 2
+  fi
+}
+
+main "$@"
