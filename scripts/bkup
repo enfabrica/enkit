@@ -200,10 +200,73 @@ function bkup__backup() {
 }
 
 ##########################################################################
+# ls command
+##########################################################################
+
+_register_help ls "List remote files." <<'EOT'
+Usage: bkup ls [<path>]
+
+List remote files.
+EOT
+function bkup__ls() {
+  _startup_checks
+  local -a OPTS=(
+    --links
+    --max-depth 1
+  )
+
+  local PATH
+  PATH=""
+  if [[ "$#" -ne 0 ]]; then
+    local REL_P
+    REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
+    if [[ "${REL_P}" =~ ^/ ]]; then
+      echo >&2 "${F} is not beneath ${HOME}, cannot list."
+    else
+      PATH="/${REL_P}"
+    fi
+  fi
+
+  _cmd "${RCLONE}" lsf \
+    "remote:${BUCKET}/${RPATH}${PATH}" \
+    "${OPTS[@]}"
+}
+
+##########################################################################
+# cat command
+##########################################################################
+
+_register_help cat "Print a remote file." <<'EOT'
+Usage: bkup cat <path>
+
+Print contents of a remote files.
+EOT
+function bkup__cat() {
+  _startup_checks
+  local -a OPTS=(
+  )
+
+  local PATH
+  PATH=""
+  local REL_P
+  REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
+  if [[ "${REL_P}" =~ ^/ ]]; then
+    echo >&2 "${F} is not beneath ${HOME}, cannot list."
+    return 1
+  else
+    PATH="/${REL_P}"
+  fi
+
+  _cmd "${RCLONE}" cat \
+    "remote:${BUCKET}/${RPATH}${PATH}" \
+    "${OPTS[@]}"
+}
+
+##########################################################################
 # restore command
 ##########################################################################
 
-_register_help backup "Restor local files." <<'EOT'
+_register_help restore "Restore local files." <<'EOT'
 Usage: bkup restore [<files>]
 
 Backs up user's entire home directory to the cloud.
@@ -213,8 +276,26 @@ function bkup__restore() {
   local -a OPTS=(
     --links
     --progress
+    --max-delete 0
     --exclude-from "${EXCLUDEFILE}"
   )
+
+  if [[ "$#" -ne 0 ]]; then
+    local TMPFILE F REL_P
+    TMPFILE="$(tempfile)"
+    for F in "$@"; do
+      REL_P="$(realpath -m --relative-base="${HOME}" "${F}")"
+      if [[ "${REL_P}" =~ ^/ ]]; then
+        echo >&2 "${F} is not beneath ${HOME}, cannot restore."
+      else
+        echo "${REL_P}"
+      fi
+    done >"${TMPFILE}"
+    OPTS+=( --files-from "${TMPFILE}" )
+  fi
+
+  # Use interactive mode by default, and use copy to avoid deleting
+  # missing files:
   _cmd "${RCLONE}" -i copy \
     "remote:${BUCKET}/${RPATH}" \
     "${HOME}" \
