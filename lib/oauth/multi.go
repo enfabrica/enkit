@@ -70,26 +70,26 @@ func (mo *MultiOauth) authenticator(state *MultiOAuthState) (int, *Authenticator
 	return state.CurrentFlow, mo.OptAuth[state.CurrentFlow]
 }
 
-func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods ...kcookie.Modifier) (AuthData, bool, error) {
+func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods ...kcookie.Modifier) (AuthData, error) {
 	flowState, err := mo.decodeState(r)
 	if err != nil {
-		return AuthData{}, false, err
+		return AuthData{}, err
 	}
 	_, a := mo.authenticator(flowState)
 	data, err := a.ExtractAuth(w, r)
 	if err != nil {
-		return AuthData{}, false, err
+		return AuthData{}, err
 	}
 	// This is the terminal condition.
 	if a == mo.RequiredAuth {
 		data, err := a.SetAuthCookie(data, w, mods...)
 		if err != nil {
-			return AuthData{}, false, err
+			return AuthData{}, err
 		}
 
 		data.Identities = flowState.OptIdentities
 		data.State = flowState.Extra
-		return data, true, err
+		return data, err
 	}
 	flowState.OptIdentities = append(flowState.OptIdentities, data.Creds.Identity)
 	flowState.CurrentFlow += 1
@@ -100,9 +100,9 @@ func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods .
 	); err != nil {
 		http.Error(w, "oauth failed, no idea why, ask someone to look at the logs", http.StatusUnauthorized)
 		log.Printf("ERROR - could not perform login - %s", err)
-		return AuthData{}, false, err
+		return AuthData{}, err
 	}
-	return data, false, err
+	return data, err
 }
 
 func (mo *MultiOauth) PerformLogin(w http.ResponseWriter, r *http.Request, lm ...LoginModifier) error {
@@ -125,6 +125,10 @@ func (mo MultiOauth) WithCredentialsOrError(handler khttp.FuncHandler) http.Hand
 	return func(writer http.ResponseWriter, request *http.Request) {
 		handler(writer, request)
 	}
+}
+
+func (mo *MultiOauth) Complete(data AuthData) bool  {
+	return mo.RequiredAuth.Complete(data)
 }
 
 func init() {

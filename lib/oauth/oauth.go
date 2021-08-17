@@ -206,18 +206,18 @@ func (a *Authenticator) LoginURL(target string, state interface{}) (string, []by
 
 // Mapper configures all the URLs to redirect to / unless an authentication cookie is provided by the browser.
 // Further, it configures / to redirect and perform oauth authentication.
-func (auth *Authenticator) Mapper(mapper kassets.AssetMapper, lm ...LoginModifier) kassets.AssetMapper {
+func (a *Authenticator) Mapper(mapper kassets.AssetMapper, lm ...LoginModifier) kassets.AssetMapper {
 	return func(original, name string, handler khttp.FuncHandler) []string {
 		ext := filepath.Ext(original)
 		switch {
 		case name == "/favicon.ico":
 			return mapper(original, name, handler)
 		case name == "/":
-			return mapper(original, name, auth.MakeAuthHandler(auth.MakeLoginHandler(handler, lm...)))
+			return mapper(original, name, a.MakeAuthHandler(a.MakeLoginHandler(handler, lm...)))
 		case ext == ".html":
-			return mapper(original, name, auth.WithCredentialsOrRedirect(handler, "/"))
+			return mapper(original, name, a.WithCredentialsOrRedirect(handler, "/"))
 		default:
-			return mapper(original, name, auth.WithCredentialsOrError(handler))
+			return mapper(original, name, a.WithCredentialsOrError(handler))
 		}
 	}
 }
@@ -460,12 +460,12 @@ func (a *Authenticator) LoginHandler(lm ...LoginModifier) khttp.FuncHandler {
 //
 func (a *Authenticator) MakeAuthHandler(handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data, handled, err := a.PerformAuth(w, r)
+		data, err := a.PerformAuth(w, r)
 		if err == nil && data.Creds != nil {
 			ctx := SetCredentials(r.Context(), data.Creds)
 			r = r.WithContext(ctx)
 		}
-		if !handled {
+		if !CheckRedirect(w, r, data) {
 			handler(w, r)
 		}
 	}
@@ -489,14 +489,14 @@ func (a *Authenticator) MakeAuthHandler(handler khttp.FuncHandler) khttp.FuncHan
 // Use MakeAuthHandler to customize the behavior.
 func (a *Authenticator) AuthHandler() khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, handled, err := a.PerformAuth(w, r)
+		data, err := a.PerformAuth(w, r)
 		if err != nil {
 			http.Error(w, "your lack of authentication cookie is impressive - something went wrong", http.StatusInternalServerError)
 			log.Printf("ERROR - could not complete authentication - %s", err)
 			return
 		}
 
-		if !handled {
+		if !CheckRedirect(w, r, data) {
 			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		}
 	}
@@ -632,6 +632,16 @@ func (a *Authenticator) SetAuthCookie(ad AuthData, w http.ResponseWriter, co ...
 	return AuthData{Creds: ad.Creds, Cookie: string(ccookie), Target: ad.Target, State: ad.State}, nil
 }
 
+func (a *Authenticator) Complete(data AuthData) bool {
+	if _, _, err := a.ParseCredentialsCookie(data.Cookie); err != nil {
+		return false
+	}
+	if data.Creds == nil {
+		return false
+	}
+	return true
+}
+
 // CredentialsCookie will create an http.Cookie object containing the user credentials.
 func (a *Authenticator) CredentialsCookie(value string, co ...kcookie.Modifier) *http.Cookie {
 	return cookie.CredentialsCookie(a.baseCookie, value, co...)
@@ -645,18 +655,18 @@ func (a *Authenticator) CredentialsCookie(value string, co ...kcookie.Modifier) 
 // In case of error, error is returned, and the rest of the fields are undefined.
 //
 // In a single authenticator, it always returns true because in a single authenticator it is always the last one.
-func (a *Authenticator) PerformAuth(w http.ResponseWriter, r *http.Request, co ...kcookie.Modifier) (AuthData, bool, error) {
+func (a *Authenticator) PerformAuth(w http.ResponseWriter, r *http.Request, co ...kcookie.Modifier) (AuthData, error) {
 	auth, err := a.ExtractAuth(w, r)
 	if err != nil {
-		return AuthData{}, true, err
+		return AuthData{}, err
 	}
 
 	auth, err = a.SetAuthCookie(auth, w, co...)
 	if err != nil {
-		return AuthData{}, true, err
+		return AuthData{}, err
 	}
 
-	return auth, true, nil
+	return auth, nil
 }
 
 // authEncoder returns the name of the authentication cookie.
