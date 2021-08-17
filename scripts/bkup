@@ -1,6 +1,9 @@
 #!/bin/bash
 read -r -d '' USAGE <<'EOT'
 bkup: a backup utility.
+
+bkup is a shallow wrapper around rclone, configured to use Google Cloud Storage
+as a back end.  See: https://rclone.org/docs/
 EOT
 
 set -e
@@ -16,7 +19,13 @@ readonly CONFIGDIR="/home/${USER}/.config/rclone"
 readonly CONFIG="${CONFIGDIR}/rclone.conf"
 readonly EXCLUDEFILE="${CONFIGDIR}/excludefile"
 readonly BUCKET="rclone-devops-284019"
-readonly RPATH="crostini/${USER}"
+
+readonly DOCKER_ID="$(\
+  cat /proc/1/cgroup | grep -o -E 'docker/([a-f0-9]{12})' | sed 's/docker.//' | head -n 1 )"
+if [[ -z "${DOCKER_ID}" ]]; then
+  echo >&2 "Could not determine docker id, aborting."
+fi
+readonly RPATH="bkup/${USER}/${DOCKER_ID}"
 
 function _cmd() {
   local ESCAPED_CMD
