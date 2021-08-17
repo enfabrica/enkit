@@ -189,13 +189,8 @@ function bkup__backup() {
   local -a OPTS=(
     --links
     --progress
+    --exclude-from "${EXCLUDEFILE}"
   )
-  if [[ -e "${EXCLUDEFILE}" ]]; then
-    OPTS+=( --exclude-from "${EXCLUDEFILE}" )
-  else
-    echo "Error: ${EXCLUDEFILE} is missing."
-    exit 1
-  fi
   _cmd "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
 }
 
@@ -213,6 +208,8 @@ function bkup__ls() {
   local -a OPTS=(
     --links
     --max-depth 1
+    --format pst
+    --separator $'\t'
   )
 
   local PATH
@@ -220,16 +217,18 @@ function bkup__ls() {
   if [[ "$#" -ne 0 ]]; then
     local REL_P
     REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
-    if [[ "${REL_P}" =~ ^/ ]]; then
-      echo >&2 "${F} is not beneath ${HOME}, cannot list."
+    if [[ "${REL_P}" == "." ]]; then
+      PATH=""
+    elif [[ "${REL_P}" =~ ^/ ]]; then
+      echo >&2 "${F} is not beneath ${HOME}, is not in archive."
     else
       PATH="/${REL_P}"
     fi
   fi
 
-  _cmd "${RCLONE}" lsf \
+  "${RCLONE}" lsf \
     "remote:${BUCKET}/${RPATH}${PATH}" \
-    "${OPTS[@]}"
+    "${OPTS[@]}" | /usr/bin/column -t -s $'\t'
 }
 
 ##########################################################################
@@ -250,8 +249,11 @@ function bkup__cat() {
   PATH=""
   local REL_P
   REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
-  if [[ "${REL_P}" =~ ^/ ]]; then
-    echo >&2 "${F} is not beneath ${HOME}, cannot list."
+  echo "${REL_P} foo"
+  if [[ "${REL_P}" == "." ]]; then
+    PATH=""
+  elif [[ "${REL_P}" =~ ^/ ]]; then
+    echo >&2 "${F} is not beneath ${HOME}, is not in archive."
     return 1
   else
     PATH="/${REL_P}"
