@@ -6,6 +6,15 @@ bkup is a shallow wrapper around rclone, configured to use Google Cloud Storage
 as a back end.  See: https://rclone.org/docs/
 EOT
 
+# TODOs:
+# TODO(jonathan,brian,carlo): Figure out how to re-use the enkit cert to
+#   authenticate to GCP.
+# TODO(jonathan): Decide how to handle backups outside of a container.
+# TODO(jonathan): Add proper logging.
+# TODO(jonathan): When backing up git repositories, the recommended strategy
+#   is two passes: pass 1 backs up refs but not objects, pass 2 backs up
+#   objects.
+
 set -e
 if [[ -n "${DEBUG}" ]]; then
   set -x
@@ -106,6 +115,9 @@ function bkup__help() {
 
 _register_help setup "Set up environment." <<'EOT'
 Usage: bkup setup
+
+"setup" installs all necessary tools and generates all configuration
+files to enable backups.
 EOT
 
 function _install_rclone() {
@@ -190,10 +202,14 @@ EOT
 # backup command
 ##########################################################################
 
-_register_help backup "Back up local files." <<'EOT'
+_register_help backup "Back up local files." <<EOT
 Usage: bkup backup
 
-Backs up user's entire home directory to the cloud.
+"backup" backs up user's entire home directory to the cloud.  An incremental
+backup is always performed.
+
+The following configuration file specifies which files will not be backed up:
+  ${FILTERFILE}
 EOT
 function bkup__backup() {
   _startup_checks
@@ -214,7 +230,8 @@ function bkup__backup() {
 _register_help check "Check if local and backup are consistent." <<'EOT'
 Usage: bkup check
 
-Backs up user's entire home directory to the cloud.
+"check" compares all local files against their copies on the remote backup
+server, and reports which files are different.
 EOT
 function bkup__check() {
   _startup_checks
@@ -235,7 +252,9 @@ function bkup__check() {
 _register_help ls "List remote files." <<'EOT'
 Usage: bkup ls [<path>]
 
-List remote files.
+"ls" is used to list files in a directory of the remote backup server.
+
+All specified paths are relative to the current working directory.
 EOT
 function bkup__ls() {
   _startup_checks
@@ -272,7 +291,7 @@ function bkup__ls() {
 _register_help cat "Print a remote file." <<'EOT'
 Usage: bkup cat <path>
 
-Print contents of a remote files.
+"cat" dumps the contents of the specified remote file to stdout.
 EOT
 function bkup__cat() {
   _startup_checks
@@ -305,7 +324,12 @@ function bkup__cat() {
 _register_help restore "Restore local files." <<'EOT'
 Usage: bkup restore [<files>]
 
-Backs up user's entire home directory to the cloud.
+Restores files from backup.
+
+If no files are found, the user's entire home directory is restored from
+backup (after asking for confirmation).
+
+All specified paths are relative to the current working directory.
 EOT
 function bkup__restore() {
   _startup_checks
@@ -329,10 +353,18 @@ function bkup__restore() {
     done >"${TMPFILE}"
     OPTS+=( --files-from "${TMPFILE}" )
   else
-    OPTS+=( --filter-from "${FILTERFILE}" )
+    local RESP
+    echo "WARNING: You are about to overwrite all local files from backup."
+    read -rp \
+      "Proceed (y), proceed interactively (i), or abort? (y/i/N)  " \
+      RESP
+    case "${RESP}" in
+      [yY]*) ;;
+      [iI]*) OPTS+=( -i ) ;;
+      *) echo "Aborting restore operation." ; return 1 ;;
+    esac
   fi
 
-  # Should we use interactive (-i) here?
   _cmd "${RCLONE}" copy \
     "remote:${BUCKET}/${RPATH}" \
     "${HOME}" \
