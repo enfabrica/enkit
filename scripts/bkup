@@ -321,13 +321,11 @@ function bkup__cat() {
 # restore command
 ##########################################################################
 
-_register_help restore "Restore local files." <<'EOT'
-Usage: bkup restore [<files>]
+_register_help restore "Restore specific files." <<'EOT'
+Usage: bkup restore <files>
 
-Restores files from backup.
-
-If no files are found, the user's entire home directory is restored from
-backup (after asking for confirmation).
+Restores a list of specific files from backup.  To restore a user's
+entire home directory from backup, use the "restore_all" command.
 
 All specified paths are relative to the current working directory.
 EOT
@@ -340,29 +338,80 @@ function bkup__restore() {
     --max-delete 0
   )
 
-  if [[ "$#" -ne 0 ]]; then
-    local TMPFILE F REL_P
-    TMPFILE="$(tempfile)"
-    for F in "$@"; do
-      REL_P="$(realpath -m --relative-base="${HOME}" "${F}")"
-      if [[ "${REL_P}" =~ ^/ ]]; then
-        echo >&2 "${F} is not beneath ${HOME}, cannot restore."
-      else
-        echo "${REL_P}"
-      fi
-    done >"${TMPFILE}"
-    OPTS+=( --files-from "${TMPFILE}" )
-  else
-    local RESP
-    echo "WARNING: You are about to overwrite all local files from backup."
-    read -rp \
-      "Proceed (y), proceed interactively (i), or abort? (y/i/N)  " \
-      RESP
-    case "${RESP}" in
-      [yY]*) ;;
-      [iI]*) OPTS+=( -i ) ;;
-      *) echo "Aborting restore operation." ; return 1 ;;
+  if [[ "$#" -eq 0 ]]; then
+    echo "\"restore\" requires at least one file to restore."
+    echo "Perhaps you want the \"restore_all\" command?"
+    return 1
+  fi
+
+  local TMPFILE F REL_P
+  TMPFILE="$(tempfile)"
+  for F in "$@"; do
+    REL_P="$(realpath -m --relative-base="${HOME}" "${F}")"
+    if [[ "${REL_P}" =~ ^/ ]]; then
+      echo >&2 "${F} is not beneath ${HOME}, cannot restore."
+    else
+      echo "${REL_P}"
+    fi
+  done >"${TMPFILE}"
+  OPTS+=( --files-from "${TMPFILE}" )
+
+  _cmd "${RCLONE}" copy \
+    "remote:${BUCKET}/${RPATH}" \
+    "${HOME}" \
+    "${OPTS[@]}"
+}
+##########################################################################
+# restore_all command
+##########################################################################
+
+_register_help restore_all "Restore entire home directory." <<'EOT'
+Usage: bkup restore_all [flags]
+
+Restores the user's entire home directory from backup.
+
+By default, restore_all will only restore files that are either missing,
+or are older than files on the backup server.  This behavior can be
+modified by one or more of the following flags:
+  -O -- will cause all local files to be overwritten from backup.  DANGER!
+  -i -- the user will be prompted before restoring any out-of-date file from
+        backup.
+  -Oi -- will restore all files from backup, but the user will be prompted
+        for each file.
+EOT
+function bkup__restore_all() {
+  _startup_checks
+  local -a OPTS=(
+    --links
+    --max-delete 0
+  )
+
+  local OVERWRITE=0
+  local INTERACTIVE=0
+  local FLAG
+  while getopts "Oi" FLAG; do
+    case "${FLAG}" in
+      O) OVERWRITE=1 ;;
+      i) INTERACTIVE=1 ;;
+      *) echo "Unknown flag: ${FLAG}"; return 1 ;;
     esac
+  done
+
+  if (( OVERWRITE == 1 )); then
+    echo "WARNING: YOU ARE ABOUT TO OVERWRITE ALL LOCAL FILES."
+    local RESP
+    read -rp "Proceed? (y/N)  " RESP
+    case "${RESP}" in
+      [yY]*) echo "Okay then..." ;;
+      *) echo "Aborting."; return 1 ;;
+    esac
+  else
+    OPTS+=( --update )
+  fi
+  if (( INTERACTIVE == 1 )); then
+    OPTS+=( -i )
+  else
+    OPTS+=( --progress )
   fi
 
   _cmd "${RCLONE}" copy \
