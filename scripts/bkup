@@ -148,31 +148,31 @@ object_acl = private
 bucket_acl = private
 EOT
     echo "Made ${CONFIG}"
-    # TODO(jonathan): Figure out how to add a token attribute here.
+    # TODO(jonathan): Figure out how to re-use enkit agent for token.
   fi
 
   # check for exclude file
   if ! [[ -e "${EXCLUDEFILE}" ]]; then
     cat >"${EXCLUDEFILE}" <<'EOT'
 # Exclude these directories from backups:
-bazel-out
-bazel-bin
-.gvfs                           # contains mounted file systems?
-.local/share/gvfs-metadata
-.Private
-Private
-.dbus                           # session-specific
-.cache
-.Trash                          # do I need to say more?
-.local/share/Trash
-.aptitude                       # cached packages lists
+bazel-**
+**/bazel-**  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
+.gvfs/**                           # contains mounted file systems?
+.local/share/gvfs-metadata/**
+.Private/**
+Private/**
+.dbus/**                           # session-specific
+.cache/**
+.Trash/**                          # do I need to say more?
+.local/share/Trash/**
+.aptitude/**                       # cached packages lists
 
 #Flash-specific:
-.adobe                          # Cache for flash, maybe others?
-.macromedia   # except for Flash persistence, there is no reason to keep this
+.adobe**                          # Cache for flash, maybe others?
+.macromedia**   # except for Flash persistence, there is no reason to keep this
 
 #Files:
-rclone
+bin/rclone
 .bash_history
 .python_history
 .xsession-errors            # contains errors from the current graphical session
@@ -197,9 +197,11 @@ EOT
 function bkup__backup() {
   _startup_checks
   local -a OPTS=(
-    --links
-    --progress
-    --exclude-from "${EXCLUDEFILE}"
+    --links     # store symlinks as metadata
+    --progress  # show progress
+    --fast-list # pre-scan directory.  Maybe buggy?
+    --update    # only update out-of-date files
+    --exclude-from "${EXCLUDEFILE}"  # skip specified files.
   )
   _cmd "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
 }
