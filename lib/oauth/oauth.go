@@ -632,11 +632,24 @@ func (a *Authenticator) SetAuthCookie(ad AuthData, w http.ResponseWriter, co ...
 	return AuthData{Creds: ad.Creds, Cookie: string(ccookie), Target: ad.Target, State: ad.State}, nil
 }
 
+// Complete verifies that AuthData is well formed and valid. It checks that the identities match, and that the type of credentials are
+// the same type that should be returned by the authenticator.
+//
 func (a *Authenticator) Complete(data AuthData) bool {
 	if _, _, err := a.ParseCredentialsCookie(data.Cookie); err != nil {
 		return false
 	}
 	if data.Creds == nil {
+		return false
+	}
+	if !data.Creds.Token.Valid() {
+		return false
+	}
+	iden, err := a.verifier(&data.Creds.Token)
+	if err != nil {
+		return false
+	}
+	if data.Creds.Identity.Username != iden.Username || data.Creds.Identity.Organization != iden.Organization {
 		return false
 	}
 	return true
