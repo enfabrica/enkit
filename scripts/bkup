@@ -1,4 +1,5 @@
 #!/bin/bash
+
 read -r -d '' USAGE <<'EOT'
 bkup: a backup utility.
 
@@ -17,7 +18,7 @@ readonly BINDIR="/home/${USER}/bin"
 readonly RCLONE="${BINDIR}/rclone"
 readonly CONFIGDIR="/home/${USER}/.config/rclone"
 readonly CONFIG="${CONFIGDIR}/rclone.conf"
-readonly EXCLUDEFILE="${CONFIGDIR}/excludefile"
+readonly FILTERFILE="${CONFIGDIR}/filter-list.txt"
 readonly BUCKET="rclone-devops-284019"
 readonly PAGER="${PAGER:-less}"
 
@@ -152,35 +153,36 @@ EOT
   fi
 
   # check for exclude file
-  if ! [[ -e "${EXCLUDEFILE}" ]]; then
-    cat >"${EXCLUDEFILE}" <<'EOT'
+  if ! [[ -e "${FILTERFILE}" ]]; then
+    cat >"${FILTERFILE}" <<'EOT'
 # Exclude these directories from backups:
-bazel-**
-**/bazel-**  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
-.gvfs/**                           # contains mounted file systems?
-.local/share/gvfs-metadata/**
-.Private/**
-Private/**
-.dbus/**                           # session-specific
-.cache/**
-.Trash/**                          # do I need to say more?
-.local/share/Trash/**
-.aptitude/**                       # cached packages lists
+- /bazel-**/
+- /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
+- /.gvfs/                           # contains mounted file systems?
+- /.local/share/gvfs-metadata/
+- /.Private/
+- /Private/
+- /.dbus/                           # session-specific
+- /.cache/
+- /.Trash/                          # do I need to say more?
+- /.local/share/Trash/
+- /.aptitude/                       # cached packages lists
 
 #Flash-specific:
-.adobe**                          # Cache for flash, maybe others?
-.macromedia**   # except for Flash persistence, there is no reason to keep this
+- .adobe**                          # Cache for flash, maybe others?
+- .macromedia**   # except for Flash persistence, there is no reason to keep this
 
 #Files:
-bin/rclone
-.bash_history
-.python_history
-.xsession-errors            # contains errors from the current graphical session
-.recently-used              # recently used files
-.recently-used.xbel
-.thumbnails
+- bin/rclone
+- .bash_history
+- .python_history
+- .xsession-errors            # contains errors from the current graphical session
+- .recently-used              # recently used files
+- .recently-used.xbel
+- .thumbnails
+
 EOT
-    echo "Made ${EXCLUDEFILE}"
+    echo "Made ${FILTERFILE}"
   fi
 
 }
@@ -201,7 +203,7 @@ function bkup__backup() {
     --progress  # show progress
     --fast-list # pre-scan directory.  Maybe buggy?
     --update    # only update out-of-date files
-    --exclude-from "${EXCLUDEFILE}"  # skip specified files.
+    --filter-from "${FILTERFILE}"  # skip specified files.
   )
   _cmd "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
 }
@@ -291,7 +293,7 @@ function bkup__restore() {
     --links
     --progress
     --max-delete 0
-    --exclude-from "${EXCLUDEFILE}"
+    --filter-from "${FILTERFILE}"
   )
 
   if [[ "$#" -ne 0 ]]; then
@@ -331,7 +333,7 @@ function _require_file() {
 function _startup_checks() {
   _require_file "${RCLONE}"
   _require_file "${CONFIG}"
-  _require_file "${EXCLUDEFILE}"
+  _require_file "${FILTERFILE}"
   return 0
 }
 
