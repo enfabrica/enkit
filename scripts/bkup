@@ -19,6 +19,7 @@ readonly CONFIGDIR="/home/${USER}/.config/rclone"
 readonly CONFIG="${CONFIGDIR}/rclone.conf"
 readonly EXCLUDEFILE="${CONFIGDIR}/excludefile"
 readonly BUCKET="rclone-devops-284019"
+readonly PAGER="${PAGER:-less}"
 
 readonly DOCKER_ID="$(\
   cat /proc/1/cgroup | grep -o -E 'docker/([a-f0-9]{12})' | sed 's/docker.//' | head -n 1 )"
