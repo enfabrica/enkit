@@ -1826,9 +1826,12 @@ function gee__pr_list() {
   fi
 
   _info "Open PRs authored by ${WHO_3RD_PERSON}:"
-  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author "${WHO}" --state open \
-    --json number,reviewDecision,title \
-    --jq '.[] | "#\(.number)\t\(.reviewDecision)\t\(.title)"'
+  ( printf "PR\tbranch\treview\ttitle\n" ; \
+    printf "==\t======\t======\t=====\n" ; \
+   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author "${WHO}" --state open \
+    --json number,reviewDecision,headRefName,title \
+    --jq '.[] | "#\(.number)\t\(.headRefName)\t\(.reviewDecision)\t\(.title)"' \
+    ) | column -t -s $'\t'
   echo ""
 
   _info "PRs pending ${YOUR} review:"
@@ -1839,10 +1842,12 @@ function gee__pr_list() {
     ' | select( .reviewRequests[]? | contains({"login":"'"${USER}"'"}))'
     ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
   )
-  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
-    --json number,author,createdAt,state,title,reviewDecision,reviewRequests \
+  ( printf "PR\tauthor\tcreated\ttitle\n" ; \
+    printf "==\t======\t=======\t=====\n" ; \
+   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
+    --json number,author,headRefName,createdAt,state,title,reviewDecision,reviewRequests \
     --jq "${JQSCRIPT[*]}" \
-    | column -t -s $'\t'
+    ) | column -t -s $'\t'
 }
 
 ##########################################################################
