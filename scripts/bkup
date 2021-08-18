@@ -1,5 +1,4 @@
 #!/bin/bash
-
 read -r -d '' USAGE <<'EOT'
 bkup: a backup utility.
 
@@ -209,6 +208,27 @@ function bkup__backup() {
 }
 
 ##########################################################################
+# check command
+##########################################################################
+
+_register_help check "Check if local and backup are consistent." <<'EOT'
+Usage: bkup check
+
+Backs up user's entire home directory to the cloud.
+EOT
+function bkup__check() {
+  _startup_checks
+  local -a OPTS=(
+    --links     # store symlinks as metadata
+    --one-way
+    --size-only
+    --fast-list # pre-scan directory.  Maybe buggy?
+    --filter-from "${FILTERFILE}"  # skip specified files.
+  )
+  _cmd "${RCLONE}" check "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
+}
+
+##########################################################################
 # ls command
 ##########################################################################
 
@@ -292,8 +312,8 @@ function bkup__restore() {
   local -a OPTS=(
     --links
     --progress
+    --update
     --max-delete 0
-    --filter-from "${FILTERFILE}"
   )
 
   if [[ "$#" -ne 0 ]]; then
@@ -308,11 +328,12 @@ function bkup__restore() {
       fi
     done >"${TMPFILE}"
     OPTS+=( --files-from "${TMPFILE}" )
+  else
+    OPTS+=( --filter-from "${FILTERFILE}" )
   fi
 
-  # Use interactive mode by default, and use copy to avoid deleting
-  # missing files:
-  _cmd "${RCLONE}" -i copy \
+  # Should we use interactive (-i) here?
+  _cmd "${RCLONE}" copy \
     "remote:${BUCKET}/${RPATH}" \
     "${HOME}" \
     "${OPTS[@]}"
