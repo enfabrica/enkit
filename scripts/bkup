@@ -7,6 +7,7 @@ as a back end.  See: https://rclone.org/docs/
 EOT
 
 # TODOs:
+# TODO(carlo): should this be in internal instead of enkit?
 # TODO(jonathan,brian,carlo): Figure out how to re-use the enkit cert to
 #   authenticate to GCP.
 # TODO(jonathan): Decide how to handle backups outside of a container.
@@ -14,6 +15,9 @@ EOT
 # TODO(jonathan): When backing up git repositories, the recommended strategy
 #   is two passes: pass 1 backs up refs but not objects, pass 2 backs up
 #   objects.
+# TODO(jonathan): Is this a safe way to restore a git branch?
+# TODO(jonathan): Do we want to give the user the option of excluding the
+#   contents of .git entirely?
 
 set -e
 if [[ -n "${DEBUG}" ]]; then
