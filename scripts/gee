@@ -140,7 +140,8 @@ readonly FALSE=1
 readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
 readonly JQ=/usr/bin/jq
-readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
+readonly ENKIT=/opt/enfabrica/bin/enkit
+readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
@@ -151,7 +152,7 @@ MAIN="" # Unknown, call _set_main to set.
 REPO="${REPO:-}"
 PAGER="${PAGER:-less}"
 PARENTS_FILE_IS_LOADED=0
-PWD_CMD="$(which pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
+PWD_CMD="$(command -v pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
@@ -343,9 +344,20 @@ function _set_alias_if_missing() {
 }
 
 function _set_main() {
+  # Use cached result if available:
   if [[ -n "${MAIN}" ]]; then return; fi
+  # If a master or main branch exist on our local file system, assume:
+  if [[ -d "${REPO_DIR}/master" ]]; then
+    MAIN=master
+    return
+  elif [[ -d "${REPO_DIR}/main" ]]; then
+    MAIN=main
+    return
+  fi
+  # Ok, let's ask github:
+  _check_ssh
   local UPSTREAM_URL
-  UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
+  UPSTREAM_URL="${GIT_AT_GITHUB}:${UPSTREAM}/${REPO}.git"
   MAIN="$(
     "${GIT}" remote show "${UPSTREAM_URL}" \
       | awk '/HEAD branch/ {print $NF}'
@@ -363,7 +375,7 @@ function _set_ghuser() {
   # try to get ghuser from ssh interface:
   local OUTPUT
   set +e
-  OUTPUT="$(ssh -T git@github.com 2>&1)"
+  OUTPUT="$(ssh -T "${GIT_AT_GITHUB}" 2>&1)"
   set -e
   if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
     GHUSER="${BASH_REMATCH[1]}"
@@ -394,35 +406,68 @@ function _set_ghuser() {
   esac
 }
 
+
+function _check_ssh_agent() {
+  if [[ -z "${SSH_AGENT_PID}" ]]; then
+    _warn "SSH_AGENT_PID is not set."
+    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+    local RESP
+    read -r -p \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+      RESP
+    case "${RESP}" in
+      [Yy]*)
+        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+        ;;
+    esac
+    eval `enkit agent print`
+    if [[ -z "${SSH_AGENT_PID}" ]]; then
+      _fatal "Something is wrong with enkit's ssh agent."
+    fi
+  fi
+  if ! ps -p "${SSH_AGENT_PID}" > /dev/null; then
+    _fatal "enkit's ssh agent seems to have died."
+  fi
+}
+
+function _check_enkit_cert() {
+  local COUNT
+  COUNT="$("${ENKIT}" agent print | wc -l)"
+  if (( COUNT == 0 )); then
+    _warn "enkit certificate is expired."
+    _info "Please authenticate:"
+    "${ENKIT}" login
+    COUNT="$("${ENKIT}" agent print | wc -l)"
+    if (( COUNT == 0 )); then
+      _fatal "No enkit certiciate, aborting."
+    fi
+  fi
+  COUNT="$(ssh-add -l | wc -l)"
+  if (( COUNT == 0 )); then
+    _fatal "enkit's certificate isn't showing up in ssh-agent."
+  fi
+}
+
 function _check_ssh() {
+  # First check if we have an ssh-agent running:
+  _check_ssh_agent
+
+  # Check that the enkit certification is available
+  _check_enkit_cert
+
   # Check if we can connect via ssh to github.
   # Takes 0.7 seconds.  Use only as-needed.
   local OUTPUT
   set +e
-  OUTPUT="$(ssh -T git@github.com 2>&1)"
+  OUTPUT="$(ssh -T "${GIT_AT_GITHUB}" 2>&1)"
   set -e
   if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
     GHUSER="${BASH_REMATCH[1]}"
     return 0
   fi
   _warn "Could not authenticate to github using ssh."
-  _info "ssh -T git@github.com got:"
+  _info "ssh -T "${GIT_AT_GITHUB}" got:"
   _info "  ${OUTPUT}"
-  if [[ -f "${SSHKEYFILE}" ]]; then
-    _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
-    _cmd ssh-add "${SSHKEYFILE}"
-    _info "Trying again..."
-    set +e
-    OUTPUT="$(ssh -T git@github.com 2>&1)"
-    set -e
-    if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
-      GHUSER="${BASH_REMATCH[1]}"
-      return 0
-    fi
-    _warn "Still couldn't authenticate to github using ssh."
-    _info "ssh -T git@github.com got:"
-    _info "  ${OUTPUT}"
-  fi
   return 1
 }
 
@@ -515,39 +560,22 @@ function _ssh_enroll() {
     _fatal "gee requires ssh-agent to be running.  Fix and retry."
   fi
 
-  if [[ ! -f "${SSHKEYFILE}" ]]; then
-    _cmd ssh-keygen -f "${SSHKEYFILE}" -t ed25519 -C "${USER}@enfabrica.net"
-  else
-    _info "Reusing existing ${SSHKEYFILE}"
+  local COUNT
+  COUNT="$("${ENKIT}" agent list | wc -l)"
+  if (( COUNT == 0 )); then
+    _warn "No enkit certificates are present."
+    _info "Let's try authenticating:"
+    "${ENKIT}" auth
+    COUNT="$("${ENKIT}" agent list | wc -l)"
+    if (( COUNT == 0 )); then
+      _die "Still could not find any enkit certificates."
+    fi
   fi
-  if [[ ! -f "${SSHKEYFILE}" ]]; then
-    _fatal "Key file ${SSHKEYFILE} was not created."
-  fi
-
-  # TODO(jonathan): Is this necessary?
-  cat <<EOT >> ~/.ssh/config
-# gee: block start
-Host *.github.com
-  IdentityFile ${SSHKEYFILE}
-# gee: block stop
-EOT
-
-  _cmd ssh-add "${SSHKEYFILE}"
 
   _gh config set git_protocol ssh
-  # Override BROWSER because xdg-open opens links2 on some systems, and
-  # links2 doesn't support github.
-  BROWSER="bash -c \"echo Open this URL: \$*\" --" \
-    _gh auth login
-  # The user might have to open their web browser at this point:
-  read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
-
-  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
-
-  _gh ssh-key list
 
   if ! _check_ssh; then
-    _fatal "Something wrong wrong: still can't authenticate to github via ssh."
+    _fatal "Something still wrong: can't authenticate to github via ssh."
   fi
 }
 
@@ -702,7 +730,7 @@ function _cmd() {
     RC=$?
     if [[ "${RC}" -ne 0 ]]; then
       _warn "Command failed with exit code ${RC}"
-      if ! [[ -z "${NOFAIL}" ]]; then
+      if [[ -n "${NOFAIL}" ]]; then
         RC=0
       fi
     fi
@@ -971,8 +999,6 @@ function _checkout_or_die() {
 
 function _in_gee_repo() {
   # Return "main" if we are outside of a gee repo:
-  local D
-  D="$("${PWD_CMD}")"
   if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+ ]]; then
     return "${TRUE}"
   else
@@ -982,8 +1008,6 @@ function _in_gee_repo() {
 
 function _in_gee_branch() {
   # Return "main" if we are outside of a gee repo:
-  local D
-  D="$(/usr/bin/pwd)"
   if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+ ]]; then
     return "${TRUE}"
   else
@@ -1099,7 +1123,7 @@ function _cleanup() {
   # Ensure we always save the PARENTS file, even if we die:
   _write_parents_file
   # Warn the user if we terminated abnormally (for example, if set -e fired).
-  if (( ${ABNORMAL} == 1 )); then
+  if (( ABNORMAL == 1 )); then
     _warn "Abnormal termination."
   fi
 }
@@ -1196,8 +1220,8 @@ function gee__init() {
   fi
   _cmd mkdir -p "${REPO_DIR}/.gee"
   local URL UPSTREAM_URL
-  URL="git@github.com:${GHUSER}/${REPO}.git"
-  UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
+  URL="${GIT_AT_GITHUB}:${GHUSER}/${REPO}.git"
+  UPSTREAM_URL="${GIT_AT_GITHUB}:${UPSTREAM}/${REPO}.git"
 
   # Make fork if needed
   if ! "${GH}" repo list | grep "^${GHUSER}/${REPO}" > /dev/null; then
@@ -2339,8 +2363,6 @@ function gee__repair() {
   if ! _in_gee_repo; then
     _fatal "Not in a gee repo directory, aborting further repairs."
   fi
-
-  ORIG_DIR="$("${PWD_CMD}")"
 
   _info "Checking each directory in ${REPO_DIR}..."
   local DIR BRANCH OBRANCH
