@@ -140,9 +140,16 @@ readonly FALSE=1
 readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
 readonly JQ=/usr/bin/jq
+<<<<<<< HEAD
 readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
 readonly ENKIT=/opt/enfabrica/bin/enkit
 readonly GIT_AT_GITHUB="org-64667743@github.com"
+||||||| constructed merge base
+readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
+=======
+readonly ENKIT=/opt/enfabrica/bin/enkit
+readonly GIT_AT_GITHUB="org-64667743@github.com"
+>>>>>>> resurrect lost change
 readonly NEWLINE=$'\n'
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
@@ -407,6 +414,7 @@ function _set_ghuser() {
   esac
 }
 
+<<<<<<< HEAD
 
 function _check_ssh_agent() {
   if [[ -z "${SSH_AGENT_PID}" ]]; then
@@ -452,6 +460,51 @@ function _check_enkit_cert() {
   fi
 }
 
+||||||| constructed merge base
+=======
+
+function _check_ssh_agent() {
+  if [[ -z "${SSH_AGENT_PID}" ]]; then
+    _warn "SSH_AGENT_PID is not set."
+    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+    local RESP
+    read -r -p \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+      RESP
+    case "${RESP}" in
+      [Yy]*)
+        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+        ;;
+    esac
+    eval `enkit agent print`
+    if [[ -z "${SSH_AGENT_PID}" ]]; then
+      _fatal "Something is wrong with enkit's ssh agent."
+    fi
+  fi
+  if ! ps -p "${SSH_AGENT_PID}" > /dev/null; then
+    _fatal "enkit's ssh agent seems to have died."
+  fi
+}
+
+function _check_enkit_cert() {
+  local COUNT
+  COUNT="$("${ENKIT}" agent print | wc -l)"
+  if (( COUNT == 0 )); then
+    _warn "enkit certificate is expired."
+    _info "Please authenticate:"
+    "${ENKIT}" login
+    COUNT="$("${ENKIT}" agent print | wc -l)"
+    if (( COUNT == 0 )); then
+      _fatal "No enkit certiciate, aborting."
+    fi
+  fi
+  COUNT="$(ssh-add -l | wc -l)"
+  if (( COUNT == 0 )); then
+    _fatal "enkit's certificate isn't showing up in ssh-agent."
+  fi
+}
+
+>>>>>>> resurrect lost change
 function _check_ssh() {
   # First check if we have an ssh-agent running:
   _check_ssh_agent
@@ -470,15 +523,22 @@ function _check_ssh() {
     return 0
   fi
   _warn "Could not authenticate to github using ssh."
+<<<<<<< HEAD
+  _info "ssh -T \"${GIT_AT_GITHUB}\" got:"
+||||||| constructed merge base
+  _info "ssh -T git@github.com got:"
+=======
   _info "ssh -T "${GIT_AT_GITHUB}" got:"
+>>>>>>> resurrect lost change
   _info "  ${OUTPUT}"
+<<<<<<< HEAD
 
   if [[ -f "${SSHKEYFILE}" ]]; then
     _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
     _cmd ssh-add "${SSHKEYFILE}"
     _info "Trying again..."
     set +e
-    OUTPUT="$(ssh -T ${GIT_AT_GITHUB} 2>&1)"
+    OUTPUT="$(ssh -T git@github.com 2>&1)"
     set -e
     if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
       GHUSER="${BASH_REMATCH[1]}"
@@ -488,6 +548,24 @@ function _check_ssh() {
     _info "ssh -T git@github.com got:"
     _info "  ${OUTPUT}"
   fi
+||||||| constructed merge base
+  if [[ -f "${SSHKEYFILE}" ]]; then
+    _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
+    _cmd ssh-add "${SSHKEYFILE}"
+    _info "Trying again..."
+    set +e
+    OUTPUT="$(ssh -T git@github.com 2>&1)"
+    set -e
+    if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
+      GHUSER="${BASH_REMATCH[1]}"
+      return 0
+    fi
+    _warn "Still couldn't authenticate to github using ssh."
+    _info "ssh -T git@github.com got:"
+    _info "  ${OUTPUT}"
+  fi
+=======
+>>>>>>> resurrect lost change
   return 1
 }
 
@@ -624,6 +702,7 @@ function _ssh_enroll() {
     fi
   fi
 
+<<<<<<< HEAD
   local COUNT
   COUNT="$("${ENKIT}" agent list | wc -l)"
   if (( COUNT == 0 )); then
@@ -645,7 +724,21 @@ Host *.github.com
 EOT
 
   _cmd ssh-add "${SSHKEYFILE}"
+||||||| constructed merge base
+  # TODO(jonathan): Is this necessary?
+  cat <<EOT >> ~/.ssh/config
+# gee: block start
+Host *.github.com
+  IdentityFile ${SSHKEYFILE}
+# gee: block stop
+EOT
 
+  _cmd ssh-add "${SSHKEYFILE}"
+
+=======
+>>>>>>> resurrect lost change
+  _gh config set git_protocol ssh
+<<<<<<< HEAD
 
   # Override BROWSER because xdg-open opens links2 on some systems, and
   # links2 doesn't support github.
@@ -657,6 +750,19 @@ EOT
   _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
 
   _gh ssh-key list
+||||||| constructed merge base
+  # Override BROWSER because xdg-open opens links2 on some systems, and
+  # links2 doesn't support github.
+  BROWSER="bash -c \"echo Open this URL: \$*\" --" \
+    _gh auth login
+  # The user might have to open their web browser at this point:
+  read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+
+  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
+
+  _gh ssh-key list
+=======
+>>>>>>> resurrect lost change
 
   if ! _check_ssh; then
     _fatal "Something still wrong: can't authenticate to github via ssh."
