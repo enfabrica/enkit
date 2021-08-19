@@ -18,6 +18,11 @@ EOT
 # TODO(jonathan): Is this a safe way to restore a git branch?
 # TODO(jonathan): Do we want to give the user the option of excluding the
 #   contents of .git entirely?
+# TODO(jonathan): rewrite in golang and integrate into enkit.
+# TODO(jonathan): Do we want to enable crypto?  If we do, then we need a
+#   secure way of storing each user's encryption key, so that the loss of
+#   a laptop doesn't then cause the loss of the key needed to restore files.
+#   Maybe an astore file?  More details: https://rclone.org/crypt/
 
 set -e
 if [[ -n "${DEBUG}" ]]; then
