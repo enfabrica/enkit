@@ -9,7 +9,7 @@ EOT
 # TODOs:
 # TODO(carlo): should this be in internal instead of enkit?
 # TODO(jonathan,brian,carlo): Figure out how to re-use the enkit cert to
-#   authenticate to GCP.
+#   authenticate to GCP.  Currently, we get the user to request a token.
 # TODO(jonathan): Decide how to handle backups outside of a container.
 # TODO(jonathan): Add proper logging.
 # TODO(jonathan): When backing up git repositories, the recommended strategy
