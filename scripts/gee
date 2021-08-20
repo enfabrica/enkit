@@ -471,6 +471,25 @@ function _check_ssh() {
   return 1
 }
 
+function _check_gh_auth() {
+  local OUTPUT RC
+
+
+  set +e
+  OUTPUT="$("${GH}" auth status 2>&1)";
+  RC=$?
+  set -e
+  if (( RC != 0 )); then
+    _info "Could not authenticate to github.  Got:" "${OUTPUT}"
+    _info "Let's try refreshing your access token:"
+    _cmd "${GH}" auth login
+    if ! "${GH}" auth status; then
+      _fatal "Still can't authenticate to github."
+    fi
+  fi
+}
+
+
 function _check_cwd() {
   local DIR
   DIR="$("${PWD_CMD}")"
@@ -1210,8 +1229,10 @@ function gee__init() {
 
   gee__hello
 
-  # _set_main -- won't work without a cloned repo.
-  MAIN=main
+  _gh config set git_protocol ssh
+  _check_gh_auth
+
+  _set_main  # will work without forked repo?
   _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
 
   if [[ -d "${REPO_DIR}/${MAIN}" ]]; then
@@ -1233,13 +1254,7 @@ function gee__init() {
   _git fetch upstream
   _git remote -v
  
-  # Fix the name of the main branch to match the actual branch name: 
-  local OLD_MAIN="${MAIN}"
-  unset MAIN
-  _set_main
-  cd "${REPO_DIR}"
-  mv "${OLD_MAIN}" "${MAIN}"
-  cd "${MAIN}"
+  cd "${REPO_DIR}/${MAIN}"
 
   _info "Created ${REPO_DIR}/${MAIN}"
 }
@@ -1781,6 +1796,7 @@ Creates a new branch containing the specified pull request.
 Lists PRs that you created, and that are assigned to you.
 EOT
 function gee__pr_checkout() {
+  _check_gh_auth
   _set_main
   _checkout_or_die "${MAIN}"
   local PRNUM="$1"; shift
@@ -1832,6 +1848,7 @@ function gee__lspr() { gee__pr_list "$@"; }
 function gee__list_pr() { gee__pr_list "$@"; }
 function gee__prls() { gee__pr_list "$@"; }
 function gee__pr_list() {
+  _check_gh_auth
   local WHO WHO_3RD_PERSON USER YOUR
   WHO="@me"
   WHO_3RD_PERSON="you"
@@ -1893,6 +1910,7 @@ function gee__pred() { gee__pr_edit "$@"; }
 function gee__edit_pr() { gee__pr_edit "$@"; }
 function gee__pr_edit() { 
   _check_cwd
+  _check_gh_auth
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
@@ -1918,6 +1936,7 @@ function gee__pr_edit() {
 
 function gee__pr_debug() {
   _check_cwd
+  _check_gh_auth
   local -a PRS=()
   mapfile -t PRS < <( _list_open_pr_numbers )
   _info "Open pull requests: ${PRS[*]}"
@@ -1940,6 +1959,7 @@ EOT
 function gee__view_pr() { gee__pr_view "$@"; }
 function gee__pr_view() {
   _check_cwd
+  _check_gh_auth
   if ! _gh_pr_view; then
     _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
   fi
@@ -1968,6 +1988,7 @@ function gee__pr_create() { gee__pr_make "$@"; }
 function gee__create_pr() { gee__pr_make "$@"; }
 function gee__pr_make() {
   _check_cwd
+  _check_gh_auth
   local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
   _git fetch upstream
   _read_parents_file
@@ -2050,6 +2071,7 @@ function gee__submit_pr() { gee__pr_submit "$@"; }
 function gee__merge() { gee__pr_submit "$@"; }
 function gee__pr_submit() {
   _check_cwd
+  _check_gh_auth
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
