@@ -91,6 +91,62 @@ go_lint = rule(
     toolchains = ["@io_bazel_rules_go//go:toolchain"],
 )
 
+def _parse_lint(ctx):
+    """
+
+    """
+    out_name = ""
+    if ctx.attr.strategy.lower() == "all":
+        out_name = "lint_all.txt"
+    elif ctx.attr.strategy.lower() == "git":
+        out_name = "lint_git.txt"
+    else:
+        fail("Lint strategy is not valid")
+
+    outfile = ctx.actions.declare_file(out_name)
+    args = ctx.actions.args()
+    for f in ctx.files.lint:
+        args.add(f.path)
+
+    git_file_name = ""
+    if len(ctx.files.git_file) == 1:
+        git_file_name = ctx.files.git_file[0].basename
+    ctx.actions.run(
+        executable = ctx.files._lint_script[0],
+        inputs = ctx.files.lint + ctx.files.git_file,
+        outputs = [outfile],
+        arguments = [args],
+        progress_message = "Parsing lint files",
+        tools = ctx.files._lint_script,
+        env = {
+            "OUT": outfile.path,
+            "STRATEGY": ctx.attr.strategy,
+            "GIT_FILE": git_file_name,
+        },
+    )
+    return DefaultInfo(
+        files = depset([outfile]),
+    )
+
+parse_lint = rule(
+    _parse_lint,
+    attrs = {
+        "lint": attr.label(
+            mandatory = True,
+        ),
+        "_lint_script": attr.label(
+            default = "//bazel/linting/scripts:merge.sh",
+            allow_files = True,
+        ),
+        "strategy": attr.string(
+            default = "ALL",
+        ),
+        "git_file": attr.label(
+            allow_files = True,
+        ),
+    },
+)
+
 #go_libs takes in a gopath compliant repo.
 def lint(go_libs):
     native.genrule(
@@ -115,64 +171,20 @@ def lint(go_libs):
         )
         go_path_rules.append("//:" + short_name + "_source")
         go_lint_targets.append(short_name)
+
     go_lint(
-        name = "lint_go",
+        name = "go_lint",
         go_libraries = go_path_rules,
         targets = go_lint_targets,
-        deps = [
-            ":parse_git_changes",
-        ],
+        deps = [],
     )
-
-def _check_lint(ctx):
-    """
-
-    """
-    out_name = ""
-    if ctx.attr.strategy.lower() == "all":
-        out_name = "lint_all.txt"
-    elif ctx.attr.strategy.lower() == "git":
-        out_name = "lint_git.txt"
-    else:
-        ctx.fail("Strategy is not valid")
-
-    outfile = ctx.actions.declare_file(out_name)
-    args = ctx.actions.args()
-    for f in ctx.files.lint:
-        args.add(f.path)
-
-    ctx.actions.run(
-        executable = ctx.files._lint_script[0],
-        inputs = ctx.files.lint,
-        outputs = [outfile],
-        arguments = [args],
-        progress_message = "Parsing lint files",
-        tools = ctx.files._lint_script,
-        env = {
-            "OUT": outfile.path,
-            "STRATEGY": ctx.attr.strategy,
-            "GIT_FILE": ctx.attr.git_file,
-        },
+    parse_lint(
+        name = "lint",
+        lint = ":go_lint",
     )
-    return DefaultInfo(
-        files = depset([outfile]),
+    parse_lint(
+        name = "lint-git",
+        lint = ":go_lint",
+        strategy = "git",
+        git_file = ":parse_git_changes",
     )
-
-parse_lint = rule(
-    _check_lint,
-    attrs = {
-        "lint": attr.label(
-            mandatory = True,
-        ),
-        "_lint_script": attr.label(
-            default = "//bazel/linting/scripts:merge.sh",
-            allow_files = True,
-        ),
-        "strategy": attr.string(
-            default = "ALL",
-        ),
-        "git_file": attr.string(
-            default = "git.txt",
-        ),
-    },
-)

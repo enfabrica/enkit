@@ -1,7 +1,20 @@
 #!/bin/bash
+
+function cleanFiles() {
+  declare -A MAP=()
+  local L1 L2 L3
+  while IFS="" read -r L1; do
+    IFS="" read -r L2
+    IFS="" read -r L3
+    if ! [[ -v MAP[L1] ]]; then
+      MAP["$L1"]=1
+      printf "%s\n%s\n%s\n" "${L1}" "${L2}" "${L3}"
+    fi
+  done < <(cat "$@")
+}
+
 if [[ "$STRATEGY" == "ALL" ]]; then
-  echo "here"
-  awk '!x[$0]++' "$@" >> "$OUT"
+  cleanFiles "$@" >> "$OUT"
   exit 0;
 fi
 if [[ "$STRATEGY" == "git" ]]; then
@@ -15,8 +28,14 @@ if [[ "$STRATEGY" == "git" ]]; then
   fi
   x="$(cat "$REAL_GIT")"
   readarray -t arrs <<< "$x"
-  echo "running ${arrs[*]}"
-  HELLO="$(awk '!x[$0]++' "$@")"
-  grep "${arrs[*]}" >> "$OUT"
-  echo "hello" >> "$OUT"
+  noDupes=$(cleanFiles "$@")
+  for i in ${arrs[*]}; do
+    while IFS="" read -r L1; do
+      IFS="" read -r L2
+      IFS="" read -r L3
+      if [[ "$L1" == *"$i"* ]]; then
+        printf "%s\n%s\n%s\n" "${L1}" "${L2}" "${L3}" >> "$OUT"
+      fi
+    done < <(echo "$noDupes")
+  done
 fi
