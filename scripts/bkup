@@ -31,6 +31,7 @@ fi
 
 declare -a HELP=()
 declare -A LONGHELP
+readonly USER="${USER:-"$(whoami)"}"
 readonly BINDIR="/home/${USER}/bin"
 readonly RCLONE="${BINDIR}/rclone"
 readonly CONFIGDIR="/home/${USER}/.config/rclone"
@@ -47,7 +48,7 @@ fi
 readonly RPATH="bkup/${USER}/${DOCKER_ID}"
 
 function _check_remote() {
-  "${RCLONE}" ls remote: --max-depth 1 &> /dev/null
+  "${RCLONE}" ls remote:"${BUCKET}" --max-depth 1 &> /dev/null
 }
 
 function _check_or_authorize_remote() {
@@ -65,7 +66,7 @@ function _check_or_authorize_remote() {
 function _cmd() {
   local ESCAPED_CMD
   ESCAPED_CMD="$(printf " %q" "$@")"
-  echo "CMD:${ESCAPED_CMD}"
+  echo >&2 "CMD:${ESCAPED_CMD}"
   if (( DRYRUN )); then
     return 0
   fi
@@ -309,7 +310,7 @@ function bkup__ls() {
     fi
   fi
 
-  "${RCLONE}" lsf \
+  _cmd "${RCLONE}" lsf \
     "remote:${BUCKET}/${RPATH}${PATH}" \
     "${OPTS[@]}" | /usr/bin/column -t -s $'\t'
 }
