@@ -2,7 +2,6 @@ package oauth
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
@@ -112,7 +111,10 @@ type Flags struct {
 	OauthSecretID  string
 	OauthSecretKey string
 
+	// A JSON file containing all the details of the oauth provider to use.
+	// See the jsonAuth struct below.
 	OAuthFile []byte
+
 	// How long is the token used to authenticate with the oauth servers.
 	// Limit the total time a login can take.
 	AuthTime time.Duration
@@ -135,7 +137,8 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 		"Prefer using the --"+prefix+"secret-file option - as it hides the secret from 'ps'. Secret key of the client to use with the oauth provider")
 	set.DurationVar(&f.AuthTime, prefix+"auth-time", f.AuthTime,
 		"How long should the token forwarded to the remote oauth server be valid for. This bounds how long the oauth authentication process can take at most")
-	set.ByteFileVar(&f.OAuthFile, prefix+"oauth-file", "", "file for additional oauth flow to occur before required oauth")
+	set.ByteFileVar(&f.OAuthFile, prefix+"oauth-file", "",
+		"JSON file describing the oauth provider and credentials to use, extracts most parameters automatically")
 	f.SigningExtractorFlags.Register(set, prefix)
 	return f
 }
@@ -428,7 +431,7 @@ func WithOAuthFile(fileContent []byte) Modifier {
 		} else if d.Type == "github" {
 			endpoint = github.Endpoint
 		} else {
-			return errors.New("oauth: additional flow type is not supported")
+			return fmt.Errorf("oauth: authentication endpoint %s is not supported", d.Type)
 		}
 		c := oauth2.Config{
 			ClientID:     d.ClientID,

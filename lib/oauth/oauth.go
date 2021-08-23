@@ -155,6 +155,8 @@ func (i *Identity) GlobalName() string {
 	return i.Username + "@" + i.Organization
 }
 
+// Based on the kind of identity obtained, returns a modifier able to generate
+// certificates to support that specific identity type.
 func (i *Identity) CertMod() kcerts.CertMod {
 	if i.Organization == "github.com" {
 		return func(certificate *ssh.Certificate) *ssh.Certificate {
@@ -632,9 +634,10 @@ func (a *Authenticator) SetAuthCookie(ad AuthData, w http.ResponseWriter, co ...
 	return AuthData{Creds: ad.Creds, Cookie: string(ccookie), Target: ad.Target, State: ad.State}, nil
 }
 
-// Complete verifies that AuthData is well formed and valid. It checks that the identities match, and that the type of credentials are
-// the same type that should be returned by the authenticator.
+// Complete verifies that AuthData is well formed and valid.
 //
+// It checks that the identities match, and that the type of credentials are
+// the same type that should be returned by the authenticator.
 func (a *Authenticator) Complete(data AuthData) bool {
 	if _, _, err := a.ParseCredentialsCookie(data.Cookie); err != nil {
 		return false
@@ -643,13 +646,6 @@ func (a *Authenticator) Complete(data AuthData) bool {
 		return false
 	}
 	if !data.Creds.Token.Valid() {
-		return false
-	}
-	iden, err := a.verifier(&data.Creds.Token)
-	if err != nil {
-		return false
-	}
-	if data.Creds.Identity.Username != iden.Username || data.Creds.Identity.Organization != iden.Organization {
 		return false
 	}
 	return true
@@ -697,7 +693,8 @@ func (a *Extractor) CredentialsCookieName() string {
 	return cookie.CredentialsCookieName(a.baseCookie)
 }
 
-// CheckRedirect checks AuthData to see if it's state warrants a redirect. Returns if it did redirect
+// CheckRedirect checks AuthData to see if its state warrants a redirect.
+// Returns true if it did redirect, false if a redirect was unnecessary.
 func CheckRedirect(w http.ResponseWriter, r *http.Request, ad AuthData) bool {
 	if ad.Target == "" {
 		return false

@@ -144,7 +144,6 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 	if err != nil {
 		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
 	}
-	//
 	authWeb := oauth.NewMultiOAuth(rng, reqAuth, optAuth)
 	grpcs := grpc.NewServer(
 		grpc.StreamInterceptor(ogrpc.StreamInterceptor(reqAuth, "/auth.Auth/")),
@@ -177,7 +176,7 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 		}, w, r)
 	})
 	// Direct download of non-published artifacts, starts immediately the download if the user is authenticated.
-	mux.HandleFunc("/g/", authWeb.WithCredentialsOrError(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/g/", reqAuth.WithCredentialsOrError(func(w http.ResponseWriter, r *http.Request) {
 		astoreServer.DownloadArtifact("/g/", func(upath string, resp *rpc_astore.RetrieveResponse, err error, w http.ResponseWriter, r *http.Request) {
 			DownloadHandler("", upath, resp, err, w, r)
 		}, w, r)
@@ -227,14 +226,16 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 		}
 	})
 
-	// Path /e/ is the landing page at the end of the oauth authentication. If the oauth landing page is a step in a multi-oauth flow,
-	// it will redirect to /a with additional logins.
+	// Path /e/ is the landing page at the end of the oauth authentication.
+	// If the oauth landing page is a step in a multi-oauth flow, it will
+	// redirect to /a with additional logins.
 	mux.HandleFunc("/e/", func(w http.ResponseWriter, r *http.Request) {
 		copts := []kcookie.Modifier{kcookie.WithPath("/")}
 		if cookieDomain != "" {
 			// WithSecure and WithSameSite are required to get the cookie forwarded via the NASSH plugin in chrome (for SSH).
 			copts = append(copts, kcookie.WithDomain(cookieDomain), kcookie.WithSecure(true), kcookie.WithSameSite(http.SameSiteNoneMode))
 		}
+
 		data, err := authWeb.PerformAuth(w, r, copts...)
 		if err != nil {
 			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)

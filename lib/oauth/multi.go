@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/token"
@@ -16,9 +15,10 @@ import (
 )
 
 type MultiOauth struct {
-	RequiredAuth *Authenticator
-	OptAuth      []*Authenticator
-	Enc          []*token.TypeEncoder
+	RequiredAuth   *Authenticator
+	OptAuth        []*Authenticator
+	Enc            []*token.TypeEncoder
+	LoginModifiers []LoginModifier
 }
 
 type MultiOAuthState struct {
@@ -61,13 +61,12 @@ func (mo *MultiOauth) decodeState(r *http.Request) (*MultiOAuthState, error) {
 }
 
 // authenticator will return the specified oauth.Authenticator from MultiOAuthState.CurrentFlow.
-// if the index matches the final optional authenticator, it will return the required one.
-func (mo *MultiOauth) authenticator(state *MultiOAuthState) (int, *Authenticator) {
+// If the index matches the final optional authenticator, it will return the required one.
+func (mo *MultiOauth) authenticator(state *MultiOAuthState) *Authenticator {
 	if state.CurrentFlow >= len(mo.OptAuth) {
-		return state.CurrentFlow, mo.RequiredAuth
+		return mo.RequiredAuth
 	}
-	// find the first authen not redeemed, if they are all redeemed return required
-	return state.CurrentFlow, mo.OptAuth[state.CurrentFlow]
+	return mo.OptAuth[state.CurrentFlow]
 }
 
 func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods ...kcookie.Modifier) (AuthData, error) {
@@ -75,7 +74,7 @@ func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods .
 	if err != nil {
 		return AuthData{}, err
 	}
-	_, a := mo.authenticator(flowState)
+	a := mo.authenticator(flowState)
 	data, err := a.ExtractAuth(w, r)
 	if err != nil {
 		return AuthData{}, err
@@ -89,42 +88,34 @@ func (mo *MultiOauth) PerformAuth(w http.ResponseWriter, r *http.Request, mods .
 
 		data.Identities = flowState.OptIdentities
 		data.State = flowState.Extra
-		return data, err
+		return data, nil
 	}
 	flowState.OptIdentities = append(flowState.OptIdentities, data.Creds.Identity)
 	flowState.CurrentFlow += 1
 	data.State = flowState
-	if err := mo.PerformLogin(w, r,
-		WithState(data.State),
-		WithCookieOptions(kcookie.WithPath("/")),
-	); err != nil {
+	if err := mo.PerformLogin(w, r, append(mo.LoginModifiers, WithState(data.State))...); err != nil {
 		http.Error(w, "oauth failed, no idea why, ask someone to look at the logs", http.StatusUnauthorized)
 		log.Printf("ERROR - could not perform login - %s", err)
 		return AuthData{}, err
 	}
-	return data, err
+	return data, nil
 }
 
 func (mo *MultiOauth) PerformLogin(w http.ResponseWriter, r *http.Request, lm ...LoginModifier) error {
+	mo.LoginModifiers = lm
 	options := LoginModifiers(lm).Apply(&LoginOptions{})
 
-	// if the passed in state does not match what we want, pack in the previous state to unpack later.
+	// If the passed in state does not match what we want, pack in the previous state to unpack later.
 	state, ok := options.State.(*MultiOAuthState)
 	if !ok {
 		state = mo.NewState(options.State)
 		options.State = state
 	}
-	// if the passed in options arent already a flow state, pack them up to unpack later.
-	_, a := mo.authenticator(state)
-	// override just in case we had to pack it in, login apply works in FIFO
+	// If the passed in options are not already a flow state, pack them up to unpack later.
+	a := mo.authenticator(state)
+	// Override just in case we had to pack it in, login apply works in FIFO.
 	lm = append(lm, WithState(options.State))
-	return a.PerformLogin(w, r, append(lm)...)
-}
-
-func (mo MultiOauth) WithCredentialsOrError(handler khttp.FuncHandler) http.HandlerFunc {
-	return func(writer http.ResponseWriter, request *http.Request) {
-		handler(writer, request)
-	}
+	return a.PerformLogin(w, r, lm...)
 }
 
 func (mo *MultiOauth) Complete(data AuthData) bool  {
