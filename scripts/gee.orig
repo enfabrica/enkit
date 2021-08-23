@@ -917,6 +917,7 @@ function _branch_ahead_behind() {
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
     printf "%-20s: same as %s" "${branch}" "${obr}"
   else
+<<<<<<< HEAD
     printf "%-20s: %s ahead, %s behind %s" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
   fi
   if _remote_branch_exists origin "${branch}"; then
@@ -925,8 +926,25 @@ function _branch_ahead_behind() {
     if (( counts[1] > 0 )); then
       printf ", %d behind %s" "${counts[1]}" "origin/${branch}"
     fi
+||||||| constructed merge base
+    printf "%-20s: %s ahead, %s behind %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+=======
+    printf "%-20s: %s ahead, %s behind %s" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+>>>>>>> lsbr: report changes in origin branch.
+  fi
+<<<<<<< HEAD
+  printf "\n"
+||||||| constructed merge base
+=======
+  if _remote_branch_exists origin "${branch}"; then
+    counts=()
+    read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...origin/${branch}")
+    if (( ${counts[1]} > 0 )); then
+      printf ", %d behind %s" "${counts[1]}" "origin/${branch}"
+    fi
   fi
   printf "\n"
+>>>>>>> lsbr: report changes in origin branch.
 }
 
 function _remote_branch_exists() {
@@ -1886,13 +1904,7 @@ function gee__commit() {
         _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
         _warn "You must integrate upstream changes before pushing."
         if _confirm_default_yes "Do you want to pull upstream changes now? (Y/n)  "; then
-<<<<<<< HEAD
           _git rebase --autostash "origin/${CURRENT_BRANCH}"
-||||||| constructed merge base
-          _git rebase origin/gee
-=======
-          _git rebase "origin/${CURRENT_BRANCH}"
->>>>>>> fix typo
         else
           _warn "Skipping backup of branch to origin/${CURRENT_BRANCH}"
           return 0
