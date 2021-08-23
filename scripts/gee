@@ -870,7 +870,7 @@ function _branch_ahead_behind() {
 }
 
 function _remote_branch_exists() {
-  local REPO="$1"; shift
+  local REPO="$1"; shift  # origin?
   local BRANCH="$1"; shift
   if [[ -z "${BRANCH}" ]]; then
     _die "insufficient args"
@@ -1805,7 +1805,7 @@ function gee__commit() {
     echo "Skipped \"git add --all\" because branch is home dir."
   fi
   if _git_can_fail commit "$@"; then
-    if _remote_branch_exists "${REPO}" "${CURRENT_BRANCH}"; then
+    if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
       _git fetch
       local -a COUNTS
       read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
