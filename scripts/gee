@@ -545,18 +545,31 @@ function _startup_checks() {
 
   # check ssh agent
   if ! ssh-add -l > /dev/null; then
-    _warn "Could not connect to ssh-agent."
-    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
-    local RESP
-    read -r -p \
-      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
-      RESP
-    case "${RESP}" in
-      [Yy]*)
-        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
-        ;;
-    esac
-    eval `enkit agent print`
+    local RC=$?
+    if (( RC == 2 )); then
+      _warn "Could not connect to ssh-agent."
+      _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+      local RESP
+      read -r -p \
+        "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+        RESP
+      case "${RESP}" in
+        [Yy]*)
+          printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+          ;;
+      esac
+      eval `enkit agent print`
+    fi
+  fi
+  if ! ssh-add -l > /dev/null; then
+    local RC=$?
+    if (( RC == 1 )); then
+      _fatal "ssh-agent doesn't report any keys.  Please \"enkit login\" and try again."
+    fi
+    if (( RC == 2 )); then
+      _fatal "Persistent failure connecting to ssh-agent."
+    fi
+    _fatal "Unknown error from ssh-add command: RC=${RC}"
   fi
 }
 
