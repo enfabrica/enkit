@@ -863,10 +863,18 @@ function _branch_ahead_behind() {
   local -a counts
   read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
-    printf "%-20s: same as %s\n" "${branch}" "${obr}"
+    printf "%-20s: same as %s" "${branch}" "${obr}"
   else
-    printf "%-20s: %s ahead, %s behind %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+    printf "%-20s: %s ahead, %s behind %s" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
   fi
+  if _remote_branch_exists origin "${branch}"; then
+    counts=()
+    read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...origin/${branch}")
+    if (( ${counts[1]} > 0 )); then
+      printf ", %d behind %s" "${counts[1]}" "origin/${branch}"
+    fi
+  fi
+  printf "\n"
 }
 
 function _remote_branch_exists() {
@@ -1714,6 +1722,7 @@ function gee__lsbranches() {
   mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
   local br
   _set_main
+  _git fetch
   for br in "${branches[@]}"; do
     if [[ "${br}" != "${MAIN}" ]]; then
       _branch_ahead_behind "${br}"
