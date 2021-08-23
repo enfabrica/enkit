@@ -1813,7 +1813,7 @@ function gee__commit() {
         _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
         _warn "You must integrate upstream changes before pushing."
         if _confirm_default_yes "Do you want to pull upstream changes now? (Y/n)  "; then
-          _git rebase origin/gee
+          _git rebase "origin/${CURRENT_BRANCH}"
         else
           _warn "Skipping backup of branch to origin/${CURRENT_BRANCH}"
           return 0
