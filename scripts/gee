@@ -687,6 +687,19 @@ function _get_branch_rootdir() {
   echo "${BRDIR}"
 }
 
+function _confirm_default_yes() {
+  local _PROMPT RESP
+  _PROMPT="$*"
+  if [[ -z "${_PROMPT}" ]]; then
+    _PROMPT="Confirm? (y/N)  "
+  fi
+  read -rp "${_PROMPT}" RESP
+  case "${RESP}" in
+    [Nn]*) return 1 ;;
+    *)     return 0 ;;
+  esac
+}
+
 function _confirm_default_no() {
   local _PROMPT RESP
   _PROMPT="$*"
@@ -840,7 +853,7 @@ function _count_diffs() {
 }
 
 function _branch_ahead_behind() {
-  # Report how many commits this branch is ahead/behind main.
+  # Report how many commits this branch is ahead/behind another branch.
   local branch; branch="$1"
   local obr="$2";
   _read_parents_file
@@ -1792,6 +1805,21 @@ function gee__commit() {
     echo "Skipped \"git add --all\" because branch is home dir."
   fi
   if _git_can_fail commit "$@"; then
+    if _remote_branch_exists "${REPO}" "${CURRENT_BRANCH}"; then
+      _git fetch
+      local -a COUNTS
+      read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
+      if [[ "${COUNTS[1]}" -gt 0 ]]; then
+        _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
+        _warn "You must integrate upstream changes before pushing."
+        if _confirm_default_yes "Do you want to pull upstream changes now? (Y/n)  "; then
+          _git rebase origin/gee
+        else
+          _warn "Skipping backup of branch to origin/${CURRENT_BRANCH}"
+          return 0
+        fi
+      fi
+    fi
     # We always push upstream so that users have a backup in case they lose their
     # laptop:
     _git push -u origin "${CURRENT_BRANCH}"
