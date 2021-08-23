@@ -3,6 +3,8 @@ package oauth
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/oauth2/github"
+	"golang.org/x/oauth2/google"
 	"io/ioutil"
 	"math/rand"
 	"net/url"
@@ -109,6 +111,10 @@ type Flags struct {
 	OauthSecretID  string
 	OauthSecretKey string
 
+	// A JSON file containing all the details of the oauth provider to use.
+	// See the jsonAuth struct below.
+	OAuthFile []byte
+
 	// How long is the token used to authenticate with the oauth servers.
 	// Limit the total time a login can take.
 	AuthTime time.Duration
@@ -131,7 +137,8 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 		"Prefer using the --"+prefix+"secret-file option - as it hides the secret from 'ps'. Secret key of the client to use with the oauth provider")
 	set.DurationVar(&f.AuthTime, prefix+"auth-time", f.AuthTime,
 		"How long should the token forwarded to the remote oauth server be valid for. This bounds how long the oauth authentication process can take at most")
-
+	set.ByteFileVar(&f.OAuthFile, prefix+"oauth-file", "",
+		"JSON file describing the oauth provider and credentials to use, extracts most parameters automatically")
 	f.SigningExtractorFlags.Register(set, prefix)
 	return f
 }
@@ -359,14 +366,18 @@ func WithCookiePrefix(prefix string) Modifier {
 
 func WithFlags(fl *Flags) Modifier {
 	return func(o *Options) error {
-		if len(fl.OauthSecretJSON) == 0 && (fl.OauthSecretID == "" || fl.OauthSecretKey == "") {
-			return fmt.Errorf("you must specify the secret-file or (secret-key and secret-id) options")
+		var mods []Modifier
+		if len(fl.OAuthFile) == 0 {
+			if len(fl.OauthSecretJSON) == 0 && (fl.OauthSecretID == "" || fl.OauthSecretKey == "") {
+				return fmt.Errorf("you must specify the secret-file or (secret-key and secret-id) options")
+			}
+			if len(fl.TargetURL) == 0 {
+				return fmt.Errorf("you must specify the target-url flag")
+			}
 		}
-		if len(fl.TargetURL) == 0 {
-			return fmt.Errorf("you must specify the target-url flag")
+		if fl.TargetURL != "" {
+			mods = append(mods, WithTargetURL(fl.TargetURL))
 		}
-
-		mods := []Modifier{WithTargetURL(fl.TargetURL)}
 		if len(fl.OauthSecretJSON) > 0 {
 			mods = append(mods, WithSecretJSON(fl.OauthSecretJSON))
 		}
@@ -389,8 +400,48 @@ func WithFlags(fl *Flags) Modifier {
 			fl.TokenVerifyingKey = (*verify.ToBytes())[:]
 		}
 
-		mods = append(mods, WithAuthTime(fl.AuthTime), WithSecrets(fl.OauthSecretID, fl.OauthSecretKey), WithSigningExtractorFlags(fl.SigningExtractorFlags))
+		mods = append(mods,
+			WithAuthTime(fl.AuthTime),
+			WithSecrets(fl.OauthSecretID, fl.OauthSecretKey),
+			WithSigningExtractorFlags(fl.SigningExtractorFlags),
+			WithOAuthFile(fl.OAuthFile),
+		)
 		return Modifiers(mods).Apply(o)
+	}
+}
+
+func WithOAuthFile(fileContent []byte) Modifier {
+	return func(opt *Options) error {
+		if len(fileContent) == 0 {
+			return nil
+		}
+		type jsonAuth struct {
+			Type         string
+			Name         string
+			ClientID     string `json:"client_id"`
+			ClientSecret string `json:"client_secret"`
+		}
+		d := jsonAuth{}
+		if err := json.Unmarshal(fileContent, &d); err != nil {
+			return err
+		}
+		var endpoint oauth2.Endpoint
+		if d.Type == "google" {
+			endpoint = google.Endpoint
+		} else if d.Type == "github" {
+			endpoint = github.Endpoint
+		} else {
+			return fmt.Errorf("oauth: authentication endpoint %s is not supported", d.Type)
+		}
+		c := oauth2.Config{
+			ClientID:     d.ClientID,
+			ClientSecret: d.ClientSecret,
+			Endpoint:     endpoint,
+			RedirectURL:  opt.conf.RedirectURL,
+			Scopes:       []string{"email"},
+		}
+		opt.conf = &c
+		return nil
 	}
 }
 
@@ -400,8 +451,9 @@ type Options struct {
 	loginTime    time.Duration // How long the token is valid for after successful authentication.
 	maxLoginTime time.Duration // Tokens issued more than maxLoginTime ago will always be rejected.
 
-	version    int
-	conf       *oauth2.Config
+	version         int
+	conf            *oauth2.Config
+
 	verifier   Verifier
 	baseCookie string
 	authURL    *url.URL // Only used by the Redirector.
@@ -431,17 +483,16 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 		return nil, fmt.Errorf("error setting up authenticating cipher: %w", err)
 	}
 
+	te := token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.authTime), be, token.NewBase64UrlEncoder()))
 	authenticator := &Authenticator{
 		Extractor: *extractor,
 
 		rng: opt.rng,
 
-		authEncoder: token.NewTypeEncoder(token.NewChainedEncoder(token.NewTimeEncoder(nil, opt.authTime), be, token.NewBase64UrlEncoder())),
-
-		conf:     opt.conf,
-		verifier: opt.verifier,
+		authEncoder: te,
+		verifier:    opt.verifier,
+		conf:        opt.conf,
 	}
-
 	if authenticator.conf.RedirectURL == "" {
 		return nil, fmt.Errorf("API used incorrectly - must supply a target auth url with WithTargetURL")
 	}
@@ -457,7 +508,6 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 	if authenticator.conf.Endpoint.AuthURL == "" || authenticator.conf.Endpoint.TokenURL == "" {
 		return nil, fmt.Errorf("API used incorrectly - endpoint has no AuthURL or TokenURL - %#v", authenticator.conf.Endpoint)
 	}
-
 	return authenticator, nil
 }
 

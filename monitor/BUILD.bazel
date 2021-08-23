@@ -28,12 +28,12 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_push")
 
 go_image(
     name = "monitor-image",
+    args = ["$(location :probes.toml)"],
     base = "@golang_base//image",
     binary = ":monitor",
     data = [
-      ":probes.toml",
+        ":probes.toml",
     ],
-    args = ["$(location :probes.toml)"],
     visibility = ["//visibility:public"],
 )
 
