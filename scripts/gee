@@ -1500,6 +1500,18 @@ function gee__update() {
     _die "Not in a git branch directory."
   fi
 
+  # Check for upstream changes in "origin" first:
+  if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+    _git fetch
+    local -a COUNTS
+    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
+    if [[ "${COUNTS[1]}" -gt 0 ]]; then
+      _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
+      _warn "Pulling in changes from origin/${CURRENT_BRANCH}"
+      _git rebase --autostash "origin/${CURRENT_BRANCH}"
+    fi
+  fi
+
   _read_parents_file
 
   local PREVIOUS_B
@@ -1822,7 +1834,7 @@ function gee__commit() {
         _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
         _warn "You must integrate upstream changes before pushing."
         if _confirm_default_yes "Do you want to pull upstream changes now? (Y/n)  "; then
-          _git rebase "origin/${CURRENT_BRANCH}"
+          _git rebase --autostash "origin/${CURRENT_BRANCH}"
         else
           _warn "Skipping backup of branch to origin/${CURRENT_BRANCH}"
           return 0
