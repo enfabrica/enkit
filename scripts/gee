@@ -155,6 +155,11 @@ PAGER="${PAGER:-less}"
 PARENTS_FILE_IS_LOADED=0
 PWD_CMD="$(command -v pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
 
+# Make sure we're in a directory that exists:
+while ! "${PWD_CMD}" >/dev/null; do
+  cd ..
+done
+
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
   # Try the old directory layout:
