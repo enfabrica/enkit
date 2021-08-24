@@ -2444,18 +2444,21 @@ function gee__gcd() {
     BRANCH="${MAIN}"
   fi
 
-  if _in_gee_repo; then
-    CURRENT_BRANCH="$(_get_current_branch)"
-    if [[ -z "${CURRENT_BRANCH}" ]]; then
-      _die "Failed to get name of current branch."
-    fi
-    CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
-    ABS_PATH="$(readlink -f .)"
-    REL_PATH="${ABS_PATH#"${CURRENT_ROOT}"}"
-    REL_PATH="${REL_PATH#\/}"
-  else
-    REL_PATH=""
+  if ! _in_gee_branch; then
+    cd "${GEE_DIR}/${REPO}/${MAIN}"
   fi
+  if ! _in_gee_branch; then
+    _die "Can't find ${REPO}/${MAIN} branch.  Something is very wrong here."
+  fi
+
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if [[ -z "${CURRENT_BRANCH}" ]]; then
+    _die "Failed to get name of current branch."
+  fi
+  CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+  ABS_PATH="$(readlink -f .)"
+  REL_PATH="${ABS_PATH#"${CURRENT_ROOT}"}"
+  REL_PATH="${REL_PATH#\/}"
 
   # check whether BRANCH exists: 
   if ! _local_branch_exists "${BRANCH}"; then
@@ -2478,6 +2481,8 @@ function gee__gcd() {
   if [[ ! -d "${DIR}" ]]; then
     _die "Branch \"${REPO}/${BRANCH}\" exists but ${DIR} is missing."
   fi
+
+  # Trim DIR to the longest path that exists in this branch.
   local P PREV_IFS
   PREV_IFS="${IFS}"
   IFS="/"; for P in ${REL_PATH}; do
