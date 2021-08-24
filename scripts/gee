@@ -135,6 +135,7 @@ declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
 declare -A MERGEBASES  # initialized by _load_parents_file
+declare -A BRANCH_TO_WORKTREE=()
 readonly TRUE=0
 readonly FALSE=1
 readonly GIT=/usr/bin/git
@@ -748,6 +749,23 @@ function _get_parent_branch() {
   echo "${MAIN}"
 }
 
+function _update_branch_to_worktree() {
+  BRANCH_TO_WORKTREE=()  # global
+  local LINE WT BR
+  _set_main
+  while IFS="" read -r LINE; do
+    if [[ "${LINE}" =~ ^worktree\ (.+) ]]; then
+      WT="${BASH_REMATCH[1]}"
+    elif [[ "${LINE}" =~ ^branch\ refs/heads/(.+) ]]; then
+      BR="${BASH_REMATCH[1]}"
+    elif [[ "${LINE}" == "" ]]; then
+      if [[ -n "${BR}" ]]; then
+        BRANCH_TO_WORKTREE["${BR}"]="${WT}"
+      fi
+    fi
+  done < <(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list --porcelain )
+}
+
 function _get_branch_rootdir() {
   # Return the root directory of a git branch
   local BRANCH_NAME BRDIR
@@ -755,10 +773,8 @@ function _get_branch_rootdir() {
   if [[ -z "${BRANCH_NAME}" ]]; then
 	  BRANCH_NAME="$(_get_current_branch)"
   fi
-  _set_main
-  BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list \
-    | grep -w "\[${BRANCH_NAME}\]" \
-    | awk '{print $1}' )"
+  _update_branch_to_worktree
+  BRDIR="${BRANCH_TO_WORKTREE["${BRANCH_NAME}"]}"
   if [[ -z "${BRDIR}" ]]; then
     _die "_get_branch_rootdir failed for ${BRANCH_NAME}"
   fi
@@ -973,20 +989,24 @@ function _remote_branch_exists() {
 function _local_branch_exists() {
   local BRANCH="$1"; shift
   _set_main
+  if ! "${GIT}" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
+    return 1  # false
+  fi
+
+  # branch exists, but let's double check that worktree is set up correctly:
   local BRDIR
   BRDIR="${REPO_DIR}/${BRANCH}"
   if ! [[ -d "${BRDIR}" ]]; then
     # try to fix worktree.
     _git worktree add "${REPO_DIR}/${BRANCH}"
-    BRDIR="$(_get_branch_rootdir "${BRANCH}")"
     _info "Created ${BRDIR}"
   fi
-  BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list \
-    | grep -w "\[${BRANCH_NAME}\]" \
-    | awk '{print $1}' )"
+  _update_branch_to_worktree
+  BRDIR="${BRANCH_TO_WORKTREE["${BRANCH}"]}"
   if [[ -n "${BRDIR}" ]]; then
     return 0
   else
+    _fatal "Branch ${BRANCH} exists but could not create worktree."
     return 1
   fi
 }
@@ -2393,7 +2413,9 @@ function gee__fix() {
 # TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 
 _register_help "gcd" "Find the current directory in a different branch." <<'EOT'
-Usage: gcd <branch>
+Usage: gcd [-b] <branch>
+
+The "-b" option will cause the branch to be created if it doesn't already exist.
 
 The "gcd" command is not meant to be used directly, but is instead designed to
 be called from the "gcd" bash function.
@@ -2410,7 +2432,12 @@ Or for a quick version:
 EOT
 
 function gee__gcd() {
-  local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH
+  local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH OPT_B
+  OPT_B=0
+  if [[ "$1" == "-b" ]]; then
+    OPT_B=1
+    shift
+  fi
   BRANCH="$1"
   _set_main
   if [[ -z "${BRANCH}" ]]; then
@@ -2429,21 +2456,39 @@ function gee__gcd() {
   else
     REL_PATH=""
   fi
- 
+
   # check whether BRANCH exists: 
-  _set_main
-  local BRDIR
-  if ! BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list | grep -w "\[${BRANCH}\]")"; then
-    _fatal "Branch \"${REPO}/${BRANCH}\" not in worktree.  Maybe use make_branch?"
+  if ! _local_branch_exists "${BRANCH}"; then
+    if (( OPT_B == 1 )); then
+      gee__mkbr "${BRANCH}"
+      if ! _local_branch_exists "${BRANCH}"; then
+        _fatal "Branch \"${REPO}/${BRANCH}\" could not be created."
+      fi
+    else
+      _fatal "Branch \"${REPO}/${BRANCH}\" does not exist.  Make use make_branch?"
+    fi
   fi
-  if [[ -z "${BRDIR}" ]]; then
-    _fatal "Branch \"${REPO}/${BRANCH}\" not in worktree.  Maybe use make_branch?"
+
+  local DIR
+  _update_branch_to_worktree
+  DIR="${BRANCH_TO_WORKTREE["${BRANCH}"]}"
+  if [[ -z "${DIR}" ]]; then
+    _die "Branch \"${REPO}/${BRANCH}\" exists but isn't in worktree?"
   fi
-  NEW_ROOT="$(_get_branch_rootdir "${BRANCH}")"
-  if [[ -z "${NEW_ROOT}" ]]; then
-    _die "Could not find root of branch ${REPO}/${BRANCH}.  Very strange!"
+  if [[ ! -d "${DIR}" ]]; then
+    _die "Branch \"${REPO}/${BRANCH}\" exists but ${DIR} is missing."
   fi
-  echo "${NEW_ROOT}/${REL_PATH}"
+  local P PREV_IFS
+  PREV_IFS="${IFS}"
+  IFS="/"; for P in ${REL_PATH}; do
+    if [[ -d "${DIR}/${P}" ]]; then
+      DIR="${DIR}/${P}"
+    else
+      break
+    fi
+  done
+  PREV_IFS="${IFS}"
+  echo "${DIR}"
 }
 
 ##########################################################################
