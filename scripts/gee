@@ -2460,7 +2460,7 @@ function gee__gcd() {
   # check whether BRANCH exists: 
   if ! _local_branch_exists "${BRANCH}"; then
     if (( OPT_B == 1 )); then
-      gee__mkbr "${BRANCH}"
+      gee__mkbr "${BRANCH}" >&2
       if ! _local_branch_exists "${BRANCH}"; then
         _fatal "Branch \"${REPO}/${BRANCH}\" could not be created."
       fi
