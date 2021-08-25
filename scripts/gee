@@ -136,7 +136,7 @@ function _fix_pwd() {
   local p
   IFS="/"; for p in ${D}; do
     if [[ -n "$p" && -d "$p" ]]; then
-      cd $p
+      cd "$p"
     fi
   done
   IFS="${PIFS}"
