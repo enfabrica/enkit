@@ -123,17 +123,25 @@ if [[ -n "${DEBUG}" ]]; then
   set -x
 fi
 
-# Funny story: sometimes doing a git rebase operation re-creates a directory,
-# leaving the user in a directory associated with a detached node.  When gee is
-# executed in that context, getcwd fails and gee gets understandably confused.
-# However, "cd ." fixes the issue.
-cd .  # getcwd sometimes gets confused after a rebase.
-
-# Sometimes the user deletes the branch they're in, causing subsequent calls to
-# tools like git to fail.  Let's make sure we're in a directory that exists:
-while ! ls "$(pwd)" > /dev/null; do
-  cd ..
-done
+function _fix_pwd() {
+  # Sometimes funny things happen with git and directories:
+  #  - git rebase can re-create a directory, changing the inode and leaving pwd
+  #    invalid.
+  #  - removing a worktree can leave the pwd in an invalid directory.
+  #
+  # Let's make sure we're in a directory that exists:
+  local PIFS="${IFS}"
+  local D="${PWD}"
+  cd /
+  local p
+  IFS="/"; for p in ${D}; do
+    if [[ -n "$p" ]]; then
+      cd $p
+    fi
+  done
+  IFS="${PIFS}"
+}
+_fix_pwd
 
 # Globals:
 readonly VERSION="0.1"
@@ -525,7 +533,8 @@ function _check_gh_auth() {
 function _check_cwd() {
   local DIR
   DIR="$("${PWD_CMD}")"
-  if ! [[ "$DIR" =~ ^"${GEE_DIR}"/[a-zA-Z0-9_-]+/ ]]; then
+  if ! [[ "$DIR" =~ ^"${GEE_DIR}"/[a-zA-Z0-9_-]+ ]]; then
+    echo "${DIR}"
     _fatal "This command must be run from with a branch directory beneath ~/gee."
   fi
 }
