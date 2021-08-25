@@ -129,6 +129,12 @@ fi
 # However, "cd ." fixes the issue.
 cd .  # getcwd sometimes gets confused after a rebase.
 
+# Sometimes the user deletes the branch they're in, causing subsequent calls to
+# tools like git to fail.  Let's make sure we're in a directory that exists:
+while ! ls "$(pwd)" > /dev/null; do
+  cd ..
+done
+
 # Globals:
 readonly VERSION="0.1"
 declare -a HELP=()
