@@ -249,7 +249,9 @@ function bkup__backup() {
     --update    # only update out-of-date files
     --filter-from "${FILTERFILE}"  # skip specified files.
   )
-  _cmd "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
+  _cmd \
+    flock ~/.bkup.backup.lock \
+    "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
 }
 
 ##########################################################################
