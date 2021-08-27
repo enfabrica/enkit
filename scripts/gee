@@ -470,7 +470,7 @@ function _check_ssh() {
     return 0
   fi
   _warn "Could not authenticate to github using ssh."
-  _info "ssh -T "${GIT_AT_GITHUB}" got:"
+  _info "ssh -T \"${GIT_AT_GITHUB}\" got:"
   _info "  ${OUTPUT}"
 
   if [[ -f "${SSHKEYFILE}" ]]; then
@@ -485,7 +485,7 @@ function _check_ssh() {
       return 0
     fi
     _warn "Still couldn't authenticate to github using ssh."
-    _info "ssh -T git@github.com got:"
+    _info "ssh -T ${GIT_AT_GITHUB} got:"
     _info "  ${OUTPUT}"
   fi
   return 1
@@ -612,6 +612,15 @@ function _ssh_enroll() {
     _fatal "gee requires ssh-agent to be running.  Fix and retry."
   fi
 
+  if [[ ! -f "${SSHKEYFILE}" ]]; then
+    _cmd ssh-keygen -f "${SSHKEYFILE}" -t ed25519 -C "${USER}@enfabrica.net"
+  else
+    _info "Reusing existing ${SSHKEYFILE}"
+  fi
+  if [[ ! -f "${SSHKEYFILE}" ]]; then
+    _fatal "Key file ${SSHKEYFILE} was not created."
+  fi
+
   local COUNT
   COUNT="$("${ENKIT}" agent list | wc -l)"
   if (( COUNT == 0 )); then
@@ -645,7 +654,19 @@ Host *.github.com
 EOT
 
   _cmd ssh-add "${SSHKEYFILE}"
+  _gh config set git_protocol ssh
 
+
+  # Override BROWSER because xdg-open opens links2 on some systems, and
+  # links2 doesn't support github.
+  BROWSER="bash -c \"echo Open this URL: \$*\" --" \
+    _gh auth login
+  # The user might have to open their web browser at this point:
+  read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+
+  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
+
+  _gh ssh-key list
 
   # Override BROWSER because xdg-open opens links2 on some systems, and
   # links2 doesn't support github.
