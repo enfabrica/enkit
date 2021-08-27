@@ -140,6 +140,7 @@ readonly FALSE=1
 readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
 readonly JQ=/usr/bin/jq
+readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
 readonly ENKIT=/opt/enfabrica/bin/enkit
 readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
@@ -420,7 +421,7 @@ function _check_ssh_agent() {
         printf "eval \`enkit agent print\`\n" >> ~/.bashrc
         ;;
     esac
-    eval `enkit agent print`
+    eval "$(enkit agent print)"
     if [[ -z "${SSH_AGENT_PID}" ]]; then
       _fatal "Something is wrong with enkit's ssh agent."
     fi
@@ -466,8 +467,24 @@ function _check_ssh() {
     return 0
   fi
   _warn "Could not authenticate to github using ssh."
-  _info "ssh -T "${GIT_AT_GITHUB}" got:"
+  _info "ssh -T \"${GIT_AT_GITHUB}\" got:"
   _info "  ${OUTPUT}"
+
+  if [[ -f "${SSHKEYFILE}" ]]; then
+    _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
+    _cmd ssh-add "${SSHKEYFILE}"
+    _info "Trying again..."
+    set +e
+    OUTPUT="$(ssh -T git@github.com 2>&1)"
+    set -e
+    if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
+      GHUSER="${BASH_REMATCH[1]}"
+      return 0
+    fi
+    _warn "Still couldn't authenticate to github using ssh."
+    _info "ssh -T git@github.com got:"
+    _info "  ${OUTPUT}"
+  fi
   return 1
 }
 
@@ -558,7 +575,7 @@ function _startup_checks() {
           printf "eval \`enkit agent print\`\n" >> ~/.bashrc
           ;;
       esac
-      eval `enkit agent print`
+      eval "$(enkit agent print)"
     fi
   fi
   if ! ssh-add -l > /dev/null; then
@@ -586,10 +603,19 @@ function _ssh_enroll() {
         printf "eval \`enkit agent print\`\n" >> ~/.bashrc
         ;;
     esac
-    eval `enkit agent print`
+    eval "$(enkit agent print)"
   fi
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
     _fatal "gee requires ssh-agent to be running.  Fix and retry."
+  fi
+
+  if [[ ! -f "${SSHKEYFILE}" ]]; then
+    _cmd ssh-keygen -f "${SSHKEYFILE}" -t ed25519 -C "${USER}@enfabrica.net"
+  else
+    _info "Reusing existing ${SSHKEYFILE}"
+  fi
+  if [[ ! -f "${SSHKEYFILE}" ]]; then
+    _fatal "Key file ${SSHKEYFILE} was not created."
   fi
 
   local COUNT
@@ -604,7 +630,27 @@ function _ssh_enroll() {
     fi
   fi
 
+  # TODO(jonathan): Is this necessary?
+  cat <<EOT >> ~/.ssh/config
+# gee: block start
+Host *.github.com
+  IdentityFile ${SSHKEYFILE}
+# gee: block stop
+EOT
+
+  _cmd ssh-add "${SSHKEYFILE}"
   _gh config set git_protocol ssh
+
+  # Override BROWSER because xdg-open opens links2 on some systems, and
+  # links2 doesn't support github.
+  BROWSER="bash -c \"echo Open this URL: \$*\" --" \
+    _gh auth login
+  # The user might have to open their web browser at this point:
+  read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+
+  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
+
+  _gh ssh-key list
 
   if ! _check_ssh; then
     _fatal "Something still wrong: can't authenticate to github via ssh."
@@ -870,7 +916,7 @@ function _branch_ahead_behind() {
   if _remote_branch_exists origin "${branch}"; then
     counts=()
     read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...origin/${branch}")
-    if (( ${counts[1]} > 0 )); then
+    if (( counts[1] > 0 )); then
       printf ", %d behind %s" "${counts[1]}" "origin/${branch}"
     fi
   fi
