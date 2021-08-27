@@ -152,7 +152,7 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 	agentClient := agent.NewClient(conn)
 	ttl := SSHCertRemainingTTL(cert)
 	if ttl == InValidCertTimeDuration {
-		return fmt.Errorf("ssh: certificate is already expired or invalid, not adding")
+		return fmt.Errorf("certificate is already expired or invalid, not adding")
 	}
 	return agentClient.Add(agent.AddedKey{
 		PrivateKey:   privateKey.Raw(),
