@@ -630,8 +630,8 @@ func (a *Authenticator) SetAuthCookie(ad AuthData, w http.ResponseWriter, co ...
 	if err != nil {
 		return AuthData{}, err
 	}
-	http.SetCookie(w, a.CredentialsCookie(ad.Cookie, co...))
-	return AuthData{Creds: ad.Creds, Cookie: string(ccookie), Target: ad.Target, State: ad.State}, nil
+	http.SetCookie(w, a.CredentialsCookie(ccookie, co...))
+	return AuthData{Creds: ad.Creds, Cookie: ccookie, Target: ad.Target, State: ad.State}, nil
 }
 
 // Complete verifies that AuthData is well formed and valid.
