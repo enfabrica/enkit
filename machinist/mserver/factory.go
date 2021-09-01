@@ -3,18 +3,16 @@ package mserver
 import (
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/machinist/state"
 	"log"
+	"time"
 )
 
 func NewController(mods ...ControllerModifier) (*Controller, error) {
-	dnsServ, err := kdns.NewDNS()
-	if err != nil {
-		return nil, err
-	}
 	en := &Controller{
-		connectedNodes: map[string]*Node{},
-		Log:            &logger.DefaultLogger{Printer: log.Printf},
-		dnsServer: dnsServ,
+		State:         &state.MachineController{},
+		stateWriteTTL: time.Second * 30,
+		Log:           &logger.DefaultLogger{Printer: log.Printf},
 	}
 	for _, m := range mods {
 		if err := m(en); err != nil {
@@ -35,11 +33,36 @@ func DnsPort(dnsPort int) ControllerModifier {
 
 func WithKDnsFlags(mods ...kdns.DNSModifier) ControllerModifier {
 	return func(controller *Controller) error {
-		for _, m :=  range mods {
-			if err := m(controller.dnsServer); err != nil {
+		if controller.dnsServer == nil {
+			dnsServ, err := kdns.NewDNS(mods...)
+			if err != nil {
 				return err
 			}
+			controller.dnsServer = dnsServ
 		}
+		return nil
+	}
+}
+
+func WithStateFile(filepath string) ControllerModifier {
+	return func(controller *Controller) error {
+		s, err := state.ReadInController(filepath)
+		if err != nil {
+			return err
+		}
+		controller.State = s
+		controller.stateFile = filepath
+		return nil
+	}
+}
+
+func WithStateWriteDuration(duration string) ControllerModifier {
+	return func(controller *Controller) error {
+		d, err := time.ParseDuration(duration)
+		if err != nil {
+			return err
+		}
+		controller.stateWriteTTL = d
 		return nil
 	}
 }
