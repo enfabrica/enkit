@@ -124,6 +124,8 @@ if [[ -n "${DEBUG}" ]]; then
 fi
 
 function _fix_pwd() {
+  # Make sure we're in a real directory.
+  #
   # Sometimes funny things happen with git and directories:
   #  - git rebase can re-create a directory, changing the inode and leaving pwd
   #    invalid.
@@ -222,8 +224,8 @@ _COLOR_INFO="$(tput setaf 1)"
 # (the good stuff, the commands, are in the next section below.)
 ##########################################################################
 
-function __git_eread ()
-{
+function __git_eread () {
+  # Used by _gee_rebase_prompt
 	test -r "$1" && IFS=$'\r\n' read -r "$2" <"$1"
 }
 
@@ -336,6 +338,8 @@ function _gee_rebase_prompt() {
 }
 
 function _contains_element() {
+  # Returns true if the first argument is present in one of the subsequent
+  # arguements.
   local MATCH="$1"
   shift
   local E
@@ -347,8 +351,11 @@ function _contains_element() {
   return 1
 }
 
-# returns a new array
 function _egrep_array() {
+  # Usage: _egrep_array <output> <regex> <elements...>
+  #
+  # Filters a list of elements by a regex, and stores an array of those
+  # filtered elements into the specified "output" variable.
   local OUTPUT="$1"
   local REGEX="$2"
   unset "${OUTPUT}"
@@ -357,6 +364,7 @@ function _egrep_array() {
 }
 
 function _set_alias_if_missing() {
+  # Creates a git alias, only if one does not already exist.
   local ALIAS="$1"
   local DEFN="$2"
   if ! "${GIT}" config --get "alias.${ALIAS}" >/dev/null; then
@@ -365,8 +373,12 @@ function _set_alias_if_missing() {
 }
 
 function _set_main() {
-  # Use cached result if available:
+  # Sets the ${MAIN} global variable to be the name of the main branch of the
+  # current repository.  Usually "main" or "master," but not always.
+
+  # Use a cached result if available:
   if [[ -n "${MAIN}" ]]; then return; fi
+
   # If a master or main branch exist on our local file system, assume:
   if [[ -d "${REPO_DIR}/master" ]]; then
     MAIN=master
@@ -375,6 +387,7 @@ function _set_main() {
     MAIN=main
     return
   fi
+
   # Ok, let's ask github:
   _check_ssh
   local UPSTREAM_URL
@@ -389,6 +402,9 @@ function _set_main() {
 }
 
 function _set_ghuser() {
+  # Attempts to ensure that the GHUSER environment variable is set correctly.
+  # If GHUSER is unset, _set_ghuser first tries to get the username from
+  # github.  Failing that, the default username of $(whoami)-enf is set.
   if [[ -n "${GHUSER}" ]]; then
     return 0
   fi
@@ -429,6 +445,7 @@ function _set_ghuser() {
 
 
 function _check_ssh_agent() {
+  # Check that the ssh-agent is loaded and reachable.
   if [[ -z "${SSH_AGENT_PID}" ]]; then
     _warn "SSH_AGENT_PID is not set."
     _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
@@ -455,6 +472,7 @@ function _check_ssh_agent() {
 }
 
 function _check_enkit_cert() {
+  # Check if we have a valid enkit authentication token.
   local COUNT
   COUNT="$("${ENKIT}" agent print | wc -l)"
   if (( COUNT == 0 )); then
@@ -473,6 +491,8 @@ function _check_enkit_cert() {
 }
 
 function _check_ssh() {
+  # Troubleshoot ssh connection to github.
+
   # First check if we have an ssh-agent running:
   _check_ssh_agent
 
@@ -512,8 +532,9 @@ function _check_ssh() {
 }
 
 function _check_gh_auth() {
+  # Check that the gh-cli tool has a valid access token for
+  # communicating with github.
   local OUTPUT RC
-
 
   set +e
   OUTPUT="$("${GH}" auth status 2>&1)";
@@ -531,6 +552,7 @@ function _check_gh_auth() {
 
 
 function _check_cwd() {
+  # Check that we're in a directory beneath ~/gee.
   local DIR
   DIR="$("${PWD_CMD}")"
   if ! [[ "$DIR" =~ ^"${GEE_DIR}"/[a-zA-Z0-9_-]+ ]]; then
@@ -540,12 +562,14 @@ function _check_cwd() {
 }
 
 function _get_ghuser_via_ssh() {
+  # Set GHUSER or die.
   if ! _check_ssh; then
     _fatal "Could not determine github username."
   fi
 }
 
 function _startup_checks() {
+  # Troubleshoot our environment before running (most) commands.
   if [[ ! -x "${GIT}" ]]; then
     _fatal "${GIT} is not installed."
   fi
@@ -615,6 +639,7 @@ function _startup_checks() {
 }
 
 function _ssh_enroll() {
+  # Enroll the user for ssh access to github by creating and uploading a keyfile.
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
     _warn "No ssh-agent is running."
     _info "Please add \"eval \`enkit agent print\`\" to your .bashrc"
@@ -765,6 +790,8 @@ function _get_parent_branch() {
 }
 
 function _update_branch_to_worktree() {
+  # Initialize the global BRANCH_TO_WORKTREE associative array with
+  # a mapping of branch names onto worktree paths.
   BRANCH_TO_WORKTREE=()  # global
   local LINE WT BR
   _set_main
@@ -797,6 +824,8 @@ function _get_branch_rootdir() {
 }
 
 function _confirm_default_yes() {
+  # Ask the user for confirmation, defaulting to "yes."
+  # Returns true if the user confirms.
   local _PROMPT RESP
   _PROMPT="$*"
   if [[ -z "${_PROMPT}" ]]; then
@@ -810,6 +839,8 @@ function _confirm_default_yes() {
 }
 
 function _confirm_default_no() {
+  # Ask the user for confirmation, defaulting to "no."
+  # Returns true if the user confirms.
   local _PROMPT RESP
   _PROMPT="$*"
   if [[ -z "${_PROMPT}" ]]; then
@@ -823,6 +854,8 @@ function _confirm_default_no() {
 }
 
 function _confirm_or_exit() {
+  # Ask the user for confirmation, defaulting to "no."
+  # Terminates gee if the user does not confirm.
   if ! _confirm_default_no "$@"; then
     _fatal "Exiting."
   fi
@@ -870,6 +903,7 @@ function _die() {
 }
 
 function _cmd() {
+  # Run a command and generate associated log messages.
   local COLS ESCAPED_CMD
   COLS="$(tput cols)"
   ESCAPED_CMD="$( printf " %q" "$@")"
@@ -898,14 +932,17 @@ function _cmd() {
 }
 
 function _gh() {
+  # Invoke gh
   _cmd "${GH}" "$@"
 }
 
 function _git() {
+  # Invoke git
   _cmd "${GIT}" "$@"
 }
 
 function _silent_cmd() {
+  # Run a command and don't write anything to stdout.
   local ESCAPED_CMD
   ESCAPED_CMD="$( printf " %q" "$@")"
   if [[ $DRYRUN -eq 0 ]]; then
@@ -926,10 +963,13 @@ function _silent_cmd() {
 }
 
 function _git_can_fail() {
+  # Invoke git, but don't exit if git returns a non-zero exit code.
   NOFAIL=1 _git "$@"
 }
 
 function _install_tools() {
+  # Checks for and installs any missing tools.
+
   # If your dev image is missing the github-cli tool, this should install it.
   if [ ! -x "${GH}" ]; then
     _info "Installing missing tool: gh"
@@ -955,6 +995,7 @@ function _install_tools() {
 }
 
 function _count_diffs() {
+  # Could the number of files that are different between two branches.
   local BRANCH_A BRANCH_B DIFFS
   BRANCH_A="$1"
   BRANCH_B="$2"
@@ -987,6 +1028,7 @@ function _branch_ahead_behind() {
 }
 
 function _remote_branch_exists() {
+  # Returns true if a remote branch exists (on "origin").
   local REPO="$1"; shift  # origin?
   local BRANCH="$1"; shift
   if [[ -z "${BRANCH}" ]]; then
@@ -1002,6 +1044,8 @@ function _remote_branch_exists() {
 }
 
 function _local_branch_exists() {
+  # Returns true if a local branch exists (even if it's worktree was deleted).
+  # Fixes up the worktree if the branch is missing from the worktree.
   local BRANCH="$1"; shift
   _set_main
   if ! "${GIT}" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
@@ -1118,6 +1162,7 @@ function _rebase_child_onto_parent() {
       _fatal "Exited without resolving rebase conflict."
     fi
 
+    # TODO(jonathan): I'm not sure if this works right:
     if _git_can_fail merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
       _info "Rebase merge confirmed."
     else
@@ -1131,6 +1176,7 @@ function _rebase_child_onto_parent() {
 }
 
 function _is_rebase_in_progress() {
+  # Is this branch currently in the middle of a rebase operation?
   local G
   G="$(git rev-parse --git-dir)"
   if compgen -G "${G}/rebase*" > /dev/null; then
@@ -1245,6 +1291,7 @@ function _update_main() {
 
 # Lazy-load parents metadata:
 function _read_parents_file() {
+  # Update the global PARENTS associative array from a file.
   if (( PARENTS_FILE_IS_LOADED )); then
     return
   fi
@@ -1265,6 +1312,7 @@ function _read_parents_file() {
 }
 
 function _write_parents_file() {
+  # Write back the global PARENTS associative array to a file.
   if ! (( PARENTS_FILE_IS_LOADED )); then
     return
   fi
@@ -1305,6 +1353,7 @@ function _join() {
 }
 
 function _get_pull_requests() {
+  # Prints list of PRs associated with this branch.
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   # "gh pr view" arguments are similar to "gh pr create" but not identical.
@@ -1329,6 +1378,7 @@ function _list_merged_pr_numbers() {
 }
 
 function _gh_pr_view() {
+  # Normalize the interface to calling "gh pr view"
   local CURRENT_BRANCH;
   CURRENT_BRANCH="$(_get_current_branch)"
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
