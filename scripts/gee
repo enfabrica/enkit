@@ -426,8 +426,11 @@ function _check_ssh_agent() {
       _fatal "Something is wrong with enkit's ssh agent."
     fi
   fi
-  if ! ps -p "${SSH_AGENT_PID}" > /dev/null; then
-    _fatal "enkit's ssh agent seems to have died."
+  if ! ssh-add -l > /dev/null; then
+    local RC=$?
+    if (( RC == 2 )); then
+      _fatal "Unable to communicate with enkit's ssh agent."
+    fi
   fi
 }
 
@@ -440,7 +443,7 @@ function _check_enkit_cert() {
     "${ENKIT}" login
     COUNT="$("${ENKIT}" agent print | wc -l)"
     if (( COUNT == 0 )); then
-      _fatal "No enkit certiciate, aborting."
+      _fatal "No enkit certificate, aborting."
     fi
   fi
   COUNT="$(ssh-add -l | wc -l)"
