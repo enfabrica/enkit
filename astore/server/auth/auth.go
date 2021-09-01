@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/enauth"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
@@ -31,12 +32,16 @@ type Server struct {
 	authURL string
 	limit   time.Duration
 
+	plugins []enauth.Plugin
+
 	caPrivateKey          kcerts.PrivateKey
 	principals            []string
 	marshalledCAPublicKey []byte
 	userCertTTL           time.Duration
 	log                   logger.Logger
 }
+
+var _ auth.AuthServer = &Server{}
 
 func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertificateRequest) (*auth.HostCertificateResponse, error) {
 	b, _ := pem.Decode(request.Hostcert)
@@ -144,10 +149,19 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 			effectivePrincipals = append(effectivePrincipals, i.GlobalName())
 			certMods = append(certMods, i.CertMod())
 		}
+		fmt.Println("plugins are ", s.plugins)
+		for _, p := range s.plugins {
+			m, err := p.CertMods(ctx, authData)
+			if err != nil {
+				return nil, err
+			}
+			certMods = append(certMods, m...)
+		}
 		userCert, err := kcerts.SignPublicKey(s.caPrivateKey, ssh.UserCert, effectivePrincipals, s.userCertTTL, savedPubKey, certMods...)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "error signing key - %s", err)
 		}
+
 		return &auth.TokenResponse{
 			Nonce:       nonce[:],
 			Token:       box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),

@@ -17,6 +17,7 @@ func Defaults() oauth.Modifier {
 		oauth.WithScopes([]string{
 			// You have to select your own scope from here -> https://developers.google.com/identity/protocols/googlescopes#google_sign-in
 			"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/admin.directory.group.readonly",
 		}),
 		oauth.WithEndpoint(google.Endpoint),
 		oauth.WithFactory(OidJWTVerifier),

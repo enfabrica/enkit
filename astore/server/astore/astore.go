@@ -33,6 +33,11 @@ type Server struct {
 	options Options
 }
 
+var (
+	_ astore.AstoreServer = &Server{}
+)
+
+
 // Why base32?
 // - fixed length (base58 is not fixed length)
 // - has no characters other than letters and numbers (base64 has a few symbols)

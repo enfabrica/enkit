@@ -3,10 +3,13 @@ package auth
 import (
 	"crypto/rsa"
 	"fmt"
+	"github.com/enfabrica/enkit/enauth/plugins"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -18,11 +21,14 @@ import (
 )
 
 type Flags struct {
-	TimeLimit         time.Duration
-	AuthURL           string
-	Principals        string
-	CA                []byte
-	UserCertTimeLimit time.Duration
+	TimeLimit            time.Duration
+	AuthURL              string
+	Principals           string
+	CA                   []byte
+	UserCertTimeLimit    time.Duration
+	EnableGoogleGroups   bool
+	GoogleGroupsClientID string
+	GoogleGroupsSecret   string
 }
 
 func DefaultFlags() *Flags {
@@ -36,6 +42,9 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.DurationVar(&f.UserCertTimeLimit, prefix+"user-cert-ttl", 24*time.Hour, "How long a user's ssh certificates are valid for before they expire")
 	set.StringVar(&f.Principals, prefix+"principals", f.Principals, "Authorized ssh users which the ability to auth, in a comma separated string e.g. \"john,root,admin,smith\"")
 	set.ByteFileVar(&f.CA, prefix+"ca", "", "Path to the certificate authority private file")
+	set.BoolVar(&f.EnableGoogleGroups, "enable-google-groups", false, "embeds the groups of a google user inside their ssh certificate")
+	set.StringVar(&f.GoogleGroupsClientID, "google-groups-client-id", "", "embeds the groups of a google user inside their ssh certificate")
+	set.StringVar(&f.GoogleGroupsSecret, "google-groups-secret", "", "embeds the groups of a google user inside their ssh certificate")
 	return f
 }
 
@@ -54,6 +63,9 @@ func WithFlags(f *Flags) Modifier {
 			return err
 		}
 		if err := WithPrincipals(f.Principals)(s); err != nil {
+			return err
+		}
+		if err := WithGoogleGroupsPlugin(f)(s); err != nil {
 			return err
 		}
 		if s.authURL == "" || s.authURL == "/" {
@@ -134,6 +146,25 @@ func WithUserCertTimeLimit(duration time.Duration) Modifier {
 func WithLogger(log logger.Logger) Modifier {
 	return func(server *Server) error {
 		server.log = log
+		return nil
+	}
+}
+
+func WithGoogleGroupsPlugin(f *Flags) Modifier {
+	return func(server *Server) error {
+		fmt.Println("enabling google groups")
+		if f.EnableGoogleGroups {
+			conf := &oauth2.Config{
+				ClientID:     f.GoogleGroupsClientID,
+				ClientSecret: f.GoogleGroupsSecret,
+				Scopes: []string{
+					"email", "https://www.googleapis.com/auth/admin.directory.group.readonly",
+				},
+				Endpoint:    google.Endpoint,
+				RedirectURL: "",
+			}
+			server.plugins = append(server.plugins, &plugins.GoogleGroupsPlugin{Config: conf})
+		}
 		return nil
 	}
 }
