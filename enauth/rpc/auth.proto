@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package authplugins;
+
+enum OAuthType {
+  Google = 0;
+  Github = 1;
+}
+
+message GroupsPluginRequest {
+  OAuthType oauth_type = 1;
+  string access_token = 2; // Guaranteed to no be null, oauth2 access token.
+  string refresh_token = 3; // Refresh token
+  int64 expiry = 4; // expiry is guaranteed to be in Unix time
+  string identity = 5; // guaranteed to be <user>@<org> format
+
+}
+
+message CertPrincipal {
+    string principal = 1; // This principal string will be added to the certificate.
+}
+
+message CertExtensions {
+  string key = 1; // The key of the extension to embed in the certificate.
+  string value = 2; // The value of the extension to be added to the certificate.
+}
+
+message GroupsPluginResponse {
+  repeated CertExtensions extensions = 1; // extensions to append to the certificate.
+  repeated CertPrincipal principals = 2; // principals to append to the certificate.
+}
+
+
+service GroupsPlugin {
+  rpc Groups(GroupsPluginRequest) returns (GroupsPluginResponse){}
+}
