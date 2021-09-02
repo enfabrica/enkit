@@ -28,8 +28,12 @@ func (g *GoogleGroupsPlugin) CertMods(ctx context.Context, creds oauth.AuthData)
 		fmt.Println("error fetching groups", err.Error())
 		return nil, err
 	}
-	fmt.Println("groups are this", r.Groups)
-	return []kcerts.CertMod{kcerts.NoOp}, nil
+	var mods []kcerts.CertMod
+	for index, g := range r.Groups {
+		k := fmt.Sprintf("google-group-%d", index)
+		mods = append(mods, kcerts.AddExtensionMod(k, g.Name))
+	}
+	return mods, nil
 }
 
 func (g *GoogleGroupsPlugin) Init() error {
