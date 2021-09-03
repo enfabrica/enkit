@@ -161,6 +161,7 @@ readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
 readonly ENKIT=/opt/enfabrica/bin/enkit
 readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
+readonly CLONE_DEPTH=3  # a little bit of history
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
 DRYRUN="${DRYRUN:-0}"
@@ -1451,7 +1452,7 @@ function gee__init() {
   if ! "${GH}" repo list | grep "^${GHUSER}/${REPO}" > /dev/null; then
     _gh repo fork --clone=false "${UPSTREAM}/${REPO}"
   fi
-  _git clone "${URL}" "${REPO_DIR}/${MAIN}"
+  _git clone --depth "${CLONE_DEPTH}" "${URL}" "${REPO_DIR}/${MAIN}"
   cd "${REPO_DIR}/${MAIN}"
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
