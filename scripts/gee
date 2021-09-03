@@ -141,6 +141,8 @@ readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
 readonly JQ=/usr/bin/jq
 readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
+readonly ENKIT=/opt/enfabrica/bin/enkit
+readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
@@ -151,7 +153,7 @@ MAIN="" # Unknown, call _set_main to set.
 REPO="${REPO:-}"
 PAGER="${PAGER:-less}"
 PARENTS_FILE_IS_LOADED=0
-PWD_CMD="$(which pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
+PWD_CMD="$(command -v pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
@@ -343,9 +345,20 @@ function _set_alias_if_missing() {
 }
 
 function _set_main() {
+  # Use cached result if available:
   if [[ -n "${MAIN}" ]]; then return; fi
+  # If a master or main branch exist on our local file system, assume:
+  if [[ -d "${REPO_DIR}/master" ]]; then
+    MAIN=master
+    return
+  elif [[ -d "${REPO_DIR}/main" ]]; then
+    MAIN=main
+    return
+  fi
+  # Ok, let's ask github:
+  _check_ssh
   local UPSTREAM_URL
-  UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
+  UPSTREAM_URL="${GIT_AT_GITHUB}:${UPSTREAM}/${REPO}.git"
   MAIN="$(
     "${GIT}" remote show "${UPSTREAM_URL}" \
       | awk '/HEAD branch/ {print $NF}'
@@ -363,7 +376,7 @@ function _set_ghuser() {
   # try to get ghuser from ssh interface:
   local OUTPUT
   set +e
-  OUTPUT="$(ssh -T git@github.com 2>&1)"
+  OUTPUT="$(ssh -T "${GIT_AT_GITHUB}" 2>&1)"
   set -e
   if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
     GHUSER="${BASH_REMATCH[1]}"
@@ -394,20 +407,72 @@ function _set_ghuser() {
   esac
 }
 
+
+function _check_ssh_agent() {
+  if [[ -z "${SSH_AGENT_PID}" ]]; then
+    _warn "SSH_AGENT_PID is not set."
+    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+    local RESP
+    read -r -p \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+      RESP
+    case "${RESP}" in
+      [Yy]*)
+        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+        ;;
+    esac
+    eval "$(enkit agent print)"
+    if [[ -z "${SSH_AGENT_PID}" ]]; then
+      _fatal "Something is wrong with enkit's ssh agent."
+    fi
+  fi
+  if ! ssh-add -l > /dev/null; then
+    local RC=$?
+    if (( RC == 2 )); then
+      _fatal "Unable to communicate with enkit's ssh agent."
+    fi
+  fi
+}
+
+function _check_enkit_cert() {
+  local COUNT
+  COUNT="$("${ENKIT}" agent print | wc -l)"
+  if (( COUNT == 0 )); then
+    _warn "enkit certificate is expired."
+    _info "Please authenticate:"
+    "${ENKIT}" login
+    COUNT="$("${ENKIT}" agent print | wc -l)"
+    if (( COUNT == 0 )); then
+      _fatal "No enkit certificate, aborting."
+    fi
+  fi
+  COUNT="$(ssh-add -l | wc -l)"
+  if (( COUNT == 0 )); then
+    _fatal "enkit's certificate isn't showing up in ssh-agent."
+  fi
+}
+
 function _check_ssh() {
+  # First check if we have an ssh-agent running:
+  _check_ssh_agent
+
+  # Check that the enkit certification is available
+  _check_enkit_cert
+
   # Check if we can connect via ssh to github.
   # Takes 0.7 seconds.  Use only as-needed.
   local OUTPUT
   set +e
-  OUTPUT="$(ssh -T git@github.com 2>&1)"
+  OUTPUT="$(ssh -T "${GIT_AT_GITHUB}" 2>&1)"
   set -e
   if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
     GHUSER="${BASH_REMATCH[1]}"
     return 0
   fi
   _warn "Could not authenticate to github using ssh."
-  _info "ssh -T git@github.com got:"
+  _info "ssh -T \"${GIT_AT_GITHUB}\" got:"
   _info "  ${OUTPUT}"
+
   if [[ -f "${SSHKEYFILE}" ]]; then
     _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
     _cmd ssh-add "${SSHKEYFILE}"
@@ -425,6 +490,25 @@ function _check_ssh() {
   fi
   return 1
 }
+
+function _check_gh_auth() {
+  local OUTPUT RC
+
+
+  set +e
+  OUTPUT="$("${GH}" auth status 2>&1)";
+  RC=$?
+  set -e
+  if (( RC != 0 )); then
+    _info "Could not authenticate to github.  Got:" "${OUTPUT}"
+    _info "Let's try refreshing your access token:"
+    _cmd "${GH}" auth login
+    if ! "${GH}" auth status; then
+      _fatal "Still can't authenticate to github."
+    fi
+  fi
+}
+
 
 function _check_cwd() {
   local DIR
@@ -481,18 +565,31 @@ function _startup_checks() {
 
   # check ssh agent
   if ! ssh-add -l > /dev/null; then
-    _warn "Could not connect to ssh-agent."
-    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
-    local RESP
-    read -r -p \
-      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
-      RESP
-    case "${RESP}" in
-      [Yy]*)
-        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
-        ;;
-    esac
-    eval `enkit agent print`
+    local RC=$?
+    if (( RC == 2 )); then
+      _warn "Could not connect to ssh-agent."
+      _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+      local RESP
+      read -r -p \
+        "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+        RESP
+      case "${RESP}" in
+        [Yy]*)
+          printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+          ;;
+      esac
+      eval "$(enkit agent print)"
+    fi
+  fi
+  if ! ssh-add -l > /dev/null; then
+    local RC=$?
+    if (( RC == 1 )); then
+      _fatal "ssh-agent doesn't report any keys.  Please \"enkit login\" and try again."
+    fi
+    if (( RC == 2 )); then
+      _fatal "Persistent failure connecting to ssh-agent."
+    fi
+    _fatal "Unknown error from ssh-add command: RC=${RC}"
   fi
 }
 
@@ -509,7 +606,7 @@ function _ssh_enroll() {
         printf "eval \`enkit agent print\`\n" >> ~/.bashrc
         ;;
     esac
-    eval `enkit agent print`
+    eval "$(enkit agent print)"
   fi
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
     _fatal "gee requires ssh-agent to be running.  Fix and retry."
@@ -524,6 +621,18 @@ function _ssh_enroll() {
     _fatal "Key file ${SSHKEYFILE} was not created."
   fi
 
+  local COUNT
+  COUNT="$("${ENKIT}" agent list | wc -l)"
+  if (( COUNT == 0 )); then
+    _warn "No enkit certificates are present."
+    _info "Let's try authenticating:"
+    "${ENKIT}" auth
+    COUNT="$("${ENKIT}" agent list | wc -l)"
+    if (( COUNT == 0 )); then
+      _die "Still could not find any enkit certificates."
+    fi
+  fi
+
   # TODO(jonathan): Is this necessary?
   cat <<EOT >> ~/.ssh/config
 # gee: block start
@@ -533,8 +642,8 @@ Host *.github.com
 EOT
 
   _cmd ssh-add "${SSHKEYFILE}"
-
   _gh config set git_protocol ssh
+
   # Override BROWSER because xdg-open opens links2 on some systems, and
   # links2 doesn't support github.
   BROWSER="bash -c \"echo Open this URL: \$*\" --" \
@@ -547,7 +656,7 @@ EOT
   _gh ssh-key list
 
   if ! _check_ssh; then
-    _fatal "Something wrong wrong: still can't authenticate to github via ssh."
+    _fatal "Something still wrong: can't authenticate to github via ssh."
   fi
 }
 
@@ -627,6 +736,19 @@ function _get_branch_rootdir() {
   echo "${BRDIR}"
 }
 
+function _confirm_default_yes() {
+  local _PROMPT RESP
+  _PROMPT="$*"
+  if [[ -z "${_PROMPT}" ]]; then
+    _PROMPT="Confirm? (y/N)  "
+  fi
+  read -rp "${_PROMPT}" RESP
+  case "${RESP}" in
+    [Nn]*) return 1 ;;
+    *)     return 0 ;;
+  esac
+}
+
 function _confirm_default_no() {
   local _PROMPT RESP
   _PROMPT="$*"
@@ -702,7 +824,7 @@ function _cmd() {
     RC=$?
     if [[ "${RC}" -ne 0 ]]; then
       _warn "Command failed with exit code ${RC}"
-      if ! [[ -z "${NOFAIL}" ]]; then
+      if [[ -n "${NOFAIL}" ]]; then
         RC=0
       fi
     fi
@@ -780,7 +902,7 @@ function _count_diffs() {
 }
 
 function _branch_ahead_behind() {
-  # Report how many commits this branch is ahead/behind main.
+  # Report how many commits this branch is ahead/behind another branch.
   local branch; branch="$1"
   local obr="$2";
   _read_parents_file
@@ -790,14 +912,22 @@ function _branch_ahead_behind() {
   local -a counts
   read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
-    printf "%-20s: same as %s\n" "${branch}" "${obr}"
+    printf "%-20s: same as %s" "${branch}" "${obr}"
   else
-    printf "%-20s: %s ahead, %s behind %s\n" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+    printf "%-20s: %s ahead, %s behind %s" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
   fi
+  if _remote_branch_exists origin "${branch}"; then
+    counts=()
+    read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...origin/${branch}")
+    if (( counts[1] > 0 )); then
+      printf ", %d behind %s" "${counts[1]}" "origin/${branch}"
+    fi
+  fi
+  printf "\n"
 }
 
 function _remote_branch_exists() {
-  local REPO="$1"; shift
+  local REPO="$1"; shift  # origin?
   local BRANCH="$1"; shift
   if [[ -z "${BRANCH}" ]]; then
     _die "insufficient args"
@@ -971,8 +1101,6 @@ function _checkout_or_die() {
 
 function _in_gee_repo() {
   # Return "main" if we are outside of a gee repo:
-  local D
-  D="$("${PWD_CMD}")"
   if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+ ]]; then
     return "${TRUE}"
   else
@@ -982,8 +1110,6 @@ function _in_gee_repo() {
 
 function _in_gee_branch() {
   # Return "main" if we are outside of a gee repo:
-  local D
-  D="$(/usr/bin/pwd)"
   if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+ ]]; then
     return "${TRUE}"
   else
@@ -1099,7 +1225,7 @@ function _cleanup() {
   # Ensure we always save the PARENTS file, even if we die:
   _write_parents_file
   # Warn the user if we terminated abnormally (for example, if set -e fired).
-  if (( ${ABNORMAL} == 1 )); then
+  if (( ABNORMAL == 1 )); then
     _warn "Abnormal termination."
   fi
 }
@@ -1186,8 +1312,10 @@ function gee__init() {
 
   gee__hello
 
-  # _set_main -- won't work without a cloned repo.
-  MAIN=main
+  _gh config set git_protocol ssh
+  _check_gh_auth
+
+  _set_main  # will work without forked repo?
   _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
 
   if [[ -d "${REPO_DIR}/${MAIN}" ]]; then
@@ -1196,8 +1324,8 @@ function gee__init() {
   fi
   _cmd mkdir -p "${REPO_DIR}/.gee"
   local URL UPSTREAM_URL
-  URL="git@github.com:${GHUSER}/${REPO}.git"
-  UPSTREAM_URL=git@github.com:"${UPSTREAM}/${REPO}.git"
+  URL="${GIT_AT_GITHUB}:${GHUSER}/${REPO}.git"
+  UPSTREAM_URL="${GIT_AT_GITHUB}:${UPSTREAM}/${REPO}.git"
 
   # Make fork if needed
   if ! "${GH}" repo list | grep "^${GHUSER}/${REPO}" > /dev/null; then
@@ -1209,13 +1337,7 @@ function gee__init() {
   _git fetch upstream
   _git remote -v
  
-  # Fix the name of the main branch to match the actual branch name: 
-  local OLD_MAIN="${MAIN}"
-  unset MAIN
-  _set_main
-  cd "${REPO_DIR}"
-  mv "${OLD_MAIN}" "${MAIN}"
-  cd "${MAIN}"
+  cd "${REPO_DIR}/${MAIN}"
 
   _info "Created ${REPO_DIR}/${MAIN}"
 }
@@ -1425,6 +1547,18 @@ function gee__update() {
   CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
     _die "Not in a git branch directory."
+  fi
+
+  # Check for upstream changes in "origin" first:
+  if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+    _git fetch
+    local -a COUNTS
+    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
+    if [[ "${COUNTS[1]}" -gt 0 ]]; then
+      _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
+      _warn "Pulling in changes from origin/${CURRENT_BRANCH}"
+      _git rebase --autostash "origin/${CURRENT_BRANCH}"
+    fi
   fi
 
   _read_parents_file
@@ -1649,6 +1783,7 @@ function gee__lsbranches() {
   mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
   local br
   _set_main
+  _git fetch
   for br in "${branches[@]}"; do
     if [[ "${br}" != "${MAIN}" ]]; then
       _branch_ahead_behind "${br}"
@@ -1740,6 +1875,21 @@ function gee__commit() {
     echo "Skipped \"git add --all\" because branch is home dir."
   fi
   if _git_can_fail commit "$@"; then
+    if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+      _git fetch
+      local -a COUNTS
+      read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
+      if [[ "${COUNTS[1]}" -gt 0 ]]; then
+        _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
+        _warn "You must integrate upstream changes before pushing."
+        if _confirm_default_yes "Do you want to pull upstream changes now? (Y/n)  "; then
+          _git rebase --autostash "origin/${CURRENT_BRANCH}"
+        else
+          _warn "Skipping backup of branch to origin/${CURRENT_BRANCH}"
+          return 0
+        fi
+      fi
+    fi
     # We always push upstream so that users have a backup in case they lose their
     # laptop:
     _git push -u origin "${CURRENT_BRANCH}"
@@ -1757,6 +1907,7 @@ Creates a new branch containing the specified pull request.
 Lists PRs that you created, and that are assigned to you.
 EOT
 function gee__pr_checkout() {
+  _check_gh_auth
   _set_main
   _checkout_or_die "${MAIN}"
   local PRNUM="$1"; shift
@@ -1808,6 +1959,7 @@ function gee__lspr() { gee__pr_list "$@"; }
 function gee__list_pr() { gee__pr_list "$@"; }
 function gee__prls() { gee__pr_list "$@"; }
 function gee__pr_list() {
+  _check_gh_auth
   local WHO WHO_3RD_PERSON USER YOUR
   WHO="@me"
   WHO_3RD_PERSON="you"
@@ -1826,9 +1978,12 @@ function gee__pr_list() {
   fi
 
   _info "Open PRs authored by ${WHO_3RD_PERSON}:"
-  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author "${WHO}" --state open \
-    --json number,reviewDecision,title \
-    --jq '.[] | "#\(.number)\t\(.reviewDecision)\t\(.title)"'
+  ( printf "PR\tbranch\treview\ttitle\n" ; \
+    printf "==\t======\t======\t=====\n" ; \
+   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author "${WHO}" --state open \
+    --json number,reviewDecision,headRefName,title \
+    --jq '.[] | "#\(.number)\t\(.headRefName)\t\(.reviewDecision)\t\(.title)"' \
+    ) | column -t -s $'\t'
   echo ""
 
   _info "PRs pending ${YOUR} review:"
@@ -1839,10 +1994,12 @@ function gee__pr_list() {
     ' | select( .reviewRequests[]? | contains({"login":"'"${USER}"'"}))'
     ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
   )
-  "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
-    --json number,author,createdAt,state,title,reviewDecision,reviewRequests \
+  ( printf "PR\tauthor\tcreated\ttitle\n" ; \
+    printf "==\t======\t=======\t=====\n" ; \
+   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
+    --json number,author,headRefName,createdAt,state,title,reviewDecision,reviewRequests \
     --jq "${JQSCRIPT[*]}" \
-    | column -t -s $'\t'
+    ) | column -t -s $'\t'
 }
 
 ##########################################################################
@@ -1864,6 +2021,7 @@ function gee__pred() { gee__pr_edit "$@"; }
 function gee__edit_pr() { gee__pr_edit "$@"; }
 function gee__pr_edit() { 
   _check_cwd
+  _check_gh_auth
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
@@ -1889,6 +2047,7 @@ function gee__pr_edit() {
 
 function gee__pr_debug() {
   _check_cwd
+  _check_gh_auth
   local -a PRS=()
   mapfile -t PRS < <( _list_open_pr_numbers )
   _info "Open pull requests: ${PRS[*]}"
@@ -1911,6 +2070,7 @@ EOT
 function gee__view_pr() { gee__pr_view "$@"; }
 function gee__pr_view() {
   _check_cwd
+  _check_gh_auth
   if ! _gh_pr_view; then
     _fatal "No pull request exists for ${GHUSER}:${CURRENT_BRANCH}."
   fi
@@ -1939,6 +2099,7 @@ function gee__pr_create() { gee__pr_make "$@"; }
 function gee__create_pr() { gee__pr_make "$@"; }
 function gee__pr_make() {
   _check_cwd
+  _check_gh_auth
   local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
   _git fetch upstream
   _read_parents_file
@@ -2021,6 +2182,7 @@ function gee__submit_pr() { gee__pr_submit "$@"; }
 function gee__merge() { gee__pr_submit "$@"; }
 function gee__pr_submit() {
   _check_cwd
+  _check_gh_auth
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
@@ -2334,8 +2496,6 @@ function gee__repair() {
   if ! _in_gee_repo; then
     _fatal "Not in a gee repo directory, aborting further repairs."
   fi
-
-  ORIG_DIR="$("${PWD_CMD}")"
 
   _info "Checking each directory in ${REPO_DIR}..."
   local DIR BRANCH OBRANCH
