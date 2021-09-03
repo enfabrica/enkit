@@ -372,6 +372,19 @@ function _set_alias_if_missing() {
   fi
 }
 
+function _set_main_by_asking_github() {
+  _check_ssh
+  local UPSTREAM_URL
+  UPSTREAM_URL="${GIT_AT_GITHUB}:${UPSTREAM}/${REPO}.git"
+  MAIN="$(
+    "${GIT}" remote show "${UPSTREAM_URL}" \
+      | awk '/HEAD branch/ {print $NF}'
+  )"
+  if [[ -z "${MAIN}" ]]; then
+    _die "Can't identify default branch for ${UPSTREAM_URL}."
+  fi
+}
+
 function _set_main() {
   # Sets the ${MAIN} global variable to be the name of the main branch of the
   # current repository.  Usually "main" or "master," but not always.
@@ -389,16 +402,7 @@ function _set_main() {
   fi
 
   # Ok, let's ask github:
-  _check_ssh
-  local UPSTREAM_URL
-  UPSTREAM_URL="${GIT_AT_GITHUB}:${UPSTREAM}/${REPO}.git"
-  MAIN="$(
-    "${GIT}" remote show "${UPSTREAM_URL}" \
-      | awk '/HEAD branch/ {print $NF}'
-  )"
-  if [[ -z "${MAIN}" ]]; then
-    _die "Can't identify default branch for ${UPSTREAM_URL}."
-  fi
+  _set_main_by_asking_github
 }
 
 function _set_ghuser() {
@@ -1426,10 +1430,12 @@ function gee__init() {
 
   gee__hello
 
+  # _set_main won't work without a cloned repo, so assume MAIN for now
+  # and fix the branch name later.
+  MAIN=main
   _gh config set git_protocol ssh
   _check_gh_auth
 
-  _set_main  # will work without forked repo?
   _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
 
   if [[ -d "${REPO_DIR}/${MAIN}" ]]; then
@@ -1451,7 +1457,13 @@ function gee__init() {
   _git fetch upstream
   _git remote -v
  
-  cd "${REPO_DIR}/${MAIN}"
+  # Fix the name of the main branch to match the actual branch name: 
+  local OLD_MAIN="${MAIN}"
+  unset MAIN
+  _set_main_by_asking_github
+  cd "${REPO_DIR}"
+  mv "${OLD_MAIN}" "${MAIN}"
+  cd "${MAIN}"
 
   _info "Created ${REPO_DIR}/${MAIN}"
 }
