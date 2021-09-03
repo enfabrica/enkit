@@ -213,6 +213,7 @@ fi
 # colors library
 _COLOR_RST="$(tput sgr0)"
 _COLOR_CMD="$(tput bold; tput setaf 12; tput rev)"
+_COLOR_BANNER="$(tput bold; tput setab 21; tput setaf 15)"
 #_COLOR_CMD="$(tput bold; tput setaf 14; tput setab 16)"
 _COLOR_DBG="$(tput setaf 2)"
 _COLOR_DIE="$(tput bold; tput setaf 15; tput setab 3)"
@@ -877,6 +878,24 @@ function _debug() {
 function _info() {
   printf >&2 "${_COLOR_INFO}%s${_COLOR_RST}\n" "$@"
 }
+
+# "The user needs this to visually separate information."
+function _banner() {
+  local COLS LEN BAR BLANK
+  COLS="$(tput cols)"
+  COLS="$(( COLS - 1 ))"
+  LEN="$( printf "%s\n" "$@" | wc -L )"
+  if (( LEN > (COLS-4) )); then
+    LEN="$(( COLS - 4 ))"
+  fi
+  BAR="$(head -c "$(( LEN + 4 ))" /dev/zero | tr '\0' '#')"
+  BLANK="$(head -c "$(( COLS - LEN - 4 ))" /dev/zero | tr '\0' ' ')"
+  printf "\n" >&2
+  printf "%s%s%s\n" "${_COLOR_BANNER}" "${BAR}" "${BLANK}" >&2
+  printf "# %-${LEN}.${LEN}s #${BLANK}\n" "$@" >&2
+  printf "%s%s%s"\n "${BAR}" "${BLANK}" "${_COLOR_RST}" >&2
+}
+
 
 # Warn the user.  "The user should know this."
 function _warn() {
@@ -1751,6 +1770,7 @@ function gee__rupdate() {
   local PREVIOUS_B
   PREVIOUS_B="${MAIN}"
   for B in "${CHAIN[@]}"; do
+    _banner "Updating branch \"${B}\""
     _checkout_or_die "${B}"
 
     # Check if we're rebasing onto a branch with uncommitted changes:
@@ -1830,6 +1850,7 @@ function gee__update_all() {
 
   local PARENT
   for B in "${CHAIN[@]}"; do
+    _banner "Updating branch \"${B}\""
     _checkout_or_die "${B}"
 
     # Check if we're rebasing onto a branch with uncommitted changes:
@@ -2842,6 +2863,10 @@ function gee__help() {
       fi
     done
   ) | "${PAGER}"
+}
+
+function gee__banner() {
+  _banner "$@"
 }
 
 ##########################################################################
