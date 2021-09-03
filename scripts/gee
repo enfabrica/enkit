@@ -1769,6 +1769,7 @@ function gee__rupdate() {
   local PREVIOUS_B
   PREVIOUS_B="${MAIN}"
   for B in "${CHAIN[@]}"; do
+    _banner "Updating branch \"${B}\""
     _checkout_or_die "${B}"
 
     # Check if we're rebasing onto a branch with uncommitted changes:
