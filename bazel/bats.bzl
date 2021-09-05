@@ -1,12 +1,13 @@
 # Run tests using bats
 #
-# Derived from 
+# Derived from https://github.com/filmil/bazel-bats
 
 BATS_TEMPLATE = """
 #!/usr/bin/env bash
-set -ex
+set -e
 export TMPDIR="${{TEST_TMPDIR}}"
-"{bats}" {test_paths}
+export PATH="{deps_paths}:${{PATH}}"
+"{bats}" --formatter tap {test_paths}
 """
 
 def _bats_test_impl(ctx):
@@ -16,11 +17,13 @@ def _bats_test_impl(ctx):
   )
   runfiles = runfiles.merge(ctx.attr._bats.default_runfiles)
   tests = [f.short_path for f in ctx.files.srcs]
+  paths = [f.dirname for f in ctx.files.deps]
+  deps_paths=":".join(paths)
   script = BATS_TEMPLATE.format(
           bats = ctx.executable._bats.short_path,
-          test_paths = " ".join(tests),
+          deps_paths = deps_paths,
+          test_paths = " ".join(["\"{}\"".format(x) for x in tests]),
   )
-  print(script)
   ctx.actions.write(
       output = ctx.outputs.executable,
       is_executable = True,

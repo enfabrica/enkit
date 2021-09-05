@@ -1,6 +1,12 @@
 load("@//bazel:bats.bzl", "bats_test")
 
+sh_binary(
+    name = "example_sh",
+    srcs = ["example.sh"],
+)
+
 bats_test(
     name = "bazel_bats_test",
     srcs = ["bazel_bats_test.bats"],
+    deps = [":example_sh"],
 )

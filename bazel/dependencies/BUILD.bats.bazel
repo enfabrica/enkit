@@ -9,6 +9,10 @@ sh_library(
 sh_binary(
     name = "bats",
     srcs = ["bin/bats"],
-    deps = [":bats_lib"],
+    deps = [
+        ":bats_lib",
+        "@bats_assert//:bats_assert_lib",
+        "@bats_support//:bats_support_lib",
+    ],
     visibility = ["//visibility:public"],
 )
