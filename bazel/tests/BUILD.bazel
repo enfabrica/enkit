@@ -1,0 +1,6 @@
+load("@//bazel:bats.bzl", "bats_test")
+
+bats_test(
+    name = "bazel_bats_test",
+    srcs = ["bazel_bats_test.bats"],
+)

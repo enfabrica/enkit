@@ -20,6 +20,7 @@ load("//bazel:go_repositories.bzl", "go_repositories")
 go_repositories()
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 
 http_archive(
     name = "com_github_bazelbuild_buildtools",
@@ -65,6 +66,14 @@ yarn_install(
     name = "npm",
     package_json = "//ui:package.json",
     yarn_lock = "//ui:yarn.lock",
+)
+
+# bats: Bash Automated Testing System
+new_git_repository(
+    name = "bats_core",
+    remote = "https://github.com/bats-core/bats-core",
+    tag = "v1.4.1",
+    build_file = "@//bazel/dependencies:BUILD.bats.bazel",
 )
 
 http_archive(
