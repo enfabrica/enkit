@@ -1835,10 +1835,9 @@ function gee__pack() {
   OUTPUT="${FLAGS[o]}"
   if [[ -n "${OUTPUT}" ]]; then
     _info "Writing to ${OUTPUT}"
-    exec 3>"${OUTPUT}"
+    exec >"${OUTPUT}"
   else
     _info "Writing to stdout"
-    exec 3>&1
   fi
   (
     echo "PACKFILE v1.0"
@@ -1851,7 +1850,7 @@ function gee__pack() {
     echo "### start of patch"
     "${GIT}" diff "${MAIN}...${CURRENT_BRANCH}"
     echo "### end of patch"
-  ) >&3 </dev/null
+  ) </dev/null
 }
 
 ##########################################################################
