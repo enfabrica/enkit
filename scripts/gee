@@ -1857,6 +1857,8 @@ function gee__pack() {
 ##########################################################################
 # unpack command
 ##########################################################################
+# TODO(jonathan): add option to reset to HEAD from pack file.
+# TODO(jonathan): add option to unpack into a new branch.
 
 _register_help "unpack" \
   "Exports all unsubmitted changes in this branch as a pack file." <<'EOT'
