@@ -234,8 +234,8 @@ function _parse_options() {
   # This function populates the global FLAGS associative array with all
   # of the set flags.  Any remaining positional arguments are left behind
   # in the ARGS_POSITIONAL array
-  export -A FLAGS=()
-  export -a ARGS_POSITIONAL=()
+  FLAGS=()
+  ARGS_POSITIONAL=()
   local optstring="$1"; shift
   local arg
   OPTERR=0  # enable silent error reporting
@@ -244,7 +244,9 @@ function _parse_options() {
     unset OPTARG
     while getopts "${optstring}" arg; do
       if [[ "${arg}" == "?" ]]; then
-        _fatal "Bad command flag: ${OPTARG}"
+        local x
+        x=$((OPTIND-1))
+        _fatal "Bad command flag: ${!x}"
       fi
       if [[ -n "${OPTARG}" ]]; then
         FLAGS["${arg}"]="${OPTARG}"
@@ -255,8 +257,8 @@ function _parse_options() {
     shift $((OPTIND-1))
     if [[ $# -gt 0 ]]; then
       ARGS_POSITIONAL+=( "$1" )
+      shift;
     fi
-    shift;
   done
   return 0
 }
@@ -1804,18 +1806,20 @@ function gee__diff() {
 
 _register_help "pack" \
   "Exports all unsubmitted changes in this branch as a pack file." <<'EOT'
-Usage: gee pack [-o <file.pack>]
+Usage: gee pack [-c] [-o <file.pack>]
 
 Creates a pack file containing all unsubmitted changes in this branch.
 
-By default, the pack file is written to stdout, or can be written to a
-specific file by supplying the -o option.
+Flags:
+  -o  Specifies a file to write to, instead of stdout.
+
 EOT
 
 function gee__pack() {
   _check_cwd
   _set_main
-  _parse_options "o:"
+  declare -A FLAGS=()
+  _parse_options "o:" "$@"
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   local STATUS
@@ -1826,23 +1830,28 @@ function gee__pack() {
   fi
   local HEAD_COMMIT
   HEAD_COMMIT="$("${GIT}" rev-parse HEAD)"
+  local -a OPTS=( --inter-hunk-context=3 )
   local OUTPUT
   OUTPUT="${FLAGS[o]}"
-  if [[ -n "${REDIRECT}" ]]; then
-    exec 3>"${REDIRECT}"
+  if [[ -n "${OUTPUT}" ]]; then
+    _info "Writing to ${OUTPUT}"
+    exec 3>"${OUTPUT}"
   else
+    _info "Writing to stdout"
     exec 3>&1
   fi
-  echo "PACKFILE v1.0"
-  echo "User: $(whoami)"
-  echo "Date: $(date)"
-  echo "Branch: ${CURRENT_BRANCH}"
-  echo "Head: ${HEAD_COMMIT}"
-  echo ""
-  echo "git diff ${MAIN}...${CURRENT_BRANCH}"
-  echo "### start of patch"
-  "${GIT}" diff "${MAIN}...${CURRENT_BRANCH}"
-  echo "### end of patch"
+  (
+    echo "PACKFILE v1.0"
+    echo "User: $(whoami)"
+    echo "Date: $(date)"
+    echo "Branch: ${CURRENT_BRANCH}"
+    echo "Head: ${HEAD_COMMIT}"
+    echo ""
+    echo "git diff "${OPTS[@]}" ${MAIN}...${CURRENT_BRANCH}"
+    echo "### start of patch"
+    "${GIT}" diff "${MAIN}...${CURRENT_BRANCH}"
+    echo "### end of patch"
+  ) >&3 </dev/null
 }
 
 ##########################################################################
