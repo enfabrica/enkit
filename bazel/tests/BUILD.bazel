@@ -1,4 +1,4 @@
-load("@//bazel:bats.bzl", "bats_test")
+load("@//bazel:shellutils.bzl", "bats_test")
 
 sh_binary(
     name = "example_sh",
