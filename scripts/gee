@@ -1857,8 +1857,6 @@ function gee__pack() {
 ##########################################################################
 # unpack command
 ##########################################################################
-# TODO(jonathan): add option to reset to HEAD from pack file.
-# TODO(jonathan): add option to unpack into a new branch.
 
 _register_help "unpack" \
   "Exports all unsubmitted changes in this branch as a pack file." <<'EOT'
@@ -1887,6 +1885,15 @@ function gee__unpack() {
     _confirm_or_exit "Do you want to proceed anyway? (y/N)  "
   fi
   cd "$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+  local -a HEADER=()
+  local LINE
+  while IFS= read -r LINE; do
+    if [[ -z "${LINE}" ]]; then
+      break
+    fi
+    HEADER+=( "${LINE}" )
+  done
+  _info "${HEADER[@]}"
   patch -p1 <"${PACKFILE}"
 }
 
