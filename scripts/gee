@@ -1892,7 +1892,7 @@ function gee__unpack() {
       break
     fi
     HEADER+=( "${LINE}" )
-  done
+  done <"${PACKFILE}"
   _info "${HEADER[@]}"
   patch -p1 <"${PACKFILE}"
 }
