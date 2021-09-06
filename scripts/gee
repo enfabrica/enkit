@@ -172,6 +172,8 @@ REPO="${REPO:-}"
 PAGER="${PAGER:-less}"
 PARENTS_FILE_IS_LOADED=0
 PWD_CMD="$(command -v pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
+declare -A FLAGS=()  # for _parse_options(), below
+declare -a ARGS_POSITIONAL=()  # for _parse_options(), below
 
 # Make sure we're in a directory that exists:
 while ! "${PWD_CMD}" >/dev/null; do
@@ -225,6 +227,39 @@ _COLOR_INFO="$(tput setaf 1)"
 # 
 # (the good stuff, the commands, are in the next section below.)
 ##########################################################################
+
+function _parse_options() {
+  # _parse_options <optstring> <args...>
+  #
+  # This function populates the global FLAGS associative array with all
+  # of the set flags.  Any remaining positional arguments are left behind
+  # in the ARGS_POSITIONAL array
+  export -A FLAGS=()
+  export -a ARGS_POSITIONAL=()
+  local optstring="$1"; shift
+  local arg
+  OPTERR=0  # enable silent error reporting
+  while [[ $# -gt 0 ]]; do
+    unset OPTIND
+    unset OPTARG
+    while getopts "${optstring}" arg; do
+      if [[ "${arg}" == "?" ]]; then
+        _fatal "Bad command flag: ${OPTARG}"
+      fi
+      if [[ -n "${OPTARG}" ]]; then
+        FLAGS["${arg}"]="${OPTARG}"
+      else
+        FLAGS["${arg}"]=1
+      fi
+    done
+    shift $((OPTIND-1))
+    if [[ $# -gt 0 ]]; then
+      ARGS_POSITIONAL+=( "$1" )
+    fi
+    shift;
+  done
+  return 0
+}
 
 function __git_eread () {
   # Used by _gee_rebase_prompt
@@ -1762,6 +1797,55 @@ function gee__diff() {
     _git_can_fail diff "${PARENT_BRANCH}...${CURRENT_BRANCH}"
   fi
 }
+
+##########################################################################
+# pack command
+##########################################################################
+
+_register_help "pack" \
+  "Exports all unsubmitted changes in this branch as a pack file." <<'EOT'
+Usage: gee pack [-o <file.pack>]
+
+Creates a pack file containing all unsubmitted changes in this branch.
+
+By default, the pack file is written to stdout, or can be written to a
+specific file by supplying the -o option.
+EOT
+
+function gee__pack() {
+  _check_cwd
+  _set_main
+  _parse_options "o:"
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  local STATUS
+  STATUS="$("${GIT}" status --porcelain)"
+  if [[ -n "${STATUS}" ]]; then
+    _warn "You have uncommitted work in this branch that won't be packed."
+    _confirm_or_exit "Do you want to proceed anyway? (y/N)  "
+  fi
+  local HEAD_COMMIT
+  HEAD_COMMIT="$("${GIT}" rev-parse HEAD)"
+  local OUTPUT
+  OUTPUT="${FLAGS[o]}"
+  if [[ -n "${REDIRECT}" ]]; then
+    exec 3>"${REDIRECT}"
+  else
+    exec 3>&1
+  fi
+  echo "PACKFILE v1.0"
+  echo "User: $(whoami)"
+  echo "Date: $(date)"
+  echo "Branch: ${CURRENT_BRANCH}"
+  echo "Head: ${HEAD_COMMIT}"
+  echo ""
+  echo "git diff ${MAIN}...${CURRENT_BRANCH}"
+  echo "----"
+  "${GIT}" diff "${MAIN}...${CURRENT_BRANCH}"
+  echo "----"
+  echo "end of diff"
+}
+
 
 ## DEPRECATED: we always squash when submitting a PR, this command adds a lot
 ## of complexity but very little value.
