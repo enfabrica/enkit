@@ -17,7 +17,7 @@ def _bats_test_impl(ctx):
   tests = [f.short_path for f in ctx.files.srcs]
   script = BATS_TEMPLATE.format(
           bats = ctx.executable._bats.short_path,
-          test_paths = " ".join(["\"{}\"".format(x) for x in tests]),
+          test_paths = " ".join([repr(x) for x in tests]),
   )
   ctx.actions.write(
       output = ctx.outputs.executable,
