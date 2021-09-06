@@ -1,5 +1,5 @@
 load("@//bazel/astore:defs.bzl", "astore_upload")
-load("@//bazel:bats.bzl", "bats_test")
+load("@//bazel:shellutils.bzl", "bats_test")
 
 sh_library(
     name = "gee-lib",
