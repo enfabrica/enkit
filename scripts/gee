@@ -1840,10 +1840,43 @@ function gee__pack() {
   echo "Head: ${HEAD_COMMIT}"
   echo ""
   echo "git diff ${MAIN}...${CURRENT_BRANCH}"
-  echo "----"
+  echo "### start of patch"
   "${GIT}" diff "${MAIN}...${CURRENT_BRANCH}"
-  echo "----"
-  echo "end of diff"
+  echo "### end of patch"
+}
+
+##########################################################################
+# unpack command
+##########################################################################
+
+_register_help "unpack" \
+  "Exports all unsubmitted changes in this branch as a pack file." <<'EOT'
+Usage: gee unpack <file.pack>
+
+Patches the current branch from a pack file.
+EOT
+
+function gee__unpack() {
+  _check_cwd
+  _set_main
+  local PACKFILE
+  PACKFILE="$1"
+  if [[ -z "${PACKFILE}" ]]; then
+    _fatal "unpack: you must specify a pack file to read."
+  fi
+  if ! [[ -f "${PACKFILE}" ]]; then
+    _fatal "unpack: Could not find \"${PACKFILE}\""
+  fi
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  local STATUS
+  STATUS="$("${GIT}" status --porcelain)"
+  if [[ -n "${STATUS}" ]]; then
+    _warn "You have uncommitted work in this branch that could be disrupted."
+    _confirm_or_exit "Do you want to proceed anyway? (y/N)  "
+  fi
+  cd "$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+  patch -p1 <"${PACKFILE}"
 }
 
 
