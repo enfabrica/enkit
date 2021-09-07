@@ -1163,7 +1163,7 @@ function _interactive_conflict_resolution() {
     _banner "Attempting to apply: ${FROM_DESC}" \
             "               onto: ${ONTO_DESC}" \
             "Conflicts in ${#STATUS[@]} files."
-    local STATUS_LINE RESP DONE SKIP RESTART
+    local STATUS_LINE DONE SKIP RESTART
     SKIP=0
     RESTART=0
     for STATUS_LINE in "${STATUS[@]}"; do
@@ -1184,6 +1184,7 @@ function _interactive_conflict_resolution() {
 
       DONE=0
       while (( DONE == 0 )); do
+        local M RESP
         read -r -n1 -p \
           "Keep (O)ld, (N)ew, (M)erge, (G)ui, (S)hell, (V)iew, s(K)ip, or (A)bort? " \
           RESP
@@ -1205,11 +1206,21 @@ function _interactive_conflict_resolution() {
             ;;
           [Mm])
             _git mergetool "${FILE}"
-            DONE=1
+            M="$("${GIT}" diff --check "${FILE}" | grep "conflict marker" | wc -l)"
+            if (( M == 0 )); then
+              DONE=1
+            else
+              _warn "${FILE} still contains conflict markers."
+            fi
             ;;
           [Gg])
             _git mergetool --gui "${FILE}"
-            DONE=1
+            M="$("${GIT}" diff --check "${FILE}" | grep "conflict marker" | wc -l)"
+            if (( M == 0 )); then
+              DONE=1
+            else
+              _warn "${FILE} still contains conflict markers."
+            fi
             ;;
           [Ss])
             _open_rebase_shell
