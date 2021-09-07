@@ -1349,7 +1349,6 @@ function _rebase_child_onto_parent() {
       _fatal "Exited without resolving rebase conflict."
     fi
 
-    # TODO(jonathan): I'm not sure if this works right:
     if "${GIT}" merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
       _info "Rebase merge confirmed."
     else
@@ -1865,8 +1864,14 @@ function gee__update() {
     read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
     if [[ "${COUNTS[1]}" -gt 0 ]]; then
       _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
-      _warn "Pulling in changes from origin/${CURRENT_BRANCH}"
-      _git rebase --autostash "origin/${CURRENT_BRANCH}"
+      _info "This could be caused by commiting changes to this branch from a different machine, " \
+            "or possibly you rebased your branch without pushing the updated branch to origin."
+      if _confirm_default_yes "Do you want to integrate changes from origin/${CURRENT_BRANCH}? (Y/n)  "; then
+        _info "Pulling in changes from origin/${CURRENT_BRANCH}"
+        HEAD="$("${GIT}" rev-parse HEAD)"
+        _info "Old head commit before rebase: ${HEAD}"
+        _git rebase --autostash "origin/${CURRENT_BRANCH}"
+      fi
     fi
   fi
 
