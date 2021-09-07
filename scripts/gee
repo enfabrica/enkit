@@ -1240,7 +1240,7 @@ function _interactive_conflict_resolution() {
 
     if (( "${#MARKERS[@]}" == 0 )); then
       _git add .
-      _git rebase --continue
+      _git_can_fail rebase --continue
     else
       _warn "Cannot proceed with rebase: conflict markers still present."
       _info "  ${MARKERS[@]}"
