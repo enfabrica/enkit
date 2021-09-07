@@ -1858,10 +1858,10 @@ function gee__pack() {
 ##########################################################################
 
 _register_help "unpack" \
-  "Exports all unsubmitted changes in this branch as a pack file." <<'EOT'
+  "Patch the local branch from a pack file." <<'EOT'
 Usage: gee unpack <file.pack>
 
-Patches the current branch from a pack file.
+"unpack" attempts to patch the current branch from a pack file.
 EOT
 
 function gee__unpack() {
