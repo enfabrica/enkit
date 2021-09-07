@@ -1104,6 +1104,155 @@ function _local_branch_exists() {
   fi
 }
 
+function _open_rebase_shell() {
+    export PROMPT_COMMAND="git status; _gee_rebase_prompt"
+    local BOLD RST
+    BOLD="$(tput bold)"
+    RST="$(tput sgr0)"
+    export GEE_HELP=""
+    GEE_HELP+="You are interactively rebasing a branch with conflicts.${NEWLINE}"
+    GEE_HELP+="  To see where conflicts are: ${BOLD}git status${RST}${NEWLINE}"
+    GEE_HELP+="  To run a 3-way merge tool: ${BOLD}git mergetool${RST}${NEWLINE}"
+    GEE_HELP+="  To mark a file as fixed: ${BOLD}git add <file>${RST}${NEWLINE}"
+    GEE_HELP+="  To continue rebase after fixing: ${BOLD}git rebase --continue${RST}${NEWLINE}"
+    GEE_HELP+="  To give up and go back to original state: ${BOLD}git rebase --abort${RST}${NEWLINE}"
+    GEE_HELP+="  To return to gee: ${BOLD}exit${RST}${NEWLINE}"
+    export GEE_STATUS="GEE-REBASE-SUBSHELL: "
+    export PS1=""
+    export -f __git_eread
+    export -f _gee_rebase_prompt
+    _git status
+    _info "Entering subshell: resolve conflicts or abort and then exit."
+    set +e
+    bash --noprofile --norc
+    _info "Subshell terminated with exit code $?."
+    set -e
+}
+
+function _interactive_conflict_resolution() {
+  # The function walks the user through a rebase operation, once
+  # conflict at a time, and gives the user the option to use 
+  # their file, the upstream file, skip the commit, run a mergetool,
+  # or abort.
+  local PARENT CHILD
+  PARENT="$1"
+  CHILD="$2"
+  if [[ -z "${CHILD}" ]]; then
+    _die "Must specify branch name."
+  fi
+  _info "CHILD=${CHILD}"
+  local CHILD_ROOT
+  CHILD_ROOT="${BRANCH_TO_WORKTREE["${CHILD}"]}"
+  _info "CHILD ROOT=${CHILD_ROOT}"
+  cd "${CHILD_ROOT}"
+  local ABORT=0
+  while _is_rebase_in_progress; do
+    local -a STATUS=()
+    mapfile -t STATUS < <( "${GIT}" status --porcelain )
+    # We're merging onto this commit:
+    local HEAD
+    HEAD="$("${GIT}" rev-parse HEAD)"
+    HEAD_DESC="$("${GIT}" show --oneline -s "${HEAD}")"
+    # This is the commit we're trying to apply:
+    local REBASE_HEAD
+    REBASE_HEAD="$(cat "$("${GIT}" rev-parse --git-path REBASE_HEAD)")"
+    local DESC
+    DESC="$("${GIT}" show --oneline -s "${REBASE_HEAD}")"
+
+    _banner "Attempting to apply: ${DESC}" \
+            "               onto: ${HEAD_DESC}" \
+            "Conflicts in ${#STATUS[@]} files."
+    local STATUS_LINE RESP DONE SKIP
+    SKIP=0
+    for STATUS_LINE in "${STATUS[@]}"; do
+      local DECODED_ST ST FILE
+      read -r ST FILE <<< "${STATUS_LINE}"
+      case "${ST}" in
+        # TODO(jonathan): do I have "us" and "them" backwards here?
+        DD) DECODED_ST="Both deleted" ;;
+        AU) DECODED_ST="Added by us" ;;
+        UD) DECODED_ST="Deleted by them" ;;
+        UA) DECODED_ST="Added by them" ;;
+        DU) DECODED_ST="Deleted by us" ;;
+        AA) DECODED_ST="Both added" ;;
+        UU) DECODED_ST="Both modified" ;;
+        *)  DECODED_ST="Bizarre!" ;;
+      esac
+      _info "" "${FILE}: ${ST}=${DECODED_ST}"
+
+      DONE=0
+      while (( DONE == 0 )); do
+        read -r -n1 -p \
+          "Keep (Y)ours, Take (T)heirs, (M)ergetool, (G)uitool, (S)kip, or (A)bort?" \
+          RESP
+        printf "\n"
+        # Not that while performing a git rebase, "--ours" means the change from
+        # upstream, while "--theirs" means the change from our feature branch.
+        case "${RESP}" in
+          [Yy])
+            _info "Keeping the your (${CHILD}) version of ${FILE}"
+            "${GIT}" checkout --theirs "${FILE}"
+            DONE=1
+            ;;
+          [Tt])
+            _info "Taking their (${PARENT}) version of ${FILE}"
+            "${GIT}" checkout --ours "${FILE}"
+            DONE=1
+            ;;
+          [Mm])
+            _git mergetool "${FILE}"
+            DONE=1
+            ;;
+          [Gg])
+            _git mergetool --gui "${FILE}"
+            DONE=1
+            ;;
+          [Ss])
+            _info "Skipping this commit."
+            DONE=1
+            SKIP=1
+            ;;
+          [Aa])
+            _info "Aborting rebase."
+            DONE=1
+            ABORT=1
+            ;;
+          *)
+            _error "Invalid choice: ${RESP}"
+            ;;
+        esac
+      done  # DONE
+
+      if (( SKIP == 1 )); then break; fi
+      if (( ABORT == 1 )); then break; fi
+    done  # STATUS_LINE
+
+    if (( SKIP == 1 )); then
+      _git rebase --skip
+      break
+    fi
+    if (( ABORT == 1 )); then break; fi
+
+    local -a MARKERS
+    mapfile -t MARKERS < <( "${GIT}" diff --check | grep "conflict marker" )
+
+    if (( "${#MARKERS[@]}" == 0 )); then
+      _git add .
+      _git rebase --continue
+    else
+      _warn "Cannot proceed with rebase: conflict markers still present."
+      _info "  ${MARKERS[@]}"
+      _info "Try again..."
+    fi
+  done  # while rebase is in progress
+
+  if (( ABORT == 1 )); then
+    _warn "Aborting rebase operation."
+    _git rebase --abort
+    return
+  fi
+}
+
 function _rebase_child_onto_parent() {
   # It turns out that I'm not smarter than a million git developers.  Let's not
   # be too clever here.  It turns out that ordinary rebase already does a good
@@ -1132,6 +1281,10 @@ function _rebase_child_onto_parent() {
     _update_main
   fi
 
+  # update BRANCH_TO_WORKTREE before rebasing, as this information
+  # becomes unavailable when in detached head mode:
+  _update_branch_to_worktree
+
   # TODO(jonathan): check if origin is ahead of local, and if so, do a git pull --rebase
   # operation.  This will allow multi-homed gee to work better.
 
@@ -1152,41 +1305,8 @@ function _rebase_child_onto_parent() {
   PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
   if ! _git rebase --autostash "${PARENT}" "${CHILD}"; then
     _warn "Rebase operation had conflicts."
-    export PROMPT_COMMAND="git status; _gee_rebase_prompt"
-    local BOLD RST
-    BOLD="$(tput bold)"
-    RST="$(tput sgr0)"
-    export GEE_HELP=""
-    GEE_HELP+="You are interactively rebasing a branch with conflicts.${NEWLINE}"
-    GEE_HELP+="  To see where conflicts are: ${BOLD}git status${RST}${NEWLINE}"
-    GEE_HELP+="  To run a 3-way merge tool: ${BOLD}git mergetool${RST}${NEWLINE}"
-    GEE_HELP+="  To mark a file as fixed: ${BOLD}git add <file>${RST}${NEWLINE}"
-    GEE_HELP+="  To continue rebase after fixing: ${BOLD}git rebase --continue${RST}${NEWLINE}"
-    GEE_HELP+="  To give up and go back to original state: ${BOLD}git rebase --abort${RST}${NEWLINE}"
-    GEE_HELP+="  To return to gee: ${BOLD}exit${RST}${NEWLINE}"
-    export GEE_STATUS="GEE-REBASE-SUBSHELL: "
-    export PS1=""
-    export -f __git_eread
-    export -f _gee_rebase_prompt
-    _git status
-    _info "Entering subshell: resolve conflicts or abort and then exit."
-    set +e
-    bash --noprofile --norc
-    _info "Subshell terminated with exit code $?."
-    set -e
-
-    # TODO(jonathan): consider not letting the user escape until rebase either
-    # succeeds or is aborted:
-    # while _is_rebase_in_progress; do
-    #   if _is_rebase_in_progress; then
-    #     # attempt to continue
-    #     _git_can_fail rebase --continue
-    #   fi
-    #   if _is_rebase_in_progress; then
-    #     _info "Entering subshell: resolve conflicts or abort and then exit."
-    #     bash --noprofile --norc
-    #   fi
-    # done
+    #_open_rebase_shell
+    _interactive_conflict_resolution "${PARENT}" "${CHILD}"
 
     if _is_rebase_in_progress; then
       local STATUS
@@ -1197,7 +1317,7 @@ function _rebase_child_onto_parent() {
     fi
 
     # TODO(jonathan): I'm not sure if this works right:
-    if _git_can_fail merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
+    if "${GIT}" merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
       _info "Rebase merge confirmed."
     else
       _warn "Rebase did not succeed, aborting."
