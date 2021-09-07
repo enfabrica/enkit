@@ -1152,17 +1152,16 @@ function _interactive_conflict_resolution() {
     local -a STATUS=()
     mapfile -t STATUS < <( "${GIT}" status --porcelain )
     # We're merging onto this commit:
-    local HEAD
-    HEAD="$("${GIT}" rev-parse HEAD)"
-    HEAD_DESC="$("${GIT}" show --oneline -s "${HEAD}")"
+    local ONTO_COMMIT ONTO_DESC
+    ONTO_COMMIT="$("${GIT}" rev-parse HEAD)"
+    ONTO_DESC="$("${GIT}" show --oneline -s "${ONTO_COMMIT}")"
     # This is the commit we're trying to apply:
-    local REBASE_HEAD
-    REBASE_HEAD="$(cat "$("${GIT}" rev-parse --git-path REBASE_HEAD)")"
-    local DESC
-    DESC="$("${GIT}" show --oneline -s "${REBASE_HEAD}")"
+    local FROM_COMMIT FROM_DESC
+    FROM_COMMIT="$("${GIT}" rev-parse REBASE_HEAD)"
+    FROM_DESC="$("${GIT}" show --oneline -s "${FROM_COMMIT}")"
 
-    _banner "Attempting to apply: ${DESC}" \
-            "               onto: ${HEAD_DESC}" \
+    _banner "Attempting to apply: ${FROM_DESC}" \
+            "               onto: ${ONTO_DESC}" \
             "Conflicts in ${#STATUS[@]} files."
     local STATUS_LINE RESP DONE SKIP RESTART
     SKIP=0
@@ -1186,7 +1185,7 @@ function _interactive_conflict_resolution() {
       DONE=0
       while (( DONE == 0 )); do
         read -r -n1 -p \
-          "Keep (O)ld, (N)ew, (M)erge, (G)ui, (S)hell, s(K)ip, or (A)bort? " \
+          "Keep (O)ld, (N)ew, (M)erge, (G)ui, (S)hell, (V)iew, s(K)ip, or (A)bort? " \
           RESP
         printf "\n"
         # https://stackoverflow.com/questions/25576415/what-is-the-precise-meaning-of-ours-and-theirs-in-git
@@ -1195,12 +1194,12 @@ function _interactive_conflict_resolution() {
         # "Theirs" = branch being merged from = newer version of file.
         case "${RESP}" in
           [Nn])
-            _info "Keeping newer ${FILE} from ${DESC}"
+            _info "Keeping newer ${FILE} from ${FROM_DESC}"
             "${GIT}" checkout --theirs "${FILE}"
             DONE=1
             ;;
           [Oo])
-            _info "Keeping older ${FILE} from ${HEAD_DESC}"
+            _info "Keeping older ${FILE} from ${ONTO_DESC}"
             "${GIT}" checkout --ours "${FILE}"
             DONE=1
             ;;
@@ -1217,13 +1216,16 @@ function _interactive_conflict_resolution() {
             RESTART=1  # go back to beginning, maybe we're done?
             DONE=1
             ;;
+          [Vv])
+            _git rebase --show-current_patch | "${PAGER:-less}"
+            ;;
           [Kk])
-            _info "Skipping this commit."
+            _info "Skipping commit: ${FROM_DESC}"
             DONE=1
             SKIP=1
             ;;
           [Aa])
-            _info "Aborting rebase."
+            _info "Aborting rebase, and resetting."
             DONE=1
             ABORT=1
             ;;
@@ -1236,6 +1238,7 @@ function _interactive_conflict_resolution() {
               "  m: (M)erge: Runs \"git mergetool\" on this file." \
               "  g: (G)UI Merge: Runs \"git mergetool --gui\" on this file." \
               "  s: (S)hell: Opens a bash sub-shell for expert use." \
+              "  v: (V)iew: Show the patch being applied." \
               "  k: s(K)ip: Skips a whole commit (all files)." \
               "  a: (A)bort: Aborts and returns branch to original state."
             ;;
@@ -1268,7 +1271,6 @@ function _interactive_conflict_resolution() {
   done  # while rebase is in progress
 
   if (( ABORT == 1 )); then
-    _warn "Aborting rebase operation."
     _git rebase --abort
     return
   fi
