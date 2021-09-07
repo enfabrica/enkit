@@ -903,7 +903,7 @@ function _banner() {
   printf "\n" >&2
   printf "%s%s%s\n" "${_COLOR_BANNER}" "${BAR}" "${BLANK}" >&2
   printf "# %-${LEN}.${LEN}s #${BLANK}\n" "$@" >&2
-  printf "%s%s%s"\n "${BAR}" "${BLANK}" "${_COLOR_RST}" >&2
+  printf "%s%s%s\n" "${BAR}" "${BLANK}" "${_COLOR_RST}" >&2
 }
 
 
@@ -1108,7 +1108,7 @@ function _open_rebase_shell() {
     # Opens an interactive subshell for resolving conflicts during a rebase.
     # This is the "old" flow, and it's a bit messy.
     # TODO(jonathan): make the prompts less noisy.
-    export PROMPT_COMMAND="git status; _gee_rebase_prompt"
+    export PROMPT_COMMAND="_gee_rebase_prompt"
     local BOLD RST
     BOLD="$(tput bold)"
     RST="$(tput sgr0)"
@@ -1125,10 +1125,10 @@ function _open_rebase_shell() {
     export -f __git_eread
     export -f _gee_rebase_prompt
     _git status
-    _info "Entering subshell: resolve conflicts or abort and then exit."
+    _banner "Entering subshell: resolve conflicts or abort and then exit."
     set +e
     bash --noprofile --norc
-    _info "Subshell terminated with exit code $?."
+    _banner "Subshell terminated with exit code $?."
     set -e
 }
 
@@ -1164,8 +1164,9 @@ function _interactive_conflict_resolution() {
     _banner "Attempting to apply: ${DESC}" \
             "               onto: ${HEAD_DESC}" \
             "Conflicts in ${#STATUS[@]} files."
-    local STATUS_LINE RESP DONE SKIP
+    local STATUS_LINE RESP DONE SKIP RESTART
     SKIP=0
+    RESTART=0
     for STATUS_LINE in "${STATUS[@]}"; do
       local DECODED_ST ST FILE
       read -r ST FILE <<< "${STATUS_LINE}"
@@ -1185,19 +1186,21 @@ function _interactive_conflict_resolution() {
       DONE=0
       while (( DONE == 0 )); do
         read -r -n1 -p \
-          "Keep (Y)ours, Take (T)heirs, (M)ergetool, (G)uitool, (S)kip, or (A)bort?" \
+          "Keep (O)ld, (N)ew, (M)erge, (G)ui, (S)hell, s(K)ip, or (A)bort? " \
           RESP
         printf "\n"
-        # Not that while performing a git rebase, "--ours" means the change from
-        # upstream, while "--theirs" means the change from our feature branch.
+        # https://stackoverflow.com/questions/25576415/what-is-the-precise-meaning-of-ours-and-theirs-in-git
+        # During a rebase operation:
+        # "Ours" = branch being merged into = older version of file.
+        # "Theirs" = branch being merged from = newer version of file.
         case "${RESP}" in
-          [Yy])
-            _info "Keeping the your (${CHILD}) version of ${FILE}"
+          [Nn])
+            _info "Keeping newer ${FILE} from ${DESC}"
             "${GIT}" checkout --theirs "${FILE}"
             DONE=1
             ;;
-          [Tt])
-            _info "Taking their (${PARENT}) version of ${FILE}"
+          [Oo])
+            _info "Keeping older ${FILE} from ${HEAD_DESC}"
             "${GIT}" checkout --ours "${FILE}"
             DONE=1
             ;;
@@ -1210,6 +1213,11 @@ function _interactive_conflict_resolution() {
             DONE=1
             ;;
           [Ss])
+            _open_rebase_shell
+            RESTART=1  # go back to beginning, maybe we're done?
+            DONE=1
+            ;;
+          [Kk])
             _info "Skipping this commit."
             DONE=1
             SKIP=1
@@ -1221,12 +1229,22 @@ function _interactive_conflict_resolution() {
             ;;
           *)
             _error "Invalid choice: ${RESP}"
+            _info \
+              "Options are:" \
+              "  n: Keep (N)ewer file (from the patch being applied)." \
+              "  o: Keep (O)lder file (from the version being patched)." \
+              "  m: (M)erge: Runs \"git mergetool\" on this file." \
+              "  g: (G)UI Merge: Runs \"git mergetool --gui\" on this file." \
+              "  s: (S)hell: Opens a bash sub-shell for expert use." \
+              "  k: s(K)ip: Skips a whole commit (all files)." \
+              "  a: (A)bort: Aborts and returns branch to original state."
             ;;
         esac
       done  # DONE
 
       if (( SKIP == 1 )); then break; fi
       if (( ABORT == 1 )); then break; fi
+      if (( RESTART == 1 )); then break; fi
     done  # STATUS_LINE
 
     if (( SKIP == 1 )); then
@@ -1234,6 +1252,7 @@ function _interactive_conflict_resolution() {
       break
     fi
     if (( ABORT == 1 )); then break; fi
+    if (( RESTART == 1 )); then continue; fi
 
     local -a MARKERS
     mapfile -t MARKERS < <( "${GIT}" diff --check | grep "conflict marker" )
@@ -1243,7 +1262,7 @@ function _interactive_conflict_resolution() {
       _git_can_fail rebase --continue
     else
       _warn "Cannot proceed with rebase: conflict markers still present."
-      _info "  ${MARKERS[@]}"
+      _info "${MARKERS[@]}"
       _info "Try again..."
     fi
   done  # while rebase is in progress
@@ -1307,7 +1326,6 @@ function _rebase_child_onto_parent() {
   PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
   if ! _git rebase --autostash "${PARENT}" "${CHILD}"; then
     _warn "Rebase operation had conflicts."
-    #_open_rebase_shell
     _interactive_conflict_resolution "${PARENT}" "${CHILD}"
 
     if _is_rebase_in_progress; then
