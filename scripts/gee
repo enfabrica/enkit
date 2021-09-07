@@ -1105,6 +1105,9 @@ function _local_branch_exists() {
 }
 
 function _open_rebase_shell() {
+    # Opens an interactive subshell for resolving conflicts during a rebase.
+    # This is the "old" flow, and it's a bit messy.
+    # TODO(jonathan): make the prompts less noisy.
     export PROMPT_COMMAND="git status; _gee_rebase_prompt"
     local BOLD RST
     BOLD="$(tput bold)"
@@ -1130,10 +1133,9 @@ function _open_rebase_shell() {
 }
 
 function _interactive_conflict_resolution() {
-  # The function walks the user through a rebase operation, once
-  # conflict at a time, and gives the user the option to use 
-  # their file, the upstream file, skip the commit, run a mergetool,
-  # or abort.
+  # The function walks the user through a rebase operation, one conflict at a
+  # time, and gives the user the option to use their file, the upstream file,
+  # skip the commit, run a mergetool, or abort.
   local PARENT CHILD
   PARENT="$1"
   CHILD="$2"
