@@ -3709,6 +3709,8 @@ function main() {
     exit 0
   fi
   local cmdname="$1"; shift
+  # Let's make pr-submit and pr_submit equivalent:
+  cmdname="$(tr '-' '_' <<< "${cmdname}")"
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     if [[ "${cmdname}" != "bash_setup" ]]; then
       _startup_checks
