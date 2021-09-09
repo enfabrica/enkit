@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "command.go",
+        "config.go",
         "controller.go",
         "server.go",
     ],
@@ -13,11 +14,20 @@ go_library(
         "//machinist/rpc:machinist-go",
         "//machinist/state:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
-    srcs = ["controller_test.go"],
-    embed = [":go_default_library"],
+    srcs = ["server_test.go"],
+    deps = [
+        ":go_default_library",
+        "//machinist/polling:go_default_library",
+        "//machinist/rpc:machinist-go",
+        "//machinist/state:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//test/bufconn:go_default_library",
+    ],
 )

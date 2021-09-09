@@ -30,14 +30,21 @@ type Controller struct {
 // Init is designed to run after all components have been started up before running itself as a server
 func (en *Controller) Init()  {
 	for _, m := range en.State.Machines {
-		en.addNodeToDns(m.Name, m.Ips, m.Tags)
+		var parsedIps []net.IP
+		for _, p := range m.Ips {
+			i := net.ParseIP(p)
+			if i != nil {
+				parsedIps = append(parsedIps, i)
+			}
+		}
+		en.addNodeToDns(m.Name, parsedIps, m.Tags)
 	}
 }
 
-func (en *Controller) Nodes() []*state.Machine {
+func (en *Controller) Nodes() []*machinist.StaticMachine {
 	en.State.Lock()
 	defer en.State.Unlock()
-	nodes := make([]*state.Machine, len(en.State.Machines))
+	nodes := make([]*machinist.StaticMachine, len(en.State.Machines))
 	copy(nodes, en.State.Machines)
 	return nodes
 }
@@ -72,15 +79,15 @@ func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, pin
 	if len(parsedIps) == 0 {
 		return errors.New("no valid ip sent")
 	}
-	newMachine := &state.Machine{
+	newMachine := &machinist.StaticMachine{
 		Name: ping.Name,
-		Ips:  parsedIps,
+		Ips:  ping.Ips,
 		Tags: ping.Tag,
 	}
 	if err := state.AddMachine(en.State, newMachine); err != nil {
 		return err
 	}
-	en.addNodeToDns(ping.Name, newMachine.Ips, newMachine.Tags)
+	en.addNodeToDns(ping.Name, parsedIps, newMachine.Tags)
 	return stream.Send(
 		&machinist.PollResponse{
 			Resp: &machinist.PollResponse_Result{
@@ -154,7 +161,7 @@ func (en *Controller) ServeAllRecords() {
 			var rs []dns.RR
 			for _, v := range ns {
 				for _, i := range v.Ips {
-					rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "A", i.String()))
+					rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "A", i))
 					if err != nil {
 						en.Log.Errorf("err: %v", err)
 					}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"github.com/enfabrica/enkit/machinist/state"
-	"net"
 )
 
 var (
@@ -16,24 +15,31 @@ type Controller struct {
 	State *state.UserPlane
 }
 
-func ConvertIPS(sips []string) []net.IP {
-	var toReturn []net.IP
-	for _, si := range sips {
-		toReturn = append(toReturn, net.ParseIP(si))
-	}
-	return toReturn
-}
-
-func (c *Controller) ImportState(ctx context.Context, request *machinist.StateForwardRequest) (*machinist.StateForwardResponse, error) {
-	var lm []*state.Machine
-	for _, m := range request.Machines {
-		lm = append(lm, &state.Machine{
-			Name: m.Name,
-			Tags: m.Tags,
-			Ips:  ConvertIPS(m.Ips),
+func (c *Controller) List(ctx context.Context, request *machinist.ListRequest) (*machinist.ListResponse, error) {
+	var ums []*machinist.UserMachine
+	for _, s := range c.State.Machines {
+		ums = append(ums, &machinist.UserMachine{
+			Name:        s.Name,
+			Ips:         s.Ips,
+			Alive:       true,
+			Reservation: nil,
+			Tags:        s.Tags,
 		})
 	}
-	state.MergeStates(c.State, lm)
+	if request.Limit > 0 {
+		ums = ums[0:request.Limit]
+	}
+	return &machinist.ListResponse{
+		Machines: ums,
+	}, nil
+}
+
+func (c *Controller) Tag(ctx context.Context, request *machinist.TagRequest) (*machinist.TagResponse, error) {
+	panic("implement me")
+}
+
+func (c *Controller) ExportState(ctx context.Context, request *machinist.StateForwardRequest) (*machinist.StateForwardResponse, error) {
+	state.MergeStates(c.State, request.Machines)
 	return &machinist.StateForwardResponse{}, nil
 }
 
