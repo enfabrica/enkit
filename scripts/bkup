@@ -53,14 +53,14 @@ function _check_remote() {
 
 function _check_or_authorize_remote() {
   if ! _check_remote; then
-    echo "Could not connect to remote.  Let's try to re-authorize:"
+    echo >&2 "Could not connect to remote.  Let's try to re-authorize:"
     _cmd "${RCLONE}" config reconnect remote: --auto-confirm
     if ! _check_remote; then
-      echo "Fatal: still can't connect to remote."
+      echo >&2 "Fatal: still can't connect to remote."
       exit 1
     fi
   fi
-  echo "Remote connection OK."
+  echo >&2 "Remote connection OK."
 }
 
 function _cmd() {
@@ -167,7 +167,7 @@ function bkup__setup() {
   VERSION=$("${RCLONE}" --version 2>>errors | head -n 1)
   CURRENT_VERSION=$(curl -fsS https://downloads.rclone.org/version.txt)
   if [[ "$version" != "$current_version" ]]; then
-    echo "Updating rclone from ${VERSION} to ${CURRENT_VERSION}"
+    echo >&2 "Updating rclone from ${VERSION} to ${CURRENT_VERSION}"
     _install_rclone
   fi
 
@@ -185,7 +185,7 @@ project_number = ${BUCKET}
 object_acl = private
 bucket_acl = private
 EOT
-    echo "Made ${CONFIG}"
+    echo >&2 "Made ${CONFIG}"
     # TODO(jonathan): Figure out how to re-use enkit agent for token.
   fi
 
@@ -219,7 +219,7 @@ EOT
 - .thumbnails
 
 EOT
-    echo "Made ${FILTERFILE}"
+    echo >&2 "Made ${FILTERFILE}"
   fi
 
   # Check for a valid token
@@ -298,22 +298,22 @@ function bkup__ls() {
     --separator $'\t'
   )
 
-  local PATH
-  PATH=""
+  local LPATH
+  LPATH=""
   if [[ "$#" -ne 0 ]]; then
     local REL_P
     REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
     if [[ "${REL_P}" == "." ]]; then
-      PATH=""
+      LPATH=""
     elif [[ "${REL_P}" =~ ^/ ]]; then
       echo >&2 "${F} is not beneath ${HOME}, is not in archive."
     else
-      PATH="/${REL_P}"
+      LPATH="/${REL_P}"
     fi
   fi
 
   _cmd "${RCLONE}" lsf \
-    "remote:${BUCKET}/${RPATH}${PATH}" \
+    "remote:${BUCKET}/${RPATH}${LPATH}" \
     "${OPTS[@]}" | /usr/bin/column -t -s $'\t'
 }
 
@@ -332,23 +332,61 @@ function bkup__cat() {
   local -a OPTS=(
   )
 
-  local PATH
-  PATH=""
+  local LPATH
+  LPATH=""
   local REL_P
   REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
-  echo "${REL_P} foo"
   if [[ "${REL_P}" == "." ]]; then
-    PATH=""
+    LPATH=""
   elif [[ "${REL_P}" =~ ^/ ]]; then
     echo >&2 "${F} is not beneath ${HOME}, is not in archive."
     return 1
   else
-    PATH="/${REL_P}"
+    LPATH="/${REL_P}"
   fi
 
   _cmd "${RCLONE}" cat \
-    "remote:${BUCKET}/${RPATH}${PATH}" \
+    "remote:${BUCKET}/${RPATH}${LPATH}" \
     "${OPTS[@]}"
+}
+
+##########################################################################
+# diff command
+##########################################################################
+
+_register_help diff "Diff a local file against its backup." <<'EOT'
+Usage: bkup diff <path>
+
+"diff" shows the differences between a local file and its backup.
+EOT
+function bkup__diff() {
+  _startup_checks
+  _check_or_authorize_remote
+  local -a OPTS=(
+  )
+
+  local LPATH
+  LPATH=""
+  local REL_P
+  REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
+  if [[ "${REL_P}" == "." ]]; then
+    LPATH=""
+  elif [[ "${REL_P}" =~ ^/ ]]; then
+    echo >&2 "${F} is not beneath ${HOME}, is not in archive."
+    return 1
+  else
+    LPATH="/${REL_P}"
+  fi
+
+  local TMPFILE
+  TMPFILE="$(/usr/bin/mktemp "$(basename $1).XXXXXX")"
+  _cmd "${RCLONE}" cat \
+    "remote:${BUCKET}/${RPATH}${LPATH}" \
+    "${OPTS[@]}" \
+    >"${TMPFILE}"
+
+  /usr/bin/diff -s "${TMPFILE}" "$1" | "${PAGER:-/usr/bin/less}"
+  rm "${TMPFILE}"
 }
 
 ##########################################################################
@@ -374,8 +412,8 @@ function bkup__restore() {
   )
 
   if [[ "$#" -eq 0 ]]; then
-    echo "\"restore\" requires at least one file to restore."
-    echo "Perhaps you want the \"restore_all\" command?"
+    echo >&2 "\"restore\" requires at least one file to restore."
+    echo >&2 "Perhaps you want the \"restore_all\" command?"
     return 1
   fi
 
@@ -429,17 +467,17 @@ function bkup__restore_all() {
     case "${FLAG}" in
       O) OVERWRITE=1 ;;
       i) INTERACTIVE=1 ;;
-      *) echo "Unknown flag: ${FLAG}"; return 1 ;;
+      *) echo >&2 "Unknown flag: ${FLAG}"; return 1 ;;
     esac
   done
 
   if (( OVERWRITE == 1 )); then
-    echo "WARNING: YOU ARE ABOUT TO OVERWRITE ALL LOCAL FILES."
+    echo >&2 "WARNING: YOU ARE ABOUT TO OVERWRITE ALL LOCAL FILES."
     local RESP
     read -rp "Proceed? (y/N)  " RESP
     case "${RESP}" in
-      [yY]*) echo "Okay then..." ;;
-      *) echo "Aborting."; return 1 ;;
+      [yY]*) echo >&2 "Okay then..." ;;
+      *) echo >&2 "Aborting."; return 1 ;;
     esac
   else
     OPTS+=( --update )
@@ -463,7 +501,7 @@ function bkup__restore_all() {
 function _require_file() {
   local FILE="$1"
   if ! [[ -e "${FILE}" ]]; then
-    echo "${FILE} is missing.  Run \"bkup setup\"."
+    echo >&2 "${FILE} is missing.  Run \"bkup setup\"."
     exit 1
   fi
 }
@@ -489,7 +527,7 @@ function main() {
     "bkup__${cmdname}" "$@"
     ABNORMAL=0
   else
-    echo "Unknown command ${cmdname}"
+    echo >&2 "Unknown command ${cmdname}"
     echo ""
     bkup__help commands
     ABNORMAL=0
