@@ -1,11 +1,11 @@
 #!/bin/bash
 
 read -r -d '' USAGE <<'EOT'
-. __ _  ___  ___ 
+. __ _  ___  ___
  / _` |/ _ \/ _ \  git
 | (_| |  __/  __/  enabled
  \__, |\___|\___|  enfabrication
- |___/           
+ |___/
 
 gee version: {{VERSION}}
 
@@ -100,16 +100,16 @@ EOT
 #    $feature: fork of main (or other $feature), contains
 #        local changes.  May have 0 or 1 PRs associated with it.
 #    origin/$feature: github backup of $feature branch.
-# 
+#
 # Updates flow in one direction through these branches:
-# 
+#
 #   upstream/main -> main -> origin/main -> $feature -> origin/$feature
-# 
+#
 # The user only commits changes to $feature.
-# 
+#
 # Changes then migrate from origin/$feature back to upstream/main when a PR is
 # approved and merged.
-# 
+#
 # Note: We are transitioning from "master" to "main."  Gee always tries to find
 # a "main" remote branch first, but falls back to "master" if "main" does not
 # exist.
@@ -222,13 +222,13 @@ _COLOR_INFO="$(tput setaf 1)"
 
 ##########################################################################
 # utility functions
-# 
+#
 # (the good stuff, the commands, are in the next section below.)
 ##########################################################################
 
-function __git_eread () {
+function __git_eread() {
   # Used by _gee_rebase_prompt
-	test -r "$1" && IFS=$'\r\n' read -r "$2" <"$1"
+  test -r "$1" && IFS=$'\r\n' read -r "$2" <"$1"
 }
 
 # This function might be improved in the future for users to use as a
@@ -240,90 +240,90 @@ function gee__prompt() {
 function _gee_rebase_prompt() {
   # Prompt to be used while in an interactive conflict resolution shell.
   # cribbed from git-prompt.sh
-	# preserve exit status
-	local exit=$?
-	local detached=no
+  # preserve exit status
+  local exit=$?
+  local detached=no
 
-	local repo_info rev_parse_exit_code
-	repo_info="$(git rev-parse \
+  local repo_info rev_parse_exit_code
+  repo_info="$(git rev-parse \
     --git-dir \
     --is-inside-git-dir \
 		--short HEAD 2>/dev/null)"
-	rev_parse_exit_code="$?"
+  rev_parse_exit_code="$?"
 
-	if [ -z "$repo_info" ]; then
-		return $exit
-	fi
+  if [ -z "$repo_info" ]; then
+    return $exit
+  fi
 
-	local short_sha=""
-	if [ "$rev_parse_exit_code" = "0" ]; then
-		short_sha="${repo_info##*$'\n'}"
-		repo_info="${repo_info%$'\n'*}"
-	fi
-	local inside_gitdir="${repo_info##*$'\n'}"
-	local g="${repo_info%$'\n'*}"
+  local short_sha=""
+  if [ "$rev_parse_exit_code" = "0" ]; then
+    short_sha="${repo_info##*$'\n'}"
+    repo_info="${repo_info%$'\n'*}"
+  fi
+  local inside_gitdir="${repo_info##*$'\n'}"
+  local g="${repo_info%$'\n'*}"
 
-	if [ "true" = "$inside_gitdir" ] &&
-	   [ -n "${GIT_PS1_HIDE_IF_PWD_IGNORED-}" ] &&
-	   [ "$(git config --bool bash.hideIfPwdIgnored)" != "false" ] &&
-	   git check-ignore -q .
-	then
-		return $exit
-	fi
+  if [ "true" = "$inside_gitdir" ] &&
+  [ -n "${GIT_PS1_HIDE_IF_PWD_IGNORED-}" ] &&
+  [ "$(git config --bool bash.hideIfPwdIgnored)" != "false" ] &&
+  git check-ignore -q .
+  then
+    return $exit
+  fi
 
-	local r=""
-	local b=""
-	local step=""
-	local total=""
-	if [ -d "$g/rebase-merge" ]; then
-		__git_eread "$g/rebase-merge/head-name" b
-		__git_eread "$g/rebase-merge/msgnum" step
-		__git_eread "$g/rebase-merge/end" total
-		r="|REBASE"
-	else
-		if [ -d "$g/rebase-apply" ]; then
-			__git_eread "$g/rebase-apply/next" step
-			__git_eread "$g/rebase-apply/last" total
-			if [ -f "$g/rebase-apply/rebasing" ]; then
-				__git_eread "$g/rebase-apply/head-name" b
-				r="|REBASE"
-			elif [ -f "$g/rebase-apply/applying" ]; then
-				r="|AM"
-			else
-				r="|AM/REBASE"
-			fi
-		elif [ -f "$g/MERGE_HEAD" ]; then
-			r="|MERGING"
-		elif [ -f "$g/BISECT_LOG" ]; then
-			r="|BISECTING"
-		fi
+  local r=""
+  local b=""
+  local step=""
+  local total=""
+  if [ -d "$g/rebase-merge" ]; then
+    __git_eread "$g/rebase-merge/head-name" b
+    __git_eread "$g/rebase-merge/msgnum" step
+    __git_eread "$g/rebase-merge/end" total
+    r="|REBASE"
+  else
+    if [ -d "$g/rebase-apply" ]; then
+      __git_eread "$g/rebase-apply/next" step
+      __git_eread "$g/rebase-apply/last" total
+      if [ -f "$g/rebase-apply/rebasing" ]; then
+        __git_eread "$g/rebase-apply/head-name" b
+        r="|REBASE"
+      elif [ -f "$g/rebase-apply/applying" ]; then
+        r="|AM"
+      else
+        r="|AM/REBASE"
+      fi
+    elif [ -f "$g/MERGE_HEAD" ]; then
+      r="|MERGING"
+    elif [ -f "$g/BISECT_LOG" ]; then
+      r="|BISECTING"
+    fi
 
-		if [ -n "$b" ]; then
-			:
-		elif [ -h "$g/HEAD" ]; then
-			# symlink symbolic ref
-			b="$(git symbolic-ref HEAD 2>/dev/null)"
-		else
-			local head=""
-			if ! __git_eread "$g/HEAD" head; then
-				return $exit
-			fi
-			# is it a symbolic ref?
-			b="${head#ref: }"
-			if [ "$head" = "$b" ]; then
-				detached=yes
-				b="$( git describe --tags --exact-match HEAD 2>/dev/null)" ||
-				b="$short_sha..."
-				b="($b)"
-			fi
-		fi
-	fi
+    if [ -n "$b" ]; then
+      :
+    elif [ -h "$g/HEAD" ]; then
+      # symlink symbolic ref
+      b="$(git symbolic-ref HEAD 2>/dev/null)"
+    else
+      local head=""
+      if ! __git_eread "$g/HEAD" head; then
+        return $exit
+      fi
+      # is it a symbolic ref?
+      b="${head#ref: }"
+      if [ "$head" = "$b" ]; then
+        detached=yes
+        b="$( git describe --tags --exact-match HEAD 2>/dev/null)" ||
+        b="$short_sha..."
+        b="($b)"
+      fi
+    fi
+  fi
 
-	if [ -n "$step" ] && [ -n "$total" ]; then
+  if [ -n "$step" ] && [ -n "$total" ]; then
     r="$r ($step/$total)"
-	fi
+  fi
 
-	b=${b##refs/heads/}
+  b=${b##refs/heads/}
 
   local d
   d="$("${PWD_CMD}")"
@@ -336,7 +336,7 @@ function _gee_rebase_prompt() {
   fi
   printf -- "${COLOR}%s%s%s %s${RST}\n$ " "${GEE_STATUS}" "${b}" "${r}" "${d}"
 
-	return $exit
+  return $exit
 }
 
 function _contains_element() {
@@ -640,7 +640,7 @@ function _startup_checks() {
     esac
     eval "$(enkit agent print)"
   fi
-  
+
   set +e
   ssh-add -l >/dev/null
   RC=$?
@@ -1322,7 +1322,7 @@ function _rebase_child_onto_parent() {
   # TODO(jonathan): check if origin is ahead of local, and if so, do a git pull --rebase
   # operation.  This will allow multi-homed gee to work better.
 
-  MB=$("${GIT}" merge-base "${PARENT}" "${CHILD}")  
+  MB=$("${GIT}" merge-base "${PARENT}" "${CHILD}")
   local -a COMMITS
   mapfile -t COMMITS < <(
     "${GIT}" log --oneline "${MB}..${CHILD}" )
@@ -1490,7 +1490,7 @@ function _read_parents_file() {
   if [[ ! -f "${PATH}" ]]; then
     /usr/bin/touch "${PATH}"
   fi
-  local BRANCH PARENT MB 
+  local BRANCH PARENT MB
   while read -r BRANCH PARENT MB; do
     PARENTS["${BRANCH}"]="${PARENT}"
     MERGEBASES["${BRANCH}"]="${MERGEBASE}"
@@ -1639,8 +1639,8 @@ function gee__init() {
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
   _git remote -v
- 
-  # Fix the name of the main branch to match the actual branch name: 
+
+  # Fix the name of the main branch to match the actual branch name:
   local OLD_MAIN="${MAIN}"
   unset MAIN
   _set_main_by_asking_github
@@ -1729,7 +1729,7 @@ function gee__log() {
   local -a PRETTYLOG=(
       log
       --color
-      --graph 
+      --graph
       "--pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'"
       --abbrev-commit
   )
@@ -1770,13 +1770,13 @@ function gee__diff() {
 ## ##########################################################################
 ## # squash command
 ## ##########################################################################
-## 
+##
 ## _register_help "squash" "Squash all commits in this branch." <<'EOT'
 ## Usage: gee squash
-## 
+##
 ## Squash all commits in this branch to a single commit.
 ## EOT
-## 
+##
 ## function gee__squash() {
 ##   _check_cwd
 ##   # Note: there is no longer any need to squash before sending out for review,
@@ -1823,7 +1823,7 @@ function gee__diff() {
 ##   head -n 1 "${TMPFILE}"
 ##   _confirm_or_exit \
 ##     "Are you sure you want to squash ${NUM_COMMITS} commits? (y/N)  "
-## 
+##
 ##   _git reset --soft "${MERGE_BASE}"
 ##   _git add --all
 ##   _git commit -a -F "${TMPFILE}"
@@ -2057,7 +2057,7 @@ function gee__whatsout() {
   BRANCH="$(_get_current_branch)"
   _set_main
   MERGEBASE="$(git merge-base "origin/${MAIN}" "${BRANCH}")"
-  _git diff --name-only "${MERGEBASE}" 
+  _git diff --name-only "${MERGEBASE}"
 }
 
 ##########################################################################
@@ -2135,7 +2135,7 @@ EOT
 
 function gee__set_parent() {
   _check_cwd
-  local BRANCH PARENT 
+  local BRANCH PARENT
   BRANCH="$(_get_current_branch)"
   PARENT="$1"
   if [[ -z "${PARENT}" ]]; then
@@ -2234,7 +2234,7 @@ function gee__pr_checkout() {
   _checkout_or_die "${BRANCH}"
   git push origin "${BRANCH}"
   _info "Pulled PR #${PRNUM} into branch \"${BRANCH}\""
-} 
+}
 
 ##########################################################################
 # pr_list command
@@ -2330,7 +2330,7 @@ EOT
 function gee__edpr() { gee__pr_edit "$@"; }
 function gee__pred() { gee__pr_edit "$@"; }
 function gee__edit_pr() { gee__pr_edit "$@"; }
-function gee__pr_edit() { 
+function gee__pr_edit() {
   _check_cwd
   _check_gh_auth
   local CURRENT_BRANCH
@@ -2476,7 +2476,7 @@ function gee__pr_make() {
     _warn "Don't forget to add reviewers!"
   fi
 }
-  
+
 
 ##########################################################################
 # submit_pr command
@@ -2518,7 +2518,7 @@ function gee__pr_submit() {
   _info "PR contains ${#COMMITS[@]} commits, changing ${#FILES[@]} files."
 
   _confirm_or_exit "About to merge.  Confirm? (y/N)  "
- 
+
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
     # gh-cli treats this as a special case for some reason.
@@ -2537,7 +2537,7 @@ function gee__pr_submit() {
     _fatal "Uh oh!  Even after merge, these files have local changes:" \
       "  ${DIFFS[*]}"
   fi
-   
+
   # Reset this to be the same as ${MAIN}:
   _git checkout -B "${CURRENT_BRANCH}" "upstream/${MAIN}"
   _git push -u origin "+${CURRENT_BRANCH}"
@@ -2554,7 +2554,7 @@ Removes a branch and it's associated directory.
 EOT
 
 function gee__rmbr() { gee__remove_branch "$@"; }
-function gee__remove_branch() { 
+function gee__remove_branch() {
   local BR="$1";
   if [[ -z "${BR}" ]]; then
     BR="$(_get_current_branch)"
@@ -2722,7 +2722,7 @@ function gee__gcd() {
   REL_PATH="${ABS_PATH#"${CURRENT_ROOT}"}"
   REL_PATH="${REL_PATH#\/}"
 
-  # check whether BRANCH exists: 
+  # check whether BRANCH exists:
   if ! _local_branch_exists "${BRANCH}"; then
     if (( OPT_B == 1 )); then
       gee__mkbr "${BRANCH}" >&2
@@ -2929,8 +2929,8 @@ function gee__bash_setup() {
 #
 #   eval "$(enkit gee bash_setup)"
 
-function gee() { 
-  if [[ -x ~/bin/gee ]]; then 
+function gee() {
+  if [[ -x ~/bin/gee ]]; then
     # use locally installed gee if available.
     ~/bin/gee "$@";
   else
