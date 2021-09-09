@@ -234,30 +234,26 @@ function _parse_options() {
   # This function populates the global FLAGS associative array with all
   # of the set flags.  Any remaining positional arguments are left behind
   # in the ARGS_POSITIONAL array
-  FLAGS=()
-  ARGS_POSITIONAL=()
+  export FLAGS=()
+  export ARGS_POSITIONAL=()
   local optstring="$1"; shift
   local arg
   OPTERR=0  # enable silent error reporting
   while [[ $# -gt 0 ]]; do
-    unset OPTIND
     unset OPTARG
+    unset OPTIND
     while getopts "${optstring}" arg; do
       if [[ "${arg}" == "?" ]]; then
         local x
         x=$((OPTIND-1))
         _fatal "Bad command flag: ${!x}"
       fi
-      if [[ -n "${OPTARG}" ]]; then
-        FLAGS["${arg}"]="${OPTARG}"
-      else
-        FLAGS["${arg}"]=1
-      fi
+      FLAGS["${arg}"]="${OPTARG:-1}"
     done
     shift $((OPTIND-1))
     if [[ $# -gt 0 ]]; then
       ARGS_POSITIONAL+=( "$1" )
-      shift;
+      shift
     fi
   done
   return 0
