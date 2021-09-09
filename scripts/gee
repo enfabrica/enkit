@@ -2238,6 +2238,57 @@ function gee__lsbranches() {
 }
 
 ##########################################################################
+# cleanup command
+##########################################################################
+_register_help "cleanup" \
+  "Automatically remove branches without local changes." <<'EOT'
+Usage: gee cleanup
+
+Automatically removes branches without local changes.
+EOT
+
+function gee__cleanup() {
+  _set_main
+  _read_parents_file
+
+  if ! _in_gee_repo; then
+    cd "${REPO_DIR}"
+  fi
+  if ! _in_gee_branch; then
+    cd "${REPO_DIR}/${MAIN}"
+  fi
+
+  local -a branches;
+  mapfile -t branches < <( "${GIT}" branch --format "%(refname:short)")
+
+  local -a empty=()
+  local br
+  for br in "${branches[@]}"; do
+    if [[ "${br}" != "${MAIN}" ]]; then
+      local parent
+      parent="$(_get_parent_branch "${br}")"
+      local -a  counts=()
+      read -r -a counts < <("${GIT}" rev-list --left-right --count "${parent}...${br}")
+      _checkout_or_die "${br}"
+      if [[ -z "$("${GIT}" status --porcelain)" ]]; then
+        if (( counts[1] == 0 )); then
+          empty+=( "${br}" )
+        fi
+      fi
+    fi
+  done
+
+  _info "The following branches have no local changes:"
+  _info "  ${empty[*]}"
+  _checkout_or_die "${MAIN}"
+  for br in "${empty[@]}"; do
+    if _confirm_default_no "Do you want to remove the \"${br}\" branch? (y/N)  "; then
+      gee__rmbr "${br}"
+    fi
+  done
+}
+
+##########################################################################
 # get_parent command
 ##########################################################################
 
@@ -2699,15 +2750,23 @@ function gee__remove_branch() {
   else
     shift
   fi
+
+  _banner "Deleting ${BR}"
   _checkout_or_die "${BR}"
   _set_main
-  local DIFFS
-  DIFFS="$(${GIT} diff --name-only "${MAIN}..${BR}" )"
-  if [[ -n "${DIFFS}" ]]; then
-    echo "The following files have local changes relative to ${MAIN}:"
-    echo "  ${DIFFS}"
+  local -a  counts=()
+  read -r -a counts < <("${GIT}" rev-list --left-right --count "${MAIN}...${BR}")
+  if (( counts[1] != 0 )); then
+    _warn "Branch \"${BR}\" is ${counts[1]} commit(s) ahead of ${MAIN}."
     _confirm_or_exit "Are you sure you want to force-remove branch ${BR}? (y/N) "
+    _info "As you wish."
   fi
+  if [[ -n "$("${GIT}" status --porcelain)" ]]; then
+    _warn "Branch \"${BR}\" contains uncommitted changes."
+    _confirm_or_exit "Are you sure you want to force-remove branch ${BR}? (y/N) "
+    _info "Whatever you say, boss."
+  fi
+
   local SHA
   SHA="$("${GIT}" reflog | head -n 1 | awk '{print $1}' )"
 
