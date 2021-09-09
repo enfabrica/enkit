@@ -2845,16 +2845,29 @@ function gee__fix() {
         "${BZL_FILES[@]}"
   fi
 
-  # clang-format:
-  local -a CLANG_FILES=()
-  for FNAME in "${FILES[@]}"; do
-    if [[ "${FNAME}" =~ \.h$|\.c$|\.cc$|\.cpp ]]; then
-      CLANG_FILES+=( "${FNAME}" )
+  # clang-format, if available:
+  if [[ -x /usr/bin/clang-format-10 ]]; then
+    local -a CLANG_FILES=()
+    for FNAME in "${FILES[@]}"; do
+      if [[ "${FNAME}" =~ \.h$|\.c$|\.cc$|\.cpp ]]; then
+        CLANG_FILES+=( "${FNAME}" )
+      fi
+    done
+    if (( "${#CLANG_FILES[@]}" )); then
+      _info "clang-format: Fixing ${CLANG_FILES[*]}"
+      _cmd /usr/bin/clang-format-10 --verbose --style=Google -i "${CLANG_FILES[@]}"
     fi
-  done
-  if (( "${#CLANG_FILES[@]}" )); then
-    _info "clang-format: Fixing ${CLANG_FILES[*]}"
-    _cmd /usr/bin/clang-format-10 --verbose --style=Google -i "${CLANG_FILES[@]}"
+  fi
+
+  # pyformat, if available:
+  if [[ -x "${BDIR}/pyformat.sh" ]]; then
+    local -a PY_FILES=()
+    for FNAME in "${FILES[@]}"; do
+      if [[ "${FNAME}" =~ \.py$ ]]; then
+        PY_FILES+=("${FNAME}")
+      fi
+    done
+    _cmd "${BDIR}/pyformat.sh" "${PY_FILES[@]}"
   fi
 
   # TODO(jonathan): Add more formatters.
