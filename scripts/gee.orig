@@ -123,11 +123,27 @@ if [[ -n "${DEBUG}" ]]; then
   set -x
 fi
 
-# Funny story: sometimes doing a git rebase operation re-creates a directory,
-# leaving the user in a directory associated with a detached node.  When gee is
-# executed in that context, getcwd fails and gee gets understandably confused.
-# However, "cd ." fixes the issue.
-cd .  # getcwd sometimes gets confused after a rebase.
+function _fix_pwd() {
+  # Make sure we're in a real directory.
+  #
+  # Sometimes funny things happen with git and directories:
+  #  - git rebase can re-create a directory, changing the inode and leaving pwd
+  #    invalid.
+  #  - removing a worktree can leave the pwd in an invalid directory.
+  #
+  # Let's make sure we're in a directory that exists:
+  local PIFS="${IFS}"
+  local D="${PWD}"
+  cd /
+  local p
+  IFS="/"; for p in ${D}; do
+    if [[ -n "$p" && -d "$p" ]]; then
+      cd "$p"
+    fi
+  done
+  IFS="${PIFS}"
+}
+_fix_pwd
 
 # Globals:
 readonly VERSION="0.1"
@@ -135,6 +151,7 @@ declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
 declare -A MERGEBASES  # initialized by _load_parents_file
+declare -A BRANCH_TO_WORKTREE=()
 readonly TRUE=0
 readonly FALSE=1
 readonly GIT=/usr/bin/git
@@ -144,6 +161,7 @@ readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
 readonly ENKIT=/opt/enfabrica/bin/enkit
 readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
+readonly CLONE_DEPTH=3  # a little bit of history
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
 DRYRUN="${DRYRUN:-0}"
@@ -154,6 +172,11 @@ REPO="${REPO:-}"
 PAGER="${PAGER:-less}"
 PARENTS_FILE_IS_LOADED=0
 PWD_CMD="$(command -v pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
+
+# Make sure we're in a directory that exists:
+while ! "${PWD_CMD}" >/dev/null; do
+  cd ..
+done
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
@@ -190,6 +213,7 @@ fi
 # colors library
 _COLOR_RST="$(tput sgr0)"
 _COLOR_CMD="$(tput bold; tput setaf 12; tput rev)"
+_COLOR_BANNER="$(tput bold; tput setab 21; tput setaf 15)"
 #_COLOR_CMD="$(tput bold; tput setaf 14; tput setab 16)"
 _COLOR_DBG="$(tput setaf 2)"
 _COLOR_DIE="$(tput bold; tput setaf 15; tput setab 3)"
@@ -202,8 +226,8 @@ _COLOR_INFO="$(tput setaf 1)"
 # (the good stuff, the commands, are in the next section below.)
 ##########################################################################
 
-function __git_eread ()
-{
+function __git_eread () {
+  # Used by _gee_rebase_prompt
 	test -r "$1" && IFS=$'\r\n' read -r "$2" <"$1"
 }
 
@@ -316,6 +340,8 @@ function _gee_rebase_prompt() {
 }
 
 function _contains_element() {
+  # Returns true if the first argument is present in one of the subsequent
+  # arguements.
   local MATCH="$1"
   shift
   local E
@@ -327,8 +353,11 @@ function _contains_element() {
   return 1
 }
 
-# returns a new array
 function _egrep_array() {
+  # Usage: _egrep_array <output> <regex> <elements...>
+  #
+  # Filters a list of elements by a regex, and stores an array of those
+  # filtered elements into the specified "output" variable.
   local OUTPUT="$1"
   local REGEX="$2"
   unset "${OUTPUT}"
@@ -337,6 +366,7 @@ function _egrep_array() {
 }
 
 function _set_alias_if_missing() {
+  # Creates a git alias, only if one does not already exist.
   local ALIAS="$1"
   local DEFN="$2"
   if ! "${GIT}" config --get "alias.${ALIAS}" >/dev/null; then
@@ -344,18 +374,7 @@ function _set_alias_if_missing() {
   fi
 }
 
-function _set_main() {
-  # Use cached result if available:
-  if [[ -n "${MAIN}" ]]; then return; fi
-  # If a master or main branch exist on our local file system, assume:
-  if [[ -d "${REPO_DIR}/master" ]]; then
-    MAIN=master
-    return
-  elif [[ -d "${REPO_DIR}/main" ]]; then
-    MAIN=main
-    return
-  fi
-  # Ok, let's ask github:
+function _set_main_by_asking_github() {
   _check_ssh
   local UPSTREAM_URL
   UPSTREAM_URL="${GIT_AT_GITHUB}:${UPSTREAM}/${REPO}.git"
@@ -368,7 +387,30 @@ function _set_main() {
   fi
 }
 
+function _set_main() {
+  # Sets the ${MAIN} global variable to be the name of the main branch of the
+  # current repository.  Usually "main" or "master," but not always.
+
+  # Use a cached result if available:
+  if [[ -n "${MAIN}" ]]; then return; fi
+
+  # If a master or main branch exist on our local file system, assume:
+  if [[ -d "${REPO_DIR}/master" ]]; then
+    MAIN=master
+    return
+  elif [[ -d "${REPO_DIR}/main" ]]; then
+    MAIN=main
+    return
+  fi
+
+  # Ok, let's ask github:
+  _set_main_by_asking_github
+}
+
 function _set_ghuser() {
+  # Attempts to ensure that the GHUSER environment variable is set correctly.
+  # If GHUSER is unset, _set_ghuser first tries to get the username from
+  # github.  Failing that, the default username of $(whoami)-enf is set.
   if [[ -n "${GHUSER}" ]]; then
     return 0
   fi
@@ -409,6 +451,7 @@ function _set_ghuser() {
 
 
 function _check_ssh_agent() {
+  # Check that the ssh-agent is loaded and reachable.
   if [[ -z "${SSH_AGENT_PID}" ]]; then
     _warn "SSH_AGENT_PID is not set."
     _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
@@ -435,6 +478,7 @@ function _check_ssh_agent() {
 }
 
 function _check_enkit_cert() {
+  # Check if we have a valid enkit authentication token.
   local COUNT
   COUNT="$("${ENKIT}" agent print | wc -l)"
   if (( COUNT == 0 )); then
@@ -453,6 +497,8 @@ function _check_enkit_cert() {
 }
 
 function _check_ssh() {
+  # Troubleshoot ssh connection to github.
+
   # First check if we have an ssh-agent running:
   _check_ssh_agent
 
@@ -472,7 +518,6 @@ function _check_ssh() {
   _warn "Could not authenticate to github using ssh."
   _info "ssh -T \"${GIT_AT_GITHUB}\" got:"
   _info "  ${OUTPUT}"
-<<<<<<< HEAD
 
   if [[ -f "${SSHKEYFILE}" ]]; then
     _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
@@ -486,34 +531,16 @@ function _check_ssh() {
       return 0
     fi
     _warn "Still couldn't authenticate to github using ssh."
-    _info "ssh -T git@github.com got:"
+    _info "ssh -T ${GIT_AT_GITHUB} got:"
     _info "  ${OUTPUT}"
   fi
-||||||| constructed merge base
-=======
-
-  if [[ -f "${SSHKEYFILE}" ]]; then
-    _info "Perhaps you need to run: ssh-add ${SSHKEYFILE}"
-    _cmd ssh-add "${SSHKEYFILE}"
-    _info "Trying again..."
-    set +e
-    OUTPUT="$(ssh -T git@github.com 2>&1)"
-    set -e
-    if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
-      GHUSER="${BASH_REMATCH[1]}"
-      return 0
-    fi
-    _warn "Still couldn't authenticate to github using ssh."
-    _info "ssh -T git@github.com got:"
-    _info "  ${OUTPUT}"
-  fi
->>>>>>> Added back key generation.
   return 1
 }
 
 function _check_gh_auth() {
+  # Check that the gh-cli tool has a valid access token for
+  # communicating with github.
   local OUTPUT RC
-
 
   set +e
   OUTPUT="$("${GH}" auth status 2>&1)";
@@ -531,20 +558,24 @@ function _check_gh_auth() {
 
 
 function _check_cwd() {
+  # Check that we're in a directory beneath ~/gee.
   local DIR
   DIR="$("${PWD_CMD}")"
-  if ! [[ "$DIR" =~ ^"${GEE_DIR}"/[a-zA-Z0-9_-]+/ ]]; then
+  if ! [[ "$DIR" =~ ^"${GEE_DIR}"/[a-zA-Z0-9_-]+ ]]; then
+    echo "${DIR}"
     _fatal "This command must be run from with a branch directory beneath ~/gee."
   fi
 }
 
 function _get_ghuser_via_ssh() {
+  # Set GHUSER or die.
   if ! _check_ssh; then
     _fatal "Could not determine github username."
   fi
 }
 
 function _startup_checks() {
+  # Troubleshoot our environment before running (most) commands.
   if [[ ! -x "${GIT}" ]]; then
     _fatal "${GIT} is not installed."
   fi
@@ -584,36 +615,47 @@ function _startup_checks() {
   fi
 
   # check ssh agent
-  if ! ssh-add -l > /dev/null; then
-    local RC=$?
-    if (( RC == 2 )); then
-      _warn "Could not connect to ssh-agent."
-      _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
-      local RESP
-      read -r -p \
-        "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
-        RESP
-      case "${RESP}" in
-        [Yy]*)
-          printf "eval \`enkit agent print\`\n" >> ~/.bashrc
-          ;;
-      esac
-      eval "$(enkit agent print)"
+  local RC
+  set +e
+  ssh-add -l >/dev/null
+  RC=$?
+  set -e
+  if (( RC == 0 )); then
+    return 0
+  elif (( RC == 1 )); then
+    if [[ -f "${SSHKEYFILE}" ]]; then
+      _cmd ssh-add "${SSHKEYFILE}"
     fi
+  elif (( RC == 2 )); then
+    _warn "Could not connect to ssh-agent."
+    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+    local RESP
+    read -r -p \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
+      RESP
+    case "${RESP}" in
+      [Yy]*)
+        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+        ;;
+    esac
+    eval "$(enkit agent print)"
   fi
-  if ! ssh-add -l > /dev/null; then
-    local RC=$?
-    if (( RC == 1 )); then
-      _fatal "ssh-agent doesn't report any keys.  Please \"enkit login\" and try again."
-    fi
-    if (( RC == 2 )); then
-      _fatal "Persistent failure connecting to ssh-agent."
-    fi
+  
+  set +e
+  ssh-add -l >/dev/null
+  RC=$?
+  set -e
+  if (( RC == 1 )); then
+    _fatal "ssh-agent doesn't report any keys.  Please \"enkit login\" and try again."
+  elif (( RC == 2 )); then
+    _fatal "Persistent failure connecting to ssh-agent."
+  elif (( RC != 0 )); then
     _fatal "Unknown error from ssh-add command: RC=${RC}"
   fi
 }
 
 function _ssh_enroll() {
+  # Enroll the user for ssh access to github by creating and uploading a keyfile.
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
     _warn "No ssh-agent is running."
     _info "Please add \"eval \`enkit agent print\`\" to your .bashrc"
@@ -653,7 +695,6 @@ function _ssh_enroll() {
     fi
   fi
 
-<<<<<<< HEAD
   local COUNT
   COUNT="$("${ENKIT}" agent list | wc -l)"
   if (( COUNT == 0 )); then
@@ -675,6 +716,7 @@ Host *.github.com
 EOT
 
   _cmd ssh-add "${SSHKEYFILE}"
+  _gh config set git_protocol ssh
 
 
   # Override BROWSER because xdg-open opens links2 on some systems, and
@@ -687,20 +729,6 @@ EOT
   _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
 
   _gh ssh-key list
-||||||| constructed merge base
-  _gh config set git_protocol ssh
-=======
-  # TODO(jonathan): Is this necessary?
-  cat <<EOT >> ~/.ssh/config
-# gee: block start
-Host *.github.com
-  IdentityFile ${SSHKEYFILE}
-# gee: block stop
-EOT
-
-  _cmd ssh-add "${SSHKEYFILE}"
-  _gh config set git_protocol ssh
->>>>>>> Added back key generation.
 
   # Override BROWSER because xdg-open opens links2 on some systems, and
   # links2 doesn't support github.
@@ -777,6 +805,25 @@ function _get_parent_branch() {
   echo "${MAIN}"
 }
 
+function _update_branch_to_worktree() {
+  # Initialize the global BRANCH_TO_WORKTREE associative array with
+  # a mapping of branch names onto worktree paths.
+  BRANCH_TO_WORKTREE=()  # global
+  local LINE WT BR
+  _set_main
+  while IFS="" read -r LINE; do
+    if [[ "${LINE}" =~ ^worktree\ (.+) ]]; then
+      WT="${BASH_REMATCH[1]}"
+    elif [[ "${LINE}" =~ ^branch\ refs/heads/(.+) ]]; then
+      BR="${BASH_REMATCH[1]}"
+    elif [[ "${LINE}" == "" ]]; then
+      if [[ -n "${BR}" ]]; then
+        BRANCH_TO_WORKTREE["${BR}"]="${WT}"
+      fi
+    fi
+  done < <(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list --porcelain )
+}
+
 function _get_branch_rootdir() {
   # Return the root directory of a git branch
   local BRANCH_NAME BRDIR
@@ -784,10 +831,8 @@ function _get_branch_rootdir() {
   if [[ -z "${BRANCH_NAME}" ]]; then
 	  BRANCH_NAME="$(_get_current_branch)"
   fi
-  _set_main
-  BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list \
-    | grep -w "\[${BRANCH_NAME}\]" \
-    | awk '{print $1}' )"
+  _update_branch_to_worktree
+  BRDIR="${BRANCH_TO_WORKTREE["${BRANCH_NAME}"]}"
   if [[ -z "${BRDIR}" ]]; then
     _die "_get_branch_rootdir failed for ${BRANCH_NAME}"
   fi
@@ -795,6 +840,8 @@ function _get_branch_rootdir() {
 }
 
 function _confirm_default_yes() {
+  # Ask the user for confirmation, defaulting to "yes."
+  # Returns true if the user confirms.
   local _PROMPT RESP
   _PROMPT="$*"
   if [[ -z "${_PROMPT}" ]]; then
@@ -808,6 +855,8 @@ function _confirm_default_yes() {
 }
 
 function _confirm_default_no() {
+  # Ask the user for confirmation, defaulting to "no."
+  # Returns true if the user confirms.
   local _PROMPT RESP
   _PROMPT="$*"
   if [[ -z "${_PROMPT}" ]]; then
@@ -821,6 +870,8 @@ function _confirm_default_no() {
 }
 
 function _confirm_or_exit() {
+  # Ask the user for confirmation, defaulting to "no."
+  # Terminates gee if the user does not confirm.
   if ! _confirm_default_no "$@"; then
     _fatal "Exiting."
   fi
@@ -837,6 +888,24 @@ function _debug() {
 function _info() {
   printf >&2 "${_COLOR_INFO}%s${_COLOR_RST}\n" "$@"
 }
+
+# "The user needs this to visually separate information."
+function _banner() {
+  local COLS LEN BAR BLANK
+  COLS="$(tput cols)"
+  COLS="$(( COLS - 1 ))"
+  LEN="$( printf "%s\n" "$@" | wc -L )"
+  if (( LEN > (COLS-4) )); then
+    LEN="$(( COLS - 4 ))"
+  fi
+  BAR="$(head -c "$(( LEN + 4 ))" /dev/zero | tr '\0' '#')"
+  BLANK="$(head -c "$(( COLS - LEN - 4 ))" /dev/zero | tr '\0' ' ')"
+  printf "\n" >&2
+  printf "%s%s%s\n" "${_COLOR_BANNER}" "${BAR}" "${BLANK}" >&2
+  printf "# %-${LEN}.${LEN}s #${BLANK}\n" "$@" >&2
+  printf "%s%s%s\n" "${BAR}" "${BLANK}" "${_COLOR_RST}" >&2
+}
+
 
 # Warn the user.  "The user should know this."
 function _warn() {
@@ -868,6 +937,7 @@ function _die() {
 }
 
 function _cmd() {
+  # Run a command and generate associated log messages.
   local COLS ESCAPED_CMD
   COLS="$(tput cols)"
   ESCAPED_CMD="$( printf " %q" "$@")"
@@ -896,14 +966,17 @@ function _cmd() {
 }
 
 function _gh() {
+  # Invoke gh
   _cmd "${GH}" "$@"
 }
 
 function _git() {
+  # Invoke git
   _cmd "${GIT}" "$@"
 }
 
 function _silent_cmd() {
+  # Run a command and don't write anything to stdout.
   local ESCAPED_CMD
   ESCAPED_CMD="$( printf " %q" "$@")"
   if [[ $DRYRUN -eq 0 ]]; then
@@ -924,10 +997,13 @@ function _silent_cmd() {
 }
 
 function _git_can_fail() {
+  # Invoke git, but don't exit if git returns a non-zero exit code.
   NOFAIL=1 _git "$@"
 }
 
 function _install_tools() {
+  # Checks for and installs any missing tools.
+
   # If your dev image is missing the github-cli tool, this should install it.
   if [ ! -x "${GH}" ]; then
     _info "Installing missing tool: gh"
@@ -953,6 +1029,7 @@ function _install_tools() {
 }
 
 function _count_diffs() {
+  # Could the number of files that are different between two branches.
   local BRANCH_A BRANCH_B DIFFS
   BRANCH_A="$1"
   BRANCH_B="$2"
@@ -985,6 +1062,7 @@ function _branch_ahead_behind() {
 }
 
 function _remote_branch_exists() {
+  # Returns true if a remote branch exists (on "origin").
   local REPO="$1"; shift  # origin?
   local BRANCH="$1"; shift
   if [[ -z "${BRANCH}" ]]; then
@@ -1000,23 +1078,212 @@ function _remote_branch_exists() {
 }
 
 function _local_branch_exists() {
+  # Returns true if a local branch exists (even if it's worktree was deleted).
+  # Fixes up the worktree if the branch is missing from the worktree.
   local BRANCH="$1"; shift
   _set_main
+  if ! "${GIT}" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
+    return 1  # false
+  fi
+
+  # branch exists, but let's double check that worktree is set up correctly:
   local BRDIR
   BRDIR="${REPO_DIR}/${BRANCH}"
   if ! [[ -d "${BRDIR}" ]]; then
     # try to fix worktree.
     _git worktree add "${REPO_DIR}/${BRANCH}"
-    BRDIR="$(_get_branch_rootdir "${BRANCH}")"
     _info "Created ${BRDIR}"
   fi
-  BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list \
-    | grep -w "\[${BRANCH_NAME}\]" \
-    | awk '{print $1}' )"
+  _update_branch_to_worktree
+  BRDIR="${BRANCH_TO_WORKTREE["${BRANCH}"]}"
   if [[ -n "${BRDIR}" ]]; then
     return 0
   else
+    _fatal "Branch ${BRANCH} exists but could not create worktree."
     return 1
+  fi
+}
+
+function _open_rebase_shell() {
+    # Opens an interactive subshell for resolving conflicts during a rebase.
+    # This is the "old" flow, and it's a bit messy.
+    # TODO(jonathan): make the prompts less noisy.
+    export PROMPT_COMMAND="_gee_rebase_prompt"
+    local BOLD RST
+    BOLD="$(tput bold)"
+    RST="$(tput sgr0)"
+    export GEE_HELP=""
+    GEE_HELP+="You are interactively rebasing a branch with conflicts.${NEWLINE}"
+    GEE_HELP+="  To see where conflicts are: ${BOLD}git status${RST}${NEWLINE}"
+    GEE_HELP+="  To run a 3-way merge tool: ${BOLD}git mergetool${RST}${NEWLINE}"
+    GEE_HELP+="  To mark a file as fixed: ${BOLD}git add <file>${RST}${NEWLINE}"
+    GEE_HELP+="  To continue rebase after fixing: ${BOLD}git rebase --continue${RST}${NEWLINE}"
+    GEE_HELP+="  To give up and go back to original state: ${BOLD}git rebase --abort${RST}${NEWLINE}"
+    GEE_HELP+="  To return to gee: ${BOLD}exit${RST}${NEWLINE}"
+    export GEE_STATUS="GEE-REBASE-SUBSHELL: "
+    export PS1=""
+    export -f __git_eread
+    export -f _gee_rebase_prompt
+    _git status
+    _banner "Entering subshell: resolve conflicts or abort and then exit."
+    set +e
+    bash --noprofile --norc
+    _banner "Subshell terminated with exit code $?."
+    set -e
+}
+
+function _interactive_conflict_resolution() {
+  # The function walks the user through a rebase operation, one conflict at a
+  # time, and gives the user the option to use their file, the upstream file,
+  # skip the commit, run a mergetool, or abort.
+  local PARENT CHILD
+  PARENT="$1"
+  CHILD="$2"
+  if [[ -z "${CHILD}" ]]; then
+    _die "Must specify branch name."
+  fi
+  _info "CHILD=${CHILD}"
+  local CHILD_ROOT
+  CHILD_ROOT="${BRANCH_TO_WORKTREE["${CHILD}"]}"
+  _info "CHILD ROOT=${CHILD_ROOT}"
+  cd "${CHILD_ROOT}"
+  local ABORT=0
+  while _is_rebase_in_progress; do
+    local -a STATUS=()
+    mapfile -t STATUS < <( "${GIT}" status --porcelain )
+    # We're merging onto this commit:
+    local ONTO_COMMIT ONTO_DESC
+    ONTO_COMMIT="$("${GIT}" rev-parse HEAD)"
+    ONTO_DESC="$("${GIT}" show --oneline -s "${ONTO_COMMIT}")"
+    # This is the commit we're trying to apply:
+    local FROM_COMMIT FROM_DESC
+    FROM_COMMIT="$("${GIT}" rev-parse REBASE_HEAD)"
+    FROM_DESC="$("${GIT}" show --oneline -s "${FROM_COMMIT}")"
+
+    _banner "Attempting to apply: ${FROM_DESC}" \
+            "               onto: ${ONTO_DESC}" \
+            "Conflicts in ${#STATUS[@]} files."
+    local STATUS_LINE DONE SKIP RESTART
+    SKIP=0
+    RESTART=0
+    for STATUS_LINE in "${STATUS[@]}"; do
+      local DECODED_ST ST FILE
+      read -r ST FILE <<< "${STATUS_LINE}"
+      case "${ST}" in
+        # TODO(jonathan): do I have "us" and "them" backwards here?
+        DD) DECODED_ST="Both deleted" ;;
+        AU) DECODED_ST="Added by us" ;;
+        UD) DECODED_ST="Deleted by them" ;;
+        UA) DECODED_ST="Added by them" ;;
+        DU) DECODED_ST="Deleted by us" ;;
+        AA) DECODED_ST="Both added" ;;
+        UU) DECODED_ST="Both modified" ;;
+        *)  DECODED_ST="Bizarre!" ;;
+      esac
+      _info "" "${FILE}: ${ST}=${DECODED_ST}"
+
+      DONE=0
+      while (( DONE == 0 )); do
+        local M RESP
+        read -r -n1 -p \
+          "Keep (O)ld, (N)ew, (M)erge, (G)ui, (S)hell, (V)iew, s(K)ip, or (A)bort? " \
+          RESP
+        printf "\n"
+        # https://stackoverflow.com/questions/25576415/what-is-the-precise-meaning-of-ours-and-theirs-in-git
+        # During a rebase operation:
+        # "Ours" = branch being merged into = older version of file.
+        # "Theirs" = branch being merged from = newer version of file.
+        case "${RESP}" in
+          [Nn])
+            _info "Keeping newer ${FILE} from ${FROM_DESC}"
+            "${GIT}" checkout --theirs "${FILE}"
+            DONE=1
+            ;;
+          [Oo])
+            _info "Keeping older ${FILE} from ${ONTO_DESC}"
+            "${GIT}" checkout --ours "${FILE}"
+            DONE=1
+            ;;
+          [Mm])
+            _git mergetool "${FILE}"
+            M="$("${GIT}" diff --check "${FILE}" | grep "conflict marker" | wc -l)"
+            if (( M == 0 )); then
+              DONE=1
+            else
+              _warn "${FILE} still contains conflict markers."
+            fi
+            ;;
+          [Gg])
+            _git mergetool --gui "${FILE}"
+            M="$("${GIT}" diff --check "${FILE}" | grep "conflict marker" | wc -l)"
+            if (( M == 0 )); then
+              DONE=1
+            else
+              _warn "${FILE} still contains conflict markers."
+            fi
+            ;;
+          [Ss])
+            _open_rebase_shell
+            RESTART=1  # go back to beginning, maybe we're done?
+            DONE=1
+            ;;
+          [Vv])
+            _git rebase --show-current_patch | "${PAGER:-less}"
+            ;;
+          [Kk])
+            _info "Skipping commit: ${FROM_DESC}"
+            DONE=1
+            SKIP=1
+            ;;
+          [Aa])
+            _info "Aborting rebase, and resetting."
+            DONE=1
+            ABORT=1
+            ;;
+          *)
+            _error "Invalid choice: ${RESP}"
+            _info \
+              "Options are:" \
+              "  n: Keep (N)ewer file (from the patch being applied)." \
+              "  o: Keep (O)lder file (from the version being patched)." \
+              "  m: (M)erge: Runs \"git mergetool\" on this file." \
+              "  g: (G)UI Merge: Runs \"git mergetool --gui\" on this file." \
+              "  s: (S)hell: Opens a bash sub-shell for expert use." \
+              "  v: (V)iew: Show the patch being applied." \
+              "  k: s(K)ip: Skips a whole commit (all files)." \
+              "  a: (A)bort: Aborts and returns branch to original state."
+            ;;
+        esac
+      done  # DONE
+
+      if (( SKIP == 1 )); then break; fi
+      if (( ABORT == 1 )); then break; fi
+      if (( RESTART == 1 )); then break; fi
+    done  # STATUS_LINE
+
+    if (( SKIP == 1 )); then
+      _git rebase --skip
+      break
+    fi
+    if (( ABORT == 1 )); then break; fi
+    if (( RESTART == 1 )); then continue; fi
+
+    local -a MARKERS
+    mapfile -t MARKERS < <( "${GIT}" diff --check | grep "conflict marker" )
+
+    if (( "${#MARKERS[@]}" == 0 )); then
+      _git add .
+      _git_can_fail rebase --continue
+    else
+      _warn "Cannot proceed with rebase: conflict markers still present."
+      _info "${MARKERS[@]}"
+      _info "Try again..."
+    fi
+  done  # while rebase is in progress
+
+  if (( ABORT == 1 )); then
+    _git rebase --abort
+    return
   fi
 }
 
@@ -1048,6 +1315,10 @@ function _rebase_child_onto_parent() {
     _update_main
   fi
 
+  # update BRANCH_TO_WORKTREE before rebasing, as this information
+  # becomes unavailable when in detached head mode:
+  _update_branch_to_worktree
+
   # TODO(jonathan): check if origin is ahead of local, and if so, do a git pull --rebase
   # operation.  This will allow multi-homed gee to work better.
 
@@ -1068,41 +1339,7 @@ function _rebase_child_onto_parent() {
   PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
   if ! _git rebase --autostash "${PARENT}" "${CHILD}"; then
     _warn "Rebase operation had conflicts."
-    export PROMPT_COMMAND="git status; _gee_rebase_prompt"
-    local BOLD RST
-    BOLD="$(tput bold)"
-    RST="$(tput sgr0)"
-    export GEE_HELP=""
-    GEE_HELP+="You are interactively rebasing a branch with conflicts.${NEWLINE}"
-    GEE_HELP+="  To see where conflicts are: ${BOLD}git status${RST}${NEWLINE}"
-    GEE_HELP+="  To run a 3-way merge tool: ${BOLD}git mergetool${RST}${NEWLINE}"
-    GEE_HELP+="  To mark a file as fixed: ${BOLD}git add <file>${RST}${NEWLINE}"
-    GEE_HELP+="  To continue rebase after fixing: ${BOLD}git rebase --continue${RST}${NEWLINE}"
-    GEE_HELP+="  To give up and go back to original state: ${BOLD}git rebase --abort${RST}${NEWLINE}"
-    GEE_HELP+="  To return to gee: ${BOLD}exit${RST}${NEWLINE}"
-    export GEE_STATUS="GEE-REBASE-SUBSHELL: "
-    export PS1=""
-    export -f __git_eread
-    export -f _gee_rebase_prompt
-    _git status
-    _info "Entering subshell: resolve conflicts or abort and then exit."
-    set +e
-    bash --noprofile --norc
-    _info "Subshell terminated with exit code $?."
-    set -e
-
-    # TODO(jonathan): consider not letting the user escape until rebase either
-    # succeeds or is aborted:
-    # while _is_rebase_in_progress; do
-    #   if _is_rebase_in_progress; then
-    #     # attempt to continue
-    #     _git_can_fail rebase --continue
-    #   fi
-    #   if _is_rebase_in_progress; then
-    #     _info "Entering subshell: resolve conflicts or abort and then exit."
-    #     bash --noprofile --norc
-    #   fi
-    # done
+    _interactive_conflict_resolution "${PARENT}" "${CHILD}"
 
     if _is_rebase_in_progress; then
       local STATUS
@@ -1112,7 +1349,15 @@ function _rebase_child_onto_parent() {
       _fatal "Exited without resolving rebase conflict."
     fi
 
+<<<<<<< HEAD
+    # TODO(jonathan): I'm not sure if this works right:
+    if "${GIT}" merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
+||||||| constructed merge base
+    # TODO(jonathan): I'm not sure if this works right:
     if _git_can_fail merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
+=======
+    if "${GIT}" merge-base --is-ancestor "${PARENT_HEAD}" HEAD; then
+>>>>>>> ask before integrating commits from origin
       _info "Rebase merge confirmed."
     else
       _warn "Rebase did not succeed, aborting."
@@ -1125,6 +1370,7 @@ function _rebase_child_onto_parent() {
 }
 
 function _is_rebase_in_progress() {
+  # Is this branch currently in the middle of a rebase operation?
   local G
   G="$(git rev-parse --git-dir)"
   if compgen -G "${G}/rebase*" > /dev/null; then
@@ -1239,6 +1485,7 @@ function _update_main() {
 
 # Lazy-load parents metadata:
 function _read_parents_file() {
+  # Update the global PARENTS associative array from a file.
   if (( PARENTS_FILE_IS_LOADED )); then
     return
   fi
@@ -1259,6 +1506,7 @@ function _read_parents_file() {
 }
 
 function _write_parents_file() {
+  # Write back the global PARENTS associative array to a file.
   if ! (( PARENTS_FILE_IS_LOADED )); then
     return
   fi
@@ -1299,6 +1547,7 @@ function _join() {
 }
 
 function _get_pull_requests() {
+  # Prints list of PRs associated with this branch.
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   # "gh pr view" arguments are similar to "gh pr create" but not identical.
@@ -1323,6 +1572,7 @@ function _list_merged_pr_numbers() {
 }
 
 function _gh_pr_view() {
+  # Normalize the interface to calling "gh pr view"
   local CURRENT_BRANCH;
   CURRENT_BRANCH="$(_get_current_branch)"
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
@@ -1370,10 +1620,12 @@ function gee__init() {
 
   gee__hello
 
+  # _set_main won't work without a cloned repo, so assume MAIN for now
+  # and fix the branch name later.
+  MAIN=main
   _gh config set git_protocol ssh
   _check_gh_auth
 
-  _set_main  # will work without forked repo?
   _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
 
   if [[ -d "${REPO_DIR}/${MAIN}" ]]; then
@@ -1389,13 +1641,19 @@ function gee__init() {
   if ! "${GH}" repo list | grep "^${GHUSER}/${REPO}" > /dev/null; then
     _gh repo fork --clone=false "${UPSTREAM}/${REPO}"
   fi
-  _git clone "${URL}" "${REPO_DIR}/${MAIN}"
+  _git clone --depth "${CLONE_DEPTH}" "${URL}" "${REPO_DIR}/${MAIN}"
   cd "${REPO_DIR}/${MAIN}"
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
   _git remote -v
  
-  cd "${REPO_DIR}/${MAIN}"
+  # Fix the name of the main branch to match the actual branch name: 
+  local OLD_MAIN="${MAIN}"
+  unset MAIN
+  _set_main_by_asking_github
+  cd "${REPO_DIR}"
+  mv "${OLD_MAIN}" "${MAIN}"
+  cd "${MAIN}"
 
   _info "Created ${REPO_DIR}/${MAIN}"
 }
@@ -1614,8 +1872,14 @@ function gee__update() {
     read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
     if [[ "${COUNTS[1]}" -gt 0 ]]; then
       _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
-      _warn "Pulling in changes from origin/${CURRENT_BRANCH}"
-      _git rebase --autostash "origin/${CURRENT_BRANCH}"
+      _info "This could be caused by commiting changes to this branch from a different machine, " \
+            "or possibly you rebased your branch without pushing the updated branch to origin."
+      if _confirm_default_yes "Do you want to integrate changes from origin/${CURRENT_BRANCH}? (Y/n)  "; then
+        _info "Pulling in changes from origin/${CURRENT_BRANCH}"
+        HEAD="$("${GIT}" rev-parse HEAD)"
+        _info "Old head commit before rebase: ${HEAD}"
+        _git rebase --autostash "origin/${CURRENT_BRANCH}"
+      fi
     fi
   fi
 
@@ -1682,6 +1946,7 @@ function gee__rupdate() {
   local PREVIOUS_B
   PREVIOUS_B="${MAIN}"
   for B in "${CHAIN[@]}"; do
+    _banner "Updating branch \"${B}\""
     _checkout_or_die "${B}"
 
     # Check if we're rebasing onto a branch with uncommitted changes:
@@ -1761,6 +2026,7 @@ function gee__update_all() {
 
   local PARENT
   for B in "${CHAIN[@]}"; do
+    _banner "Updating branch \"${B}\""
     _checkout_or_die "${B}"
 
     # Check if we're rebasing onto a branch with uncommitted changes:
@@ -2422,7 +2688,9 @@ function gee__fix() {
 # TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 
 _register_help "gcd" "Find the current directory in a different branch." <<'EOT'
-Usage: gcd <branch>
+Usage: gcd [-b] <branch>
+
+The "-b" option will cause the branch to be created if it doesn't already exist.
 
 The "gcd" command is not meant to be used directly, but is instead designed to
 be called from the "gcd" bash function.
@@ -2439,40 +2707,68 @@ Or for a quick version:
 EOT
 
 function gee__gcd() {
-  local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH
+  local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH OPT_B
+  OPT_B=0
+  if [[ "$1" == "-b" ]]; then
+    OPT_B=1
+    shift
+  fi
   BRANCH="$1"
   _set_main
   if [[ -z "${BRANCH}" ]]; then
     BRANCH="${MAIN}"
   fi
 
-  if _in_gee_repo; then
-    CURRENT_BRANCH="$(_get_current_branch)"
-    if [[ -z "${CURRENT_BRANCH}" ]]; then
-      _die "Failed to get name of current branch."
-    fi
-    CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
-    ABS_PATH="$(readlink -f .)"
-    REL_PATH="${ABS_PATH#"${CURRENT_ROOT}"}"
-    REL_PATH="${REL_PATH#\/}"
-  else
-    REL_PATH=""
+  if ! _in_gee_branch; then
+    cd "${GEE_DIR}/${REPO}/${MAIN}"
   fi
- 
+  if ! _in_gee_branch; then
+    _die "Can't find ${REPO}/${MAIN} branch.  Something is very wrong here."
+  fi
+
+  CURRENT_BRANCH="$(_get_current_branch)"
+  if [[ -z "${CURRENT_BRANCH}" ]]; then
+    _die "Failed to get name of current branch."
+  fi
+  CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+  ABS_PATH="$(readlink -f .)"
+  REL_PATH="${ABS_PATH#"${CURRENT_ROOT}"}"
+  REL_PATH="${REL_PATH#\/}"
+
   # check whether BRANCH exists: 
-  _set_main
-  local BRDIR
-  if ! BRDIR="$(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list | grep -w "\[${BRANCH}\]")"; then
-    _fatal "Branch \"${REPO}/${BRANCH}\" not in worktree.  Maybe use make_branch?"
+  if ! _local_branch_exists "${BRANCH}"; then
+    if (( OPT_B == 1 )); then
+      gee__mkbr "${BRANCH}" >&2
+      if ! _local_branch_exists "${BRANCH}"; then
+        _fatal "Branch \"${REPO}/${BRANCH}\" could not be created."
+      fi
+    else
+      _fatal "Branch \"${REPO}/${BRANCH}\" does not exist.  Make use make_branch?"
+    fi
   fi
-  if [[ -z "${BRDIR}" ]]; then
-    _fatal "Branch \"${REPO}/${BRANCH}\" not in worktree.  Maybe use make_branch?"
+
+  local DIR
+  _update_branch_to_worktree
+  DIR="${BRANCH_TO_WORKTREE["${BRANCH}"]}"
+  if [[ -z "${DIR}" ]]; then
+    _die "Branch \"${REPO}/${BRANCH}\" exists but isn't in worktree?"
   fi
-  NEW_ROOT="$(_get_branch_rootdir "${BRANCH}")"
-  if [[ -z "${NEW_ROOT}" ]]; then
-    _die "Could not find root of branch ${REPO}/${BRANCH}.  Very strange!"
+  if [[ ! -d "${DIR}" ]]; then
+    _die "Branch \"${REPO}/${BRANCH}\" exists but ${DIR} is missing."
   fi
-  echo "${NEW_ROOT}/${REL_PATH}"
+
+  # Trim DIR to the longest path that exists in this branch.
+  local P PREV_IFS
+  PREV_IFS="${IFS}"
+  IFS="/"; for P in ${REL_PATH}; do
+    if [[ -d "${DIR}/${P}" ]]; then
+      DIR="${DIR}/${P}"
+    else
+      break
+    fi
+  done
+  PREV_IFS="${IFS}"
+  echo "${DIR}"
 }
 
 ##########################################################################
@@ -2743,6 +3039,10 @@ function gee__help() {
       fi
     done
   ) | "${PAGER}"
+}
+
+function gee__banner() {
+  _banner "$@"
 }
 
 ##########################################################################
