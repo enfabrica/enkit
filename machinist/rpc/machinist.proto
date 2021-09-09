@@ -69,3 +69,52 @@ service Controller {
   // The client will invoke Download when the server requests the client to upload a file.
   rpc Download(DownloadRequest) returns (stream DownloadResponse) {}
 }
+
+enum ReserveAction {
+  Reserve = 0;
+  Free = 1;
+
+}
+message ReserveRequest {
+  string time = 1; // should be a golang time parsable string, e.g. 25m or 200s
+  string name = 2;
+  string ip = 3; // if no name is present, the ip can be used to reserve a machine
+}
+
+message ReserveResponse {}
+
+enum TacAction {
+  Append = 0;
+  Delete = 1;
+}
+
+message TagRequest {
+  string tag = 1;
+  string name = 2;
+  string ip = 3; // if no name is present, the ip can be used to reserve a machine
+}
+
+message TagResponse{}
+
+// UserPlane is a public service, designed for client interaction.
+service UserPlane {
+  rpc Reserve(ReserveRequest) returns (ReserveResponse){}
+  rpc Tag(TagRequest) returns (TagResponse) {}
+}
+// StaticMachine is a singular machine usually pushed from the controlplane
+message StaticMachine {
+  string name = 1;
+  repeated string ips = 2;
+  repeated string tags = 3;
+}
+
+message StateForwardRequest {
+}
+
+message StateForwardResponse {
+  repeated StaticMachine machines = 1;
+}
+
+service UserplaneState {
+  rpc ImportState(StateForwardRequest) returns (StateForwardResponse) {}
+}

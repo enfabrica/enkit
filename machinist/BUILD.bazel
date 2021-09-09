@@ -10,6 +10,7 @@ go_library(
         "//machinist/config:go_default_library",
         "//machinist/machine:go_default_library",
         "//machinist/mserver:go_default_library",
+        "//machinist/userplane:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
     ],
 )
