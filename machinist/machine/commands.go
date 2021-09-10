@@ -37,7 +37,7 @@ func NewEnrollCommand(conf *config.Node) *cobra.Command {
 
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			n, err := New()
+			n, err := New(WithConfig(conf))
 			if err != nil {
 				return err
 			}
