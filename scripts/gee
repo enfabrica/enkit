@@ -1054,7 +1054,7 @@ function _install_tools() {
 
   if [ ! -x "${JQ}" ]; then
     _info "Installing missing tool: jq"
-    sudo /usr/bin/apt install jq
+    sudo /usr/bin/apt update && sudo /usr/bin/apt install jq
     if [ ! -x "${JQ}" ]; then
       _fatal "Could not install jq."
     fi
