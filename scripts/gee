@@ -2846,17 +2846,29 @@ function gee__fix() {
   fi
 
   # clang-format, if available:
-  if [[ -x /usr/bin/clang-format-10 ]]; then
-    local -a CLANG_FILES=()
-    for FNAME in "${FILES[@]}"; do
-      if [[ "${FNAME}" =~ \.h$|\.c$|\.cc$|\.cpp ]]; then
-        CLANG_FILES+=( "${FNAME}" )
-      fi
-    done
-    if (( "${#CLANG_FILES[@]}" )); then
-      _info "clang-format: Fixing ${CLANG_FILES[*]}"
-      _cmd /usr/bin/clang-format-10 --verbose --style=Google -i "${CLANG_FILES[@]}"
+  local -a CLANG_FILES=()
+  for FNAME in "${FILES[@]}"; do
+    if [[ "${FNAME}" =~ \.h$|\.c$|\.cc$|\.cpp ]]; then
+      CLANG_FILES+=( "${FNAME}" )
     fi
+  done
+  if (( "${#CLANG_FILES[@]}" )); then
+  if grep -q "name = \"cc_format\"" "${BDIR}/BUILD.bazel"; then
+    _cmd /usr/bin/bazelisk run \
+        --noshow_progress --noshow_loading_progress --logging=0 \
+        --ui_event_filters=-info,-debug \
+        //:cc_format \
+        -- \
+        "${CLANG_FILES[@]}"
+  elif [[ -x /usr/bin/clang-format-10 ]]; then
+    _info "clang-format-10: Fixing ${CLANG_FILES[*]}"
+    local STYLE="Google"
+    if [[ -f "${BDIR}/cc.clang_format" ]]; then
+      STYLE="${BDIR}/cc.clang_format"
+    fi
+    _cmd /usr/bin/clang-format-10 --verbose --style="${STYLE}" -i "${CLANG_FILES[@]}"
+  else
+    _warn "No clang-format tool available."
   fi
 
   # pyformat, if available:

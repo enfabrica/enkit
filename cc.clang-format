@@ -1,0 +1,6 @@
+BasedOnStyle: Google
+---
+Language: Cpp
+AllowAllArgumentsOnNextLine: true
+AlignConsecutiveMacros: true
+ColumnLimit: 100
