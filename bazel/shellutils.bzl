@@ -1,8 +1,6 @@
 # Bazel rules for helping with shell scripts.
 
-def sh_escape(x):
-  # TODO(jonathan): improve this function if repr falls short.
-  return repr(x)
+load("@bazel_skylib//lib:shell.bzl", "shell")
 
 EXEC_TEST_TEMPLATE= """
 #!/usr/bin/env bash
@@ -22,8 +20,8 @@ def _exec_test_impl(ctx):
   srcs = [f.short_path for f in ctx.files.srcs]
   script = EXEC_TEST_TEMPLATE.format(
           command = ctx.executable._command.short_path,
-          args = " ".join([sh_escape(x) for x in ctx.attr.extra_args]),
-          srcs = " ".join([sh_escape(x) for x in srcs]),
+          args = " ".join([shell.quote(x) for x in ctx.attr.extra_args]),
+          srcs = " ".join([shell.quote(x) for x in srcs]),
   )
   ctx.actions.write(
       output = ctx.outputs.executable,
@@ -35,6 +33,9 @@ def _exec_test_impl(ctx):
   )
 
 bats_test = rule(
+    doc = """
+      Runs a bats (Bash Automated Test System) test.
+    """,
     attrs = {
         "srcs": attr.label_list(
             allow_files = [".bats"],
