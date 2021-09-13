@@ -1,0 +1,18 @@
+# BATS: Bash Automated Testing System
+# This is the BUILD.bazel file for compiling the bats binary.
+
+sh_library(
+    name = "bats_lib",
+    srcs = glob(["libexec/**"]),
+)
+
+sh_binary(
+    name = "bats",
+    srcs = ["bin/bats"],
+    deps = [
+        ":bats_lib",
+        "@bats_assert//:bats_assert_lib",
+        "@bats_support//:bats_support_lib",
+    ],
+    visibility = ["//visibility:public"],
+)
