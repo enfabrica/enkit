@@ -2812,8 +2812,9 @@ function gee__pr_submit() {
   # the "git branch --contains" command, we get all descendants (grandchildren,
   # etc.).  We look for branches that contain the first commit in the sequence
   # of commits that were squash-merged, since all derived branches must at
-  # least contain that one commit.
-  local FIRST_SQUASHED_COMMIT="${COMMITS[0]}"
+  # least contain that one commit.  (Note that COMMITS are in reverse
+  # chronological order, so COMMITS[-1] is the earliest commit.)
+  local FIRST_SQUASHED_COMMIT="${COMMITS[-1]}"
   local -a KIDS=()
   _read_cmd KIDS \
     "${GIT}" branch --format "%(refname:short)" --contains "${FIRST_SQUASHED_COMMIT}"
