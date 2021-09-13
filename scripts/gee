@@ -1614,7 +1614,7 @@ function _write_parents_file() {
   fi
   if [[ "${#PARENTS[@]}" -eq 0 ]]; then
     _warn "Almost wrote empty parents file!"
-    return 0
+    return
   fi
   local PATH="${REPO_DIR}/.gee/parents"
   if [[ ! -d "${REPO_DIR}/.gee" ]]; then
