@@ -1,6 +1,6 @@
 #!/bin/bash
 
-read -r -d '' USAGE <<'EOT'
+if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___ 
  / _` |/ _ \/ _ \  git
 | (_| |  __/  __/  enabled
@@ -77,6 +77,7 @@ review.
      gee rupdate
 
 EOT
+then :; fi
 # Philosophy:
 #
 #    If I have to look it up on stack overflow, it should get encoded in gee.
@@ -3253,4 +3254,6 @@ function main() {
   fi
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

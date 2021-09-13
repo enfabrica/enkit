@@ -1,4 +1,16 @@
 load("@//bazel/astore:defs.bzl", "astore_upload")
+load("@//bazel:shellutils.bzl", "bats_test")
+
+sh_library(
+    name = "gee-lib",
+    srcs = [ "gee" ],
+)
+
+bats_test(
+    name = "gee-bats",
+    srcs = ["gee.bats"],
+    deps = [":gee-lib"],
+)
 
 filegroup(
     name = "gee-script",
