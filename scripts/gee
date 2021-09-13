@@ -2395,6 +2395,48 @@ function gee__commit() {
 }
 
 ##########################################################################
+# revert command
+##########################################################################
+
+_register_help "revert" \
+  "Revert specified files to match the parent branch." \
+  <<'EOT'
+Usage: gee revert <files...>
+
+Reverts changes to the specified files, so that they become identical to the
+version in the parent branch.  If the file doesn't exist in the parent
+branch, it is deleted from the current branch.
+
+Example:
+
+    gee revert foobar.txt
+EOT
+
+function gee__revert() {
+  _check_cwd
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+  local PARENT_BRANCH
+  _set_main
+  PARENT_BRANCH="$(_get_parent_branch "${CURRENT_BRANCH}")"
+
+  local -a MODIFIED=()
+  local -a ADDED=()
+  local F REL_F
+  for F in "$@"; do
+    REL_F="$(realpath --relative_base="${CURRENT_ROOT}" -e ${F})"
+    if git cat-file blob "${PARENT_BRANCH}:${REL_F}" >/dev/null 2>&1; then
+      MODIFIED+=("${F}")
+    else
+      ADDED+=("${F}")
+    fi
+  done
+  _git checkout "${PARENT_BRANCH}" -- "${MODIFIED[@]}"
+  _git rm "${ADDED}"
+}
+
+##########################################################################
 # pr_checkout command
 ##########################################################################
 _register_help "pr_checkout" \
