@@ -2431,7 +2431,7 @@ function gee__revert() {
     fi
   done
   _git checkout "${PARENT_BRANCH}" -- "${MODIFIED[@]}"
-  _git rm "${ADDED}"
+  _git rm "${ADDED[@]}"
 }
 
 ##########################################################################
