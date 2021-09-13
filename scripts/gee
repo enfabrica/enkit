@@ -1262,7 +1262,7 @@ function _interactive_conflict_resolution() {
             DONE=1
             ;;
           [Vv])
-            _git rebase --show-current_patch | "${PAGER:-less}"
+            _git show --color --pretty=format:%b "${FROM_COMMIT}" | less -R
             ;;
           [Kk])
             _info "Skipping commit: ${FROM_DESC}"
