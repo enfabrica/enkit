@@ -67,32 +67,6 @@ yarn_install(
     yarn_lock = "//ui:yarn.lock",
 )
 
-# bats: Bash Automated Testing System
-http_archive(
-    name = "bats_support",
-    url = "https://github.com/bats-core/bats-support/archive/refs/tags/v0.3.0.tar.gz",
-    strip_prefix="bats-support-0.3.0",
-    build_file = "@//bazel/dependencies:BUILD.bats_support.bazel",
-    sha256 = "7815237aafeb42ddcc1b8c698fc5808026d33317d8701d5ec2396e9634e2918f",
-)
-
-http_archive(
-    name = "bats_assert",
-    url = "https://github.com/bats-core/bats-assert/archive/refs/tags/v2.0.0.tar.gz",
-    strip_prefix="bats-assert-2.0.0",
-    build_file = "@//bazel/dependencies:BUILD.bats_assert.bazel",
-    sha256 = "15dbf1abb98db785323b9327c86ee2b3114541fe5aa150c410a1632ec06d9903",
-)
-
-http_archive(
-    name = "bats_core",
-    url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.4.1.tar.gz",
-    strip_prefix="bats-core-1.4.1",
-    build_file = "@//bazel/dependencies:BUILD.bats.bazel",
-    sha256 = "bff517da043ae24440ec8272039f396c2a7907076ac67693c0f18d4a17c08f7d",
-)
-
-
 http_archive(
     name = "gtest",
     sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
