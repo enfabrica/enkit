@@ -276,7 +276,6 @@ function _gee_rebase_prompt() {
   # cribbed from git-prompt.sh
 	# preserve exit status
 	local exit=$?
-	local detached=no
 
 	local repo_info rev_parse_exit_code
 	repo_info="$(git rev-parse \
@@ -345,7 +344,6 @@ function _gee_rebase_prompt() {
 			# is it a symbolic ref?
 			b="${head#ref: }"
 			if [ "$head" = "$b" ]; then
-				detached=yes
 				b="$( git describe --tags --exact-match HEAD 2>/dev/null)" ||
 				b="$short_sha..."
 				b="($b)"
@@ -1240,7 +1238,7 @@ function _interactive_conflict_resolution() {
             ;;
           [Mm])
             _git mergetool "${FILE}"
-            M="$("${GIT}" diff --check "${FILE}" | grep "conflict marker" | wc -l)"
+            M="$("${GIT}" diff --check "${FILE}" | grep -c "conflict marker")"
             if (( M == 0 )); then
               DONE=1
             else
@@ -1249,7 +1247,7 @@ function _interactive_conflict_resolution() {
             ;;
           [Gg])
             _git mergetool --gui "${FILE}"
-            M="$("${GIT}" diff --check "${FILE}" | grep "conflict marker" | wc -l)"
+            M="$("${GIT}" diff --check "${FILE}" | grep -c "conflict marker")"
             if (( M == 0 )); then
               DONE=1
             else
@@ -1827,7 +1825,7 @@ function gee__pack() {
   fi
   local HEAD_COMMIT
   HEAD_COMMIT="$("${GIT}" rev-parse HEAD)"
-  local -a OPTS=( --inter-hunk-context=3 )
+  local -a OPTS=( "--inter-hunk-context=3" )
   local OUTPUT
   OUTPUT="${FLAGS[o]}"
   if [[ -n "${OUTPUT}" ]]; then
@@ -1843,9 +1841,9 @@ function gee__pack() {
     echo "Branch: ${CURRENT_BRANCH}"
     echo "Head: ${HEAD_COMMIT}"
     echo ""
-    echo "git diff "${OPTS[@]}" ${MAIN}...${CURRENT_BRANCH}"
+    echo "git diff ${MAIN}...${CURRENT_BRANCH}"
     echo "### start of patch"
-    "${GIT}" diff "${MAIN}...${CURRENT_BRANCH}"
+    "${GIT}" diff "${OPTS[@]}" "${MAIN}...${CURRENT_BRANCH}"
     echo "### end of patch"
   ) </dev/null
 }
@@ -2895,22 +2893,23 @@ function gee__fix() {
     fi
   done
   if (( "${#CLANG_FILES[@]}" )); then
-  if grep -q "name = \"cc_format\"" "${BDIR}/BUILD.bazel"; then
-    _cmd /usr/bin/bazelisk run \
-        --noshow_progress --noshow_loading_progress --logging=0 \
-        --ui_event_filters=-info,-debug \
-        //:cc_format \
-        -- \
-        "${CLANG_FILES[@]}"
-  elif [[ -x /usr/bin/clang-format-10 ]]; then
-    _info "clang-format-10: Fixing ${CLANG_FILES[*]}"
-    local STYLE="Google"
-    if [[ -f "${BDIR}/cc.clang_format" ]]; then
-      STYLE="${BDIR}/cc.clang_format"
+    if grep -q "name = \"cc_format\"" "${BDIR}/BUILD.bazel"; then
+      _cmd /usr/bin/bazelisk run \
+          --noshow_progress --noshow_loading_progress --logging=0 \
+          --ui_event_filters=-info,-debug \
+          //:cc_format \
+          -- \
+          "${CLANG_FILES[@]}"
+    elif [[ -x /usr/bin/clang-format-10 ]]; then
+      _info "clang-format-10: Fixing ${CLANG_FILES[*]}"
+      local STYLE="Google"
+      if [[ -f "${BDIR}/cc.clang_format" ]]; then
+        STYLE="${BDIR}/cc.clang_format"
+      fi
+      _cmd /usr/bin/clang-format-10 --verbose --style="${STYLE}" -i "${CLANG_FILES[@]}"
+    else
+      _warn "No clang-format tool available."
     fi
-    _cmd /usr/bin/clang-format-10 --verbose --style="${STYLE}" -i "${CLANG_FILES[@]}"
-  else
-    _warn "No clang-format tool available."
   fi
 
   # pyformat, if available:
@@ -3016,7 +3015,7 @@ function gee__gcd() {
       break
     fi
   done
-  PREV_IFS="${IFS}"
+  IFS="${PREV_IFS}"
   echo "${DIR}"
 }
 
@@ -3267,7 +3266,7 @@ function gee__help() {
       set -- "usage"
     fi
     if [[ "$1" == "usage" ]]; then
-      echo "${USAGE}" | sed "s/{{VERSION}}/${VERSION}/"
+      echo "${USAGE//\{\{VERSION\}\}/"${VERSION}"}"
       echo ""
     fi
     if [[ ("$1" == "usage") || ("$1" == "commands") ]]; then
