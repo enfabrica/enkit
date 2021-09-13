@@ -2822,7 +2822,7 @@ function gee__pr_submit() {
     return 0
   fi
 
-  # 2. Update all derived branches to be rebased onto the squash-merged tree.
+  # 2. Update all derived branches to be rebased onto the squash-merged commit.
   _warn "The following branches contain the commits that were just" \
         "squash-merged, and need to be rebased to avoid future" \
         "merge conflicts: ${KIDS[*]}"
