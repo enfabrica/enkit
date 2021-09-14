@@ -3294,7 +3294,47 @@ EOT
     cd "${D}"
   fi
 }
+
+function _gee_completion_branches() {
+  shift  # discard
+  local REPO=internal
+  local DIR="$(realpath --relative-base="${HOME}/gee" "${PWD}")"
+  if [[ -n "${DIR}" ]] && [[ "${DIR}" != "." ]] && [[ "${DIR}" != /* ]]; then
+    REPO="$(cut -d/ -f1 <<< "${DIR}")"
+  fi
+  COMPREPLY=($(cd "${HOME}/gee/${REPO}"; compgen -f -X \\.* "$@"))
+}
+
 END_OF_BASH_SETUP
+  # Note that we do the escaping differently for this second part:
+  cat <<END_OF_BASH_COMPLETION_SETUP
+# Command completions:
+function _gee_completion() {
+  local cur prev
+  cur="\${COMP_WORDS[COMP_CWORD]}"
+  case "\${COMP_CWORD}" in
+    1)
+      COMPREPLY=(\$(compgen -W "${!LONGHELP[*]}" -- "\${cur}"))
+      ;;
+    2)
+      prev="\${COMP_WORDS[COMP_CWORD-1]}"
+      case "\${prev}" in
+        diff|unpack|revert)
+          COMPREPLY=(\$(compgen -f -- "\${cur}"))
+          ;;
+        set_parent|gcd|rmbr|remove_branch)
+          _gee_completion_branches gcd "\${cur}"
+          ;;
+        help)
+          COMPREPLY=(\$(compgen -W "${!LONGHELP[*]}" -- "\${cur}"))
+          ;;
+      esac
+  esac
+}
+
+complete -F _gee_completion gee
+complete -F _gee_completion_branches gcd
+END_OF_BASH_COMPLETION_SETUP
 }
 
 ##########################################################################
