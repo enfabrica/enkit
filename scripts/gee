@@ -163,6 +163,7 @@ readonly ENKIT=/opt/enfabrica/bin/enkit
 readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
 readonly CLONE_DEPTH=3  # a little bit of history
+readonly YESYESYES="${YESYESYES:-0}"  # for testing: disables all interactivity.
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
 DRYRUN="${DRYRUN:-0}"
@@ -465,20 +466,18 @@ function _set_ghuser() {
   if [[ -n "${USER}" ]]; then
     GHUSER="${USER}-enf"
   fi
-  read -r -i "${GHUSER}" -p "What is your github username?  " -e GHUSER
+  if (( ! YESYESYES )); then
+    read -r -i "${GHUSER}" -p "What is your github username?  " -e GHUSER
+  fi
 
   if [[ -z "${GHUSER}" ]]; then
     _fatal "Cannot proceed without a github username."
   fi
-  local RESP
-  read -r -p \
-    "Is it okay to add \"export GHUSER=${GHUSER}\" to your .bashrc file? (y/N)  " \
-    RESP
-  case "${RESP}" in
-    [Yy]*)
-      printf "\nexport GHUSER=%q\n" "${GHUSER}" >> ~/.bashrc
-      ;;
-  esac
+  if _confirm_default_no \
+    "Is it okay to add \"export GHUSER=${GHUSER}\" to your .bashrc file? (y/N)  "
+  then
+    printf "\nexport GHUSER=%q\n" "${GHUSER}" >> ~/.bashrc
+  fi
 }
 
 
@@ -487,15 +486,11 @@ function _check_ssh_agent() {
   if [[ -z "${SSH_AGENT_PID}" ]]; then
     _warn "SSH_AGENT_PID is not set."
     _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
-    local RESP
-    read -r -p \
-      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
-      RESP
-    case "${RESP}" in
-      [Yy]*)
-        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
-        ;;
-    esac
+    if _confirm_default_no \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "
+    then
+      printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+    fi
     eval "$(enkit agent print)"
     if [[ -z "${SSH_AGENT_PID}" ]]; then
       _fatal "Something is wrong with enkit's ssh agent."
@@ -624,9 +619,12 @@ function _startup_checks() {
   GIT_EMAIL="$("${GIT}" config --get user.email || /bin/true)"
   if [[ -z "${GIT_EMAIL}" ]]; then
     _warn "git user.email setting is empty."
-    read -e -r -i "${USER}@enfabrica.net" -p \
-      "What email address should git use for you?   " \
-      GIT_EMAIL
+    GIT_EMAIL="${USER}@enfabrica.net"
+    if (( ! YESYESYES )); then
+      read -e -r -i "${GIT_EMAIL}" -p \
+          "What email address should git use for you?   " \
+          GIT_EMAIL
+    fi
     if [[ -z "${GIT_EMAIL}" ]]; then
       _fatal "git needs user.email to be set."
     fi
@@ -637,9 +635,12 @@ function _startup_checks() {
   GIT_NAME="$("${GIT}" config --get user.name || /bin/true)"
   if [[ -z "${GIT_NAME}" ]]; then
     _warn "git user.name setting is empty."
-    read -e -r -i "${USER}" -p \
-      "What name should git use for you?   " \
-      GIT_NAME
+    GIT_NAME="${USER}"
+    if (( ! YESYESYES )); then
+      read -e -r -i "${GIT_NAME}" -p \
+        "What name should git use for you?   " \
+        GIT_NAME
+    fi
     if [[ -z "${GIT_NAME}" ]]; then
       _fatal "git needs user.name to be set."
     fi
@@ -661,15 +662,11 @@ function _startup_checks() {
   elif (( RC == 2 )); then
     _warn "Could not connect to ssh-agent."
     _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
-    local RESP
-    read -r -p \
-      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
-      RESP
-    case "${RESP}" in
-      [Yy]*)
-        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
-        ;;
-    esac
+    if _confirm_default_no \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "
+    then
+      printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+    fi
     eval "$(enkit agent print)"
   fi
   
@@ -691,15 +688,11 @@ function _ssh_enroll() {
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
     _warn "No ssh-agent is running."
     _info "Please add \"eval \`enkit agent print\`\" to your .bashrc"
-    local RESP
-    read -r -p \
-      "Would you like gee to append this line to your .bashrc file now? (y/N)  "\
-      RESP
-    case "${RESP}" in
-      [Yy]*)
-        printf "eval \`enkit agent print\`\n" >> ~/.bashrc
-        ;;
-    esac
+    if _confirm_default_no \
+      "Would you like gee to append this line to your .bashrc file now? (y/N)  "
+    then
+      printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+    fi
     eval "$(enkit agent print)"
   fi
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
@@ -750,24 +743,14 @@ EOT
   _cmd ssh-add "${SSHKEYFILE}"
   _gh config set git_protocol ssh
 
-
   # Override BROWSER because xdg-open opens links2 on some systems, and
   # links2 doesn't support github.
   BROWSER="bash -c \"echo Open this URL: \$*\" --" \
     _gh auth login
   # The user might have to open their web browser at this point:
-  read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
-
-  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
-
-  _gh ssh-key list
-
-  # Override BROWSER because xdg-open opens links2 on some systems, and
-  # links2 doesn't support github.
-  BROWSER="bash -c \"echo Open this URL: \$*\" --" \
-    _gh auth login
-  # The user might have to open their web browser at this point:
-  read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+  if (( ! YESYESYES )); then
+    read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+  fi
 
   _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
 
@@ -879,6 +862,7 @@ function _confirm_default_yes() {
   if [[ -z "${_PROMPT}" ]]; then
     _PROMPT="Confirm? (y/N)  "
   fi
+  if (( YESYESYES )); then echo "${_PROMPT}: yesyesyes"; return 0; fi
   read -rp "${_PROMPT}" RESP
   case "${RESP}" in
     [Nn]*) return 1 ;;
@@ -894,6 +878,7 @@ function _confirm_default_no() {
   if [[ -z "${_PROMPT}" ]]; then
     _PROMPT="Confirm? (y/N)  "
   fi
+  if (( YESYESYES )); then echo "${_PROMPT}: yesyesyes"; return 0; fi
   read -rp "${_PROMPT}" RESP
   case "${RESP}" in
     [Yy]*) return 0 ;;
@@ -982,6 +967,40 @@ function _cmd() {
     set +e
     "$@"
     RC=$?
+    if [[ "${RC}" -ne 0 ]]; then
+      _warn "Command failed with exit code ${RC}"
+      if [[ -n "${NOFAIL}" ]]; then
+        RC=0
+      fi
+    fi
+    set -e
+    return "${RC}"
+  else
+    local C
+    C=$(( COLS - 7 ))
+    printf "${_COLOR_CMD}DRYRUN:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+  fi
+}
+
+function _read_cmd() {
+  # Run a command, and save each line of output to an array variable.
+  local VAR="$1"; shift
+
+  local COLS ESCAPED_CMD
+  COLS="$(tput cols)"
+  ESCAPED_CMD="$( printf " %q" "$@")"
+  if [[ $DRYRUN -eq 0 ]]; then
+    if [[ $VERBOSE -gt 0 ]]; then
+      local C
+      C=$(( COLS - 4 ))
+      printf "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+    fi
+    set +e
+    mapfile -t "${VAR}" < <("$@"; printf "%d\n" "$?")
+    local TMP
+    TMP="${VAR}[-1]"
+    RC="${!TMP}"  # indirect
+    unset "${VAR}"[-1]
     if [[ "${RC}" -ne 0 ]]; then
       _warn "Command failed with exit code ${RC}"
       if [[ -n "${NOFAIL}" ]]; then
@@ -1217,10 +1236,15 @@ function _interactive_conflict_resolution() {
       DONE=0
       while (( DONE == 0 )); do
         local M RESP
-        read -r -n1 -p \
-          "Keep (O)ld, (N)ew, (M)erge, (G)ui, (S)hell, (V)iew, s(K)ip, or (A)bort? " \
-          RESP
-        printf "\n"
+        if (( YESYESYES )); then
+          _warn "YESYESYES is enabled: taking newer version automatically."
+          RESP="N";
+        else
+          read -r -n1 -p \
+            "Keep (O)ld, (N)ew, (M)erge, (G)ui, (S)hell, (V)iew, s(K)ip, or (A)bort? " \
+            RESP
+          printf "\n"
+        fi
         # https://stackoverflow.com/questions/25576415/what-is-the-precise-meaning-of-ours-and-theirs-in-git
         # During a rebase operation:
         # "Ours" = branch being merged into = older version of file.
@@ -1319,12 +1343,16 @@ function _interactive_conflict_resolution() {
   fi
 }
 
-function _rebase_child_onto_parent() {
-  # It turns out that I'm not smarter than a million git developers.  Let's not
-  # be too clever here.  It turns out that ordinary rebase already does a good
-  # job of handilng the scenario where a parent has been rebased.
+function _safer_rebase() {
+  # Performs a safe version of "git rebase $PARENT $CHILD".  If a merge
+  # conflict occurs, invokes gee's conflict resolution flow.
+  #
+  # If ONTO is specified, performs "git rebase --onto $ONTO $PARENT $CHILD"
+  # This last form resets $CHILD to the head of $ONTO, and then replays the
+  # sequence of commits in $CHILD that are not in $PARENT.
   local CHILD="$1"
   local PARENT="$2"
+  local ONTO="$3"  # optional
   local MB=""
 
   # check if child branch has an outstanding PR:
@@ -1369,7 +1397,11 @@ function _rebase_child_onto_parent() {
   cd "${CHILD_DIR}"
   local PARENT_HEAD
   PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
-  if ! _git rebase --autostash "${PARENT}" "${CHILD}"; then
+  local -a REBASE_OPTS=(--autostash)
+  if [[ -n "${ONTO}" ]]; then
+    REBASE_OPTS+=(--onto "${ONTO}")
+  fi
+  if ! _git rebase ${REBASE_OPTS} "${PARENT}" "${CHILD}"; then
     _warn "Rebase operation had conflicts."
     _interactive_conflict_resolution "${PARENT}" "${CHILD}"
 
@@ -2017,7 +2049,7 @@ function gee__update() {
 
   _checkout_or_die "${CURRENT_BRANCH}"
   # Rebase from PREVIOUS_B onto B
-  _rebase_child_onto_parent "${CURRENT_BRANCH}" "${PREVIOUS_B}"
+  _safer_rebase "${CURRENT_BRANCH}" "${PREVIOUS_B}"
   _info Done.
 }
 
@@ -2083,7 +2115,7 @@ function gee__rupdate() {
     fi
 
     # Rebase from PREVIOUS_B onto B
-    _rebase_child_onto_parent "${B}" "${PREVIOUS_B}"
+    _safer_rebase "${B}" "${PREVIOUS_B}"
     PREVIOUS_B="${B}"
   done
   _info Done.
@@ -2164,7 +2196,7 @@ function gee__update_all() {
 
     # Rebase from PREVIOUS_B onto B
     PARENT="$(_get_parent_branch "${B}")"
-    if ! _rebase_child_onto_parent "${B}" "${PARENT}"; then
+    if ! _safer_rebase "${B}" "${PARENT}"; then
       CONFLICTS+=( "${B}" )
     fi
   done
@@ -2751,10 +2783,11 @@ function gee__pr_submit() {
     # gh-cli treats this as a special case for some reason.
     FROM_BRANCH="${CURRENT_BRANCH}"
   fi
-  # TODO(jonathan): Instead of using --squash, we should squash locally and
-  # then merge.  This will make the later rebase operation cleaner.
+  # Tag the old head commit so we can keep track after squashing:
+  _git tag --force "${CURRENT_BRANCH}-unsquashed" "${CURRENT_BRANCH}"
+
   _gh pr merge --squash --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
-  _git fetch upstream
+  _update_main
 
   # Confirm that the merge was successful:
   mapfile -t DIFFS < <( "${GIT}" diff --name-only \
@@ -2764,10 +2797,47 @@ function gee__pr_submit() {
     _fatal "Uh oh!  Even after merge, these files have local changes:" \
       "  ${DIFFS[*]}"
   fi
-   
-  # Reset this to be the same as ${MAIN}:
+
+  # Reset this branch to now contain the squash-merged commit:
   _git checkout -B "${CURRENT_BRANCH}" "upstream/${MAIN}"
   _git push -u origin "+${CURRENT_BRANCH}"
+
+  # After a squash merge, we have a potential problem for child (and
+  # grandchild) branches of this one.  When they attempt to rebase, they will
+  # end up attempting to replay commits that were already squash-merged,
+  # leading to conflicts.  To avoid these conflicts, we rebase all branches of
+  # the current branch now.
+
+  # 1. Check for child branches of the change we just squash-merged.  By using
+  # the "git branch --contains" command, we get all descendants (grandchildren,
+  # etc.).  We look for branches that contain the first commit in the sequence
+  # of commits that were squash-merged, since all derived branches must at
+  # least contain that one commit.  (Note that COMMITS are in reverse
+  # chronological order, so COMMITS[-1] is the earliest commit.)
+  local FIRST_SQUASHED_COMMIT="${COMMITS[-1]}"
+  local -a KIDS=()
+  _read_cmd KIDS \
+    "${GIT}" branch --format "%(refname:short)" --contains "${FIRST_SQUASHED_COMMIT}"
+  if [[ "${#KIDS[@]}" -eq 0 ]]; then
+    # Our job is done here.
+    return 0
+  fi
+
+  # 2. Update all derived branches to be rebased onto the squash-merged commit.
+  _warn "The following branches contain the commits that were just" \
+        "squash-merged, and need to be rebased to avoid future" \
+        "merge conflicts: ${KIDS[*]}"
+  if _confirm_default_yes "Rebase child branches now? (Y/n)  "; then
+    local CHILD
+    for CHILD in "${KIDS[@]}"; do
+      _banner "Rebasing ${CHILD}"
+      # performs: git rebase --onto squashed_parent unsquashed_parent child
+      _safer_rebase "${CHILD}" "${CURRENT_BRANCH}-unsquashed" "${CURRENT_BRANCH}"
+    done
+  fi
+  # Because ${CURRENT_BRANCH} still exists and contains the squash-merged
+  # tree, there is no need to change the parentage of the branch tree
+  # (unlike gee__remove_branch, below).
 }
 
 ##########################################################################
