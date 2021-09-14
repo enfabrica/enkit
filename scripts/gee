@@ -3344,7 +3344,7 @@ function gee__help() {
       echo ""
       for h in "${HELP[@]}"; do
         echo "  $h"
-      done | sort
+      done | sort | column -t -s ":"
       shift;
     fi
     while (( "$#" )); do
