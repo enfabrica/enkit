@@ -1,5 +1,5 @@
 load("@//bazel/astore:defs.bzl", "astore_upload")
-load("@//bazel:shellutils.bzl", "bats_test")
+load("@//bazel:shellutils.bzl", "bats_test", "shellcheck_test")
 
 sh_library(
     name = "gee-lib",
@@ -10,6 +10,11 @@ bats_test(
     name = "gee-bats",
     srcs = ["gee.bats"],
     deps = [":gee-lib"],
+)
+
+shellcheck_test(
+    name = "gee-shellcheck_test",
+    srcs = ["gee"],
 )
 
 filegroup(
