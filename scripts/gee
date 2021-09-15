@@ -2533,17 +2533,18 @@ EOT
 function gee__pr_checkout() {
   _check_gh_auth
   _set_main
-  _checkout_or_die "${MAIN}"
   local PRNUM="$1"; shift
   local BRANCH="pr_${PRNUM}"
-  if _local_branch_exists "${BRANCH}"; then
-    _confirm_or_exit "Branch ${BRANCH} exists: okay to reset it?  "
-  fi
 
-  _gh pr checkout --force --branch "${BRANCH}" "${PRNUM}"
+  _checkout_or_die "${MAIN}"  # or _local_branch_exists won't work.
   if ! _local_branch_exists "${BRANCH}"; then
     gee__mkbr "${BRANCH}"
+  else
+    _confirm_or_exit "Branch ${BRANCH} exists: okay to reset it?  "
   fi
+  _checkout_or_die "${BRANCH}"
+
+  _gh pr checkout --force --branch "${BRANCH}" "${PRNUM}"
 
   _read_parents_file
   PARENTS["${BRANCH}"]="upstream:pull/${PRNUM}/head"
