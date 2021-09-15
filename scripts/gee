@@ -2267,11 +2267,6 @@ function gee__update() {
   local PREVIOUS_B
   PREVIOUS_B="$(_get_parent_branch "${CURRENT_BRANCH}")"
 
-  _set_main
-  if [[ "${PREVIOUS_B}" == "${MAIN}" ]]; then
-    _update_main
-  fi
-
   _checkout_or_die "${CURRENT_BRANCH}"
   # Rebase from PREVIOUS_B onto B
   _safer_rebase "${CURRENT_BRANCH}" "${PREVIOUS_B}"
@@ -2322,13 +2317,17 @@ function gee__rupdate() {
     _die "Not in a git branch directory."
   fi
 
-  _read_parents_file
-
   # Build a chain of branches to update.
-  _set_main
+  _read_parents_file
   local -a CHAIN=()
   _add_parent_branches_to_chain "${CURRENT_BRANCH}"  # puts branches into CHAIN array
 
+  _set_main
+  _banner "Updating branch \"${MAIN}\""
+  _update_main
+
+  local PREVIOUS_B
+  PREVIOUS_B="${MAIN}"
   for B in "${CHAIN[@]}"; do
     local PARENT_BRANCH
     PARENT_BRANCH="$(_get_parent_branch "${B}")"
@@ -2373,11 +2372,11 @@ EOT
 
 function gee__up_all() { gee__update_all "$@"; }
 function gee__update_all() {
+  _set_main
   local -a CONFLICTS=()
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if [[ -z "${CURRENT_BRANCH}" ]]; then
-    _set_main
     CURRENT_BRANCH="${MAIN}"
     _checkout_or_die "${CURRENT_BRANCH}"
   fi
@@ -2393,6 +2392,10 @@ function gee__update_all() {
     _add_parent_branches_to_chain "${B}"
   done
   _info "Updating ${CHAIN[*]}"
+
+  # Merge from upstream/main into main:
+  _banner "Updating branch \"${MAIN}\""
+  _update_main
 
   local PARENT
   for B in "${CHAIN[@]}"; do
