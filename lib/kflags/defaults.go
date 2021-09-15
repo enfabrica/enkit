@@ -153,7 +153,7 @@ func SetContent(fl flag.Value, name string, value []byte) (string, error) {
 	return newv, fl.Set(newv)
 }
 
-// Populator is a function that given a set of resolvers, it is capable of invoking
+// Populator is a function that given a set of Augmenters, it is capable of invoking
 // them to assign default flag values.
 type Populator func(resolvers ...Augmenter) error
 
