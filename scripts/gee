@@ -2529,24 +2529,28 @@ _register_help "pr_checkout" \
 Usage: gee pr_checkout <PR>
 
 Creates a new branch containing the specified pull request.
-Lists PRs that you created, and that are assigned to you.
 EOT
 function gee__pr_checkout() {
   _check_gh_auth
   _set_main
   _checkout_or_die "${MAIN}"
   local PRNUM="$1"; shift
-  local BRANCH="pullreq_${PRNUM}"
+  local BRANCH="pr_${PRNUM}"
   if _local_branch_exists "${BRANCH}"; then
     _confirm_or_exit "Branch ${BRANCH} exists: okay to reset it?  "
   fi
-  # TODO(jonathan): will this update an existing branch?
-  _git fetch upstream "pull/${PRNUM}/head:${BRANCH}"
+
+  _gh pr checkout --force --branch "${BRANCH}" "${PRNUM}"
   if ! _local_branch_exists "${BRANCH}"; then
     gee__mkbr "${BRANCH}"
   fi
+
+  _read_parents_file
+  PARENTS["${BRANCH}"]="upstream:pull/${PRNUM}/head"
+  _write_parents_file
+
   _checkout_or_die "${BRANCH}"
-  git push origin "${BRANCH}"
+  _git push origin "${BRANCH}"
   _info "Pulled PR #${PRNUM} into branch \"${BRANCH}\""
 } 
 
