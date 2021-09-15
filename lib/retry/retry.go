@@ -1,3 +1,41 @@
+// A simple library to safely retry operations.
+//
+// Whenever you have an operation that can temporarily fail, your code
+// should have a strategy to retry the operation.
+//
+// But retrying is non trivial: before retrying, your code should wait
+// some time. It should also not retry forever, and eventually give up.
+// It should allow you to handle fatal errors and temporary errors
+// differently. If the request blocks for a long time before failing,
+// it should probably take into account that time when deciding how
+// long to wait before retrying.
+//
+// If you are writing an application that is talking with a remote
+// endpoint and will be running on a large number of machines, your code should
+// also try to randomize the retry interval over a period of time, so that if
+// a remote endpoint experiences an outage, and all clients try to reconnect,
+// they don't all reconnect at the same time. This is important to prevent
+// the "thundering herd" problem, which could overload the remote backend,
+// further prolonging the outage.
+//
+// To use the retry library:
+//
+// 1) Create a `retry.Options` object, like:
+//
+//     options := retry.New(retry.WithWait(5 * time.Second), retry.WithAttempts(10))
+//
+// 2) Run some code:
+//
+//     options.Run(func () error {
+//       ...
+//     })
+//
+// The retry library will run your functions as many times as configured until it
+// returns an error, or until it returns retry.FatalError (use retry.Fatal to
+// create one) or an error wrapping a retry.FatalError (see the errors library,
+// and all the magic wrapping/unwrapping logic).
+//
+//
 package retry
 
 import (
@@ -195,6 +233,10 @@ func (s *FatalError) Error() string {
 	return "requested to stop retrying"
 }
 
+func (s *FatalError) Unwrap() error {
+	return s.Original
+}
+
 func Fatal(err error) *FatalError {
 	return &FatalError{Original: err}
 }
@@ -267,6 +309,17 @@ func (o *Options) Once(attempt int, runner func() error) (time.Duration, error) 
 	return delay, err
 }
 
+// Run will run the function specified until it succeeds.
+//
+// Run will keep retrying running the function until either the function
+// succeeds, it returns a FatalError, or all retry attempts as specified
+// in Options are exhausted.
+//
+// When Run gives up running a function, it returns the original error
+// returned by the function, wrapped into an ExaustedError.
+//
+// You can use errors.As or errors.Is or the unwrap magic to retrieve
+// the original error.
 func (o *Options) Run(runner func() error) error {
 	errs := []error{}
 	for ix := 0; o.AtMost == 0 || ix < o.AtMost; ix++ {
