@@ -801,22 +801,19 @@ function _get_parent_branch() {
     echo "${PARENTS[$BRANCH]}"
     return
   fi
-  _warn "Strangely, ${BRANCH} was missing from ${REPO_DIR}/.gee/parents."
 
-  # This shouldn't happen, but if it does, we can still make a pretty
-  # good guess by looking for the closest other branch:
-  local PARENT
-  PARENT="$(git show-branch | sed "s/].*//" | grep "\*" \
-    | grep -v "${BRANCH}" | head -n1 \
-    | perl -pe 'm/\[(.*?)(\^\d+)?(~\d+)?$/; $_ = $1;')"
-  if [[ -n "${PARENT}" ]]; then
-    echo "${PARENT}"
+  _set_main
+  if [[ "${BRANCH}" == "${MAIN}" ]]; then
+    # Parent of $MAIN is always upstream/$MAIN.
+    PARENTS["${BRANCH}"]="upstream/${MAIN}"
+    echo "upstream/${MAIN}"
     return
   fi
-  _warn "Strangely, show-branch could identify a parent for ${BRANCH}."
 
-  # Nothing worked!  Default to "${MAIN}".
-  _set_main
+  _warn "Strangely, ${BRANCH} was missing from ${REPO_DIR}/.gee/parents."
+  
+  # The safest thing to do is to just set parent to $MAIN and move on.
+  PARENTS["${BRANCH}"]="${MAIN}"
   echo "${MAIN}"
 }
 
@@ -1369,15 +1366,14 @@ function _safer_rebase() {
     fi
   fi
 
-  _set_main
-  if [[ "${PARENT}" == "${MAIN}" ]]; then
-    # ensure main gets updated from remote upstream main.
-    _update_main
-  fi
-
   # update BRANCH_TO_WORKTREE before rebasing, as this information
   # becomes unavailable when in detached head mode:
   _update_branch_to_worktree
+
+  # If PARENT branch is upstream, do a git fetch first.
+  if [[ "${PARENT}" == "upstream/"* ]]; then
+    _git fetch upstream
+  fi
 
   # TODO(jonathan): check if origin is ahead of local, and if so, do a git pull --rebase
   # operation.  This will allow multi-homed gee to work better.
@@ -1396,7 +1392,11 @@ function _safer_rebase() {
   CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
   cd "${CHILD_DIR}"
   local PARENT_HEAD
-  PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
+  if [[ "${PARENT}" == "upstream/"* ]]; then
+    PARENT_HEAD="$(git ls-remote upstream "${PARENT#upstream/}" | awk '{print $1}')"
+  else
+    PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
+  fi
   local -a REBASE_OPTS=(--autostash)
   if [[ -n "${ONTO}" ]]; then
     REBASE_OPTS+=(--onto "${ONTO}")
@@ -1493,6 +1493,34 @@ function _get_current_branch() {
   echo "${CB}"
 }
 
+function _update_from_upstream() {
+  local LOCAL_BRANCH="$1"
+  local UPSTREAM_BRANCH="$2"
+  _checkout_or_die "${LOCAL_BRANCH}"
+  if ! _git pull --rebase --autostash upstream "${UPSTREAM_BRANCH}"; then
+    _warn "Git pull operation failed."
+    if ! _is_rebase_in_progress; then
+      _fatal "Rebase not in progress, no idea what went wrong."
+    fi
+    _interactive_conflict_resolution "upstream/${UPSTREAM_BRANCH}" "${LOCAL_BRANCH}"
+    if _is_rebase_in_progress; then
+      local STATUS
+      mapfile -t STATUS < <( "${GIT}" status );
+      _warn "${STATUS[@]}"
+      _warn "Merge conflict in branch ${LOCAL_BRANCH}, must be manually resolved."
+      _fatal "Exited without resolving rebase conflict."
+    fi
+  fi
+
+  read -r -a COUNTS < \
+    <( "${GIT}" rev-list --left-right --count "upstream/${UPSTREAM_BRANCH}...${LOCAL_BRANCH}" ) \
+    || /bin/true
+  if (( COUNTS[0] != 0 )); then
+    _fatal "pull failed: upstream/${UPSTREAM_BRANCH} is ${COUNTS[1]} commits ahead of ${LOCAL_BRANCH}"
+  fi
+  _git push --quiet -u origin "+${MAIN}"
+}
+
 function _update_main() {
   # Merge from upstream/main into main:
   _set_main
@@ -1505,26 +1533,7 @@ function _update_main() {
   if [[ "${#CHANGES[@]}" != 0 ]]; then
     _warn "${MAIN} branch contains uncommitted changes."
   fi
-  _git fetch upstream
-  local -a COUNTS
-  read -r -a COUNTS < \
-    <( "${GIT}" rev-list --left-right --count "upstream/${MAIN}...${MAIN}" ) \
-    || /bin/true
-  if (( COUNTS[1] > 0 )); then
-    _warn "Branch ${MAIN} contains ${COUNTS[1]} commits of local changes."
-    _info "gee expects ${MAIN} to track upstream/${MAIN} with no local changes."
-    if _confirm_default_no "Do you want to revert these local changes?"; then
-      _git reset --hard "upstream/${MAIN}"
-    fi
-  fi
-  _git pull --rebase upstream "${MAIN}"
-  read -r -a COUNTS < \
-    <( "${GIT}" rev-list --left-right --count "upstream/${MAIN}...${MAIN}" ) \
-    || /bin/true
-  if (( COUNTS[0] != 0 )); then
-    _fatal "pull failed: upstream/${MAIN} is ${COUNTS[1]} commits ahead of ${MAIN}"
-  fi
-  _git push --quiet -u origin "+${MAIN}"
+  _update_from_upstream "${MAIN}" "${MAIN}"
 }
 
 # The parents file keeps track of two things:
@@ -2041,12 +2050,6 @@ function gee__update() {
   local PREVIOUS_B
   PREVIOUS_B="$(_get_parent_branch "${CURRENT_BRANCH}")"
 
-  _set_main
-  if [[ "${PREVIOUS_B}" == "${MAIN}" ]]; then
-    # only update main branch if we're merging from it.
-    _update_main
-  fi
-
   _checkout_or_die "${CURRENT_BRANCH}"
   # Rebase from PREVIOUS_B onto B
   _safer_rebase "${CURRENT_BRANCH}" "${PREVIOUS_B}"
@@ -2070,6 +2073,24 @@ operation.  Note that the merge conflict can be in a parent of the current
 branch.
 EOT
 
+function _add_parent_branches_to_chain() {
+  # Recursively finds all parent branches of B, and inserts them
+  # into CHAIN unless they are already in CHAIN.  Ultimately,
+  # the branches in CHAIN will be strictly ordered so that
+  # any parent is earlier than any child.  Recursive searching
+  # for parent branches ultimately stops when we reach an
+  # upstream branch.
+  local B="$1"
+  if _contains_element "${B}" "${CHAIN[@]}"; then return; fi
+  if [[ "${B}" == "upstream/"* ]]; then return; fi
+  _add_parent_branches_to_chain "$(_get_parent_branch "${B}")"
+  if (( "${#CHAIN[@]}" > 500 )); then
+    _info "CHAIN: ${CHAIN[*]}"
+    _die "_add_parent_branches_to_chain recursed too deeply."
+  fi
+  CHAIN+=( "${B}" )
+}
+
 function gee__rup() { gee__rupdate "$@"; }
 function gee__rupdate() {
   _check_cwd
@@ -2079,27 +2100,17 @@ function gee__rupdate() {
     _die "Not in a git branch directory."
   fi
 
-
   _read_parents_file
 
   # Build a chain of branches to update.
   _set_main
   local -a CHAIN=()
-  local B
-  B="${CURRENT_BRANCH}"
-  while [[ "${B}" != "${MAIN}" ]]; do
-    CHAIN=( "${B}" "${CHAIN[@]}" )
-    B="$(_get_parent_branch "${B}")"
-    if (( "${#CHAIN[@]}" > 50 )); then
-      _info "CHAIN: ${CHAIN[*]}"
-      _die "Branch chain is longer than 50, that can't be right."
-    fi
-  done
+  _add_parent_branches_to_chain "${CURRENT_BRANCH}"  # puts branches into CHAIN array
 
-  local PREVIOUS_B
-  PREVIOUS_B="${MAIN}"
   for B in "${CHAIN[@]}"; do
-    _banner "Updating branch \"${B}\""
+    local PARENT_BRANCH
+    PARENT_BRANCH="$(_get_parent_branch "${B}")"
+    _banner "Updating branch \"${B}\" from "${PARENT_BRANCH}""
     _checkout_or_die "${B}"
 
     # Check if we're rebasing onto a branch with uncommitted changes:
@@ -2115,8 +2126,7 @@ function gee__rupdate() {
     fi
 
     # Rebase from PREVIOUS_B onto B
-    _safer_rebase "${B}" "${PREVIOUS_B}"
-    PREVIOUS_B="${B}"
+    _safer_rebase "${B}" "${PARENT_BRANCH}"
   done
   _info Done.
 }
@@ -2139,18 +2149,6 @@ operation.  Note that the merge conflict can be in a parent of the current
 branch.
 EOT
 
-function _order_branches() {
-  local B="$1"
-  if _contains_element "${B}" "${CHAIN[@]}"; then return; fi
-  if [[ "${B}" == "${MAIN}" ]]; then return; fi
-  _order_branches "$(_get_parent_branch "${B}")"
-  if (( "${#CHAIN[@]}" > 500 )); then
-    _info "CHAIN: ${CHAIN[*]}"
-    _die "_order_branches recursed too deeply."
-  fi
-  CHAIN+=( "${B}" )
-}
-
 function gee__up_all() { gee__update_all "$@"; }
 function gee__update_all() {
   local -a CONFLICTS=()
@@ -2162,9 +2160,6 @@ function gee__update_all() {
     _checkout_or_die "${CURRENT_BRANCH}"
   fi
 
-  # Merge from upstream/main into main:
-  _update_main
-
   _read_parents_file
 
   # Build an ordered list of branches to update
@@ -2173,7 +2168,7 @@ function gee__update_all() {
   local -a CHAIN=()
   local B
   for B in "${ALL_BRANCHES[@]}"; do
-    _order_branches "${B}"
+    _add_parent_branches_to_chain "${B}"
   done
   _info "Updating ${CHAIN[*]}"
 
@@ -2547,7 +2542,7 @@ function gee__pr_checkout() {
   _gh pr checkout --force --branch "${BRANCH}" "${PRNUM}"
 
   _read_parents_file
-  PARENTS["${BRANCH}"]="upstream:pull/${PRNUM}/head"
+  PARENTS["${BRANCH}"]="upstream/pull/${PRNUM}/head"
   _write_parents_file
 
   _checkout_or_die "${BRANCH}"
