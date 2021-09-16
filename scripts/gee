@@ -1190,10 +1190,8 @@ function _interactive_conflict_resolution() {
   if [[ -z "${CHILD}" ]]; then
     _die "Must specify branch name."
   fi
-  _info "CHILD=${CHILD}"
   local CHILD_ROOT
   CHILD_ROOT="${BRANCH_TO_WORKTREE["${CHILD}"]}"
-  _info "CHILD ROOT=${CHILD_ROOT}"
   cd "${CHILD_ROOT}"
   local ABORT=0
   while _is_rebase_in_progress; do
@@ -1370,21 +1368,8 @@ function _safer_rebase() {
   # becomes unavailable when in detached head mode:
   _update_branch_to_worktree
 
-  # If PARENT branch is upstream, do a git fetch first.
-  if [[ "${PARENT}" == "upstream/"* ]]; then
-    _git fetch upstream
-  fi
-
   # TODO(jonathan): check if origin is ahead of local, and if so, do a git pull --rebase
   # operation.  This will allow multi-homed gee to work better.
-
-  MB=$("${GIT}" merge-base "${PARENT}" "${CHILD}")  
-  local -a COMMITS
-  mapfile -t COMMITS < <(
-    "${GIT}" log --oneline "${MB}..${CHILD}" )
-  _info "" "Rebasing ${CHILD} onto ${PARENT} (${#COMMITS[@]} commits since ${MB}))."
-  _debug "Will apply these commits:" \
-        "${COMMITS[@]}"
 
   _checkout_or_die "${CHILD}"
   _silent_cmd "${GIT}" tag -f "${CHILD}.REBASE_BACKUP"
@@ -1397,12 +1382,37 @@ function _safer_rebase() {
   else
     PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
   fi
-  local -a REBASE_OPTS=(--autostash)
-  if [[ -n "${ONTO}" ]]; then
-    REBASE_OPTS+=(--onto "${ONTO}")
+
+  # Use rebase for local parent branches, or pull for remote parent branches.
+  local -a GITCMD=()
+  if [[ "${PARENT}" == "upstream/"* ]]; then
+    if [[ -n "${ONTO}" ]]; then
+      # TODO(jonathan): figure out the right way to split this into git
+      # fetch/rebase steps, so --onto can work -- though we are unlikely
+      # to ever need this (squash-merge from a fork of another's PR?).
+      #
+      # I wonder what I'm doing wrong?  Naively:
+      # $ git fetch upstream
+      # $ git rebase upstream/pull/1234/head
+      # fatal: invalid upstream 'upstream/pull/1234/head'
+      _die "git pull --rebase does not support --onto"
+    fi
+    GITCMD+=( pull --rebase --autostash upstream "${PARENT#upstream/}" )
+  else
+    GITCMD+=( rebase --autostash )
+    if [[ -n "${ONTO}" ]]; then
+      REBASE_OPTS+=(--onto "${ONTO}")
+    fi
+    GITCMD+=( "${PARENT}" "${CHILD}" )
   fi
-  if ! _git rebase "${REBASE_OPTS[@]}" "${PARENT}" "${CHILD}"; then
-    _warn "Rebase operation had conflicts."
+
+  _checkout_or_die "${CHILD}"
+  if ! _git "${GITCMD[@]}"; then
+    if ! _is_rebase_in_progress; then
+      # This should never happen.
+      _die "Rebase command failed, but rebase is not in progress.  Bug!"
+    fi
+    _warn "Rebase operation had merge conflicts."
     _interactive_conflict_resolution "${PARENT}" "${CHILD}"
 
     if _is_rebase_in_progress; then
@@ -1533,6 +1543,7 @@ function _update_main() {
   if [[ "${#CHANGES[@]}" != 0 ]]; then
     _warn "${MAIN} branch contains uncommitted changes."
   fi
+  # TODO(jonathan): maybe just use _safer_rebase here instead.
   _update_from_upstream "${MAIN}" "${MAIN}"
 }
 
@@ -2029,7 +2040,7 @@ function gee__update() {
 
   # Check for upstream changes in "origin" first:
   if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
-    _git fetch
+    _git fetch origin
     local -a COUNTS
     read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
     if [[ "${COUNTS[1]}" -gt 0 ]]; then
@@ -2049,6 +2060,11 @@ function gee__update() {
 
   local PREVIOUS_B
   PREVIOUS_B="$(_get_parent_branch "${CURRENT_BRANCH}")"
+
+  _set_main
+  if [[ "${PREVIOUS_B}" == "${MAIN}" ]]; then
+    _update_main
+  fi
 
   _checkout_or_die "${CURRENT_BRANCH}"
   # Rebase from PREVIOUS_B onto B
@@ -2542,7 +2558,7 @@ function gee__pr_checkout() {
   _gh pr checkout --force --branch "${BRANCH}" "${PRNUM}"
 
   _read_parents_file
-  PARENTS["${BRANCH}"]="upstream/pull/${PRNUM}/head"
+  PARENTS["${BRANCH}"]="upstream/refs/pull/${PRNUM}/head"
   _write_parents_file
 
   _checkout_or_die "${BRANCH}"
