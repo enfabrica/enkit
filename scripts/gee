@@ -2309,6 +2309,61 @@ function gee__cleanup() {
     fi
   done
 
+  if [[ "${#empty[@]}" -eq 0 ]]; then
+    _info "Nothing to clean up: all branches contain local changes."
+    return 0
+  fi
+
+  # use "dialog" if it's available in this container:
+  if command -v dialog > /dev/null; then
+    _gee_cleanup_with_dialog "${empty[@]}"
+  else
+    _gee_cleanup_without_dialog "${empty[@]}"
+  fi
+}
+
+function _gee_cleanup_with_dialog() {
+  local -a DIALOG_OPTS=(
+    --no-lines
+    --keep-tite
+    --backtitle "gee ${VERSION}"
+    --title "gee cleanup"
+    --checklist
+    "The following branches have no local changes.  Select the branches that you want to delete:"
+    0 0 0
+  )
+  local BRANCH
+  for BRANCH in "${empty[@]}"; do
+    DIALOG_OPTS+=( "${BRANCH}" "" "off" )
+  done
+
+  # Invoke dialog:
+  local RESULT EXITCODE
+  set +e
+  exec 3>&1
+  RESULT="$(dialog "${DIALOG_OPTS[@]}" 2>&1 1>&3)"
+  EXITCODE=$?
+  exec 3>&-
+  set -e
+  if (( EXITCODE != 0 )); then
+    # The user selected "cancel" instead of "ok"
+    _warn "Cancelled cleanup operation."
+    return
+  fi
+
+  # remove selected branches:
+  local -a SELECTED=()
+  read -r -a SELECTED <<< "${RESULT}"
+  _info "Removing: ${SELECTED[*]}"
+  for BRANCH in "${SELECTED[@]}"; do
+    gee__rmbr "${BRANCH}"
+  done
+}
+
+function _gee_cleanup_without_dialog() {
+  # The dialog utility isn't installed, so we ask the user a series of
+  # yes/no questions instead.
+  local -a empty=( "$@" )
   _info "The following branches have no local changes:"
   _info "  ${empty[*]}"
   _checkout_or_die "${MAIN}"
