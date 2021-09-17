@@ -1212,8 +1212,15 @@ function _interactive_conflict_resolution() {
     local STATUS_LINE DONE SKIP RESTART
     SKIP=0
     RESTART=0
+    if [[ "${#STATUS[@]}" -eq 0 ]]; then
+      _warn "Empty commit, skipping automatically."
+      SKIP=1
+    else
+      _info foo
+    fi
     for STATUS_LINE in "${STATUS[@]}"; do
       local DECODED_ST ST FILE
+      _info "status: ${STATUS_LINE}"
       read -r ST FILE <<< "${STATUS_LINE}"
       case "${ST}" in
         # TODO(jonathan): do I have "us" and "them" backwards here?
@@ -1313,8 +1320,7 @@ function _interactive_conflict_resolution() {
     done  # STATUS_LINE
 
     if (( SKIP == 1 )); then
-      _git rebase --skip
-      break
+      _git_can_fail rebase --skip || /bin/true
     fi
     if (( ABORT == 1 )); then break; fi
     if (( RESTART == 1 )); then continue; fi
@@ -2130,7 +2136,7 @@ function gee__rupdate() {
   for B in "${CHAIN[@]}"; do
     local PARENT_BRANCH
     PARENT_BRANCH="$(_get_parent_branch "${B}")"
-    _banner "Updating branch \"${B}\" from "${PARENT_BRANCH}""
+    _banner "Updating branch \"${B}\" from \"${PARENT_BRANCH}\""
     _checkout_or_die "${B}"
 
     # Check if we're rebasing onto a branch with uncommitted changes:
