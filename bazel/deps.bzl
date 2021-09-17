@@ -92,9 +92,9 @@ def enkit_deps():
     if "com_github_atlassian_bazel_tools" not in excludes:
         http_archive(
             name = "com_github_atlassian_bazel_tools",
-            strip_prefix = "bazel-tools-5c3b9306e703c6669a6ce064dd6dde69f69cba35",
-            sha256 = "c8630527150f3a9594e557fdcf02694e73420c10811eb214b461e84cb74c3aa8",
+            strip_prefix = "bazel-tools-8b69172a66e62060a628e13111ca8d9072c4978e",
+            sha256 = "58aa5457f743642e77076c817f8c62403d0b1c9b610051a1a459e3478bb92a61",
             urls = [
-                "https://github.com/atlassian/bazel-tools/archive/5c3b9306e703c6669a6ce064dd6dde69f69cba35.zip",
+                "https://github.com/atlassian/bazel-tools/archive/8b69172a66e62060a628e13111ca8d9072c4978e.zip",
             ],
         )
