@@ -1000,7 +1000,7 @@ function _read_cmd() {
     local TMP
     TMP="${VAR}[-1]"
     RC="${!TMP}"  # indirect
-    unset "${VAR}"[-1]
+    unset "${VAR}[-1]"
     if [[ "${RC}" -ne 0 ]]; then
       _warn "Command failed with exit code ${RC}"
       if [[ -n "${NOFAIL}" ]]; then
@@ -1401,7 +1401,7 @@ function _safer_rebase() {
   if [[ -n "${ONTO}" ]]; then
     REBASE_OPTS+=(--onto "${ONTO}")
   fi
-  if ! _git rebase ${REBASE_OPTS} "${PARENT}" "${CHILD}"; then
+  if ! _git rebase "${REBASE_OPTS[@]}" "${PARENT}" "${CHILD}"; then
     _warn "Rebase operation had conflicts."
     _interactive_conflict_resolution "${PARENT}" "${CHILD}"
 
