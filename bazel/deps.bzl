@@ -41,11 +41,11 @@ def enkit_deps():
     if "rules_proto" not in excludes:
         http_archive(
             name = "rules_proto",
-            sha256 = "aa1ee19226f707d44bee44c720915199c20c84a23318bb0597ed4e5c873ccbd5",
-            strip_prefix = "rules_proto-40298556293ae502c66579620a7ce867d5f57311",
+            sha256 = "83c8798f5a4fe1f6a13b5b6ae4267695b71eed7af6fbf2b6ec73a64cf01239ab",
+            strip_prefix = "rules_proto-b22f78685bf62775b80738e766081b9e4366cdf0",
             urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/40298556293ae502c66579620a7ce867d5f57311.tar.gz",
-                "https://github.com/bazelbuild/rules_proto/archive/40298556293ae502c66579620a7ce867d5f57311.tar.gz",
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/b22f78685bf62775b80738e766081b9e4366cdf0.tar.gz",
+                "https://github.com/bazelbuild/rules_proto/archive/b22f78685bf62775b80738e766081b9e4366cdf0.tar.gz",
             ],
         )
 
