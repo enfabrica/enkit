@@ -1,9 +1,10 @@
 command:
 - name: gee
-  short: Runs gee, a git/gh wrapper.
+  short: A git/gh wrapper for simplified version control.
   long: |-
     gee is a wrapper for the git/gh version control tools that
-    implements a simple, standard workflow.
+    implements a simple, standard workflow.  Run "enkit gee help"
+    for more information.
   implementation:
     local:
     - gee
