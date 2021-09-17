@@ -3316,7 +3316,9 @@ function gee__bash_setup() {
 #   eval "$(enkit gee bash_setup)"
 
 function gee() { 
-  if [[ -x ~/bin/gee ]]; then 
+  if [[ -n "${GEE_BINARY}" ]]; then
+    "${GEE_BINARY}" "$@";
+  elif [[ -x ~/bin/gee ]]; then 
     # use locally installed gee if available.
     ~/bin/gee "$@";
   else
