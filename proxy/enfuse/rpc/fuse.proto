@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package enfuse;
+
+
+message FileInfo {
+  string name = 1;
+  bool isDir = 2;
+  int64 size = 3;
+}
+
+message FileInfoRequest{
+  string dir = 1; // directory is the list of files to get from which dir. If null, should default to the root.
+}
+
+message FileInfoResponse {
+  repeated  FileInfo files = 1;
+}
+
+message RequestFile {
+  string path = 1; // path is a fully qualified path
+  uint64 offset = 2;
+}
+
+message ResponseFile {
+  bytes  content = 1;
+}
+
+service FuseController {
+  rpc Files(RequestFile) returns (ResponseFile){}
+  rpc FileInfo(FileInfoRequest) returns (FileInfoResponse){}
+}

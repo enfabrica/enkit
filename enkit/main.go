@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/proxy/enfuse"
 
 	acommands "github.com/enfabrica/enkit/astore/client/commands"
 	bcommands "github.com/enfabrica/enkit/lib/client/commands"
@@ -43,6 +44,8 @@ func main() {
 
 	agentCommand := tcommands.NewAgentCommand(base)
 	root.AddCommand(agentCommand)
+
+	root.AddCommand(enfuse.NewCommand())
 
 	base.Run(kcobra.HideFlags(set), populator, runner)
 }
