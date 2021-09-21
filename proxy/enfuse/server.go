@@ -6,7 +6,7 @@ import (
 	enfuse "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"google.golang.org/grpc"
 	"io"
-	"io/fs"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -17,8 +17,28 @@ func ServeDirectory(mods ...ServerConfigMod) error {
 	return s.Serve()
 }
 
+var _ enfuse.FuseControllerServer = &FuseServer{}
+
 type FuseServer struct {
 	cfg *ServerConfig
+}
+
+func (s *FuseServer) SingleFileInfo(ctx context.Context, request *enfuse.SingleFileInfoRequest) (*enfuse.SingleFileInfoResponse, error) {
+	des, err := os.Open(filepath.Join(s.cfg.Dir, request.Path))
+	if err != nil {
+		return nil, err
+	}
+	st, err := des.Stat()
+	if err != nil {
+		return nil, err
+	}
+	return &enfuse.SingleFileInfoResponse{
+		Info: &enfuse.FileInfo{
+			Name:  filepath.Base(request.Path),
+			Size:  st.Size(),
+			IsDir: false,
+		},
+	}, nil
 }
 
 func (s *FuseServer) Files(ctx context.Context, rf *enfuse.RequestFile) (*enfuse.ResponseFile, error) {
@@ -27,7 +47,7 @@ func (s *FuseServer) Files(ctx context.Context, rf *enfuse.RequestFile) (*enfuse
 		return nil, err
 	}
 	defer f.Close()
-	data := make([]byte, 1024*1024) // default to sending 1mb at max, client side is 4mb max possible but this is to be safe
+	data := make([]byte, rf.Size) // default to sending 1mb at max, client side is 4mb max possible but this is to be safe
 	i, err := f.ReadAt(data, int64(rf.Offset))
 	if err != nil && err != io.EOF {
 		return nil, err
@@ -46,18 +66,18 @@ func (s *FuseServer) FileInfo(ctx context.Context, request *enfuse.FileInfoReque
 		dir = filepath.Join(s.cfg.Dir, request.Dir)
 	}
 	var fis []*enfuse.FileInfo
-	err := filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	outs, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, info := range outs {
 		e := &enfuse.FileInfo{
 			Name:  info.Name(),
 			IsDir: info.IsDir(),
 			Size:  info.Size(),
 		}
 		fis = append(fis, e)
-		return nil
-	})
+	}
 	return &enfuse.FileInfoResponse{
 		Files: fis,
 	}, err

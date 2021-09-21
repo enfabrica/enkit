@@ -20,13 +20,23 @@ message FileInfoResponse {
 message RequestFile {
   string path = 1; // path is a fully qualified path
   uint64 offset = 2;
+  uint64 size = 3;
 }
 
 message ResponseFile {
   bytes  content = 1;
 }
 
+message SingleFileInfoRequest {
+  string path = 1;
+}
+
+message SingleFileInfoResponse {
+  FileInfo info = 1;
+}
+
 service FuseController {
   rpc Files(RequestFile) returns (ResponseFile){}
   rpc FileInfo(FileInfoRequest) returns (FileInfoResponse){}
+  rpc SingleFileInfo(SingleFileInfoRequest) returns (SingleFileInfoResponse){}
 }

@@ -29,6 +29,11 @@ var (
 			c.L = l
 		}
 	}
+	WithConnectConfig = func(c1 *ConnectConfig) ConnectMod {
+		return func(c *ConnectConfig) {
+			*c = *c1
+		}
+	}
 )
 
 type (

@@ -23,6 +23,9 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["e2e_test.go"],
+    tags = [
+        "no-sandbox",
+    ],
     deps = [
         ":go_default_library",
         "//lib/knetwork:go_default_library",

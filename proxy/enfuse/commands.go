@@ -5,28 +5,41 @@ import (
 )
 
 func NewFuseShareCommand() *cobra.Command {
-	var port int
-	var cwd string
+	cc := &ConnectConfig{}
+	var dir string
 	c := &cobra.Command{
 		Use: `share`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ServeDirectory()
+			return ServeDirectory(
+				WithConnectMods(
+					WithConnectConfig(cc),
+				),
+				WithDir(dir),
+			)
 		},
 	}
-	c.Flags().StringVar(&cwd, "dir", ".", "")
-	c.Flags().IntVarP(&port, "port", "p", 9999, "")
+	c.Flags().StringVar(&dir, "dir", ".", "the directory to share")
+	c.Flags().IntVarP(&cc.Port, "port", "p", 9999, "the port to serve the rpc from")
+	c.Flags().StringVarP(&cc.Url, "interface", "i", "127.0.0.1", "the interface to bind")
 	return c
 }
 
 func NewFuseMountDirectory() *cobra.Command {
+	cc := &ConnectConfig{}
 	var cwd string
 	c := &cobra.Command{
 		Use: `mount`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return MountDirectory(cwd, &FuseClient{})
+			fc, err := NewClient(cc)
+			if err != nil {
+				return err
+			}
+			return MountDirectory(cwd, fc)
 		},
 	}
-	c.Flags().StringVar(&cwd, "dir", ".", "")
+	c.Flags().StringVar(&cwd, "dir", ".", "the mount point for the FUSE directory")
+	c.Flags().IntVarP(&cc.Port, "port", "p", 9999, "the port to serve the rpc from")
+	c.Flags().StringVarP(&cc.Url, "interface", "i", "127.0.0.1", "the interface to bind to")
 	return c
 }
 
