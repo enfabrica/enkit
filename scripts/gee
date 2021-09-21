@@ -1717,7 +1717,11 @@ function gee__init() {
   if ! "${GH}" repo list | grep "^${GHUSER}/${REPO}" > /dev/null; then
     _gh repo fork --clone=false "${UPSTREAM}/${REPO}"
   fi
-  _git clone --depth "${CLONE_DEPTH}" "${URL}" "${REPO_DIR}/${MAIN}"
+  _git clone \
+    --depth "${CLONE_DEPTH}" \
+    --no-single-branch \
+    "${URL}" \
+    "${REPO_DIR}/${MAIN}"
   cd "${REPO_DIR}/${MAIN}"
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
