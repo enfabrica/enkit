@@ -2,16 +2,16 @@ load("@//bazel/astore:defs.bzl", "astore_upload")
 
 filegroup(
     name = "gee-script",
-    srcs = ["gee"],
+    srcs = [ "gee" ],
 )
 
 astore_upload(
-    name = "test_deploy",
-    dir = "test",
-    targets = [
-        ":gee-script",
-    ],
-    visibility = [
-        "//developer:__subpackages__",
-    ],
+  name = "test_deploy",
+  dir = "test",
+  targets = [
+    ":gee-script",
+  ],
+  visibility = [
+    "//developer:__subpackages__",
+  ],
 )
