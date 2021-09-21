@@ -23,7 +23,6 @@ func NewClient(config *ConnectConfig) (*FuseClient, error) {
 func MountDirectory(mountPath string, client *FuseClient) error {
 	c, err := fuse.Mount(
 		mountPath,
-		fuse.AllowOther(),
 	)
 	if err != nil {
 		return err
