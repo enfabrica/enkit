@@ -48,7 +48,8 @@ func WithStateFile(filepath string) ControllerModifier {
 	return func(controller *Controller) error {
 		s, err := state.ReadInController(filepath)
 		if err != nil {
-			return err
+			controller.Log.Warnf("Unable to read in state, err: %v", err)
+			return nil
 		}
 		controller.State = s
 		controller.stateFile = filepath

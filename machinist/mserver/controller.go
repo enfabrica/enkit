@@ -172,6 +172,7 @@ func (en *Controller) ServeAllRecords() {
 func (en *Controller) WriteState() {
 	if en.stateFile == "" {
 		en.Log.Warnf("No path to state provided, state is fully in memory")
+		return
 	}
 	for {
 		<-time.After(en.stateWriteTTL)
