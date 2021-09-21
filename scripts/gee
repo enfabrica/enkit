@@ -1838,22 +1838,24 @@ _register_help "diff" \
   "Differences in this branch." <<'EOT'
 Usage: gee diff [<files...>]
 
-Shows changes since this branch diverged from it's parent branch.
+Shows changes since this branch diverged from it's parent branch, including
+unstaged (uncommitted) changes.
 
 If <files...> are omited, defaults to all files.
 EOT
 
 function gee__diff() {
   _check_cwd
-  local PARENT_BRANCH CURRENT_BRANCH MERGE_BASE
+  local PARENT_BRANCH
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
-  CURRENT_BRANCH="$(_get_current_branch)"
-  MERGE_BASE="$("${GIT}" merge-base "${PARENT_BRANCH}" "${CURRENT_BRANCH}")"
   if (( "$#" )); then
-    _git_can_fail diff "${PARENT_BRANCH}...${CURRENT_BRANCH}" -- "$@"
+    _git_can_fail diff "${PARENT_BRANCH}" -- "$@"
   else
-    _git_can_fail diff "${PARENT_BRANCH}...${CURRENT_BRANCH}"
+    _git_can_fail diff "${PARENT_BRANCH}"
+  fi
+  if git diff --quiet ; then
+    _info "Note: This branch contains uncommitted changes."
   fi
 }
 
@@ -1879,9 +1881,7 @@ function gee__pack() {
   _parse_options "o:" "$@"
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
-  local STATUS
-  STATUS="$("${GIT}" status --porcelain)"
-  if [[ -n "${STATUS}" ]]; then
+  if git diff --quiet ; then
     _warn "You have uncommitted work in this branch that won't be packed."
     _confirm_or_exit "Do you want to proceed anyway? (y/N)  "
   fi
@@ -2245,6 +2245,9 @@ function gee__whatsout() {
   _set_main
   MERGEBASE="$(git merge-base "origin/${MAIN}" "${BRANCH}")"
   _git diff --name-only "${MERGEBASE}" 
+  if git diff --quiet ; then
+    _info "Note: This branch contains uncommitted changes."
+  fi
 }
 
 ##########################################################################
