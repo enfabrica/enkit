@@ -11,8 +11,6 @@ import (
 	"testing"
 )
 
-
-
 func TestReadInController(t *testing.T) {
 	rng := rand.New(srand.Source)
 	rngName := func() string {
@@ -20,7 +18,7 @@ func TestReadInController(t *testing.T) {
 	}
 	t.Run("Test consecutive read ins", func(t *testing.T) {
 		rname := rngName() + ".json"
-		for range make([]int, 10) {
+		for i := 0; i < 10; i++ {
 			_, err := state.ReadInController(rname)
 			assert.Nil(t, err)
 		}
@@ -32,7 +30,7 @@ func TestReadInController(t *testing.T) {
 			m := &state.MachineController{Machines: []*state.Machine{}}
 			err := state.WriteController(m, rname)
 			assert.Nil(t, err)
-			assert.Nil(t, state.AddMachine(m, &state.Machine{Name: rngName()}) )
+			assert.Nil(t, state.AddMachine(m, &state.Machine{Name: rngName()}))
 		}
 	})
 
@@ -43,7 +41,7 @@ func TestReadInController(t *testing.T) {
 		for range make([]int, 10) {
 			m, err = state.ReadInController(rname)
 			assert.Nil(t, err)
-			assert.Nil(t, state.AddMachine(m, &state.Machine{Name: rngName()}) )
+			assert.Nil(t, state.AddMachine(m, &state.Machine{Name: rngName()}))
 			err = state.WriteController(m, rname)
 			assert.Nil(t, err)
 		}
