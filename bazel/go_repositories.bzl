@@ -2057,6 +2057,11 @@ def go_repositories():
         version = "v0.0.0-20190116061207-43a291ad63a2",
     )
     go_repository(
+        name = "com_github_xo_terminfo",
+        importpath = "github.com/xo/terminfo",
+        commit = "ca9a967f877831dd8742c136f5c19f82d03673f4",
+    )
+    go_repository(
         name = "com_github_xor_gate_ar",
         importpath = "github.com/xor-gate/ar",
         sum = "h1:Vo3q7h44BfmnLQh5SdF+2xwIoVnHThmZLunx6odjrHI=",
