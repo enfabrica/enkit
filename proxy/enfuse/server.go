@@ -28,6 +28,7 @@ func (s *FuseServer) SingleFileInfo(ctx context.Context, request *enfuse.SingleF
 	if err != nil {
 		return nil, err
 	}
+	defer des.Close()
 	st, err := des.Stat()
 	if err != nil {
 		return nil, err
