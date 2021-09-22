@@ -1835,6 +1835,8 @@ function gee__config() {
          'code --wait $MERGED'
       ;;
     enable_emacs)
+      # TODO: I'm hoping an emacs expert can contribute
+      # something here.
       _fatal "enable_emacs: not yet supported."
       ;;
     *)
