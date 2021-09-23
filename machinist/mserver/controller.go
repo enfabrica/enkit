@@ -6,37 +6,40 @@ import (
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
+	"github.com/enfabrica/enkit/machinist/state"
 	"github.com/miekg/dns"
 	"log"
 	"net"
-	"sync"
 	"time"
 )
 
 type Controller struct {
-	Log                 logger.Logger
-	domains             []string
-	connectedNodes      map[string]*Node
-	connectedNodesMutex sync.RWMutex
+	Log logger.Logger
+
+	startUpFunc []func()
+
+
+	State         *state.MachineController
+	stateFile     string
+	stateWriteTTL time.Duration
 
 	dnsServer *kdns.DnsServer
 	dnsPort   int
+	domains   []string
 }
-
-func (en *Controller) Nodes() []*Node {
-	en.connectedNodesMutex.RLock()
-	defer en.connectedNodesMutex.RUnlock()
-	var nodes []*Node
-	for _, v := range en.connectedNodes {
-		nodes = append(nodes, v)
+// Init is designed to run after all components have been started up before running itself as a server
+func (en *Controller) Init()  {
+	for _, m := range en.State.Machines {
+		en.addNodeToDns(m.Name, m.Ips, m.Tags)
 	}
-	return nodes
 }
 
-func (en *Controller) Node(name string) *Node {
-	en.connectedNodesMutex.RLock()
-	defer en.connectedNodesMutex.RUnlock()
-	return en.connectedNodes[name]
+func (en *Controller) Nodes() []*state.Machine {
+	en.State.Lock()
+	defer en.State.Unlock()
+	nodes := make([]*state.Machine, len(en.State.Machines))
+	copy(nodes, en.State.Machines)
+	return nodes
 }
 
 func (en *Controller) Download(*machinist.DownloadRequest, machinist.Controller_DownloadServer) error {
@@ -69,15 +72,15 @@ func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, pin
 	if len(parsedIps) == 0 {
 		return errors.New("no valid ip sent")
 	}
-	n := &Node{
+	newMachine := &state.Machine{
 		Name: ping.Name,
-		Tags: ping.Tag,
 		Ips:  parsedIps,
+		Tags: ping.Tag,
 	}
-	en.connectedNodesMutex.Lock()
-	defer en.connectedNodesMutex.Unlock()
-	en.connectedNodes[ping.Name] = n
-	en.addNodeToDns(ping.Name, n.Ips, n.Tags)
+	if err := state.AddMachine(en.State, newMachine); err != nil {
+		return err
+	}
+	en.addNodeToDns(ping.Name, newMachine.Ips, newMachine.Tags)
 	return stream.Send(
 		&machinist.PollResponse{
 			Resp: &machinist.PollResponse_Result{
@@ -163,3 +166,19 @@ func (en *Controller) ServeAllRecords() {
 		_ = <-time.After(5 * time.Second)
 	}
 }
+
+// WriteState writes state to the specified state file every 2 seconds. Will not exit or error out unless no statefile is
+// provided.
+func (en *Controller) WriteState() {
+	if en.stateFile == "" {
+		en.Log.Warnf("No path to state provided, state is fully in memory")
+		return
+	}
+	for {
+		<-time.After(en.stateWriteTTL)
+		if err := state.WriteController(en.State, en.stateFile); err != nil {
+			en.Log.Errorf("machinist: writing to state failed with err: %v", err)
+		}
+	}
+}
+
