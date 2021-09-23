@@ -2,7 +2,6 @@ package state_test
 
 import (
 	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"github.com/enfabrica/enkit/machinist/state"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -12,8 +11,6 @@ import (
 	"testing"
 )
 
-
-
 func TestReadInController(t *testing.T) {
 	rng := rand.New(srand.Source)
 	rngName := func() string {
@@ -21,7 +18,7 @@ func TestReadInController(t *testing.T) {
 	}
 	t.Run("Test consecutive read ins", func(t *testing.T) {
 		rname := rngName() + ".json"
-		for range make([]int, 10) {
+		for i := 0; i < 10; i++ {
 			_, err := state.ReadInController(rname)
 			assert.Nil(t, err)
 		}
@@ -29,22 +26,22 @@ func TestReadInController(t *testing.T) {
 
 	t.Run("Test Consecutive writes", func(t *testing.T) {
 		rname := rngName() + ".json"
-		for range make([]int, 10) {
-			m := &state.MachineController{Machines: []*machinist.StaticMachine{}}
+		for i := 0; i < 10; i++ {
+			m := &state.MachineController{Machines: []*state.Machine{}}
 			err := state.WriteController(m, rname)
 			assert.Nil(t, err)
-			assert.Nil(t, state.AddMachine(m, &machinist.StaticMachine{Name: rngName()}) )
+			assert.Nil(t, state.AddMachine(m, &state.Machine{Name: rngName()}))
 		}
 	})
 
 	t.Run("Consecutive Read Writes", func(t *testing.T) {
 		rname := rngName() + ".json"
-		m := &state.MachineController{Machines: []*machinist.StaticMachine{}}
+		m := &state.MachineController{Machines: []*state.Machine{}}
 		var err error
-		for range make([]int, 10) {
+		for i := 0; i < 10; i++ {
 			m, err = state.ReadInController(rname)
 			assert.Nil(t, err)
-			assert.Nil(t, state.AddMachine(m, &machinist.StaticMachine{Name: rngName()}) )
+			assert.Nil(t, state.AddMachine(m, &state.Machine{Name: rngName()}))
 			err = state.WriteController(m, rname)
 			assert.Nil(t, err)
 		}
