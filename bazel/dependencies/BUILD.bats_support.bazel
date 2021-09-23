@@ -1,0 +1,5 @@
+sh_library(
+    name = "bats_support_lib",
+    srcs = ["load.bash"] + glob(["src/**"]),
+    visibility = ["//visibility:public"],
+)

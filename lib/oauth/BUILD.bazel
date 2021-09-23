@@ -6,6 +6,7 @@ go_library(
         "factory.go",
         "multi.go",
         "oauth.go",
+        "types.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/oauth",
     visibility = ["//visibility:public"],
