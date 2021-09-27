@@ -2645,7 +2645,7 @@ function gee__revert() {
   local -a ADDED=()
   local F REL_F
   for F in "$@"; do
-    REL_F="$(realpath --relative_base="${CURRENT_ROOT}" -e ${F})"
+    REL_F="$(realpath --relative-base="${CURRENT_ROOT}" -e ${F})"
     if git cat-file blob "${PARENT_BRANCH}:${REL_F}" >/dev/null 2>&1; then
       MODIFIED+=("${F}")
     else
