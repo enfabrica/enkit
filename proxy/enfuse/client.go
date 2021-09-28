@@ -3,9 +3,11 @@ package enfuse
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"crypto/tls"
 	"fmt"
 	enfuse "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -13,11 +15,29 @@ var (
 )
 
 func NewClient(config *ConnectConfig) (*FuseClient, error) {
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", config.Url, config.Port), grpc.WithInsecure())
+	var grpcDialOpts []grpc.DialOption
+	if config.ClientCredentials != nil {
+		grpcDialOpts = append(grpcDialOpts, grpc.WithTransportCredentials(
+			credentials.NewTLS(
+				&tls.Config{
+					Certificates:             []tls.Certificate{config.Certificate},
+					RootCAs:                  config.RootCAs,
+					ClientAuth:               tls.RequireAndVerifyClientCert,
+					ServerName:               config.ServerName,
+					ClientCAs:                config.ClientCredentials,
+					InsecureSkipVerify:       false,
+					PreferServerCipherSuites: true,
+				},
+			),
+		))
+	} else {
+		grpcDialOpts = append(grpcDialOpts, grpc.WithInsecure())
+	}
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", config.Url, config.Port), grpcDialOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return &FuseClient{enfuse.NewFuseControllerClient(conn)}, nil
+	return &FuseClient{ConnClient: enfuse.NewFuseControllerClient(conn), ConnConfig: config}, nil
 }
 
 func MountDirectory(mountPath string, client *FuseClient) error {
@@ -33,8 +53,9 @@ func MountDirectory(mountPath string, client *FuseClient) error {
 
 type FuseClient struct {
 	ConnClient enfuse.FuseControllerClient
+	ConnConfig *ConnectConfig
 }
 
 func (f *FuseClient) Root() (fs.Node, error) {
-	return &FuseDir{Dir: "", Client: f.ConnClient}, nil
+	return &FuseDir{Dir: "", Client: f.ConnClient, ConnectConfig: f.ConnConfig}, nil
 }

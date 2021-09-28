@@ -7,12 +7,12 @@ import (
 	"github.com/enfabrica/enkit/lib/knetwork"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/proxy/enfuse"
-	enfuse_rpc "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"io/fs"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,8 +21,49 @@ import (
 	"time"
 )
 
+func TestFuseShareEncryption(t *testing.T) {
+	d, generatedFiles := CreateSeededTmpDir(t, 5)
+	p, err := knetwork.AllocatePort()
+	assert.Nil(t, err)
+	a, err := p.Address()
+	assert.Nil(t, err)
+	pubChan := make(chan *enfuse.ClientInfo, 1)
+	scfg := &enfuse.ConnectConfig{
+		Url:         "127.0.0.1",
+		Port:        a.Port,
+		DnsNames:    []string{"localhost"},
+		IpAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	s := enfuse.NewServer(
+		enfuse.NewServerConfig(
+			enfuse.WithDir(d),
+			enfuse.WithEncryptionChannel(pubChan),
+			enfuse.WithConnectMods(enfuse.WithConnectConfig(scfg)),
+		),
+	)
+	go func() {
+		assert.Nil(t, s.Serve())
+	}()
+	clientInfo := <-pubChan
+	time.Sleep(10 * time.Millisecond)
+	cfg := &enfuse.ConnectConfig{
+		Url:               "127.0.0.1",
+		Port:              a.Port,
+		ClientCredentials: clientInfo.Pool,
+		Certificate:       clientInfo.Certificate,
+		RootCAs:           clientInfo.RootPool,
+		DnsNames:          []string{"localhost"},
+		IpAddresses:       []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	c, err := enfuse.NewClient(cfg)
+	assert.NoError(t, err)
+	t.Run("Test With Encryption", func(t *testing.T) {
+		testFile(t, c, generatedFiles)
+	})
+}
+
 func TestNewFuseShareCommand(t *testing.T) {
-	d, generatedFiles := CreateSeededTmpDir(t, 2)
+	d, generatedFiles := CreateSeededTmpDir(t, 5)
 	p, err := knetwork.AllocatePort()
 	assert.Nil(t, err)
 	a, err := p.Address()
@@ -42,34 +83,11 @@ func TestNewFuseShareCommand(t *testing.T) {
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", a.Port), grpc.WithInsecure())
 	assert.Nil(t, err)
 	defer conn.Close()
-	c := enfuse.FuseClient{ConnClient: enfuse_rpc.NewFuseControllerClient(conn)}
-	m, err := fstestutil.MountedT(t, &c, nil, fuse.AllowOther())
+	c, err := enfuse.NewClient(&enfuse.ConnectConfig{Port: a.Port, Url: "127.0.0.1"})
 	assert.NoError(t, err)
-	defer m.Close()
-
-	var fusePaths []string
-	assert.NoError(t, filepath.Walk(m.Dir, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			fusePaths = append(fusePaths, path)
-			assert.Greater(t, int(info.Size()), 0)
-		}
-		return err
-	}))
-
-	assert.Equal(t, len(generatedFiles), len(fusePaths))
-	for _, genFile := range generatedFiles {
-		for _, realFile := range fusePaths {
-			if realFile == genFile.Name {
-				btes, err := ioutil.ReadFile(realFile)
-				assert.NoError(t, err)
-				assert.Equal(t, len(genFile.Data), len(btes))
-				assert.Truef(t, reflect.DeepEqual(btes, genFile.Data), "dta returned by fs equal")
-			}
-		}
-	}
+	t.Run("Sanity Test", func(t *testing.T) {
+		testFile(t, c, generatedFiles)
+	})
 }
 
 type TmpFile struct {
@@ -109,5 +127,35 @@ func createTmpFile(t *testing.T, tmpDirName string) TmpFile {
 	return TmpFile{
 		Name: strings.ReplaceAll(filename, tmpDirName, ""),
 		Data: content,
+	}
+}
+
+func testFile(t *testing.T, c *enfuse.FuseClient, generatedFiles []TmpFile) {
+	m, err := fstestutil.MountedT(t, c, nil, fuse.AllowOther())
+	assert.NoError(t, err)
+	defer m.Close()
+
+	var fusePaths []string
+	assert.NoError(t, filepath.Walk(m.Dir, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			fusePaths = append(fusePaths, path)
+			assert.Greater(t, int(info.Size()), 0)
+		}
+		return err
+	}))
+
+	assert.Equal(t, len(generatedFiles), len(fusePaths))
+	for _, genFile := range generatedFiles {
+		for _, realFile := range fusePaths {
+			if realFile == genFile.Name {
+				btes, err := ioutil.ReadFile(realFile)
+				assert.NoError(t, err)
+				assert.Equal(t, len(genFile.Data), len(btes))
+				assert.Truef(t, reflect.DeepEqual(btes, genFile.Data), "dta returned by fs equal")
+			}
+		}
 	}
 }

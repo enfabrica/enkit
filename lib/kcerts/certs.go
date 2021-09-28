@@ -25,12 +25,12 @@ func GenerateNewCARoot(opts *certOptions) (*x509.Certificate, []byte, *rsa.Priva
 		},
 		NotBefore:             opts.Before,
 		NotAfter:              opts.After,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		IsCA:                  true,
-		MaxPathLen:            2,
+		DNSNames:              opts.DnsNames,
 		IPAddresses:           opts.IPAddresses,
+		BasicConstraintsValid: true,
 	}
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -42,7 +42,6 @@ func GenerateNewCARoot(opts *certOptions) (*x509.Certificate, []byte, *rsa.Priva
 	}
 	b := pem.Block{Type: "CERTIFICATE", Bytes: certBytes}
 	certPEM := pem.EncodeToMemory(&b)
-
 	return &rootTemplate, certPEM, privateKey, nil
 }
 
@@ -69,6 +68,7 @@ func GenerateIntermediateCertificate(opts *certOptions, RootCa *x509.Certificate
 		MaxPathLenZero:        false,
 		MaxPathLen:            1,
 		IPAddresses:           opts.IPAddresses,
+		DNSNames:              opts.DnsNames,
 	}
 
 	certBytes, err := x509.CreateCertificate(rand.Reader, &intermediate, RootCa, &intermediatePrivateKey.PublicKey, RootCaPrivateKey)
@@ -100,10 +100,11 @@ func GenerateServerKey(opts *certOptions, intermediateCert *x509.Certificate, in
 		NotBefore:      opts.Before,
 		NotAfter:       opts.After,
 		KeyUsage:       x509.KeyUsageCRLSign,
-		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		IsCA:           false,
 		MaxPathLenZero: true,
 		IPAddresses:    opts.IPAddresses,
+		DNSNames:       opts.DnsNames,
 	}
 
 	certBytes, err := x509.CreateCertificate(rand.Reader, serverTemplate, intermediateCert, &serverPrivateKey.PublicKey, intermediatePrivateKey)
@@ -144,6 +145,7 @@ type certOptions struct {
 	Before       time.Time
 	After        time.Time
 	IPAddresses  []net.IP
+	DnsNames     []string
 }
 
 func WithCountries(countries []string) Modifier {
@@ -192,6 +194,13 @@ func WithNotValidBefore(startTime time.Time) Modifier {
 	}
 }
 
+func WithDnsNames(dns []string) Modifier {
+	return func(o *certOptions) error {
+		o.DnsNames = dns
+		return nil
+	}
+}
+
 func NewOptions(mods ...Modifier) (*certOptions, error) {
 	co := &certOptions{}
 	for _, mod := range mods {
@@ -215,7 +224,7 @@ func checkValidCert(cert *ssh.Certificate) bool {
 }
 
 const (
-	MaxCertTimeDuration = time.Duration(1 << 63 - 1)
+	MaxCertTimeDuration     = time.Duration(1<<63 - 1)
 	InValidCertTimeDuration = time.Duration(0)
 )
 

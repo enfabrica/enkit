@@ -45,6 +45,7 @@ type FuseDir struct {
 	Data      []*enfuse.FileInfo
 	Dir       string
 	LastFetch time.Time
+	*ConnectConfig
 	sync.Mutex
 }
 
@@ -57,9 +58,9 @@ func (f *FuseDir) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fus
 	for _, d := range f.Data {
 		if d.Name == req.Name {
 			if d.IsDir {
-				return &FuseDir{Dir: filepath.Join(f.Dir, d.Name), Client: f.Client}, nil
+				return &FuseDir{Dir: filepath.Join(f.Dir, d.Name), Client: f.Client, ConnectConfig: f.ConnectConfig}, nil
 			} else {
-				return &FuseFile{FileName: filepath.Join(f.Dir, d.Name), Client: f.Client}, nil
+				return &FuseFile{FileName: filepath.Join(f.Dir, d.Name), Client: f.Client, ConnectConfig: f.ConnectConfig}, nil
 			}
 		}
 	}
@@ -100,6 +101,7 @@ type FuseFile struct {
 	Client    enfuse.FuseControllerClient
 	Info      *enfuse.FileInfo
 	FetchTime time.Time
+	*ConnectConfig
 	sync.Mutex
 }
 
