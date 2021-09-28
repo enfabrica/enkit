@@ -1459,7 +1459,7 @@ function _safer_rebase() {
   else
     GITCMD+=( rebase --autostash )
     if [[ -n "${ONTO}" ]]; then
-      REBASE_OPTS+=(--onto "${ONTO}")
+      GITCMD+=(--onto "${ONTO}")
     fi
     GITCMD+=( "${PARENT}" "${CHILD}" )
   fi
