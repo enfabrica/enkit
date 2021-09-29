@@ -1084,6 +1084,16 @@ function _count_diffs() {
   "${GIT}" diff --name-only "${BRANCH_A}..${BRANCH_B}" | wc -l
 }
 
+function _branch_has_unstaged_changes() {
+  if "${GIT}" diff --quiet; then
+    # RC=0 means no differences, so return false
+    return 1
+  else
+    # RC=1 means differences were found, so return true
+    return 0
+  fi
+}
+
 function _branch_ahead_behind() {
   # Report how many commits this branch is ahead/behind another branch.
   local branch; branch="$1"
@@ -1874,7 +1884,7 @@ function gee__diff() {
   else
     _git_can_fail diff "${PARENT_BRANCH}"
   fi
-  if git diff --quiet ; then
+  if _branch_has_unstaged_changes; then
     _info "Note: This branch contains uncommitted changes."
   fi
 }
@@ -1901,7 +1911,7 @@ function gee__pack() {
   _parse_options "o:" "$@"
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
-  if git diff --quiet ; then
+  if _branch_has_unstaged_changes; then
     _warn "You have uncommitted work in this branch that won't be packed."
     _confirm_or_exit "Do you want to proceed anyway? (y/N)  "
   fi
@@ -2265,7 +2275,7 @@ function gee__whatsout() {
   _read_parents_file
   PARENT="$(_get_parent_branch "${BRANCH}")"
   _git diff --name-only "${PARENT}...${BRANCH}"
-  if git diff --quiet ; then
+  if _branch_has_unstaged_changes; then
     _info "Note: This branch contains uncommitted changes."
   fi
 }
