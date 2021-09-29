@@ -2262,6 +2262,7 @@ function gee__whatsout() {
   _check_cwd
   local BRANCH PARENT
   BRANCH="$(_get_current_branch)"
+  _read_parents_file
   PARENT="$(_get_parent_branch "${BRANCH}")"
   _git diff --name-only "${PARENT}...${BRANCH}"
   if git diff --quiet ; then
