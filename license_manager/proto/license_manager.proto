@@ -155,10 +155,6 @@ message LicenseStats {
   // license server.
   uint32 total_license_count = 3;
 
-  // Number of licenses currently in use, as reported by the underlying
-  // license server.
-  uint32 in_use_count = 4;
-
   // Number of licenses currently allocated, as reported by the
   // LicenseManager. This should be less than or equal to in_use_count.
   uint32 allocated_count = 5;
