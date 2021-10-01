@@ -1,0 +1,175 @@
+syntax = "proto3";
+
+package license_manager.proto;
+
+import "google/protobuf/timestamp.proto";
+
+// Describes a vendor-agnostic frontend for allocating licenses to hardware tool
+// command invocations.
+// Terminology:
+//
+//   License: A tuple of (vendor, license_type) strings that identifies a
+//     resource that can only be used by one process at a time. These resources
+//     are ultimately fetched from and returned to a vendor-specific license
+//     server.
+//
+//     Licenses are "allocated" when the LicenseManager frontend associates it
+//     with an invocation.
+//
+//     Licenses are "in use" when the invocation actually uses a license from
+//     the underlying license server. Licenses should not be "in use" unless
+//     they are also "allocated", but "allocated" licenses are not always "in
+//     use".
+//
+//   Invocation: A single execution of a particular hardware toolchain binary.
+//     Invocations may use a license, and to do so they must be allocated one
+//     before the underlying hardware toolchain process is allowed to execute.
+
+service LicenseManager {
+  // Allocate attempts to allocate a specific license type for this invocation.
+  // If successful, invocations will keep the allocation alive by calling
+  // Refresh(). If the invocation is queued for the license instead, invocations
+  // will continue polling with Allocate() until allocation is successful.
+  rpc Allocate(AllocateRequest) returns (AllocateResponse) {}
+
+  // Refresh refreshes a license allocation while an invocation is still
+  // potentially using the license. If the invocation fails to refresh the
+  // allocation, the underlying license may be allocated to another invocation.
+  rpc Refresh(RefreshRequest) returns (RefreshResponse) {}
+
+  // LicensesStatus returns the status of all license types, as reported by both
+  // the LicenseManager and the underlying license servers.
+  rpc LicensesStatus(LicensesStatusRequest) returns (LicensesStatusResponse) {}
+}
+
+message AllocateRequest {
+  // Licenses to acquire for this invocation.
+  //
+  // Invocations that need multiple of the same license type should insert
+  // duplicate entries in this field.
+  //
+  // Implementations currently only support reserving once license per
+  // invocation, though future implementations may allow for allocations of
+  // multiple and of different types.
+  repeated License license = 1; // required
+
+  // Owning entity issuing the allocation request. Used for logging purposes
+  // only. This could be the name of the user or system issuing the request.
+  string owner = 2; // required
+
+  // Build tag of the allocation request. This tag does not need to be unique
+  // across multiple AllocateRequests, and may be used to associate multiple
+  // such requests with one higher-level task. Typically the Bazel build
+  // invocation ID is used here.
+  string build_tag = 3; // required
+
+  // If this is not the first AllocateRequest message sent for this
+  // invocation, then this is the invocation_id in a previous AllocateResponse
+  // sent, so that this invocation can queue properly. Otherwise, this field
+  // should be left blank.
+  string invocation_id = 4;
+}
+
+message AllocateResponse {
+  oneof response_type {
+    // Returned when allocation is successful; the invocation should be able
+    // to proceed while simultaneously calling Refresh().
+    LicenseAllocated license_allocated = 1;
+
+    // Returned when allocation is unsuccessful due to license contention.
+    // The invocation should continue to poll by calling Allocate() passing
+    // the invocation_id returned in this message.
+    Queued queued = 2;
+  }
+}
+
+message Queued {
+  // Opaque identifier for this invocation, determined by the server. This ID
+  // associates the invocation with a specific spot in the queue; it should be
+  // used in subsequent AllocateRequest messages or the invocation will be
+  // placed at the back of the queue.
+  string invocation_id = 1;
+
+  // Time at which client should issue its next AllocateRequest. The client
+  // should issue its next poll after this time; if it fails to poll for
+  // significantly longer (>5s) it may be moved to the back of the queue.
+  google.protobuf.Timestamp next_poll_time = 2;
+}
+
+message LicenseAllocated {
+  // Opaque identifier for this invocation, determined by the server. This ID
+  // should be used by the client in subsequent RefreshRequests for this
+  // license.
+  string invocation_id = 1;
+
+  // Time at which the allocated license should be refreshed. The client should
+  // issue a RefreshRequest for this invocation_id after this time; if it fails
+  // to refresh for significantly longer (>5s) its allocation may expire.
+  google.protobuf.Timestamp license_refresh_time = 2;
+}
+
+message RefreshRequest {
+  // Opaque identifier for this invocation, as returned by the server in the
+  // AllocateResponse that allocated this license.
+  string invocation_id = 1; // required
+
+  // If true, the invocation is indicating that it no longer requires the
+  // allocated license, and the server should deallocate it. The resulting
+  // RefreshResponse can be expected to have `allocated` == false.
+  bool release = 2;
+}
+
+message RefreshResponse {
+  // AllocateResponse that allocated this license.
+  string invocation_id = 1;
+
+  // Whether the license is still allocated. If false, the invocation should
+  // be killed immediately.
+  bool allocated = 2;
+
+  // Time at which the request license will be revoked. The client should
+  // issue another RefreshRequest for this invocation_id before this time.
+  google.protobuf.Timestamp license_refresh_deadline = 3;
+}
+
+message LicensesStatusRequest {
+  // Empty request
+}
+
+message LicensesStatusResponse {
+  // Stats for each managed license vendor/feature combination.
+  repeated LicenseStats license_stats = 1;
+}
+
+message LicenseStats {
+  // License to which these stats apply.
+  License license = 1;
+
+  // Time at which these stats were accurate. Slightly stale stats may be
+  // returned due to the underlying polling interval, and stats are not an
+  // indication of whether a subsequent AllocateRequest will immediately
+  // result in an allocation.
+  google.protobuf.Timestamp timestamp = 2;
+
+  // Number of licenses available in total, as reported by the underlying
+  // license server.
+  uint32 total_license_count = 3;
+
+  // Number of licenses currently in use, as reported by the underlying
+  // license server.
+  uint32 in_use_count = 4;
+
+  // Number of licenses currently allocated, as reported by the
+  // LicenseManager. This should be less than or equal to in_use_count.
+  uint32 allocated_count = 5;
+}
+
+message License {
+  // Lower-case vendor name, such as `xilinx` or `cadence`.
+  string vendor = 1; // required
+
+  // Case-sensitive feature that this license is for, such as
+  // `Vivado_System_Edition` or `HLS`. These are defined by the underlying
+  // license server.
+  string feature = 2; // required
+}
