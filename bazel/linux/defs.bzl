@@ -163,8 +163,15 @@ def _import_kernel_bundle_dep(name, ki, d, inputs, extra_symbols):
         matched += int(_import_kernel_modules_dep(name, ki, sub, inputs, extra_symbols))
 
     if matched <= 0:
-        fail("%s is being built for kernel %s, depends on target %s, but this " +
-             "target is NOT being built for the specified kernel", name, ki.package, d.label.name)
+        fail("""
+Module '{module}' is being built for kernel '{kernel}'.
+
+PROBLEM: it has a dependency on '{dependency}', but this target is NOT built for the same kernel!
+Probably, you need to change '{dependency}' so that it is also built for this same kernel.
+""".format(
+  module = name,
+  kernel = ki.package,
+  dependency = d.label.name))
 
 def _import_kernel_modules_dep(name, ki, d, inputs, extra_symbols):
     """Extract information neessary to import a single kernel dep.
