@@ -2281,6 +2281,69 @@ function gee__whatsout() {
 }
 
 ##########################################################################
+# affected command
+##########################################################################
+
+_register_help "affected" \
+  "List bazel targets affected by changes in this branch." <<'EOT'
+Usage: gee affected [options]
+
+Reports a list of bazel targets affected by changes in this branch.
+
+Options:
+  -t -- Only show test targets.
+  -b -- Only show binary targets.
+  -r -- Run affected tests.
+  -p -- Only show differences relative to parent branch (instead of
+        main branch).
+EOT
+
+function gee__affected() {
+  declare -A FLAGS=()
+  _parse_options "bprt" "$@"
+  _check_cwd
+  local BRANCH PARENT
+  BRANCH="$(_get_current_branch)"
+  _set_main
+  PARENT="${MAIN}"
+  if (( "${FLAGS[p]}" == 1 )); then
+    _read_parents_file
+    PARENT="$(_get_parent_branch "${BRANCH}")"
+  fi
+
+  _info "Reading list of changed files."
+  local -a FILES=()
+  _read_cmd FILES "${GIT}" diff --name-only "${PARENT}"
+  if _branch_has_unstaged_changes; then
+    _info "Note: This branch contains uncommitted changes."
+  fi
+
+  _info "Translating changed files into targets."
+  local -a TARGETS=()
+  NOFAIL=1 _read_cmd TARGETS bazelisk query --keep_going --noshow_progress \
+    "set(${FILES[*]})"
+
+  local  BAZEL_QUERY="rdeps(//..., set(${TARGETS[*]}))"
+  if (("${FLAGS[t]}")) || (("${FLAGS[r]}")); then
+    BAZEL_QUERY="kind(test, ${BAZEL_QUERY}) except attr('tags', 'manual', //...)"
+  elif (("${FLAGS[b]}")); then
+    BAZEL_QUERY="kind(.*_binary, ${BAZEL_QUERY})"
+  fi
+  local -a BAZEL_CMD=(bazelisk query --keep_going --show_progress "${BAZEL_QUERY}")
+  if (("${FLAGS[r]}")); then
+    _info "Finding and running dependencies of those targets." \
+      "(This could take a while.)"
+    declare -a TESTS=()
+    NOFAIL=1 _read_cmd TESTS "${BAZEL_CMD[@]}"
+    _cmd bazelisk test "${TESTS[@]}"
+  else
+    _info "Finding dependencies of those targets." \
+      "(This could take a while.)"
+    NOFAIL=1 _cmd "${BAZEL_CMD[@]}"
+  fi
+}
+
+##########################################################################
 # lsbranches command
 ##########################################################################
 # TODO(jonathan): maybe display a tree?
