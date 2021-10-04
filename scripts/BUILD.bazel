@@ -3,7 +3,7 @@ load("@//bazel:shellutils.bzl", "bats_test", "shellcheck_test")
 
 sh_library(
     name = "gee-lib",
-    srcs = [ "gee" ],
+    srcs = ["gee"],
 )
 
 bats_test(
