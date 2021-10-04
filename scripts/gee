@@ -851,6 +851,27 @@ function _get_branch_rootdir() {
   echo "${BRDIR}"
 }
 
+function _choose_one() {
+  local PROMPT="$1"
+  local OPTIONS="$2"
+  local DEFAULT="$3"
+  declare -g RESP="${DEFAULT}"
+  if (( YESYESYES )); then
+    echo "${PROMPT}: default to ${DEFAULT}"
+    return 0
+  fi
+  while /bin/true; do
+    read -rp "${PROMPT}"  RESP
+    if [[ -z "${RESP}" ]]; then
+      RESP="${DEFAULT}"
+    fi
+    case "${RESP}" in
+      ["${OPTIONS}"]*) return 0;
+    esac
+    echo "Invalid response: ${RESP} must be one of ${OPTIONS}"
+  done
+}
+
 function _confirm_default_yes() {
   # Ask the user for confirmation, defaulting to "yes."
   # Returns true if the user confirms.
@@ -2836,6 +2857,14 @@ function gee__pr_make() {
   printf "\nCommits:\n" >>"${BODYFILE}"
   "${GIT}" log --format="*  %h %s" --reverse \
     "${PARENT}...${CURRENT_BRANCH}" >>"${BODYFILE}"
+  _info "PR message body follows:"
+  cat "${BODYFILE}" >&2
+  declare -g RESP=""
+  _choose_one "Do you want to edit this message? ([V]im, [e]macs, [n]o)  " "vVeEnN" "v"
+  case "${RESP}" in
+    [vV]*) vim "${BODYFILE}"; ;;
+    [eE]*) emacs "${BODYFILE}"; ;;
+  esac
 
   # Note: there is no longer any need to squash before sending out for review,
   # as we always merge with "gh pr merge --squash".
