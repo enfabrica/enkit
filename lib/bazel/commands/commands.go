@@ -41,6 +41,7 @@ type AffectedTargets struct {
 
 	Start string
 	End string
+	Universe []string
 }
 
 func NewAffectedTargets(root *Root) *AffectedTargets {
@@ -55,6 +56,7 @@ func NewAffectedTargets(root *Root) *AffectedTargets {
 
 	command.PersistentFlags().StringVarP(&command.Start, "start", "s", "HEAD", "Git committish of 'before' revision")
 	command.PersistentFlags().StringVarP(&command.End, "end", "e", "", "Git committish of 'end' revision, or empty for current dir with uncomitted changes")
+	command.PersistentFlags().StringSliceVarP(&command.Universe, "universe", "u", []string{"//..."}, "Target universe in which to search for dependencies")
 
 	command.AddCommand(NewAffectedTargetsList(command).Command)
 
