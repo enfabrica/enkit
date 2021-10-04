@@ -1672,7 +1672,7 @@ function _join() {
 function _get_pull_requests() {
   # Prints list of PRs associated with this branch.
   local BRANCH="$1"
-  if [[ -n "${BRANCH}" ]]; then
+  if [[ -z "${BRANCH}" ]]; then
     BRANCH="$(_get_current_branch)"
   fi
   # "gh pr view" arguments are similar to "gh pr create" but not identical.
@@ -1690,10 +1690,17 @@ function _get_pull_requests() {
 
 function _list_open_pr_numbers() {
   local BRANCH="$1"
+  if [[ -z "${BRANCH}" ]]; then
+    BRANCH="$(_get_current_branch)"
+  fi
   _get_pull_requests "${BRANCH}" | grep ^OPEN | awk '{print $2}'
 }
 
 function _list_merged_pr_numbers() {
+  local BRANCH="$1"
+  if [[ -z "${BRANCH}" ]]; then
+    BRANCH="$(_get_current_branch)"
+  fi
   _get_pull_requests "${BRANCH}" | grep ^MERGED | awk '{print $2}'
 }
 
