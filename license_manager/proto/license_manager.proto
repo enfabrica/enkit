@@ -30,12 +30,30 @@ service LicenseManager {
   // If successful, invocations will keep the allocation alive by calling
   // Refresh(). If the invocation is queued for the license instead, invocations
   // will continue polling with Allocate() until allocation is successful.
+  //
+  // Returns:
+  //   * NOT_FOUND if the license type is not known to the server
+  //   * RESOURCE_EXHAUSTED if the license type is known but there are currently
+  //     no licenses of that type available
   rpc Allocate(AllocateRequest) returns (AllocateResponse) {}
 
   // Refresh refreshes a license allocation while an invocation is still
   // potentially using the license. If the invocation fails to refresh the
   // allocation, the underlying license may be allocated to another invocation.
+  //
+  // Returns:
+  //   * NOT_FOUND if allocation is not known to the server, and the client
+  //     should kill the invocation.
   rpc Refresh(RefreshRequest) returns (RefreshResponse) {}
+
+  // Release returns an allocated license to the pool. This should be called by
+  // clients to return licenses so they can be quickly allocated to other
+  // processes in the pool; otherwise, the server will need to wait for the
+  // client to time out issuing Refresh calls.
+  //
+  // Returns:
+  //   * NOT_FOUND if the allocation is not known to the server.
+  rpc Release(ReleaseReqeust) returns (ReleaseResponse) {}
 
   // LicensesStatus returns the status of all license types, as reported by both
   // the LicenseManager and the underlying license servers.
@@ -102,30 +120,20 @@ message LicenseAllocated {
   // license.
   string invocation_id = 1;
 
-  // Time at which the allocated license should be refreshed. The client should
-  // issue a RefreshRequest for this invocation_id after this time; if it fails
-  // to refresh for significantly longer (>5s) its allocation may expire.
-  google.protobuf.Timestamp license_refresh_time = 2;
+  // Time at which the request license will be revoked. The client should issue
+  // a RefreshRequest for this invocation_id before this time.
+  google.protobuf.Timestamp license_refresh_deadline = 2;
 }
 
 message RefreshRequest {
   // Opaque identifier for this invocation, as returned by the server in the
   // AllocateResponse that allocated this license.
   string invocation_id = 1; // required
-
-  // If true, the invocation is indicating that it no longer requires the
-  // allocated license, and the server should deallocate it. The resulting
-  // RefreshResponse can be expected to have `allocated` == false.
-  bool release = 2;
 }
 
 message RefreshResponse {
   // AllocateResponse that allocated this license.
   string invocation_id = 1;
-
-  // Whether the license is still allocated. If false, the invocation should
-  // be killed immediately.
-  bool allocated = 2;
 
   // Time at which the request license will be revoked. The client should
   // issue another RefreshRequest for this invocation_id before this time.
