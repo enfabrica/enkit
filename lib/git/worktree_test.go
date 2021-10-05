@@ -1,8 +1,8 @@
 package git
 
 import (
-	"testing"
 	"os/exec"
+	"testing"
 
 	"github.com/enfabrica/enkit/lib/errdiff"
 
@@ -12,25 +12,25 @@ import (
 
 func TestNewTempWorktree(t *testing.T) {
 	testCases := []struct {
-		desc string
-		committish string
-		wantCmds []*exec.Cmd
-		wantErr string
+		desc         string
+		committish   string
+		wantCmds     []*exec.Cmd
+		wantErr      string
 		wantCloseErr string
-	} {
+	}{
 		{
-			desc: "successfully creates temp worktree",
+			desc:       "successfully creates temp worktree",
 			committish: "some_branch_name",
 			wantCmds: []*exec.Cmd{
 				&exec.Cmd{
 					Path: "git",
 					Args: []string{"worktree", "add", "foo", "some_branch_name"},
-					Dir: "/foo/bar",
+					Dir:  "/foo/bar",
 				},
 				&exec.Cmd{
 					Path: "git",
 					Args: []string{"worktree", "remove", "foo"},
-					Dir: "/foo/bar",
+					Dir:  "/foo/bar",
 				},
 			},
 		},
@@ -47,12 +47,8 @@ func TestNewTempWorktree(t *testing.T) {
 			got, gotErr := NewTempWorktree("/foo/bar", tc.committish)
 			closeErr := got.Close()
 
-			if diff := errdiff.Substring(gotErr, tc.wantErr); diff != "" {
-				t.Error(diff)
-			}
-			if diff := errdiff.Substring(closeErr, tc.wantCloseErr); diff != "" {
-				t.Error(diff)
-			}
+			errdiff.Check(t, gotErr, tc.wantErr)
+			errdiff.Check(t, closeErr, tc.wantCloseErr)
 			assert.Equal(t, 2, len(gotCmds))
 			assert.Equal(t, []string{"git", "worktree", "add"}, gotCmds[0].Args[0:3])
 			assert.Equal(t, []string{"some_branch_name"}, gotCmds[0].Args[4:])
