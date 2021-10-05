@@ -2541,8 +2541,12 @@ function gee__revert() {
       ADDED+=("${F}")
     fi
   done
-  _git checkout "${PARENT_BRANCH}" -- "${MODIFIED[@]}"
-  _git rm "${ADDED[@]}"
+  if [[ "${#MODIFIED[@]}" -ne 0 ]]; then
+    _git checkout "${PARENT_BRANCH}" -- "${MODIFIED[@]}"
+  fi
+  if [[ "${#ADDED[@]}" -ne 0 ]]; then
+    _git rm "${ADDED[@]}"
+  fi
 }
 
 ##########################################################################
@@ -2966,7 +2970,8 @@ function gee__remove_branch() {
   SHA="$("${GIT}" reflog | head -n 1 | awk '{print $1}' )"
 
   _checkout_or_die "${MAIN}"
-  _git worktree remove "${BR}"
+  # --force is required for git v2.17.1, or the remove operation will always fail.
+  _git worktree remove --force "${BR}"
   _git branch -D "${BR}"
   if _remote_branch_exists origin "${BR}"; then
     _git_can_fail push origin --delete "${BR}"
