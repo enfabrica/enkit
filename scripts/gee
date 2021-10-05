@@ -1187,6 +1187,7 @@ function _interactive_conflict_resolution() {
   local PARENT CHILD
   PARENT="$1"
   CHILD="$2"
+  ONTO="$3"
   if [[ -z "${CHILD}" ]]; then
     _die "Must specify branch name."
   fi
@@ -1243,7 +1244,7 @@ function _interactive_conflict_resolution() {
           RESP="N";
         else
           read -r -n1 -p \
-            "Keep (O)ld, (N)ew, (M)erge, (G)ui, (S)hell, (V)iew, s(K)ip, or (A)bort? " \
+            "Keep (O)ld, (N)ew, (M)erge, (G)ui, (P)ick, (V)iew, s(K)ip, or (A)bort? " \
             RESP
           printf "\n"
         fi
@@ -1280,6 +1281,24 @@ function _interactive_conflict_resolution() {
               _warn "${FILE} still contains conflict markers."
             fi
             ;;
+          [Pp])
+            _warn "\"Pick\" will abort and restart your rebase merge from the beginning."
+            if _confirm_default_no "Are you sure you want to restart? (y/N)  "; then
+              _git rebase --abort
+              local -a GITCMD=( rebase --autostash -i )
+              if [[ -n "${ONTO}" ]]; then
+                GITCMD+=( --onto "${ONTO}" )
+              fi
+              GITCMD+=( "${PARENT}" "${CHILD}" )
+              if ! _git "${GITCMD[@]}"; then
+                if ! _is_rebase_in_progress; then
+                  # This should never happen.
+                  _die "Rebase command failed, but rebase is not in progress.  Bug!"
+                fi
+                _warn "Rebase operation had merge conflicts."
+              fi
+            fi
+            ;;
           [Ss])
             _open_rebase_shell
             RESTART=1  # go back to beginning, maybe we're done?
@@ -1306,6 +1325,7 @@ function _interactive_conflict_resolution() {
               "  o: Keep (O)lder file (from the version being patched)." \
               "  m: (M)erge: Runs \"git mergetool\" on this file." \
               "  g: (G)UI Merge: Runs \"git mergetool --gui\" on this file." \
+              "  p: (P)ick: Aborts rebase and re-runs \"git rebase -i\"." \
               "  s: (S)hell: Opens a bash sub-shell for expert use." \
               "  v: (V)iew: Show the patch being applied." \
               "  k: s(K)ip: Skips a whole commit (all files)." \
@@ -1419,7 +1439,7 @@ function _safer_rebase() {
       _die "Rebase command failed, but rebase is not in progress.  Bug!"
     fi
     _warn "Rebase operation had merge conflicts."
-    _interactive_conflict_resolution "${PARENT}" "${CHILD}"
+    _interactive_conflict_resolution "${PARENT}" "${CHILD}" "${ONTO}"
 
     if _is_rebase_in_progress; then
       local STATUS
