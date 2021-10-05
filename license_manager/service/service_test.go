@@ -34,6 +34,18 @@ func TestRefreshUnimplemented(t *testing.T) {
 	}
 }
 
+func TestReleaseUnimplemented(t *testing.T) {
+	ctx := context.Background()
+	s := &Service{}
+	wantCode := codes.Unimplemented
+	req := &lmpb.ReleaseRequest{}
+
+	_, err := s.Release(ctx, req)
+	if gotCode := status.Code(err); gotCode != wantCode {
+		t.Errorf("got code %v; want code %v", gotCode, wantCode)
+	}
+}
+
 func TestLicensesStatusUnimplemented(t *testing.T) {
 	ctx := context.Background()
 	s := &Service{}
