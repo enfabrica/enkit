@@ -53,7 +53,7 @@ service LicenseManager {
   //
   // Returns:
   //   * NOT_FOUND if the allocation is not known to the server.
-  rpc Release(ReleaseReqeust) returns (ReleaseResponse) {}
+  rpc Release(ReleaseRequest) returns (ReleaseResponse) {}
 
   // LicensesStatus returns the status of all license types, as reported by both
   // the LicenseManager and the underlying license servers.
@@ -138,6 +138,15 @@ message RefreshResponse {
   // Time at which the request license will be revoked. The client should
   // issue another RefreshRequest for this invocation_id before this time.
   google.protobuf.Timestamp license_refresh_deadline = 3;
+}
+
+message ReleaseRequest {
+  // AllocateResponse that allocated this license.
+  string invocation_id = 1;
+}
+
+message ReleaseResponse {
+  // Empty response
 }
 
 message LicensesStatusRequest {
