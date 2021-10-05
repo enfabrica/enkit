@@ -3509,7 +3509,9 @@ function main() {
   fi
   local cmdname="$1"; shift
   if type "gee__${cmdname}" >/dev/null 2>&1; then
-    _startup_checks
+    if [[ "${cmdname}" != "bash_setup" ]]; then
+      _startup_checks
+    fi
     "gee__${cmdname}" "$@"
     ABNORMAL=0
   else
