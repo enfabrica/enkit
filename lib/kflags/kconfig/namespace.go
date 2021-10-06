@@ -59,7 +59,7 @@ type NamespaceAugmenter struct {
 	cf    CommandFactory
 
 	log     logger.Logger
-	mangler kflags.EnvMangler
+	mangler kflags.VarMangler
 
 	wg    sync.WaitGroup
 	elock sync.RWMutex // Protects errs below, but also access to visited flags (which may not support concurrent access).
@@ -74,7 +74,7 @@ type ParamFactory func(base *url.URL, param *Parameter) (Retriever, error)
 // CommandFactory is a function capable of retrieving a command implementation.
 type CommandFactory func(url, hash string) (string, *Manifest, error)
 
-func NewNamespaceAugmenter(base *url.URL, namespaces []Namespace, log logger.Logger, mangler kflags.EnvMangler, cf CommandFactory, pf ParamFactory) (*NamespaceAugmenter, error) {
+func NewNamespaceAugmenter(base *url.URL, namespaces []Namespace, log logger.Logger, mangler kflags.VarMangler, cf CommandFactory, pf ParamFactory) (*NamespaceAugmenter, error) {
 	ci := &NamespaceAugmenter{base: base, index: map[string]*namespaceData{}, cf: cf, log: log, mangler: mangler}
 	errs := []error{}
 	for _, ns := range namespaces {
@@ -146,7 +146,7 @@ func ExpandArgs(argv []string, subs map[string]interface{}) ([]string, error) {
 }
 
 // ExpandArg takes a key:value map, and creates environment variables containging the key and value.
-func PrepareEnv(subs map[string]interface{}, mangler kflags.EnvMangler) []string {
+func PrepareEnv(subs map[string]interface{}, mangler kflags.VarMangler) []string {
 	env := os.Environ()
 	for k, v := range subs {
 		str, ok := v.(string)
@@ -164,7 +164,7 @@ func PrepareEnv(subs map[string]interface{}, mangler kflags.EnvMangler) []string
 	return env
 }
 
-func CreateExecuteAction(packagedir string, commanddir string, argv []string, vars []Var, mangler kflags.EnvMangler, printer logger.Printer) (kflags.CommandAction, error) {
+func CreateExecuteAction(packagedir string, commanddir string, argv []string, vars []Var, mangler kflags.VarMangler, printer logger.Printer) (kflags.CommandAction, error) {
 	if len(argv) < 1 {
 		return nil, fmt.Errorf("argv must have at least the command name - it is empty")
 	}
