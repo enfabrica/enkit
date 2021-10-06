@@ -5,6 +5,8 @@ type MapAugmenter struct {
 	manglers []VarMangler
 }
 
+var _ Augmenter = &MapAugmenter{}
+
 type MapModifier func(e *MapAugmenter)
 
 type MapModifiers []MapModifier
