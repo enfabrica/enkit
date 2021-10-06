@@ -38,6 +38,9 @@ func TestOpenDir(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 	assert.Equal(t, 0, len(data))
 
+	err = hd.Delete("test")
+	assert.True(t, os.IsNotExist(err))
+
 	quote := []byte("the burden of proof has to be placed on authority, and that it should be dismantled if that burden cannot be met")
 	err = hd.Write("test", quote)
 	assert.Nil(t, err)
@@ -49,4 +52,11 @@ func TestOpenDir(t *testing.T) {
 	confs, err = hd.List()
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"test"}, confs)
+
+	err = hd.Delete("test")
+	assert.Nil(t, err)
+
+	confs, err = hd.List()
+	assert.Nil(t, err)
+	assert.Equal(t, []string{}, confs)
 }

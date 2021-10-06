@@ -9,7 +9,10 @@ go_library(
     ],
     importpath = "github.com/enfabrica/enkit/lib/config",
     visibility = ["//visibility:public"],
-    deps = ["//lib/config/marshal:go_default_library"],
+    deps = [
+        "//lib/config/marshal:go_default_library",
+        "//lib/multierror:go_default_library",
+    ],
 )
 
 go_test(

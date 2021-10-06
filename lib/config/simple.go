@@ -40,3 +40,11 @@ func (ss *SimpleStore) Unmarshal(name string, value interface{}) (Descriptor, er
 	}
 	return name, ss.marshaller.Unmarshal(data, value)
 }
+
+func (ss *SimpleStore) Delete(desc Descriptor) error {
+	name, ok := desc.(string)
+	if !ok {
+		return fmt.Errorf("API Usage Error - SimpleStore.Delete must be passed a string as descriptor")
+	}
+	return ss.loader.Delete(name)
+}
