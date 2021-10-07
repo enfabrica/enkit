@@ -1832,7 +1832,7 @@ function gee__config() {
     enable_vscode)
       _git config --global merge.guitool vscode
       _git config --global mergetool.vscode.cmd \
-         'code --wait $MERGED'
+         "code --wait \$MERGED"
       ;;
     enable_emacs)
       # TODO: I'm hoping an emacs expert can contribute
