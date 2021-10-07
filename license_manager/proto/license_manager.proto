@@ -69,7 +69,7 @@ message AllocateRequest {
   // Implementations currently only support reserving once license per
   // invocation, though future implementations may allow for allocations of
   // multiple and of different types.
-  repeated License license = 1; // required
+  repeated License licenses = 1; // required
 
   // Owning entity issuing the allocation request. Used for logging purposes
   // only. This could be the name of the user or system issuing the request.

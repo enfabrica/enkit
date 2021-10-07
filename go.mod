@@ -30,8 +30,10 @@ require (
 	github.com/golangci/gosec v0.0.0-20190211064107-66fb7fc33547 // indirect
 	github.com/golangci/ineffassign v0.0.0-20190609212857-42439a7714cc // indirect
 	github.com/golangci/prealloc v0.0.0-20180630174525-215b22d4de21 // indirect
+	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/improbable-eng/grpc-web v0.13.0
 	github.com/kataras/muxie v1.1.1
@@ -44,6 +46,7 @@ require (
 	github.com/pelletier/go-toml v1.8.1
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/pquerna/cachecontrol v0.0.0-20200921180117-858c6e7e6b7e // indirect
+	github.com/prashantv/gostub v1.0.0 // indirect
 	github.com/prometheus/client_golang v0.9.3
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/shirou/gopsutil v0.0.0-20180427012116-c95755e4bcd7 // indirect
