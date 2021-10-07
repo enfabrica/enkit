@@ -395,7 +395,7 @@ function _egrep_array() {
   local REGEX="$2"
   unset "${OUTPUT}"
   declare -a "${OUTPUT}"
-  readarray -t "${OUTPUT}" < <( printf "%s\n" "$@" | grep -E "${REGEX}" )
+  readarray -t "${OUTPUT}" < <( printf "%s\n" "$@" | grep -E "${REGEX}" | cat )
 }
 
 function _set_alias_if_missing() {
@@ -616,7 +616,7 @@ function _startup_checks() {
   fi
 
   local GIT_EMAIL
-  GIT_EMAIL="$("${GIT}" config --get user.email || /bin/true)"
+  GIT_EMAIL="$("${GIT}" config --get user.email | cat)"
   if [[ -z "${GIT_EMAIL}" ]]; then
     _warn "git user.email setting is empty."
     GIT_EMAIL="${USER}@enfabrica.net"
@@ -632,7 +632,7 @@ function _startup_checks() {
   fi
 
   local GIT_NAME
-  GIT_NAME="$("${GIT}" config --get user.name || /bin/true)"
+  GIT_NAME="$("${GIT}" config --get user.name | cat)"
   if [[ -z "${GIT_NAME}" ]]; then
     _warn "git user.name setting is empty."
     GIT_NAME="${USER}"
@@ -1239,23 +1239,20 @@ function _interactive_conflict_resolution() {
     FROM_DESC="$("${GIT}" show --oneline -s "${FROM_COMMIT}")"
 
     _banner "Attempting to apply: ${FROM_DESC}" \
-            "               onto: ${ONTO_DESC}" \
-            "Conflicts in ${#STATUS[@]} files."
+            "               onto: ${ONTO_DESC}"
     local STATUS_LINE DONE SKIP RESTART
     SKIP=0
     RESTART=0
     if [[ "${#STATUS[@]}" -eq 0 ]]; then
       _warn "Empty commit, skipping automatically."
       SKIP=1
-    else
-      _info foo
     fi
     for STATUS_LINE in "${STATUS[@]}"; do
       local DECODED_ST ST FILE
-      _info "status: ${STATUS_LINE}"
       read -r ST FILE <<< "${STATUS_LINE}"
       case "${ST}" in
         # TODO(jonathan): do I have "us" and "them" backwards here?
+        ?) DECODED_ST="" ;;  # The no-conflict case
         DD) DECODED_ST="Both deleted" ;;
         AU) DECODED_ST="Added by us" ;;
         UD) DECODED_ST="Deleted by them" ;;
@@ -1265,7 +1262,11 @@ function _interactive_conflict_resolution() {
         UU) DECODED_ST="Both modified" ;;
         *)  DECODED_ST="Bizarre!" ;;
       esac
-      _info "" "${FILE}: ${ST}=${DECODED_ST}"
+      if [[ -z "${DECODED_ST}" ]]; then
+        _info "${FILE}: no conflicts."
+        continue
+      fi
+      _info "${FILE}: ${ST}=${DECODED_ST}"
 
       DONE=0
       while (( DONE == 0 )); do
@@ -1296,7 +1297,7 @@ function _interactive_conflict_resolution() {
             ;;
           [Mm])
             _git mergetool "${FILE}"
-            M="$("${GIT}" diff --check "${FILE}" | grep -c "conflict marker")"
+            M="$("${GIT}" diff --check "${FILE}" | grep -c "conflict marker" | cat)"
             if (( M == 0 )); then
               DONE=1
             else
@@ -1305,7 +1306,7 @@ function _interactive_conflict_resolution() {
             ;;
           [Gg])
             _git mergetool --gui "${FILE}"
-            M="$("${GIT}" diff --check "${FILE}" | grep -c "conflict marker")"
+            M="$("${GIT}" diff --check "${FILE}" | grep -c "conflict marker" | cat)"
             if (( M == 0 )); then
               DONE=1
             else
@@ -1371,13 +1372,13 @@ function _interactive_conflict_resolution() {
     done  # STATUS_LINE
 
     if (( SKIP == 1 )); then
-      _git_can_fail rebase --skip || /bin/true
+      _git_can_fail rebase --skip | cat
     fi
     if (( ABORT == 1 )); then break; fi
     if (( RESTART == 1 )); then continue; fi
 
     local -a MARKERS
-    mapfile -t MARKERS < <( "${GIT}" diff --check | grep "conflict marker" )
+    mapfile -t MARKERS < <( "${GIT}" diff --check | grep "conflict marker" | cat )
 
     if (( "${#MARKERS[@]}" == 0 )); then
       _git add .
@@ -1458,7 +1459,7 @@ function _safer_rebase() {
   else
     GITCMD+=( rebase --autostash )
     if [[ -n "${ONTO}" ]]; then
-      REBASE_OPTS+=(--onto "${ONTO}")
+      GITCMD+=(--onto "${ONTO}")
     fi
     GITCMD+=( "${PARENT}" "${CHILD}" )
   fi
@@ -1581,7 +1582,7 @@ function _update_from_upstream() {
 
   read -r -a COUNTS < \
     <( "${GIT}" rev-list --left-right --count "upstream/${UPSTREAM_BRANCH}...${LOCAL_BRANCH}" ) \
-    || /bin/true
+    | cat
   if (( COUNTS[0] != 0 )); then
     _fatal "pull failed: upstream/${UPSTREAM_BRANCH} is ${COUNTS[1]} commits ahead of ${LOCAL_BRANCH}"
   fi
@@ -1596,7 +1597,7 @@ function _update_main() {
   local -a CHANGES
   read -r -a CHANGES < \
     <( "${GIT}" diff --name-only ) \
-    || /bin/true
+    | cat
   if [[ "${#CHANGES[@]}" != 0 ]]; then
     _warn "${MAIN} branch contains uncommitted changes."
   fi
@@ -1661,14 +1662,22 @@ function _write_parents_file() {
 
 ABNORMAL=1
 function _cleanup() {
+  local lineno="$1"
   # Ensure we always save the PARENTS file, even if we die:
   _write_parents_file
   # Warn the user if we terminated abnormally (for example, if set -e fired).
   if (( ABNORMAL == 1 )); then
-    _warn "Abnormal termination."
+    _warn "Abnormal termination at line ${lineno}"
   fi
 }
-trap _cleanup EXIT
+trap '_cleanup "${LINENO}"' EXIT
+# This doesn't quite work right, which is why gee needs to be rewritten
+# in golang:
+# function _error_report() {
+#   local lineno="$1"
+#   _warn "ERR signal raised on line ${lineno}"
+# }
+# trap '_error_report "${LINENO}"' ERR
 
 function _join() {
   # Usage:  _join <delimiter> <elements...>
@@ -1695,7 +1704,7 @@ function _get_pull_requests() {
     --repo="${UPSTREAM}/${REPO}" "${FROM_BRANCH}" \
     --json "state,number,title" \
     --jq '[.state, .number, .title] | join(" ")' \
-    || /bin/true
+    | cat
 }
 
 function _list_open_pr_numbers() {
@@ -2636,7 +2645,7 @@ function gee__revert() {
   local -a ADDED=()
   local F REL_F
   for F in "$@"; do
-    REL_F="$(realpath --relative_base="${CURRENT_ROOT}" -e ${F})"
+    REL_F="$(realpath --relative-base="${CURRENT_ROOT}" -e ${F})"
     if git cat-file blob "${PARENT_BRANCH}:${REL_F}" >/dev/null 2>&1; then
       MODIFIED+=("${F}")
     else
