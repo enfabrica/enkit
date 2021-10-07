@@ -2770,7 +2770,7 @@ function gee__pr_debug() {
   local -a PRS=()
   mapfile -t PRS < <( _list_open_pr_numbers )
   _info "Open pull requests: ${PRS[*]}"
-  mapfile -t PRS < <( _list_merged_pr_numbers )
+  mapfile -t PRS < <( _list_merged_pr_numbers "")
   _info "Merged pull requests: ${PRS[*]}"
 }
 
