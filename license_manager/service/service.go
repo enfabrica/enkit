@@ -58,18 +58,16 @@ var (
 // janitor runs in a loop to cleanup allocations and queue spots that have not
 // been refreshed in a sufficient amount of time.
 func (s *Service) janitor() {
-	// Pick a time t = now + n to expire queue spots and allocation requests
-	// For each license type
-	//   For each allocation
-	//     If allocation is not refreshed by deadline, remove it
-	//     Place it in the "recently expired" list
-	// For each license type
-	//   For each queued invocation, first to last
-	//     If queue spot is not refreshed by deadline, remove it
-	//       Place it in the "recently expired" list
-	//     If state == RUNNING and allocation is available, pop off queue and move it to allocated
-	// For each recently expired allocation
-	//   If past threshold, delete
+	if s.currentState == stateStarting {
+		return
+	}
+	allocationExpiry := timeNow().Add(-s.allocationRefreshDuration)
+	queueExpiry := timeNow().Add(-s.queueRefreshDuration)
+	for _, lic := range s.licenses {
+		lic.ExpireAllocations(allocationExpiry)
+		lic.ExpireQueued(queueExpiry)
+		lic.Promote()
+	}
 }
 
 func formatLicenseType(l *lmpb.License) string {
@@ -78,6 +76,14 @@ func formatLicenseType(l *lmpb.License) string {
 
 func (l *license) Enqueue(inv *invocation) {
 	l.queue = append(l.queue, inv)
+}
+
+func (l *license) Allocate(inv *invocation) bool {
+	if len(l.allocations) >= l.totalAvailable {
+		return false
+	}
+	l.allocations[inv.ID] = inv
+	return true
 }
 
 func (l *license) Promote() {
@@ -98,6 +104,26 @@ func (l *license) GetAllocated(invID string) *invocation {
 	return inv
 }
 
+func (l *license) ExpireAllocations(expiry time.Time) {
+	newAllocations := map[string]*invocation{}
+	for k, v := range l.allocations {
+		if v.LastCheckin.After(expiry) {
+			newAllocations[k] = v
+		}
+	}
+	l.allocations = newAllocations
+}
+
+func (l *license) ExpireQueued(expiry time.Time) {
+	newQueued := []*invocation{}
+	for _, inv := range l.queue {
+		if inv.LastCheckin.After(expiry) {
+			newQueued = append(newQueued, inv)
+		}
+	}
+	l.queue = newQueued
+}
+
 func (l *license) GetQueued(invID string) *invocation {
 	for _, inv := range l.queue {
 		if inv.ID == invID {
@@ -107,13 +133,35 @@ func (l *license) GetQueued(invID string) *invocation {
 	return nil
 }
 
-func (l *license) RefreshAllocated(invID string) bool {
-	inv, ok := l.allocations[invID]
-	if !ok {
-		return false
+func (l *license) GetStats(name string) *lmpb.LicenseStats {
+	fields := strings.SplitN(name, "::", 2)
+	if len(fields) != 2 {
+		fields = []string{"<UNKNOWN>", name}
 	}
-	inv.LastCheckin = timeNow()
-	return true
+	return &lmpb.LicenseStats{
+		License: &lmpb.License{
+			Vendor:  fields[0],
+			Feature: fields[1],
+		},
+		Timestamp:         timestamppb.New(timeNow()),
+		TotalLicenseCount: uint32(l.totalAvailable),
+		AllocatedCount:    uint32(len(l.allocations)),
+		QueuedCount:       uint32(len(l.queue)),
+	}
+}
+
+func (l *license) Forget(invID string) int {
+	count := 0
+	newAllocations := map[string]*invocation{}
+	for k, v := range l.allocations {
+		if k != invID {
+			newAllocations[k] = v
+		} else {
+			count++
+		}
+	}
+	l.allocations = newAllocations
+	return count
 }
 
 func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmpb.AllocateResponse, error) {
@@ -198,55 +246,67 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 	}
 }
 
-func (s *Service) refreshAll(invID string) int {
-	refreshCount := 0
-	for _, lic := range s.licenses {
-		if lic.RefreshAllocated(invID) {
-			refreshCount++
-		}
-	}
-	return refreshCount
-}
-
 func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.RefreshResponse, error) {
+	if len(req.GetLicenses()) != 1 {
+		return nil, status.Errorf(codes.InvalidArgument, "licenses must have exactly one license spec")
+	}
+	licenseType := formatLicenseType(req.GetLicenses()[0])
+	lic, ok := s.licenses[licenseType]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "unknown license type: %q", licenseType)
+	}
 	invID := req.GetInvocationId()
 	if invID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invocation_id must be set")
 	}
-	numUpdated := s.refreshAll(invID)
-	if numUpdated == 0 {
-		return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not allocated a license: %v", invID)
+	inv, ok := lic.allocations[invID]
+	if !ok {
+		switch s.currentState {
+		case stateStarting:
+			inv := &invocation{
+				ID:          invID,
+				Owner:       req.GetOwner(),
+				BuildTag:    req.GetBuildTag(),
+				LastCheckin: timeNow(),
+			}
+			if ok := lic.Allocate(inv); ok {
+				return &lmpb.RefreshResponse{
+					InvocationId:           invID,
+					LicenseRefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),
+				}, nil
+			} else {
+				return nil, status.Errorf(codes.ResourceExhausted, "%q has no available licenses", licenseType)
+			}
+		case stateRunning:
+			return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not allocated: %q", invID)
+		}
 	}
-	// If state == STARTUP
-	//   Get invocation_id
-	//     No invocation_id -> error
-	//   Is the invocation_id allocated?
-	//     Yes - return allocation success
-	//     Update last check time
-	//   invocation_id is not allocated, but assumed to be allocated. Allocate if there is room
-	//     Error if no allocations left
-	//
-	// If state == RUNNING
-	//   Get invocation_id
-	//     No invocation_id -> error
-	//   Is the invocation_id allocated?
-	//     Yes - return refresh response
-	//     Update last check time
-	//   Is the invocation_id recently expired?
-	//     Yes - log metric
-	//   invocation_id is not allocated - return error
-	return nil, status.Errorf(codes.Unimplemented, "Refresh() is not yet implemented")
+	inv.LastCheckin = timeNow()
+	return &lmpb.RefreshResponse{
+		InvocationId:           invID,
+		LicenseRefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),
+	}, nil
 }
 
 func (s *Service) Release(ctx context.Context, req *lmpb.ReleaseRequest) (*lmpb.ReleaseResponse, error) {
-	// Get invocation_id
-	//   No invocation_id -> error
-	// Is the invocation_id allocated?
-	//   Yes - remove allocation
-	// invocation_id is not allocated - return error
-	return nil, status.Errorf(codes.Unimplemented, "Release() is not yet implemented")
+	invID := req.GetInvocationId()
+	if invID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "invocation_id must be set")
+	}
+	count := 0
+	for _, lic := range s.licenses {
+		count += lic.Forget(invID)
+	}
+	if count == 0 {
+		return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not found: %q", invID)
+	}
+	return &lmpb.ReleaseResponse{}, nil
 }
 
 func (s *Service) LicensesStatus(ctx context.Context, req *lmpb.LicensesStatusRequest) (*lmpb.LicensesStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "LicensesStatus() is not yet implemented")
+	res := &lmpb.LicensesStatusResponse{}
+	for name, lic := range s.licenses {
+		res.LicenseStats = append(res.LicenseStats, lic.GetStats(name))
+	}
+	return res, nil
 }

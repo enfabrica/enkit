@@ -72,16 +72,6 @@ func (f *fakeID) Generate() (string, error) {
 	return strconv.FormatInt(f.counter, 10), nil
 }
 
-// Allocate
-//     license type not known -> error NOT FOUND
-//     State == STARTUP, no invocation_id -> invocation_id created, invocation enqueued
-//     State == STARTUP, invocation_id allocated -> allocation success
-//     State == STARTUP, invocation_id queued -> queued
-//     State == STARTUP, invocation_id not found -> queued
-//   State == RUNNING, no invocation_id, license available -> invocation_id created, invocation allocated
-//     State == RUNNING, no invocation_id, no license available -> invocation_id created, invocation queued
-//     State == RUNNING, invocation_id allocated -> allocation success
-//     State == RUNNING, invocation_id not found -> error
 func TestAllocate(t *testing.T) {
 	start := time.Now()
 	currentTime := start
@@ -429,28 +419,6 @@ func TestAllocate(t *testing.T) {
 	}
 }
 
-//
-// Refresh
-//     State == STARTUP, no invocation_id -> error
-//   State == STARTUP, invocation_id allocated -> refresh success
-//   State == STARTUP, invocation_id not allocated, license available -> allocate and refresh success
-//   State == STARTUP, invocation_id not allocated, license not available -> error
-//   State == RUNNING, no invocation_id -> error
-//   State == RUNNING, invocation_id allocated -> refresh success
-//   State == RUNNING, invocation_id not allocated -> error
-//
-// Release
-//   no invocation_id -> error
-//   invocation_id allocated -> deallocate successfully
-//   invocation_id not allocated -> error
-//
-// janitor
-//   expires stale queued license requests
-//   expires stale allocations
-//   promotes queued license requests
-//   expires stale allocations and promotes queued license requests
-//   removes stale "recently expired" allocations
-
 func TestRefresh(t *testing.T) {
 	start := time.Now()
 	currentTime := start
@@ -466,9 +434,15 @@ func TestRefresh(t *testing.T) {
 		wantLicenses map[string]*license
 	}{
 		{
-			desc:        "error when invocation_id not set",
-			server:      testService(stateStarting),
-			req:         &lmpb.RefreshRequest{},
+			desc:   "error when invocation_id not set",
+			server: testService(stateStarting),
+			req: &lmpb.RefreshRequest{
+				Licenses: []*lmpb.License{
+					&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+				},
+				Owner:    "unit_test",
+				BuildTag: "tag_2",
+			},
 			wantErrCode: codes.InvalidArgument,
 			wantErr:     "invocation_id must be set",
 			wantLicenses: map[string]*license{
@@ -480,10 +454,126 @@ func TestRefresh(t *testing.T) {
 			},
 		},
 		{
+			desc:   "error when multiple licenses specified",
+			server: testService(stateStarting),
+			req: &lmpb.RefreshRequest{
+				InvocationId: "1",
+				Licenses: []*lmpb.License{
+					&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+					&lmpb.License{Vendor: "xilinx", Feature: "feature_bar"},
+				},
+				Owner:    "unit_test",
+				BuildTag: "tag_2",
+			},
+			wantErrCode: codes.InvalidArgument,
+			wantErr:     "exactly one license spec",
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations:    map[string]*invocation{},
+				},
+			},
+		},
+		{
+			desc:   "allocates when invocation_id not found during starting state",
+			server: testService(stateStarting),
+			req: &lmpb.RefreshRequest{
+				InvocationId: "1",
+				Licenses: []*lmpb.License{
+					&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+				},
+				Owner:    "unit_test",
+				BuildTag: "tag_2",
+			},
+			want: &lmpb.RefreshResponse{
+				InvocationId:           "1",
+				LicenseRefreshDeadline: timestamppb.New(start.Add(7 * time.Second)),
+			},
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations: map[string]*invocation{
+						"1": &invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
+					},
+				},
+			},
+		},
+		{
+			desc: "refreshes during starting state",
+			server: testService(stateStarting).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}),
+			req: &lmpb.RefreshRequest{
+				InvocationId: "5",
+				Licenses: []*lmpb.License{
+					&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+				},
+				Owner:    "unit_test",
+				BuildTag: "tag_1",
+			},
+			want: &lmpb.RefreshResponse{
+				InvocationId:           "5",
+				LicenseRefreshDeadline: timestamppb.New(start.Add(7 * time.Second)),
+			},
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+					},
+				},
+			},
+		},
+		{
+			desc: "error when invocation_id not found and no license available during starting state",
+			server: testService(stateStarting).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "8",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start,
+			}),
+			req: &lmpb.RefreshRequest{
+				InvocationId: "1",
+				Licenses: []*lmpb.License{
+					&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+				},
+				Owner:    "unit_test",
+				BuildTag: "tag_2",
+			},
+			wantErrCode: codes.ResourceExhausted,
+			wantErr:     "no available licenses",
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
+					},
+				},
+			},
+		},
+		{
 			desc:   "error when invocation_id not found during running state",
 			server: testService(stateRunning),
 			req: &lmpb.RefreshRequest{
 				InvocationId: "1",
+				Licenses: []*lmpb.License{
+					&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+				},
+				Owner:    "unit_test",
+				BuildTag: "tag_2",
 			},
 			wantErrCode: codes.FailedPrecondition,
 			wantErr:     "invocation_id not allocated",
@@ -495,7 +585,36 @@ func TestRefresh(t *testing.T) {
 				},
 			},
 		},
-		// testcases
+		{
+			desc: "refreshes allocation during running state",
+			server: testService(stateRunning).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}),
+			req: &lmpb.RefreshRequest{
+				InvocationId: "5",
+				Licenses: []*lmpb.License{
+					&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+				},
+				Owner:    "unit_test",
+				BuildTag: "tag_1",
+			},
+			want: &lmpb.RefreshResponse{
+				InvocationId:           "5",
+				LicenseRefreshDeadline: timestamppb.New(start.Add(7 * time.Second)),
+			},
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -520,20 +639,352 @@ func TestRefresh(t *testing.T) {
 	}
 }
 
-func TestReleaseUnimplemented(t *testing.T) {
-	ctx := context.Background()
-	s := &Service{}
-	req := &lmpb.ReleaseRequest{}
+func TestRelease(t *testing.T) {
+	start := time.Now()
+	currentTime := start
+	now := &currentTime
 
-	_, err := s.Release(ctx, req)
-	assert.Equal(t, codes.Unimplemented, status.Code(err))
+	testCases := []struct {
+		desc         string
+		server       *Service
+		req          *lmpb.ReleaseRequest
+		want         *lmpb.ReleaseResponse
+		wantErrCode  codes.Code
+		wantErr      string
+		wantLicenses map[string]*license
+	}{
+		{
+			desc: "error when invocation_id not set",
+			server: testService(stateRunning).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}),
+			req:         &lmpb.ReleaseRequest{},
+			wantErrCode: codes.InvalidArgument,
+			wantErr:     "invocation_id must be set",
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+					},
+				},
+			},
+		},
+		{
+			desc: "deallocates all licenses successfully",
+			server: testService(stateRunning).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "8",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start,
+			}),
+			req:  &lmpb.ReleaseRequest{InvocationId: "5"},
+			want: &lmpb.ReleaseResponse{},
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations: map[string]*invocation{
+						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
+					},
+				},
+			},
+		},
+		{
+			desc: "errors when allocation not recognized",
+			server: testService(stateRunning).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "8",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start,
+			}),
+			req:         &lmpb.ReleaseRequest{InvocationId: "4"},
+			wantErrCode: codes.FailedPrecondition,
+			wantErr:     "invocation_id not found",
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := context.Background()
+			idGen := &fakeID{}
+			stubs := gostub.Stub(&generateRandomID, idGen.Generate)
+			stubs.Stub(&timeNow, func() time.Time {
+				return *now
+			})
+			defer stubs.Reset()
+
+			got, gotErr := tc.server.Release(ctx, tc.req)
+
+			assertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
+			assert.Equal(t, tc.wantErrCode.String(), status.Code(gotErr).String())
+			errdiff.Check(t, gotErr, tc.wantErr)
+			if gotErr != nil {
+				return
+			}
+			assertProtoEqual(t, tc.want, got)
+		})
+	}
 }
 
-func TestLicensesStatusUnimplemented(t *testing.T) {
-	ctx := context.Background()
-	s := &Service{}
-	req := &lmpb.LicensesStatusRequest{}
+func TestLicensesStatus(t *testing.T) {
+	start := time.Now()
+	currentTime := start
+	now := &currentTime
 
-	_, err := s.LicensesStatus(ctx, req)
-	assert.Equal(t, codes.Unimplemented, status.Code(err))
+	testCases := []struct {
+		desc         string
+		server       *Service
+		req          *lmpb.LicensesStatusRequest
+		want         *lmpb.LicensesStatusResponse
+		wantErrCode  codes.Code
+		wantErr      string
+		wantLicenses map[string]*license
+	}{
+		{
+			desc: "returns licenses status",
+			server: testService(stateRunning).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "8",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start,
+			}).withQueued("xilinx::feature_foo", &invocation{
+				ID:          "9",
+				Owner:       "unit_test",
+				BuildTag:    "tag_3",
+				LastCheckin: start,
+			}),
+			req: &lmpb.LicensesStatusRequest{},
+			want: &lmpb.LicensesStatusResponse{
+				LicenseStats: []*lmpb.LicenseStats{
+					&lmpb.LicenseStats{
+						License:           &lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+						TotalLicenseCount: 2,
+						AllocatedCount:    2,
+						QueuedCount:       1,
+						Timestamp:         timestamppb.New(start),
+					},
+				},
+			},
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue: []*invocation{
+						&invocation{ID: "9", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start},
+					},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := context.Background()
+			idGen := &fakeID{}
+			stubs := gostub.Stub(&generateRandomID, idGen.Generate)
+			stubs.Stub(&timeNow, func() time.Time {
+				return *now
+			})
+			defer stubs.Reset()
+
+			got, gotErr := tc.server.LicensesStatus(ctx, tc.req)
+
+			assertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
+			assert.Equal(t, tc.wantErrCode.String(), status.Code(gotErr).String())
+			errdiff.Check(t, gotErr, tc.wantErr)
+			if gotErr != nil {
+				return
+			}
+			assertProtoEqual(t, tc.want, got)
+		})
+	}
+}
+
+func TestJanitor(t *testing.T) {
+	start := time.Now()
+	currentTime := start
+	now := &currentTime
+
+	testCases := []struct {
+		desc         string
+		server       *Service
+		endTime      time.Time
+		wantLicenses map[string]*license
+	}{
+		{
+			desc: "does nothing during starting state",
+			server: testService(stateStarting).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "8",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start.Add(-10 * time.Second), // stale
+			}).withQueued("xilinx::feature_foo", &invocation{
+				ID:          "3",
+				Owner:       "unit_test",
+				BuildTag:    "tag_3",
+				LastCheckin: start,
+			}),
+			endTime: start,
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue: []*invocation{
+						&invocation{ID: "3", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start},
+					},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start.Add(-10 * time.Second)},
+					},
+				},
+			},
+		},
+		{
+			desc: "expires stale queued license requests",
+			server: testService(stateRunning).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "8",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start,
+			}).withQueued("xilinx::feature_foo", &invocation{
+				ID:          "1",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withQueued("xilinx::feature_foo", &invocation{
+				ID:          "2",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start.Add(-10 * time.Second), // stale
+			}).withQueued("xilinx::feature_foo", &invocation{
+				ID:          "3",
+				Owner:       "unit_test",
+				BuildTag:    "tag_3",
+				LastCheckin: start,
+			}),
+			endTime: start,
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue: []*invocation{
+						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+						&invocation{ID: "3", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start},
+					},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
+					},
+				},
+			},
+		},
+		{
+			desc: "expires stale allocations",
+			server: testService(stateRunning).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "8",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start.Add(-10 * time.Second), // stale
+			}),
+			endTime: start,
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+					},
+				},
+			},
+		},
+		{
+			desc: "promotes queued license requests",
+			server: testService(stateRunning).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withAllocation("xilinx::feature_foo", &invocation{
+				ID:          "8",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start.Add(-10 * time.Second), // stale
+			}).withQueued("xilinx::feature_foo", &invocation{
+				ID:          "3",
+				Owner:       "unit_test",
+				BuildTag:    "tag_3",
+				LastCheckin: start,
+			}),
+			endTime: start,
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue:          []*invocation{},
+					allocations: map[string]*invocation{
+						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
+						"3": &invocation{ID: "3", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			idGen := &fakeID{}
+			stubs := gostub.Stub(&generateRandomID, idGen.Generate)
+			stubs.Stub(&timeNow, func() time.Time {
+				return *now
+			})
+			defer stubs.Reset()
+
+			*now = tc.endTime
+			tc.server.janitor()
+
+			assertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
+		})
+	}
 }
