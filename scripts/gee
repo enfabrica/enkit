@@ -3183,20 +3183,17 @@ function gee__fix() {
     fi
   done
   if (( "${#CLANG_FILES[@]}" )); then
-    if grep -q "name = \"cc_format\"" "${BDIR}/BUILD.bazel"; then
-      _cmd /usr/bin/bazelisk run \
-          --noshow_progress --noshow_loading_progress --logging=0 \
-          --ui_event_filters=-info,-debug \
-          //:cc_format \
-          -- \
-          "${CLANG_FILES[@]}"
-    elif [[ -x /usr/bin/clang-format-10 ]]; then
-      _info "clang-format-10: Fixing ${CLANG_FILES[*]}"
+    local CLANG_FORMAT=""
+    if [[ -x /usr/bin/clang-format-10 ]]; then
+      CLANG_FORMAT="/usr/bin/clang-format-10"
+    fi
+    if [[ -n "${CLANG_FORMAT}" ]]; then
+      _info "clang-format: Fixing ${CLANG_FILES[*]}"
       local STYLE="Google"
       if [[ -f "${BDIR}/cc.clang_format" ]]; then
         STYLE="${BDIR}/cc.clang_format"
       fi
-      _cmd /usr/bin/clang-format-10 --verbose --style="${STYLE}" -i "${CLANG_FILES[@]}"
+      _cmd "${CLANG_FORMAT}" --verbose --style="${STYLE}" -i "${CLANG_FILES[@]}"
     else
       _warn "No clang-format tool available."
     fi
@@ -3210,7 +3207,9 @@ function gee__fix() {
         PY_FILES+=("${FNAME}")
       fi
     done
-    _cmd "${BDIR}/pyformat.sh" "${PY_FILES[@]}"
+    if (( "${#PY_FILES[@]}" )); then
+      _cmd "${BDIR}/pyformat.sh" "${PY_FILES[@]}"
+    fi
   fi
 
   # TODO(jonathan): Add more formatters.
