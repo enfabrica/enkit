@@ -1803,6 +1803,47 @@ function gee__init() {
   cd "${MAIN}"
 
   _info "Created ${REPO_DIR}/${MAIN}"
+
+  # by default, enable vimdiff:
+  gee__config enable_vim
+}
+
+##########################################################################
+# config command
+##########################################################################
+
+_register_help "config" \
+  "Set various configuration options." <<'EOT'
+Usage: gee config <option>
+
+Valid configuration options are:
+
+* "enable_vim": Set "vimdiff" as your merge tool.
+* "enable_emacs": Set "emacs" as your merge tool.
+* "enable_vscode": Set "vscode" as your GUI merge tool.
+EOT
+function gee__config() {
+  case "$1" in
+    enable_vim)
+      _git config --global merge.tool vimdiff
+      _git config --global merge.conflictstyle diff3
+      _git config --global mergetool.prompt false
+      ;;
+    enable_vscode)
+      _git config --global merge.guitool vscode
+      _git config --global mergetool.vscode.cmd \
+         "code --wait \$MERGED"
+      ;;
+    enable_emacs)
+      # TODO: I'm hoping an emacs expert can contribute
+      # something here.
+      _fatal "enable_emacs: not yet supported."
+      ;;
+    *)
+      _info "Valid options include:" \ enable_vim \ enable_emacs \ enable_vscode
+      _fatal "Unknown configuration directive."
+      ;;
+  esac
 }
 
 ##########################################################################
