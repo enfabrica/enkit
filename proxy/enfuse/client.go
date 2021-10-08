@@ -3,9 +3,10 @@ package enfuse
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"fmt"
 	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"google.golang.org/grpc"
+	"net"
+	"strconv"
 )
 
 var (
@@ -13,7 +14,7 @@ var (
 )
 
 func NewClient(config *ConnectConfig) (*FuseClient, error) {
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", config.Url, config.Port), grpc.WithInsecure())
+	conn, err := grpc.Dial(net.JoinHostPort(config.Url, strconv.Itoa(config.Port)), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
