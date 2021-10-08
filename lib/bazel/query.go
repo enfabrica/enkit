@@ -51,7 +51,8 @@ var streamedBazelCommand = func(cmd *exec.Cmd) (io.Reader, chan error, error) {
 // `keep_going` is set, then `--keep_going` is set on the bazel commandline, and
 // errors from the bazel process are ignored.
 func (w *Workspace) Query(query string, options ...QueryOption) (map[string]*bpb.Target, error) {
-	queryOpts := (&queryOptions{query: query}).apply(options)
+	queryOpts := &queryOptions{query: query}
+	QueryOptions(options).apply(queryOpts)
 
 	cmd := w.bazelCommand(queryOpts)
 	resultStream, errChan, err := streamedBazelCommand(cmd)

@@ -10,8 +10,8 @@ func TestBazelQueryCommand(t *testing.T) {
 	cannedQuery := "deps(//...)"
 	testCases := []struct {
 		desc      string
-		baseOpts  []Option
-		queryOpts []QueryOption
+		baseOpts  BaseOptions
+		queryOpts QueryOptions
 		wantArgs  []string
 	}{
 		{
@@ -29,7 +29,9 @@ func TestBazelQueryCommand(t *testing.T) {
 				return
 			}
 
-			got := w.bazelCommand((&queryOptions{query: cannedQuery}).apply(tc.queryOpts))
+			q := &queryOptions{query: cannedQuery}
+			tc.queryOpts.apply(q)
+			got := w.bazelCommand(q)
 
 			assert.Equal(t, tc.wantArgs, got.Args)
 		})

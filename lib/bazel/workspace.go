@@ -16,8 +16,9 @@ type Workspace struct {
 // OpenWorkspace returns the bazel workspace at the specified path. If
 // outputBase is provided, --output_base will be provided to all commands, which
 // can allow for caching of bazel data when temp workspaces are used.
-func OpenWorkspace(rootPath string, options ...Option) (*Workspace, error) {
-	opts := (&baseOptions{}).apply(options)
+func OpenWorkspace(rootPath string, options ...BaseOption) (*Workspace, error) {
+	opts := &baseOptions{}
+	BaseOptions(options).apply(opts)
 	return &Workspace{
 		root:    rootPath,
 		options: opts,

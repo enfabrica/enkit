@@ -18,10 +18,12 @@ type baseOptions struct {
 }
 
 // Option modifies Bazel startup options.
-type Option func(*baseOptions)
+type BaseOption func(*baseOptions)
+
+type BaseOptions []BaseOption
 
 // WithOutputBase sets --output_base for this bazel invocation.
-func WithOutputBase(outputBase string) Option {
+func WithOutputBase(outputBase string) BaseOption {
 	return func(o *baseOptions) {
 		o.OutputBase = outputBase
 	}
@@ -37,11 +39,10 @@ func (o *baseOptions) flags() []string {
 }
 
 // apply applies all the options to this option struct.
-func (o *baseOptions) apply(opts []Option) *baseOptions {
+func (opts BaseOptions) apply(o *baseOptions) {
 	for _, opt := range opts {
 		opt(o)
 	}
-	return o
 }
 
 // queryOptions holds all the supported arguments for `bazel query` invocations.
@@ -68,17 +69,15 @@ func (o *queryOptions) Args() []string {
 // filterError filters out expected error codes based on the provided query
 // arguments.
 func (o *queryOptions) filterError(err error) error {
-	if err == nil {
+	if err == nil || !o.keepGoing {
 		return nil
 	}
 
-	if o.keepGoing {
-		if err, ok := err.(*exec.ExitError); ok {
-			// PARTIAL_ANALYSIS_FAILURE is expected when --keep_going is passed
-			// https://github.com/bazelbuild/bazel/blob/86409b7a248d1cb966268451f9aa4db0763c3eb2/src/main/java/com/google/devtools/build/lib/util/ExitCode.java#L38
-			if err.ExitCode() == 3 {
-				return nil
-			}
+	if err, ok := err.(*exec.ExitError); ok {
+		// PARTIAL_ANALYSIS_FAILURE is expected when --keep_going is passed
+		// https://github.com/bazelbuild/bazel/blob/86409b7a248d1cb966268451f9aa4db0763c3eb2/src/main/java/com/google/devtools/build/lib/util/ExitCode.java#L38
+		if err.ExitCode() == 3 {
+			return nil
 		}
 	}
 
@@ -87,6 +86,8 @@ func (o *queryOptions) filterError(err error) error {
 
 // QueryOption modifies bazel query subcommand flags.
 type QueryOption func(*queryOptions)
+
+type QueryOptions []QueryOption
 
 // WithKeepGoing sets `--keep_going` for this `bazel query` invocation.
 func WithKeepGoing() QueryOption {
@@ -103,9 +104,8 @@ func WithUnorderedOutput() QueryOption {
 }
 
 // apply applies all the options to this option struct.
-func (o *queryOptions) apply(opts []QueryOption) *queryOptions {
+func (opts QueryOptions) apply(o *queryOptions) {
 	for _, opt := range opts {
 		opt(o)
 	}
-	return o
 }
