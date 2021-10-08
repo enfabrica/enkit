@@ -19,6 +19,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// testService returns a preconfigured service, to shorten the testcase
+// descriptions.
 func testService(initialState state) *Service {
 	return &Service{
 		currentState: initialState,
@@ -34,6 +36,8 @@ func testService(initialState state) *Service {
 	}
 }
 
+// withAllocation is a helper method on a service to set it up with an
+// allocation on a particular license.
 func (s *Service) withAllocation(licenseType string, inv *invocation) *Service {
 	m := s.licenses[licenseType].allocations
 	if m == nil {
@@ -44,11 +48,14 @@ func (s *Service) withAllocation(licenseType string, inv *invocation) *Service {
 	return s
 }
 
+// withQueued is a helper method on a service to set it up with a queued
+// invocation for a license.
 func (s *Service) withQueued(licenseType string, inv *invocation) *Service {
 	s.licenses[licenseType].queue = append(s.licenses[licenseType].queue, inv)
 	return s
 }
 
+// assertProtoEqual fails a test with a descriptive diff if got != want.
 func assertProtoEqual(t *testing.T, got proto.Message, want proto.Message) {
 	t.Helper()
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
@@ -56,6 +63,8 @@ func assertProtoEqual(t *testing.T, got proto.Message, want proto.Message) {
 	}
 }
 
+// assertCmp fails a test with a descriptive diff if got != want, respecting a
+// set of compare options.
 func assertCmp(t *testing.T, got interface{}, want interface{}, opts ...cmp.Option) {
 	t.Helper()
 	if diff := cmp.Diff(want, got, opts...); diff != "" {
@@ -63,10 +72,12 @@ func assertCmp(t *testing.T, got interface{}, want interface{}, opts ...cmp.Opti
 	}
 }
 
+// fakeID serves as a fake unique ID generator for testing purposes.
 type fakeID struct {
 	counter int64
 }
 
+// Generate returns a monotonically increasing ID as a string.
 func (f *fakeID) Generate() (string, error) {
 	f.counter++
 	return strconv.FormatInt(f.counter, 10), nil
@@ -696,6 +707,31 @@ func TestRelease(t *testing.T) {
 					allocations: map[string]*invocation{
 						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
 					},
+				},
+			},
+		},
+		{
+			desc: "unqueues invocations successfully",
+			server: testService(stateRunning).withQueued("xilinx::feature_foo", &invocation{
+				ID:          "5",
+				Owner:       "unit_test",
+				BuildTag:    "tag_1",
+				LastCheckin: start,
+			}).withQueued("xilinx::feature_foo", &invocation{
+				ID:          "8",
+				Owner:       "unit_test",
+				BuildTag:    "tag_2",
+				LastCheckin: start,
+			}),
+			req:  &lmpb.ReleaseRequest{InvocationId: "5"},
+			want: &lmpb.ReleaseResponse{},
+			wantLicenses: map[string]*license{
+				"xilinx::feature_foo": &license{
+					totalAvailable: 2,
+					queue: []*invocation{
+						&invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
+					},
+					allocations: map[string]*invocation{},
 				},
 			},
 		},

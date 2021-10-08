@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
@@ -14,36 +13,77 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// Service implements the LicenseManager gRPC service.
 type Service struct {
-	mu           sync.Mutex
-	currentState state
-	licenses     map[string]*license
+	mu           sync.Mutex          // Protects the following members from concurrent access
+	currentState state               // State of the server
+	licenses     map[string]*license // Queues and allocations, managed per-license-type
 
-	queueRefreshDuration      time.Duration
-	allocationRefreshDuration time.Duration
+	queueRefreshDuration      time.Duration // Queue entries not refreshed within this duration are expired
+	allocationRefreshDuration time.Duration // Allocations not refreshed within this duration are expired
 }
 
-type license struct {
-	totalAvailable int
-	queue          []*invocation
-	allocations    map[string]*invocation
+func New() *Service {
+	service := &Service{
+		currentState: stateStarting,
+		// TODO: Read this from a config file and pass it in
+		licenses: map[string]*license{
+			"xilinx::foo": &license{
+				totalAvailable: 2,
+				allocations:    map[string]*invocation{},
+			},
+			"xilinx::bar": &license{
+				totalAvailable: 2,
+				allocations:    map[string]*invocation{},
+			},
+		},
+		queueRefreshDuration:      5 * time.Second,
+		allocationRefreshDuration: 5 * time.Second,
+	}
+
+	go func(s *Service) {
+		t := time.NewTicker(1 * time.Second)
+		defer t.Stop()
+		for {
+			<-t.C
+			s.janitor()
+		}
+	}(service)
+
+	go func(s *Service) {
+		<-time.After(10 * time.Second)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.currentState = stateRunning
+	}(service)
+
+	return service
 }
 
+// invocation maps to a particular command invocation that has requested a
+// license, and its associated metadata.
 type invocation struct {
-	ID          string
-	Owner       string
-	BuildTag    string
-	LastCheckin time.Time
+	ID          string    // Server-generated unique ID
+	Owner       string    // Client-provided owner
+	BuildTag    string    // Client-provided build tag. May not be unique across invocations
+	LastCheckin time.Time // Time the invocation last had its queue position/allocation refreshed.
 }
 
 type state int
 
 const (
+	// Startup state during which server "adopts" unknown allocations. This is a
+	// relatively short period (roughly 2x a refresh period) which helps
+	// transition existing invocations in the event of a server restart without
+	// unnecessarily cancelling invocations.
 	stateStarting state = iota
+	// Normal operating state.
 	stateRunning
 )
 
 var (
+	// generateRandomID returns a UUIDv4 string, and can be stubbed out for unit
+	// tests.
 	generateRandomID = func() (string, error) {
 		id, err := uuid.NewRandom()
 		if err != nil {
@@ -52,12 +92,17 @@ var (
 		return id.String(), nil
 	}
 
+	// timeNow returns the current time, and can be stubbed out for unit tests.
 	timeNow = time.Now
 )
 
 // janitor runs in a loop to cleanup allocations and queue spots that have not
-// been refreshed in a sufficient amount of time.
+// been refreshed in a sufficient amount of time, as well as to promote queued
+// licenses to allocations.
 func (s *Service) janitor() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Don't expire or promote anything during startup.
 	if s.currentState == stateStarting {
 		return
 	}
@@ -70,101 +115,12 @@ func (s *Service) janitor() {
 	}
 }
 
-func formatLicenseType(l *lmpb.License) string {
-	return strings.Join([]string{l.GetVendor(), l.GetFeature()}, "::")
-}
-
-func (l *license) Enqueue(inv *invocation) {
-	l.queue = append(l.queue, inv)
-}
-
-func (l *license) Allocate(inv *invocation) bool {
-	if len(l.allocations) >= l.totalAvailable {
-		return false
-	}
-	l.allocations[inv.ID] = inv
-	return true
-}
-
-func (l *license) Promote() {
-	numFree := l.totalAvailable - len(l.allocations)
-	numAllocated := 0
-	for i := 0; i < numFree && i < len(l.queue); i++ {
-		l.allocations[l.queue[i].ID] = l.queue[i]
-		numAllocated++
-	}
-	l.queue = l.queue[numAllocated:]
-}
-
-func (l *license) GetAllocated(invID string) *invocation {
-	inv, ok := l.allocations[invID]
-	if !ok {
-		return nil
-	}
-	return inv
-}
-
-func (l *license) ExpireAllocations(expiry time.Time) {
-	newAllocations := map[string]*invocation{}
-	for k, v := range l.allocations {
-		if v.LastCheckin.After(expiry) {
-			newAllocations[k] = v
-		}
-	}
-	l.allocations = newAllocations
-}
-
-func (l *license) ExpireQueued(expiry time.Time) {
-	newQueued := []*invocation{}
-	for _, inv := range l.queue {
-		if inv.LastCheckin.After(expiry) {
-			newQueued = append(newQueued, inv)
-		}
-	}
-	l.queue = newQueued
-}
-
-func (l *license) GetQueued(invID string) *invocation {
-	for _, inv := range l.queue {
-		if inv.ID == invID {
-			return inv
-		}
-	}
-	return nil
-}
-
-func (l *license) GetStats(name string) *lmpb.LicenseStats {
-	fields := strings.SplitN(name, "::", 2)
-	if len(fields) != 2 {
-		fields = []string{"<UNKNOWN>", name}
-	}
-	return &lmpb.LicenseStats{
-		License: &lmpb.License{
-			Vendor:  fields[0],
-			Feature: fields[1],
-		},
-		Timestamp:         timestamppb.New(timeNow()),
-		TotalLicenseCount: uint32(l.totalAvailable),
-		AllocatedCount:    uint32(len(l.allocations)),
-		QueuedCount:       uint32(len(l.queue)),
-	}
-}
-
-func (l *license) Forget(invID string) int {
-	count := 0
-	newAllocations := map[string]*invocation{}
-	for k, v := range l.allocations {
-		if k != invID {
-			newAllocations[k] = v
-		} else {
-			count++
-		}
-	}
-	l.allocations = newAllocations
-	return count
-}
-
+// Allocate allocates a license to the requesting invocation, or queues the
+// request if none are available. See the proto docstrings for more details.
 func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmpb.AllocateResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if len(req.GetLicenses()) != 1 {
 		return nil, status.Errorf(codes.InvalidArgument, "licenses must have exactly one license spec")
 	}
@@ -174,7 +130,10 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 		return nil, status.Errorf(codes.NotFound, "unknown license type: %q", licenseType)
 	}
 	invocationID := req.GetInvocationId()
+
 	if invocationID == "" {
+		// This is the first AllocationRequest by this invocation. Generate an ID
+		// and queue it.
 		var err error
 		invocationID, err = generateRandomID()
 		if err != nil {
@@ -197,10 +156,13 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 		}
 	}
 
-	// Is the invocation_id already allocated?
+	// Invocation ID should now be known and either queued (due to the above
+	// insert, or from a previous request) or allocated (promoted from the queue
+	// by above, or asynchronously by the janitor).
+
 	if inv := lic.GetAllocated(invocationID); inv != nil {
+		// Invocation is allocated
 		inv.LastCheckin = timeNow()
-		//     Yes - return allocation success
 		return &lmpb.AllocateResponse{
 			ResponseType: &lmpb.AllocateResponse_LicenseAllocated{
 				LicenseAllocated: &lmpb.LicenseAllocated{
@@ -210,8 +172,8 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 			},
 		}, nil
 	}
-	// Is the invocation_id already queued?
 	if inv := lic.GetQueued(invocationID); inv != nil {
+		// Invocation is queued
 		inv.LastCheckin = timeNow()
 		return &lmpb.AllocateResponse{
 			ResponseType: &lmpb.AllocateResponse_Queued{
@@ -222,8 +184,11 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 			},
 		}, nil
 	}
+	// Invocation is not allocated or queued
 	switch s.currentState {
 	case stateStarting:
+		// This invocation was previously queued before the server restart; add it
+		// back to the queue.
 		inv := &invocation{
 			ID:          invocationID,
 			Owner:       req.GetOwner(),
@@ -240,13 +205,19 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 			},
 		}, nil
 	case stateRunning:
+		// This invocation is unknown (possibly expired)
 		return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not found: %q", invocationID)
 	default:
 		return nil, status.Errorf(codes.Internal, "state not handled: %v", s.currentState)
 	}
 }
 
+// Refresh serves as a keepalive to refresh an allocation while an invocation
+// is still using it. See the proto docstrings for more info.
 func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.RefreshResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if len(req.GetLicenses()) != 1 {
 		return nil, status.Errorf(codes.InvalidArgument, "licenses must have exactly one license spec")
 	}
@@ -263,6 +234,7 @@ func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.
 	if !ok {
 		switch s.currentState {
 		case stateStarting:
+			// "Adopt" this invocation and allocate it a license, if possible.
 			inv := &invocation{
 				ID:          invID,
 				Owner:       req.GetOwner(),
@@ -281,6 +253,7 @@ func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.
 			return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not allocated: %q", invID)
 		}
 	}
+	// Update the time and return the next check interval
 	inv.LastCheckin = timeNow()
 	return &lmpb.RefreshResponse{
 		InvocationId:           invID,
@@ -288,7 +261,13 @@ func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.
 	}, nil
 }
 
+// Release returns an allocated license and/or unqueues the specified
+// invocation ID across all license types. See the proto docstrings for more
+// details.
 func (s *Service) Release(ctx context.Context, req *lmpb.ReleaseRequest) (*lmpb.ReleaseResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	invID := req.GetInvocationId()
 	if invID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invocation_id must be set")
@@ -303,7 +282,12 @@ func (s *Service) Release(ctx context.Context, req *lmpb.ReleaseRequest) (*lmpb.
 	return &lmpb.ReleaseResponse{}, nil
 }
 
+// LicensesStatus returns the status for every license type. See the proto
+// docstrings for more details.
 func (s *Service) LicensesStatus(ctx context.Context, req *lmpb.LicensesStatusRequest) (*lmpb.LicensesStatusResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	res := &lmpb.LicensesStatusResponse{}
 	for name, lic := range s.licenses {
 		res.LicenseStats = append(res.LicenseStats, lic.GetStats(name))
