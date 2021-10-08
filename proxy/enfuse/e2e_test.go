@@ -7,7 +7,7 @@ import (
 	"github.com/enfabrica/enkit/lib/knetwork"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/proxy/enfuse"
-	enfuse_rpc "github.com/enfabrica/enkit/proxy/enfuse/rpc"
+	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"io/fs"
@@ -42,7 +42,7 @@ func TestNewFuseShareCommand(t *testing.T) {
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", a.Port), grpc.WithInsecure())
 	assert.Nil(t, err)
 	defer conn.Close()
-	c := enfuse.FuseClient{ConnClient: enfuse_rpc.NewFuseControllerClient(conn)}
+	c := enfuse.FuseClient{ConnClient: fusepb.NewFuseControllerClient(conn)}
 	m, err := fstestutil.MountedT(t, &c, nil, fuse.AllowOther())
 	assert.NoError(t, err)
 	defer m.Close()

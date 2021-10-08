@@ -4,7 +4,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"fmt"
-	enfuse "github.com/enfabrica/enkit/proxy/enfuse/rpc"
+	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"google.golang.org/grpc"
 )
 
@@ -17,7 +17,7 @@ func NewClient(config *ConnectConfig) (*FuseClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &FuseClient{enfuse.NewFuseControllerClient(conn)}, nil
+	return &FuseClient{fusepb.NewFuseControllerClient(conn)}, nil
 }
 
 func MountDirectory(mountPath string, client *FuseClient) error {
@@ -32,7 +32,7 @@ func MountDirectory(mountPath string, client *FuseClient) error {
 }
 
 type FuseClient struct {
-	ConnClient enfuse.FuseControllerClient
+	ConnClient fusepb.FuseControllerClient
 }
 
 func (f *FuseClient) Root() (fs.Node, error) {
