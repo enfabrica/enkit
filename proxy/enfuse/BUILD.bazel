@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "client.go",
-        "commands.go",
         "config.go",
         "files.go",
         "server.go",
@@ -13,7 +12,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//proxy/enfuse/rpc:go_default_library",
-        "@com_github_spf13_cobra//:go_default_library",
         "@org_bazil_fuse//:go_default_library",
         "@org_bazil_fuse//fs:go_default_library",
         "@org_golang_google_grpc//:go_default_library",

@@ -1,20 +1,21 @@
-package enfuse
+package fusecmd
 
 import (
+	"github.com/enfabrica/enkit/proxy/enfuse"
 	"github.com/spf13/cobra"
 )
 
 func NewFuseShareCommand() *cobra.Command {
-	cc := &ConnectConfig{}
+	cc := &enfuse.ConnectConfig{}
 	var dir string
 	c := &cobra.Command{
 		Use: `share`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ServeDirectory(
-				WithConnectMods(
-					WithConnectConfig(cc),
+			return enfuse.ServeDirectory(
+				enfuse.WithConnectMods(
+					enfuse.WithConnectConfig(cc),
 				),
-				WithDir(dir),
+				enfuse.WithDir(dir),
 			)
 		},
 	}
@@ -25,16 +26,16 @@ func NewFuseShareCommand() *cobra.Command {
 }
 
 func NewFuseMountDirectory() *cobra.Command {
-	cc := &ConnectConfig{}
+	cc := &enfuse.ConnectConfig{}
 	var cwd string
 	c := &cobra.Command{
 		Use: `mount`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fc, err := NewClient(cc)
+			fc, err := enfuse.NewClient(cc)
 			if err != nil {
 				return err
 			}
-			return MountDirectory(cwd, fc)
+			return enfuse.MountDirectory(cwd, fc)
 		},
 	}
 	c.Flags().StringVar(&cwd, "dir", ".", "the mount point for the FUSE directory")
@@ -43,7 +44,7 @@ func NewFuseMountDirectory() *cobra.Command {
 	return c
 }
 
-func NewCommand() *cobra.Command {
+func New() *cobra.Command {
 	c := &cobra.Command{
 		Use: "fuse",
 	}
