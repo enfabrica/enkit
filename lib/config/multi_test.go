@@ -44,6 +44,11 @@ func TestMulti(t *testing.T) {
 	_, err = m.Unmarshal("quote", &read)
 	assert.True(t, os.IsNotExist(err))
 
+	err = m.Delete("quote")
+	assert.True(t, os.IsNotExist(err), "%v", err)
+	err = m.Delete("quote.toml")
+	assert.True(t, os.IsNotExist(err))
+
 	err = m.Marshal("quote", data)
 	assert.Nil(t, err)
 
@@ -81,7 +86,29 @@ func TestMulti(t *testing.T) {
 	err = m.Marshal(desc, data)
 	assert.Nil(t, err)
 
+	// Now we add a 3rd format, just so we can delete a file later.
+	err = m.Marshal("quote.yaml", data2)
+	assert.Nil(t, err)
+
 	found, err = m.List()
 	assert.Nil(t, err)
-	assert.Equal(t, []string{"quote.json", "quote.toml"}, found)
+	assert.Equal(t, []string{"quote.json", "quote.toml", "quote.yaml"}, found)
+
+	// Let's delete a specific file.
+	err = m.Delete(desc)
+	assert.Nil(t, err)
+
+	// Check that only one file was deleted.
+	found, err = m.List()
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"quote.toml", "quote.yaml"}, found)
+
+	// Let's delete the whole key.
+	err = m.Delete("quote")
+	assert.Nil(t, err)
+
+	// No quote anymore.
+	found, err = m.List()
+	assert.Nil(t, err)
+	assert.Equal(t, []string{}, found)
 }

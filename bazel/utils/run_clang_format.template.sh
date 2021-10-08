@@ -27,8 +27,14 @@ fi
 
 cp "${STYLE_FILE}" '.clang-format'
 
-# Run clang-format on all the files conforming to the specified format
-find . -type f \( -name '{pattern}' \) -exec "$CLANG_FORMAT" -style={style} -i {} \;
+if [[ $# -eq 0 ]]; then
+  # Default functionality: run $CLANG_FORMAT over all pattern-matched files.
+  # Run clang-format on all the files conforming to the specified format
+  find . -type f \( -name '{pattern}' \) -exec "$CLANG_FORMAT" -style={style} -i {} \;
+else
+  # Only format the specified files:
+  "${CLANG_FORMAT}" -style={style} -i "$@"
+fi
 
 rm '.clang-format'
 if test -f "$OLD_STYLE_FILE"; then

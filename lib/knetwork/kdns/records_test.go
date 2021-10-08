@@ -1,7 +1,8 @@
-package kdns
+package kdns_test
 
 import (
 	"fmt"
+	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 func TestController(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	controller := NewRecordController(logger.DefaultLogger{Printer: log.Printf})
+	controller := kdns.NewRecordController(logger.DefaultLogger{Printer: log.Printf})
 	defer controller.Close()
 	var rr []dns.RR
 	testTxt := []string{
