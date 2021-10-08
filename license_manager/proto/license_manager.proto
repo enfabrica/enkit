@@ -61,31 +61,8 @@ service LicenseManager {
 }
 
 message AllocateRequest {
-  // Licenses to acquire for this invocation.
-  //
-  // Invocations that need multiple of the same license type should insert
-  // duplicate entries in this field.
-  //
-  // Implementations currently only support reserving once license per
-  // invocation, though future implementations may allow for allocations of
-  // multiple and of different types.
-  repeated License licenses = 1; // required
-
-  // Owning entity issuing the allocation request. Used for logging purposes
-  // only. This could be the name of the user or system issuing the request.
-  string owner = 2; // required
-
-  // Build tag of the allocation request. This tag does not need to be unique
-  // across multiple AllocateRequests, and may be used to associate multiple
-  // such requests with one higher-level task. Typically the Bazel build
-  // invocation ID is used here.
-  string build_tag = 3; // required
-
-  // If this is not the first AllocateRequest message sent for this
-  // invocation, then this is the invocation_id in a previous AllocateResponse
-  // sent, so that this invocation can queue properly. Otherwise, this field
-  // should be left blank.
-  string invocation_id = 4;
+  // Invocation details for this allocation
+  Invocation invocation = 1; // required
 }
 
 message AllocateResponse {
@@ -126,26 +103,10 @@ message LicenseAllocated {
 }
 
 message RefreshRequest {
-  // Licenses to refresh.
-  //
-  // Implementations currently only support reserving once license per
-  // invocation, though future implementations may allow for allocations of
-  // multiple and of different types.
-  repeated License licenses = 1; // required
-
-  // Owning entity issuing the allocation request. Used for logging purposes
-  // only. This could be the name of the user or system issuing the request.
-  string owner = 2; // required
-
-  // Build tag of the allocation request. This tag does not need to be unique
-  // across multiple AllocateRequests, and may be used to associate multiple
-  // such requests with one higher-level task. Typically the Bazel build
-  // invocation ID is used here.
-  string build_tag = 3; // required
-
-  // Invocation ID returned in the Allocate() call that resulted in an
-  // allocation.
-  string invocation_id = 4; // required
+  // Existing invocation to refresh. Must have been allocated by a call to
+  // Allocate() successfully (not queued).
+  // Must have invocation_id set.
+  Invocation invocation = 1; // required
 }
 
 message RefreshResponse {
@@ -197,6 +158,37 @@ message LicenseStats {
   // LicenseManager. If this number is >0, then allocated_count should equal
   // total_license_count.
   uint32 queued_count = 6;
+}
+
+message Invocation {
+  // Licenses to acquire for this invocation.
+  //
+  // Invocations that need multiple of the same license type should insert
+  // duplicate entries in this field.
+  //
+  // Implementations currently only support reserving once license per
+  // invocation, though future implementations may allow for allocations of
+  // multiple and of different types.
+  repeated License licenses = 1; // required
+
+  // Owning entity issuing the allocation request. Used for logging purposes
+  // only. This could be the name of the user or system issuing the request.
+  // This must be sent on every Allocate() and Refresh() call in case the
+  // server is restarted.
+  string owner = 2; // required
+
+  // Build tag of the allocation request. This tag does not need to be unique
+  // across multiple AllocateRequests, and may be used to associate multiple
+  // such requests with one higher-level task. Typically the Bazel build
+  // invocation ID is used here. This must be sent on every Allocate() and
+  // Refresh() call in case the server is restarted.
+  string build_tag = 3; // required
+
+  // The server-generated ID for this invocation. In the initial Allocate()
+  // call, this can be blank for the initial request (to receive a generated
+  // one in the response) but subsequent Allocate() calls to refresh a queue
+  // position or Refresh() calls should have this field set.
+  string id = 4;
 }
 
 message License {

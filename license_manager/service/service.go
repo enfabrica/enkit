@@ -124,15 +124,16 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if len(req.GetLicenses()) != 1 {
+	invMsg := req.GetInvocation()
+	if len(invMsg.GetLicenses()) != 1 {
 		return nil, status.Errorf(codes.InvalidArgument, "licenses must have exactly one license spec")
 	}
-	licenseType := formatLicenseType(req.GetLicenses()[0])
+	licenseType := formatLicenseType(invMsg.GetLicenses()[0])
 	lic, ok := s.licenses[licenseType]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unknown license type: %q", licenseType)
 	}
-	invocationID := req.GetInvocationId()
+	invocationID := invMsg.GetId()
 
 	if invocationID == "" {
 		// This is the first AllocationRequest by this invocation. Generate an ID
@@ -144,8 +145,8 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 		}
 		inv := &invocation{
 			ID:          invocationID,
-			Owner:       req.GetOwner(),
-			BuildTag:    req.GetBuildTag(),
+			Owner:       invMsg.GetOwner(),
+			BuildTag:    invMsg.GetBuildTag(),
 			LastCheckin: timeNow(),
 		}
 		lic.Enqueue(inv)
@@ -192,8 +193,8 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 	// back to the queue.
 	inv := &invocation{
 		ID:          invocationID,
-		Owner:       req.GetOwner(),
-		BuildTag:    req.GetBuildTag(),
+		Owner:       invMsg.GetOwner(),
+		BuildTag:    invMsg.GetBuildTag(),
 		LastCheckin: timeNow(),
 	}
 	lic.Enqueue(inv)
@@ -213,15 +214,16 @@ func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if len(req.GetLicenses()) != 1 {
+	invMsg := req.GetInvocation()
+	if len(invMsg.GetLicenses()) != 1 {
 		return nil, status.Errorf(codes.InvalidArgument, "licenses must have exactly one license spec")
 	}
-	licenseType := formatLicenseType(req.GetLicenses()[0])
+	licenseType := formatLicenseType(invMsg.GetLicenses()[0])
 	lic, ok := s.licenses[licenseType]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unknown license type: %q", licenseType)
 	}
-	invID := req.GetInvocationId()
+	invID := invMsg.GetId()
 	if invID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invocation_id must be set")
 	}
@@ -233,8 +235,8 @@ func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.
 		// "Adopt" this invocation and allocate it a license, if possible.
 		inv := &invocation{
 			ID:          invID,
-			Owner:       req.GetOwner(),
-			BuildTag:    req.GetBuildTag(),
+			Owner:       invMsg.GetOwner(),
+			BuildTag:    invMsg.GetBuildTag(),
 			LastCheckin: timeNow(),
 		}
 		if ok := lic.Allocate(inv); ok {
