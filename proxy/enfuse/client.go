@@ -36,5 +36,5 @@ type FuseClient struct {
 }
 
 func (f *FuseClient) Root() (fs.Node, error) {
-	return &FuseDir{Dir: "", Client: f.ConnClient}, nil
+	return &Dir{Dir: "", Client: f.ConnClient}, nil
 }
