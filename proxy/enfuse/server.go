@@ -42,7 +42,7 @@ func (s *FuseServer) SingleFileInfo(ctx context.Context, request *fusepb.SingleF
 	}, nil
 }
 
-func (s *FuseServer) Files(ctx context.Context, rf *fusepb.RequestFile) (*fusepb.ResponseFile, error) {
+func (s *FuseServer) FileContent(ctx context.Context, rf *fusepb.RequestContent) (*fusepb.ResponseContent, error) {
 	f, err := os.Open(filepath.Join(s.cfg.Dir, rf.Path))
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (s *FuseServer) Files(ctx context.Context, rf *fusepb.RequestFile) (*fusepb
 	if i != len(data) {
 		data = data[:i]
 	}
-	return &fusepb.ResponseFile{Content: data}, nil
+	return &fusepb.ResponseContent{Content: data}, nil
 }
 
 func (s *FuseServer) FileInfo(ctx context.Context, request *fusepb.FileInfoRequest) (*fusepb.FileInfoResponse, error) {

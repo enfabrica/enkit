@@ -105,7 +105,7 @@ func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadR
 	if err := f.getData(); err != nil {
 		return err
 	}
-	res, err := f.Client.Files(ctx, &fusepb.RequestFile{
+	res, err := f.Client.FileContent(ctx, &fusepb.RequestContent{
 		Offset: uint64(req.Offset),
 		Path:   f.FileName,
 		Size:   uint64(req.Size),
