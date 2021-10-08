@@ -4,14 +4,13 @@ import (
 	"net"
 )
 
-type (
-	ConnectConfig struct {
+type ConnectConfig struct {
 		Port int
 		Url  string
 		L    net.Listener
 	}
-	ConnectMod func(c *ConnectConfig)
-)
+
+type ConnectMod func(c *ConnectConfig)
 
 var (
 	WithPort = func(p int) ConnectMod {
