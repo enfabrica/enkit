@@ -2,9 +2,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["worktree.go"],
+    srcs = [
+        "git.go",
+        "worktree.go",
+    ],
     importpath = "github.com/enfabrica/enkit/lib/git",
     visibility = ["//visibility:public"],
+    deps = ["@com_github_go_git_go_git_v5//:go_default_library"],
 )
 
 go_test(

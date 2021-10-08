@@ -22,11 +22,11 @@ import (
 var streamedBazelCommand = func(cmd *exec.Cmd) (io.Reader, chan error, error) {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, fmt.Errorf("can't get stdout for bazel query: %v", err)
+		return nil, nil, fmt.Errorf("can't get stdout for bazel query: %w", err)
 	}
 	err = cmd.Start()
 	if err != nil {
-		return nil, nil, fmt.Errorf("can't start bazel command: %v", err)
+		return nil, nil, fmt.Errorf("can't start bazel command: %w", err)
 	}
 
 	pipeReader, pipeWriter := io.Pipe()
@@ -36,7 +36,7 @@ var streamedBazelCommand = func(cmd *exec.Cmd) (io.Reader, chan error, error) {
 		_, err := io.Copy(pipeWriter, stdout)
 		pipeWriter.Close()
 		if err != nil {
-			errChan <- fmt.Errorf("while copying stdout from bazel command: %v", err)
+			errChan <- fmt.Errorf("while copying stdout from bazel command: %w", err)
 		}
 		err = cmd.Wait()
 		if err != nil {

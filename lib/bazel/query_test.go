@@ -57,9 +57,7 @@ func TestQueryOutput(t *testing.T) {
 
 			got, gotErr := w.Query("") // args don't matter
 
-			if diff := errdiff.Substring(gotErr, tc.wantErr); diff != "" {
-				t.Error(diff)
-			}
+			errdiff.Check(t, gotErr, tc.wantErr)
 			if gotErr != nil {
 				return
 			}

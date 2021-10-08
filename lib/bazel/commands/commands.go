@@ -94,7 +94,7 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	// TODO(scott): Determine how the workspace root is found
 	gitRoot, err := findGitRoot()
 	if err != nil {
-		return fmt.Errorf("can't find git repo root: %v", err)
+		return fmt.Errorf("can't find git repo root: %w", err)
 	}
 
 	// Create temporary worktrees in which to execute bazel commands.
@@ -102,7 +102,7 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	// worktree, which will include uncommitted local changes.
 	startTree, err := git.NewTempWorktree(gitRoot, c.parent.Start)
 	if err != nil {
-		return fmt.Errorf("can't generate worktree for committish %q: %v", c.parent.Start, err)
+		return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.Start, err)
 	}
 	defer startTree.Close()
 
@@ -110,7 +110,7 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	if c.parent.End != "" {
 		endTree, err := git.NewTempWorktree(gitRoot, c.parent.End)
 		if err != nil {
-			return fmt.Errorf("can't generate worktree for committish %q: %v", c.parent.End, err)
+			return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.End, err)
 		}
 		defer endTree.Close()
 		endTreePath = endTree.Root()
@@ -124,32 +124,32 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	// only two are created for the purposes of this subcommand.
 	startOutputBase, err := cacheDir("affected_targets/start")
 	if err != nil {
-		return fmt.Errorf("failed to create output_base: %v", err)
+		return fmt.Errorf("failed to create output_base: %w", err)
 	}
 	endOutputBase, err := cacheDir("affected_targets/end")
 	if err != nil {
-		return fmt.Errorf("failed to create output_base: %v", err)
+		return fmt.Errorf("failed to create output_base: %w", err)
 	}
 	startWorkspace, err := bazel.OpenWorkspace(startTree.Root(), bazel.WithOutputBase(startOutputBase))
 	if err != nil {
-		return fmt.Errorf("failed to open bazel workspace for committish %q: %v", c.parent.Start, err)
+		return fmt.Errorf("failed to open bazel workspace for committish %q: %w", c.parent.Start, err)
 	}
 	endWorkspace, err := bazel.OpenWorkspace(endTreePath, bazel.WithOutputBase(endOutputBase))
 	if err != nil {
-		return fmt.Errorf("failed to open bazel workspace: %v", err)
+		return fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 
 	// Get all target info for both VCS time points.
 	targets, err := startWorkspace.Query("deps(//...)", bazel.WithKeepGoing(), bazel.WithUnorderedOutput())
 	if err != nil {
-		return fmt.Errorf("failed to query deps for start point: %v", err)
+		return fmt.Errorf("failed to query deps for start point: %w", err)
 	}
 	// TODO(scott): Replace with logging
 	fmt.Fprintf(os.Stderr, "Processed %d targets at start point\n", len(targets))
 
 	targets, err = endWorkspace.Query("deps(//...)", bazel.WithKeepGoing(), bazel.WithUnorderedOutput())
 	if err != nil {
-		return fmt.Errorf("failed to query deps for end point: %v", err)
+		return fmt.Errorf("failed to query deps for end point: %w", err)
 	}
 	// TODO(scott): Replace with logging
 	fmt.Fprintf(os.Stderr, "Processed %d targets at end point\n", len(targets))
@@ -170,5 +170,5 @@ func findGitRoot() (string, error) {
 	if bazelWorkspace != "" {
 		return bazelWorkspace, nil
 	}
-	return os.Getwd()
+	return git.RootFromPwd()
 }
