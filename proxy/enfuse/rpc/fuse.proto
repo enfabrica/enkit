@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package enfuse;
+package fusepb;
 
 
 message FileInfo {
@@ -10,7 +10,7 @@ message FileInfo {
 }
 
 message FileInfoRequest{
-  string dir = 1; // directory is the list of files to get from which dir. If null, should default to the root.
+  string dir = 1; // directory is the list of files to get from which dir. If empty, should default to the root.
 }
 
 message FileInfoResponse {
