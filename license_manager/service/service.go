@@ -37,11 +37,13 @@ func New() *Service {
 				allocations:    map[string]*invocation{},
 			},
 		},
+		// TODO: Read this from flags
 		queueRefreshDuration:      5 * time.Second,
 		allocationRefreshDuration: 5 * time.Second,
 	}
 
 	go func(s *Service) {
+		// TODO: Read this from flags
 		t := time.NewTicker(1 * time.Second)
 		defer t.Stop()
 		for {
@@ -51,6 +53,7 @@ func New() *Service {
 	}(service)
 
 	go func(s *Service) {
+		// TODO: Read this from flags
 		<-time.After(10 * time.Second)
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -147,12 +150,8 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 		}
 		lic.Enqueue(inv)
 
-		switch s.currentState {
-		case stateStarting:
-		case stateRunning:
+		if s.currentState == stateRunning {
 			lic.Promote()
-		default:
-			return nil, status.Errorf(codes.Internal, "unhandled state: %v", s.currentState)
 		}
 	}
 
@@ -185,31 +184,27 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 		}, nil
 	}
 	// Invocation is not allocated or queued
-	switch s.currentState {
-	case stateStarting:
-		// This invocation was previously queued before the server restart; add it
-		// back to the queue.
-		inv := &invocation{
-			ID:          invocationID,
-			Owner:       req.GetOwner(),
-			BuildTag:    req.GetBuildTag(),
-			LastCheckin: timeNow(),
-		}
-		lic.Enqueue(inv)
-		return &lmpb.AllocateResponse{
-			ResponseType: &lmpb.AllocateResponse_Queued{
-				Queued: &lmpb.Queued{
-					InvocationId: invocationID,
-					NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
-				},
-			},
-		}, nil
-	case stateRunning:
+	if s.currentState == stateRunning {
 		// This invocation is unknown (possibly expired)
 		return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not found: %q", invocationID)
-	default:
-		return nil, status.Errorf(codes.Internal, "state not handled: %v", s.currentState)
 	}
+	// This invocation was previously queued before the server restart; add it
+	// back to the queue.
+	inv := &invocation{
+		ID:          invocationID,
+		Owner:       req.GetOwner(),
+		BuildTag:    req.GetBuildTag(),
+		LastCheckin: timeNow(),
+	}
+	lic.Enqueue(inv)
+	return &lmpb.AllocateResponse{
+		ResponseType: &lmpb.AllocateResponse_Queued{
+			Queued: &lmpb.Queued{
+				InvocationId: invocationID,
+				NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
+			},
+		},
+	}, nil
 }
 
 // Refresh serves as a keepalive to refresh an allocation while an invocation
@@ -230,27 +225,25 @@ func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.
 	if invID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invocation_id must be set")
 	}
-	inv, ok := lic.allocations[invID]
-	if !ok {
-		switch s.currentState {
-		case stateStarting:
-			// "Adopt" this invocation and allocate it a license, if possible.
-			inv := &invocation{
-				ID:          invID,
-				Owner:       req.GetOwner(),
-				BuildTag:    req.GetBuildTag(),
-				LastCheckin: timeNow(),
-			}
-			if ok := lic.Allocate(inv); ok {
-				return &lmpb.RefreshResponse{
-					InvocationId:           invID,
-					LicenseRefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),
-				}, nil
-			} else {
-				return nil, status.Errorf(codes.ResourceExhausted, "%q has no available licenses", licenseType)
-			}
-		case stateRunning:
+	inv := lic.GetAllocated(invID)
+	if inv == nil {
+		if s.currentState == stateRunning {
 			return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not allocated: %q", invID)
+		}
+		// "Adopt" this invocation and allocate it a license, if possible.
+		inv := &invocation{
+			ID:          invID,
+			Owner:       req.GetOwner(),
+			BuildTag:    req.GetBuildTag(),
+			LastCheckin: timeNow(),
+		}
+		if ok := lic.Allocate(inv); ok {
+			return &lmpb.RefreshResponse{
+				InvocationId:           invID,
+				LicenseRefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),
+			}, nil
+		} else {
+			return nil, status.Errorf(codes.ResourceExhausted, "%q has no available licenses", licenseType)
 		}
 	}
 	// Update the time and return the next check interval

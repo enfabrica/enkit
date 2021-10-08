@@ -53,11 +53,7 @@ func (l *license) Promote() {
 // GetAllocated returns an invocation by ID if the invocation is allocated a
 // license, or nil otherwise.
 func (l *license) GetAllocated(invID string) *invocation {
-	inv, ok := l.allocations[invID]
-	if !ok {
-		return nil
-	}
-	return inv
+	return l.allocations[invID]
 }
 
 // ExpireAllocations removes all allocations for invocations that have not
@@ -118,7 +114,6 @@ func (l *license) GetStats(name string) *lmpb.LicenseStats {
 func (l *license) Forget(invID string) int {
 	count := 0
 	newAllocations := map[string]*invocation{}
-	newQueue := []*invocation{}
 	for k, v := range l.allocations {
 		if k != invID {
 			newAllocations[k] = v
@@ -127,6 +122,7 @@ func (l *license) Forget(invID string) int {
 		}
 	}
 
+	newQueue := []*invocation{}
 	for _, inv := range l.queue {
 		if inv.ID != invID {
 			newQueue = append(newQueue, inv)
