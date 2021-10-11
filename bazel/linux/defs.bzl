@@ -166,8 +166,8 @@ def _import_kernel_bundle_dep(name, ki, d, inputs, extra_symbols):
         fail("""
 Module '{module}' is being built for kernel '{kernel}'.
 
-PROBLEM: it has a dependency on '{dependency}', but this target is NOT built for the same kernel!
-Probably, you need to change '{dependency}' so that it is also built for this same kernel.
+PROBLEM: it has a dependency on module '{dependency}', but this target is NOT built for the same kernel!
+Probably, you need to change module '{dependency}' so that it is also built for this same kernel.
 """.format(
   module = name,
   kernel = ki.package,
