@@ -1581,9 +1581,9 @@ function _update_from_upstream() {
     fi
   fi
 
+  local -a COUNTS=()
   read -r -a COUNTS < \
-    <( "${GIT}" rev-list --left-right --count "upstream/${UPSTREAM_BRANCH}...${LOCAL_BRANCH}" ) \
-    | cat
+    <( "${GIT}" rev-list --left-right --count "upstream/${UPSTREAM_BRANCH}...${LOCAL_BRANCH}" | cat)
   if (( COUNTS[0] != 0 )); then
     _fatal "pull failed: upstream/${UPSTREAM_BRANCH} is ${COUNTS[1]} commits ahead of ${LOCAL_BRANCH}"
   fi
@@ -1597,8 +1597,7 @@ function _update_main() {
   # check for local changes
   local -a CHANGES
   read -r -a CHANGES < \
-    <( "${GIT}" diff --name-only ) \
-    | cat
+    <( "${GIT}" diff --name-only | cat)
   if [[ "${#CHANGES[@]}" != 0 ]]; then
     _warn "${MAIN} branch contains uncommitted changes."
   fi
@@ -1962,9 +1961,9 @@ function gee__diff() {
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
   if (( "$#" )); then
-    _git_can_fail diff "${PARENT_BRANCH}" -- "$@"
+    _git_can_fail diff "${PARENT_BRANCH}"...HEAD -- "$@"
   else
-    _git_can_fail diff "${PARENT_BRANCH}"
+    _git_can_fail diff "${PARENT_BRANCH}"...HEAD
   fi
   if _branch_has_unstaged_changes; then
     _info "Note: This branch contains uncommitted changes."
