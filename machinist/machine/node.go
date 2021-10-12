@@ -78,6 +78,12 @@ func (n *Machine) Enroll() error {
 	if os.Geteuid() != 0 && n.RequireRoot {
 		return errors.New("this command must be run as root since it touches the /etc/ssh directory")
 	}
+	conn, err := n.Root.Connect()
+	if err != nil {
+		return err
+	}
+	n.AuthClient = auth.NewAuthClient(conn)
+
 	pubKey, privKey, err := kcerts.GenerateED25519()
 	if err != nil {
 		return err

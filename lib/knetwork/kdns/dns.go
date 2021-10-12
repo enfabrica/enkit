@@ -1,6 +1,8 @@
 package kdns
 
 import (
+	"fmt"
+	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/miekg/dns"
 	"net"
@@ -8,10 +10,10 @@ import (
 )
 
 type DnsServer struct {
-	Flags  *Flags
-	Logger logger.Logger
-	Port   int
-	Domains   []string
+	Flags   *Flags
+	Logger  logger.Logger
+	Port    int
+	Domains []string
 
 	host      string
 	dnsServer *dns.Server
@@ -41,24 +43,28 @@ func (s *DnsServer) Run() error {
 	for _, domain := range s.Domains {
 		mux.HandleFunc(dns.Fqdn(domain), s.HandleIncoming)
 	}
-	s.dnsServer = &dns.Server{Handler: mux}
-	s.dnsServer.Net = "udp"
-	if s.Flags.Listener != nil {
-		s.dnsServer.Listener = s.Flags.Listener
-		s.dnsServer.Addr = s.Flags.Listener.Addr().String()
-	} else {
-		l, err := net.Listen(net.JoinHostPort(s.host, strconv.Itoa(s.Port)), "tcp")
-		if err != nil {
-			return err
-		}
-		s.dnsServer.Listener = l
-	}
-	if s.Port != 0 {
-		s.dnsServer.Addr = net.JoinHostPort(s.host, strconv.Itoa(s.Port))
-	}
+	portAddr := net.JoinHostPort(s.host, strconv.Itoa(s.Port))
 	go s.HandleControllers()
-	s.Logger.Infof("Serving Dns on %s for domains %v", s.dnsServer.Addr, s.Domains )
-	return s.dnsServer.ListenAndServe()
+	return goroutine.WaitFirstError(
+		func() error {
+			srv := &dns.Server{Handler: mux, ReusePort: true}
+			srv.Net = "udp"
+			srv.Addr = portAddr
+			s.Logger.Infof("Serving Dns via udp on %s for domains %v", srv.Addr, s.Domains)
+			return srv.ListenAndServe()
+		},
+		func() error {
+			srv := &dns.Server{Handler: mux, ReusePort: true}
+			srv.Net = "tcp"
+			srv.Addr = portAddr
+			s.Logger.Infof("Serving Dns via tcp on %s for domains %v", srv.Addr, s.Domains)
+			if s.Flags.TCPListener != nil {
+				srv.Listener = s.Flags.TCPListener
+				return srv.ActivateAndServe()
+			}
+			return srv.ListenAndServe()
+		},
+	)
 }
 
 func (s *DnsServer) Stop() error {
@@ -134,8 +140,9 @@ func (s *DnsServer) HandleControllers() {
 func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg) {
 	m := &dns.Msg{}
 	m.SetReply(incoming)
-	m.Compress = false
-	m.RecursionAvailable = true
+	m.Compress = true
+	m.RecursionAvailable = false
+	fmt.Println("recieved request :>")
 	switch incoming.Opcode {
 	case dns.OpcodeQuery:
 		s.ParseDNS(m)

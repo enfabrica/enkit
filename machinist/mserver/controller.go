@@ -8,7 +8,6 @@ import (
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"github.com/enfabrica/enkit/machinist/state"
 	"github.com/miekg/dns"
-	"log"
 	"net"
 	"time"
 )
@@ -18,17 +17,18 @@ type Controller struct {
 
 	startUpFunc []func()
 
+	allRecordsRefreshRate time.Duration
 
 	State         *state.MachineController
 	stateFile     string
 	stateWriteTTL time.Duration
 
 	dnsServer *kdns.DnsServer
-	dnsPort   int
 	domains   []string
 }
+
 // Init is designed to run after all components have been started up before running itself as a server
-func (en *Controller) Init()  {
+func (en *Controller) Init() {
 	for _, m := range en.State.Machines {
 		en.addNodeToDns(m.Name, m.Ips, m.Tags)
 	}
@@ -98,7 +98,6 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("GOT %#v", in.Req)
 
 		switch r := in.Req.(type) {
 		case *machinist.PollRequest_Ping:
@@ -109,7 +108,6 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 				fmt.Println("error handling register", err.Error())
 				return err
 			}
-			log.Printf("Got REGISTER %#v", *r.Register)
 		}
 	}
 }
@@ -163,7 +161,7 @@ func (en *Controller) ServeAllRecords() {
 			}
 			en.dnsServer.SetEntry(dnsName, rs)
 		}
-		_ = <-time.After(5 * time.Second)
+		_ = <-time.After(en.allRecordsRefreshRate)
 	}
 }
 
@@ -181,4 +179,3 @@ func (en *Controller) WriteState() {
 		}
 	}
 }
-

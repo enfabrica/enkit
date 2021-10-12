@@ -22,7 +22,7 @@ func TestDNS(t *testing.T) {
 
 	dnsServer, err := kdns.NewDNS(
 		kdns.WithDomains([]string{"enkit.", "enb."}),
-		kdns.WithListener(l),
+		kdns.WithTCPListener(l),
 	)
 	defer func() {
 		assert.Nil(t, dnsServer.Stop())

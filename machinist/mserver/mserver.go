@@ -1,6 +1,7 @@
 package mserver
 
 import (
+	"fmt"
 	"github.com/enfabrica/enkit/machinist/config"
 	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"google.golang.org/grpc"
@@ -43,6 +44,8 @@ func (s *ControlPlane) Run() error {
 	s.runningServer = grpcs
 	go func() {
 		s.killChannel <- s.Controller.dnsServer.Run()
+		fmt.Println("something died")
+		fmt.Println(<- s.killChannel)
 	}()
 	s.Controller.Init()
 	go s.Controller.ServeAllRecords()
