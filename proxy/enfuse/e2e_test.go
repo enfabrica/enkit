@@ -1,7 +1,6 @@
 package enfuse_test
 
 import (
-	"bazil.org/fuse"
 	"bazil.org/fuse/fs/fstestutil"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/knetwork"
@@ -43,7 +42,7 @@ func TestNewFuseShareCommand(t *testing.T) {
 	assert.Nil(t, err)
 	defer conn.Close()
 	c := enfuse.FuseClient{ConnClient: fusepb.NewFuseControllerClient(conn)}
-	m, err := fstestutil.MountedT(t, &c, nil, fuse.AllowOther())
+	m, err := fstestutil.MountedT(t, &c, nil)
 	assert.NoError(t, err)
 	defer m.Close()
 
