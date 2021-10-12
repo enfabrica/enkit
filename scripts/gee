@@ -3590,8 +3590,9 @@ Usage: gee upgrade [--check]
 EOT
 
 function gee__upgrade() {
-  local CUR_MD5 NEW_MD5
-  CUR_MD5="$(md5sum "$0" | awk '{print $1}')"
+  local GEE_PATH CUR_MD5 NEW_MD5
+  GEE_PATH="$(readlink -f "$0")"
+  CUR_MD5="$(md5sum "${GEE_PATH}" | awk '{print $1}')"
   NEW_MD5=""
   local -a ASTORE_OUTPUT=()
   if _read_cmd ASTORE_OUTPUT "${ENKIT}" astore list "${GEE_ON_ASTORE}"; then
@@ -3613,29 +3614,25 @@ function gee__upgrade() {
 
   if [[ "${CUR_MD5}" != "${NEW_MD5}" ]]; then
     if _confirm_default_yes "A new version of gee is available.  Install? (Y/n)  "; then
-      mkdir -p ~/bin
-      if [[ -f ~/bin/gee ]]; then
-        # make a backup
-        rm -f ~/bin/gee.backup
-        mv -f ~/bin/gee ~/bin/gee.backup
-      fi
-      cd ~/bin
+      # make a backup
+      mv -f "${GEE_PATH}"{,.backup}
+      cd "$(dirname "${GEE_PATH}")"
       _cmd enkit astore download "${GEE_ON_ASTORE}"
-      if ! [[ -f ~/bin/gee ]]; then
-        _warn "Could not create ~/bin/gee, restoring backup."
-        _cmd mv -f ~/bin/gee.backup ~/bin/gee
-        if ! [[ -f ~/bin/gee ]]; then
+      if ! [[ -f "${GEE_PATH}" ]]; then
+        _warn "Could not create \"${GEE_PATH}\", restoring backup."
+        _cmd mv -f "${GEE_PATH}"{.backup,}
+        if ! [[ -f "${GEE_PATH}" ]]; then
           _die "Could not even restore backup."
         fi
       fi
-      chmod +x ~/bin/gee
-      if [[ -f ~/bin/gee.backup ]]; then 
-        rm -f ~/bin/gee.backup
+      chmod +x "${GEE_PATH}"
+      if [[ -f "${GEE_PATH}".backup ]]; then 
+        rm -f "${GEE_PATH}".backup
       fi
-      _info "gee has been upgraded."
+      _info "${GEE_PATH} has been upgraded."
     fi
   else
-    _info "gee is already up-to-date."
+    _info "${GEE_PATH} is already up-to-date."
   fi
 }
 
