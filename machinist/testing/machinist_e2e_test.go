@@ -142,7 +142,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 	tagsRes, err = customResolver.LookupTXT(context.TODO(), "test01.enkit")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"big", "heavy"}, tagsRes)
-	//assert.Nil(t, mainServer.Stop())
+	assert.Nil(t, mainServer.Stop())
 }
 
 func joinNodeToMaster(t *testing.T, opts []machine.NodeModifier) *machine.Machine {
