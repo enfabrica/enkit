@@ -163,7 +163,7 @@ func (en *Controller) ServeAllRecords() {
 			}
 			en.dnsServer.SetEntry(dnsName, rs)
 		}
-		_ = <-time.After(5 * time.Second)
+		_ = <-time.After(en.allRecordsRefreshRate)
 	}
 }
 
