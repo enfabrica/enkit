@@ -75,11 +75,8 @@ func TestStressDns(t *testing.T) {
 	m := &dns.Msg{}
 	m.SetQuestion(dns.CanonicalName("_all.stress"), dns.TypeA)
 	portAddr := net.JoinHostPort(dnsAddr.IP.String(), strconv.Itoa(dnsAddr.Port))
-	fmt.Println("port addr is ", dnsAddr.String(), portAddr)
-	r, ttl, err := c.Exchange(m, portAddr)
+	r, _, err := c.Exchange(m, portAddr)
 	assert.NoError(t, err)
-	fmt.Println(ttl)
-	fmt.Println(len(r.Answer))
 	assert.Equal(t, NumMachines, len(r.Answer))
 	time.Sleep(50 * time.Millisecond)
 }
