@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//lib/config:go_default_library",
-        "@com_github_davecgh_go_spew//spew:go_default_library",
         "@com_google_cloud_go_datastore//:go_default_library",
         "@org_golang_google_api//option:go_default_library",
     ],

@@ -147,24 +147,29 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 	}
 }
 
-func (en *Controller) ServeAllRecords() {
+func (en *Controller) ServeAllRecords(killChannel chan struct{}) {
 	for {
-		ns := en.Nodes()
-		for _, d := range en.dnsServer.Domains {
-			dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", "_all", d))
-			var rs []dns.RR
-			for _, v := range ns {
-				for _, i := range v.Ips {
-					rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "A", i.String()))
-					if err != nil {
-						en.Log.Errorf("err: %v", err)
+		select {
+		case <-time.After(en.allRecordsRefreshRate):
+			ns := en.Nodes()
+			for _, d := range en.dnsServer.Domains {
+				dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", "_all", d))
+				var rs []dns.RR
+				for _, v := range ns {
+					for _, i := range v.Ips {
+						rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "A", i.String()))
+						if err != nil {
+							en.Log.Errorf("err: %v", err)
+						}
+						rs = append(rs, rr)
 					}
-					rs = append(rs, rr)
 				}
+				en.dnsServer.SetEntry(dnsName, rs)
 			}
-			en.dnsServer.SetEntry(dnsName, rs)
+		case <-killChannel:
+			killChannel <- struct{}{}
+			return
 		}
-		_ = <-time.After(en.allRecordsRefreshRate)
 	}
 }
 
