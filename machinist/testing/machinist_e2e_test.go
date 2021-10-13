@@ -42,7 +42,12 @@ func TestJoinServerAndPoll(t *testing.T) {
 			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
 		),
 		mserver.WithStateFile(stateFileName),
-	}, nil)
+	}, []mserver.Modifier{
+		mserver.WithMachinistFlags(
+			config.WithListener(lis),
+			config.WithInsecure(),
+		),
+	})
 	assert.Nil(t, err)
 	go func() {
 		assert.Nil(t, s.Run())
@@ -107,12 +112,27 @@ func TestJoinServerAndPoll(t *testing.T) {
 
 	//Test serialization
 	dnsLis, customResolver = registerPort(t)
-	//a, err = machinistDnsPort.Address()
-	assert.Nil(t, err)
-	mainServer, _, err := createNewControlPlane(t, []mserver.ControllerModifier{}, nil)
+	dnsAddr, err = dnsLis.Address()
+	assert.NoError(t, err)
+	lis = bufconn.Listen(2048 * 2048)
+	mainServer, _, err := createNewControlPlane(t, []mserver.ControllerModifier{
+		mserver.WithStateWriteDuration("50ms"),
+		mserver.WithKDnsFlags(
+			kdns.WithTCPListener(dnsLis),
+			kdns.WithHost(dnsAddr.IP.String()),
+			kdns.WithPort(dnsAddr.Port),
+			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
+		),
+		mserver.WithStateFile(stateFileName),
+	}, []mserver.Modifier{
+		mserver.WithMachinistFlags(
+			config.WithListener(lis),
+			config.WithInsecure(),
+		),
+	})
 	assert.Nil(t, err)
 	go func() {
-		assert.Nil(t, mainServer.Run())
+		assert.NoError(t, mainServer.Run())
 	}()
 	time.Sleep(50 * time.Millisecond)
 	res, err = customResolver.LookupHost(context.TODO(), "test01.enkitdev")
@@ -122,7 +142,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 	tagsRes, err = customResolver.LookupTXT(context.TODO(), "test01.enkit")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"big", "heavy"}, tagsRes)
-	assert.Nil(t, mainServer.Stop())
+	//assert.Nil(t, mainServer.Stop())
 }
 
 func joinNodeToMaster(t *testing.T, opts []machine.NodeModifier) *machine.Machine {
@@ -151,7 +171,7 @@ func registerPort(t *testing.T) (*knetwork.PortDescriptor, *net.Resolver) {
 			d := net.Dialer{
 				Timeout: time.Millisecond * time.Duration(10000),
 			}
-			return d.DialContext(ctx, network, machinistDnsPort.Addr().String())
+			return d.DialContext(ctx, "tcp", machinistDnsPort.Addr().String())
 		},
 	}
 	return machinistDnsPort, customResolver
