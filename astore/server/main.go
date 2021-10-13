@@ -100,7 +100,7 @@ func ListHandler(base, upath string, resp *rpc_astore.ListResponse, err error, w
 	})
 }
 
-func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *oauth.Flags, optAuthFlags *oauth.Flags) error {
+func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *oauth.Flags, optAuthFlags *oauth.Flags, useMulti bool) error {
 	rng := rand.New(srand.Source)
 
 	cookieDomain = strings.TrimSpace(cookieDomain)
@@ -144,7 +144,11 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 	if err != nil {
 		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
 	}
-	authWeb := oauth.NewMultiOAuth(rng, reqAuth, optAuth)
+	var authWeb oauth.IAuthenticator
+	authWeb = reqAuth
+	if useMulti {
+	 	authWeb = oauth.NewMultiOAuth(rng, reqAuth, optAuth)
+	 }
 	grpcs := grpc.NewServer(
 		grpc.StreamInterceptor(ogrpc.StreamInterceptor(reqAuth, "/auth.Auth/")),
 		grpc.UnaryInterceptor(ogrpc.UnaryInterceptor(reqAuth, "/auth.Auth/")),
@@ -276,12 +280,14 @@ func main() {
 	targetURL := ""
 	cookieDomain := ""
 	oauthType := ""
+	useMulti := false
 	command.Flags().StringVar(&targetURL, "site-url", "", "The URL external users can use to reach this web server")
 	command.Flags().StringVar(&cookieDomain, "cookie-domain", "", "The domain for which the issued authentication cookie is valid. "+
 		"This implicitly authorizes redirection to any URL within the domain.")
 	command.Flags().StringVar(&oauthType, "oauth-type", "google", "the type of oauth2 provider that's presented")
+	command.Flags().BoolVar(&useMulti, "use-multi", false, "use multi oauth2 flow, if false, use single flow")
 	command.RunE = func(cmd *cobra.Command, args []string) error {
-		return Start(targetURL, cookieDomain, oauthType, astoreFlags, authFlags, oauthFlags, optAuthFlags)
+		return Start(targetURL, cookieDomain, oauthType, astoreFlags, authFlags, oauthFlags, optAuthFlags, useMulti)
 	}
 
 	kcobra.PopulateDefaults(command, os.Args,

@@ -3,7 +3,6 @@ package kassets
 import (
 	"bytes"
 	"compress/gzip"
-	"log"
 	"mime"
 	"net/http"
 	"path"
@@ -71,9 +70,9 @@ func BasicMapper(mapper AssetMapper) AssetMapper {
 		if ext == ".html" {
 			name = strings.TrimSuffix(name, ext)
 			res := mapper(original, name, handler)
-			if name == "/index" {
-				log.Printf("    registering as /")
-				res = append(res, mapper(original, "/", handler)...)
+			if strings.HasSuffix(name, "/index") {
+				target := strings.TrimSuffix(name, "index")
+				res = append(res, mapper(original, target, handler)...)
 			}
 			return res
 		}

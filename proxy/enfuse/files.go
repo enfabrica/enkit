@@ -4,7 +4,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"context"
-	enfuse "github.com/enfabrica/enkit/proxy/enfuse/rpc"
+	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"os"
 	"path/filepath"
 	"sync"
@@ -13,14 +13,14 @@ import (
 )
 
 var (
-	_ fs.NodeRequestLookuper = &FuseDir{}
-	_ fs.Node                = &FuseDir{}
+	_ fs.NodeRequestLookuper = &Dir{}
+	_ fs.Node                = &Dir{}
 
-	_ fs.Node         = &FuseFile{}
-	_ fs.HandleReader = &FuseFile{}
+	_ fs.Node         = &File{}
+	_ fs.HandleReader = &File{}
 )
 
-func ConvertToDirent(info []*enfuse.FileInfo) []fuse.Dirent {
+func ConvertToDirent(info []*fusepb.FileInfo) []fuse.Dirent {
 	var fdir []fuse.Dirent
 	for _, i := range info {
 		dt := fuse.DT_File
@@ -38,55 +38,53 @@ func ConvertToDirent(info []*enfuse.FileInfo) []fuse.Dirent {
 	return fdir
 }
 
-// FuseDir represents a directory node. It contains a pass by value reference to the grpc client for fetching data.
+// Dir represents a directory node. It contains a pass by value reference to the grpc client for fetching data.
 // It contains a path (including self) of its parent directory
-type FuseDir struct {
-	Client    enfuse.FuseControllerClient
-	Data      []*enfuse.FileInfo
+type Dir struct {
+	Client    fusepb.FuseControllerClient
+	Data      []*fusepb.FileInfo
 	Dir       string
 	LastFetch time.Time
+	mu        sync.Mutex
 	*ConnectConfig
-	sync.Mutex
 }
 
-func (f *FuseDir) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse.LookupResponse) (fs.Node, error) {
-	f.Lock()
-	defer f.Unlock()
+func (f *Dir) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse.LookupResponse) (fs.Node, error) {
 	if err := f.fetchData(); err != nil {
 		return nil, err
 	}
 	for _, d := range f.Data {
 		if d.Name == req.Name {
 			if d.IsDir {
-				return &FuseDir{Dir: filepath.Join(f.Dir, d.Name), Client: f.Client, ConnectConfig: f.ConnectConfig}, nil
+				return &Dir{Dir: filepath.Join(f.Dir, d.Name), Client: f.Client}, nil
 			} else {
-				return &FuseFile{FileName: filepath.Join(f.Dir, d.Name), Client: f.Client, ConnectConfig: f.ConnectConfig}, nil
+				return &File{FileName: filepath.Join(f.Dir, d.Name), Client: f.Client}, nil
 			}
 		}
 	}
 	return nil, syscall.ENOENT
 }
 
-func (f *FuseDir) Attr(ctx context.Context, attr *fuse.Attr) error {
+func (f *Dir) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Inode = 1
 	attr.Mode = os.ModeDir | 0o555
 	return nil
 }
 
-func (f *FuseDir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	f.Lock()
-	defer f.Unlock()
+func (f *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	if err := f.fetchData(); err != nil {
 		return nil, err
 	}
 	return ConvertToDirent(f.Data), nil
 }
 
-func (f *FuseDir) fetchData() error {
+func (f *Dir) fetchData() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if time.Since(f.LastFetch) < 5*time.Second {
 		return nil
 	}
-	r, err := f.Client.FileInfo(context.Background(), &enfuse.FileInfoRequest{Dir: f.Dir})
+	r, err := f.Client.FileInfo(context.Background(), &fusepb.FileInfoRequest{Dir: f.Dir})
 	if err != nil {
 		return err
 	}
@@ -95,23 +93,21 @@ func (f *FuseDir) fetchData() error {
 	return nil
 }
 
-// FuseFile represents a single file. It contains the path to itself and the grpc client.
-type FuseFile struct {
+// File represents a single file. It contains the path to itself and the grpc client.
+type File struct {
 	FileName  string
-	Client    enfuse.FuseControllerClient
-	Info      *enfuse.FileInfo
+	Client    fusepb.FuseControllerClient
+	Info      *fusepb.FileInfo
 	FetchTime time.Time
+	mu        sync.Mutex
 	*ConnectConfig
-	sync.Mutex
 }
 
-func (f *FuseFile) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
-	f.Lock()
-	defer f.Unlock()
+func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	if err := f.getData(); err != nil {
 		return err
 	}
-	res, err := f.Client.Files(ctx, &enfuse.RequestFile{
+	res, err := f.Client.FileContent(ctx, &fusepb.RequestContent{
 		Offset: uint64(req.Offset),
 		Path:   f.FileName,
 		Size:   uint64(req.Size),
@@ -123,9 +119,7 @@ func (f *FuseFile) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.R
 	return nil
 }
 
-func (f *FuseFile) Attr(ctx context.Context, attr *fuse.Attr) error {
-	f.Lock()
-	defer f.Unlock()
+func (f *File) Attr(ctx context.Context, attr *fuse.Attr) error {
 	if err := f.getData(); err != nil {
 		return err
 	}
@@ -135,8 +129,10 @@ func (f *FuseFile) Attr(ctx context.Context, attr *fuse.Attr) error {
 	return nil
 }
 
-func (f *FuseFile) getData() error {
-	res, err := f.Client.SingleFileInfo(context.Background(), &enfuse.SingleFileInfoRequest{Path: f.FileName})
+func (f *File) getData() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	res, err := f.Client.SingleFileInfo(context.Background(), &fusepb.SingleFileInfoRequest{Path: f.FileName})
 	if err != nil {
 		return err
 	}

@@ -125,7 +125,7 @@ type options struct {
 	log logger.Logger
 
 	// Generates the name of environment variables.
-	mangler kflags.EnvMangler
+	mangler kflags.VarMangler
 
 	paramfactory   ParamFactory
 	commandfactory CommandFactory
@@ -140,7 +140,7 @@ func DefaultOptions() *options {
 	return &options{
 		log:            logger.Nil,
 		recursionLimit: 10,
-		mangler:        kflags.PrefixRemap(kflags.DefaultRemap, "KCONFIG"),
+		mangler:        kflags.PrefixRemap(kflags.DefaultEnvRemap, "KCONFIG"),
 	}
 }
 
@@ -216,7 +216,7 @@ func WithBaseURL(url string) Modifier {
 	}
 }
 
-func WithMangler(mangler kflags.EnvMangler) Modifier {
+func WithMangler(mangler kflags.VarMangler) Modifier {
 	return func(o *options) error {
 		o.mangler = mangler
 		return nil

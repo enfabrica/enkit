@@ -8,21 +8,20 @@ import (
 	"net"
 )
 
-type (
-	ConnectConfig struct {
-		Port              int
-		Url               string
-		L                 net.Listener
-		PublicKey         string
-		ClientCredentials *x509.CertPool
-		RootCAs           *x509.CertPool
-		Certificate       tls.Certificate
-		ServerName        string
-		DnsNames          []string
-		IpAddresses       []net.IP
-	}
-	ConnectMod func(c *ConnectConfig)
-)
+type ConnectConfig struct {
+	Port              int
+	Url               string
+	L                 net.Listener
+	PublicKey         string
+	ClientCredentials *x509.CertPool
+	RootCAs           *x509.CertPool
+	Certificate       tls.Certificate
+	ServerName        string
+	DnsNames          []string
+	IpAddresses       []net.IP
+}
+
+type ConnectMod func(c *ConnectConfig)
 
 var (
 	WithPort = func(p int) ConnectMod {
@@ -52,20 +51,20 @@ var (
 	}
 )
 
-type (
-	ClientInfo struct {
-		Pool        *x509.CertPool
-		RootPool    *x509.CertPool
-		Certificate tls.Certificate
-	}
-	ServerConfig struct {
-		*ConnectConfig
-		Dir            string
-		Rng            *rand.Rand
-		ClientInfoChan chan *ClientInfo
-	}
-	ServerConfigMod = func(sc *ServerConfig)
-)
+type ClientEncryptionInfo struct {
+	Pool        *x509.CertPool
+	RootPool    *x509.CertPool
+	Certificate tls.Certificate
+}
+
+type ServerConfig struct {
+	*ConnectConfig
+	Dir            string
+	Rng            *rand.Rand
+	ClientInfoChan chan *ClientEncryptionInfo
+}
+
+type ServerConfigMod = func(sc *ServerConfig)
 
 var (
 	WithConnectMods = func(c ...ConnectMod) ServerConfigMod {
@@ -80,7 +79,7 @@ var (
 			sc.Dir = d
 		}
 	}
-	WithEncryptionChannel = func(c chan *ClientInfo) ServerConfigMod {
+	WithEncryption = func(c chan *ClientEncryptionInfo) ServerConfigMod {
 		return func(sc *ServerConfig) {
 			sc.ClientInfoChan = c
 		}

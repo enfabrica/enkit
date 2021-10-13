@@ -1,0 +1,32 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "commands_darwin.go",
+        "commands_linux.go",
+        "commands_windows.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/proxy/enfuse/fusecmd",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//proxy/enfuse:go_default_library",
+            "@com_github_spf13_cobra//:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:darwin": [
+            "@com_github_spf13_cobra//:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ios": [
+            "@com_github_spf13_cobra//:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//proxy/enfuse:go_default_library",
+            "@com_github_spf13_cobra//:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:windows": [
+            "@com_github_spf13_cobra//:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

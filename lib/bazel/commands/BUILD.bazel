@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["commands.go"],
+    importpath = "github.com/enfabrica/enkit/lib/bazel/commands",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/client:go_default_library",
+        "@com_github_spf13_cobra//:go_default_library",
+    ],
+)

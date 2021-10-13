@@ -7,7 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/kcerts"
-	enfuse "github.com/enfabrica/enkit/proxy/enfuse/rpc"
+	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"io"
@@ -23,13 +23,13 @@ func ServeDirectory(mods ...ServerConfigMod) error {
 	return s.Serve()
 }
 
-var _ enfuse.FuseControllerServer = &FuseServer{}
+var _ fusepb.FuseControllerServer = &FuseServer{}
 
 type FuseServer struct {
 	cfg *ServerConfig
 }
 
-func (s *FuseServer) SingleFileInfo(ctx context.Context, request *enfuse.SingleFileInfoRequest) (*enfuse.SingleFileInfoResponse, error) {
+func (s *FuseServer) SingleFileInfo(ctx context.Context, request *fusepb.SingleFileInfoRequest) (*fusepb.SingleFileInfoResponse, error) {
 	des, err := os.Open(filepath.Join(s.cfg.Dir, request.Path))
 	if err != nil {
 		return nil, err
@@ -39,8 +39,8 @@ func (s *FuseServer) SingleFileInfo(ctx context.Context, request *enfuse.SingleF
 	if err != nil {
 		return nil, err
 	}
-	return &enfuse.SingleFileInfoResponse{
-		Info: &enfuse.FileInfo{
+	return &fusepb.SingleFileInfoResponse{
+		Info: &fusepb.FileInfo{
 			Name:  filepath.Base(request.Path),
 			Size:  st.Size(),
 			IsDir: false,
@@ -48,7 +48,7 @@ func (s *FuseServer) SingleFileInfo(ctx context.Context, request *enfuse.SingleF
 	}, nil
 }
 
-func (s *FuseServer) Files(ctx context.Context, rf *enfuse.RequestFile) (*enfuse.ResponseFile, error) {
+func (s *FuseServer) FileContent(ctx context.Context, rf *fusepb.RequestContent) (*fusepb.ResponseContent, error) {
 	f, err := os.Open(filepath.Join(s.cfg.Dir, rf.Path))
 	if err != nil {
 		return nil, err
@@ -62,30 +62,30 @@ func (s *FuseServer) Files(ctx context.Context, rf *enfuse.RequestFile) (*enfuse
 	if i != len(data) {
 		data = data[:i]
 	}
-	return &enfuse.ResponseFile{Content: data}, nil
+	return &fusepb.ResponseContent{Content: data}, nil
 }
 
-func (s *FuseServer) FileInfo(ctx context.Context, request *enfuse.FileInfoRequest) (*enfuse.FileInfoResponse, error) {
+func (s *FuseServer) FileInfo(ctx context.Context, request *fusepb.FileInfoRequest) (*fusepb.FileInfoResponse, error) {
 	var dir string
 	if request.Dir == "" {
 		dir = s.cfg.Dir
 	} else {
 		dir = filepath.Join(s.cfg.Dir, request.Dir)
 	}
-	var fis []*enfuse.FileInfo
+	var fis []*fusepb.FileInfo
 	outs, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 	for _, info := range outs {
-		e := &enfuse.FileInfo{
+		e := &fusepb.FileInfo{
 			Name:  info.Name(),
 			IsDir: info.IsDir(),
 			Size:  info.Size(),
 		}
 		fis = append(fis, e)
 	}
-	return &enfuse.FileInfoResponse{
+	return &fusepb.FileInfoResponse{
 		Files: fis,
 	}, err
 }
@@ -135,7 +135,7 @@ func (s *FuseServer) Serve() error {
 			return err
 		}
 
-		s.cfg.ClientInfoChan <- &ClientInfo{Pool: clientPool, RootPool: rootPool, Certificate: clientCertificate}
+		s.cfg.ClientInfoChan <- &ClientEncryptionInfo{Pool: clientPool, RootPool: rootPool, Certificate: clientCertificate}
 		grpcs = grpc.NewServer(
 			grpc.Creds(credentials.NewTLS(&tls.Config{
 				Certificates: []tls.Certificate{rootCertificate, intermediateCertificate},
@@ -145,7 +145,7 @@ func (s *FuseServer) Serve() error {
 			})),
 		)
 	}
-	enfuse.RegisterFuseControllerServer(grpcs, s)
+	fusepb.RegisterFuseControllerServer(grpcs, s)
 	if s.cfg.L == nil {
 		l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.cfg.Url, s.cfg.Port))
 		if err != nil {

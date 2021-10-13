@@ -1,0 +1,538 @@
+#!/bin/bash
+read -r -d '' USAGE <<'EOT'
+bkup: a backup utility.
+
+bkup is a shallow wrapper around rclone, configured to use Google Cloud Storage
+as a back end.  See: https://rclone.org/docs/
+EOT
+
+# TODOs:
+# TODO(carlo): should this be in internal instead of enkit?
+# TODO(jonathan,brian,carlo): Figure out how to re-use the enkit cert to
+#   authenticate to GCP.  Currently, we get the user to request a token.
+# TODO(jonathan): Decide how to handle backups outside of a container.
+# TODO(jonathan): Add proper logging.
+# TODO(jonathan): When backing up git repositories, the recommended strategy
+#   is two passes: pass 1 backs up refs but not objects, pass 2 backs up
+#   objects.
+# TODO(jonathan): Is this a safe way to restore a git branch?
+# TODO(jonathan): Do we want to give the user the option of excluding the
+#   contents of .git entirely?
+# TODO(jonathan): rewrite in golang and integrate into enkit.
+# TODO(jonathan): Do we want to enable crypto?  If we do, then we need a
+#   secure way of storing each user's encryption key, so that the loss of
+#   a laptop doesn't then cause the loss of the key needed to restore files.
+#   Maybe an astore file?  More details: https://rclone.org/crypt/
+
+set -e
+if [[ -n "${DEBUG}" ]]; then
+  set -x
+fi
+
+declare -a HELP=()
+declare -A LONGHELP
+readonly USER="${USER:-"$(whoami)"}"
+readonly BINDIR="/home/${USER}/bin"
+readonly RCLONE="${BINDIR}/rclone"
+readonly CONFIGDIR="/home/${USER}/.config/rclone"
+readonly CONFIG="${CONFIGDIR}/rclone.conf"
+readonly FILTERFILE="${CONFIGDIR}/filter-list.txt"
+readonly BUCKET="rclone-devops-284019"
+readonly PAGER="${PAGER:-less}"
+
+readonly DOCKER_ID="$(\
+  cat /proc/1/cgroup | grep -o -E 'docker/([a-f0-9]{12})' | sed 's/docker.//' | head -n 1 )"
+if [[ -z "${DOCKER_ID}" ]]; then
+  echo >&2 "Could not determine docker id, aborting."
+fi
+readonly RPATH="bkup/${USER}/${DOCKER_ID}"
+
+function _check_remote() {
+  "${RCLONE}" ls remote:"${BUCKET}" --max-depth 1 &> /dev/null
+}
+
+function _check_or_authorize_remote() {
+  if ! _check_remote; then
+    echo >&2 "Could not connect to remote.  Let's try to re-authorize:"
+    _cmd "${RCLONE}" config reconnect remote: --auto-confirm
+    if ! _check_remote; then
+      echo >&2 "Fatal: still can't connect to remote."
+      exit 1
+    fi
+  fi
+  echo >&2 "Remote connection OK."
+}
+
+function _cmd() {
+  local ESCAPED_CMD
+  ESCAPED_CMD="$(printf " %q" "$@")"
+  echo >&2 "CMD:${ESCAPED_CMD}"
+  if (( DRYRUN )); then
+    return 0
+  fi
+  "$@"
+}
+
+function _register_help() {
+  # Registers help text about a command.
+  #
+  # Usage: _register_help <command> <shorthelp> <aliases...>
+  #
+  # The "long help" for this command must be presented to this
+  # function as stdin.
+  local COMMAND SHORT LONG ALIAS
+  COMMAND="$1"
+  shift
+  SHORT="$1"
+  shift
+  LONG="$(</dev/stdin)"
+  HELP+=( "${COMMAND}: ${SHORT}" )
+  local -a ALIASES
+  ALIASES=("$@")
+  if (( "${#ALIASES[@]}" > 0 )); then
+    LONG="Aliases: ${ALIASES[*]}${NEWLINE}${LONG}"
+  fi
+  LONGHELP+=(["${COMMAND}"]="${LONG}")
+  for ALIAS in "${ALIASES[@]}"; do
+    LONGHELP+=(["${ALIAS}"]="${LONG}")
+  done
+}
+
+##########################################################################
+# help command
+##########################################################################
+
+_register_help "help" "Print more help about a command." <<'EOT'
+Usage: bkup help <command>
+EOT
+
+function bkup__help() {
+  (
+    if (( "$#" == 0 )); then
+      set -- "usage"
+    fi
+    if [[ "$1" == "usage" ]]; then
+      echo "${USAGE}" | sed "s/{{VERSION}}/${VERSION}/"
+      echo ""
+    fi
+    if [[ ("$1" == "usage") || ("$1" == "commands") ]]; then
+      echo "## Commands:"
+      echo ""
+      for h in "${HELP[@]}"; do
+        echo "  $h"
+      done | sort
+      shift;
+    fi
+    while (( "$#" )); do
+      local COMMAND="$1"
+      shift
+      if [ "${LONGHELP[${COMMAND}]+_}" ]; then
+        echo "${LONGHELP[${COMMAND}]}"
+      else
+        echo "${COMMAND}: there is no help for this."
+      fi
+    done
+  ) | "${PAGER}"
+}
+
+##########################################################################
+# setup command
+##########################################################################
+
+_register_help setup "Set up environment." <<'EOT'
+Usage: bkup setup
+
+"setup" installs all necessary tools and generates all configuration
+files to enable backups.
+EOT
+
+function _install_rclone() {
+  local URL ZIPFILE
+  URL="https://downloads.rclone.org/rclone-current-linux-amd64.zip"
+  _cmd curl -fsS "${URL}" -o /tmp/rclone.zip
+  _cmd unzip -j /tmp/rclone.zip \*/rclone -d "${BINDIR}"
+  _cmd rm /tmp/rclone.zip
+  _cmd "${RCLONE}" --version
+}
+
+function bkup__setup() {
+  # install rclone
+  if ! [[ -x ${RCLONE} ]]; then
+    _install_rclone
+  fi
+
+  # check rclone version
+  local VERSION CURRENT_VERSION
+  #check installed version of rclone to determine if update is necessary
+  VERSION=$("${RCLONE}" --version 2>>errors | head -n 1)
+  CURRENT_VERSION=$(curl -fsS https://downloads.rclone.org/version.txt)
+  if [[ "$version" != "$current_version" ]]; then
+    echo >&2 "Updating rclone from ${VERSION} to ${CURRENT_VERSION}"
+    _install_rclone
+  fi
+
+  # check config dir
+  if ! [[ -d "${CONFIGDIR}" ]]; then
+    _cmd mkdir -p "${CONFIGDIR}"
+  fi
+
+  # check rclone configuration file
+  if ! [[ -e "${CONFIG}" ]]; then
+    cat >"${CONFIG}" <<EOT
+[remote]
+type = google cloud storage
+project_number = ${BUCKET}
+object_acl = private
+bucket_acl = private
+EOT
+    echo >&2 "Made ${CONFIG}"
+    # TODO(jonathan): Figure out how to re-use enkit agent for token.
+  fi
+
+  # check for exclude file
+  if ! [[ -e "${FILTERFILE}" ]]; then
+    cat >"${FILTERFILE}" <<'EOT'
+# Exclude these directories from backups:
+- /bazel-**/
+- /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
+- /.gvfs/                           # contains mounted file systems?
+- /.local/share/gvfs-metadata/
+- /.Private/
+- /Private/
+- /.dbus/                           # session-specific
+- /.cache/
+- /.Trash/                          # do I need to say more?
+- /.local/share/Trash/
+- /.aptitude/                       # cached packages lists
+
+#Flash-specific:
+- .adobe**                          # Cache for flash, maybe others?
+- .macromedia**   # except for Flash persistence, there is no reason to keep this
+
+#Files:
+- bin/rclone
+- .bash_history
+- .python_history
+- .xsession-errors            # contains errors from the current graphical session
+- .recently-used              # recently used files
+- .recently-used.xbel
+- .thumbnails
+
+EOT
+    echo >&2 "Made ${FILTERFILE}"
+  fi
+
+  # Check for a valid token
+  _check_or_authorize_remote
+}
+
+##########################################################################
+# backup command
+##########################################################################
+
+_register_help backup "Back up local files." <<EOT
+Usage: bkup backup
+
+"backup" backs up user's entire home directory to the cloud.  An incremental
+backup is always performed.
+
+The following configuration file specifies which files will not be backed up:
+  ${FILTERFILE}
+EOT
+function bkup__backup() {
+  _startup_checks
+  _check_or_authorize_remote
+  local -a OPTS=(
+    --links     # store symlinks as metadata
+    --progress  # show progress
+    --fast-list # pre-scan directory.  Maybe buggy?
+    --update    # only update out-of-date files
+    --filter-from "${FILTERFILE}"  # skip specified files.
+  )
+  _cmd \
+    flock ~/.bkup.backup.lock \
+    "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
+}
+
+##########################################################################
+# check command
+##########################################################################
+
+_register_help check "Check if local and backup are consistent." <<'EOT'
+Usage: bkup check
+
+"check" compares all local files against their copies on the remote backup
+server, and reports which files are different.
+EOT
+function bkup__check() {
+  _startup_checks
+  _check_or_authorize_remote
+  local -a OPTS=(
+    --links     # store symlinks as metadata
+    --one-way
+    --size-only
+    --fast-list # pre-scan directory.  Maybe buggy?
+    --filter-from "${FILTERFILE}"  # skip specified files.
+  )
+  _cmd "${RCLONE}" check "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
+}
+
+##########################################################################
+# ls command
+##########################################################################
+
+_register_help ls "List remote files." <<'EOT'
+Usage: bkup ls [<path>]
+
+"ls" is used to list files in a directory of the remote backup server.
+
+All specified paths are relative to the current working directory.
+EOT
+function bkup__ls() {
+  _startup_checks
+  _check_or_authorize_remote
+  local -a OPTS=(
+    --links
+    --max-depth 1
+    --format pst
+    --separator $'\t'
+  )
+
+  local LPATH
+  LPATH=""
+  if [[ "$#" -ne 0 ]]; then
+    local REL_P
+    REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
+    if [[ "${REL_P}" == "." ]]; then
+      LPATH=""
+    elif [[ "${REL_P}" =~ ^/ ]]; then
+      echo >&2 "${F} is not beneath ${HOME}, is not in archive."
+    else
+      LPATH="/${REL_P}"
+    fi
+  fi
+
+  _cmd "${RCLONE}" lsf \
+    "remote:${BUCKET}/${RPATH}${LPATH}" \
+    "${OPTS[@]}" | /usr/bin/column -t -s $'\t'
+}
+
+##########################################################################
+# cat command
+##########################################################################
+
+_register_help cat "Print a remote file." <<'EOT'
+Usage: bkup cat <path>
+
+"cat" dumps the contents of the specified remote file to stdout.
+EOT
+function bkup__cat() {
+  _startup_checks
+  _check_or_authorize_remote
+  local -a OPTS=(
+  )
+
+  local LPATH
+  LPATH=""
+  local REL_P
+  REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
+  if [[ "${REL_P}" == "." ]]; then
+    LPATH=""
+  elif [[ "${REL_P}" =~ ^/ ]]; then
+    echo >&2 "${F} is not beneath ${HOME}, is not in archive."
+    return 1
+  else
+    LPATH="/${REL_P}"
+  fi
+
+  _cmd "${RCLONE}" cat \
+    "remote:${BUCKET}/${RPATH}${LPATH}" \
+    "${OPTS[@]}"
+}
+
+##########################################################################
+# diff command
+##########################################################################
+
+_register_help diff "Diff a local file against its backup." <<'EOT'
+Usage: bkup diff <path>
+
+"diff" shows the differences between a local file and its backup.
+EOT
+function bkup__diff() {
+  _startup_checks
+  _check_or_authorize_remote
+  local -a OPTS=(
+  )
+
+  local LPATH
+  LPATH=""
+  local REL_P
+  REL_P="$(/usr/bin/realpath -m --relative-base="${HOME}" "$1")"
+  if [[ "${REL_P}" == "." ]]; then
+    LPATH=""
+  elif [[ "${REL_P}" =~ ^/ ]]; then
+    echo >&2 "${F} is not beneath ${HOME}, is not in archive."
+    return 1
+  else
+    LPATH="/${REL_P}"
+  fi
+
+  local TMPFILE
+  TMPFILE="$(/usr/bin/mktemp "$(basename $1).XXXXXX")"
+  _cmd "${RCLONE}" cat \
+    "remote:${BUCKET}/${RPATH}${LPATH}" \
+    "${OPTS[@]}" \
+    >"${TMPFILE}"
+
+  /usr/bin/diff -s "${TMPFILE}" "$1" | "${PAGER:-/usr/bin/less}"
+  rm "${TMPFILE}"
+}
+
+##########################################################################
+# restore command
+##########################################################################
+
+_register_help restore "Restore specific files." <<'EOT'
+Usage: bkup restore <files>
+
+Restores a list of specific files from backup.  To restore a user's
+entire home directory from backup, use the "restore_all" command.
+
+All specified paths are relative to the current working directory.
+EOT
+function bkup__restore() {
+  _startup_checks
+  _check_or_authorize_remote
+  local -a OPTS=(
+    --links
+    --progress
+    --update
+    --max-delete 0
+  )
+
+  if [[ "$#" -eq 0 ]]; then
+    echo >&2 "\"restore\" requires at least one file to restore."
+    echo >&2 "Perhaps you want the \"restore_all\" command?"
+    return 1
+  fi
+
+  local TMPFILE F REL_P
+  TMPFILE="$(tempfile)"
+  for F in "$@"; do
+    REL_P="$(realpath -m --relative-base="${HOME}" "${F}")"
+    if [[ "${REL_P}" =~ ^/ ]]; then
+      echo >&2 "${F} is not beneath ${HOME}, cannot restore."
+    else
+      echo "${REL_P}"
+    fi
+  done >"${TMPFILE}"
+  OPTS+=( --files-from "${TMPFILE}" )
+
+  _cmd "${RCLONE}" copy \
+    "remote:${BUCKET}/${RPATH}" \
+    "${HOME}" \
+    "${OPTS[@]}"
+}
+##########################################################################
+# restore_all command
+##########################################################################
+
+_register_help restore_all "Restore entire home directory." <<'EOT'
+Usage: bkup restore_all [flags]
+
+Restores the user's entire home directory from backup.
+
+By default, restore_all will only restore files that are either missing,
+or are older than files on the backup server.  This behavior can be
+modified by one or more of the following flags:
+  -O -- will cause all local files to be overwritten from backup.  DANGER!
+  -i -- the user will be prompted before restoring any out-of-date file from
+        backup.
+  -Oi -- will restore all files from backup, but the user will be prompted
+        for each file.
+EOT
+function bkup__restore_all() {
+  _startup_checks
+  _check_or_authorize_remote
+  local -a OPTS=(
+    --links
+    --max-delete 0
+  )
+
+  local OVERWRITE=0
+  local INTERACTIVE=0
+  local FLAG
+  while getopts "Oi" FLAG; do
+    case "${FLAG}" in
+      O) OVERWRITE=1 ;;
+      i) INTERACTIVE=1 ;;
+      *) echo >&2 "Unknown flag: ${FLAG}"; return 1 ;;
+    esac
+  done
+
+  if (( OVERWRITE == 1 )); then
+    echo >&2 "WARNING: YOU ARE ABOUT TO OVERWRITE ALL LOCAL FILES."
+    local RESP
+    read -rp "Proceed? (y/N)  " RESP
+    case "${RESP}" in
+      [yY]*) echo >&2 "Okay then..." ;;
+      *) echo >&2 "Aborting."; return 1 ;;
+    esac
+  else
+    OPTS+=( --update )
+  fi
+  if (( INTERACTIVE == 1 )); then
+    OPTS+=( -i )
+  else
+    OPTS+=( --progress )
+  fi
+
+  _cmd "${RCLONE}" copy \
+    "remote:${BUCKET}/${RPATH}" \
+    "${HOME}" \
+    "${OPTS[@]}"
+}
+
+##########################################################################
+# main
+##########################################################################
+
+function _require_file() {
+  local FILE="$1"
+  if ! [[ -e "${FILE}" ]]; then
+    echo >&2 "${FILE} is missing.  Run \"bkup setup\"."
+    exit 1
+  fi
+}
+
+function _startup_checks() {
+  _require_file "${RCLONE}"
+  _require_file "${CONFIG}"
+  _require_file "${FILTERFILE}"
+  return 0
+}
+
+function main() {
+  if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    shift
+    set -- "help" "$@"
+  fi
+  if (( "$#" == 0 )); then
+    bkup__help usage
+    exit 0
+  fi
+  local cmdname="$1"; shift
+  if type "bkup__${cmdname}" >/dev/null 2>&1; then
+    "bkup__${cmdname}" "$@"
+    ABNORMAL=0
+  else
+    echo >&2 "Unknown command ${cmdname}"
+    echo ""
+    bkup__help commands
+    ABNORMAL=0
+    exit 2
+  fi
+}
+
+main "$@"

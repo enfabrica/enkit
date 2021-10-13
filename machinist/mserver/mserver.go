@@ -7,12 +7,14 @@ import (
 )
 
 func New(mods ...Modifier) (*ControlPlane, error) {
+	kd, err := NewController()
+	if err != nil {
+		return nil, err
+	}
 	s := &ControlPlane{
 		killChannel: make(chan error),
-		Controller: &Controller{
-			connectedNodes: map[string]*Node{},
-		},
-		Common: config.DefaultCommonFlags(),
+		Controller:  kd,
+		Common:      config.DefaultCommonFlags(),
 	}
 	for _, m := range mods {
 		if err := m(s); err != nil {
@@ -42,7 +44,9 @@ func (s *ControlPlane) Run() error {
 	go func() {
 		s.killChannel <- s.Controller.dnsServer.Run()
 	}()
+	s.Controller.Init()
 	go s.Controller.ServeAllRecords()
+	go s.Controller.WriteState()
 	return grpcs.Serve(s.Listener)
 }
 

@@ -1573,6 +1573,12 @@ def go_repositories():
         sum = "h1:BLqxdwZ6j771IpSCRx7s/GJjXHUE00Hmu7/YegCGdzA=",
         version = "v0.0.0-20200921180117-858c6e7e6b7e",
     )
+    go_repository(
+        name = "com_github_prashantv_gostub",
+        importpath = "github.com/prashantv/gostub",
+        sum = "h1:wTzvgO04xSS3gHuz6Vhuo0/kvWelyJxwNS0IRBPAwGY=",
+        version = "v1.0.0",
+    )
 
     go_repository(
         name = "com_github_prometheus_client_golang",

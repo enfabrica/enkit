@@ -33,11 +33,8 @@ func NewNodeCommand(common *config.Common) *cobra.Command {
 func NewEnrollCommand(conf *config.Node) *cobra.Command {
 	c := &cobra.Command{
 		Use:  "enroll [Name] [OPTIONS]",
-		Args: cobra.ExactArgs(1),
-
-
 		RunE: func(cmd *cobra.Command, args []string) error {
-			n, err := New()
+			n, err := New(WithConfig(conf))
 			if err != nil {
 				return err
 			}

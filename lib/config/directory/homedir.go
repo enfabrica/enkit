@@ -15,7 +15,7 @@ type Directory struct {
 
 // OpenHomeDir returns a Loader capable of loading and creating config
 // files in the system default configuration directory for the current
-// user. 
+// user.
 //
 // On Linux systems, this generally means ~/.config/<app>/<namespace>/.
 func OpenHomeDir(app string, namespaces ...string) (*Directory, error) {
@@ -35,8 +35,10 @@ func OpenHomeDir(app string, namespaces ...string) (*Directory, error) {
 // Refresh values cached by OpenHomeDir.
 //
 // Internally, OpenHomeDir caches some of the computed paths. Refresh() will cause
-// those paths to be re-computed. This is needed pretty much only if you expect
-// environment variables to change value in between calls.
+// those paths to be re-computed.
+//
+// Don't bother calling Refresh() unless your project mingles with the HOME
+// environment variable, or variables like XDG_CONFIG_HOME.
 func Refresh() {
 	configdir.Refresh()
 }
@@ -66,6 +68,11 @@ func (hd *Directory) List() ([]string, error) {
 	return paths, nil
 }
 
+func (hd *Directory) Delete(name string) error {
+	path := filepath.Join(hd.path, name)
+	return os.Remove(path)
+}
+
 func (hd *Directory) Read(name string) ([]byte, error) {
 	path := filepath.Join(hd.path, name)
 	return ioutil.ReadFile(path)
@@ -76,6 +83,16 @@ func (hd *Directory) Write(name string, data []byte) error {
 		return err
 	}
 
-	path := filepath.Join(hd.path, name)
-	return ioutil.WriteFile(path, data, 0660)
+	// Don't write the file in place, use rename to guarantee filesystem atomicity.
+	tmp, err := ioutil.TempFile(hd.path, name)
+	if err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(tmp.Name(), data, 0660); err != nil {
+		os.Remove(tmp.Name())
+		return err
+	}
+
+	return os.Rename(tmp.Name(), filepath.Join(hd.path, name))
 }

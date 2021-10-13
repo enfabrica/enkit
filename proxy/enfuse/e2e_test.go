@@ -27,7 +27,7 @@ func TestFuseShareEncryption(t *testing.T) {
 	assert.Nil(t, err)
 	a, err := p.Address()
 	assert.Nil(t, err)
-	pubChan := make(chan *enfuse.ClientInfo, 1)
+	pubChan := make(chan *enfuse.ClientEncryptionInfo, 1)
 	scfg := &enfuse.ConnectConfig{
 		Url:         "127.0.0.1",
 		Port:        a.Port,
@@ -37,21 +37,23 @@ func TestFuseShareEncryption(t *testing.T) {
 	s := enfuse.NewServer(
 		enfuse.NewServerConfig(
 			enfuse.WithDir(d),
-			enfuse.WithEncryptionChannel(pubChan),
-			enfuse.WithConnectMods(enfuse.WithConnectConfig(scfg)),
+			enfuse.WithEncryption(pubChan),
+			enfuse.WithConnectMods(
+				enfuse.WithConnectConfig(scfg),
+			),
 		),
 	)
 	go func() {
 		assert.Nil(t, s.Serve())
 	}()
-	clientInfo := <-pubChan
+	clientEncryptionInfo := <-pubChan
 	time.Sleep(10 * time.Millisecond)
 	cfg := &enfuse.ConnectConfig{
 		Url:               "127.0.0.1",
 		Port:              a.Port,
-		ClientCredentials: clientInfo.Pool,
-		Certificate:       clientInfo.Certificate,
-		RootCAs:           clientInfo.RootPool,
+		ClientCredentials: clientEncryptionInfo.Pool,
+		Certificate:       clientEncryptionInfo.Certificate,
+		RootCAs:           clientEncryptionInfo.RootPool,
 		DnsNames:          []string{"localhost"},
 		IpAddresses:       []net.IP{net.ParseIP("127.0.0.1")},
 	}
@@ -63,7 +65,7 @@ func TestFuseShareEncryption(t *testing.T) {
 }
 
 func TestNewFuseShareCommand(t *testing.T) {
-	d, generatedFiles := CreateSeededTmpDir(t, 5)
+	d, generatedFiles := CreateSeededTmpDir(t, 2)
 	p, err := knetwork.AllocatePort()
 	assert.Nil(t, err)
 	a, err := p.Address()
