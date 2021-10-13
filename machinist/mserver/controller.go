@@ -18,17 +18,18 @@ type Controller struct {
 
 	startUpFunc []func()
 
+	allRecordsRefreshRate time.Duration
 
 	State         *state.MachineController
 	stateFile     string
 	stateWriteTTL time.Duration
 
 	dnsServer *kdns.DnsServer
-	dnsPort   int
 	domains   []string
 }
+
 // Init is designed to run after all components have been started up before running itself as a server
-func (en *Controller) Init()  {
+func (en *Controller) Init() {
 	for _, m := range en.State.Machines {
 		en.addNodeToDns(m.Name, m.Ips, m.Tags)
 	}
