@@ -1,20 +1,23 @@
 package kdns
 
 import (
+	"fmt"
+	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/miekg/dns"
 	"net"
 	"strconv"
 )
 
 type DnsServer struct {
-	Flags  *Flags
-	Logger logger.Logger
-	Port   int
-	Domains   []string
+	Flags   *Flags
+	Logger  logger.Logger
+	Port    int
+	Domains []string
 
-	host      string
-	dnsServer *dns.Server
+	host       string
+	dnsServers []*dns.Server
 
 	readOnlyChan chan struct {
 		Return chan *RecordController
@@ -41,30 +44,36 @@ func (s *DnsServer) Run() error {
 	for _, domain := range s.Domains {
 		mux.HandleFunc(dns.Fqdn(domain), s.HandleIncoming)
 	}
-	s.dnsServer = &dns.Server{Handler: mux}
-	s.dnsServer.Net = "udp"
-	if s.Flags.Listener != nil {
-		s.dnsServer.Listener = s.Flags.Listener
-		s.dnsServer.Addr = s.Flags.Listener.Addr().String()
-	} else {
-		l, err := net.Listen(net.JoinHostPort(s.host, strconv.Itoa(s.Port)), "tcp")
-		if err != nil {
-			return err
-		}
-		s.dnsServer.Listener = l
-	}
-	if s.Port != 0 {
-		s.dnsServer.Addr = net.JoinHostPort(s.host, strconv.Itoa(s.Port))
-	}
+	portAddr := net.JoinHostPort(s.host, strconv.Itoa(s.Port))
 	go s.HandleControllers()
-	s.Logger.Infof("Serving Dns on %s for domains %v", s.dnsServer.Addr, s.Domains )
-	return s.dnsServer.ListenAndServe()
+	tcpServer := &dns.Server{Handler: mux, ReusePort: true, Net: "tcp", Addr: portAddr, Listener: s.Flags.TCPListener}
+	udpServer := &dns.Server{Handler: mux, ReusePort: true, Net: "udp", Addr: portAddr}
+	s.dnsServers = append(s.dnsServers, tcpServer, udpServer)
+	return goroutine.WaitFirstError(
+		func() error {
+			s.Logger.Infof("Serving Dns via udp on %s for domains %v", udpServer.Addr, s.Domains)
+			return udpServer.ListenAndServe()
+		},
+		func() error {
+			s.Logger.Infof("Serving Dns via tcp on %s for domains %v", tcpServer.Addr, s.Domains)
+			if tcpServer.Listener != nil {
+				return tcpServer.ActivateAndServe()
+			}
+			return tcpServer.ListenAndServe()
+		},
+	)
 }
 
 func (s *DnsServer) Stop() error {
 	s.shutdown <- true
 	<-s.shutdownSuccess
-	return s.dnsServer.Shutdown()
+	var errs []error
+	for _, srv := range s.dnsServers {
+		if err := srv.Shutdown(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return multierror.New(errs)
 }
 
 // AddEntry will append a entries to domain.
@@ -134,8 +143,9 @@ func (s *DnsServer) HandleControllers() {
 func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg) {
 	m := &dns.Msg{}
 	m.SetReply(incoming)
-	m.Compress = false
-	m.RecursionAvailable = true
+	m.Compress = true
+	m.RecursionAvailable = false
+	fmt.Println("recieved request :>")
 	switch incoming.Opcode {
 	case dns.OpcodeQuery:
 		s.ParseDNS(m)

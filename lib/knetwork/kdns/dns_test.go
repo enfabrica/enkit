@@ -19,10 +19,14 @@ func TestDNS(t *testing.T) {
 	// Setup
 	l, err := knetwork.AllocatePort()
 	assert.Nil(t, err)
+	dnsAddr, err := l.Address()
+	assert.NoError(t, err)
 
 	dnsServer, err := kdns.NewDNS(
 		kdns.WithDomains([]string{"enkit.", "enb."}),
-		kdns.WithListener(l),
+		kdns.WithHost(dnsAddr.IP.String()),
+		kdns.WithPort(dnsAddr.Port),
+		kdns.WithTCPListener(l),
 	)
 	defer func() {
 		assert.Nil(t, dnsServer.Stop())
