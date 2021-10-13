@@ -18,9 +18,9 @@ import (
 	"time"
 )
 
-const NumMachines = 40
+const NumMachines = 1000
 
-// TestStressDns tests 1M machines, while under heavy read load and over real ports. It's purpose is to test for deadlocks
+// TestStressDns tests 1000 machines, while under heavy read load and over real ports. It's purpose is to test for deadlocks
 // and leaked routines.
 func TestStressDns(t *testing.T) {
 	machinistDnsPort, _ := registerPort(t)
@@ -31,14 +31,14 @@ func TestStressDns(t *testing.T) {
 	assert.Nil(t, err)
 	rng := rand.New(srand.Source)
 	stateFileName := filepath.Join(os.TempDir(), strconv.Itoa(rng.Int())+".json")
-	s, _, err := createNewControlPlane(t, []mserver.ControllerModifier{
+	smthElse, _, err := createNewControlPlane(t, []mserver.ControllerModifier{
 		mserver.WithStateWriteDuration("50ms"),
 		mserver.WithAllRecordsRefreshRate("50ms"),
 		mserver.WithKDnsFlags(
 			kdns.WithTCPListener(machinistDnsPort),
 			kdns.WithHost(dnsAddr.IP.String()),
 			kdns.WithPort(dnsAddr.Port),
-			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
+			kdns.WithDomains([]string{"stress.", "stressdev."}),
 		),
 		mserver.WithStateFile(stateFileName),
 	}, []mserver.Modifier{
@@ -49,7 +49,8 @@ func TestStressDns(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	go func() {
-		assert.Nil(t, s.Run())
+		err := smthElse.Run()
+		assert.Nil(t, err)
 	}()
 	time.Sleep(50 * time.Millisecond)
 	ips := createIps(NumMachines)
@@ -72,8 +73,7 @@ func TestStressDns(t *testing.T) {
 	}
 	c.Net = "tcp"
 	m := &dns.Msg{}
-	m.SetQuestion(dns.CanonicalName("_all.enkit"), dns.TypeA)
-	//portAddr := net.JoinHostPort(dnsAddr.IP.String(), strconv.Itoa(dnsAddr.Port))
+	m.SetQuestion(dns.CanonicalName("_all.stress"), dns.TypeA)
 	portAddr := net.JoinHostPort(dnsAddr.IP.String(), strconv.Itoa(dnsAddr.Port))
 	fmt.Println("port addr is ", dnsAddr.String(), portAddr)
 	r, ttl, err := c.Exchange(m, portAddr)

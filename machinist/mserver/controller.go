@@ -8,7 +8,6 @@ import (
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"github.com/enfabrica/enkit/machinist/state"
 	"github.com/miekg/dns"
-	"log"
 	"net"
 	"time"
 )
@@ -99,7 +98,6 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("GOT %#v", in.Req)
 
 		switch r := in.Req.(type) {
 		case *machinist.PollRequest_Ping:
@@ -110,7 +108,6 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 				fmt.Println("error handling register", err.Error())
 				return err
 			}
-			log.Printf("Got REGISTER %#v", *r.Register)
 		}
 	}
 }
@@ -187,4 +184,3 @@ func (en *Controller) WriteState() {
 		}
 	}
 }
-

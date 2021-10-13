@@ -4,6 +4,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "machinist_e2e_test.go",
+        "stress_e2e_test.go",
     ],
     deps = [
         "//lib/knetwork:go_default_library",
