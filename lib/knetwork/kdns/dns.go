@@ -1,7 +1,6 @@
 package kdns
 
 import (
-	"fmt"
 	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
@@ -145,7 +144,6 @@ func (s *DnsServer) HandleIncoming(writer dns.ResponseWriter, incoming *dns.Msg)
 	m.SetReply(incoming)
 	m.Compress = true
 	m.RecursionAvailable = false
-	fmt.Println("recieved request :>")
 	switch incoming.Opcode {
 	case dns.OpcodeQuery:
 		s.ParseDNS(m)

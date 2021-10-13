@@ -25,7 +25,6 @@ import (
 // TODO (adam): write e2e testing docs
 // TODO (adam): run e2e testing over the wire, buffcon for unit tests
 func TestJoinServerAndPoll(t *testing.T) {
-	return
 	dnsLis, customResolver := registerPort(t)
 	dnsAddr, err := dnsLis.Address()
 	assert.Nil(t, err)
@@ -36,7 +35,6 @@ func TestJoinServerAndPoll(t *testing.T) {
 	stateFileName := filepath.Join(os.TempDir(), strconv.Itoa(rng.Int())+".json")
 	s, mController, err := createNewControlPlane(t, []mserver.ControllerModifier{
 		mserver.WithStateWriteDuration("50ms"),
-		mserver.WithAllRecordsRefreshRate("50ms"),
 		mserver.WithKDnsFlags(
 			kdns.WithTCPListener(dnsLis),
 			kdns.WithHost(dnsAddr.IP.String()),
