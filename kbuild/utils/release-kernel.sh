@@ -61,13 +61,20 @@ prep_linux_source() {
 # $2: ARCH
 build_kernel() {
 	pushd ${LINUX_SOURCE}/
+
+	# Formulate local version string, using the same scheme used here
+	# https://github.com/enfabrica/linux/blob/enf/enf-5.11.16/enfabrica/build-kernel.sh#L120
+	timestamp=$(date "+%s")
+	local_version="+enf-${timestamp}-g${RELEASE_TAG}"
 	make mrproper
 
 	# We will explicitly update the config when updating the kernel if
-	# necessary, just get to parity with any new defaults
+	# necessary, just get to parity with any new defaults. We are also not
+	# signing external modules with a custom key.
 	cp $1 .config
+	echo "CONFIG_SYSTEM_TRUSTED_KEYS=\"\"" >> .config
 	make olddefconfig $2
-	${PWD}/enfabrica/build-kernel.sh -b ${PWD} -- -j16 all $2
+	make LOCALVERSION="${local_version}" -j 16 $2
 	popd
 }
 
@@ -112,16 +119,24 @@ ASTORE_PATH=${ASTORE_PATH:-"kernel/${RELEASE_BRANCH}"}
 
 prep_linux_source
 
-# Base kernel with all goodies
-build_kernel "${LINUX_SOURCE}/enfabrica/config/config-amd64"
+# Base kernel with all goodies. Config is a union of the Ubuntu generic flavour
+# and common configs from the Ubuntu tree.
+cp ${LINUX_SOURCE}/debian.master/config/config.common.ubuntu ${LINUX_BASE_BUILD}/config
+cat ${LINUX_SOURCE}/debian.master/config/amd64/config.common.amd64 >> ${LINUX_BASE_BUILD}/config
+cat ${LINUX_SOURCE}/debian.master/config/amd64/config.flavour.generic >> ${LINUX_BASE_BUILD}/config
+build_kernel "${LINUX_BASE_BUILD}/config"
 push_astore_kernel "${ASTORE_PATH}" "amd64"
 
-# A stripped down kernel for just a devel VM
-build_kernel "${LINUX_SOURCE}/enfabrica/config/config-vm"
+# A stripped down kernel for just a devel VM. Config is a union of our minimal
+# flavour and common configs from the Ubuntu tree.
+cp ${LINUX_SOURCE}/debian.master/config/config.common.ubuntu ${LINUX_BASE_BUILD}/config-vm
+cat ${LINUX_SOURCE}/debian.master/config/amd64/config.common.amd64 >> ${LINUX_BASE_BUILD}/config-vm
+cat ${LINUX_SOURCE}/debian.master/config/amd64/config.flavour.minimal >> ${LINUX_BASE_BUILD}/config-vm
+build_kernel "${LINUX_BASE_BUILD}/config-vm"
 push_astore_kernel "${ASTORE_PATH}/vm" "amd64"
 
-# UML kernel used by Bazel builds
-build_kernel "${LINUX_SOURCE}/enfabrica/config/config-um" "ARCH=um"
+# UML kernel used by Bazel builds.
+build_kernel "${LINUX_SOURCE}/enfabrica/config-um" "ARCH=um"
 push_astore_kernel "${ASTORE_PATH}/test" "um"
 
 # Upload the UML `linux` image too, which is used by the tests.
