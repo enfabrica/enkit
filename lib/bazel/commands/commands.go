@@ -106,12 +106,9 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.Start, err)
 	}
 	defer startTree.Close()
-	startWS, err := fs.Sub(startTree.Root(), gitToBazelPath)
-	if err != nil {
-		return err
-	}
+	startWS := filepath.Clean(filepath.Join(startTree.Root(), gitToBazelPath))
 
-	endTreePath := os.DirFS(gitRoot)
+	endTreePath := gitRoot
 	if c.parent.End != "" {
 		endTree, err := git.NewTempWorktree(gitRoot, c.parent.End)
 		if err != nil {
@@ -120,10 +117,7 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		defer endTree.Close()
 		endTreePath = endTree.Root()
 	}
-	endWS, err := fs.Sub(endTreePath, gitToBazelPath)
-	if err != nil {
-		return err
-	}
+	endWS := filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
 
 	targets, err := bazel.GetAffectedTargets(startWS, endWS)
 	if err != nil {
@@ -132,65 +126,6 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 
 	targets = targets
 
-	// Open the bazel workspaces, using a temporary output_base. Since the
-	// temporary worktrees created above will have a different path on every
-	// invocation, by default bazel will create a new cache directory for them,
-	// re-download all dependencies, etc. which is both slow and will eventually
-	// fill up the disk. Using a temporary output_base which gets deleted each
-	// time avoids this problem, at the cost of the startup/redownload on
-	// repeated invocations with the same source points.
-	//
-	// This temporary directory needs to be in the user's $HOME directory to
-	// avoid filling up /tmp in the dev container.
-	//cacheDir, err := os.UserCacheDir()
-	//if err != nil {
-	//	return fmt.Errorf("failed to get user's cache dir: %w", err)
-	//}
-	//cacheDir = filepath.Join(cacheDir, "enkit", "bazel")
-	//startOutputBase, err := ioutil.TempDir(cacheDir, "output_base_*")
-	//if err != nil {
-	//	return fmt.Errorf("failed to create temporary output_base: %w", err)
-	//}
-	//defer os.RemoveAll(startOutputBase)
-
-	//endOutputBase, err := ioutil.TempDir(cacheDir, "output_base_*")
-	//if err != nil {
-	//	return fmt.Errorf("failed to create temporary output_base: %w", err)
-	//}
-	//defer os.RemoveAll(endOutputBase)
-
-	//// Joining the new worktree roots to the relative path portion handles the
-	//// case where bazel workspaces are not in the top directory of the git
-	//// worktree.
-	//startWorkspace, err := bazel.OpenWorkspace(
-	//	filepath.Clean(filepath.Join(startTree.Root(), gitToBazelPath)),
-	//	bazel.WithOutputBase(startOutputBase),
-	//)
-	//if err != nil {
-	//	return fmt.Errorf("failed to open bazel workspace for committish %q: %w", c.parent.Start, err)
-	//}
-	//endWorkspace, err := bazel.OpenWorkspace(
-	//	filepath.Clean(filepath.Join(endTreePath, gitToBazelPath)),
-	//	bazel.WithOutputBase(endOutputBase),
-	//)
-	//if err != nil {
-	//	return fmt.Errorf("failed to open bazel workspace: %w", err)
-	//}
-
-	//// Get all target info for both VCS time points.
-	//targets, err := startWorkspace.Query("deps(//...)", bazel.WithKeepGoing(), bazel.WithUnorderedOutput())
-	//if err != nil {
-	//	return fmt.Errorf("failed to query deps for start point: %w", err)
-	//}
-	//// TODO(scott): Replace with logging
-	//fmt.Fprintf(os.Stderr, "Processed %d targets at start point\n", len(targets))
-
-	//targets, err = endWorkspace.Query("deps(//...)", bazel.WithKeepGoing(), bazel.WithUnorderedOutput())
-	//if err != nil {
-	//	return fmt.Errorf("failed to query deps for end point: %w", err)
-	//}
-	//// TODO(scott): Replace with logging
-	//fmt.Fprintf(os.Stderr, "Processed %d targets at end point\n", len(targets))
 
 	return fmt.Errorf("not yet implemented")
 }

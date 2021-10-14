@@ -2,9 +2,7 @@ package git
 
 import (
 	"fmt"
-	"io/fs"
 	"io/ioutil"
-	"os"
 	"os/exec"
 )
 
@@ -46,8 +44,8 @@ func NewTempWorktree(repoPath string, committish string) (*TempWorktree, error) 
 }
 
 // Root returns the path to the root directory of the worktree.
-func (w *TempWorktree) Root() fs.FS {
-	return os.DirFS(w.worktreePath)
+func (w *TempWorktree) Root() string {
+	return w.worktreePath
 }
 
 // Close deletes the worktree from disk and unregisters it from git.
