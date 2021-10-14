@@ -2,20 +2,14 @@ package git
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/go-git/go-git/v5"
 )
 
-// RootFromPwd returns a path to the root of the current Git repository in
-// which the present working directory resides, or an error if PWD is not
-// inside a Git repository.
-func RootFromPwd() (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get PWD: %w", err)
-	}
-	repo, err := git.PlainOpenWithOptions(cwd, &git.PlainOpenOptions{
+// FindRoot returns a path to the root of the current Git repository in which
+// `dir` resides, or an error if `dir` is not inside a Git repository.
+func FindRoot(dir string) (string, error) {
+	repo, err := git.PlainOpenWithOptions(dir, &git.PlainOpenOptions{
 		DetectDotGit: true,
 	})
 	if err != nil {

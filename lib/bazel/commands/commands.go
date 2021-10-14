@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -92,7 +93,7 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 
 func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	// TODO(scott): Determine how the workspace root is found
-	gitRoot, err := findGitRoot()
+	gitRoot, gitToBazelPath, err := bazelGitRoot()
 	if err != nil {
 		return fmt.Errorf("can't find git repo root: %w", err)
 	}
@@ -105,8 +106,12 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.Start, err)
 	}
 	defer startTree.Close()
+	startWS, err := fs.Sub(startTree.Root(), gitToBazelPath)
+	if err != nil {
+		return err
+	}
 
-	endTreePath := gitRoot
+	endTreePath := os.DirFS(gitRoot)
 	if c.parent.End != "" {
 		endTree, err := git.NewTempWorktree(gitRoot, c.parent.End)
 		if err != nil {
@@ -115,60 +120,114 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		defer endTree.Close()
 		endTreePath = endTree.Root()
 	}
+	endWS, err := fs.Sub(endTreePath, gitToBazelPath)
+	if err != nil {
+		return err
+	}
 
-	// Open the bazel workspaces, using a well-known output_base. Since the
+	targets, err := bazel.GetAffectedTargets(startWS, endWS)
+	if err != nil {
+		return fmt.Errorf("failed to calculate affected targets: %w", err)
+	}
+
+	targets = targets
+
+	// Open the bazel workspaces, using a temporary output_base. Since the
 	// temporary worktrees created above will have a different path on every
 	// invocation, by default bazel will create a new cache directory for them,
 	// re-download all dependencies, etc. which is both slow and will eventually
-	// fill up the disk. Reusing an output base location will ensure that at most
-	// only two are created for the purposes of this subcommand.
-	startOutputBase, err := cacheDir("affected_targets/start")
-	if err != nil {
-		return fmt.Errorf("failed to create output_base: %w", err)
-	}
-	endOutputBase, err := cacheDir("affected_targets/end")
-	if err != nil {
-		return fmt.Errorf("failed to create output_base: %w", err)
-	}
-	startWorkspace, err := bazel.OpenWorkspace(startTree.Root(), bazel.WithOutputBase(startOutputBase))
-	if err != nil {
-		return fmt.Errorf("failed to open bazel workspace for committish %q: %w", c.parent.Start, err)
-	}
-	endWorkspace, err := bazel.OpenWorkspace(endTreePath, bazel.WithOutputBase(endOutputBase))
-	if err != nil {
-		return fmt.Errorf("failed to open bazel workspace: %w", err)
-	}
+	// fill up the disk. Using a temporary output_base which gets deleted each
+	// time avoids this problem, at the cost of the startup/redownload on
+	// repeated invocations with the same source points.
+	//
+	// This temporary directory needs to be in the user's $HOME directory to
+	// avoid filling up /tmp in the dev container.
+	//cacheDir, err := os.UserCacheDir()
+	//if err != nil {
+	//	return fmt.Errorf("failed to get user's cache dir: %w", err)
+	//}
+	//cacheDir = filepath.Join(cacheDir, "enkit", "bazel")
+	//startOutputBase, err := ioutil.TempDir(cacheDir, "output_base_*")
+	//if err != nil {
+	//	return fmt.Errorf("failed to create temporary output_base: %w", err)
+	//}
+	//defer os.RemoveAll(startOutputBase)
 
-	// Get all target info for both VCS time points.
-	targets, err := startWorkspace.Query("deps(//...)", bazel.WithKeepGoing(), bazel.WithUnorderedOutput())
-	if err != nil {
-		return fmt.Errorf("failed to query deps for start point: %w", err)
-	}
-	// TODO(scott): Replace with logging
-	fmt.Fprintf(os.Stderr, "Processed %d targets at start point\n", len(targets))
+	//endOutputBase, err := ioutil.TempDir(cacheDir, "output_base_*")
+	//if err != nil {
+	//	return fmt.Errorf("failed to create temporary output_base: %w", err)
+	//}
+	//defer os.RemoveAll(endOutputBase)
 
-	targets, err = endWorkspace.Query("deps(//...)", bazel.WithKeepGoing(), bazel.WithUnorderedOutput())
-	if err != nil {
-		return fmt.Errorf("failed to query deps for end point: %w", err)
-	}
-	// TODO(scott): Replace with logging
-	fmt.Fprintf(os.Stderr, "Processed %d targets at end point\n", len(targets))
+	//// Joining the new worktree roots to the relative path portion handles the
+	//// case where bazel workspaces are not in the top directory of the git
+	//// worktree.
+	//startWorkspace, err := bazel.OpenWorkspace(
+	//	filepath.Clean(filepath.Join(startTree.Root(), gitToBazelPath)),
+	//	bazel.WithOutputBase(startOutputBase),
+	//)
+	//if err != nil {
+	//	return fmt.Errorf("failed to open bazel workspace for committish %q: %w", c.parent.Start, err)
+	//}
+	//endWorkspace, err := bazel.OpenWorkspace(
+	//	filepath.Clean(filepath.Join(endTreePath, gitToBazelPath)),
+	//	bazel.WithOutputBase(endOutputBase),
+	//)
+	//if err != nil {
+	//	return fmt.Errorf("failed to open bazel workspace: %w", err)
+	//}
+
+	//// Get all target info for both VCS time points.
+	//targets, err := startWorkspace.Query("deps(//...)", bazel.WithKeepGoing(), bazel.WithUnorderedOutput())
+	//if err != nil {
+	//	return fmt.Errorf("failed to query deps for start point: %w", err)
+	//}
+	//// TODO(scott): Replace with logging
+	//fmt.Fprintf(os.Stderr, "Processed %d targets at start point\n", len(targets))
+
+	//targets, err = endWorkspace.Query("deps(//...)", bazel.WithKeepGoing(), bazel.WithUnorderedOutput())
+	//if err != nil {
+	//	return fmt.Errorf("failed to query deps for end point: %w", err)
+	//}
+	//// TODO(scott): Replace with logging
+	//fmt.Fprintf(os.Stderr, "Processed %d targets at end point\n", len(targets))
 
 	return fmt.Errorf("not yet implemented")
 }
 
-func cacheDir(subDir string) (string, error) {
-	d, err := os.UserCacheDir()
+// bazelGitRoot returns:
+// * The git worktree root path for the current bazel workspace. This is
+//   either:
+//   - the workspace from which `bazel run` was executed, if running under
+//     `bazel run`
+//   - the workspace containing the current working directory otherwise
+// * A relative path between the git worktree root and the bazel workspace root
+//   for the aforementioned bazel workspace. If the bazel workspace root and
+//   git worktree root are the same, this is the path `.`.
+// * An error of detection of the following fails:
+//   - current working directory
+//   - bazel workspace root
+//   - git workspace root
+func bazelGitRoot() (string, string, error) {
+	wd, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", "", fmt.Errorf("failed to detect working dir: %w", err)
 	}
-	return filepath.Join(d, "enkit/bazel", subDir), nil
+	bazelRoot, err := bazel.FindRoot(wd)
+	if err != nil {
+		return "", "", err
+	}
+	root, err := git.FindRoot(bazelRoot)
+	if err != nil {
+		return "", "", err
+	}
+	rel, err := filepath.Rel(root, bazelRoot)
+	if err != nil {
+		return "", "", fmt.Errorf("can't calculate common path between %q and %q: %w", root, bazelRoot, err)
+	}
+	return root, rel, nil
 }
 
-func findGitRoot() (string, error) {
-	bazelWorkspace := os.Getenv("BUILD_WORKSPACE_DIRECTORY")
-	if bazelWorkspace != "" {
-		return bazelWorkspace, nil
-	}
-	return git.RootFromPwd()
+func relativeWorkspace(gitRoot fs.FS, relativeWorkspace string) (fs.FS, error) {
+	return nil, fmt.Errorf("not implemented")
 }

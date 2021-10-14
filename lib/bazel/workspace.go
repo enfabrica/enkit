@@ -3,7 +3,10 @@
 package bazel
 
 import (
+	"os"
 	"os/exec"
+
+	"github.com/bazelbuild/buildtools/wspace"
 )
 
 // Workspace corresponds to a bazel workspace on the filesystem, as defined by
@@ -11,6 +14,17 @@ import (
 type Workspace struct {
 	root    string // Path to the workspace root on the filesystem
 	options *baseOptions
+}
+
+// FindRoot returns the path to the bazel workspace root in which `dir`
+// resides, or an error if `dir` is not inside a bazel workspace.
+func FindRoot(dir string) (string, error) {
+	root := os.Getenv("BUILD_WORKSPACE_DIRECTORY")
+	if root != "" {
+		return root, nil
+	}
+	root, _ = wspace.FindWorkspaceRoot(dir)
+	return root, nil
 }
 
 // OpenWorkspace returns the bazel workspace at the specified path. If
