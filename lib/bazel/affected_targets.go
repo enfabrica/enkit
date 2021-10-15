@@ -64,5 +64,8 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 		return nil, fmt.Errorf("failed to query deps for end point: %w", err)
 	}
 
+	// TODO(scott): Implement diffing of returned targets
+	targets = targets
+
 	return nil, fmt.Errorf("not implemented")
 }

@@ -40,9 +40,7 @@ func TestReaderNext(t *testing.T) {
 			if err == io.EOF {
 				err = nil
 			}
-			if diff := errdiff.Substring(err, tc.wantErr); diff != "" {
-				t.Error(diff)
-			}
+			errdiff.Check(t, err, tc.wantErr)
 			if err != nil {
 				return
 			}
