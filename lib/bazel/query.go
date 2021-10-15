@@ -61,30 +61,18 @@ func (w *Workspace) Query(query string, options ...QueryOption) (map[string]*bpb
 	}
 
 	targets := map[string]*bpb.Target{}
-	var readErr error
-	readDoneChan := make(chan struct{})
 
-	go func() {
-		defer close(readDoneChan)
-		rdr := delimited.NewReader(resultStream)
-		var buf []byte
-		var err error
-		for buf, err = rdr.Next(); err == nil; buf, err = rdr.Next() {
-			var target bpb.Target
-			if err := proto.Unmarshal(buf, &target); err != nil {
-				readErr = err
-				return
-			}
-			targets[targetName(&target)] = &target
+	rdr := delimited.NewReader(resultStream)
+	var buf []byte
+	for buf, err = rdr.Next(); err == nil; buf, err = rdr.Next() {
+		var target bpb.Target
+		if err := proto.Unmarshal(buf, &target); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal Target message: %w", err)
 		}
-		if err != io.EOF {
-			readErr = err
-		}
-	}()
-	<-readDoneChan
-
-	if readErr != nil {
-		return nil, readErr
+		targets[targetName(&target)] = &target
+	}
+	if err != io.EOF {
+		return nil, fmt.Errorf("failed to read stdout from bazel command: %w", err)
 	}
 
 	if err := queryOpts.filterError(<-errChan); err != nil {

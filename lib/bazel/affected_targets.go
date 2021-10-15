@@ -58,15 +58,11 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query deps for start point: %w", err)
 	}
-	// TODO(scott): Replace with logging
-	fmt.Fprintf(os.Stderr, "Processed %d targets at start point\n", len(targets))
 
 	targets, err = endWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query deps for end point: %w", err)
 	}
-	// TODO(scott): Replace with logging
-	fmt.Fprintf(os.Stderr, "Processed %d targets at end point\n", len(targets))
 
 	return nil, fmt.Errorf("not implemented")
 }
