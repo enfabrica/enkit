@@ -18,7 +18,7 @@
 // limitations under the License.
 syntax = "proto3";
 
-package lib.bazel.proto;
+package blaze_query;
 
 // Information on "Execute" event in repository_ctx.
 message ExecuteEvent {

@@ -62,7 +62,7 @@ func TestQueryOutput(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tc.wantCount, len(got))
+			assert.Equal(t, tc.wantCount, len(got.Targets))
 		})
 	}
 }

@@ -11,7 +11,8 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/bazel",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/bazel/proto:build_go_proto",
+        "//lib/bazel/proto:go_protos",
+        "//lib/multierror:go_default_library",
         "//lib/proto/delimited:go_default_library",
         "@com_github_bazelbuild_buildtools//wspace:go_default_library",
         "@org_golang_google_protobuf//proto:go_default_library",
@@ -21,6 +22,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "options_test.go",
         "query_test.go",
         "workspace_test.go",
     ],

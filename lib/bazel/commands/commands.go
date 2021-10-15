@@ -114,7 +114,7 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.End, err)
 		}
-		defer endTree.Close()
+		//defer endTree.Close()
 		endTreePath = endTree.Root()
 	}
 	endWS := filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
