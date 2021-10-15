@@ -4,8 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "affected_targets.go",
+        "exec.go",
         "options.go",
         "query.go",
+        "target.go",
         "workspace.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/bazel",
@@ -29,9 +31,11 @@ go_test(
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
     deps = [
+        "//lib/bazel/proto:go_protos",
         "//lib/errdiff:go_default_library",
         "@com_github_prashantv_gostub//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
         "@io_bazel_rules_go//go/tools/bazel:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
     ],
 )

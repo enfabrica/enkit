@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	
+
 	"github.com/enfabrica/enkit/lib/multierror"
 )
 
@@ -57,7 +57,7 @@ type queryOptions struct {
 
 	keepGoing       bool
 	unorderedOutput bool
-	workspaceLog *os.File
+	workspaceLog    *os.File
 }
 
 // Args returns the `query` and relevant subcommand arguments as passed to bazel.
@@ -140,5 +140,37 @@ func WithTempWorkspaceRulesLog() (QueryOption, error) {
 func (opts QueryOptions) apply(o *queryOptions) {
 	for _, opt := range opts {
 		opt(o)
+	}
+}
+
+// infoOptions holds all the supported arguments for `bazel info` invocations.
+type infoOptions struct {
+	elem string
+}
+
+// Args returns the relevant subcommand arguments as passed to bazel.
+func (o *infoOptions) Args() []string {
+	f := []string{"info"}
+	if o.elem != "" {
+		f = append(f, o.elem)
+	}
+	return f
+}
+
+// Option modifies Bazel startup options.
+type InfoOption func(*infoOptions)
+
+type InfoOptions []InfoOption
+
+// apply applies all the options to this option struct.
+func (opts InfoOptions) apply(o *infoOptions) {
+	for _, opt := range opts {
+		opt(o)
+	}
+}
+
+func ForElement(elem string) InfoOption {
+	return func(o *infoOptions) {
+		o.elem = elem
 	}
 }

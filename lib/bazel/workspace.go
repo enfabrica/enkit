@@ -3,6 +3,8 @@
 package bazel
 
 import (
+	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 
@@ -14,6 +16,9 @@ import (
 type Workspace struct {
 	root    string // Path to the workspace root on the filesystem
 	options *baseOptions
+
+	bazelBin  fs.FS
+	sourceDir fs.FS
 }
 
 // FindRoot returns the path to the bazel workspace root in which `dir`
@@ -33,10 +38,21 @@ func FindRoot(dir string) (string, error) {
 func OpenWorkspace(rootPath string, options ...BaseOption) (*Workspace, error) {
 	opts := &baseOptions{}
 	BaseOptions(options).apply(opts)
-	return &Workspace{
+	w := &Workspace{
 		root:    rootPath,
 		options: opts,
-	}, nil
+	}
+	generatedFilesDir, err := w.Info(ForElement("bazel-bin"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to locate bazel-bin: %w", err)
+	}
+	sourceDir, err := w.Info(ForElement("workspace"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect execution root: %w", err)
+	}
+	w.bazelBin = os.DirFS(generatedFilesDir)
+	w.sourceDir = os.DirFS(sourceDir)
+	return w, nil
 }
 
 // bazelCommand generates an executable command that includes:
@@ -49,4 +65,12 @@ func (w *Workspace) bazelCommand(subCmd subcommand) *exec.Cmd {
 	cmd := exec.Command("bazel", args...)
 	cmd.Dir = w.root
 	return cmd
+}
+
+func (w *Workspace) Info(options ...InfoOption) (string, error) {
+	infoOpts := &infoOptions{}
+	InfoOptions(options).apply(infoOpts)
+
+	cmd := w.bazelCommand(infoOpts)
+	return runBazelCommand(cmd)
 }

@@ -2,9 +2,11 @@ package bazel
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"io/ioutil"
+	"sort"
+	"strings"
 )
 
 func GetAffectedTargets(start string, end string) ([]string, error) {
@@ -73,9 +75,20 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 		return nil, fmt.Errorf("failed to query deps for end point: %w", err)
 	}
 
-	// TODO(scott): Implement diffing of returned targets
-	startResults = startResults
-	endResults = endResults
+	startHashes, err := startResults.TargetHashes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate target hashes for start point: %w", err)
+	}
+	endHashes, err := endResults.TargetHashes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate target hashes for end point: %w", err)
+	}
 
-	return nil, fmt.Errorf("not implemented")
+	diff := endHashes.Diff(startHashes)
+	sort.Strings(diff)
+
+	fmt.Fprintf(os.Stderr, "Changed targets:\n")
+	fmt.Fprintf(os.Stderr, "\n%s\n", strings.Join(diff, "\n"))
+
+	return diff, nil
 }
