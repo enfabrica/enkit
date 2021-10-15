@@ -1,3 +1,13 @@
+def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
+    """Returns a URL for a particular package version from astore."""
+    if not package.startswith("/"):
+        package = "/" + package
+    return "{}/d{}?u={}".format(
+        instance,
+        package,
+        uid,
+    )
+
 def _astore_upload(ctx):
     push = ctx.actions.declare_file("astore_upload.sh")
 
