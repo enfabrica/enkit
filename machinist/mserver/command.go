@@ -34,9 +34,8 @@ func NewCommand(bf *client.BaseFlags) *cobra.Command {
 				return err
 			}
 			mController, err := NewController(
-				DnsPort(cpf.Port),
 				WithKDnsFlags(
-					kdns.WithListener(dnsListener),
+					kdns.WithTCPListener(dnsListener),
 					kdns.WithDomains(cpf.Domains),
 				),
 			)

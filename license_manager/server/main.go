@@ -10,7 +10,8 @@ import (
 
 func main() {
 	grpcs := grpc.NewServer()
-	lmpb.RegisterLicenseManagerServer(grpcs, &service.Service{})
+	s := service.New()
+	lmpb.RegisterLicenseManagerServer(grpcs, s)
 
 	server.Run(nil, grpcs)
 }

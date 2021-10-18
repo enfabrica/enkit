@@ -52,13 +52,19 @@ func WithDomains(domains []string) DNSModifier {
 	}
 }
 
-func WithListener(l net.Listener) DNSModifier {
+func WithTCPListener(l net.Listener) DNSModifier {
 	return func(s *DnsServer) error {
-		s.Flags.Listener = l
+		s.Flags.TCPListener = l
 		return nil
 	}
 }
 
+func WithUDPListener(l net.PacketConn) DNSModifier {
+	return func(s *DnsServer) error {
+		s.Flags.UDPListener = l
+		return nil
+	}
+}
 func WithHost(ip string) DNSModifier {
 	return func(s *DnsServer) error {
 		s.host = ip
