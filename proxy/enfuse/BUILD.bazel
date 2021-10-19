@@ -6,6 +6,8 @@ go_library(
         "client.go",
         "config.go",
         "files.go",
+        "pool.go",
+        "redirector.go",
         "server.go",
     ],
     importpath = "github.com/enfabrica/enkit/proxy/enfuse",
@@ -14,23 +16,31 @@ go_library(
         "//lib/kcerts:go_default_library",
         "//lib/srand:go_default_library",
         "//proxy/enfuse/rpc:go_default_library",
+        "@com_github_google_uuid//:go_default_library",
+        "@com_github_gorilla_websocket//:go_default_library",
         "@org_bazil_fuse//:go_default_library",
         "@org_bazil_fuse//fs:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",
+        "@org_golang_google_grpc//reflection:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
-    srcs = ["e2e_test.go"],
+    srcs = [
+        "e2e_test.go",
+        "pool_test.go",
+        "redirector_test.go",
+    ],
+    embed = [":go_default_library"],
     tags = [
         "no-sandbox",
     ],
     deps = [
-        ":go_default_library",
         "//lib/knetwork:go_default_library",
         "//lib/srand:go_default_library",
+        "@com_github_gorilla_websocket//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
         "@org_bazil_fuse//:go_default_library",
         "@org_bazil_fuse//fs/fstestutil:go_default_library",

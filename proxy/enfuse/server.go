@@ -10,6 +10,7 @@ import (
 	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 	"io"
 	"io/ioutil"
 	"net"
@@ -153,6 +154,7 @@ func (s *FuseServer) Serve() error {
 		}
 		s.cfg.L = l
 	}
+	reflection.Register(grpcs)
 	return grpcs.Serve(s.cfg.L)
 }
 

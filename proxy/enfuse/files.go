@@ -4,6 +4,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"context"
+	"fmt"
 	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"os"
 	"path/filepath"
@@ -86,6 +87,7 @@ func (f *Dir) fetchData() error {
 	}
 	r, err := f.Client.FileInfo(context.Background(), &fusepb.FileInfoRequest{Dir: f.Dir})
 	if err != nil {
+		fmt.Println("err in dirent", err.Error())
 		return err
 	}
 	f.Data = r.Files

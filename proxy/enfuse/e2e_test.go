@@ -156,7 +156,7 @@ func testFile(t *testing.T, c *enfuse.FuseClient, generatedFiles []TmpFile) {
 				btes, err := ioutil.ReadFile(realFile)
 				assert.NoError(t, err)
 				assert.Equal(t, len(genFile.Data), len(btes))
-				assert.Truef(t, reflect.DeepEqual(btes, genFile.Data), "dta returned by fs equal")
+				assert.Truef(t, reflect.DeepEqual(btes, genFile.Data), "data returned by fs equal")
 			}
 		}
 	}
