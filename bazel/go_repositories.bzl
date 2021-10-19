@@ -405,8 +405,8 @@ def go_repositories():
     go_repository(
         name = "com_github_envoyproxy_go_control_plane",
         importpath = "github.com/envoyproxy/go-control-plane",
-        sum = "h1:EmNYJhPYy0pOFjCx2PrgtaBXmee0iUX9hLlxE1xHOJE=",
-        version = "v0.9.9-0.20201210154907-fd9021fe5dad",
+        sum = "h1:QyzYnTnPE15SQyUeqU6qLbWxMkwyAyu+vGksa0b7j00=",
+        version = "v0.9.9-0.20210217033140-668b12f5399d",
     )
     go_repository(
         name = "com_github_envoyproxy_protoc_gen_validate",
@@ -447,6 +447,13 @@ def go_repositories():
         sum = "h1:hsms1Qyu0jgnwNXIxa+/V/PDsU6CfLf6CNO8H7IWoS4=",
         version = "v1.4.9",
     )
+    go_repository(
+        name = "com_github_fullstorydev_grpcurl",
+        importpath = "github.com/fullstorydev/grpcurl",
+        sum = "h1:xYZBGwhLFuHx6VZLdANGx7Ffb/dlY8JZlJz76/TxclM=",
+        version = "v1.8.5",
+    )
+
     go_repository(
         name = "com_github_fzipp_gocyclo",
         importpath = "github.com/fzipp/gocyclo",
@@ -1062,6 +1069,13 @@ def go_repositories():
         sum = "h1:hp9XKUpe/MPyDamUbfsrGpe+3dnY2whNK4EtB86dvLM=",
         version = "v1.4.0",
     )
+    go_repository(
+        name = "com_github_jhump_protoreflect",
+        importpath = "github.com/jhump/protoreflect",
+        sum = "h1:iH+UZfsbRE6vpyZH7asAjTPWJf7RJbpZ9j/N3lDlKs0=",
+        version = "v1.10.1",
+    )
+
     go_repository(
         name = "com_github_jingyugao_rowserrcheck",
         importpath = "github.com/jingyugao/rowserrcheck",
@@ -2185,8 +2199,8 @@ def go_repositories():
     go_repository(
         name = "org_golang_google_grpc",
         importpath = "google.golang.org/grpc",
-        sum = "h1:o1bcQ6imQMIOpdrO3SWf2z5RV72WbDwdXuK0MDlc8As=",
-        version = "v1.36.0",
+        sum = "h1:uSZWeQJX5j11bIQ4AJoj+McDBo29cY1MCoC1wO3ts+c=",
+        version = "v1.37.0",
     )
     go_repository(
         name = "org_golang_google_grpc_cmd_protoc_gen_go_grpc",
