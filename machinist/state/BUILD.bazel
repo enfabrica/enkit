@@ -1,8 +1,20 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
     srcs = ["controlplane.go"],
     importpath = "github.com/enfabrica/enkit/machinist/state",
     visibility = ["//visibility:public"],
+    deps = ["//lib/config/marshal:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["controlplane_test.go"],
+    race = "on",
+    deps = [
+        ":go_default_library",
+        "//lib/srand:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
 )

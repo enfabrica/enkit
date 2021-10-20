@@ -102,6 +102,7 @@ func (a SSHAgent) Valid() bool {
 type AgentCert struct {
 	MD5        string
 	Principals []string
+	Ext        map[string]string
 	ValidFor   time.Duration
 }
 
@@ -126,6 +127,7 @@ func (a SSHAgent) Principals() ([]AgentCert, error) {
 			toReturn = append(toReturn, AgentCert{
 				MD5:        ssh.FingerprintLegacyMD5(cert.SignatureKey),
 				Principals: cert.ValidPrincipals,
+				Ext:        cert.Extensions,
 				ValidFor:   time.Unix(int64(cert.ValidBefore), 0).Sub(time.Now()),
 			})
 		}
@@ -148,9 +150,9 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 		return fmt.Errorf("public key is not a valid ssh certificate")
 	}
 	agentClient := agent.NewClient(conn)
-	ttl :=  SSHCertRemainingTTL(cert)
+	ttl := SSHCertRemainingTTL(cert)
 	if ttl == InValidCertTimeDuration {
-		return fmt.Errorf("ssh: certificate is already expired or invalid, not adding")
+		return fmt.Errorf("certificate is already expired or invalid, not adding")
 	}
 	return agentClient.Add(agent.AddedKey{
 		PrivateKey:   privateKey.Raw(),
@@ -229,10 +231,10 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters
 // to generate a user cert, certType must be 1, and host certs ust have certType 2
-func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey) (*ssh.Certificate, error) {
+func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.Duration, pub ssh.PublicKey, mods ...CertMod) (*ssh.Certificate, error) {
 	// OpenSSH controls what the key allows through extensions.
 	// See https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.certkeys
-	var extensions map[string]string
+	extensions := map[string]string{}
 	if certType == 1 {
 		extensions = map[string]string{
 			"permit-agent-forwarding": "",
@@ -254,6 +256,9 @@ func SignPublicKey(p PrivateKey, certType uint32, principals []string, ttl time.
 		Permissions: ssh.Permissions{
 			Extensions: extensions,
 		},
+	}
+	for _, m := range mods {
+		cert = m(cert)
 	}
 	s, err := NewSigner(p)
 	if err != nil {

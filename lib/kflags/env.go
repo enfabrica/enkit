@@ -6,18 +6,25 @@ import (
 	"strings"
 )
 
-// An EnvMangler is a function capable of turning a set of strings in the name of an environment variable.
+// An VarMangler is a function capable of turning a set of strings in the name of a variable.
 //
-// Normally, EnvMangler is called with the prefix configured with NewEnvAugmenter, the namespace, and the flag name.
-// It is possible that multiple namespaces may be passed.
+// Normally, VarMangler is called with a prefix configured with a function like
+// NewEnvAugmenter, the namespace, and the flag name.  It is possible that
+// multiple namespaces may be passed.
 //
-// If the empty string is returned, the env variable is not looked up. This can be used to prevent some
-// variables from being looked up in the environment.
-type EnvMangler func(components ...string) string
+// If the empty string is returned, the variable is not looked up.
+// This can be used to prevent some variables from being looked up in the environment, for example.
+type VarMangler func(components ...string) string
+
+// A VarRewriter is just like a VarMangler, but does not merge the strings together,
+// and works on an element at a time.
+//
+// Some VarManglers can combine multiple VarRewriters together.
+type VarRewriter func(string) string
 
 type EnvAugmenter struct {
 	prefix  []string
-	mangler EnvMangler
+	mangler VarMangler
 }
 
 type EnvModifier func(e *EnvAugmenter)
@@ -30,34 +37,75 @@ func (ems EnvModifiers) Apply(e *EnvAugmenter) {
 	}
 }
 
-// Regex defining which characters are expected to be valid in an environment variable name.
-var Remapping = regexp.MustCompile(`[^a-zA-Z0-9]`)
-
-// DefaultRemap is a simple EnvMangler that turns a flag name into an env variable.
+// JoinRemap returns a VarMangler that joins each element after passing it through
+// the specified rewriters.
 //
-// It simply replaces all invalid characters (defined by the Remapping regexp) with
-// underscores, and capitalizes the string.
-func DefaultRemap(elements ...string) string {
-	els := []string{}
-	for _, el := range elements {
-		if el == "" {
-			continue
+// A nil rewriter is accepted, and performs no operation.
+func JoinRemap(separator string, rewriter ...VarRewriter) VarMangler {
+	return func (elements ...string) string {
+		result := []string{}
+		for _, el := range elements {
+			for _, r := range rewriter {
+				if r == nil {
+					continue
+				}
+
+				el = r(el)
+			}
+			result = append(result, el)
 		}
 
-		els = append(els, Remapping.ReplaceAllString(el, "_"))
+		return strings.Join(result, separator)
 	}
-	return strings.ToUpper(strings.Join(els, "_"))
 }
 
-// PrefixReamp returns an EnvMangler that always prepends the specified prefixes.
-func PrefixRemap(mangler EnvMangler, prefix ...string) EnvMangler {
+// Regex defining which characters are considered separators when CamelRewriting.
+var ToCamel = regexp.MustCompile(`[^a-zA-Z0-9]`)
+
+// CamelRewrite is a simple VarRewriter that turns a string like "max-network-latency"
+// or "max_network_latency" in camel case, MaxNetworkLatency.
+func CamelRewrite(el string) string {
+	var b strings.Builder
+	for _, fragment := range ToCamel.Split(el, -1) {
+		b.WriteString(strings.Title(fragment))
+	}
+	return b.String()
+}
+
+// Regex defining which characters should be replaced with _ by UnderscoreRewrite.
+var ToUnderscore = regexp.MustCompile(`[^a-zA-Z0-9]`)
+
+// UnderscoreRewrite is a simple VarRewriter that turns unknown chars into _.
+//
+// It simply replaces all invalid characters (defined by the ToUnderscore
+// regexp) with underscores.
+func UnderscoreRewrite(el string) string {
+	return ToUnderscore.ReplaceAllString(el, "_")
+}
+
+// UppercaseRewrite is a simple VarRewriter that upper cases everything.
+var UppercaseRewrite = strings.ToUpper;
+
+// The set of remappers used to turn flags into environment variable names.
+var DefaultEnvRemap = JoinRemap("_", UnderscoreRewrite, UppercaseRewrite)
+
+// PrefixRemap returns a VarMangler that always prepends the specified prefixes.
+func PrefixRemap(mangler VarMangler, prefix ...string) VarMangler {
 	return func(elements ...string) string {
 		return mangler(append(prefix, elements...)...)
 	}
 }
 
-// WithMangler specifies the function to use to detrmine the name of the environment variable.
-func WithMangler(m EnvMangler) EnvModifier {
+// SkipNamespaceRemap returns a VarMangler that ignores the namespace fragment.
+func SkipNamespaceRemap(mangler VarMangler) VarMangler {
+	return func(elements ...string) string {
+		return mangler(elements[1:]...)
+	}
+}
+
+// WithEnvMangler specifies the VarMangler to turn the name of a flag into an
+// the name of an environment variable.
+func WithEnvMangler(m VarMangler) EnvModifier {
 	return func(e *EnvAugmenter) {
 		e.mangler = m
 	}
@@ -65,7 +113,7 @@ func WithMangler(m EnvMangler) EnvModifier {
 
 // WithPrefixes prepends the specified prefixes to the looked up environment variables.
 //
-// For example, if EnvMangler would normally look up the environment variable ENKIT_KFLAGS_DNS,
+// For example, if VarMangler would normally look up the environment variable ENKIT_KFLAGS_DNS,
 // WithPrefixes("PROD", "AMERICA") would look up PROD_AMERICA_ENKIT_KFLAGS_DNS.
 func WithPrefixes(prefix ...string) EnvModifier {
 	return func(e *EnvAugmenter) {
@@ -83,10 +131,10 @@ func WithPrefixes(prefix ...string) EnvModifier {
 // For example, let's say your CLI expects a flag named 'path', and a prefix
 // of 'en' was set, without using WithMangler.
 //
-// The DefaultRemap will be used to determine that a variable named EN_PATH
+// The DefaultEnvRemap will be used to determine that a variable named EN_PATH
 // needs to be looked up in the environment.
 func NewEnvAugmenter(mods ...EnvModifier) *EnvAugmenter {
-	er := &EnvAugmenter{mangler: DefaultRemap}
+	er := &EnvAugmenter{mangler: DefaultEnvRemap}
 	EnvModifiers(mods).Apply(er)
 	return er
 }
@@ -101,10 +149,10 @@ func (er *EnvAugmenter) VisitCommand(reqns string, command Command) (bool, error
 // VisitFlag looks for an environment variable named after the configured prefix,
 // the requested namespace (reqns) and the flag name.
 //
-// The exact name of the environment variable is determined by the EnvMangler passed
+// The exact name of the environment variable is determined by the VarMangler passed
 // using WithMangler to the constructor.
 //
-// The default EnvMangler is DefaultRemap.
+// The default VarMangler is DefaultEnvRemap.
 func (er *EnvAugmenter) VisitFlag(reqns string, fl Flag) (bool, error) {
 	tomangle := append(append([]string{}, er.prefix...), reqns, fl.Name())
 	env := er.mangler(tomangle...)

@@ -8,6 +8,7 @@ go_library(
         "defaults.go",
         "env.go",
         "flags.go",
+        "map.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/kflags",
     visibility = ["//visibility:public"],
@@ -19,7 +20,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["flags_test.go"],
+    srcs = [
+        "env_test.go",
+        "flags_test.go",
+    ],
     embed = [":go_default_library"],
     deps = ["@com_github_stretchr_testify//assert:go_default_library"],
 )

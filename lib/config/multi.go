@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/config/marshal"
+	"github.com/enfabrica/enkit/lib/multierror"
+	"os"
 )
 
 type MultiFormat struct {
@@ -44,21 +46,13 @@ func (ss *MultiFormat) List() ([]string, error) {
 }
 
 func (ss *MultiFormat) Marshal(desc Descriptor, value interface{}) error {
-	var name string
-	var marshaller marshal.FileMarshaller
-	switch t := desc.(type) {
-	case string:
-		name = t
-		marshaller = marshal.FileMarshallers(ss.marshaller).ByExtension(name)
-		if marshaller == nil {
-			marshaller = ss.marshaller[0]
-			name = name + "." + marshaller.Extension()
-		}
-	case *multiDescriptor:
-		name = t.p
-		marshaller = t.m
-	default:
-		return fmt.Errorf("API Usage Error - MultiFormat.Marshal passed an unknown descriptor type - %#v", desc)
+	name, marshaller, err := ss.parseDesc(desc)
+	if err != nil {
+		return err
+	}
+	if marshaller == nil {
+		marshaller = ss.marshaller[0]
+		name = name + "." + marshaller.Extension()
 	}
 
 	data, err := marshaller.Marshal(value)
@@ -66,6 +60,56 @@ func (ss *MultiFormat) Marshal(desc Descriptor, value interface{}) error {
 		return err
 	}
 	return ss.loader.Write(name, data)
+}
+
+func (ss *MultiFormat) parseDesc(desc Descriptor) (string, marshal.FileMarshaller, error) {
+	var name string
+	var marshaller marshal.FileMarshaller
+	switch t := desc.(type) {
+	case string:
+		name = t
+		marshaller = marshal.FileMarshallers(ss.marshaller).ByExtension(name)
+	case *multiDescriptor:
+		name = t.p
+		marshaller = t.m
+	default:
+		return "", nil, fmt.Errorf("API Usage Error - MultiFormat.Marshal passed an unknown descriptor type - %#v", desc)
+	}
+
+	return name, marshaller, nil
+}
+
+func (ss *MultiFormat) Delete(desc Descriptor) error {
+	name, marshaller, err := ss.parseDesc(desc)
+	if err != nil {
+		return err
+	}
+
+	if marshaller != nil {
+		return ss.loader.Delete(name)
+	}
+
+	nonexisting := 0
+	var errors []error
+	for _, marshaller := range ss.marshaller {
+		fullname := name + "." + marshaller.Extension()
+		err := ss.loader.Delete(fullname)
+		if err == nil {
+			continue
+		}
+
+		if os.IsNotExist(err) {
+			nonexisting += 1
+			continue
+		}
+
+		errors = append(errors, fmt.Errorf("could not delete %s: %w", fullname, err))
+	}
+
+	if nonexisting == len(ss.marshaller) {
+		return os.ErrNotExist
+	}
+	return multierror.New(errors)
 }
 
 type multiDescriptor struct {

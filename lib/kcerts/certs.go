@@ -205,7 +205,7 @@ func NewOptions(mods ...Modifier) (*certOptions, error) {
 
 func checkValidCert(cert *ssh.Certificate) bool {
 	nowTime := time.Now().Unix()
-	if after := int64(cert.ValidAfter); after < 0 || nowTime < int64(cert.ValidAfter) {
+	if after := int64(cert.ValidAfter); after < 0 || nowTime < after {
 		return false
 	}
 	if before := int64(cert.ValidBefore); cert.ValidBefore != uint64(ssh.CertTimeInfinity) && (nowTime >= before || before < 0) {
@@ -231,14 +231,19 @@ func SSHCertTotalTTL(cert *ssh.Certificate) time.Duration {
 	return time.Unix(int64(cert.ValidBefore), 0).Sub(time.Unix(int64(cert.ValidAfter), 0))
 }
 
-// SSHCertRemainingTTL returns the remaining ttl of a cert  when compared to current time. If the cert is invalid it
-// will return a ttl of 0. If it is infinite it will return max time.Duration.
+// SSHCertRemainingTTL returns the remaining ttl of a cert  when compared to current time.
+//
+// If the cert is invalid it will return a ttl of 0.
+// If it is infinite it will return max time.Duration, MaxCertTimeDuration.
 func SSHCertRemainingTTL(cert *ssh.Certificate) time.Duration {
-	if !checkValidCert(cert) {
-		return InValidCertTimeDuration
-	}
 	if cert.ValidBefore == uint64(ssh.CertTimeInfinity) {
 		return MaxCertTimeDuration
 	}
-	return time.Unix(int64(cert.ValidBefore), 0).Sub(time.Now())
+
+	now := time.Now()
+	if int64(cert.ValidBefore) < 0 || int64(cert.ValidBefore) < now.Unix() {
+		return InValidCertTimeDuration
+	}
+
+	return time.Unix(int64(cert.ValidBefore), 0).Sub(now)
 }

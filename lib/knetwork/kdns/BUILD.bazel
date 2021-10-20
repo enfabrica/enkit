@@ -11,7 +11,9 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/knetwork/kdns",
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/goroutine:go_default_library",
         "//lib/logger:go_default_library",
+        "//lib/multierror:go_default_library",
         "@com_github_miekg_dns//:go_default_library",
     ],
 )
@@ -22,9 +24,9 @@ go_test(
         "dns_test.go",
         "records_test.go",
     ],
-    embed = [":go_default_library"],
     race = "on",
     deps = [
+        ":go_default_library",
         "//lib/knetwork:go_default_library",
         "//lib/logger:go_default_library",
         "@com_github_miekg_dns//:go_default_library",

@@ -5,6 +5,7 @@ import (
 
 	acommands "github.com/enfabrica/enkit/astore/client/commands"
 	bcommands "github.com/enfabrica/enkit/lib/client/commands"
+	bazelcmds "github.com/enfabrica/enkit/lib/bazel/commands"
 	tcommands "github.com/enfabrica/enkit/proxy/ptunnel/commands"
 
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
@@ -43,6 +44,9 @@ func main() {
 
 	agentCommand := tcommands.NewAgentCommand(base)
 	root.AddCommand(agentCommand)
+
+	bazel := bazelcmds.New(base)
+	root.AddCommand(bazel.Command)
 
 	base.Run(kcobra.HideFlags(set), populator, runner)
 }

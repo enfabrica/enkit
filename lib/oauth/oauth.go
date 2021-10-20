@@ -49,6 +49,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/kcerts"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/oauth2"
 	"log"
 	"math/rand"
@@ -59,9 +61,9 @@ import (
 	"time"
 
 	"github.com/enfabrica/enkit/lib/khttp"
+	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
-	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/token"
 )
 
@@ -131,7 +133,8 @@ type Authenticator struct {
 	rng         *rand.Rand
 	authEncoder *token.TypeEncoder
 
-	conf     *oauth2.Config
+	conf *oauth2.Config
+
 	verifier Verifier
 }
 
@@ -150,6 +153,18 @@ type Identity struct {
 // Interpret the result as meaning "user by this name" @ "organization by this name".
 func (i *Identity) GlobalName() string {
 	return i.Username + "@" + i.Organization
+}
+
+// Based on the kind of identity obtained, returns a modifier able to generate
+// certificates to support that specific identity type.
+func (i *Identity) CertMod() kcerts.CertMod {
+	if i.Organization == "github.com" {
+		return func(certificate *ssh.Certificate) *ssh.Certificate {
+			certificate.Extensions["login@github.com"] = i.Username
+			return certificate
+		}
+	}
+	return kcerts.NoOp
 }
 
 // CredentialsCookie is what is encrypted within the authentication cookie returned
@@ -180,14 +195,12 @@ func (a *Authenticator) LoginURL(target string, state interface{}) (string, []by
 	if err != nil {
 		return "", nil, err
 	}
-
 	// This is not necessary. We could just pass the secret to the AuthCodeURL function.
 	// But it needs to be escaped. AuthoCookie.Encode will sign it, as well as Encode it. Cannot hurt.
 	esecret, err := a.authEncoder.Encode(LoginState{Secret: secret, Target: target, State: state})
 	if err != nil {
 		return "", nil, err
 	}
-
 	url := a.conf.AuthCodeURL(string(esecret))
 	///* oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "login"), oauth2.SetAuthURLParam("approval_prompt", "force"), oauth2.SetAuthURLParam("max_age", "0") */)
 	return url, secret, nil
@@ -195,18 +208,18 @@ func (a *Authenticator) LoginURL(target string, state interface{}) (string, []by
 
 // Mapper configures all the URLs to redirect to / unless an authentication cookie is provided by the browser.
 // Further, it configures / to redirect and perform oauth authentication.
-func (auth *Authenticator) Mapper(mapper kassets.AssetMapper, lm ...LoginModifier) kassets.AssetMapper {
+func (a *Authenticator) Mapper(mapper kassets.AssetMapper, lm ...LoginModifier) kassets.AssetMapper {
 	return func(original, name string, handler khttp.FuncHandler) []string {
 		ext := filepath.Ext(original)
 		switch {
 		case name == "/favicon.ico":
 			return mapper(original, name, handler)
 		case name == "/":
-			return mapper(original, name, auth.MakeAuthHandler(auth.MakeLoginHandler(handler, lm...)))
+			return mapper(original, name, a.MakeAuthHandler(a.MakeLoginHandler(handler, lm...)))
 		case ext == ".html":
-			return mapper(original, name, auth.WithCredentialsOrRedirect(handler, "/"))
+			return mapper(original, name, a.WithCredentialsOrRedirect(handler, "/"))
 		default:
-			return mapper(original, name, auth.WithCredentialsOrError(handler))
+			return mapper(original, name, a.WithCredentialsOrError(handler))
 		}
 	}
 }
@@ -449,12 +462,12 @@ func (a *Authenticator) LoginHandler(lm ...LoginModifier) khttp.FuncHandler {
 //
 func (a *Authenticator) MakeAuthHandler(handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data, handled, err := a.PerformAuth(w, r)
+		data, err := a.PerformAuth(w, r)
 		if err == nil && data.Creds != nil {
 			ctx := SetCredentials(r.Context(), data.Creds)
 			r = r.WithContext(ctx)
 		}
-		if !handled {
+		if !CheckRedirect(w, r, data) {
 			handler(w, r)
 		}
 	}
@@ -478,14 +491,14 @@ func (a *Authenticator) MakeAuthHandler(handler khttp.FuncHandler) khttp.FuncHan
 // Use MakeAuthHandler to customize the behavior.
 func (a *Authenticator) AuthHandler() khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, handled, err := a.PerformAuth(w, r)
+		data, err := a.PerformAuth(w, r)
 		if err != nil {
 			http.Error(w, "your lack of authentication cookie is impressive - something went wrong", http.StatusInternalServerError)
 			log.Printf("ERROR - could not complete authentication - %s", err)
 			return
 		}
 
-		if !handled {
+		if !CheckRedirect(w, r, data) {
 			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		}
 	}
@@ -556,10 +569,11 @@ func (a *Authenticator) PerformLogin(w http.ResponseWriter, r *http.Request, lm 
 }
 
 type AuthData struct {
-	Creds  *CredentialsCookie
-	Cookie string
-	Target string
-	State  interface{}
+	Creds      *CredentialsCookie
+	Identities []Identity
+	Cookie     string
+	Target     string
+	State      interface{}
 }
 
 func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (AuthData, error) {
@@ -594,7 +608,6 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 		Name:   authEncoder(a.baseCookie),
 		MaxAge: -1,
 	})
-
 	code := query.Get("code")
 	// FIXME: needs retry logic, timeout?
 	tok, err := a.conf.Exchange(oauth2.NoContext, code)
@@ -604,18 +617,38 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	if !tok.Valid() {
 		return AuthData{}, fmt.Errorf("Invalid token retrieved")
 	}
-
 	identity, err := a.verifier(tok)
 	if err != nil {
 		return AuthData{}, fmt.Errorf("Invalid token - %w", err)
 	}
-
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}
-	ccookie, err := a.EncodeCredentials(creds)
+	return AuthData{Creds: &creds, Target: received.Target, State: received.State}, nil
+}
+
+func (a *Authenticator) SetAuthCookie(ad AuthData, w http.ResponseWriter, co ...kcookie.Modifier) (AuthData, error) {
+	ccookie, err := a.EncodeCredentials(*ad.Creds)
 	if err != nil {
 		return AuthData{}, err
 	}
-	return AuthData{Creds: &creds, Cookie: string(ccookie), Target: received.Target, State: received.State}, nil
+	http.SetCookie(w, a.CredentialsCookie(ccookie, co...))
+	return AuthData{Creds: ad.Creds, Cookie: ccookie, Target: ad.Target, State: ad.State}, nil
+}
+
+// Complete verifies that AuthData is well formed and valid.
+//
+// It checks that the identities match, and that the type of credentials are
+// the same type that should be returned by the authenticator.
+func (a *Authenticator) Complete(data AuthData) bool {
+	if _, _, err := a.ParseCredentialsCookie(data.Cookie); err != nil {
+		return false
+	}
+	if data.Creds == nil {
+		return false
+	}
+	if !data.Creds.Token.Valid() {
+		return false
+	}
+	return true
 }
 
 // CredentialsCookie will create an http.Cookie object containing the user credentials.
@@ -630,28 +663,19 @@ func (a *Authenticator) CredentialsCookie(value string, co ...kcookie.Modifier) 
 //
 // In case of error, error is returned, and the rest of the fields are undefined.
 //
-// In case everything goes well, error will be null, and the parsed credentials are returned.
-// The bool indicates if PerformAuth handled the request (true) or not (false).
-//
-// If true is returned, it means that PerformAuth queued a response for the client.
-// The invoking handler should just return. This is generally true if a 'target' was
-// passed to the login handler.
-//
-// If false is returned, the invoking handler needs to provide the content to return
-// to the user.
-func (a *Authenticator) PerformAuth(w http.ResponseWriter, r *http.Request, co ...kcookie.Modifier) (AuthData, bool, error) {
+// In a single authenticator, it always returns true because in a single authenticator it is always the last one.
+func (a *Authenticator) PerformAuth(w http.ResponseWriter, r *http.Request, co ...kcookie.Modifier) (AuthData, error) {
 	auth, err := a.ExtractAuth(w, r)
 	if err != nil {
-		return AuthData{}, false, err
+		return AuthData{}, err
 	}
 
-	http.SetCookie(w, a.CredentialsCookie(auth.Cookie, co...))
-
-	if auth.Target != "" {
-		http.Redirect(w, r, auth.Target, http.StatusTemporaryRedirect)
-		return auth, true, nil
+	auth, err = a.SetAuthCookie(auth, w, co...)
+	if err != nil {
+		return AuthData{}, err
 	}
-	return auth, false, nil
+
+	return auth, nil
 }
 
 // authEncoder returns the name of the authentication cookie.
@@ -667,4 +691,14 @@ func authEncoder(namespace string) string {
 // This cookie is the one used to determine what the user can and cannot do on the UI.
 func (a *Extractor) CredentialsCookieName() string {
 	return cookie.CredentialsCookieName(a.baseCookie)
+}
+
+// CheckRedirect checks AuthData to see if its state warrants a redirect.
+// Returns true if it did redirect, false if a redirect was unnecessary.
+func CheckRedirect(w http.ResponseWriter, r *http.Request, ad AuthData) bool {
+	if ad.Target == "" {
+		return false
+	}
+	http.Redirect(w, r, ad.Target, http.StatusTemporaryRedirect)
+	return true
 }

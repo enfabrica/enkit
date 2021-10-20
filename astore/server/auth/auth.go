@@ -138,8 +138,13 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "PublicKey cannot be parsed as an ssh authorized key - %s", err)
 		}
+		var certMods []kcerts.CertMod
 		effectivePrincipals := append(s.principals, authData.Creds.Identity.Username)
-		userCert, err := kcerts.SignPublicKey(s.caPrivateKey, ssh.UserCert, effectivePrincipals, s.userCertTTL, savedPubKey)
+		for _, i := range authData.Identities {
+			effectivePrincipals = append(effectivePrincipals, i.GlobalName())
+			certMods = append(certMods, i.CertMod())
+		}
+		userCert, err := kcerts.SignPublicKey(s.caPrivateKey, ssh.UserCert, effectivePrincipals, s.userCertTTL, savedPubKey, certMods...)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "error signing key - %s", err)
 		}

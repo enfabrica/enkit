@@ -10,7 +10,7 @@ load("//bazel/linting:deps.bzl", "lint_deps_init")
 
 def enkit_init_go():
     go_rules_dependencies()
-    go_register_toolchains(version = "1.15.14")
+    go_register_toolchains(version = "1.16")
     go_embed_data_dependencies()
     gazelle_dependencies()
 

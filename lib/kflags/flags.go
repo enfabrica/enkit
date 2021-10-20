@@ -43,6 +43,12 @@ type ContentValue interface {
 	SetContent(origin string, content []byte) error
 }
 
+// Consumer is any object that can take flags, and provides a common method
+// to register flags.
+type Consumer interface {
+	Register(fs FlagSet, prefix string)
+}
+
 // Wrap errors in a StatusError to indicate a different exit value to be
 // returned if the error causes the program to exit.
 type StatusError struct {
