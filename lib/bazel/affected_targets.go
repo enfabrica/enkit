@@ -73,9 +73,6 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 		return nil, fmt.Errorf("failed to query deps for end point: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Before results:\tTargets: %d\tWorkspace events: %d\n", len(startResults.Targets), len(startResults.WorkspaceEvents))
-	fmt.Fprintf(os.Stderr, "After  results:\tTargets: %d\tWorkspace events: %d\n", len(endResults.Targets), len(endResults.WorkspaceEvents))
-
 	// TODO(scott): Implement diffing of returned targets
 	startResults = startResults
 	endResults = endResults
