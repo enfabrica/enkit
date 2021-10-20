@@ -48,8 +48,14 @@ var streamedBazelCommand = func(cmd *exec.Cmd) (io.Reader, chan error, error) {
 	return pipeReader, errChan, nil
 }
 
+// QueryResult contains the results of an arbitrary bazel query.
 type QueryResult struct {
+	// Targets is filled with a map of "target label" to target node.
 	Targets map[string]*bpb.Target
+
+	// If the WithTempWorkspaceRulesLog() option is passed, this contains a list
+	// of all the workspace events emitted during the bazel query. Otherwise, this
+	// is empty.
 	WorkspaceEvents []*bpb.WorkspaceEvent
 }
 
