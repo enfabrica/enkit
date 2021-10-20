@@ -148,6 +148,7 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 }
 // ServeAllRecords will continuously poll Nodes() and create multiple _all.<domain> records containing the ip addresses
 // of all machines attached.
+// TODO(adam): be able to pass in a wrapped ticker for testing intervals
 func (en *Controller) ServeAllRecords(killChannel chan struct{}, killChannelAck chan struct{}) {
 	for {
 		select {
