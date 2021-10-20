@@ -6,10 +6,10 @@ def enkit_deps():
     if "io_bazel_rules_go" not in excludes:
         http_archive(
             name = "io_bazel_rules_go",
-            sha256 = "69de5c704a05ff37862f7e0f5534d4f479418afc21806c887db544a316f3cb6b",
+            sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f",
             urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.27.0/rules_go-v0.27.0.tar.gz",
-                "https://github.com/bazelbuild/rules_go/releases/download/v0.27.0/rules_go-v0.27.0.tar.gz",
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
+                "https://github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
             ],
         )
 
@@ -31,21 +31,20 @@ def enkit_deps():
     if "bazel_gazelle" not in excludes:
         http_archive(
             name = "bazel_gazelle",
-            sha256 = "62ca106be173579c0a167deb23358fdfe71ffa1e4cfdddf5582af26520f1c66f",
+            sha256 = "de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb",
             urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.23.0/bazel-gazelle-v0.23.0.tar.gz",
-                "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.23.0/bazel-gazelle-v0.23.0.tar.gz",
+                "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
+                "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
             ],
         )
 
     if "rules_proto" not in excludes:
         http_archive(
             name = "rules_proto",
-            sha256 = "aa1ee19226f707d44bee44c720915199c20c84a23318bb0597ed4e5c873ccbd5",
-            strip_prefix = "rules_proto-40298556293ae502c66579620a7ce867d5f57311",
+            sha256 = "66bfdf8782796239d3875d37e7de19b1d94301e8972b3cbd2446b332429b4df1",
+            strip_prefix = "rules_proto-4.0.0",
             urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/40298556293ae502c66579620a7ce867d5f57311.tar.gz",
-                "https://github.com/bazelbuild/rules_proto/archive/40298556293ae502c66579620a7ce867d5f57311.tar.gz",
+                "https://github.com/bazelbuild/rules_proto/archive/refs/tags/4.0.0.tar.gz",
             ],
         )
 
@@ -54,7 +53,7 @@ def enkit_deps():
         http_archive(
             name = "bats_support",
             url = "https://github.com/bats-core/bats-support/archive/refs/tags/v0.3.0.tar.gz",
-            strip_prefix="bats-support-0.3.0",
+            strip_prefix = "bats-support-0.3.0",
             build_file = "@//bazel/dependencies:BUILD.bats_support.bazel",
             sha256 = "7815237aafeb42ddcc1b8c698fc5808026d33317d8701d5ec2396e9634e2918f",
         )
@@ -62,7 +61,7 @@ def enkit_deps():
         http_archive(
             name = "bats_assert",
             url = "https://github.com/bats-core/bats-assert/archive/refs/tags/v2.0.0.tar.gz",
-            strip_prefix="bats-assert-2.0.0",
+            strip_prefix = "bats-assert-2.0.0",
             build_file = "@//bazel/dependencies:BUILD.bats_assert.bazel",
             sha256 = "15dbf1abb98db785323b9327c86ee2b3114541fe5aa150c410a1632ec06d9903",
         )
@@ -70,7 +69,7 @@ def enkit_deps():
         http_archive(
             name = "bats_core",
             url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.4.1.tar.gz",
-            strip_prefix="bats-core-1.4.1",
+            strip_prefix = "bats-core-1.4.1",
             build_file = "@//bazel/dependencies:BUILD.bats.bazel",
             sha256 = "bff517da043ae24440ec8272039f396c2a7907076ac67693c0f18d4a17c08f7d",
         )
