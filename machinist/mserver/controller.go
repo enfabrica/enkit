@@ -146,8 +146,9 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 		}
 	}
 }
-
-func (en *Controller) ServeAllRecords(killChannel chan struct{}) {
+// ServeAllRecords will continuously poll Nodes() and create multiple _all.<domain> records containing the ip addresses
+// of all machines attached.
+func (en *Controller) ServeAllRecords(killChannel chan struct{}, killChannelAck chan struct{}) {
 	for {
 		select {
 		case <-time.After(en.allRecordsRefreshRate):
@@ -167,7 +168,7 @@ func (en *Controller) ServeAllRecords(killChannel chan struct{}) {
 				en.dnsServer.SetEntry(dnsName, rs)
 			}
 		case <-killChannel:
-			killChannel <- struct{}{}
+			killChannelAck <- struct{}{}
 			return
 		}
 	}
@@ -187,4 +188,3 @@ func (en *Controller) WriteState() {
 		}
 	}
 }
-

@@ -25,7 +25,6 @@ func NewController(mods ...ControllerModifier) (*Controller, error) {
 
 type ControllerModifier func(*Controller) error
 
-
 func WithKDnsFlags(mods ...kdns.DNSModifier) ControllerModifier {
 	return func(controller *Controller) error {
 		if controller.dnsServer == nil {
