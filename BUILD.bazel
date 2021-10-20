@@ -23,6 +23,13 @@ gazelle(
     prefix = "github.com/enfabrica/enkit",
 )
 
+# Custom gazelle resolve mappings
+# Some third-party dependencies that are bazel-aware bamboozle gazelle running
+# in our repository, which tries to generate dependency labels that don't exist.
+# These mappings keep gazelle from generating bogus dependency labels.
+#
+# gazelle:resolve go kythe.io/kythe/go/platform/delimited @io_kythe//kythe/go/platform/delimited
+
 exports_files(
     [
         "go.mod",
