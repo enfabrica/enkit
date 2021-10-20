@@ -1,7 +1,13 @@
 package bazel
 
 import (
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
+	
+	"github.com/enfabrica/enkit/lib/multierror"
 )
 
 // subcommand is implemented by an arguments struct for each bazel subcommand
@@ -51,6 +57,7 @@ type queryOptions struct {
 
 	keepGoing       bool
 	unorderedOutput bool
+	workspaceLog *os.File
 }
 
 // Args returns the `query` and relevant subcommand arguments as passed to bazel.
@@ -61,6 +68,11 @@ func (o *queryOptions) Args() []string {
 	}
 	if o.unorderedOutput {
 		f = append(f, "--order_output=no")
+	}
+	if o.workspaceLog != nil {
+		// See https://github.com/bazelbuild/bazel/issues/6807 for tracking issue
+		// making this flag non-experimental
+		f = append(f, "--experimental_workspace_rules_log_file", o.workspaceLog.Name())
 	}
 	f = append(f, "--", o.query)
 	return f
@@ -73,15 +85,25 @@ func (o *queryOptions) filterError(err error) error {
 		return nil
 	}
 
-	if err, ok := err.(*exec.ExitError); ok {
+	var execErr *exec.ExitError
+	if errors.As(err, &execErr) {
 		// PARTIAL_ANALYSIS_FAILURE is expected when --keep_going is passed
 		// https://github.com/bazelbuild/bazel/blob/86409b7a248d1cb966268451f9aa4db0763c3eb2/src/main/java/com/google/devtools/build/lib/util/ExitCode.java#L38
-		if err.ExitCode() == 3 {
+		if execErr.ExitCode() == 3 {
 			return nil
 		}
 	}
 
 	return err
+}
+
+func (o *queryOptions) Close() error {
+	var errs []error
+	if o.workspaceLog != nil {
+		errs = append(errs, o.workspaceLog.Close())
+		errs = append(errs, os.RemoveAll(o.workspaceLog.Name()))
+	}
+	return multierror.New(errs)
 }
 
 // QueryOption modifies bazel query subcommand flags.
@@ -101,6 +123,17 @@ func WithUnorderedOutput() QueryOption {
 	return func(o *queryOptions) {
 		o.unorderedOutput = true
 	}
+}
+
+func WithTempWorkspaceRulesLog() (QueryOption, error) {
+	f, err := ioutil.TempFile("", "bazel_workspace_log_*.pb")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp workspace log file: %w", err)
+	}
+
+	return func(o *queryOptions) {
+		o.workspaceLog = f
+	}, nil
 }
 
 // apply applies all the options to this option struct.

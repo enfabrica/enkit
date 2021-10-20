@@ -53,19 +53,29 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 
+	workspaceLogStart, err := WithTempWorkspaceRulesLog()
+	if err != nil {
+		return nil, fmt.Errorf("start workspace: %w", err)
+	}
+	workspaceLogEnd, err := WithTempWorkspaceRulesLog()
+	if err != nil {
+		return nil, fmt.Errorf("end workspace: %w", err)
+	}
+
 	// Get all target info for both VCS time points.
-	targets, err := startWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput())
+	startResults, err := startWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogStart)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query deps for start point: %w", err)
 	}
 
-	targets, err = endWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput())
+	endResults, err := endWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogEnd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query deps for end point: %w", err)
 	}
 
 	// TODO(scott): Implement diffing of returned targets
-	targets = targets
+	startResults = startResults
+	endResults = endResults
 
 	return nil, fmt.Errorf("not implemented")
 }

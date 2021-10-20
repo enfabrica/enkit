@@ -35,3 +35,13 @@ go_proto_library(
     proto = ":workspace_log_proto",
     visibility = ["//lib/bazel:__subpackages__"],
 )
+
+go_library(
+    name = "go_protos",
+    embed = [
+        ":build_go_proto",
+        ":workspace_log_go_proto",
+    ],
+    importpath = "github.com/enfabrica/enkit/lib/bazel/proto",
+    visibility = ["//lib/bazel:__subpackages__"],
+)
