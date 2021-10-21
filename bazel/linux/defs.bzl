@@ -1,3 +1,5 @@
+"""Defines bazel rules and macros for kernel-related builds."""
+
 def _kernel_tree_version(ctx):
     distro, version = ctx.attr.package.split("-", 1)
 
@@ -151,8 +153,8 @@ def _import_kernel_bundle_dep(name, ki, d, inputs, extra_symbols):
          representing a dependency to link with this module.
       inputs: list of File objects, updated with additional inputs
          required by this dependency.
-      extra_symbol: list of File objects, updated with additional
-         Module.symvers files. 
+      extra_symbols: list of File objects, updated with additional
+         Module.symvers files.
 
     Returns:
       Updates inputs and extra_symbols, returns None.
@@ -169,15 +171,16 @@ Module '{module}' is being built for kernel '{kernel}'.
 PROBLEM: it has a dependency on module '{dependency}', but this target is NOT built for the same kernel!
 Probably, you need to change module '{dependency}' so that it is also built for this same kernel.
 """.format(
-  module = name,
-  kernel = ki.package,
-  dependency = d.label.name))
+            module = name,
+            kernel = ki.package,
+            dependency = d.label.name,
+        ))
 
 def _import_kernel_modules_dep(name, ki, d, inputs, extra_symbols):
     """Extract information neessary to import a single kernel dep.
 
     Just like _import_kernel_bundle_dep, but works on a single module.
-    
+
     Returns:
       True, if the module was compiled for the same kernel, and should
       be imported. False otherwise.
@@ -191,7 +194,7 @@ def _import_kernel_modules_dep(name, ki, d, inputs, extra_symbols):
 
     inputs.extend(d.files.to_list())
     return True
- 
+
 def _kernel_modules(ctx):
     modules = ctx.attr.modules
     inputs = ctx.files.srcs + ctx.files.kernel
@@ -206,7 +209,7 @@ def _kernel_modules(ctx):
 
         if KernelModulesInfo in d:
             _import_kernel_modules_dep(ctx.attr.name, ki, d, inputs, extra_symbols)
-   
+
         if CcInfo in d:
             inputs += d[CcInfo].compilation_context.headers.to_list()
         inputs += d.files.to_list()
@@ -220,14 +223,14 @@ def _kernel_modules(ctx):
         if ctx.attr.rename:
             rename = ctx.attr.rename + m
         output = ctx.actions.declare_file(rename)
-        outputs += [output]
+        outputs.append(output)
         copy_command += "cp {src_dir}/{module} {output_long} && ".format(
             src_dir = srcdir,
             module = m,
             output_long = output.path,
         )
         output = ctx.actions.declare_file(ctx.attr.rename + "Module.symvers")
-        outputs += [output]
+        outputs.append(output)
         copy_command += "cp {src_dir}/Module.symvers {output_long} && ".format(
             src_dir = srcdir,
             output_long = output.path,
@@ -253,7 +256,8 @@ def _kernel_modules(ctx):
     make_args = ctx.attr.make_format_str.format(
         src_dir = srcdir,
         kernel_build_dir = kernel_build_dir,
-        modules = " ".join(modules))
+        modules = " ".join(modules),
+    )
 
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
@@ -269,7 +273,7 @@ def _kernel_modules(ctx):
         use_default_shell_env = True,
     )
 
-    return [DefaultInfo(files = depset([output])), KernelModulesInfo(
+    return [DefaultInfo(files = depset(outputs)), KernelModulesInfo(
         name = ctx.attr.name,
         package = ki.package,
         modules = outputs,
@@ -354,7 +358,7 @@ KernelBundleInfo = provider(
 )
 
 def _kernel_modules_bundle(ctx):
-    return [DefaultInfo(files=depset(ctx.files.modules)), KernelBundleInfo(modules = ctx.attr.modules)]
+    return [DefaultInfo(files = depset(ctx.files.modules)), KernelBundleInfo(modules = ctx.attr.modules)]
 
 kernel_modules_bundle = rule(
     doc = """Creates a bundle of kernel modules.
@@ -388,7 +392,7 @@ For example:
     attrs = {
         "modules": attr.label_list(
             mandatory = True,
-            providers = [KernelModulesInfo], 
+            providers = [KernelModulesInfo],
             doc = "List of kernel modules part of this bundle",
         ),
     },
@@ -403,7 +407,7 @@ def _kernel_module_targets(*args, **kwargs):
     for m in kwargs.get("modules", kwargs["name"]):
         if not m.endswith(".ko"):
             m = m + ".ko"
-        modules += [m]
+        modules.append(m)
     kwargs["modules"] = modules
 
     kernels = kwargs.pop("kernels", [])
@@ -442,20 +446,27 @@ def kernel_module(*args, **kwargs):
     kernel_module_rule, except for what is listed below.
 
     Args:
-      srcs: list of labels, specifying the source files that constitute the kernel module.
-            If not specified, kernel_module will provide a reasonable default including all
-            files that are typically part of a kernel module (i.e., the specified makefile
-            and all .c and .h files belonging to the package where the kernel_module rule
-            has been instantiated, see https://docs.bazel.build/versions/master/be/functions.html#glob).
-      module: string, name of the output module. If not specified, kernel_module will assume
-            the output module name will be the same as the rule name. Also, it normalizes the
-            name ensuring it has a '.ko' suffix.
-      makefile: string, name of the makefile to build the module. If not specified, kernel_module
-            assumes it is just called Makefile.
-      kernel: a label, indicating the kernel_tree to build the module against. kernel_module ensures
-            the label starts with an '@', as per bazel convention.
-      kernels: list of kernel (same as above). kernel_module will instantiate multiple
-            kernel_module_rule, one per kernel, and ensure they all build in parallel.
+      *args: Additional args passed to underlying `kernel_modules_rule`.
+      **kwargs: Additional args passed to underlying `kernel_modules_rule`.
+            Additionally, the following are used by this wrapper:
+        srcs: list of labels, specifying the source files that constitute the kernel module.
+                If not specified, kernel_module will provide a reasonable default including all
+                files that are typically part of a kernel module (i.e., the specified makefile
+                and all .c and .h files belonging to the package where the kernel_module rule
+                has been instantiated, see https://docs.bazel.build/versions/master/be/functions.html#glob).
+        module: string, name of the output module. If not specified, kernel_module will assume
+                the output module name will be the same as the rule name. Also, it normalizes the
+                name ensuring it has a '.ko' suffix.
+        makefile: string, name of the makefile to build the module. If not specified, kernel_module
+                assumes it is just called Makefile.
+        kernel: a label, indicating the kernel_tree to build the module against. kernel_module ensures
+                the label starts with an '@', as per bazel convention.
+        kernels: list of kernel (same as above). kernel_module will instantiate multiple
+                kernel_module_rule, one per kernel, and ensure they all build in parallel.
+
+    Returns:
+      Instantiates one `kernel_modules_rule` for each kernel; bundles them all
+      into a single `kernel_modules_bundle`.
     """
 
     if "makefile" not in kwargs:
@@ -481,19 +492,26 @@ def nv_driver(*args, **kwargs):
     what is listed below.
 
     Args:
-      srcs: list of labels, specifying the source files that constitute the kernel module.
-            If not specified, nv_driver will provide a reasonable default including all
-            files that are typically part of a kernel module (i.e., the specified makefile
-            and all .c and .h files belonging to the package where the kernel_module rule
-            has been instantiated, see https://docs.bazel.build/versions/master/be/functions.html#glob).
-      modules: list of strings, naming the output modules. Mandatory. Also, it normalizes the
-            names ensuring they have a '.ko' suffix.
-      makefile: string, name of the makefile to build the driver. If not specified, nv_driver
-            assumes it is just called Makefile.
-      kernel: a label, indicating the kernel_tree to build the module against. nv_driver ensures
-            the label starts with an '@', as per bazel convention.
-      kernels: list of kernel (same as above). kernel_module will instantiate multiple
-            kernel_module_rule, one per kernel, and ensure they all build in parallel.
+      *args: Additional args passed to underlying `kernel_modules_rule`.
+      **kwargs: Additional args passed to underlying `kernel_modules_rule`.
+            Additionally, the following are used by this wrapper:
+        srcs: list of labels, specifying the source files that constitute the kernel module.
+                If not specified, nv_driver will provide a reasonable default including all
+                files that are typically part of a kernel module (i.e., the specified makefile
+                and all .c and .h files belonging to the package where the kernel_module rule
+                has been instantiated, see https://docs.bazel.build/versions/master/be/functions.html#glob).
+        modules: list of strings, naming the output modules. Mandatory. Also, it normalizes the
+                names ensuring they have a '.ko' suffix.
+        makefile: string, name of the makefile to build the driver. If not specified, nv_driver
+                assumes it is just called Makefile.
+        kernel: a label, indicating the kernel_tree to build the module against. nv_driver ensures
+                the label starts with an '@', as per bazel convention.
+        kernels: list of kernel (same as above). kernel_module will instantiate multiple
+                kernel_module_rule, one per kernel, and ensure they all build in parallel.
+
+    Returns:
+      Instantiates one `kernel_modules_rule` for each kernel; bundles them all
+      into a single `kernel_modules_bundle`.
     """
 
     if "makefile" not in kwargs:
@@ -504,7 +522,7 @@ def nv_driver(*args, **kwargs):
         kwargs["srcs"] = native.glob(include = include, exclude = BUILD_LEFTOVERS, allow_empty = False)
 
     if "make_format_str" not in kwargs:
-        kwargs["make_format_str"] = "-C $PWD/{src_dir} SYSSRC=$PWD/{kernel_build_dir} SYSOUT=$PWD/{kernel_build_dir} -j modules" 
+        kwargs["make_format_str"] = "-C $PWD/{src_dir} SYSSRC=$PWD/{kernel_build_dir} SYSOUT=$PWD/{kernel_build_dir} -j modules"
 
     return _kernel_module_targets(*args, **kwargs)
 
