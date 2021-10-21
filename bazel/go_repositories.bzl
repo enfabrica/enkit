@@ -1607,6 +1607,13 @@ def go_repositories():
         version = "v0.7.1",
     )
     go_repository(
+        name = "com_github_psanford_memfs",
+        importpath = "github.com/psanford/memfs",
+        sum = "h1:NKxTG6GVGbfMXc2mIk+KphcH6hagbVXhcFkbTgYleTI=",
+        version = "v0.0.0-20210214183328-a001468d78ef",
+    )
+
+    go_repository(
         name = "com_github_quasilyte_go_consistent",
         importpath = "github.com/quasilyte/go-consistent",
         sum = "h1:JoUA0uz9U0FVFq5p4LjEq4C0VgQ0El320s3Ms0V4eww=",
@@ -2178,6 +2185,13 @@ def go_repositories():
         sum = "h1:7uVkIFmeBqHfdjD+gZwtXXI+RODJ2Wc4O7MPEh/QiW4=",
         version = "v1.3.0",
     )
+    go_repository(
+        name = "net_starlark_go",
+        importpath = "go.starlark.net",
+        sum = "h1:xwwDQW5We85NaTk2APgoN9202w/l0DVGp+GZMfsrh7s=",
+        version = "v0.0.0-20210223155950-e043a3d3c984",
+    )
+
     go_repository(
         name = "org_golang_google_api",
         importpath = "google.golang.org/api",

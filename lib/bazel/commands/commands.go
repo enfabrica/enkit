@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/enfabrica/enkit/lib/bazel"
 	"github.com/enfabrica/enkit/lib/client"
@@ -124,9 +125,9 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to calculate affected targets: %w", err)
 	}
 
-	targets = targets
+	fmt.Printf("%s\n", strings.Join(targets, "\n"))
 
-	return fmt.Errorf("not yet implemented")
+	return nil
 }
 
 // bazelGitRoot returns:

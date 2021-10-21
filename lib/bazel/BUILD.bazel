@@ -24,6 +24,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "affected_targets_test.go",
         "options_test.go",
         "query_test.go",
         "workspace_test.go",
@@ -33,6 +34,7 @@ go_test(
     deps = [
         "//lib/bazel/proto:go_protos",
         "//lib/errdiff:go_default_library",
+        "//lib/testutil:go_default_library",
         "@com_github_prashantv_gostub//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
         "@io_bazel_rules_go//go/tools/bazel:go_default_library",

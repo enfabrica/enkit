@@ -49,6 +49,7 @@ func TestQueryOutput(t *testing.T) {
 				}
 				return bytes.NewReader(contents), errChan, nil
 			})
+			stubs.Stub(&runBazelCommand, func(*exec.Cmd) (string, error) { return "", nil })
 			defer stubs.Reset()
 
 			w, err := OpenWorkspace("")
@@ -158,9 +159,9 @@ func TestQueryResultAddChecksumAttributeToExternals(t *testing.T) {
 				},
 			},
 			workspaceEvents: map[string][]*bpb.WorkspaceEvent{
-				"//external:some_dependency": []*bpb.WorkspaceEvent{
+				"//external:third_party": []*bpb.WorkspaceEvent{
 					&bpb.WorkspaceEvent{
-						Rule: "//external:some_dependency",
+						Rule: "//external:third_party",
 						Event: &bpb.WorkspaceEvent_DownloadEvent{
 							DownloadEvent: &bpb.DownloadEvent{
 								Url:    []string{"https://example.com/some/url"},
@@ -169,7 +170,7 @@ func TestQueryResultAddChecksumAttributeToExternals(t *testing.T) {
 						},
 					},
 					&bpb.WorkspaceEvent{
-						Rule: "//external:some_dependency",
+						Rule: "//external:third_party",
 						Event: &bpb.WorkspaceEvent_DownloadAndExtractEvent{
 							DownloadAndExtractEvent: &bpb.DownloadAndExtractEvent{
 								Url:    []string{"https://example.com/some/other/url"},
@@ -192,6 +193,7 @@ func TestQueryResultAddChecksumAttributeToExternals(t *testing.T) {
 							Attribute: []*bpb.Attribute{
 								&bpb.Attribute{
 									Name: proto.String("workspace_download_checksums"),
+									Type: bpb.Attribute_STRING_LIST.Enum(),
 									StringListValue: []string{
 										"7a674b6a2b47f2c6dcf5e5375398fe1d959b60107bf561f7c754f5c09d1163db",
 										"5279ebd204a4e36501c4b6d061890a7fff76d6c43610f121c91ef61b38d0e011",

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 )
 
 func GetAffectedTargets(start string, end string) ([]string, error) {
@@ -75,6 +74,15 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 		return nil, fmt.Errorf("failed to query deps for end point: %w", err)
 	}
 
+	diff, err := calculateAffected(startResults, endResults)
+	if err != nil {
+		return nil, err
+	}
+
+	return diff, nil
+}
+
+func calculateAffected(startResults, endResults *QueryResult) ([]string, error) {
 	startHashes, err := startResults.TargetHashes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate target hashes for start point: %w", err)
@@ -83,12 +91,7 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate target hashes for end point: %w", err)
 	}
-
 	diff := endHashes.Diff(startHashes)
 	sort.Strings(diff)
-
-	fmt.Fprintf(os.Stderr, "Changed targets:\n")
-	fmt.Fprintf(os.Stderr, "\n%s\n", strings.Join(diff, "\n"))
-
 	return diff, nil
 }

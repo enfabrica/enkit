@@ -3,7 +3,6 @@ package bazel
 import (
 	"fmt"
 	"io"
-	"log"
 	"path/filepath"
 	"strings"
 
@@ -25,19 +24,16 @@ func (r *QueryResult) TargetHashes() (TargetHashes, error) {
 	// of all their downloads. This will allow for the subsequent hashing to
 	// change the hash for the entire coarse external target if any of the
 	// download SHA256 sums change.
-	log.Println("Adding external target checksum attribute...")
 	err := r.addChecksumsAttributeToExternals()
 	if err != nil {
 		return nil, fmt.Errorf("failed to add checksums to external targets: %w", err)
 	}
 
-	log.Println("Evaluating dependencies...")
 	err = fillDependencies(r.Targets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to link dependencies: %w", err)
 	}
 
-	log.Println("Hashing targets...")
 	hashes := TargetHashes(map[string]uint32{})
 	for name, t := range r.Targets {
 		h, err := t.getHash(r.workspace)
@@ -50,7 +46,7 @@ func (r *QueryResult) TargetHashes() (TargetHashes, error) {
 }
 
 func fillDependencies(targets map[string]*Target) error {
-	for name, t := range targets {
+	for _, t := range targets {
 		if t.Target.GetType() != bpb.Target_RULE {
 			continue
 		}
@@ -58,7 +54,7 @@ func fillDependencies(targets map[string]*Target) error {
 		for _, dep := range deps {
 			depTarget, ok := targets[dep]
 			if !ok {
-				log.Printf("target %q: dependency %q not found in targets; skipping", name, dep)
+				// TODO(scott): Log this condition
 				continue
 			}
 			t.deps = append(t.deps, depTarget)
@@ -117,6 +113,7 @@ func (r *QueryResult) addChecksumsAttributeToExternals() error {
 				Attribute: []*bpb.Attribute{
 					&bpb.Attribute{
 						Name:            proto.String("workspace_download_checksums"),
+						Type:            bpb.Attribute_STRING_LIST.Enum(),
 						StringListValue: checksums,
 					},
 				},
@@ -190,22 +187,6 @@ func labels(t map[string]*bpb.Target) ([]*Label, error) {
 		ext = append(ext, l)
 	}
 	return ext, nil
-}
-
-func coarseExternalTargets(all []*Label) []*Label {
-	dedup := map[string]*Label{}
-	for _, l := range all {
-		if l.isExternal() {
-			ext := l.toCoarseExternal()
-			dedup[ext.String()] = ext
-		}
-	}
-
-	var ret []*Label
-	for _, v := range dedup {
-		ret = append(ret, v)
-	}
-	return ret
 }
 
 type Label struct {

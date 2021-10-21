@@ -5,7 +5,6 @@ import (
 	"hash"
 	"hash/fnv"
 	"io"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -72,7 +71,7 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 	for _, dep := range t.deps {
 		hash, err := dep.getHash(w)
 		if err != nil {
-			log.Printf("can't get hash for %+v: %v\n", dep, err)
+			// TODO(scott): Log this condition
 		} else {
 			fmt.Fprintf(h, "%d", hash)
 		}
@@ -87,7 +86,6 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 		for _, attr := range attrList {
 			fmt.Fprintf(h, "%s=%s", attr.GetName(), attrValue(attr))
 		}
-		//fmt.Fprintf(h, "%s", t.Target.GetRule().GetSkylarkEnvironmentHashCode())
 	case bpb.Target_SOURCE_FILE:
 		lbl, err := labelFromString(t.Target.GetSourceFile().GetName())
 		if err != nil {
@@ -179,7 +177,8 @@ func attrValue(attr *bpb.Attribute) string {
 		for _, entry := range val {
 			pairs = append(pairs, entry.GetKey()+"="+entry.GetValue())
 		}
-		return strings.Join(sort.StringSlice(pairs), ",")
+		sort.Strings(pairs)
+		return strings.Join(pairs, ",")
 
 	case bpb.Attribute_LABEL_DICT_UNARY:
 		val := attr.GetLabelDictUnaryValue()
@@ -187,7 +186,8 @@ func attrValue(attr *bpb.Attribute) string {
 		for _, entry := range val {
 			pairs = append(pairs, entry.GetKey()+"="+entry.GetValue())
 		}
-		return strings.Join(sort.StringSlice(pairs), ",")
+		sort.Strings(pairs)
+		return strings.Join(pairs, ",")
 
 	case bpb.Attribute_LABEL_LIST_DICT:
 		val := attr.GetLabelListDictValue()
@@ -195,7 +195,8 @@ func attrValue(attr *bpb.Attribute) string {
 		for _, entry := range val {
 			pairs = append(pairs, entry.GetKey()+"="+strings.Join(entry.GetValue(), ":"))
 		}
-		return strings.Join(sort.StringSlice(pairs), ",")
+		sort.Strings(pairs)
+		return strings.Join(pairs, ",")
 
 	case bpb.Attribute_LABEL_KEYED_STRING_DICT:
 		val := attr.GetLabelKeyedStringDictValue()
@@ -203,7 +204,8 @@ func attrValue(attr *bpb.Attribute) string {
 		for _, entry := range val {
 			pairs = append(pairs, entry.GetKey()+"="+entry.GetValue())
 		}
-		return strings.Join(sort.StringSlice(pairs), ",")
+		sort.Strings(pairs)
+		return strings.Join(pairs, ",")
 
 	case bpb.Attribute_STRING_LIST_DICT:
 		val := attr.GetStringListDictValue()
@@ -211,7 +213,8 @@ func attrValue(attr *bpb.Attribute) string {
 		for _, entry := range val {
 			pairs = append(pairs, entry.GetKey()+"="+strings.Join(entry.GetValue(), ":"))
 		}
-		return strings.Join(sort.StringSlice(pairs), ",")
+		sort.Strings(pairs)
+		return strings.Join(pairs, ",")
 
 	case bpb.Attribute_LICENSE:
 		// License changes shouldn't trigger a rebuild; don't include in the hash
