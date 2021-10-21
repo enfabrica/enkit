@@ -3,8 +3,8 @@ package bazel
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
-	"os/exec"
 
 	bpb "github.com/enfabrica/enkit/lib/bazel/proto"
 	"github.com/enfabrica/enkit/lib/proto/delimited"
@@ -12,51 +12,115 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// streamedBazelCommand exec's out to bazel in the specified workspace with the
-// specified arguments. It is a variable that allows for stubbing during tests.
-//
-// In production, the implementation will return an io.Reader containing stdout,
-// an error channel that will emit any errors (if present) during execution, and
-// an error if any occur while starting the command. errChan is closed after the
-// command completes, but the caller should read all of the returned io.Reader
-// before checking the error channel.
-var streamedBazelCommand = func(cmd *exec.Cmd) (io.Reader, chan error, error) {
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't get stdout for bazel query: %w", err)
-	}
-	err = cmd.Start()
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't start bazel command: %w", err)
-	}
+type QueryResult struct {
+	Targets         map[string]*Target
+	WorkspaceEvents map[string][]*bpb.WorkspaceEvent
 
-	pipeReader, pipeWriter := io.Pipe()
-	errChan := make(chan error)
-	go func() {
-		defer close(errChan)
-		_, err := io.Copy(pipeWriter, stdout)
-		pipeWriter.Close()
-		if err != nil {
-			errChan <- fmt.Errorf("while copying stdout from bazel command: %w", err)
-		}
-		err = cmd.Wait()
-		if err != nil {
-			errChan <- fmt.Errorf("command failed: `%s`: %w", strings.Join(cmd.Args, " "), err)
-		}
-	}()
-
-	return pipeReader, errChan, nil
+	workspace *Workspace
 }
 
-// QueryResult contains the results of an arbitrary bazel query.
-type QueryResult struct {
-	// Targets is filled with a map of "target label" to target node.
-	Targets map[string]*bpb.Target
+func (r *QueryResult) TargetHashes() (TargetHashes, error) {
+	// Add a single attribute to each external target with the sorted SHA256 sums
+	// of all their downloads. This will allow for the subsequent hashing to
+	// change the hash for the entire coarse external target if any of the
+	// download SHA256 sums change.
+	err := r.addChecksumsAttributeToExternals()
+	if err != nil {
+		return nil, fmt.Errorf("failed to add checksums to external targets: %w", err)
+	}
 
-	// If the WithTempWorkspaceRulesLog() option is passed, this contains a list
-	// of all the workspace events emitted during the bazel query. Otherwise, this
-	// is empty.
-	WorkspaceEvents []*bpb.WorkspaceEvent
+	err = fillDependencies(r.Targets)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link dependencies: %w", err)
+	}
+
+	hashes := TargetHashes(map[string]uint32{})
+	for name, t := range r.Targets {
+		h, err := t.getHash(r.workspace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get hash for %q: %w", name, err)
+		}
+		hashes[name] = h
+	}
+	return hashes, nil
+}
+
+func fillDependencies(targets map[string]*Target) error {
+	for _, t := range targets {
+		if t.Target.GetType() != bpb.Target_RULE {
+			continue
+		}
+		deps := t.Target.GetRule().GetRuleInput()
+		for _, dep := range deps {
+			depTarget, ok := targets[dep]
+			if !ok {
+				// TODO(scott): Log this condition
+				continue
+			}
+			t.deps = append(t.deps, depTarget)
+		}
+	}
+	return nil
+}
+
+func (r *QueryResult) addChecksumsAttributeToExternals() error {
+	for targetName, target := range r.Targets {
+		lbl, err := labelFromString(targetName)
+		if err != nil {
+			return err
+		}
+		if !lbl.isExternal() {
+			continue
+		}
+
+		lbl = lbl.toCoarseExternal()
+		events := r.WorkspaceEvents[lbl.String()]
+
+		var checksums []string
+		for _, event := range events {
+			switch e := event.GetEvent().(type) {
+			case *bpb.WorkspaceEvent_DownloadEvent:
+				if e.DownloadEvent.GetSha256() != "" {
+					checksums = append(checksums, e.DownloadEvent.GetSha256())
+				}
+				if e.DownloadEvent.GetIntegrity() != "" {
+					checksums = append(checksums, e.DownloadEvent.GetIntegrity())
+				}
+			case *bpb.WorkspaceEvent_DownloadAndExtractEvent:
+				if e.DownloadAndExtractEvent.GetSha256() != "" {
+					checksums = append(checksums, e.DownloadAndExtractEvent.GetSha256())
+				}
+				if e.DownloadAndExtractEvent.GetIntegrity() != "" {
+					checksums = append(checksums, e.DownloadAndExtractEvent.GetIntegrity())
+				}
+			}
+		}
+
+		var deps []string
+		if target.GetType() == bpb.Target_RULE {
+			deps = target.GetRule().GetRuleInput()
+		}
+
+		// Rewrite the target as a "rule" that only has an attribute that
+		// corresponds to the checksum(s) used when downloading the repo in which it
+		// resides. Therefore, this target's hash will change iff one or more
+		// downloads for its repo has a checksum change.
+		*target.Target = bpb.Target{
+			Type: bpb.Target_RULE.Enum(),
+			Rule: &bpb.Rule{
+				Name:      &targetName,
+				RuleInput: deps,
+				Attribute: []*bpb.Attribute{
+					&bpb.Attribute{
+						Name:            proto.String("workspace_download_checksums"),
+						Type:            bpb.Attribute_STRING_LIST.Enum(),
+						StringListValue: checksums,
+					},
+				},
+			},
+		}
+	}
+	return nil
 }
 
 // Query performs a `bazel query` using the provided query string. If
@@ -73,7 +137,7 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 		return nil, err
 	}
 
-	targets := map[string]*bpb.Target{}
+	targets := map[string]*Target{}
 
 	rdr := delimited.NewReader(resultStream)
 	var buf []byte
@@ -82,7 +146,8 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 		if err := proto.Unmarshal(buf, &target); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal Target message: %w", err)
 		}
-		targets[targetName(&target)] = &target
+		newTarget := &Target{Target: &target}
+		targets[newTarget.Name()] = newTarget
 	}
 	if err != io.EOF {
 		return nil, fmt.Errorf("failed to read stdout from bazel command: %w", err)
@@ -92,7 +157,7 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 		return nil, err
 	}
 
-	var workspaceEvents []*bpb.WorkspaceEvent
+	workspaceEvents := map[string][]*bpb.WorkspaceEvent{}
 	if queryOpts.workspaceLog != nil {
 		rdr := delimited.NewReader(queryOpts.workspaceLog)
 		var buf []byte
@@ -101,31 +166,77 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 			if err := proto.Unmarshal(buf, &event); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal WorkspaceEvent message: %w", err)
 			}
-			workspaceEvents = append(workspaceEvents, &event)
+			workspaceEvents[event.GetRule()] = append(workspaceEvents[event.GetRule()], &event)
 		}
 	}
 
 	return &QueryResult{
-		Targets: targets,
+		Targets:         targets,
 		WorkspaceEvents: workspaceEvents,
+		workspace:       w,
 	}, nil
 }
 
-// targetName returns the name of a Target message, which is part of a
-// pseudo-union message (enum + one populated optional field).
-func targetName(t *bpb.Target) string {
-	switch t.GetType() {
-	case bpb.Target_RULE:
-		return t.GetRule().GetName()
-	case bpb.Target_SOURCE_FILE:
-		return t.GetSourceFile().GetName()
-	case bpb.Target_GENERATED_FILE:
-		return t.GetGeneratedFile().GetName()
-	case bpb.Target_PACKAGE_GROUP:
-		return t.GetPackageGroup().GetName()
-	case bpb.Target_ENVIRONMENT_GROUP:
-		return t.GetEnvironmentGroup().GetName()
+func labels(t map[string]*bpb.Target) ([]*Label, error) {
+	var ext []*Label
+	for k := range t {
+		l, err := labelFromString(k)
+		if err != nil {
+			return nil, err
+		}
+		ext = append(ext, l)
 	}
-	// This shouldn't happen; check that all cases are covered.
-	panic(fmt.Sprintf("can't get name for type %q", t.GetType()))
+	return ext, nil
+}
+
+type Label struct {
+	Workspace string
+	Package   string
+	Rule      string
+}
+
+func labelFromString(labelStr string) (*Label, error) {
+	l := &Label{}
+	pieces := strings.Split(labelStr, "//")
+	if len(pieces) != 2 {
+		return nil, fmt.Errorf("label %q is malformed; want one instance of '//'", labelStr)
+	}
+	l.Workspace = ""
+	if strings.HasPrefix(pieces[0], "@") {
+		l.Workspace = pieces[0][1:]
+	}
+	pieces = strings.Split(pieces[1], ":")
+	if len(pieces) != 2 {
+		return nil, fmt.Errorf("label %q is malformed; want one instance of ':'", labelStr)
+	}
+	l.Package = pieces[0]
+	l.Rule = pieces[1]
+	return l, nil
+}
+
+func (l *Label) String() string {
+	var b strings.Builder
+	if l.Workspace != "" {
+		fmt.Fprintf(&b, "@%s", l.Workspace)
+	}
+	fmt.Fprintf(&b, "//%s:%s", l.Package, l.Rule)
+	return b.String()
+}
+
+func (l *Label) toCoarseExternal() *Label {
+	return &Label{
+		Package: "external",
+		Rule:    l.Workspace,
+	}
+}
+
+func (l *Label) filePath() string {
+	if l.Workspace != "" {
+		panic(fmt.Sprintf("shouldn't be looking up generated files in //external: %+v", l))
+	}
+	return filepath.Join(l.Package, l.Rule)
+}
+
+func (l *Label) isExternal() bool {
+	return l.Workspace != "" || l.Package == "external"
 }
