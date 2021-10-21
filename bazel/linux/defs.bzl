@@ -229,7 +229,7 @@ def _kernel_modules(ctx):
             module = m,
             output_long = output.path,
         )
-        output = ctx.actions.declare_file(ctx.attr.rename + "Module.symvers")
+        output = ctx.actions.declare_file(rename + "Module.symvers")
         outputs.append(output)
         copy_command += "cp {src_dir}/Module.symvers {output_long} && ".format(
             src_dir = srcdir,
