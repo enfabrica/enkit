@@ -47,6 +47,7 @@ type AffectedTargets struct {
 
 	Start    string
 	End      string
+	RepoRoot string
 	Universe []string
 }
 
@@ -62,6 +63,7 @@ func NewAffectedTargets(root *Root) *AffectedTargets {
 
 	command.PersistentFlags().StringVarP(&command.Start, "start", "s", "HEAD", "Git committish of 'before' revision")
 	command.PersistentFlags().StringVarP(&command.End, "end", "e", "", "Git committish of 'end' revision, or empty for current dir with uncomitted changes")
+	command.PersistentFlags().StringVarP(&command.RepoRoot, "repo_root", "r", "", "Path to the git repository root; autodetected from $PWD if unset")
 	command.PersistentFlags().StringSliceVarP(&command.Universe, "universe", "u", []string{"//..."}, "Target universe in which to search for dependencies")
 
 	command.AddCommand(NewAffectedTargetsList(command).Command)
@@ -93,8 +95,15 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 }
 
 func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
-	// TODO(scott): Determine how the workspace root is found
-	gitRoot, gitToBazelPath, err := bazelGitRoot()
+	startDir := c.parent.RepoRoot
+	var err error
+	if startDir == "" {
+		startDir, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to detect working dir: %w", err)
+		}
+	}
+	gitRoot, gitToBazelPath, err := bazelGitRoot(startDir)
 	if err != nil {
 		return fmt.Errorf("can't find git repo root: %w", err)
 	}
@@ -143,12 +152,8 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 //   - current working directory
 //   - bazel workspace root
 //   - git workspace root
-func bazelGitRoot() (string, string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", "", fmt.Errorf("failed to detect working dir: %w", err)
-	}
-	bazelRoot, err := bazel.FindRoot(wd)
+func bazelGitRoot(dir string) (string, string, error) {
+	bazelRoot, err := bazel.FindRoot(dir)
 	if err != nil {
 		return "", "", err
 	}
