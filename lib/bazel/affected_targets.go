@@ -24,6 +24,10 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 		return nil, fmt.Errorf("failed to get user's cache dir: %w", err)
 	}
 	cacheDir = filepath.Join(cacheDir, "enkit", "bazel")
+	err = os.MkdirAll(cacheDir, 0755)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make root cache dir: %w", err)
+	}
 	startOutputBase, err := ioutil.TempDir(cacheDir, "output_base_*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary output_base: %w", err)
