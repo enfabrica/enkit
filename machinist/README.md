@@ -24,3 +24,5 @@ testing/ <- e2e and integration tests
 - Exports prometheus metrics
 - SSH Authorization through ssh certificates
 - Installation through systemd
+
+##### Architecture

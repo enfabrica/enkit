@@ -37,9 +37,9 @@ message PollResponse {
 // Client sends a file to the server, as a result of processing an ActionUpload.
 message UploadRequest {
   // required in the first request only.
-  string key = 1;  
+  string key = 1;
   // optional. If it is provided, it is processed in the first request only.
-  int32 total = 2; 
+  int32 total = 2;
 
   bytes data = 3;
 }
@@ -68,4 +68,77 @@ service Controller {
   rpc Upload(stream UploadRequest) returns (UploadResponse) {}
   // The client will invoke Download when the server requests the client to upload a file.
   rpc Download(DownloadRequest) returns (stream DownloadResponse) {}
+}
+
+enum ReserveAction {
+  Reserve = 0;
+  Free = 1;
+
+}
+message ReserveRequest {
+  string time = 1; // should be a golang time parsable string, e.g. 25m or 200s
+  string name = 2;
+  string ip = 3; // if no name is present, the ip can be used to reserve a machine
+}
+
+message ReserveResponse {}
+
+enum TagAction {
+  Append = 0;
+  Delete = 1;
+}
+
+message ReserveInformation {
+  int64 until = 1;
+  string user = 2;
+}
+
+message TagRequest {
+  string tag = 1;
+  string name = 2;
+  string ip = 3; // if no name is present, the ip can be used to reserve a machine
+}
+
+message TagResponse{}
+
+// UserMachine is an internal representation of a machine held in
+message UserMachine {
+  string name = 1;
+  repeated string tags = 2;
+  repeated string ips = 3;
+  bool alive = 4;
+  ReserveInformation reservation = 5;
+}
+
+message ListRequest{
+  int64 limit = 1;
+}
+
+message ListResponse {
+  repeated UserMachine machines = 1;
+}
+
+// UserPlane is a public service, designed for client interaction.
+service UserPlane {
+  rpc Reserve(ReserveRequest) returns (ReserveResponse){}
+  rpc Tag(TagRequest) returns (TagResponse) {}
+  rpc List(ListRequest) returns (ListResponse){}
+}
+
+// StaticMachine is a singular machine usually pushed from the controlplane.
+message StaticMachine {
+  string name = 1;
+  repeated string ips = 2;
+  repeated string tags = 3;
+}
+
+message StateForwardRequest {
+  repeated StaticMachine machines = 1;
+}
+
+message StateForwardResponse {
+}
+// UserplaneState is designed to run in a trusted network, it is how the userplane receives state.
+service UserplaneState {
+  rpc ExportState(StateForwardRequest) returns (StateForwardResponse) {}
 }
