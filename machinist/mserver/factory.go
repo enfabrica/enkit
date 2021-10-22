@@ -10,9 +10,10 @@ import (
 
 func NewController(mods ...ControllerModifier) (*Controller, error) {
 	en := &Controller{
-		State:         &state.MachineController{},
-		stateWriteTTL: time.Second * 30,
-		Log:           &logger.DefaultLogger{Printer: log.Printf},
+		State:                 &state.MachineController{},
+		stateWriteTTL:         time.Second * 30,
+		allRecordsRefreshRate: time.Second * 5,
+		Log:                   &logger.DefaultLogger{Printer: log.Printf},
 	}
 	for _, m := range mods {
 		if err := m(en); err != nil {
@@ -23,13 +24,6 @@ func NewController(mods ...ControllerModifier) (*Controller, error) {
 }
 
 type ControllerModifier func(*Controller) error
-
-func DnsPort(dnsPort int) ControllerModifier {
-	return func(controller *Controller) error {
-		controller.dnsPort = dnsPort
-		return nil
-	}
-}
 
 func WithKDnsFlags(mods ...kdns.DNSModifier) ControllerModifier {
 	return func(controller *Controller) error {
@@ -64,6 +58,17 @@ func WithStateWriteDuration(duration string) ControllerModifier {
 			return err
 		}
 		controller.stateWriteTTL = d
+		return nil
+	}
+}
+
+func WithAllRecordsRefreshRate(duration string) ControllerModifier {
+	return func(controller *Controller) error {
+		d, err := time.ParseDuration(duration)
+		if err != nil {
+			return err
+		}
+		controller.allRecordsRefreshRate = d
 		return nil
 	}
 }

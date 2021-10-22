@@ -18,17 +18,18 @@ type Controller struct {
 
 	startUpFunc []func()
 
+	allRecordsRefreshRate time.Duration
 
 	State         *state.MachineController
 	stateFile     string
 	stateWriteTTL time.Duration
 
 	dnsServer *kdns.DnsServer
-	dnsPort   int
 	domains   []string
 }
+
 // Init is designed to run after all components have been started up before running itself as a server
-func (en *Controller) Init()  {
+func (en *Controller) Init() {
 	for _, m := range en.State.Machines {
 		en.addNodeToDns(m.Name, m.Ips, m.Tags)
 	}
@@ -145,25 +146,32 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 		}
 	}
 }
-
-func (en *Controller) ServeAllRecords() {
+// ServeAllRecords will continuously poll Nodes() and create multiple _all.<domain> records containing the ip addresses
+// of all machines attached.
+// TODO(adam): be able to pass in a wrapped ticker for testing intervals
+func (en *Controller) ServeAllRecords(killChannel chan struct{}, killChannelAck chan struct{}) {
 	for {
-		ns := en.Nodes()
-		for _, d := range en.dnsServer.Domains {
-			dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", "_all", d))
-			var rs []dns.RR
-			for _, v := range ns {
-				for _, i := range v.Ips {
-					rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "A", i.String()))
-					if err != nil {
-						en.Log.Errorf("err: %v", err)
+		select {
+		case <-time.After(en.allRecordsRefreshRate):
+			ns := en.Nodes()
+			for _, d := range en.dnsServer.Domains {
+				dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", "_all", d))
+				var rs []dns.RR
+				for _, v := range ns {
+					for _, i := range v.Ips {
+						rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "A", i.String()))
+						if err != nil {
+							en.Log.Errorf("err: %v", err)
+						}
+						rs = append(rs, rr)
 					}
-					rs = append(rs, rr)
 				}
+				en.dnsServer.SetEntry(dnsName, rs)
 			}
-			en.dnsServer.SetEntry(dnsName, rs)
+		case <-killChannel:
+			killChannelAck <- struct{}{}
+			return
 		}
-		_ = <-time.After(5 * time.Second)
 	}
 }
 
@@ -181,4 +189,3 @@ func (en *Controller) WriteState() {
 		}
 	}
 }
-
