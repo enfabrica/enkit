@@ -1,7 +1,6 @@
 package mserver
 
 import (
-	"fmt"
 	"github.com/enfabrica/enkit/machinist/config"
 	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"google.golang.org/grpc"
@@ -16,7 +15,8 @@ func New(mods ...Modifier) (*ControlPlane, error) {
 		killChannel:           make(chan error),
 		Controller:            kd,
 		Common:                config.DefaultCommonFlags(),
-		allRecordsKillChannel: make(chan struct{}, 2),
+		allRecordsKillChannel: make(chan struct{}, 1),
+		allRecordsKillAckChannel: make(chan struct{}, 1),
 	}
 	for _, m := range mods {
 		if err := m(s); err != nil {
@@ -30,6 +30,7 @@ type ControlPlane struct {
 	insecure              bool
 	runningServer         *grpc.Server
 	allRecordsKillChannel chan struct{}
+	allRecordsKillAckChannel chan struct{}
 	killChannel           chan error
 
 	Controller *Controller
@@ -46,17 +47,16 @@ func (s *ControlPlane) Run() error {
 	s.runningServer = grpcs
 	go func() {
 		s.killChannel <- s.Controller.dnsServer.Run()
-		fmt.Println("it ended")
 	}()
 	s.Controller.Init()
-	go s.Controller.ServeAllRecords(s.allRecordsKillChannel)
+	go s.Controller.ServeAllRecords(s.allRecordsKillChannel, s.allRecordsKillAckChannel)
 	go s.Controller.WriteState()
 	return grpcs.Serve(s.Listener)
 }
 
 func (s *ControlPlane) Stop() error {
 	s.allRecordsKillChannel <- struct{}{}
-	<-s.allRecordsKillChannel
+	<-s.allRecordsKillAckChannel
 	s.runningServer.Stop()
 	return s.Controller.dnsServer.Stop()
 }

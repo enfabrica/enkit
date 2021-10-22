@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/storage v1.10.0
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6 // indirect
+	github.com/bazelbuild/buildtools v0.0.0-20211007154642-8dd79e56e98e
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -49,6 +50,7 @@ require (
 	github.com/pquerna/cachecontrol v0.0.0-20200921180117-858c6e7e6b7e // indirect
 	github.com/prashantv/gostub v1.0.0 // indirect
 	github.com/prometheus/client_golang v0.9.3
+	github.com/psanford/memfs v0.0.0-20210214183328-a001468d78ef // indirect
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/shirou/gopsutil v0.0.0-20180427012116-c95755e4bcd7 // indirect
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect

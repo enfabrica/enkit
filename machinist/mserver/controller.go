@@ -8,6 +8,7 @@ import (
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"github.com/enfabrica/enkit/machinist/state"
 	"github.com/miekg/dns"
+	"log"
 	"net"
 	"time"
 )
@@ -98,6 +99,7 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 		if err != nil {
 			return err
 		}
+		log.Printf("GOT %#v", in.Req)
 
 		switch r := in.Req.(type) {
 		case *machinist.PollRequest_Ping:
@@ -108,6 +110,7 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 				fmt.Println("error handling register", err.Error())
 				return err
 			}
+			log.Printf("Got REGISTER %#v", *r.Register)
 		}
 	}
 }
@@ -143,8 +146,10 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 		}
 	}
 }
-
-func (en *Controller) ServeAllRecords(killChannel chan struct{}) {
+// ServeAllRecords will continuously poll Nodes() and create multiple _all.<domain> records containing the ip addresses
+// of all machines attached.
+// TODO(adam): be able to pass in a wrapped ticker for testing intervals
+func (en *Controller) ServeAllRecords(killChannel chan struct{}, killChannelAck chan struct{}) {
 	for {
 		select {
 		case <-time.After(en.allRecordsRefreshRate):
@@ -164,7 +169,7 @@ func (en *Controller) ServeAllRecords(killChannel chan struct{}) {
 				en.dnsServer.SetEntry(dnsName, rs)
 			}
 		case <-killChannel:
-			killChannel <- struct{}{}
+			killChannelAck <- struct{}{}
 			return
 		}
 	}

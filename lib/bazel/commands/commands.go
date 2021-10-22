@@ -2,8 +2,14 @@ package commands
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/enfabrica/enkit/lib/bazel"
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/git"
 
 	"github.com/spf13/cobra"
 )
@@ -22,13 +28,13 @@ func New(base *client.BaseFlags) *Root {
 }
 
 func NewRoot(base *client.BaseFlags) *Root {
-	rc := &Root {
+	rc := &Root{
 		Command: &cobra.Command{
-			Use: "bazel",
-			Short: "Perform bazel helper actions",
-			SilenceUsage: true,
+			Use:           "bazel",
+			Short:         "Perform bazel helper actions",
+			SilenceUsage:  true,
 			SilenceErrors: true,
-			Long: `bazel - performs helper bazel operations`,
+			Long:          `bazel - performs helper bazel operations`,
 		},
 		BaseFlags: base,
 	}
@@ -39,16 +45,17 @@ type AffectedTargets struct {
 	*cobra.Command
 	root *Root
 
-	Start string
-	End string
+	Start    string
+	End      string
+	RepoRoot string
 	Universe []string
 }
 
 func NewAffectedTargets(root *Root) *AffectedTargets {
 	command := &AffectedTargets{
 		Command: &cobra.Command{
-			Use: "affected-targets",
-			Short: "Operations involving changed bazel targets between two source revision points",
+			Use:     "affected-targets",
+			Short:   "Operations involving changed bazel targets between two source revision points",
 			Aliases: []string{"at"},
 		},
 		root: root,
@@ -56,6 +63,7 @@ func NewAffectedTargets(root *Root) *AffectedTargets {
 
 	command.PersistentFlags().StringVarP(&command.Start, "start", "s", "HEAD", "Git committish of 'before' revision")
 	command.PersistentFlags().StringVarP(&command.End, "end", "e", "", "Git committish of 'end' revision, or empty for current dir with uncomitted changes")
+	command.PersistentFlags().StringVarP(&command.RepoRoot, "repo_root", "r", "", "Path to the git repository root; autodetected from $PWD if unset")
 	command.PersistentFlags().StringSliceVarP(&command.Universe, "universe", "u", []string{"//..."}, "Target universe in which to search for dependencies")
 
 	command.AddCommand(NewAffectedTargetsList(command).Command)
@@ -69,10 +77,10 @@ type AffectedTargetsList struct {
 }
 
 func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
-	command := &AffectedTargetsList {
+	command := &AffectedTargetsList{
 		Command: &cobra.Command{
-			Use: "list",
-			Short: "List affected targets between two source revision points",
+			Use:     "list",
+			Short:   "List affected targets between two source revision points",
 			Aliases: []string{"ls"},
 			Example: `  $ enkit bazel affected-targets list
         List affected targets between the last commit and current uncommitted changes.
@@ -87,6 +95,79 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 }
 
 func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf("not yet implemented")
+	startDir := c.parent.RepoRoot
+	var err error
+	if startDir == "" {
+		startDir, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to detect working dir: %w", err)
+		}
+	}
+	gitRoot, gitToBazelPath, err := bazelGitRoot(startDir)
+	if err != nil {
+		return fmt.Errorf("can't find git repo root: %w", err)
+	}
+
+	// Create temporary worktrees in which to execute bazel commands.
+	// If the end commit is not provided, use the current git directory as the end
+	// worktree, which will include uncommitted local changes.
+	startTree, err := git.NewTempWorktree(gitRoot, c.parent.Start)
+	if err != nil {
+		return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.Start, err)
+	}
+	defer startTree.Close()
+	startWS := filepath.Clean(filepath.Join(startTree.Root(), gitToBazelPath))
+
+	endTreePath := gitRoot
+	if c.parent.End != "" {
+		endTree, err := git.NewTempWorktree(gitRoot, c.parent.End)
+		if err != nil {
+			return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.End, err)
+		}
+		defer endTree.Close()
+		endTreePath = endTree.Root()
+	}
+	endWS := filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
+
+	targets, err := bazel.GetAffectedTargets(startWS, endWS)
+	if err != nil {
+		return fmt.Errorf("failed to calculate affected targets: %w", err)
+	}
+
+	fmt.Printf("%s\n", strings.Join(targets, "\n"))
+
+	return nil
 }
 
+// bazelGitRoot returns:
+// * The git worktree root path for the current bazel workspace. This is
+//   either:
+//   - the workspace from which `bazel run` was executed, if running under
+//     `bazel run`
+//   - the workspace containing the current working directory otherwise
+// * A relative path between the git worktree root and the bazel workspace root
+//   for the aforementioned bazel workspace. If the bazel workspace root and
+//   git worktree root are the same, this is the path `.`.
+// * An error of detection of the following fails:
+//   - current working directory
+//   - bazel workspace root
+//   - git workspace root
+func bazelGitRoot(dir string) (string, string, error) {
+	bazelRoot, err := bazel.FindRoot(dir)
+	if err != nil {
+		return "", "", err
+	}
+	root, err := git.FindRoot(bazelRoot)
+	if err != nil {
+		return "", "", err
+	}
+	rel, err := filepath.Rel(root, bazelRoot)
+	if err != nil {
+		return "", "", fmt.Errorf("can't calculate common path between %q and %q: %w", root, bazelRoot, err)
+	}
+	return root, rel, nil
+}
+
+func relativeWorkspace(gitRoot fs.FS, relativeWorkspace string) (fs.FS, error) {
+	return nil, fmt.Errorf("not implemented")
+}

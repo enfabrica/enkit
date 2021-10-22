@@ -31,11 +31,12 @@ func NewTempWorktree(repoPath string, committish string) (*TempWorktree, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	cmd := exec.Command("git", "worktree", "add", tmpDir, committish)
+	// Command info: https://git-scm.com/docs/git-worktree
+	cmd := exec.Command("git", "worktree", "add", "--detach", tmpDir, committish)
 	cmd.Dir = repoPath
 	_, err = runCommand(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct temp worktree: %w", err)
+		return nil, fmt.Errorf("failed to construct temp worktree with command %v: %w", cmd, err)
 	}
 	return &TempWorktree{
 		repoPath:     repoPath,
