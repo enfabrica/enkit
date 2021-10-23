@@ -47,8 +47,6 @@ type AffectedTargets struct {
 	Start               string
 	End                 string
 	RepoRoot            string
-	AffectedTargetsFile string
-	AffectedTestsFile   string
 	Universe            []string
 }
 
@@ -65,8 +63,6 @@ func NewAffectedTargets(root *Root) *AffectedTargets {
 	command.PersistentFlags().StringVarP(&command.Start, "start", "s", "HEAD", "Git committish of 'before' revision")
 	command.PersistentFlags().StringVarP(&command.End, "end", "e", "", "Git committish of 'end' revision, or empty for current dir with uncomitted changes")
 	command.PersistentFlags().StringVarP(&command.RepoRoot, "repo_root", "r", "", "Path to the git repository root; autodetected from $PWD if unset")
-	command.PersistentFlags().StringVar(&command.AffectedTargetsFile, "affected_targets_file", "", "If set, the list of affected targets will be dumped to this file path")
-	command.PersistentFlags().StringVar(&command.AffectedTestsFile, "affected_tests_file", "", "If set, the list of affected tests will be dumped to this file path")
 	command.PersistentFlags().StringSliceVarP(&command.Universe, "universe", "u", []string{"//..."}, "Target universe in which to search for dependencies")
 
 	command.AddCommand(NewAffectedTargetsList(command).Command)
@@ -77,6 +73,9 @@ func NewAffectedTargets(root *Root) *AffectedTargets {
 type AffectedTargetsList struct {
 	*cobra.Command
 	parent *AffectedTargets
+
+	AffectedTargetsFile string
+	AffectedTestsFile   string
 }
 
 func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
@@ -94,6 +93,8 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 		parent: parent,
 	}
 	command.Command.RunE = command.Run
+	command.Flags().StringVar(&command.AffectedTargetsFile, "affected_targets_file", "", "If set, the list of affected targets will be dumped to this file path")
+	command.Flags().StringVar(&command.AffectedTestsFile, "affected_tests_file", "", "If set, the list of affected tests will be dumped to this file path")
 	return command
 }
 
@@ -137,8 +138,8 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to calculate affected targets: %w", err)
 	}
 
-	if c.parent.AffectedTargetsFile != "" {
-		err = writeTargets(rules, c.parent.AffectedTargetsFile)
+	if c.AffectedTargetsFile != "" {
+		err = writeTargets(rules, c.AffectedTargetsFile)
 		if err != nil {
 			return err
 		}
@@ -150,8 +151,8 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n")
 	}
 
-	if c.parent.AffectedTestsFile != "" {
-		err = writeTargets(tests, c.parent.AffectedTestsFile)
+	if c.AffectedTestsFile != "" {
+		err = writeTargets(tests, c.AffectedTestsFile)
 		if err != nil {
 			return err
 		}
