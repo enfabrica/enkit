@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/enfabrica/enkit/lib/bazel"
 	"github.com/enfabrica/enkit/lib/client"
@@ -45,10 +44,12 @@ type AffectedTargets struct {
 	*cobra.Command
 	root *Root
 
-	Start    string
-	End      string
-	RepoRoot string
-	Universe []string
+	Start               string
+	End                 string
+	RepoRoot            string
+	AffectedTargetsFile string
+	AffectedTestsFile   string
+	Universe            []string
 }
 
 func NewAffectedTargets(root *Root) *AffectedTargets {
@@ -64,6 +65,8 @@ func NewAffectedTargets(root *Root) *AffectedTargets {
 	command.PersistentFlags().StringVarP(&command.Start, "start", "s", "HEAD", "Git committish of 'before' revision")
 	command.PersistentFlags().StringVarP(&command.End, "end", "e", "", "Git committish of 'end' revision, or empty for current dir with uncomitted changes")
 	command.PersistentFlags().StringVarP(&command.RepoRoot, "repo_root", "r", "", "Path to the git repository root; autodetected from $PWD if unset")
+	command.PersistentFlags().StringVar(&command.AffectedTargetsFile, "affected_targets_file", "", "If set, the list of affected targets will be dumped to this file path")
+	command.PersistentFlags().StringVar(&command.AffectedTestsFile, "affected_tests_file", "", "If set, the list of affected tests will be dumped to this file path")
 	command.PersistentFlags().StringSliceVarP(&command.Universe, "universe", "u", []string{"//..."}, "Target universe in which to search for dependencies")
 
 	command.AddCommand(NewAffectedTargetsList(command).Command)
@@ -129,13 +132,47 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	}
 	endWS := filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
 
-	targets, err := bazel.GetAffectedTargets(startWS, endWS)
+	rules, tests, err := bazel.GetAffectedTargets(startWS, endWS)
 	if err != nil {
 		return fmt.Errorf("failed to calculate affected targets: %w", err)
 	}
 
-	fmt.Printf("%s\n", strings.Join(targets, "\n"))
+	if c.parent.AffectedTargetsFile != "" {
+		err = writeTargets(rules, c.parent.AffectedTargetsFile)
+		if err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("Affected targets:")
+		for _, t := range rules {
+			fmt.Println(t.Name())
+		}
+		fmt.Printf("\n")
+	}
 
+	if c.parent.AffectedTestsFile != "" {
+		err = writeTargets(tests, c.parent.AffectedTestsFile)
+		if err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("Affected tests:")
+		for _, t := range tests {
+			fmt.Println(t.Name())
+		}
+	}
+	return nil
+}
+
+func writeTargets(targets []*bazel.Target, path string) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create target file %q: %w", path, err)
+	}
+	defer f.Close()
+	for _, t := range targets {
+		fmt.Fprintf(f, "%s\n", t.Name())
+	}
 	return nil
 }
 
