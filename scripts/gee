@@ -3403,9 +3403,25 @@ cause some of gee's metadata to become stale.  This command fixes up
 any missing or incorrect metadata.
 EOT
 
+function _gee_fix_remote_origin_fetch_config() {
+  # An old version of gee incorrectly configured the remote.origin.fetch
+  # parameter.  This command checks for an incorrect value and corrects
+  # it.
+  local REMOTE_ORIGIN_FETCH EXPECTED
+  CORRECT="+refs/heads/*:refs/remotes/origin/*"
+  REMOTE_ORIGIN_FETCH="$("${GIT}" config --get-all remote.origin.fetch)"
+  if [[ "${REMOTE_ORIGIN_FETCH}" != "${CORRECT}" ]]; then
+    _warn "remote.origin.fetch was incorrectly set to:" "${REMOTE_ORIGIN_FETCH}"
+    _git config --replace-all remote.origin.fetch "${CORRECT}"
+    _info "Fixed remote.origin.fetch configuration."
+  fi
+}
+
 function gee__repair() {
   # Make sure all tools are available
   _install_tools
+
+  _gee_fix_remote_origin_fetch_config
 
   if ! _in_gee_repo; then
     _fatal "Not in a gee repo directory, aborting further repairs."
@@ -3416,6 +3432,10 @@ function gee__repair() {
   for DIR in "${REPO_DIR}"/*; do
     BRANCH="$(basename "${DIR}")"
     cd "${DIR}"
+    if [[ ! -e ./.git ]]; then
+      _warn "Skipping non-git directory ${DIR}"
+      continue
+    fi
     OBRANCH="$(_get_current_branch)"
 
     # Give user opportunity to abort in-progress rebase operations:
