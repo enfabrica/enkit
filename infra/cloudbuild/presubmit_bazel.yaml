@@ -19,7 +19,7 @@ steps:
     entrypoint: bash
     args:
       - -c
-      - infra/cloudbuild/helpers/git_rebase_pr.sh
+      - infra/cloudbuild/helpers/git_rebase_pr.sh 100
     volumes:
       - name: ssh
         path: /root/.ssh

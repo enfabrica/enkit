@@ -11,10 +11,14 @@ set -e
 #    entrypoint: bash
 #    args:
 #      - -c
-#      - infra/cloudbuild/helpers/git_rebase_pr.sh
+#      - infra/cloudbuild/helpers/git_rebase_pr.sh 100
 #    volumes:
 #      - name: ssh
 #        path: /root/.ssh
+
+# Depth to search for a common merge-base between the current commit and the
+# base branch (typically master)
+readonly FETCH_DEPTH="$1"
 
 # Impersonate PR author when rebasing
 # Rebasing will reauthor commits, and as no author is configured by default,
@@ -42,7 +46,7 @@ git checkout -b github_pr
 # period t" where t is something like one week, and then we take that position
 # that PRs must be rebased at least weekly if one wants presubmits to run
 # properly.
-git fetch --deepen=100
+git fetch --deepen="${FETCH_DEPTH}"
 
 # Rebase or error
 # TODO(scott): Add instructions for rebasing or a pointer to such instructions
