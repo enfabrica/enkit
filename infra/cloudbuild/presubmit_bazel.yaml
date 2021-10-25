@@ -34,6 +34,7 @@ steps:
       - --end=github_pr
       - --affected_targets_file=/affected-targets/build.txt
       - --affected_tests_file=/affected-targets/test.txt
+      - --loglevel-console=info
     volumes:
       - name: affected-targets
         path: /affected-targets
