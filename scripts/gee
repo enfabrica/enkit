@@ -155,6 +155,7 @@ declare -A MERGEBASES  # initialized by _load_parents_file
 declare -A BRANCH_TO_WORKTREE=()
 readonly TRUE=0
 readonly FALSE=1
+readonly GEE_ON_ASTORE="test/gee"
 readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
 readonly JQ=/usr/bin/jq
@@ -1350,7 +1351,7 @@ function _interactive_conflict_resolution() {
             ABORT=1
             ;;
           *)
-            _error "Invalid choice: ${RESP}"
+            _warn "Invalid choice: ${RESP}"
             _info \
               "Options are:" \
               "  n: Keep (N)ewer file (from the patch being applied)." \
@@ -1580,9 +1581,9 @@ function _update_from_upstream() {
     fi
   fi
 
+  local -a COUNTS=()
   read -r -a COUNTS < \
-    <( "${GIT}" rev-list --left-right --count "upstream/${UPSTREAM_BRANCH}...${LOCAL_BRANCH}" ) \
-    | cat
+    <( "${GIT}" rev-list --left-right --count "upstream/${UPSTREAM_BRANCH}...${LOCAL_BRANCH}" | cat)
   if (( COUNTS[0] != 0 )); then
     _fatal "pull failed: upstream/${UPSTREAM_BRANCH} is ${COUNTS[1]} commits ahead of ${LOCAL_BRANCH}"
   fi
@@ -1596,8 +1597,7 @@ function _update_main() {
   # check for local changes
   local -a CHANGES
   read -r -a CHANGES < \
-    <( "${GIT}" diff --name-only ) \
-    | cat
+    <( "${GIT}" diff --name-only | cat)
   if [[ "${#CHANGES[@]}" != 0 ]]; then
     _warn "${MAIN} branch contains uncommitted changes."
   fi
@@ -1961,9 +1961,9 @@ function gee__diff() {
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
   if (( "$#" )); then
-    _git_can_fail diff "${PARENT_BRANCH}" -- "$@"
+    _git_can_fail diff "${PARENT_BRANCH}"...HEAD -- "$@"
   else
-    _git_can_fail diff "${PARENT_BRANCH}"
+    _git_can_fail diff "${PARENT_BRANCH}"...HEAD
   fi
   if _branch_has_unstaged_changes; then
     _info "Note: This branch contains uncommitted changes."
@@ -3568,6 +3568,64 @@ END_OF_BASH_COMPLETION_SETUP
 }
 
 ##########################################################################
+# upgrade command
+##########################################################################
+
+_register_help "upgrade" "Upgrade the gee tool." <<'EOT'
+Usage: gee upgrade [--check]
+EOT
+
+function gee__upgrade() {
+  local CUR_MD5 NEW_MD5
+  CUR_MD5="$(md5sum "$0" | awk '{print $1}')"
+  NEW_MD5=""
+  local -a ASTORE_OUTPUT=()
+  if _read_cmd ASTORE_OUTPUT "${ENKIT}" astore list "${GEE_ON_ASTORE}"; then
+    local -a FIELDS
+    read -r -a FIELDS <<< "${ASTORE_OUTPUT[2]}"
+    if [[ "${#FIELDS[@]}" -eq 10 ]]; then
+      NEW_MD5="${FIELDS[5]}"
+    else
+      _warn "Unexpected output from astore:" "${ASTORE_OUTPUT[2]}"
+    fi
+  else
+    _warn "Could not access astore, perhaps you need to run \"enkit auth\"?"
+  fi
+
+  if [[ -z "${NEW_MD5}" ]]; then
+    _warn "Could not check for a newer version of gee."
+    return
+  fi
+
+  if [[ "${CUR_MD5}" != "${NEW_MD5}" ]]; then
+    if _confirm_default_yes "A new version of gee is available.  Install? (Y/n)  "; then
+      mkdir -p ~/bin
+      if [[ -f ~/bin/gee ]]; then
+        # make a backup
+        rm -f ~/bin/gee.backup
+        mv -f ~/bin/gee ~/bin/gee.backup
+      fi
+      cd ~/bin
+      _cmd enkit astore download "${GEE_ON_ASTORE}"
+      if ! [[ -f ~/bin/gee ]]; then
+        _warn "Could not create ~/bin/gee, restoring backup."
+        _cmd mv -f ~/bin/gee.backup ~/bin/gee
+        if ! [[ -f ~/bin/gee ]]; then
+          _die "Could not even restore backup."
+        fi
+      fi
+      chmod +x ~/bin/gee
+      if [[ -f ~/bin/gee.backup ]]; then 
+        rm -f ~/bin/gee.backup
+      fi
+      _info "gee has been upgraded."
+    fi
+  else
+    _info "gee is already up-to-date."
+  fi
+}
+
+##########################################################################
 # version command
 ##########################################################################
 
@@ -3577,7 +3635,7 @@ EOT
 
 function gee__version() {
   echo "gee version ${VERSION}"
-  sha256sum "$0"
+  md5sum "$0"
   local TOOL_ERROR=0
   for tool in "${GIT}" "${GH}" "${JQ}"; do
     if ! [[ -x "${tool}" ]]; then

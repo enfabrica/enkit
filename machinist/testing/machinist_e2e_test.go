@@ -25,15 +25,30 @@ import (
 // TODO (adam): write e2e testing docs
 // TODO (adam): run e2e testing over the wire, buffcon for unit tests
 func TestJoinServerAndPoll(t *testing.T) {
-	machinistDnsPort, customResolver := registerPort(t)
-	a, err := machinistDnsPort.Address()
+	dnsLis, customResolver := registerPort(t)
+	dnsAddr, err := dnsLis.Address()
 	assert.Nil(t, err)
 
 	lis := bufconn.Listen(2048 * 2048)
 
 	rng := rand.New(srand.Source)
 	stateFileName := filepath.Join(os.TempDir(), strconv.Itoa(rng.Int())+".json")
-	s, mController, err := createNewControlPlane(t, lis, machinistDnsPort, a.Port, stateFileName)
+	s, mController, err := createNewControlPlane(t, []mserver.ControllerModifier{
+		mserver.WithStateWriteDuration("50ms"),
+		mserver.WithAllRecordsRefreshRate("50ms"),
+		mserver.WithKDnsFlags(
+			kdns.WithTCPListener(dnsLis),
+			kdns.WithHost(dnsAddr.IP.String()),
+			kdns.WithPort(dnsAddr.Port),
+			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
+		),
+		mserver.WithStateFile(stateFileName),
+	}, []mserver.Modifier{
+		mserver.WithMachinistFlags(
+			config.WithListener(lis),
+			config.WithInsecure(),
+		),
+	})
 	assert.Nil(t, err)
 	go func() {
 		assert.Nil(t, s.Run())
@@ -91,19 +106,38 @@ func TestJoinServerAndPoll(t *testing.T) {
 	tagsRes, err := customResolver.LookupTXT(context.TODO(), "test01.enkit")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"big", "heavy"}, tagsRes)
-
+	allRecordsRes, err := customResolver.LookupHost(context.TODO(), "_all.enkitdev")
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(allRecordsRes))
 	assert.Nil(t, s.Stop())
 	assert.Nil(t, lis.Close())
+	assert.Equal(t, []string{"10.0.0.4", "10.0.0.1"}, allRecordsRes)
 	time.Sleep(20 * time.Millisecond)
 
 	//Test serialization
-	machinistDnsPort, customResolver = registerPort(t)
-	a, err = machinistDnsPort.Address()
-	assert.Nil(t, err)
-	mainServer, _, err := createNewControlPlane(t, bufconn.Listen(2048*2048), machinistDnsPort, a.Port, stateFileName)
+	dnsLis, customResolver = registerPort(t)
+	dnsAddr, err = dnsLis.Address()
+	assert.NoError(t, err)
+	lis = bufconn.Listen(2048 * 2048)
+	mainServer, _, err := createNewControlPlane(t, []mserver.ControllerModifier{
+		mserver.WithStateWriteDuration("50ms"),
+		mserver.WithKDnsFlags(
+			kdns.WithTCPListener(dnsLis),
+			kdns.WithHost(dnsAddr.IP.String()),
+			kdns.WithPort(dnsAddr.Port),
+			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
+		),
+		mserver.WithAllRecordsRefreshRate("50ms"),
+		mserver.WithStateFile(stateFileName),
+	}, []mserver.Modifier{
+		mserver.WithMachinistFlags(
+			config.WithListener(lis),
+			config.WithInsecure(),
+		),
+	})
 	assert.Nil(t, err)
 	go func() {
-		assert.Nil(t, mainServer.Run())
+		assert.NoError(t, mainServer.Run())
 	}()
 	time.Sleep(50 * time.Millisecond)
 	res, err = customResolver.LookupHost(context.TODO(), "test01.enkitdev")
@@ -118,7 +152,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 
 func joinNodeToMaster(t *testing.T, opts []machine.NodeModifier) *machine.Machine {
 	n, err := machine.New(opts...)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Nil(t, n.Init())
 	go func() {
 		assert.Nil(t, n.BeginPolling())
@@ -126,23 +160,10 @@ func joinNodeToMaster(t *testing.T, opts []machine.NodeModifier) *machine.Machin
 	return n
 }
 
-func createNewControlPlane(t *testing.T, l net.Listener, dnsListener net.Listener, p int, stateFile string) (*mserver.ControlPlane, *mserver.Controller, error) {
-	mController, err := mserver.NewController(
-		mserver.DnsPort(p),
-		mserver.WithStateWriteDuration("50ms"),
-		mserver.WithKDnsFlags(
-			kdns.WithListener(dnsListener),
-			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
-		),
-		mserver.WithStateFile(stateFile),
-	)
+func createNewControlPlane(t *testing.T, mods []mserver.ControllerModifier, cmods []mserver.Modifier) (*mserver.ControlPlane, *mserver.Controller, error) {
+	mController, err := mserver.NewController(mods...)
 	assert.Nil(t, err)
-	s, err := mserver.New(
-		mserver.WithController(mController),
-		mserver.WithMachinistFlags(
-			config.WithListener(l),
-			config.WithInsecure(),
-		))
+	s, err := mserver.New(append(cmods, mserver.WithController(mController))...)
 	return s, mController, err
 }
 
@@ -155,7 +176,7 @@ func registerPort(t *testing.T) (*knetwork.PortDescriptor, *net.Resolver) {
 			d := net.Dialer{
 				Timeout: time.Millisecond * time.Duration(10000),
 			}
-			return d.DialContext(ctx, network, machinistDnsPort.Addr().String())
+			return d.DialContext(ctx, "tcp", machinistDnsPort.Addr().String())
 		},
 	}
 	return machinistDnsPort, customResolver

@@ -8,6 +8,7 @@ require (
 	cloud.google.com/go/storage v1.10.0
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6 // indirect
+	github.com/bazelbuild/buildtools v0.0.0-20211007154642-8dd79e56e98e
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -19,6 +20,7 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/color v1.10.0
+	github.com/fullstorydev/grpcurl v1.8.5 // indirect
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/go-lintpack/lintpack v0.5.2 // indirect
 	github.com/golang-collections/go-datastructures v0.0.0-20150211160725-59788d5eb259 // indirect
@@ -31,8 +33,10 @@ require (
 	github.com/golangci/gosec v0.0.0-20190211064107-66fb7fc33547 // indirect
 	github.com/golangci/ineffassign v0.0.0-20190609212857-42439a7714cc // indirect
 	github.com/golangci/prealloc v0.0.0-20180630174525-215b22d4de21 // indirect
+	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/improbable-eng/grpc-web v0.13.0
 	github.com/kataras/muxie v1.1.1
@@ -47,6 +51,7 @@ require (
 	github.com/pquerna/cachecontrol v0.0.0-20200921180117-858c6e7e6b7e // indirect
 	github.com/prashantv/gostub v1.0.0 // indirect
 	github.com/prometheus/client_golang v0.9.3
+	github.com/psanford/memfs v0.0.0-20210214183328-a001468d78ef // indirect
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/shirou/gopsutil v0.0.0-20180427012116-c95755e4bcd7 // indirect
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
@@ -67,7 +72,8 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
 	golang.org/x/sys v0.0.0-20210910150752-751e447fb3d0 // indirect
 	google.golang.org/api v0.30.0
-	google.golang.org/grpc v1.36.0
+	google.golang.org/grpc v1.37.0
+	google.golang.org/protobuf v1.26.0
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect

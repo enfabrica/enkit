@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 go_test(
     name = "go_default_test",
     srcs = ["machinist_e2e_test.go"],
-    race = "on",
     deps = [
         "//lib/knetwork:go_default_library",
         "//lib/knetwork/kdns:go_default_library",
