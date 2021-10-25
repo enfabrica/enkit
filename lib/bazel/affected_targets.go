@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/enfabrica/enkit/lib/logger"
 )
 
-func GetAffectedTargets(start string, end string) ( /* changedRules */ []*Target /* changedTests */, []*Target, error) {
+func GetAffectedTargets(start string, end string, log logger.Logger) ( /* changedRules */ []*Target /* changedTests */, []*Target, error) {
 	// Open the bazel workspaces, using a temporary output_base. Since the
 	// temporary worktrees created above will have a different path on every
 	// invocation, by default bazel will create a new cache directory for them,
@@ -47,6 +49,7 @@ func GetAffectedTargets(start string, end string) ( /* changedRules */ []*Target
 	startWorkspace, err := OpenWorkspace(
 		start,
 		WithOutputBase(startOutputBase),
+		WithLogging(log),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
@@ -54,6 +57,7 @@ func GetAffectedTargets(start string, end string) ( /* changedRules */ []*Target
 	endWorkspace, err := OpenWorkspace(
 		end,
 		WithOutputBase(endOutputBase),
+		WithLogging(log),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
@@ -69,21 +73,28 @@ func GetAffectedTargets(start string, end string) ( /* changedRules */ []*Target
 	}
 
 	// Get all target info for both VCS time points.
+	log.Infof("Querying dependency graph for 'before' workspace...")
 	startResults, err := startWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogStart)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to query deps for start point: %w", err)
 	}
+	log.Infof("Queried info for %d targets from 'before' workspace", len(startResults.Targets))
 
+	log.Infof("Querying dependency graph for 'after' workspace...")
 	endResults, err := endWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogEnd)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to query deps for end point: %w", err)
 	}
+	log.Infof("Queried info for %d targets from 'after' workspace", len(startResults.Targets))
 
+	log.Infof("Calculating affected targets...")
 	diff, err := calculateAffected(startResults, endResults)
 	if err != nil {
 		return nil, nil, err
 	}
+	log.Infof("Found %d affected targets", len(diff))
 
+	log.Infof("Filtering targets...")
 	var changedRules []*Target
 	var changedTests []*Target
 	for _, targetName := range diff {
@@ -98,6 +109,7 @@ func GetAffectedTargets(start string, end string) ( /* changedRules */ []*Target
 	}
 	sort.Slice(changedRules, func(i, j int) bool { return changedRules[i].Name() > changedRules[j].Name() })
 	sort.Slice(changedTests, func(i, j int) bool { return changedTests[i].Name() > changedTests[j].Name() })
+	log.Infof("Found %d affected rule targets and %d affected tests", len(changedRules), len(changedTests))
 
 	return changedRules, changedTests, nil
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
 )
 
@@ -21,6 +22,8 @@ type subcommand interface {
 type baseOptions struct {
 	// Bazel's cache directory for this workspace.
 	OutputBase string
+	// Logging object for internal log messages
+	Log logger.Logger
 }
 
 // Option modifies Bazel startup options.
@@ -32,6 +35,12 @@ type BaseOptions []BaseOption
 func WithOutputBase(outputBase string) BaseOption {
 	return func(o *baseOptions) {
 		o.OutputBase = outputBase
+	}
+}
+
+func WithLogging(log logger.Logger) BaseOption {
+	return func(o *baseOptions) {
+		o.Log = log
 	}
 }
 
