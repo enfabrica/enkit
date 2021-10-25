@@ -44,10 +44,10 @@ type AffectedTargets struct {
 	*cobra.Command
 	root *Root
 
-	Start               string
-	End                 string
-	RepoRoot            string
-	Universe            []string
+	Start    string
+	End      string
+	RepoRoot string
+	Universe []string
 }
 
 func NewAffectedTargets(root *Root) *AffectedTargets {
@@ -72,6 +72,7 @@ func NewAffectedTargets(root *Root) *AffectedTargets {
 
 type AffectedTargetsList struct {
 	*cobra.Command
+	root   *Root
 	parent *AffectedTargets
 
 	AffectedTargetsFile string
@@ -90,6 +91,7 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
   $ enkit bazel affected-targets list --start=HEAD~1 --end=HEAD
         List affected targets in the most recent commit.`,
 		},
+		root:   parent.root,
 		parent: parent,
 	}
 	command.Command.RunE = command.Run
@@ -115,25 +117,31 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	// Create temporary worktrees in which to execute bazel commands.
 	// If the end commit is not provided, use the current git directory as the end
 	// worktree, which will include uncommitted local changes.
+	c.root.BaseFlags.Log.Infof("Checking out %q to tempdir...", c.parent.Start)
 	startTree, err := git.NewTempWorktree(gitRoot, c.parent.Start)
 	if err != nil {
 		return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.Start, err)
 	}
 	defer startTree.Close()
 	startWS := filepath.Clean(filepath.Join(startTree.Root(), gitToBazelPath))
+	c.root.BaseFlags.Log.Infof("Checked out %q to %q", c.parent.Start, startTree.Root())
 
 	endTreePath := gitRoot
 	if c.parent.End != "" {
+		c.root.BaseFlags.Log.Infof("Checking out %q to tempdir...", c.parent.End)
 		endTree, err := git.NewTempWorktree(gitRoot, c.parent.End)
 		if err != nil {
 			return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.End, err)
 		}
 		defer endTree.Close()
 		endTreePath = endTree.Root()
+	} else {
+		c.root.BaseFlags.Log.Infof("Using %d as ending working directory", endTreePath)
 	}
+	c.root.BaseFlags.Log.Infof("Checked out %q to %q", c.parent.End, endTreePath)
 	endWS := filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
 
-	rules, tests, err := bazel.GetAffectedTargets(startWS, endWS)
+	rules, tests, err := bazel.GetAffectedTargets(startWS, endWS, c.root.BaseFlags.Log)
 	if err != nil {
 		return fmt.Errorf("failed to calculate affected targets: %w", err)
 	}

@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/enfabrica/enkit/lib/logger"
+
 	"github.com/bazelbuild/buildtools/wspace"
 )
 
@@ -36,7 +38,9 @@ func FindRoot(dir string) (string, error) {
 // outputBase is provided, --output_base will be provided to all commands, which
 // can allow for caching of bazel data when temp workspaces are used.
 func OpenWorkspace(rootPath string, options ...BaseOption) (*Workspace, error) {
-	opts := &baseOptions{}
+	opts := &baseOptions{
+		Log: &logger.NilLogger{},
+	}
 	BaseOptions(options).apply(opts)
 	w := &Workspace{
 		root:    rootPath,
@@ -52,6 +56,7 @@ func OpenWorkspace(rootPath string, options ...BaseOption) (*Workspace, error) {
 	}
 	w.bazelBin = os.DirFS(generatedFilesDir)
 	w.sourceDir = os.DirFS(sourceDir)
+	w.options.Log.Debugf("Opened bazel workspace at %q", rootPath)
 	return w, nil
 }
 
