@@ -6,9 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
-func GetAffectedTargets(start string, end string) ([]string, error) {
+func GetAffectedTargets(start string, end string) ( /* changedRules */ []*Target /* changedTests */, []*Target, error) {
 	// Open the bazel workspaces, using a temporary output_base. Since the
 	// temporary worktrees created above will have a different path on every
 	// invocation, by default bazel will create a new cache directory for them,
@@ -21,22 +22,22 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 	// avoid filling up /tmp in the dev container.
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user's cache dir: %w", err)
+		return nil, nil, fmt.Errorf("failed to get user's cache dir: %w", err)
 	}
 	cacheDir = filepath.Join(cacheDir, "enkit", "bazel")
 	err = os.MkdirAll(cacheDir, 0755)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make root cache dir: %w", err)
+		return nil, nil, fmt.Errorf("failed to make root cache dir: %w", err)
 	}
 	startOutputBase, err := ioutil.TempDir(cacheDir, "output_base_*")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temporary output_base: %w", err)
+		return nil, nil, fmt.Errorf("failed to create temporary output_base: %w", err)
 	}
 	defer os.RemoveAll(startOutputBase)
 
 	endOutputBase, err := ioutil.TempDir(cacheDir, "output_base_*")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temporary output_base: %w", err)
+		return nil, nil, fmt.Errorf("failed to create temporary output_base: %w", err)
 	}
 	defer os.RemoveAll(endOutputBase)
 
@@ -48,42 +49,57 @@ func GetAffectedTargets(start string, end string) ([]string, error) {
 		WithOutputBase(startOutputBase),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
+		return nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 	endWorkspace, err := OpenWorkspace(
 		end,
 		WithOutputBase(endOutputBase),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
+		return nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 
 	workspaceLogStart, err := WithTempWorkspaceRulesLog()
 	if err != nil {
-		return nil, fmt.Errorf("start workspace: %w", err)
+		return nil, nil, fmt.Errorf("start workspace: %w", err)
 	}
 	workspaceLogEnd, err := WithTempWorkspaceRulesLog()
 	if err != nil {
-		return nil, fmt.Errorf("end workspace: %w", err)
+		return nil, nil, fmt.Errorf("end workspace: %w", err)
 	}
 
 	// Get all target info for both VCS time points.
 	startResults, err := startWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogStart)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query deps for start point: %w", err)
+		return nil, nil, fmt.Errorf("failed to query deps for start point: %w", err)
 	}
 
 	endResults, err := endWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogEnd)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query deps for end point: %w", err)
+		return nil, nil, fmt.Errorf("failed to query deps for end point: %w", err)
 	}
 
 	diff, err := calculateAffected(startResults, endResults)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return diff, nil
+	var changedRules []*Target
+	var changedTests []*Target
+	for _, targetName := range diff {
+		target := endResults.Targets[targetName]
+		if target.ruleType() == "" {
+			continue
+		}
+		changedRules = append(changedRules, target)
+		if strings.HasSuffix(target.ruleType(), "_test") {
+			changedTests = append(changedTests, target)
+		}
+	}
+	sort.Slice(changedRules, func(i, j int) bool { return changedRules[i].Name() > changedRules[j].Name() })
+	sort.Slice(changedTests, func(i, j int) bool { return changedTests[i].Name() > changedTests[j].Name() })
+
+	return changedRules, changedTests, nil
 }
 
 func calculateAffected(startResults, endResults *QueryResult) ([]string, error) {
