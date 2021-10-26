@@ -3,14 +3,17 @@ package commands
 import (
 	"fmt"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	ppb "github.com/enfabrica/enkit/enkit/proto"
 	"github.com/enfabrica/enkit/lib/bazel"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/git"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 type Root struct {
@@ -44,10 +47,10 @@ type AffectedTargets struct {
 	*cobra.Command
 	root *Root
 
-	Start    string
-	End      string
-	RepoRoot string
-	Universe []string
+	Start           string
+	End             string
+	RepoRoot        string
+	PresubmitConfig string
 }
 
 func NewAffectedTargets(root *Root) *AffectedTargets {
@@ -63,7 +66,7 @@ func NewAffectedTargets(root *Root) *AffectedTargets {
 	command.PersistentFlags().StringVarP(&command.Start, "start", "s", "HEAD", "Git committish of 'before' revision")
 	command.PersistentFlags().StringVarP(&command.End, "end", "e", "", "Git committish of 'end' revision, or empty for current dir with uncomitted changes")
 	command.PersistentFlags().StringVarP(&command.RepoRoot, "repo_root", "r", "", "Path to the git repository root; autodetected from $PWD if unset")
-	command.PersistentFlags().StringSliceVarP(&command.Universe, "universe", "u", []string{"//..."}, "Target universe in which to search for dependencies")
+	command.PersistentFlags().StringVar(&command.PresubmitConfig, "presubmit_config", "", "Path to presubmit configuration to read target filtering options")
 
 	command.AddCommand(NewAffectedTargetsList(command).Command)
 
@@ -101,6 +104,15 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 }
 
 func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
+	config := defaultConfig()
+	if c.parent.PresubmitConfig != "" {
+		var err error
+		config, err = readConfig(c.parent.PresubmitConfig)
+		if err != nil {
+			return err
+		}
+	}
+
 	startDir := c.parent.RepoRoot
 	var err error
 	if startDir == "" {
@@ -141,7 +153,7 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	c.root.BaseFlags.Log.Infof("Checked out %q to %q", c.parent.End, endTreePath)
 	endWS := filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
 
-	rules, tests, err := bazel.GetAffectedTargets(startWS, endWS, c.root.BaseFlags.Log)
+	rules, tests, err := bazel.GetAffectedTargets(startWS, endWS, config, c.root.BaseFlags.Log)
 	if err != nil {
 		return fmt.Errorf("failed to calculate affected targets: %w", err)
 	}
@@ -183,6 +195,24 @@ func writeTargets(targets []*bazel.Target, path string) error {
 		fmt.Fprintf(f, "%s\n", t.Name())
 	}
 	return nil
+}
+
+func readConfig(configPath string) (*ppb.PresubmitConfig, error) {
+	contents, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config %q: %w", configPath, err)
+	}
+	var config ppb.PresubmitConfig
+	if err := prototext.Unmarshal(contents, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse config %q: %w", configPath, err)
+	}
+	return &config, nil
+}
+
+func defaultConfig() *ppb.PresubmitConfig {
+	return &ppb.PresubmitConfig{
+		IncludePatterns: []string{"//..."},
+	}
 }
 
 // bazelGitRoot returns:
