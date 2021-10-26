@@ -3003,7 +3003,7 @@ function gee__pr_submit() {
     _fatal "Will not submit PR."
   fi
   if [[ "${COUNTS[0]}" -gt 0 ]]; then
-    _warn "Local ${CURRENT_BRANCH} is ${COUNTS[1]} commits ahead of remote origin/${CURRENT_BRANCH}."
+    _warn "Local ${CURRENT_BRANCH} is ${COUNTS[0]} commits ahead of remote origin/${CURRENT_BRANCH}."
     _fatal "Will not submit PR."
   fi
 
