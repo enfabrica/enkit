@@ -86,6 +86,32 @@ func TestNewFuseShareCommand(t *testing.T) {
 	assert.Nil(t, err)
 	defer conn.Close()
 	c, err := enfuse.NewClient(&enfuse.ConnectConfig{Port: a.Port, Url: "127.0.0.1"})
+	m, err := fstestutil.MountedT(t, c, nil)
+	assert.NoError(t, err)
+	defer m.Close()
+	var fusePaths []string
+	assert.NoError(t, filepath.Walk(m.Dir, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			fusePaths = append(fusePaths, path)
+			assert.Greater(t, int(info.Size()), 0)
+		}
+		return err
+	}))
+
+	assert.Equal(t, len(generatedFiles), len(fusePaths))
+	for _, genFile := range generatedFiles {
+		for _, realFile := range fusePaths {
+			if realFile == genFile.Name {
+				btes, err := ioutil.ReadFile(realFile)
+				assert.NoError(t, err)
+				assert.Equal(t, len(genFile.Data), len(btes))
+				assert.Truef(t, reflect.DeepEqual(btes, genFile.Data), "dta returned by fs equal")
+			}
+		}
+	}
 	assert.NoError(t, err)
 	t.Run("Sanity Test", func(t *testing.T) {
 		testFile(t, c, generatedFiles)

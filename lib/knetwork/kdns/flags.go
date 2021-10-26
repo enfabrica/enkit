@@ -7,5 +7,6 @@ type IFlags interface {
 }
 
 type Flags struct {
-	Listener net.Listener
+	TCPListener net.Listener
+	UDPListener net.PacketConn
 }

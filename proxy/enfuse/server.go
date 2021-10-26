@@ -97,7 +97,7 @@ func (s *FuseServer) Serve() error {
 			kcerts.WithCountries([]string{"US"}),
 			kcerts.WithOrganizations([]string{"Enfabrica"}),
 			kcerts.WithValidUntil(time.Now().AddDate(3, 0, 0)),
-			kcerts.WithNotValidBefore(time.Now().Add(-10*time.Minute)),
+			kcerts.WithNotValidBefore(time.Now().Add(-10*time.Minute)), // we add this for misconfigured clock wiggle room
 			kcerts.WithDnsNames(s.cfg.DnsNames),
 			kcerts.WithIpAddresses(s.cfg.IpAddresses),
 		)

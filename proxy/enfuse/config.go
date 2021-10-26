@@ -12,7 +12,6 @@ type ConnectConfig struct {
 	Port              int
 	Url               string
 	L                 net.Listener
-	PublicKey         string
 	ClientCredentials *x509.CertPool
 	RootCAs           *x509.CertPool
 	Certificate       tls.Certificate
