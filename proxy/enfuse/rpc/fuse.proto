@@ -67,11 +67,11 @@ message CreateSessionResponse {
   string client_rpc_endpoint = 6; // Endpoint of the relay server to fetch connection information (i.e. where to call RelayConnect)
 }
 
-message CreateClientConnectionRequest {
+message GetClientInformationRequest {
   uint64 crypto_hash = 1; // Completed hash of the relay information.
 }
 
-message CreateClientConnectionResponse {
+message GetClientInformationResponse {
   ClientTlsConfig tls_config = 1;
 }
 
@@ -94,11 +94,11 @@ message ListConnectionsResponse {
 }
 
 // RelayNegotiator is the relay server for a fuse client. The general flow is as follows
-// NewRelay -> use response to build printable command like `connect --relay=<rpc_endpoint> --socket=<websocket_endpoint> --hash=<hash>`
-// RelayConnect -> client uses to fetch mTLS information. The websocket_endpoint is unprotected, mTLS is required to actually establish a connection
-// RelayUsers -> the sharing server can use to see who is connected/locally get information on connections
+// CreateSession -> use response to build printable command like `connect --relay=<rpc_endpoint> --socket=<websocket_endpoint> --hash=<hash>`
+// GetClientInformation -> client uses to fetch mTLS information. The websocket_endpoint is unprotected, mTLS is required to actually establish a connection
+// ListConnections -> the sharing server can use to see who is connected/locally get information on connections
 service RelayNegotiator {
   rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse) {}
-  rpc CreateClientConnection(CreateClientConnectionRequest) returns (CreateClientConnectionResponse){}
+  rpc GetClientInformation(GetClientInformationRequest) returns (GetClientInformationResponse){}
   rpc ListConnections(ListConnectionsRequest) returns (stream ListConnectionsResponse){}
 }
