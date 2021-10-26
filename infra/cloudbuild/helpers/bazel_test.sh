@@ -19,7 +19,7 @@ set -e
 # Path to file containing list of targets to test, one per line
 readonly TARGETS_FILE="$1"
 
-if [ -s "${TARGETS_FILE}" ]; then 
+if [[ ! -s "${TARGETS_FILE}" ]]; then 
   echo "No targets to test; skipping"
   exit 0
 fi
