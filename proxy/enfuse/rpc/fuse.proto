@@ -50,7 +50,7 @@ message ClientTlsConfig {
 }
 
 // NewRelay is the initial request a server will send out to the relay handler. It contains the tls information necessary for
-// clients to
+// clients to connect to the server.
 message NewRelayRequest {
   ClientTlsConfig tls_config = 1;
   uint64 ttl = 2; // How long the session should last.
