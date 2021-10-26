@@ -73,7 +73,7 @@ func (cc *ConnectConfig) ApplyClientEncryptionInfo(cei *ClientEncryptionInfo) er
 }
 
 // ClientEncryptionInfo contains the information necessary to connect to a server via mTLS. In this model, the DCA is
-// embedded with the client pk and serves as the CA verifier client side.
+// held on the same server that has the Root CA. DCA revocation is still todo.
 // It is designed to be easily serialized and deserialized or otherwise translated.
 type ClientEncryptionInfo struct {
 	CaPublicPem         []byte
