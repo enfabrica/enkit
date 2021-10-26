@@ -41,3 +41,64 @@ service FuseController {
   rpc FileInfo(FileInfoRequest) returns (FileInfoResponse){} // Returns all the File Infos for a given directory.
   rpc SingleFileInfo(SingleFileInfoRequest) returns (SingleFileInfoResponse){}  // File Info for a single file.
 }
+
+message ClientTlsConfig {
+  bytes client_private_key = 1; // Client private key, PEM Encoded ASN Der.1 .
+  bytes client_public_key = 2; // Client public key, PEM Encoded ASN Der.1 .
+  bytes client_dca_pem = 3; // DCA public key, PEM Encoded ASN Der.1 .
+  bytes client_ca_pem = 4; // CA public key, PEM Encoded ASN Der.1 .
+}
+
+// NewRelay is the initial request a server will send out to the relay handler. It contains the tls information necessary for
+// clients to
+message NewRelayRequest {
+  ClientTlsConfig tls_config = 1;
+  uint64 ttl = 2; // How long the session should last.
+}
+
+message NewRelayResponse {
+  // Completed hash of the Relay information. This is a sha512(client_public_key + client_private_key + client_dca_pem + client_ca_pem).
+  // If the information does not match what the server has locally calculated, the server should close the connection.
+  uint64 crypto_hash = 1;
+  string session = 2; // Unique session uuid (uuidv4).
+  uint64 ttl = 3; // Time until the session expires. When it expires, all connections are closed.
+  string server_endpoint = 4; // FQDN of the url to connect as a server.
+  string client_websocket_endpoint = 5; // FQDN of the url to connect as a client to a websocket.
+  string client_rpc_endpoint = 6; // Endpoint of the relay server to fetch connection information (i.e. where to call RelayConnect)
+}
+
+message RelayConnectRequest {
+  uint64 crypto_hash = 1; // Completed hash of the relay information.
+}
+
+message RelayConnectResponse {
+  ClientTlsConfig tls_config = 1;
+}
+
+// RelayConnectionRequest is how a sharing client requests information about their various websocket connections.
+message RelayConnectionRequest {
+  uint64 crypto_hash = 1; // hash generated at the start of the flow
+  string session = 2; // uuid generated at start of the flow
+}
+
+// ConnectedUser has their information extracted from the cookies in their connection and from the client daemon
+// todo(adam): figure out which if any metrics to collect
+message ConnectedUser {
+  string name = 1;
+  string uuid = 2;
+  string local = 3;
+}
+
+message RelayConnectionResponse {
+  repeated ConnectedUser users = 1;
+}
+
+// RelayNegotiator is the relay server for a fuse client. The general flow is as follows
+// NewRelay -> use response to build printable command like `connect --relay=<rpc_endpoint> --socket=<websocket_endpoint> --hash=<hash>`
+// RelayConnect -> client uses to fetch mTLS information. The websocket_endpoint is unprotected, mTLS is required to actually establish a connection
+// RelayUsers -> the sharing server can use to see who is connected/locally get information on connections
+service RelayNegotiator {
+  rpc NewRelay(NewRelayRequest) returns (NewRelayResponse) {}
+  rpc RelayConnect(RelayConnectRequest) returns (RelayConnectResponse){}
+  rpc RelayConnections(RelayConnectionRequest) returns (stream RelayConnectionResponse){}
+}
