@@ -50,8 +50,17 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	} else {
 		fmt.Printf("Kind human, please visit:\n\n")
 	}
-	fmt.Printf("\t%s\n\nTo complete authentication with @%s.\n"+
-		"I'll be waiting for you, but hurry! The request may timeout.\nHit Ctl+C with no regrets to abort.\n", ares.Url, domain)
+  // The following command emits an OSC8 code to embed clickable hyperlinks in
+  // the terminal.
+  // 
+  // OSC8 codes are supported by gnome-terminal, hterm, iTerm, Terminal.  tmux version 3.20a
+  // seems to support OSC8, but tmux 3.0 does not.  The OSC8 codes are (or seem to be) harmless
+  // in terminals that don't support them.
+  //
+  // For more information: https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+  fmt.Printf("\t\033]8;;%s\033\\%s\033]8;;\033\\\n", ares.Url, ares.Url);
+	fmt.Printf("\nTo complete authentication with @%s.\n"+
+		"I'll be waiting for you, but hurry! The request may timeout.\nHit Ctl+C with no regrets to abort.\n", domain)
 	l.Infof("Authentication url is %s, attempting to open with your Os's default browser", ares.Url)
 	// browser.OpenURL blocks depending on permissions level and OS. By running it in a goroutine, we ensure that
 	// the login process does not get stuck waiting for the browser window to be closed.
