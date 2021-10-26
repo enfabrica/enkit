@@ -53,7 +53,7 @@ message ClientTlsConfig {
 // clients to connect to the server.
 message NewRelayRequest {
   ClientTlsConfig tls_config = 1;
-  uint64 ttl = 2; // How long the session should last.
+  uint64 ttl_secs = 2; // How long the session should last.
 }
 
 message NewRelayResponse {
@@ -61,7 +61,7 @@ message NewRelayResponse {
   // If the information does not match what the server has locally calculated, the server should close the connection.
   uint64 crypto_hash = 1;
   string session = 2; // Unique session uuid (uuidv4).
-  uint64 ttl = 3; // Time until the session expires. When it expires, all connections are closed.
+  uint64 ttl_secs = 3; // Time until the session expires. When it expires, all connections are closed.
   string server_endpoint = 4; // FQDN of the url to connect as a server.
   string client_websocket_endpoint = 5; // FQDN of the url to connect as a client to a websocket.
   string client_rpc_endpoint = 6; // Endpoint of the relay server to fetch connection information (i.e. where to call RelayConnect)
