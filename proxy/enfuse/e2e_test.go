@@ -28,11 +28,16 @@ func TestFuseShareEncryption(t *testing.T) {
 	a, err := p.Address()
 	assert.Nil(t, err)
 	pubChan := make(chan *enfuse.ClientEncryptionInfo, 1)
+	// these are the server dns names that get embedded in the root CA. while arbitrary, it's best practice to at least us
+	// a real dns name. Since this is p2p or port-forwarded, in prod this will also be localhost
+	serverDnsNames := []string{"localhost"}
+	// same reason as above
+	serverIpAddresses := []net.IP{net.ParseIP("127.0.0.1")}
 	scfg := &enfuse.ConnectConfig{
 		Url:         "127.0.0.1",
 		Port:        a.Port,
-		DnsNames:    []string{"localhost"},
-		IpAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+		DnsNames:    serverDnsNames,
+		IpAddresses: serverIpAddresses,
 	}
 	s := enfuse.NewServer(
 		enfuse.NewServerConfig(
@@ -49,14 +54,13 @@ func TestFuseShareEncryption(t *testing.T) {
 	clientEncryptionInfo := <-pubChan
 	time.Sleep(10 * time.Millisecond)
 	cfg := &enfuse.ConnectConfig{
-		Url:               "127.0.0.1",
-		Port:              a.Port,
-		ClientCredentials: clientEncryptionInfo.Pool,
-		Certificate:       clientEncryptionInfo.Certificate,
-		RootCAs:           clientEncryptionInfo.RootPool,
-		DnsNames:          []string{"localhost"},
-		IpAddresses:       []net.IP{net.ParseIP("127.0.0.1")},
+		Url:         "127.0.0.1",
+		Port:        a.Port,
+		DnsNames:    serverDnsNames,
+		IpAddresses: serverIpAddresses,
 	}
+	err = cfg.ApplyClientEncryptionInfo(clientEncryptionInfo)
+	assert.NoError(t, err)
 	c, err := enfuse.NewClient(cfg)
 	assert.NoError(t, err)
 	t.Run("Test With Encryption", func(t *testing.T) {

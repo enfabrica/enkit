@@ -27,6 +27,7 @@ go_test(
     tags = [
         "no-sandbox",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//lib/knetwork:go_default_library",

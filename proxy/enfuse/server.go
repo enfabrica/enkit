@@ -93,6 +93,7 @@ func (s *FuseServer) FileInfo(ctx context.Context, request *fusepb.FileInfoReque
 func (s *FuseServer) Serve() error {
 	grpcs := grpc.NewServer()
 	if s.cfg.ClientInfoChan != nil {
+		// Means we are running with mTlS.
 		opts, err := kcerts.NewOptions(
 			kcerts.WithCountries([]string{"US"}),
 			kcerts.WithOrganizations([]string{"Enfabrica"}),
@@ -116,26 +117,23 @@ func (s *FuseServer) Serve() error {
 		if err != nil {
 			return err
 		}
-
 		rootPool := x509.NewCertPool()
-		clientPool := x509.NewCertPool()
-		rootPool.AppendCertsFromPEM(caPemBytes)
-		clientPool.AppendCertsFromPEM(interPemBytes)
-
 		rootCertificate, err := tls.X509KeyPair(caPemBytes, pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(caPk)}))
 		if err != nil {
 			return err
 		}
-		intermediateCertificate, err := tls.X509KeyPair(interPemBytes, pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(interPk)}))
+		rootPool.AppendCertsFromPEM(caPemBytes)
+		interPkPemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(interPk)})
+		intermediateCertificate, err := tls.X509KeyPair(interPemBytes, interPkPemBytes)
 		if err != nil {
 			return err
 		}
-		clientCertificate, err := tls.X509KeyPair(clientCertPemBytes, pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientCertPk)}))
-		if err != nil {
-			return err
+		s.cfg.ClientInfoChan <- &ClientEncryptionInfo{
+			CaPublicPem:         caPemBytes,
+			IntermediateCertPem: interPemBytes,
+			ClientPk:            pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientCertPk)}),
+			ClientCertPem:       clientCertPemBytes,
 		}
-
-		s.cfg.ClientInfoChan <- &ClientEncryptionInfo{Pool: clientPool, RootPool: rootPool, Certificate: clientCertificate}
 		grpcs = grpc.NewServer(
 			grpc.Creds(credentials.NewTLS(&tls.Config{
 				Certificates: []tls.Certificate{rootCertificate, intermediateCertificate},

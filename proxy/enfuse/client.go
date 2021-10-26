@@ -4,10 +4,11 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"crypto/tls"
-	"fmt"
 	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"net"
+	"strconv"
 )
 
 var (
@@ -33,7 +34,7 @@ func NewClient(config *ConnectConfig) (*FuseClient, error) {
 	} else {
 		grpcDialOpts = append(grpcDialOpts, grpc.WithInsecure())
 	}
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", config.Url, config.Port), grpcDialOpts...)
+	conn, err := grpc.Dial(net.JoinHostPort(config.Url, strconv.Itoa(config.Port)), grpcDialOpts...)
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package enfuse
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"github.com/enfabrica/enkit/lib/srand"
 	"math/rand"
 	"net"
@@ -50,10 +51,35 @@ var (
 	}
 )
 
+// ApplyClientEncryptionInfo will add in the ClientEncryptionInfo into the right parameters in the connect config.
+// if the certs are unwell, it will be rejected
+func (cc *ConnectConfig) ApplyClientEncryptionInfo(cei *ClientEncryptionInfo) error {
+	rootPool := x509.NewCertPool()
+	if ok := rootPool.AppendCertsFromPEM(cei.CaPublicPem); !ok {
+		return errors.New("CA certificate is invalid")
+	}
+	cc.RootCAs = rootPool
+	interPool := x509.NewCertPool()
+	if ok := interPool.AppendCertsFromPEM(cei.IntermediateCertPem); !ok {
+		return errors.New("DCA certificate is invalid")
+	}
+	cc.ClientCredentials = interPool
+	cer, err := tls.X509KeyPair(cei.ClientCertPem, cei.ClientPk)
+	if err != nil {
+		return err
+	}
+	cc.Certificate = cer
+	return nil
+}
+
+// ClientEncryptionInfo contains the information necessary to connect to a server via mTLS. In this model, the DCA is
+// embedded with the client pk and serves as the CA verifier client side.
+// It is designed to be easily serialized and deserialized or otherwise translated.
 type ClientEncryptionInfo struct {
-	Pool        *x509.CertPool
-	RootPool    *x509.CertPool
-	Certificate tls.Certificate
+	CaPublicPem         []byte
+	IntermediateCertPem []byte
+	ClientPk            []byte
+	ClientCertPem       []byte
 }
 
 type ServerConfig struct {
