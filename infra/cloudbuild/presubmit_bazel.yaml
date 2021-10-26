@@ -52,7 +52,7 @@ steps:
     entrypoint: bash
     args:
       - -c
-      - cat /affected-targets/build.txt | xargs bazel build
+      - infra/cloudbuild/helpers/bazel_build.sh /affected-targets/build.txt
     volumes:
       - name: affected-targets
         path: /affected-targets
@@ -61,7 +61,7 @@ steps:
     entrypoint: bash
     args:
       - -c
-      - cat /affected-targets/test.txt | xargs bazel test
+      - infra/cloudbuild/helpers/bazel_test.sh /affected-targets/test.txt
     volumes:
       - name: affected-targets
         path: /affected-targets
