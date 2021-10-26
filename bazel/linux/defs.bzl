@@ -801,9 +801,13 @@ def _kernel_test(ctx):
     ki = ctx.attr.kernel_image[KernelImageInfo]
     ri = ctx.attr.rootfs_image[RootfsImageInfo]
     mi = ctx.attr.module[KernelModulesInfo]
+    deps = ctx.attr.deps[KernelModulesInfo]
 
     # Kernel tests assume only one kernel module
     module = mi.modules[0]
+
+    # Assume a single dependency for now
+    dep = deps.modules[0]
 
     # Confirm that the kernel test module is compatible with the precompiled linux kernel executable image.
     if ki.package != mi.package:
@@ -813,11 +817,12 @@ def _kernel_test(ctx):
         )
 
     parser = ctx.attr._parser.files_to_run.executable
-    inputs = [ki.image, ri.image, module, parser]
+    inputs = [ki.image, ri.image, module, dep, parser]
     inputs = depset(inputs, transitive = [
         ctx.attr.kernel_image.files,
         ctx.attr.rootfs_image.files,
         ctx.attr.module.files,
+        ctx.attr.deps.files,
         ctx.attr._parser.files,
     ])
     executable = ctx.actions.declare_file("script.sh")
@@ -828,6 +833,7 @@ def _kernel_test(ctx):
             "{kernel}": ki.image.short_path,
             "{rootfs}": ri.image.short_path,
             "{module}": module.short_path,
+            "{deps}": dep.short_path,
             "{parser}": parser.short_path,
         },
         is_executable = True,
@@ -858,6 +864,11 @@ The test will run locally inside a user-mode linux process.
             mandatory = True,
             providers = [DefaultInfo, KernelModulesInfo],
             doc = "The label of the KUnit linux kernel module to be used for testing. It must define a kunit_test_suite so that when loaded, KUnit will start executing its tests.",
+        ),
+        "deps": attr.label(
+            mandatory = False,
+            providers = [DefaultInfo, KernelModulesInfo],
+            doc = "External modules this test depends on.",
         ),
         "_template": attr.label(
             allow_single_file = True,
