@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/logger"
 )
 
@@ -73,19 +74,33 @@ func GetAffectedTargets(start string, end string, log logger.Logger) ( /* change
 	}
 
 	// Get all target info for both VCS time points.
-	log.Infof("Querying dependency graph for 'before' workspace...")
-	startResults, err := startWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogStart)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to query deps for start point: %w", err)
+	var startResults *QueryResult
+	var endResults *QueryResult
+	errs := goroutine.WaitAll(
+		func() error {
+			log.Infof("Querying dependency graph for 'before' workspace...")
+			var err error
+			startResults, err = startWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogStart)
+			if err != nil {
+				return fmt.Errorf("failed to query deps for start point: %w", err)
+			}
+			log.Infof("Queried info for %d targets from 'before' workspace", len(startResults.Targets))
+			return nil
+		},
+		func() error {
+			log.Infof("Querying dependency graph for 'after' workspace...")
+			var err error
+			endResults, err = endWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogEnd)
+			if err != nil {
+				return fmt.Errorf("failed to query deps for end point: %w", err)
+			}
+			log.Infof("Queried info for %d targets from 'after' workspace", len(endResults.Targets))
+			return nil
+		},
+	)
+	if errs != nil {
+		return nil, nil, errs
 	}
-	log.Infof("Queried info for %d targets from 'before' workspace", len(startResults.Targets))
-
-	log.Infof("Querying dependency graph for 'after' workspace...")
-	endResults, err := endWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogEnd)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to query deps for end point: %w", err)
-	}
-	log.Infof("Queried info for %d targets from 'after' workspace", len(startResults.Targets))
 
 	log.Infof("Calculating affected targets...")
 	diff, err := calculateAffected(startResults, endResults)
