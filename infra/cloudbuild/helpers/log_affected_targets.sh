@@ -22,7 +22,13 @@ readonly CHANGED_TARGETS_FILE="$1"
 readonly CHANGED_TESTS_FILE="$2"
 
 echo "Building affected targets:"
+if [ -s "${CHANGED_TARGETS_FILE}" ]; then
+  echo "(none)"
+fi
 cat "${CHANGED_TARGETS_FILE}"
 echo ""
 echo "Running affected tests:"
+if [ -s "${CHANGED_TESTS_FILE}" ]; then
+  echo "(none)"
+fi
 cat "${CHANGED_TESTS_FILE}"
