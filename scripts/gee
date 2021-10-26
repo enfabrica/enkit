@@ -3401,10 +3401,11 @@ streamline the use of gee.  The following functions are exported:
 
   "gee": invokes "gee $@"
   "gcd": rapidly change between gee branch directories.
-  "__gee_ps1": sets PS1 to a git-aware prompt.
+  "__git_ps1": sets PS1 to a git-aware prompt.
+  "__gee_ps1": a convenience wrapper around "__git_ps1".
 
-To make use of the git-aware prompt, you should modify your .bashrc file to
-contain the line:
+The easiest way to make use of the git-aware prompt is to modify your .bashrc
+file to set PROMPT_COMMAND to "__gee_ps1", as shown below:
 
     export PROMPT_COMMAND="__gee_ps1"
 
@@ -3421,6 +3422,12 @@ GIT_PS1_PROMPT: The PS1-style prompt string to append to every
 GIT_PS1_GEECOLOR: The background color for the prompt when in a gee
   subdirectory.
 GIT_PS1_DEFCOLOR: The background color for the prompt when not in a gee subdir.
+
+If you need even further customization, read the source code of the __git_ps1
+command for more detailed instructions on creating your own custom git-aware
+prompt.  See also:
+
+   https://www.man7.org/linux/man-pages/man1/bash.1.html#PROMPTING
 
 Also sets GEE_BINARY to point to this copy of gee.
 EOT
