@@ -51,12 +51,12 @@ message ClientTlsConfig {
 
 // NewRelay is the initial request a server will send out to the relay handler. It contains the tls information necessary for
 // clients to connect to the server.
-message NewRelayRequest {
+message CreateSessionRequest {
   ClientTlsConfig tls_config = 1;
   uint64 ttl_secs = 2; // How long the session should last.
 }
 
-message NewRelayResponse {
+message CreateSessionResponse {
   // Completed hash of the Relay information. This is a sha512(client_public_key + client_private_key + client_dca_pem + client_ca_pem).
   // If the information does not match what the server has locally calculated, the server should close the connection.
   uint64 crypto_hash = 1;
@@ -67,16 +67,16 @@ message NewRelayResponse {
   string client_rpc_endpoint = 6; // Endpoint of the relay server to fetch connection information (i.e. where to call RelayConnect)
 }
 
-message RelayConnectRequest {
+message CreateClientConnectionRequest {
   uint64 crypto_hash = 1; // Completed hash of the relay information.
 }
 
-message RelayConnectResponse {
+message CreateClientConnectionResponse {
   ClientTlsConfig tls_config = 1;
 }
 
 // RelayConnectionRequest is how a sharing client requests information about their various websocket connections.
-message RelayConnectionRequest {
+message ListConnectionsRequest {
   uint64 crypto_hash = 1; // hash generated at the start of the flow
   string session = 2; // uuid generated at start of the flow
 }
@@ -89,7 +89,7 @@ message ConnectedUser {
   string local = 3;
 }
 
-message RelayConnectionResponse {
+message ListConnectionsResponse {
   repeated ConnectedUser users = 1;
 }
 
@@ -98,7 +98,7 @@ message RelayConnectionResponse {
 // RelayConnect -> client uses to fetch mTLS information. The websocket_endpoint is unprotected, mTLS is required to actually establish a connection
 // RelayUsers -> the sharing server can use to see who is connected/locally get information on connections
 service RelayNegotiator {
-  rpc NewRelay(NewRelayRequest) returns (NewRelayResponse) {}
-  rpc RelayConnect(RelayConnectRequest) returns (RelayConnectResponse){}
-  rpc RelayConnections(RelayConnectionRequest) returns (stream RelayConnectionResponse){}
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse) {}
+  rpc CreateClientConnection(CreateClientConnectionRequest) returns (CreateClientConnectionResponse){}
+  rpc ListConnections(ListConnectionsRequest) returns (stream ListConnectionsResponse){}
 }
