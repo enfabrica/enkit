@@ -49,16 +49,16 @@ message ClientTlsConfig {
   bytes client_ca_pem = 4; // CA public key, PEM Encoded ASN Der.1 .
 }
 
-// NewRelay is the initial request a server will send out to the relay handler. It contains the tls information necessary for
-// clients to connect to the server.
+// CreateSessionRequest is the initial request a serving peer will send out to the relay server. It contains the tls information necessary for
+// consuming peers to connect to the serving peer.
 message CreateSessionRequest {
   ClientTlsConfig tls_config = 1;
   uint64 ttl_secs = 2; // How long the session should last.
 }
 
 message CreateSessionResponse {
-  // Completed hash of the Relay information. This is a sha512(client_public_key + client_private_key + client_dca_pem + client_ca_pem).
-  // If the information does not match what the server has locally calculated, the server should close the connection.
+  // Completed hash of the TLS information. This is a sha512(client_public_key + client_private_key + client_dca_pem + client_ca_pem).
+  // If the information does not match what the serving client has locally calculated, the serving client should close the connection.
   uint64 crypto_hash = 1;
   string session = 2; // Unique session uuid (uuidv4).
   uint64 ttl_secs = 3; // Time until the session expires. When it expires, all connections are closed.
@@ -95,8 +95,8 @@ message ListConnectionsResponse {
 
 // RelayNegotiator is the relay server for a fuse client. The general flow is as follows
 // CreateSession -> use response to build printable command like `connect --relay=<rpc_endpoint> --socket=<websocket_endpoint> --hash=<hash>`
-// GetClientInformation -> client uses to fetch mTLS information. The websocket_endpoint is unprotected, mTLS is required to actually establish a connection
-// ListConnections -> the sharing server can use to see who is connected/locally get information on connections
+// GetClientInformation -> client uses to fetch mTLS information. The websocket_endpoint is unprotected, mTLS is required to actually establish a connection between peers.
+// ListConnections -> the sharing server can use to see who is connected/locally get information on connections.
 service RelayNegotiator {
   rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse) {}
   rpc GetClientInformation(GetClientInformationRequest) returns (GetClientInformationResponse){}
