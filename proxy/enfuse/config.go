@@ -44,11 +44,6 @@ var (
 			*c = *c1
 		}
 	}
-	WithCertPool = func(certPool *x509.CertPool) ConnectMod {
-		return func(c *ConnectConfig) {
-			c.ClientCredentials = certPool
-		}
-	}
 )
 
 // ApplyClientEncryptionInfo will add in the ClientEncryptionInfo into the right parameters in the connect config.
