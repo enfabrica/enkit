@@ -3505,12 +3505,12 @@ function gee__repair() {
 
 _register_help "bash_setup" "Configure the bash environment for gee." \
 <<'EOT'
-Usage: eval "$(enkit gee bash_setup)"
+Usage: eval "$(~/bin/gee bash_setup)"
 
 The "bash_setup" command emits a set of bash aliases and functions that
 streamline the use of gee.  The following functions are exported:
 
-  "gee": invokes "enkit gee $@"
+  "gee": invokes "gee $@"
   "gcd": rapidly change between gee branch directories.
 EOT
 
@@ -3520,17 +3520,26 @@ function gee__bash_setup() {
 #
 # This output is meant to be loaded into your shell with this command:
 #
-#   eval "$(enkit gee bash_setup)"
+#   eval "$(~/bin/gee bash_setup)"
 
 function gee() { 
+  # TODO(jonathan): now that gee isn't being invoked by enkit, perhaps
+  # this function isn't needed anymore?  But if I remove it, users with
+  # incorrect PATHs will break.
   if [[ -n "${GEE_BINARY}" ]]; then
     "${GEE_BINARY}" "$@";
   elif [[ -x ~/bin/gee ]]; then 
     # use locally installed gee if available.
     ~/bin/gee "$@";
   else
-    # use the enkit copy of gee.
-    enkit gee "$@";
+    # search the PATH for gee:
+    local path
+    path="$(which gee)"
+    if [[ -z "${path}" ]]; then
+      echo "I'm sorry, but I can't find gee anywhere!"
+      return
+    fi
+    "${path}" "$@";
   fi
 }
 
