@@ -97,3 +97,19 @@ def enkit_deps():
                 "https://github.com/atlassian/bazel-tools/archive/5c3b9306e703c6669a6ce064dd6dde69f69cba35.zip",
             ],
         )
+
+    if "gtest" not in excludes:
+        http_archive(
+            name = "gtest",
+            sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
+            strip_prefix = "googletest-release-1.10.0",
+            url = "https://github.com/google/googletest/archive/release-1.10.0.zip",
+        )
+
+    if "com_google_absl" not in excludes:
+        http_archive(
+            name = "com_google_absl",
+            urls = ["https://github.com/abseil/abseil-cpp/archive/98eb410c93ad059f9bba1bf43f5bb916fc92a5ea.zip"],
+            strip_prefix = "abseil-cpp-98eb410c93ad059f9bba1bf43f5bb916fc92a5ea",
+            sha256 = "aabf6c57e3834f8dc3873a927f37eaf69975d4b28117fc7427dfb1c661542a87",
+        )
