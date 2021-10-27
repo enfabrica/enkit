@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.0"
+readonly VERSION="0.2.1"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -3709,6 +3709,8 @@ function main() {
     exit 0
   fi
   local cmdname="$1"; shift
+  # Let's make pr-submit and pr_submit equivalent:
+  cmdname="$(tr '-' '_' <<< "${cmdname}")"
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     if [[ "${cmdname}" != "bash_setup" ]]; then
       _startup_checks
