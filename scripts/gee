@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.1"
+readonly VERSION="0.2.2"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -2991,10 +2991,20 @@ function gee__pr_submit() {
     _die "Remote branch ${CURRENT_BRANCH} does not exist."
   fi
   local DIFFS
-  DIFFS="$("${GIT}" diff --name-only \
-    "origin/${CURRENT_BRANCH}..${CURRENT_BRANCH}" | wc -l)"
+  DIFFS="$("${GIT}" diff --name-only | wc -l)"
   if (( "${DIFFS}" != 0 )); then
     _fatal "Will not submit: current branch has uncommitted changes."
+  fi
+  local -a COUNTS
+  read -r -a COUNTS < \
+    <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
+  if [[ "${COUNTS[1]}" -gt 0 ]]; then
+    _warn "Remote origin/${CURRENT_BRANCH} is ${COUNTS[1]} commits ahead of local ${CURRENT_BRANCH}."
+    _fatal "Will not submit PR."
+  fi
+  if [[ "${COUNTS[0]}" -gt 0 ]]; then
+    _warn "Local ${CURRENT_BRANCH} is ${COUNTS[0]} commits ahead of remote origin/${CURRENT_BRANCH}."
+    _fatal "Will not submit PR."
   fi
 
   # Get some information about this PR before we merge.
