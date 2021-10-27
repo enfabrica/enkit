@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.1"
+readonly VERSION="0.2.0"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -834,7 +834,8 @@ function _update_branch_to_worktree() {
         BRANCH_TO_WORKTREE["${BR}"]="${WT}"
       fi
     fi
-  done < <(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list --porcelain )
+  done < <(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list --porcelain ) \
+    || /bin/true
 }
 
 function _get_branch_rootdir() {
@@ -1125,7 +1126,7 @@ function _branch_ahead_behind() {
     obr="$(_get_parent_branch "${branch}")"
   fi
   local -a counts
-  read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}")
+  read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}") || /bin/true
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
     printf "%-20s: same as %s" "${branch}" "${obr}"
   else
@@ -1133,7 +1134,7 @@ function _branch_ahead_behind() {
   fi
   if _remote_branch_exists origin "${branch}"; then
     counts=()
-    read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...origin/${branch}")
+    read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...origin/${branch}") || /bin/true
     if (( counts[1] > 0 )); then
       printf ", %d behind %s" "${counts[1]}" "origin/${branch}"
     fi
@@ -1583,7 +1584,8 @@ function _update_from_upstream() {
 
   local -a COUNTS=()
   read -r -a COUNTS < \
-    <( "${GIT}" rev-list --left-right --count "upstream/${UPSTREAM_BRANCH}...${LOCAL_BRANCH}" | cat)
+    <( "${GIT}" rev-list --left-right --count "upstream/${UPSTREAM_BRANCH}...${LOCAL_BRANCH}" | cat) \
+    || /bin/true
   if (( COUNTS[0] != 0 )); then
     _fatal "pull failed: upstream/${UPSTREAM_BRANCH} is ${COUNTS[1]} commits ahead of ${LOCAL_BRANCH}"
   fi
@@ -1597,7 +1599,8 @@ function _update_main() {
   # check for local changes
   local -a CHANGES
   read -r -a CHANGES < \
-    <( "${GIT}" diff --name-only | cat)
+    <( "${GIT}" diff --name-only | cat) \
+    || /bin/true
   if [[ "${#CHANGES[@]}" != 0 ]]; then
     _warn "${MAIN} branch contains uncommitted changes."
   fi
@@ -1635,7 +1638,8 @@ function _read_parents_file() {
   while read -r BRANCH PARENT MB; do
     PARENTS["${BRANCH}"]="${PARENT}"
     MERGEBASES["${BRANCH}"]="${MERGEBASE}"
-  done < "${PATH}"
+  done < "${PATH}" \
+    || /bin/true
   PARENTS_FILE_IS_LOADED=1
 }
 
