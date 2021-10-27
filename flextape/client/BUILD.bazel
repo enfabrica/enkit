@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["client.go"],
+    importpath = "github.com/enfabrica/enkit/flextape/client",
+    visibility = ["//manager/client:__pkg__"],
+    deps = ["@org_golang_google_grpc//:go_default_library"],
+)
