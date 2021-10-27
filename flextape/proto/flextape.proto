@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package license_manager.proto;
+package flextape.proto;
 
 import "google/protobuf/timestamp.proto";
 
@@ -13,7 +13,7 @@ import "google/protobuf/timestamp.proto";
 //     are ultimately fetched from and returned to a vendor-specific license
 //     server.
 //
-//     Licenses are "allocated" when the LicenseManager frontend associates it
+//     Licenses are "allocated" when the Flextape frontend associates it
 //     with an invocation.
 //
 //     Licenses are "in use" when the invocation actually uses a license from
@@ -25,7 +25,7 @@ import "google/protobuf/timestamp.proto";
 //     Invocations may use a license, and to do so they must be allocated one
 //     before the underlying hardware toolchain process is allowed to execute.
 
-service LicenseManager {
+service Flextape {
   // Allocate attempts to allocate a specific license type for this invocation.
   // If successful, invocations will keep the allocation alive by calling
   // Refresh(). If the invocation is queued for the license instead, invocations
@@ -56,7 +56,7 @@ service LicenseManager {
   rpc Release(ReleaseRequest) returns (ReleaseResponse) {}
 
   // LicensesStatus returns the status of all license types, as reported by both
-  // the LicenseManager and the underlying license servers.
+  // the Flextape and the underlying license servers.
   rpc LicensesStatus(LicensesStatusRequest) returns (LicensesStatusResponse) {}
 }
 
@@ -151,11 +151,11 @@ message LicenseStats {
   uint32 total_license_count = 3;
 
   // Number of licenses currently allocated, as reported by the
-  // LicenseManager. This should be less than or equal to in_use_count.
+  // Flextape. This should be less than or equal to in_use_count.
   uint32 allocated_count = 5;
 
   // Number of invocations queued for a license, as reported by the
-  // LicenseManager. If this number is >0, then allocated_count should equal
+  // Flextape. If this number is >0, then allocated_count should equal
   // total_license_count.
   uint32 queued_count = 6;
 }

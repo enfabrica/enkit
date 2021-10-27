@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	lmpb "github.com/enfabrica/enkit/license_manager/proto"
+	fpb "github.com/enfabrica/enkit/flextape/proto"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -19,7 +19,7 @@ type license struct {
 
 // formatLicenseType returns a unique string for a particular vendor/feature
 // combination.
-func formatLicenseType(l *lmpb.License) string {
+func formatLicenseType(l *fpb.License) string {
 	return strings.Join([]string{l.GetVendor(), l.GetFeature()}, "::")
 }
 
@@ -92,13 +92,13 @@ func (l *license) GetQueued(invID string) *invocation {
 }
 
 // GetStats returns a LicenseStats message for this license type.
-func (l *license) GetStats(name string) *lmpb.LicenseStats {
+func (l *license) GetStats(name string) *fpb.LicenseStats {
 	fields := strings.SplitN(name, "::", 2)
 	if len(fields) != 2 {
 		fields = []string{"<UNKNOWN>", name}
 	}
-	return &lmpb.LicenseStats{
-		License: &lmpb.License{
+	return &fpb.LicenseStats{
+		License: &fpb.License{
 			Vendor:  fields[0],
 			Feature: fields[1],
 		},
