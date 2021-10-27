@@ -80,7 +80,7 @@ func GetAffectedTargets(start string, end string, log logger.Logger) ( /* change
 		func() error {
 			log.Infof("Querying dependency graph for 'before' workspace...")
 			var err error
-			startResults, err = startWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogStart)
+			startResults, err = startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
 			if err != nil {
 				return fmt.Errorf("failed to query deps for start point: %w", err)
 			}
@@ -90,7 +90,7 @@ func GetAffectedTargets(start string, end string, log logger.Logger) ( /* change
 		func() error {
 			log.Infof("Querying dependency graph for 'after' workspace...")
 			var err error
-			endResults, err = endWorkspace.Query("deps(//...)", WithKeepGoing(), WithUnorderedOutput(), workspaceLogEnd)
+			endResults, err = endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
 			if err != nil {
 				return fmt.Errorf("failed to query deps for end point: %w", err)
 			}
