@@ -127,16 +127,20 @@ skipTarget:
 	for _, targetName := range diff {
 		target := endResults.Targets[targetName]
 		if target.ruleType() == "" {
+			log.Debugf("Filtering non-rule target %q", targetName)
 			continue skipTarget
 		}
 		if !includePatterns.Contains(targetName) {
+			log.Debugf("Filtering target not under include_patterns: %q", targetName)
 			continue skipTarget
 		}
 		if excludePatterns.Contains(targetName) {
+			log.Debugf("Filtering target under exclude_patterns: %q", targetName)
 			continue skipTarget
 		}
 		for _, t := range excludeTags {
 			if target.containsTag(t) {
+				log.Debugf("Filtering target with excluded tag %q: %q", t, targetName)
 				continue skipTarget
 			}
 		}
