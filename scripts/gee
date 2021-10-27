@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.4"
+readonly VERSION="0.2.5"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -3407,7 +3407,7 @@ function _gee_fix_remote_origin_fetch_config() {
   # An old version of gee incorrectly configured the remote.origin.fetch
   # parameter.  This command checks for an incorrect value and corrects
   # it.
-  local REMOTE_ORIGIN_FETCH EXPECTED
+  local REMOTE_ORIGIN_FETCH CORRECT
   CORRECT="+refs/heads/*:refs/remotes/origin/*"
   REMOTE_ORIGIN_FETCH="$("${GIT}" config --get-all remote.origin.fetch)"
   if [[ "${REMOTE_ORIGIN_FETCH}" != "${CORRECT}" ]]; then
