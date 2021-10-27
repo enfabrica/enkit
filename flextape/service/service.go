@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	lmpb "github.com/enfabrica/enkit/license_manager/proto"
+	fpb "github.com/enfabrica/enkit/flextape/proto"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -120,7 +120,7 @@ func (s *Service) janitor() {
 
 // Allocate allocates a license to the requesting invocation, or queues the
 // request if none are available. See the proto docstrings for more details.
-func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmpb.AllocateResponse, error) {
+func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.AllocateResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -163,9 +163,9 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 	if inv := lic.GetAllocated(invocationID); inv != nil {
 		// Invocation is allocated
 		inv.LastCheckin = timeNow()
-		return &lmpb.AllocateResponse{
-			ResponseType: &lmpb.AllocateResponse_LicenseAllocated{
-				LicenseAllocated: &lmpb.LicenseAllocated{
+		return &fpb.AllocateResponse{
+			ResponseType: &fpb.AllocateResponse_LicenseAllocated{
+				LicenseAllocated: &fpb.LicenseAllocated{
 					InvocationId:           invocationID,
 					LicenseRefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),
 				},
@@ -175,9 +175,9 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 	if inv := lic.GetQueued(invocationID); inv != nil {
 		// Invocation is queued
 		inv.LastCheckin = timeNow()
-		return &lmpb.AllocateResponse{
-			ResponseType: &lmpb.AllocateResponse_Queued{
-				Queued: &lmpb.Queued{
+		return &fpb.AllocateResponse{
+			ResponseType: &fpb.AllocateResponse_Queued{
+				Queued: &fpb.Queued{
 					InvocationId: invocationID,
 					NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
 				},
@@ -198,9 +198,9 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 		LastCheckin: timeNow(),
 	}
 	lic.Enqueue(inv)
-	return &lmpb.AllocateResponse{
-		ResponseType: &lmpb.AllocateResponse_Queued{
-			Queued: &lmpb.Queued{
+	return &fpb.AllocateResponse{
+		ResponseType: &fpb.AllocateResponse_Queued{
+			Queued: &fpb.Queued{
 				InvocationId: invocationID,
 				NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
 			},
@@ -210,7 +210,7 @@ func (s *Service) Allocate(ctx context.Context, req *lmpb.AllocateRequest) (*lmp
 
 // Refresh serves as a keepalive to refresh an allocation while an invocation
 // is still using it. See the proto docstrings for more info.
-func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.RefreshResponse, error) {
+func (s *Service) Refresh(ctx context.Context, req *fpb.RefreshRequest) (*fpb.RefreshResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -240,7 +240,7 @@ func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.
 			LastCheckin: timeNow(),
 		}
 		if ok := lic.Allocate(inv); ok {
-			return &lmpb.RefreshResponse{
+			return &fpb.RefreshResponse{
 				InvocationId:           invID,
 				LicenseRefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),
 			}, nil
@@ -250,7 +250,7 @@ func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.
 	}
 	// Update the time and return the next check interval
 	inv.LastCheckin = timeNow()
-	return &lmpb.RefreshResponse{
+	return &fpb.RefreshResponse{
 		InvocationId:           invID,
 		LicenseRefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),
 	}, nil
@@ -259,7 +259,7 @@ func (s *Service) Refresh(ctx context.Context, req *lmpb.RefreshRequest) (*lmpb.
 // Release returns an allocated license and/or unqueues the specified
 // invocation ID across all license types. See the proto docstrings for more
 // details.
-func (s *Service) Release(ctx context.Context, req *lmpb.ReleaseRequest) (*lmpb.ReleaseResponse, error) {
+func (s *Service) Release(ctx context.Context, req *fpb.ReleaseRequest) (*fpb.ReleaseResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -274,16 +274,16 @@ func (s *Service) Release(ctx context.Context, req *lmpb.ReleaseRequest) (*lmpb.
 	if count == 0 {
 		return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not found: %q", invID)
 	}
-	return &lmpb.ReleaseResponse{}, nil
+	return &fpb.ReleaseResponse{}, nil
 }
 
 // LicensesStatus returns the status for every license type. See the proto
 // docstrings for more details.
-func (s *Service) LicensesStatus(ctx context.Context, req *lmpb.LicensesStatusRequest) (*lmpb.LicensesStatusResponse, error) {
+func (s *Service) LicensesStatus(ctx context.Context, req *fpb.LicensesStatusRequest) (*fpb.LicensesStatusResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	res := &lmpb.LicensesStatusResponse{}
+	res := &fpb.LicensesStatusResponse{}
 	for name, lic := range s.licenses {
 		res.LicenseStats = append(res.LicenseStats, lic.GetStats(name))
 	}
