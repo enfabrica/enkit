@@ -3588,7 +3588,7 @@ function gee_prompt_git_info() {
   if [[ "${stash_depth}" -eq 0 ]]; then
     stash_depth=""
   else
-    stash_depth="$$${stash_depth}"
+    stash_depth="\$${stash_depth}"
   fi
 
   printf "(%s%s%s%s%s%s)" \
