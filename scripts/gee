@@ -3608,6 +3608,7 @@ function _gee_completion() {
 complete -F _gee_completion gee
 complete -F _gee_completion_branches gcd
 END_OF_BASH_COMPLETION_SETUP
+echo "export GEE_BINARY=\"$(readlink -f "$0")\""  # make this gee the default gee.
 }
 
 ##########################################################################
@@ -3674,7 +3675,7 @@ Usage: gee version
 EOT
 
 function gee__version() {
-  echo "gee version ${VERSION}"
+  echo "$0: version ${VERSION}"
   md5sum "$0"
   local TOOL_ERROR=0
   for tool in "${GIT}" "${GH}" "${JQ}"; do
