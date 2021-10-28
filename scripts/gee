@@ -3525,7 +3525,8 @@ END_OF_BASH_COMPLETION_SETUP
 # "git-prompt.sh" implementation, found here:
 # https://github.com/git/git/blob/master/contrib/completion/git-prompt.sh
 
-function gee_prompt_git_info() {
+function gee_prompt_update_git_info() {
+  GEE_PROMPT_BRANCH=""
   local git_dir="" is_inside_work_tree="" toplevel
   read -r -d '' git_dir is_inside_work_tree toplevel < \
     <( git rev-parse --git-dir \
@@ -3541,6 +3542,7 @@ function gee_prompt_git_info() {
 
   local branch
   read -r branch < <( git branch --show-current )
+  GEE_PROMPT_BRANCH="${branch}"
 
   local mode=""
   local step=""
@@ -3588,12 +3590,17 @@ function gee_prompt_git_info() {
   if [[ "${stash_depth}" -eq 0 ]]; then
     stash_depth=""
   else
-    stash_depth="\$${stash_depth}"
+    stash_depth=" S=${stash_depth}"
   fi
 
-  printf "(%s%s%s%s%s%s)" \
+  GEE_PROMPT_INFO="$(printf "(%s%s%s%s%s%s)" \
     "${repo}" "${branch}" "${complete_mode}" \
-    "${changes}" "${cached}" "${stash_depth}"
+    "${changes}" "${cached}" "${stash_depth}")"
+}
+
+function git_prompt_git_info() {
+  git_prompt_update_git_info
+  echo "${GEE_PROMPT_INFO}"
 }
 
 function __gee_prompt_set_colors() {
@@ -3640,8 +3647,7 @@ function gee_prompt_test_colors() {
 }
 
 function gee_prompt_print() {
-  local git_info
-  git_info="$(gee_prompt_git_info)"
+  gee_prompt_update_git_info
   local p="${GEE_PROMPT}"
   if [[ -z "${p}" ]]; then
     p=" [\\!] \\w\033[0K\033[0m\n$ "
@@ -3654,9 +3660,9 @@ function gee_prompt_print() {
   local bold2="${GEE_PROMPT_FG2_BOLD:-0}"
 
   printf "%s" \
-    "$(__gee_prompt_set_window_title "${git_info:-bash}")" \
+    "$(__gee_prompt_set_window_title "${GEE_PROMPT_BRANCH:-bash}")" \
     "$(__gee_prompt_set_colors "${fg1}" "${bg}" "${bold1}" )" \
-    "${git_info}" \
+    "${GEE_PROMPT_INFO}" \
     "$(__gee_prompt_set_colors "${fg2}" "${bg}" "${bold2}" )" \
     "${p}" \
     $'\033[0m'
