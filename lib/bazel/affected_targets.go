@@ -8,11 +8,21 @@ import (
 	"sort"
 	"strings"
 
+	ppb "github.com/enfabrica/enkit/enkit/proto"
 	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/logger"
 )
 
-func GetAffectedTargets(start string, end string, log logger.Logger) ( /* changedRules */ []*Target /* changedTests */, []*Target, error) {
+func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, log logger.Logger) ( /* changedRules */ []*Target /* changedTests */, []*Target, error) {
+	includePatterns, err := NewPatternSet(config.GetIncludePatterns())
+	if err != nil {
+		return nil, nil, err
+	}
+	excludePatterns, err := NewPatternSet(config.GetExcludePatterns())
+	if err != nil {
+		return nil, nil, err
+	}
+	excludeTags := config.GetExcludeTags()
 	// Open the bazel workspaces, using a temporary output_base. Since the
 	// temporary worktrees created above will have a different path on every
 	// invocation, by default bazel will create a new cache directory for them,
@@ -112,10 +122,27 @@ func GetAffectedTargets(start string, end string, log logger.Logger) ( /* change
 	log.Infof("Filtering targets...")
 	var changedRules []*Target
 	var changedTests []*Target
+
+skipTarget:
 	for _, targetName := range diff {
 		target := endResults.Targets[targetName]
 		if target.ruleType() == "" {
-			continue
+			log.Debugf("Filtering non-rule target %q", targetName)
+			continue skipTarget
+		}
+		if !includePatterns.Contains(targetName) {
+			log.Debugf("Filtering target not under include_patterns: %q", targetName)
+			continue skipTarget
+		}
+		if excludePatterns.Contains(targetName) {
+			log.Debugf("Filtering target under exclude_patterns: %q", targetName)
+			continue skipTarget
+		}
+		for _, t := range excludeTags {
+			if target.containsTag(t) {
+				log.Debugf("Filtering target with excluded tag %q: %q", t, targetName)
+				continue skipTarget
+			}
 		}
 		changedRules = append(changedRules, target)
 		if strings.HasSuffix(target.ruleType(), "_test") {

@@ -6,6 +6,7 @@ go_library(
         "affected_targets.go",
         "exec.go",
         "options.go",
+        "pattern.go",
         "query.go",
         "target.go",
         "workspace.go",
@@ -13,6 +14,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/bazel",
     visibility = ["//visibility:public"],
     deps = [
+        "//enkit/proto:go_default_library",
         "//lib/bazel/proto:go_protos",
         "//lib/goroutine:go_default_library",
         "//lib/logger:go_default_library",
@@ -28,6 +30,7 @@ go_test(
     srcs = [
         "affected_targets_test.go",
         "options_test.go",
+        "pattern_test.go",
         "query_test.go",
         "workspace_test.go",
     ],

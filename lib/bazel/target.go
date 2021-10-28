@@ -53,6 +53,24 @@ func (t *Target) ruleType() string {
 	return t.Target.GetRule().GetRuleClass()
 }
 
+func (t *Target) containsTag(tag string) bool {
+	attrList := t.Target.GetRule().GetAttribute()
+	for _, attr := range attrList {
+		if attr.GetName() != "tags" {
+			continue
+		}
+		if attr.GetType() != bpb.Attribute_STRING_LIST {
+			continue
+		}
+		for _, t := range attr.GetStringListValue() {
+			if t == tag {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // getHash returns the computed hash from this target, recursively evaluating
 // dependencies if they are not already hashed themselves.
 // This hash should change if:

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package enkit.proto;
+
+// Top-level message for a presubmit configuration textproto file. This is
+// written in such a way as to allow it to be a submessage of a top-level
+// "Project" message in the future, if we want to support multiple projects in
+// the repository.
+message PresubmitConfig {
+  // include_patterns and exclude_patterns determine the set of targets to
+  // build+test. All targets that match at least one of include_patterns and
+  // then none of exclude_patterns are included in the build/test.
+  repeated string include_patterns = 1;
+  repeated string exclude_patterns = 2;
+
+  // Exclude targets that have at least one of these tags from build and test.
+  repeated string exclude_tags = 3;
+}
