@@ -3512,6 +3512,8 @@ streamline the use of gee.  The following functions are exported:
 
   "gee": invokes "gee $@"
   "gcd": rapidly change between gee branch directories.
+
+Also sets GEE_BINARY to point to this copy of gee.
 EOT
 
 function gee__bash_setup() {
@@ -3608,6 +3610,7 @@ function _gee_completion() {
 complete -F _gee_completion gee
 complete -F _gee_completion_branches gcd
 END_OF_BASH_COMPLETION_SETUP
+echo "export GEE_BINARY=\"$(readlink -f "$0")\""  # make this gee the default gee.
 }
 
 ##########################################################################
@@ -3674,7 +3677,7 @@ Usage: gee version
 EOT
 
 function gee__version() {
-  echo "gee version ${VERSION}"
+  echo "$0: version ${VERSION}"
   md5sum "$0"
   local TOOL_ERROR=0
   for tool in "${GIT}" "${GH}" "${JQ}"; do
