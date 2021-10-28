@@ -3526,17 +3526,17 @@ END_OF_BASH_COMPLETION_SETUP
 # https://github.com/git/git/blob/master/contrib/completion/git-prompt.sh
 
 function gee_prompt_git_info() {
-  local git_dir="" is_inside_work_tree="" toplevel prefix
-  read -r -d '' git_dir is_inside_work_tree toplevel prefix < \
+  local git_dir="" is_inside_work_tree="" toplevel
+  read -r -d '' git_dir is_inside_work_tree toplevel < \
     <( git rev-parse --git-dir \
                      --is-inside-work-tree \
-                     --show-toplevel --show-prefix \
+                     --show-toplevel \
                      2>/dev/null)
   if [[ "true" != "${is_inside_work_tree}" ]]; then return 0; fi
 
-  gee=""
+  local repo=""
   if [[ "${toplevel}" =~ ^"${HOME}"/gee/(.+)/ ]]; then
-    gee="gee:${BASH_REMATCH[1]}:"
+    repo="$(printf "%.3s:" "${BASH_REMATCH[1]}:")"
   fi
 
   local branch
@@ -3591,10 +3591,9 @@ function gee_prompt_git_info() {
     stash_depth="$$${stash_depth}"
   fi
 
-  printf "(%s%s%s%s%s%s)%s" \
-    "${gee}" "${branch}" "${complete_mode}" \
-    "${changes}" "${cached}" "${stash_depth}" \
-    "${prefix}"
+  printf "(%s%s%s%s%s%s)" \
+    "${repo}" "${branch}" "${complete_mode}" \
+    "${changes}" "${cached}" "${stash_depth}"
 }
 
 function __gee_prompt_set_colors() {
