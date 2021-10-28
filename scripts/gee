@@ -3390,9 +3390,13 @@ streamline the use of gee.  The following functions are exported:
 
   "gee": invokes "gee $@"
   "gcd": rapidly change between gee branch directories.
-  "gee_prompt_set_ps1": sets PS1 to a git-aware prompt.
+
+Additionally, the following functions can be used to customize your
+command prompt with useful information about your git work tree:
   "gee_prompt_git_info": prints git-related information suitable for
     integrating into your own prompt.
+  "gee_prompt_print": Prints a string suitable for using as a prompt.
+  "gee_prompt_set_ps1": Sets PS1 to the output of gee_prompt_print.
 
 This custom git-aware prompt will keep you apprised of which git branch you are
 in, and will also tell you important information about the status of your
@@ -3416,10 +3420,8 @@ GEE_PROMPT_FG2_COLOR: The foreground color for GEE_PROMPT (default: 3).
 Easter egg: Use the "gee_prompt_test_colors" command to view a test pattern
 of the basic 4-bit ANSI color set.
 
-If you need even further customization, read the source code of the of these
-functions.  See also:
-
-   https://www.man7.org/linux/man-pages/man1/bash.1.html#PROMPTING
+If you need further customization, you are encouraged to write your own
+version of gee_prompt_set_ps1.
 
 Also sets GEE_BINARY to point to this copy of gee.
 EOT
