@@ -4,10 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	rpc_license "github.com/enfabrica/enkit/manager/rpc"
-	"google.golang.org/grpc"
-	grpcCodes "google.golang.org/grpc/codes"
-	grpcStatus "google.golang.org/grpc/status"
 	"io"
 	"log"
 	"os"
@@ -15,6 +11,13 @@ import (
 	"os/user"
 	"strings"
 	"time"
+
+	rpc_license "github.com/enfabrica/enkit/manager/rpc"
+	"github.com/enfabrica/enkit/flextape/client"
+
+	"google.golang.org/grpc"
+	grpcCodes "google.golang.org/grpc/codes"
+	grpcStatus "google.golang.org/grpc/status"
 )
 
 func run(timeout time.Duration, cmd string, args ...string) {
@@ -93,15 +96,21 @@ func main() {
 	timeout := flag.Duration("timeout", 7200*time.Second, "Max time waiting in license queue")
 	flag.Parse()
 	vendor, feature, cmd, args := os.Args[3], os.Args[4], os.Args[5], os.Args[6:]
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
-	defer conn.Close()
-	if err != nil {
-		log.Fatalf("Connection failed: %s \n", err)
-	}
-	client := rpc_license.NewLicenseClient(conn)
 	user, err := user.Current()
 	if err != nil {
 		log.Fatalf("Failed to get username: %s \n", err)
 	}
-	polling(client, user.Username, quantity, vendor, feature, *timeout, cmd, args...)
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("Connection failed: %s \n", err)
+	}
+	defer conn.Close()
+
+	if os.Getenv("LICENSE_SERVER_IMPL") != "flextape" {
+		c := rpc_license.NewLicenseClient(conn)
+		polling(c, user.Username, quantity, vendor, feature, *timeout, cmd, args...)
+	} else {
+		client.RunCommandWithLicense(conn, user.Username, vendor, feature, *timeout, cmd, args...)
+		log.Fatalf("flextape client not yet implemented")
+	}
 }
