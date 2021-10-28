@@ -3512,6 +3512,8 @@ streamline the use of gee.  The following functions are exported:
 
   "gee": invokes "gee $@"
   "gcd": rapidly change between gee branch directories.
+
+Also sets GEE_BINARY to point to this copy of gee.
 EOT
 
 function gee__bash_setup() {
