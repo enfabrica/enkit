@@ -686,6 +686,71 @@ func TestCalculateAffected(t *testing.T) {
 				"@third_party_dep//:some_file.txt",
 			},
 		},
+		{
+			desc: "generated file depends on generating rule",
+			startResults: &QueryResult{
+				Targets: map[string]*Target{
+					"//test/target:foo.txt": &Target{
+						Target: &bpb.Target{
+							Type: bpb.Target_GENERATED_FILE.Enum(),
+							GeneratedFile: &bpb.GeneratedFile{
+								Name:           proto.String("//test/target:foo.txt"),
+								GeneratingRule: proto.String("//test/target:foo_rule"),
+							},
+						},
+					},
+					"//test/target:foo_rule": &Target{
+						Target: &bpb.Target{
+							Type: bpb.Target_RULE.Enum(),
+							Rule: &bpb.Rule{
+								Name: proto.String("//test/target:foo_rule"),
+								Attribute: []*bpb.Attribute{
+									&bpb.Attribute{
+										Name:     proto.String("int_attr"),
+										Type:     bpb.Attribute_INTEGER.Enum(),
+										IntValue: proto.Int32(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				workspace: testWorkspace(t),
+			},
+			endResults: &QueryResult{
+				Targets: map[string]*Target{
+					"//test/target:foo.txt": &Target{
+						Target: &bpb.Target{
+							Type: bpb.Target_GENERATED_FILE.Enum(),
+							GeneratedFile: &bpb.GeneratedFile{
+								Name:           proto.String("//test/target:foo.txt"),
+								GeneratingRule: proto.String("//test/target:foo_rule"),
+							},
+						},
+					},
+					"//test/target:foo_rule": &Target{
+						Target: &bpb.Target{
+							Type: bpb.Target_RULE.Enum(),
+							Rule: &bpb.Rule{
+								Name: proto.String("//test/target:foo_rule"),
+								Attribute: []*bpb.Attribute{
+									&bpb.Attribute{
+										Name:     proto.String("int_attr"),
+										Type:     bpb.Attribute_INTEGER.Enum(),
+										IntValue: proto.Int32(2), // Changed attr value; should affect this rule and generated file
+									},
+								},
+							},
+						},
+					},
+				},
+				workspace: testWorkspace(t),
+			},
+			want: []string{
+				"//test/target:foo.txt",
+				"//test/target:foo_rule",
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
