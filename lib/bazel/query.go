@@ -47,17 +47,29 @@ func (r *QueryResult) TargetHashes() (TargetHashes, error) {
 
 func fillDependencies(targets map[string]*Target) error {
 	for _, t := range targets {
-		if t.Target.GetType() != bpb.Target_RULE {
-			continue
-		}
-		deps := t.Target.GetRule().GetRuleInput()
-		for _, dep := range deps {
+		switch t.Target.GetType() {
+		case bpb.Target_RULE:
+			deps := t.Target.GetRule().GetRuleInput()
+			for _, dep := range deps {
+				depTarget, ok := targets[dep]
+				if !ok {
+					// TODO(scott): Log this condition
+					return fmt.Errorf("dep %q not found for target %q", dep, t.Name())
+					continue
+				}
+				t.deps = append(t.deps, depTarget)
+			}
+		case bpb.Target_GENERATED_FILE:
+			dep := t.Target.GetGeneratedFile().GetGeneratingRule()
 			depTarget, ok := targets[dep]
 			if !ok {
 				// TODO(scott): Log this condition
+				return fmt.Errorf("dep %q not found for target %q", dep, t.Name())
 				continue
 			}
 			t.deps = append(t.deps, depTarget)
+		default:
+			continue
 		}
 	}
 	return nil

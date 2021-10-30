@@ -119,18 +119,9 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 		}
 
 	case bpb.Target_GENERATED_FILE:
-		lbl, err := labelFromString(t.Target.GetGeneratedFile().GetName())
-		if err != nil {
-			return 0, err
-		}
-		f, err := w.bazelBin.Open(lbl.filePath())
-		if err != nil {
-			return 0, fmt.Errorf("can't find generated file %q: %w", lbl.filePath(), err)
-		}
-		defer f.Close()
-		if err := hashFile(h, f); err != nil {
-			return 0, err
-		}
+		// The hash of a generated file is based solely on the hash of the
+		// generating rule, which was handled above by adding all deps to the hash.
+		// No need to do anything more here.
 
 	case bpb.Target_PACKAGE_GROUP:
 		return 0, fmt.Errorf("PACKAGE_GROUP hashing not implemented")
