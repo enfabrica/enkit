@@ -891,6 +891,32 @@ function _cmd() {
   fi
 }
 
+function _cmd_return_rc() {
+  # Run a command and generate associated log messages.
+  local COLS ESCAPED_CMD
+  COLS="$(tput cols)"
+  ESCAPED_CMD="$( printf " %q" "$@")"
+  if [[ $DRYRUN -eq 0 ]]; then
+    if [[ $VERBOSE -gt 0 ]]; then
+      local C
+      C=$(( COLS - 4 ))
+      printf "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+    fi
+    set +e
+    "$@"
+    RC=$?
+    if [[ "${RC}" -ne 0 ]]; then
+      _warn "Command failed with exit code ${RC}"
+    fi
+    set -e
+    return "${RC}"
+  else
+    local C
+    C=$(( COLS - 7 ))
+    printf "${_COLOR_CMD}DRYRUN:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+  fi
+}
+
 function _read_cmd() {
   # Run a command, and save each line of output to an array variable.
   local VAR="$1"; shift
@@ -2873,16 +2899,20 @@ function gee__merge() { gee__pr_submit "$@"; }
 function gee__pr_submit() {
   _check_cwd
   _check_gh_auth
+
+  # Presubmit check: does remote branch exist?
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
     _die "Remote branch ${CURRENT_BRANCH} does not exist."
   fi
+  # Presubmit check: Are there uncommitted local changes?
   local DIFFS
   DIFFS="$("${GIT}" diff --name-only | wc -l)"
   if (( "${DIFFS}" != 0 )); then
     _fatal "Will not submit: current branch has uncommitted changes."
   fi
+  # Presubmit check: Is the remote branch in sync with the local branch:
   local -a COUNTS
   read -r -a COUNTS < \
     <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
@@ -2893,6 +2923,13 @@ function gee__pr_submit() {
   if [[ "${COUNTS[0]}" -gt 0 ]]; then
     _warn "Local ${CURRENT_BRANCH} is ${COUNTS[0]} commits ahead of remote origin/${CURRENT_BRANCH}."
     _fatal "Will not submit PR."
+  fi
+  # Presubmit check: Are presubmit checks passing?
+  if ! _cmd_return_rc "${GH}" pr checks; then
+    if ! _confirm_default_no \
+      "One or more presubmit checks have failed.  Proceed anyway? (y/N)  "; then
+      _fatal "PR submission aborted."
+    fi
   fi
 
   # Get some information about this PR before we merge.
