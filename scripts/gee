@@ -891,32 +891,6 @@ function _cmd() {
   fi
 }
 
-function _cmd_return_rc() {
-  # Run a command and generate associated log messages.
-  local COLS ESCAPED_CMD
-  COLS="$(tput cols)"
-  ESCAPED_CMD="$( printf " %q" "$@")"
-  if [[ $DRYRUN -eq 0 ]]; then
-    if [[ $VERBOSE -gt 0 ]]; then
-      local C
-      C=$(( COLS - 4 ))
-      printf "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
-    fi
-    set +e
-    "$@"
-    RC=$?
-    if [[ "${RC}" -ne 0 ]]; then
-      _warn "Command failed with exit code ${RC}"
-    fi
-    set -e
-    return "${RC}"
-  else
-    local C
-    C=$(( COLS - 7 ))
-    printf "${_COLOR_CMD}DRYRUN:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
-  fi
-}
-
 function _read_cmd() {
   # Run a command, and save each line of output to an array variable.
   local VAR="$1"; shift
@@ -2870,7 +2844,7 @@ function gee__pr_make() {
   )
   PR_ARGS+=( "$@" )
   _gh pr create "${PR_ARGS[@]}"
-  # _gh pr checks  # not sure why this is problematic.
+  # _gh pr checks  # These take a while to run, no point checking now.
   _gh_pr_view
   local NUM_REVIEWERS
   NUM_REVIEWERS="$(gh pr view \
@@ -2882,6 +2856,52 @@ function gee__pr_make() {
   rm "${BODYFILE}"
 }
   
+##########################################################################
+# pr_check command
+##########################################################################
+
+_register_help "pr_check" \
+  "Checks whether presubmit tests for a PR." <<'EOT'
+Usage: gee pr_check
+
+Checks presubmit tests.
+EOT
+
+function gee__pr_check() {
+  local -a CHECKS=()
+  local -A CHECK_COUNTS=()
+  local PENDING=1
+  local CHECKS_FAILED=0
+  while [[ "${PENDING}" -ne 0 ]]; do
+    if _read_cmd CHECKS "${GH}" pr checks; then
+      # no failures, nothing pending.
+      CHECKS_FAILED=0
+      PENDING=0
+    else
+      # something went wrong.  Is a test pending, or did we get a failure?
+      CHECKS_FAILED=1
+      CHECK_COUNTS=()
+      local LINE
+      for LINE in "${CHECKS[@]}"; do
+        local -a FIELDS=()
+        read -r -a FIELDS <<< "${LINE}"
+        (( CHECK_COUNTS["${FIELDS[2]}"]++ ))
+      done
+      local REPORT="gh pr checks:"
+      local KEY
+      for KEY in "${!CHECK_COUNTS[@]}"; do
+        REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
+      done
+      _info "${REPORT}"
+      PENDING="${CHECK_COUNTS["pending"]}"
+      if [[ "${PENDING}" -ne 0 ]]; then
+        _info "Some checks are still running.  Trying again in 30 seconds."
+        sleep 30
+      fi
+    fi
+  done
+  return "${CHECKS_FAILED}"
+}
 
 ##########################################################################
 # submit_pr command
@@ -2924,10 +2944,11 @@ function gee__pr_submit() {
     _warn "Local ${CURRENT_BRANCH} is ${COUNTS[0]} commits ahead of remote origin/${CURRENT_BRANCH}."
     _fatal "Will not submit PR."
   fi
+
   # Presubmit check: Are presubmit checks passing?
-  if ! _cmd_return_rc "${GH}" pr checks; then
-    if ! _confirm_default_no \
-      "One or more presubmit checks have failed.  Proceed anyway? (y/N)  "; then
+  if ! gee__pr_check; then
+    if ! confirm_default_no \
+      "Presubmit checks failed.  Proceed anyway? (y/N)  "; then
       _fatal "PR submission aborted."
     fi
   fi
