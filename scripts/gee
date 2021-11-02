@@ -2874,6 +2874,8 @@ function gee__pr_check() {
   local -A CHECK_COUNTS=()
   local PENDING=1
   local CHECKS_FAILED=0
+  local STARTED
+  STARTED="$(date +%s)"
   while [[ "${PENDING}" -ne 0 ]]; do
     if _read_cmd CHECKS "${GH}" pr checks; then
       # no failures, nothing pending.
@@ -2898,8 +2900,15 @@ function gee__pr_check() {
       _info "${REPORT}"
       PENDING="${CHECK_COUNTS["pending"]}"
       if [[ "${PENDING}" -ne 0 ]]; then
-        _info "Some checks are still running.  Trying again in 30 seconds."
-        sleep 30
+        declare -g RESP=""
+        _choose_one "Some checks are still pending.  [R]etry, [a]bort, or [c]ontinue?  " \
+          "rac" "r"
+        if [[ "${RESP}" == "a" ]]; then
+          _fatal "Aborted."
+        elif [[ "${RESP}" == "c" ]]; then
+          return 1
+        fi
+        sleep 5
       fi
     fi
   done
