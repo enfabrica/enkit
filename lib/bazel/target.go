@@ -111,11 +111,26 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 		}
 		f, err := w.sourceDir.Open(lbl.filePath())
 		if err != nil {
-			return 0, fmt.Errorf("can't find source file %q: %w", lbl.filePath(), err)
+			return 0, fmt.Errorf("can't open source file %q: %w", lbl.filePath(), err)
 		}
 		defer f.Close()
-		if err := hashFile(h, f); err != nil {
-			return 0, err
+
+		err = hashFile(h, f)
+		if err != nil {
+			// TODO(scott): After moving to go 1.17, replace this error
+			// introspection with a call to Stat before Open (requires os.DirFS to
+			// return an fs.StatFS). String validation is hacky, but it works for both
+			// tests and prod, which return different error types so type assertion is
+			// not possible here.
+			if strings.Contains(err.Error(), "is a directory") {
+				// Somehow a directory got passed as a label. This sometimes happens to
+				// format directories onto action commandlines; in these cases, the
+				// action doesn't depend on the directory's contents per se, but rather
+				// the directory name. Add the name to the hash and continue.
+				fmt.Fprintf(h, "%s", t.Name())
+			} else {
+				return 0, err
+			}
 		}
 
 	case bpb.Target_GENERATED_FILE:

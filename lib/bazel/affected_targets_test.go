@@ -16,6 +16,7 @@ func testWorkspace(t *testing.T) *Workspace {
 	files := map[string][]byte{
 		"test/target/foo.txt":          []byte("Hello, world"),
 		"test/target/foo_modified.txt": []byte("Goodbye, world"),
+		"test/anotherdir/file.txt":     []byte("Another dir"),
 	}
 	sourceFS := testutil.NewFS(t, files)
 	genFS := testutil.NewFS(t, nil)
@@ -750,6 +751,36 @@ func TestCalculateAffected(t *testing.T) {
 				"//test/target:foo.txt",
 				"//test/target:foo_rule",
 			},
+		},
+		{
+			desc: "source file that points to dir",
+			startResults: &QueryResult{
+				Targets: map[string]*Target{
+					"//test:target": &Target{
+						Target: &bpb.Target{
+							Type: bpb.Target_SOURCE_FILE.Enum(),
+							SourceFile: &bpb.SourceFile{
+								Name: proto.String("//test:target"), // Actually a directory; shouldn't cause an error
+							},
+						},
+					},
+				},
+				workspace: testWorkspace(t),
+			},
+			endResults: &QueryResult{
+				Targets: map[string]*Target{
+					"//test:target": &Target{
+						Target: &bpb.Target{
+							Type: bpb.Target_SOURCE_FILE.Enum(),
+							SourceFile: &bpb.SourceFile{
+								Name: proto.String("//test:target"),
+							},
+						},
+					},
+				},
+				workspace: testWorkspace(t),
+			},
+			want: []string{},
 		},
 	}
 	for _, tc := range testCases {
