@@ -911,7 +911,7 @@ function _read_cmd() {
     RC="${!TMP}"  # indirect
     unset "${VAR}[-1]"
     if [[ "${RC}" -ne 0 ]]; then
-      _warn "Command failed with exit code ${RC}"
+      _warn "Command returned non-zero exit code: ${RC}"
       if [[ -n "${NOFAIL}" ]]; then
         RC=0
       fi
@@ -2861,12 +2861,14 @@ function gee__pr_make() {
 ##########################################################################
 
 _register_help "pr_check" \
-  "Checks whether presubmit tests for a PR." <<'EOT'
+  "Checks whether presubmit tests for a PR." \
+  "check_pr" <<'EOT'
 Usage: gee pr_check
 
 Checks presubmit tests.
 EOT
 
+function gee__check_pr() { gee__pr_check "$@"; }
 function gee__pr_check() {
   local -a CHECKS=()
   local -A CHECK_COUNTS=()
@@ -2884,7 +2886,6 @@ function gee__pr_check() {
       CHECK_COUNTS=()
       local LINE
       for LINE in "${CHECKS[@]}"; do
-        _info "${LINE}"
         local -a FIELDS=()
         read -r -a FIELDS <<< "${LINE}"
         (( CHECK_COUNTS["${FIELDS[2]}"]++ )) || /bin/true
