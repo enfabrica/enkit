@@ -2875,6 +2875,7 @@ function gee__pr_check() {
   while [[ "${PENDING}" -ne 0 ]]; do
     if _read_cmd CHECKS "${GH}" pr checks; then
       # no failures, nothing pending.
+      _info "All checks successful."
       CHECKS_FAILED=0
       PENDING=0
     else
@@ -2883,9 +2884,10 @@ function gee__pr_check() {
       CHECK_COUNTS=()
       local LINE
       for LINE in "${CHECKS[@]}"; do
+        _info "${LINE}"
         local -a FIELDS=()
         read -r -a FIELDS <<< "${LINE}"
-        (( CHECK_COUNTS["${FIELDS[2]}"]++ ))
+        (( CHECK_COUNTS["${FIELDS[2]}"]++ )) || /bin/true
       done
       local REPORT="gh pr checks:"
       local KEY
