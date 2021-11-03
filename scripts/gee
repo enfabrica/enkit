@@ -262,117 +262,6 @@ function _parse_options() {
   return 0
 }
 
-function __git_eread () {
-  # Used by _gee_rebase_prompt
-	test -r "$1" && IFS=$'\r\n' read -r "$2" <"$1"
-}
-
-# This function might be improved in the future for users to use as a
-# bash COMMAND_PROMPT command, but needs improvements.
-function gee__prompt() {
-  _gee_rebase_prompt
-}
-
-function _gee_rebase_prompt() {
-  # Prompt to be used while in an interactive conflict resolution shell.
-  # cribbed from git-prompt.sh
-	# preserve exit status
-	local exit=$?
-
-	local repo_info rev_parse_exit_code
-	repo_info="$(git rev-parse \
-    --git-dir \
-    --is-inside-git-dir \
-		--short HEAD 2>/dev/null)"
-	rev_parse_exit_code="$?"
-
-	if [ -z "$repo_info" ]; then
-		return $exit
-	fi
-
-	local short_sha=""
-	if [ "$rev_parse_exit_code" = "0" ]; then
-		short_sha="${repo_info##*$'\n'}"
-		repo_info="${repo_info%$'\n'*}"
-	fi
-	local inside_gitdir="${repo_info##*$'\n'}"
-	local g="${repo_info%$'\n'*}"
-
-	if [ "true" = "$inside_gitdir" ] &&
-	   [ -n "${GIT_PS1_HIDE_IF_PWD_IGNORED-}" ] &&
-	   [ "$(git config --bool bash.hideIfPwdIgnored)" != "false" ] &&
-	   git check-ignore -q .
-	then
-		return $exit
-	fi
-
-	local r=""
-	local b=""
-	local step=""
-	local total=""
-	if [ -d "$g/rebase-merge" ]; then
-		__git_eread "$g/rebase-merge/head-name" b
-		__git_eread "$g/rebase-merge/msgnum" step
-		__git_eread "$g/rebase-merge/end" total
-		r="|REBASE"
-	else
-		if [ -d "$g/rebase-apply" ]; then
-			__git_eread "$g/rebase-apply/next" step
-			__git_eread "$g/rebase-apply/last" total
-			if [ -f "$g/rebase-apply/rebasing" ]; then
-				__git_eread "$g/rebase-apply/head-name" b
-				r="|REBASE"
-			elif [ -f "$g/rebase-apply/applying" ]; then
-				r="|AM"
-			else
-				r="|AM/REBASE"
-			fi
-		elif [ -f "$g/MERGE_HEAD" ]; then
-			r="|MERGING"
-		elif [ -f "$g/BISECT_LOG" ]; then
-			r="|BISECTING"
-		fi
-
-		if [ -n "$b" ]; then
-			:
-		elif [ -h "$g/HEAD" ]; then
-			# symlink symbolic ref
-			b="$(git symbolic-ref HEAD 2>/dev/null)"
-		else
-			local head=""
-			if ! __git_eread "$g/HEAD" head; then
-				return $exit
-			fi
-			# is it a symbolic ref?
-			b="${head#ref: }"
-			if [ "$head" = "$b" ]; then
-				b="$( git describe --tags --exact-match HEAD 2>/dev/null)" ||
-				b="$short_sha..."
-				b="($b)"
-			fi
-		fi
-	fi
-
-	if [ -n "$step" ] && [ -n "$total" ]; then
-    r="$r ($step/$total)"
-	fi
-
-	b=${b##refs/heads/}
-
-  local d
-  d="$("${PWD_CMD}")"
-
-  local COLOR RST
-  COLOR="$(tput bold; tput rev)"
-  RST="$(tput sgr0)"
-  if [[ -n "${GEE_HELP}" ]]; then
-    printf "%s\n" "${GEE_HELP}"
-  fi
-  printf -- "${COLOR}%s%s%s %s${RST}\n$ " "${GEE_STATUS}" "${b}" "${r}" "${d}"
-
-	return $exit
-}
-
 function _contains_element() {
   # Returns true if the first argument is present in one of the subsequent
   # arguements.
@@ -1189,7 +1078,6 @@ function _open_rebase_shell() {
     # Opens an interactive subshell for resolving conflicts during a rebase.
     # This is the "old" flow, and it's a bit messy.
     # TODO(jonathan): make the prompts less noisy.
-    export PROMPT_COMMAND="_gee_rebase_prompt"
     local BOLD RST
     BOLD="$(tput bold)"
     RST="$(tput sgr0)"
@@ -1201,12 +1089,9 @@ function _open_rebase_shell() {
     GEE_HELP+="  To continue rebase after fixing: ${BOLD}git rebase --continue${RST}${NEWLINE}"
     GEE_HELP+="  To give up and go back to original state: ${BOLD}git rebase --abort${RST}${NEWLINE}"
     GEE_HELP+="  To return to gee: ${BOLD}exit${RST}${NEWLINE}"
-    export GEE_STATUS="GEE-REBASE-SUBSHELL: "
-    export PS1=""
-    export -f __git_eread
-    export -f _gee_rebase_prompt
     _git status
     _banner "Entering subshell: resolve conflicts or abort and then exit."
+    echo "${GEE_HELP}"
     set +e
     bash --noprofile --norc
     _banner "Subshell terminated with exit code $?."
@@ -3267,7 +3152,7 @@ Or for a quick version:
 EOT
 
 function gee__gcd() {
-  local BRANCH CURRENT_BRANCH CURRENT_ROOT ABS_PATH REL_PATH OPT_B
+  local BRANCH REL_PATH OPT_B
   OPT_B=0
   if [[ "$1" == "-b" ]]; then
     OPT_B=1
@@ -3286,14 +3171,7 @@ function gee__gcd() {
     _die "Can't find ${REPO}/${MAIN} branch.  Something is very wrong here."
   fi
 
-  CURRENT_BRANCH="$(_get_current_branch)"
-  if [[ -z "${CURRENT_BRANCH}" ]]; then
-    _die "Failed to get name of current branch."
-  fi
-  CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
-  ABS_PATH="$(readlink -f .)"
-  REL_PATH="${ABS_PATH#"${CURRENT_ROOT}"}"
-  REL_PATH="${REL_PATH#\/}"
+  REL_PATH="$(git rev-parse --show-prefix)"
 
   # check whether BRANCH exists: 
   if ! _local_branch_exists "${BRANCH}"; then
@@ -3513,6 +3391,38 @@ streamline the use of gee.  The following functions are exported:
   "gee": invokes "gee $@"
   "gcd": rapidly change between gee branch directories.
 
+Additionally, the following functions can be used to customize your
+command prompt with useful information about your git work tree:
+  "gee_prompt_git_info": prints git-related information suitable for
+    integrating into your own prompt.
+  "gee_prompt_print": Prints a string suitable for using as a prompt.
+  "gee_prompt_set_ps1": Sets PS1 to the output of gee_prompt_print.
+
+This custom git-aware prompt will keep you apprised of which git branch you are
+in, and will also tell you important information about the status of your
+branch (whether or not you are in the middle of a merge or rebase operation,
+whether there are uncommitted changes, and more).
+
+The easiest way to make use of the git-aware prompt is to modify your .bashrc
+file to set PROMPT_COMMAND to "gee_prompt_set_ps1", as shown below:
+
+    export PROMPT_COMMAND="gee_prompt_set_ps1"
+
+This prompt can be customized by setting the following environment variables:
+
+GEE_PROMPT: The PS1-style prompt string to put at the end of every prompt.
+  Default:  $' [\\!] \\w\033[0K\033[0m\n$ '
+  More info: https://www.man7.org/linux/man-pages/man1/bash.1.html#PROMPTING
+GEE_PROMPT_BG_COLOR: The ANSI color to use as the background (default: 5).
+GEE_PROMPT_FG1_COLOR: The foreground color for git-related info (default: 9).
+GEE_PROMPT_FG2_COLOR: The foreground color for GEE_PROMPT (default: 3).
+
+Easter egg: Use the "gee_prompt_test_colors" command to view a test pattern
+of the basic 4-bit ANSI color set.
+
+If you need further customization, you are encouraged to write your own
+version of gee_prompt_set_ps1.
+
 Also sets GEE_BINARY to point to this copy of gee.
 EOT
 
@@ -3610,7 +3520,173 @@ function _gee_completion() {
 complete -F _gee_completion gee
 complete -F _gee_completion_branches gcd
 END_OF_BASH_COMPLETION_SETUP
-echo "export GEE_BINARY=\"$(readlink -f "$0")\""  # make this gee the default gee.
+  cat <<'END_OF_GEE_PROMPT'
+# This git-aware prompt implementation owes a debt to Shawn O. Pearce's
+# "git-prompt.sh" implementation, found here:
+# https://github.com/git/git/blob/master/contrib/completion/git-prompt.sh
+
+function gee_prompt_update_git_info() {
+  GEE_PROMPT_BRANCH=""
+  local git_dir="" is_inside_work_tree="" toplevel
+  read -r -d '' git_dir is_inside_work_tree toplevel < \
+    <( git rev-parse --git-dir \
+                     --is-inside-work-tree \
+                     --show-toplevel \
+                     2>/dev/null)
+  if [[ "true" != "${is_inside_work_tree}" ]]; then return 0; fi
+
+  local repo=""
+  if [[ "${toplevel}" =~ ^"${HOME}"/gee/(.+)/ ]]; then
+    repo="$(printf "%.3s:" "${BASH_REMATCH[1]}:")"
+  fi
+
+  local branch
+  read -r branch < <( git branch --show-current )
+  GEE_PROMPT_BRANCH="${branch}"
+
+  local mode=""
+  local step=""
+  local total=""
+  if [[ -d "${git_dir}/rebase-merge" ]]; then
+    mode="REBASING:MERGE"
+    read -r step < "${git_dir}/rebase-merge/msgnum"
+    read -r total < "${git_dir}/rebase-merge/end"
+    read -r branch < "${git_dir}/rebase-merge/head-name"
+    branch="$(basename "${branch}")"
+  elif [[ -d "${git_dir}/rebase-apply" ]]; then
+    mode="REBASING:APPLY"
+    read -r step < "${git_dir}/rebase-apply/next"
+    read -r total < "${git_dir}/rebase-apply/last"
+    read -r branch < "${git_dir}/rebase-apply/head-name"
+    branch="$(basename "${branch}")"
+  elif [[ -f "${git_dir}/MERGE_HEAD" ]]; then
+    mode="MERGING"
+  elif [[ -f "${git_dir}/CHERRY_PICK_HEAD" ]]; then
+    mode="CHERRY_PICKING"
+  elif [[ -f "${git_dir}/REVERT_HEAD" ]]; then
+    mode="REVERTING"
+  elif [[ -f "${git_dir}/BISECT_LOG" ]]; then
+    mode="BISECTING"
+  elif [[ -f "${git_dir}/sequencer/todo" ]]; then
+    local todo
+    read -r todo < "${git_dir}/sequencer/todo"
+    if [[ "${todo}" =~ ^(p|pick)\  ]]; then
+      mode="CHERRY_PICKING"
+    elif [[ "${todo}" =~ ^revert\  ]]; then
+      mode="REVERTING"
+    fi
+  fi
+
+  # try some other ways to determine the branch name:
+  if [[ -z "${branch}" ]]; then
+    branch="$(git name-rev --name-only HEAD)"
+  fi
+
+  local complete_mode=""
+  if [[ -n "${mode}" ]]; then
+    complete_mode=":${mode}"
+  fi
+  if [[ -n "${step}" ]] && [[ -n "${total}" ]]; then
+    complete_mode+=" (step ${step}/${total})"
+  fi
+
+  local changes=""
+  git diff --no-ext-diff --quiet || changes="*"
+  local cached=""
+  git diff --no-ext-diff --cached --quiet || cached="+"
+  local stash_depth
+  read -r stash_depth < <(git stash list | wc -l)
+  if [[ "${stash_depth}" -eq 0 ]]; then
+    stash_depth=""
+  else
+    stash_depth=" S=${stash_depth}"
+  fi
+
+  GEE_PROMPT_INFO="$(printf "(%s%s%s%s%s%s)" \
+    "${repo}" "${branch}" "${complete_mode}" \
+    "${changes}" "${cached}" "${stash_depth}")"
+}
+
+function gee_prompt_git_info() {
+  gee_prompt_update_git_info
+  echo "${GEE_PROMPT_INFO}"
+}
+
+function __gee_prompt_set_colors() {
+  local fg="$1"
+  local bg="$2"
+  local bold="$3"
+  local code=$'\033[0'
+  if [[ "${bold}" == "1" ]]; then
+    code+=";1"
+  fi
+  if (( "${fg}" > 7 )); then
+    code+=";$(( fg - 8 + 90 ))"
+  else
+    code+=";$(( fg + 30 ))"
+  fi
+  if (( "${bg}" > 7 )); then
+    code+=";$(( bg - 8 + 100 ))"
+  else
+    code+=";$(( bg + 40 ))"
+  fi
+  code+="m"
+  printf "%s" "${code}"
+}
+
+function __gee_prompt_set_window_title() {
+  local title="$1"
+  local ESC=$'\033'
+  local SLASH=$'\134'
+  printf "${ESC}k${ESC}${SLASH}${ESC}k%s${ESC}${SLASH}" "$1"
+}
+
+function gee_prompt_test_colors() {
+  local fg bg bold
+  for bg in $(seq 0 15); do
+    for bold in 0 1; do
+      printf "%02d: " "${bg}"
+      for fg in $(seq 0 15); do
+        __gee_prompt_set_colors "${fg}" "${bg}" "${bold}"
+        printf " %02d " "${fg}"
+      done
+      printf $'\033[0m %s\n' "${bold}"
+    done
+  done
+}
+
+function gee_prompt_print() {
+  gee_prompt_update_git_info
+  local p="${GEE_PROMPT}"
+  if [[ -z "${p}" ]]; then
+    p=" [\\!] \\w\033[0K\033[0m\n$ "
+  fi
+
+  local bg="${GEE_PROMPT_BG_COLOR:-1}"
+  local fg1="${GEE_PROMPT_FG1_COLOR:-15}"
+  local bold1="${GEE_PROMPT_FG1_BOLD:-1}"
+  local fg2="${GEE_PROMPT_FG2_COLOR:-0}"
+  local bold2="${GEE_PROMPT_FG2_BOLD:-0}"
+
+  printf "%s" \
+    "$(__gee_prompt_set_window_title "${GEE_PROMPT_BRANCH:-bash}")" \
+    "$(__gee_prompt_set_colors "${fg1}" "${bg}" "${bold1}" )" \
+    "${GEE_PROMPT_INFO}" \
+    "$(__gee_prompt_set_colors "${fg2}" "${bg}" "${bold2}" )" \
+    "${p}" \
+    $'\033[0m'
+}
+
+function gee_prompt_set_ps1() {
+  export PS1
+  PS1="$(gee_prompt_print)"
+}
+
+# To enable this prompt, the user must opt-in by setting:
+# export PROMPT_COMMAND="gee_prompt_set_ps1"
+
+END_OF_GEE_PROMPT
+  echo "export GEE_BINARY=\"$(readlink -f "$0")\""  # make this gee the default gee.
 }
 
 ##########################################################################
