@@ -1479,6 +1479,8 @@ function _update_from_upstream() {
 
 function _update_main() {
   # Merge from upstream/main into main:
+  local BRANCH
+  BRANCH="$(_get_current_branch)"
   _set_main
   _checkout_or_die "${MAIN}"
   # check for local changes
@@ -1491,6 +1493,7 @@ function _update_main() {
   fi
   # TODO(jonathan): maybe just use _safer_rebase here instead.
   _update_from_upstream "${MAIN}" "${MAIN}"
+  _checkout_or_die "${BRANCH}"
 }
 
 # The parents file keeps track of two things:
@@ -2926,6 +2929,7 @@ function gee__pr_submit() {
   fi
 
   # Reset this branch to now contain the squash-merged commit:
+  _checkout_or_die "${CURRENT_BRANCH}"  # make sure we're in the right branch.
   _git checkout -B "${CURRENT_BRANCH}" "upstream/${MAIN}"
   _git push -u origin "+${CURRENT_BRANCH}"
 
