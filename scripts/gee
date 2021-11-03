@@ -3551,10 +3551,14 @@ function gee_prompt_update_git_info() {
     mode="REBASING:MERGE"
     read -r step < "${git_dir}/rebase-merge/msgnum"
     read -r total < "${git_dir}/rebase-merge/end"
+    read -r branch < "${git_dir}/rebase-merge/head-name"
+    branch="$(basename "${branch}")"
   elif [[ -d "${git_dir}/rebase-apply" ]]; then
     mode="REBASING:APPLY"
     read -r step < "${git_dir}/rebase-apply/next"
-    read -r total < "${git_dir}/rebase-merge/last"
+    read -r total < "${git_dir}/rebase-apply/last"
+    read -r branch < "${git_dir}/rebase-apply/head-name"
+    branch="$(basename "${branch}")"
   elif [[ -f "${git_dir}/MERGE_HEAD" ]]; then
     mode="MERGING"
   elif [[ -f "${git_dir}/CHERRY_PICK_HEAD" ]]; then
@@ -3573,9 +3577,14 @@ function gee_prompt_update_git_info() {
     fi
   fi
 
+  # try some other ways to determine the branch name:
+  if [[ -z "${branch}" ]]; then
+    branch="$(git name-rev --name-only HEAD)"
+  fi
+
   local complete_mode=""
   if [[ -n "${mode}" ]]; then
-    complete_mode=": ${mode}"
+    complete_mode=":${mode}"
   fi
   if [[ -n "${step}" ]] && [[ -n "${total}" ]]; then
     complete_mode+=" (step ${step}/${total})"
@@ -3598,8 +3607,8 @@ function gee_prompt_update_git_info() {
     "${changes}" "${cached}" "${stash_depth}")"
 }
 
-function git_prompt_git_info() {
-  git_prompt_update_git_info
+function gee_prompt_git_info() {
+  gee_prompt_update_git_info
   echo "${GEE_PROMPT_INFO}"
 }
 
