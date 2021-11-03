@@ -4,55 +4,126 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
 	"os/exec"
-	"strings"
 )
 
-// streamedBazelCommand exec's out to bazel in the specified workspace with the
-// specified arguments. It is a variable that allows for stubbing during tests.
-//
-// In production, the implementation will return an io.Reader containing stdout,
-// an error channel that will emit any errors (if present) during execution, and
-// an error if any occur while starting the command. errChan is closed after the
-// command completes, but the caller should read all of the returned io.Reader
-// before checking the error channel.
-var streamedBazelCommand = func(cmd *exec.Cmd) (io.Reader, chan error, error) {
-	// Uncomment this line to debug bazel issues using its stderr output.
-	// TODO(scott): Log this somehow
-	//cmd.Stderr = os.Stderr
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't get stdout for bazel query: %w", err)
-	}
-	err = cmd.Start()
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't start bazel command: %w", err)
-	}
+// Command wraps an exec.Cmd, providing a common way to access stdout and stderr
+// from the underlying command across production code and tests.
+type Command interface {
+	// Run runs the underlying exec.Cmd.
+	Run() error
 
-	pipeReader, pipeWriter := io.Pipe()
-	errChan := make(chan error)
-	go func() {
-		defer close(errChan)
-		_, err := io.Copy(pipeWriter, stdout)
-		pipeWriter.Close()
-		if err != nil {
-			errChan <- fmt.Errorf("while copying stdout from bazel command: %w", err)
-		}
-		err = cmd.Wait()
-		if err != nil {
-			errChan <- fmt.Errorf("command failed: `%s`: %w", strings.Join(cmd.Args, " "), err)
-		}
-	}()
+	// Close releases resources associated with this command. It should be called
+	// once the output is no longer needed/has already been consumed.
+	Close() error
 
-	return pipeReader, errChan, nil
+	// Stdout provides access to the command's stdout. Run() must be called first.
+	// The caller should close the returned io.ReadCloser.
+	Stdout() (io.ReadCloser, error)
+
+	// Stderr provides access to the command's stderr. Run() must be called first.
+	// The caller should close the returned io.ReadCloser.
+	Stderr() (io.ReadCloser, error)
+
+	// StdoutContents reads all of stdout into a raw byte slice.
+	StdoutContents() ([]byte, error)
+
+	// StderrContents reads stderr into a string. This method cannot fail, as it
+	// is intended to be used only in logging/errors; if reading fails, a sentinel
+	// error string will be returned instead.
+	StderrContents() string
 }
 
-// runBazelCommand runs the prepared command and returns a buffer containing
-// stdout. It is declared as a var to allow for easy stubbing in unit tests.
-var runBazelCommand = func(cmd *exec.Cmd) (string, error) {
-	out, err := cmd.Output()
+// fileCommand buffers stdout and stderr from the underlying command to a
+// temporary file.
+type fileCommand struct {
+	cmd        *exec.Cmd
+	stdoutPath string
+	stderrPath string
+}
+
+// NewCommand returns a fileCommand wrapping the provided exec.Cmd. It is
+// defined as a var so it can be stubbed in unit tests.
+var NewCommand = func(cmd *exec.Cmd) (Command, error) {
+	stdout, err := ioutil.TempFile("", "bazel_stdout_*")
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("failed to create stdout file: %w", err)
 	}
-	return string(bytes.TrimSpace(out)), nil
+	stdout.Close()
+	stderr, err := ioutil.TempFile("", "bazel_stderr_*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stderr file: %w", err)
+	}
+	stderr.Close()
+	return &fileCommand{
+		cmd:        cmd,
+		stdoutPath: stdout.Name(),
+		stderrPath: stderr.Name(),
+	}, nil
+}
+
+// Run runs the command, outputting stdout and stderr to temporary files.
+func (c *fileCommand) Run() error {
+	stdout, err := os.OpenFile(c.stdoutPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("failed to connect command to stdout file: %w", err)
+	}
+	defer stdout.Close()
+
+	stderr, err := os.OpenFile(c.stderrPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("failed to connect command to stderr file: %w", err)
+	}
+	defer stderr.Close()
+
+	c.cmd.Stdout = stdout
+	c.cmd.Stderr = stderr
+	return c.cmd.Run()
+}
+
+// Stdout opens and returns the temporary file containing stdout contents.
+func (c *fileCommand) Stdout() (io.ReadCloser, error) {
+	f, err := os.Open(c.stdoutPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open stdout file: %w", err)
+	}
+	return f, nil
+}
+
+// Stderr opens and returns the temporary file containing stderr contents.
+func (c *fileCommand) Stderr() (io.ReadCloser, error) {
+	f, err := os.Open(c.stderrPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open stderr file: %w", err)
+	}
+	return f, nil
+}
+
+// StdoutContents returns the contents of the stdout temporary file.
+func (c *fileCommand) StdoutContents() ([]byte, error) {
+	contents, err := ioutil.ReadFile(c.stdoutPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read stdout file: %w", err)
+	}
+	return contents, nil
+}
+
+// StderrContents returns the contents of the stderr temporary file. It is
+// assumed that this is a text file, and the contents have space trimmed before
+// returning.
+func (c *fileCommand) StderrContents() string {
+	contents, err := ioutil.ReadFile(c.stderrPath)
+	if err != nil {
+		return "<failed to read stderr contents>"
+	}
+	return string(bytes.TrimSpace(contents))
+}
+
+// Close removes stdout and stderr temporary files.
+func (c *fileCommand) Close() error {
+	os.Remove(c.stdoutPath)
+	os.Remove(c.stderrPath)
+	return nil
 }

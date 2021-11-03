@@ -1,10 +1,9 @@
 package bazel
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"testing"
 
@@ -20,15 +19,24 @@ import (
 func mustFindRunfile(path string) string {
 	p, err := rulesgo.Runfile(path)
 	if err != nil {
-		panic(fmt.Sprintf("can't find runfile %q: %v", path, err))
+		panic(fmt.Sprintf("can't find runfile %q: %w", path, err))
 	}
 	return p
+}
+
+func mustOpen(path string) io.ReadCloser {
+	f, err := os.Open(path)
+	if err != nil {
+		panic(fmt.Sprintf("can't open file %q: %w", err))
+	}
+	return f
 }
 
 func TestQueryOutput(t *testing.T) {
 	testCases := []struct {
 		desc            string
 		queryOutputFile string
+		gotCommands     []*exec.Cmd
 		wantCount       int
 		wantErr         string
 	}{
@@ -40,16 +48,19 @@ func TestQueryOutput(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			stubs := gostub.Stub(&streamedBazelCommand, func(*exec.Cmd) (io.Reader, chan error, error) {
-				errChan := make(chan error)
-				close(errChan)
-				contents, err := ioutil.ReadFile(tc.queryOutputFile)
+			stubs := gostub.Stub(&NewCommand, func(cmd *exec.Cmd) (Command, error) {
+				// Record the command
+				tc.gotCommands = append(tc.gotCommands, cmd)
+				// Return fake results
+				f, err := os.Open(tc.queryOutputFile)
 				if err != nil {
-					panic(fmt.Sprintf("failed to read query output test file %q: %v", tc.queryOutputFile, err))
+					panic(fmt.Sprintf("failed to open query output test file %q: %v", tc.queryOutputFile, err))
 				}
-				return bytes.NewReader(contents), errChan, nil
+				return &fakeCommand{
+					stdout: f,
+					stderr: nil,
+				}, nil
 			})
-			stubs.Stub(&runBazelCommand, func(*exec.Cmd) (string, error) { return "", nil })
 			defer stubs.Reset()
 
 			w, err := OpenWorkspace("")
