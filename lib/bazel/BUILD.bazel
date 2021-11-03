@@ -29,6 +29,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "affected_targets_test.go",
+        "exec_test.go",
         "options_test.go",
         "pattern_test.go",
         "query_test.go",

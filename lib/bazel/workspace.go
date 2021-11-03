@@ -3,6 +3,7 @@
 package bazel
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
@@ -64,18 +65,36 @@ func OpenWorkspace(rootPath string, options ...BaseOption) (*Workspace, error) {
 // * any startup flags
 // * subcommand and subcommand args
 // * rooted to the correct workspace directory
-func (w *Workspace) bazelCommand(subCmd subcommand) *exec.Cmd {
+func (w *Workspace) bazelCommand(subCmd subcommand) (Command, error) {
 	args := w.options.flags()
 	args = append(args, subCmd.Args()...)
 	cmd := exec.Command("bazel", args...)
 	cmd.Dir = w.root
-	return cmd
+	bazelCmd, err := NewCommand(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct bazel command: %w", err)
+	}
+	return bazelCmd, nil
 }
 
 func (w *Workspace) Info(options ...InfoOption) (string, error) {
 	infoOpts := &infoOptions{}
 	InfoOptions(options).apply(infoOpts)
 
-	cmd := w.bazelCommand(infoOpts)
-	return runBazelCommand(cmd)
+	cmd, err := w.bazelCommand(infoOpts)
+	if err != nil {
+		return "", err
+	}
+	defer cmd.Close()
+
+	err = cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("bazel info failed: %v\n\nbazel stderr:\n\n%s", err, cmd.StderrContents())
+	}
+
+	b, err := cmd.StdoutContents()
+	if err != nil {
+		return "", err
+	}
+	return string(bytes.TrimSpace(b)), nil
 }

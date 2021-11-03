@@ -143,15 +143,25 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 	QueryOptions(options).apply(queryOpts)
 	defer queryOpts.Close()
 
-	cmd := w.bazelCommand(queryOpts)
-	resultStream, errChan, err := streamedBazelCommand(cmd)
+	cmd, err := w.bazelCommand(queryOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to run query: %w", err)
+	}
+	defer cmd.Close()
+	err = cmd.Run()
+	if err := queryOpts.filterError(err); err != nil {
+		return nil, fmt.Errorf("bazel query failed: %v\n\nbazel stderr:\n%s", err, cmd.StderrContents())
 	}
 
 	targets := map[string]*Target{}
 
-	rdr := delimited.NewReader(resultStream)
+	stdout, err := cmd.Stdout()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open query stdout: %w", err)
+	}
+	defer stdout.Close()
+	rdr := delimited.NewReader(stdout)
+
 	var buf []byte
 	for buf, err = rdr.Next(); err == nil; buf, err = rdr.Next() {
 		var target bpb.Target
@@ -162,11 +172,7 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 		targets[newTarget.Name()] = newTarget
 	}
 	if err != io.EOF {
-		return nil, fmt.Errorf("failed to read stdout from bazel command: %w", err)
-	}
-
-	if err := queryOpts.filterError(<-errChan); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while reading stdout from bazel command: %w", err)
 	}
 
 	workspaceEvents := map[string][]*bpb.WorkspaceEvent{}

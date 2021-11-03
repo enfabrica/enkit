@@ -1,8 +1,12 @@
 package bazel
 
 import (
+	"io"
 	"os/exec"
+	"strings"
 	"testing"
+
+	"github.com/enfabrica/enkit/lib/errdiff"
 
 	"github.com/prashantv/gostub"
 	"github.com/stretchr/testify/assert"
@@ -15,6 +19,7 @@ func TestBazelQueryCommand(t *testing.T) {
 		baseOpts  BaseOptions
 		queryOpts QueryOptions
 		wantArgs  []string
+		wantErr   string
 	}{
 		{
 			desc:      "basic query",
@@ -25,7 +30,14 @@ func TestBazelQueryCommand(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			stubs := gostub.Stub(&runBazelCommand, func(*exec.Cmd) (string, error) { return "", nil })
+			var gotCmd *exec.Cmd
+			stubs := gostub.Stub(&NewCommand, func(cmd *exec.Cmd) (Command, error) {
+				gotCmd = cmd
+				return &fakeCommand{
+					stdout: io.NopCloser(strings.NewReader("")),
+					stderr: nil,
+				}, nil
+			})
 			defer stubs.Reset()
 
 			w, err := OpenWorkspace("", tc.baseOpts...)
@@ -36,9 +48,10 @@ func TestBazelQueryCommand(t *testing.T) {
 
 			q := &queryOptions{query: cannedQuery}
 			tc.queryOpts.apply(q)
-			got := w.bazelCommand(q)
+			_, gotErr := w.bazelCommand(q)
 
-			assert.Equal(t, tc.wantArgs, got.Args)
+			errdiff.Check(t, gotErr, tc.wantErr)
+			assert.Equal(t, tc.wantArgs, gotCmd.Args)
 		})
 	}
 }
