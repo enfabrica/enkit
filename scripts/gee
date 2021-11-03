@@ -3520,7 +3520,7 @@ function _gee_completion() {
 complete -F _gee_completion gee
 complete -F _gee_completion_branches gcd
 END_OF_BASH_COMPLETION_SETUP
-  cat <<'END_OF_GIT_PROMPT_SH'
+  cat <<'END_OF_GEE_PROMPT'
 # This git-aware prompt implementation owes a debt to Shawn O. Pearce's
 # "git-prompt.sh" implementation, found here:
 # https://github.com/git/git/blob/master/contrib/completion/git-prompt.sh
@@ -3676,7 +3676,7 @@ function gee_prompt_set_ps1() {
 # To enable this prompt, the user must opt-in by setting:
 # export PROMPT_COMMAND="gee_prompt_set_ps1"
 
-END_OF_GIT_PROMPT_SH
+END_OF_GEE_PROMPT
   echo "export GEE_BINARY=\"$(readlink -f "$0")\""  # make this gee the default gee.
 }
 
