@@ -39,9 +39,10 @@ type Command interface {
 // fileCommand buffers stdout and stderr from the underlying command to a
 // temporary file.
 type fileCommand struct {
-	cmd        *exec.Cmd
-	stdoutPath string
-	stderrPath string
+	cmd           *exec.Cmd
+	stdoutPath    string
+	stderrPath    string
+	cargoHomePath string
 }
 
 // NewCommand returns a fileCommand wrapping the provided exec.Cmd. It is
@@ -57,10 +58,25 @@ var NewCommand = func(cmd *exec.Cmd) (Command, error) {
 		return nil, fmt.Errorf("failed to create stderr file: %w", err)
 	}
 	stderr.Close()
+
+	// BUG(INFRA-140) - By default, cargo will download packages to a well-known
+	// directory under $HOME; this will mean that parallel bazel invocations could
+	// race on this directory if they both fetch Cargo packages. Cargo respects
+	// the $CARGO_HOME environment variable, so set it to something unique for
+	// this invocation.
+	env := os.Environ()
+	cargoHome, err := ioutil.TempDir("", "bazel_cargo_home_*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tmpdir for $CARGO_HOME: %w", err)
+	}
+	env = append(env, "CARGO_HOME="+cargoHome)
+	cmd.Env = env
+
 	return &fileCommand{
-		cmd:        cmd,
-		stdoutPath: stdout.Name(),
-		stderrPath: stderr.Name(),
+		cmd:           cmd,
+		stdoutPath:    stdout.Name(),
+		stderrPath:    stderr.Name(),
+		cargoHomePath: cargoHome,
 	}, nil
 }
 
@@ -125,5 +141,6 @@ func (c *fileCommand) StderrContents() string {
 func (c *fileCommand) Close() error {
 	os.Remove(c.stdoutPath)
 	os.Remove(c.stderrPath)
+	os.RemoveAll(c.cargoHomePath)
 	return nil
 }
