@@ -3925,9 +3925,12 @@ function main() {
   # Let's make pr-submit and pr_submit equivalent:
   cmdname="$(tr '-' '_' <<< "${cmdname}")"
   if type "gee__${cmdname}" >/dev/null 2>&1; then
-    if [[ "${cmdname}" != "bash_setup" ]]; then
-      _startup_checks
-    fi
+    case "${cmdname}" in
+      bash_setup|repair) 
+        # skip startup checks
+        ;;
+      *) _startup_checks ;;
+    esac
     "gee__${cmdname}" "$@"
     ABNORMAL=0
   else
