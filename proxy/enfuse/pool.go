@@ -2,10 +2,8 @@ package enfuse
 
 import (
 	"errors"
-	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/google/uuid"
-	"log"
+	"net"
 	"sync"
 )
 
@@ -13,54 +11,67 @@ var NoServerErr = errors.New("the current server is not set")
 
 // SocketConnectionPool is a simple websocket.Conn pool with the ability to demux from single server connection and multiple clients.
 type SocketConnectionPool struct {
-	mu      sync.Mutex
-	srv     *SocketConnection
-	clients []*SocketConnection
-}
+	mu           sync.Mutex
+	srv          *websocket.Conn
+	websocketMap map[string]*websocket.Conn
 
-type SocketConnection struct {
-	uuid uuid.UUID
-	conn *websocket.Conn
-}
+	srvNet net.Listener
+	netLisMap map[string]net.Conn
 
-func (scp *SocketConnectionPool) AddClient(conn *websocket.Conn) {
-	scp.mu.Lock()
-	defer scp.mu.Unlock()
-	scp.clients = append(scp.clients, &SocketConnection{conn: conn, uuid: uuid.New()})
+	prefix int
 }
 
 func (scp *SocketConnectionPool) SetServer(conn *websocket.Conn) error {
 	scp.mu.Lock()
 	defer scp.mu.Unlock()
-	scp.srv = &SocketConnection{uuid: uuid.New(), conn: conn}
+	scp.srv = conn
 	return nil
 }
 
-func (scp *SocketConnectionPool) Fetch(uuid string) (*SocketConnection, error) {
-	for _, s := range scp.clients {
-		if s.uuid.String() == uuid {
-			return s, nil
-		}
-	}
-	return nil, fmt.Errorf("%s was not a connection", uuid)
+func (scp *SocketConnectionPool) Fetch(m []byte) *websocket.Conn {
+	uid := m[:scp.prefix]
+	return scp.websocketMap[string(uid)]
 }
 
-func (scp *SocketConnectionPool) WriteToServer(msgType int, data []byte) error {
+func (scp *SocketConnectionPool) WriteToServer(msgType int, data []byte, conn *websocket.Conn) error {
 	if scp.srv == nil {
 		return NoServerErr
 	}
-	return scp.srv.conn.WriteMessage(msgType, data)
-}
-
-func (scp *SocketConnectionPool) WriteToAllClients(msgType int, data []byte) {
-	for _, s := range scp.clients {
-		if err := s.conn.WriteMessage(msgType, data); err != nil {
-			log.Printf("error in writing to all clients", err.Error())
-		}
+	uid := data[:scp.prefix]
+	if scp.websocketMap[string(uid)] == nil {
+		scp.mu.Lock()
+		defer scp.mu.Unlock()
+		scp.websocketMap[string(uid)] = conn
 	}
+	return scp.srv.WriteMessage(msgType, data)
 }
 
+func (scp *SocketConnectionPool) WriteToLis(data []byte) error {
+	if scp.srv == nil {
+		return NoServerErr
+	}
+	uid := data[:scp.prefix]
+	if scp.netLisMap[string(uid)] == nil {
+		scp.mu.Lock()
+		defer scp.mu.Unlock()
+		c, err := net.Dial(scp.srvNet.Addr().Network(), scp.srvNet.Addr().String())
+		if err != nil {
+			return err
+		}
+		scp.netLisMap[string(uid)] = c
+	}
+	_, err := scp.netLisMap[string(uid)].Write(data[scp.prefix:])
+	return err
+}
 
-func (scp *SocketConnectionPool) ServerPresent() bool  {
+func (scp *SocketConnectionPool) ServerPresent() bool {
 	return scp.srv != nil
+}
+
+func NewPool(strat PayloadAppendStrategy) *SocketConnectionPool {
+	id, _ := strat()
+	return &SocketConnectionPool{
+		prefix:       id,
+		websocketMap: map[string]*websocket.Conn{},
+	}
 }

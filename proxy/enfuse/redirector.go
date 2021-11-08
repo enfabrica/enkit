@@ -31,15 +31,13 @@ func (r *RedirectServer) ListenAndServe() error {
 				log.Printf(err.Error())
 			}
 			for {
-				m, t, err := conn.ReadMessage()
-				if err != nil {
-					log.Printf(err.Error())
-					continue
-				}
-				pool.WriteToAllClients(m, t)
+				//m, t, err := conn.ReadMessage()
+				//if err != nil {
+				//	log.Printf(err.Error())
+				//	continue
+				//}
 			}
 		} else {
-			pool.AddClient(conn)
 			for {
 				fmt.Println("waiting for client read")
 				t, m, err := conn.ReadMessage()
@@ -49,7 +47,7 @@ func (r *RedirectServer) ListenAndServe() error {
 					continue
 				}
 				fmt.Println("writing to server", m)
-				if err := pool.WriteToServer(t, m); err != nil {
+				if err := pool.WriteToServer(t, m, conn); err != nil {
 					log.Printf("err writing to server %s \n", err)
 				}
 
@@ -135,23 +133,10 @@ func HandleReads(name string, src *websocket.Conn, dst net.Conn, shutdown chan s
 	return retErr
 }
 
-var _ io.Writer = &socketShim{}
-
-// socketShim is a simple wrapper that implements io.Writer that write the full buffer.
-// in the future this could be nicely reconnectable with a buffer window.
-type socketShim struct {
-	*websocket.Conn
-}
-
-func (b socketShim) Write(p []byte) (n int, err error) {
-	//websockets always write the full buffer
-	return len(p), b.WriteMessage(websocket.BinaryMessage, p)
-}
-
 func HandleWriter(name string, src net.Conn, dst *websocket.Conn, showdown chan struct{}) <-chan error {
 	retErr := make(chan error, 1)
 	go func() {
-		_, err := io.Copy(&socketShim{dst}, src)
+		_, err := io.Copy(&socketShim{dst, nil, DefaultPayloadStrategy}, src)
 		retErr <- err
 	}()
 	return retErr
