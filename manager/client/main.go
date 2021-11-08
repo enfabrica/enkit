@@ -12,9 +12,11 @@ import (
 	"strings"
 	"time"
 
-	rpc_license "github.com/enfabrica/enkit/manager/rpc"
 	"github.com/enfabrica/enkit/flextape/client"
+	fpb "github.com/enfabrica/enkit/flextape/proto"
+	rpc_license "github.com/enfabrica/enkit/manager/rpc"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	grpcCodes "google.golang.org/grpc/codes"
 	grpcStatus "google.golang.org/grpc/status"
@@ -110,7 +112,16 @@ func main() {
 		c := rpc_license.NewLicenseClient(conn)
 		polling(c, user.Username, quantity, vendor, feature, *timeout, cmd, args...)
 	} else {
-		client.RunCommandWithLicense(conn, user.Username, vendor, feature, *timeout, cmd, args...)
-		log.Fatalf("flextape client not yet implemented")
+		id, err := uuid.NewRandom()
+		if err != nil {
+			log.Fatalf("failed to generate job ID: %w", err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+		defer cancel()
+		c := client.New(fpb.NewFlextapeClient(conn), user.Username, vendor, feature, id.String())
+		err = c.Guard(ctx, cmd, args...)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
