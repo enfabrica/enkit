@@ -9,9 +9,36 @@ import (
 	fpb "github.com/enfabrica/enkit/flextape/proto"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+var (
+	metricRequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Subsystem: "flextape",
+		Name:      "request_duration_seconds",
+	},
+		[]string{
+			"method",
+			"response_code",
+		},
+	)
+	metricJanitorDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Subsystem: "flextape",
+		Name: "janitor_duration_seconds",
+	})
+	metricRequestCodes = promauto.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: "flextape",
+		Name:      "response_count",
+	},
+		[]string{
+			"method",
+			"response_code",
+		},
+	)
 )
 
 // Service implements the LicenseManager gRPC service.
@@ -108,6 +135,8 @@ var (
 // been refreshed in a sufficient amount of time, as well as to promote queued
 // licenses to allocations.
 func (s *Service) janitor() {
+	defer updateJanitorMetrics(time.Now())
+	
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Don't expire or promote anything during startup.
@@ -123,9 +152,23 @@ func (s *Service) janitor() {
 	}
 }
 
+func updateJanitorMetrics(startTime time.Time) {
+	d := time.Now().Sub(startTime)
+	metricJanitorDuration.Observe(d.Seconds())
+}
+
+func updateMetrics(method string, err *error, startTime time.Time) {
+	d := time.Now().Sub(startTime)
+	code := status.Code(*err)
+	metricRequestCodes.WithLabelValues(method, code.String()).Inc()
+	metricRequestDuration.WithLabelValues(method, code.String()).Observe(d.Seconds())
+}
+
 // Allocate allocates a license to the requesting invocation, or queues the
 // request if none are available. See the proto docstrings for more details.
-func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.AllocateResponse, error) {
+func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (retRes *fpb.AllocateResponse, retErr error) {
+	defer updateMetrics("Allocate", &retErr, time.Now())
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -217,7 +260,9 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.
 
 // Refresh serves as a keepalive to refresh an allocation while an invocation
 // is still using it. See the proto docstrings for more info.
-func (s *Service) Refresh(ctx context.Context, req *fpb.RefreshRequest) (*fpb.RefreshResponse, error) {
+func (s *Service) Refresh(ctx context.Context, req *fpb.RefreshRequest) (retRes *fpb.RefreshResponse, retErr error) {
+	defer updateMetrics("Refresh", &retErr, time.Now())
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -266,7 +311,9 @@ func (s *Service) Refresh(ctx context.Context, req *fpb.RefreshRequest) (*fpb.Re
 // Release returns an allocated license and/or unqueues the specified
 // invocation ID across all license types. See the proto docstrings for more
 // details.
-func (s *Service) Release(ctx context.Context, req *fpb.ReleaseRequest) (*fpb.ReleaseResponse, error) {
+func (s *Service) Release(ctx context.Context, req *fpb.ReleaseRequest) (retRes *fpb.ReleaseResponse, retErr error) {
+	defer updateMetrics("Release", &retErr, time.Now())
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -286,13 +333,15 @@ func (s *Service) Release(ctx context.Context, req *fpb.ReleaseRequest) (*fpb.Re
 
 // LicensesStatus returns the status for every license type. See the proto
 // docstrings for more details.
-func (s *Service) LicensesStatus(ctx context.Context, req *fpb.LicensesStatusRequest) (*fpb.LicensesStatusResponse, error) {
+func (s *Service) LicensesStatus(ctx context.Context, req *fpb.LicensesStatusRequest) (retRes *fpb.LicensesStatusResponse, retErr error) {
+	defer updateMetrics("LicensesStatus", &retErr, time.Now())
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	res := &fpb.LicensesStatusResponse{}
-	for name, lic := range s.licenses {
-		res.LicenseStats = append(res.LicenseStats, lic.GetStats(name))
+	for _, lic := range s.licenses {
+		res.LicenseStats = append(res.LicenseStats, lic.GetStats())
 	}
 	return res, nil
 }
