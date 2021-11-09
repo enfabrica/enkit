@@ -90,15 +90,11 @@ func (o *queryOptions) Args() []string {
 // filterError filters out expected error codes based on the provided query
 // arguments.
 func (o *queryOptions) filterError(err error) error {
-	if err == nil || !o.keepGoing {
-		return nil
-	}
-
 	var execErr *exec.ExitError
 	if errors.As(err, &execErr) {
 		// PARTIAL_ANALYSIS_FAILURE is expected when --keep_going is passed
 		// https://github.com/bazelbuild/bazel/blob/86409b7a248d1cb966268451f9aa4db0763c3eb2/src/main/java/com/google/devtools/build/lib/util/ExitCode.java#L38
-		if execErr.ExitCode() == 3 {
+		if execErr.ExitCode() == 3 && o.keepGoing {
 			return nil
 		}
 	}
