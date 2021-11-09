@@ -20,6 +20,7 @@ var (
 	metricRequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Subsystem: "flextape",
 		Name:      "request_duration_seconds",
+		Help:      "RPC execution time as seen by the server",
 	},
 		[]string{
 			"method",
@@ -28,11 +29,13 @@ var (
 	)
 	metricJanitorDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 		Subsystem: "flextape",
-		Name: "janitor_duration_seconds",
+		Name:      "janitor_duration_seconds",
+		Help:      "Janitor execution time",
 	})
 	metricRequestCodes = promauto.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: "flextape",
 		Name:      "response_count",
+		Help:      "Total number of response codes sent",
 	},
 		[]string{
 			"method",
@@ -136,7 +139,7 @@ var (
 // licenses to allocations.
 func (s *Service) janitor() {
 	defer updateJanitorMetrics(time.Now())
-	
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Don't expire or promote anything during startup.
