@@ -24,4 +24,4 @@ if [[ ! -s "${TARGETS_FILE}" ]]; then
   exit 0
 fi
 
-cat "${TARGETS_FILE}" | xargs bazel build
+cat "${TARGETS_FILE}" | xargs bazel test
