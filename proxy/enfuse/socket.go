@@ -44,7 +44,9 @@ func NewSocketShim(start PayloadAppendStrategy, Conn *websocket.Conn) (*SocketSh
 	}
 	return &SocketShim{PrefixLen: pLen, Prefix: pre, WebConn: NewWebsocketLock(Conn)}, nil
 }
-
+// NewWebsocketTCPShim will half duplex between a websocket connection to a tcp listener.
+// if the payload being written indicates it is a new client, it will create a new net.Conn via net.Dial
+// locally, and reuse that if the payload indicated it is the same client.
 func NewWebsocketTCPShim(strat PayloadAppendStrategy, lis net.Listener, web *websocket.Conn) *WebsocketTCPShim {
 	l, _ := strat()
 	wShim := &WebsocketTCPShim{
