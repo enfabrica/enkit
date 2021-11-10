@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/enfabrica/enkit/lib/errdiff"
-	lmpb "github.com/enfabrica/enkit/license_manager/proto"
+	fpb "github.com/enfabrica/enkit/flextape/proto"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
@@ -91,8 +91,8 @@ func TestAllocate(t *testing.T) {
 	testCases := []struct {
 		desc         string
 		server       *Service
-		req          *lmpb.AllocateRequest
-		want         *lmpb.AllocateResponse
+		req          *fpb.AllocateRequest
+		want         *fpb.AllocateResponse
 		wantErrCode  codes.Code
 		wantErr      string
 		wantLicenses map[string]*license
@@ -100,11 +100,11 @@ func TestAllocate(t *testing.T) {
 		{
 			desc:   "too many licenses",
 			server: testService(stateStarting),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_bar"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+						&fpb.License{Vendor: "xilinx", Feature: "feature_bar"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_1234",
@@ -124,10 +124,10 @@ func TestAllocate(t *testing.T) {
 		{
 			desc:   "unknown license type",
 			server: testService(stateStarting),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "unknown_feature"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "unknown_feature"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_1234",
@@ -147,21 +147,22 @@ func TestAllocate(t *testing.T) {
 		{
 			desc:   "new invocations only enqueued during startup",
 			server: testService(stateStarting),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_1234",
 					Id:       "",
 				},
 			},
-			want: &lmpb.AllocateResponse{
-				ResponseType: &lmpb.AllocateResponse_Queued{
-					Queued: &lmpb.Queued{
+			want: &fpb.AllocateResponse{
+				ResponseType: &fpb.AllocateResponse_Queued{
+					Queued: &fpb.Queued{
 						InvocationId: "1",
 						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						QueuePosition: 1,
 					},
 				},
 			},
@@ -182,19 +183,19 @@ func TestAllocate(t *testing.T) {
 				Owner:    "unit_test",
 				BuildTag: "tag_1234",
 			}),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_1234",
 					Id:       "1",
 				},
 			},
-			want: &lmpb.AllocateResponse{
-				ResponseType: &lmpb.AllocateResponse_LicenseAllocated{
-					LicenseAllocated: &lmpb.LicenseAllocated{
+			want: &fpb.AllocateResponse{
+				ResponseType: &fpb.AllocateResponse_LicenseAllocated{
+					LicenseAllocated: &fpb.LicenseAllocated{
 						InvocationId:           "1",
 						LicenseRefreshDeadline: timestamppb.New(start.Add(7 * time.Second)),
 					},
@@ -217,21 +218,22 @@ func TestAllocate(t *testing.T) {
 				Owner:    "unit_test",
 				BuildTag: "tag_1234",
 			}),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_1234",
 					Id:       "1",
 				},
 			},
-			want: &lmpb.AllocateResponse{
-				ResponseType: &lmpb.AllocateResponse_Queued{
-					Queued: &lmpb.Queued{
+			want: &fpb.AllocateResponse{
+				ResponseType: &fpb.AllocateResponse_Queued{
+					Queued: &fpb.Queued{
 						InvocationId: "1",
 						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						QueuePosition: 1,
 					},
 				},
 			},
@@ -253,21 +255,22 @@ func TestAllocate(t *testing.T) {
 				BuildTag:    "tag_1234",
 				LastCheckin: start,
 			}),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_2345",
 					Id:       "2",
 				},
 			},
-			want: &lmpb.AllocateResponse{
-				ResponseType: &lmpb.AllocateResponse_Queued{
-					Queued: &lmpb.Queued{
+			want: &fpb.AllocateResponse{
+				ResponseType: &fpb.AllocateResponse_Queued{
+					Queued: &fpb.Queued{
 						InvocationId: "2",
 						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						QueuePosition: 2,
 					},
 				},
 			},
@@ -290,10 +293,10 @@ func TestAllocate(t *testing.T) {
 				BuildTag:    "tag_1234",
 				LastCheckin: start,
 			}),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_2345",
@@ -325,20 +328,21 @@ func TestAllocate(t *testing.T) {
 				BuildTag:    "tag_2",
 				LastCheckin: start,
 			}),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_3",
 				},
 			},
-			want: &lmpb.AllocateResponse{
-				ResponseType: &lmpb.AllocateResponse_Queued{
-					Queued: &lmpb.Queued{
+			want: &fpb.AllocateResponse{
+				ResponseType: &fpb.AllocateResponse_Queued{
+					Queued: &fpb.Queued{
 						InvocationId: "1",
 						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						QueuePosition: 1,
 					},
 				},
 			},
@@ -362,19 +366,19 @@ func TestAllocate(t *testing.T) {
 				Owner:    "unit_test",
 				BuildTag: "tag_1234",
 			}),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_1234",
 					Id:       "1",
 				},
 			},
-			want: &lmpb.AllocateResponse{
-				ResponseType: &lmpb.AllocateResponse_LicenseAllocated{
-					LicenseAllocated: &lmpb.LicenseAllocated{
+			want: &fpb.AllocateResponse{
+				ResponseType: &fpb.AllocateResponse_LicenseAllocated{
+					LicenseAllocated: &fpb.LicenseAllocated{
 						InvocationId:           "1",
 						LicenseRefreshDeadline: timestamppb.New(start.Add(7 * time.Second)),
 					},
@@ -398,18 +402,18 @@ func TestAllocate(t *testing.T) {
 				BuildTag:    "tag_1",
 				LastCheckin: start,
 			}),
-			req: &lmpb.AllocateRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.AllocateRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_2",
 				},
 			},
-			want: &lmpb.AllocateResponse{
-				ResponseType: &lmpb.AllocateResponse_LicenseAllocated{
-					LicenseAllocated: &lmpb.LicenseAllocated{
+			want: &fpb.AllocateResponse{
+				ResponseType: &fpb.AllocateResponse_LicenseAllocated{
+					LicenseAllocated: &fpb.LicenseAllocated{
 						InvocationId:           "1",
 						LicenseRefreshDeadline: timestamppb.New(start.Add(7 * time.Second)),
 					},
@@ -458,8 +462,8 @@ func TestRefresh(t *testing.T) {
 	testCases := []struct {
 		desc         string
 		server       *Service
-		req          *lmpb.RefreshRequest
-		want         *lmpb.RefreshResponse
+		req          *fpb.RefreshRequest
+		want         *fpb.RefreshResponse
 		wantErrCode  codes.Code
 		wantErr      string
 		wantLicenses map[string]*license
@@ -467,10 +471,10 @@ func TestRefresh(t *testing.T) {
 		{
 			desc:   "error when invocation_id not set",
 			server: testService(stateStarting),
-			req: &lmpb.RefreshRequest{
-				Invocation: &lmpb.Invocation{
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.RefreshRequest{
+				Invocation: &fpb.Invocation{
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_2",
@@ -489,12 +493,12 @@ func TestRefresh(t *testing.T) {
 		{
 			desc:   "error when multiple licenses specified",
 			server: testService(stateStarting),
-			req: &lmpb.RefreshRequest{
-				Invocation: &lmpb.Invocation{
+			req: &fpb.RefreshRequest{
+				Invocation: &fpb.Invocation{
 					Id: "1",
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_bar"},
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+						&fpb.License{Vendor: "xilinx", Feature: "feature_bar"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_2",
@@ -513,17 +517,17 @@ func TestRefresh(t *testing.T) {
 		{
 			desc:   "allocates when invocation_id not found during starting state",
 			server: testService(stateStarting),
-			req: &lmpb.RefreshRequest{
-				Invocation: &lmpb.Invocation{
+			req: &fpb.RefreshRequest{
+				Invocation: &fpb.Invocation{
 					Id: "1",
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_2",
 				},
 			},
-			want: &lmpb.RefreshResponse{
+			want: &fpb.RefreshResponse{
 				InvocationId:           "1",
 				LicenseRefreshDeadline: timestamppb.New(start.Add(7 * time.Second)),
 			},
@@ -545,17 +549,17 @@ func TestRefresh(t *testing.T) {
 				BuildTag:    "tag_1",
 				LastCheckin: start,
 			}),
-			req: &lmpb.RefreshRequest{
-				Invocation: &lmpb.Invocation{
+			req: &fpb.RefreshRequest{
+				Invocation: &fpb.Invocation{
 					Id: "5",
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_1",
 				},
 			},
-			want: &lmpb.RefreshResponse{
+			want: &fpb.RefreshResponse{
 				InvocationId:           "5",
 				LicenseRefreshDeadline: timestamppb.New(start.Add(7 * time.Second)),
 			},
@@ -582,11 +586,11 @@ func TestRefresh(t *testing.T) {
 				BuildTag:    "tag_2",
 				LastCheckin: start,
 			}),
-			req: &lmpb.RefreshRequest{
-				Invocation: &lmpb.Invocation{
+			req: &fpb.RefreshRequest{
+				Invocation: &fpb.Invocation{
 					Id: "1",
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_2",
@@ -608,11 +612,11 @@ func TestRefresh(t *testing.T) {
 		{
 			desc:   "error when invocation_id not found during running state",
 			server: testService(stateRunning),
-			req: &lmpb.RefreshRequest{
-				Invocation: &lmpb.Invocation{
+			req: &fpb.RefreshRequest{
+				Invocation: &fpb.Invocation{
 					Id: "1",
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_2",
@@ -636,17 +640,17 @@ func TestRefresh(t *testing.T) {
 				BuildTag:    "tag_1",
 				LastCheckin: start,
 			}),
-			req: &lmpb.RefreshRequest{
-				Invocation: &lmpb.Invocation{
+			req: &fpb.RefreshRequest{
+				Invocation: &fpb.Invocation{
 					Id: "5",
-					Licenses: []*lmpb.License{
-						&lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+					Licenses: []*fpb.License{
+						&fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 					},
 					Owner:    "unit_test",
 					BuildTag: "tag_1",
 				},
 			},
-			want: &lmpb.RefreshResponse{
+			want: &fpb.RefreshResponse{
 				InvocationId:           "5",
 				LicenseRefreshDeadline: timestamppb.New(start.Add(7 * time.Second)),
 			},
@@ -692,8 +696,8 @@ func TestRelease(t *testing.T) {
 	testCases := []struct {
 		desc         string
 		server       *Service
-		req          *lmpb.ReleaseRequest
-		want         *lmpb.ReleaseResponse
+		req          *fpb.ReleaseRequest
+		want         *fpb.ReleaseResponse
 		wantErrCode  codes.Code
 		wantErr      string
 		wantLicenses map[string]*license
@@ -706,7 +710,7 @@ func TestRelease(t *testing.T) {
 				BuildTag:    "tag_1",
 				LastCheckin: start,
 			}),
-			req:         &lmpb.ReleaseRequest{},
+			req:         &fpb.ReleaseRequest{},
 			wantErrCode: codes.InvalidArgument,
 			wantErr:     "invocation_id must be set",
 			wantLicenses: map[string]*license{
@@ -732,8 +736,8 @@ func TestRelease(t *testing.T) {
 				BuildTag:    "tag_2",
 				LastCheckin: start,
 			}),
-			req:  &lmpb.ReleaseRequest{InvocationId: "5"},
-			want: &lmpb.ReleaseResponse{},
+			req:  &fpb.ReleaseRequest{InvocationId: "5"},
+			want: &fpb.ReleaseResponse{},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
 					totalAvailable: 2,
@@ -757,8 +761,8 @@ func TestRelease(t *testing.T) {
 				BuildTag:    "tag_2",
 				LastCheckin: start,
 			}),
-			req:  &lmpb.ReleaseRequest{InvocationId: "5"},
-			want: &lmpb.ReleaseResponse{},
+			req:  &fpb.ReleaseRequest{InvocationId: "5"},
+			want: &fpb.ReleaseResponse{},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
 					totalAvailable: 2,
@@ -782,7 +786,7 @@ func TestRelease(t *testing.T) {
 				BuildTag:    "tag_2",
 				LastCheckin: start,
 			}),
-			req:         &lmpb.ReleaseRequest{InvocationId: "4"},
+			req:         &fpb.ReleaseRequest{InvocationId: "4"},
 			wantErrCode: codes.FailedPrecondition,
 			wantErr:     "invocation_id not found",
 			wantLicenses: map[string]*license{
@@ -828,8 +832,8 @@ func TestLicensesStatus(t *testing.T) {
 	testCases := []struct {
 		desc         string
 		server       *Service
-		req          *lmpb.LicensesStatusRequest
-		want         *lmpb.LicensesStatusResponse
+		req          *fpb.LicensesStatusRequest
+		want         *fpb.LicensesStatusResponse
 		wantErrCode  codes.Code
 		wantErr      string
 		wantLicenses map[string]*license
@@ -852,11 +856,11 @@ func TestLicensesStatus(t *testing.T) {
 				BuildTag:    "tag_3",
 				LastCheckin: start,
 			}),
-			req: &lmpb.LicensesStatusRequest{},
-			want: &lmpb.LicensesStatusResponse{
-				LicenseStats: []*lmpb.LicenseStats{
-					&lmpb.LicenseStats{
-						License:           &lmpb.License{Vendor: "xilinx", Feature: "feature_foo"},
+			req: &fpb.LicensesStatusRequest{},
+			want: &fpb.LicensesStatusResponse{
+				LicenseStats: []*fpb.LicenseStats{
+					&fpb.LicenseStats{
+						License:           &fpb.License{Vendor: "xilinx", Feature: "feature_foo"},
 						TotalLicenseCount: 2,
 						AllocatedCount:    2,
 						QueuedCount:       1,

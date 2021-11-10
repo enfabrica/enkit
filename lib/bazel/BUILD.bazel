@@ -1,0 +1,49 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "affected_targets.go",
+        "exec.go",
+        "options.go",
+        "pattern.go",
+        "query.go",
+        "target.go",
+        "workspace.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/lib/bazel",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//enkit/proto:go_default_library",
+        "//lib/bazel/proto:go_protos",
+        "//lib/goroutine:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/multierror:go_default_library",
+        "//lib/proto/delimited:go_default_library",
+        "@com_github_bazelbuild_buildtools//wspace:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "affected_targets_test.go",
+        "exec_test.go",
+        "options_test.go",
+        "pattern_test.go",
+        "query_test.go",
+        "workspace_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    embed = [":go_default_library"],
+    deps = [
+        "//lib/bazel/proto:go_protos",
+        "//lib/errdiff:go_default_library",
+        "//lib/testutil:go_default_library",
+        "@com_github_prashantv_gostub//:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+        "@io_bazel_rules_go//go/tools/bazel:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
+    ],
+)

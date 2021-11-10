@@ -1,0 +1,11 @@
+# File:    //enkit/proto/presubmit.proto
+# Message: enkit.proto.PresubmitConfig
+
+include_patterns: "//..."
+
+# These targets are detected as changed on every run, and should be ignored.
+exclude_patterns: "//:buildifier"
+exclude_patterns: "//:gazelle"
+exclude_patterns: "//:gazelle-runner"
+
+exclude_tags: "manual"

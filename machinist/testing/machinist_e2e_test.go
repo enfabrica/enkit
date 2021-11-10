@@ -35,6 +35,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 	stateFileName := filepath.Join(os.TempDir(), strconv.Itoa(rng.Int())+".json")
 	s, mController, err := createNewControlPlane(t, []mserver.ControllerModifier{
 		mserver.WithStateWriteDuration("50ms"),
+		mserver.WithAllRecordsRefreshRate("50ms"),
 		mserver.WithKDnsFlags(
 			kdns.WithTCPListener(dnsLis),
 			kdns.WithHost(dnsAddr.IP.String()),
@@ -105,9 +106,12 @@ func TestJoinServerAndPoll(t *testing.T) {
 	tagsRes, err := customResolver.LookupTXT(context.TODO(), "test01.enkit")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"big", "heavy"}, tagsRes)
-
+	allRecordsRes, err := customResolver.LookupHost(context.TODO(), "_all.enkitdev")
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(allRecordsRes))
 	assert.Nil(t, s.Stop())
 	assert.Nil(t, lis.Close())
+	assert.Equal(t, []string{"10.0.0.4", "10.0.0.1"}, allRecordsRes)
 	time.Sleep(20 * time.Millisecond)
 
 	//Test serialization
@@ -123,6 +127,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 			kdns.WithPort(dnsAddr.Port),
 			kdns.WithDomains([]string{"enkit.", "enkitdev."}),
 		),
+		mserver.WithAllRecordsRefreshRate("50ms"),
 		mserver.WithStateFile(stateFileName),
 	}, []mserver.Modifier{
 		mserver.WithMachinistFlags(

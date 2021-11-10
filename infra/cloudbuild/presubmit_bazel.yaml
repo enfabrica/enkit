@@ -1,0 +1,78 @@
+# Bazel Presubmit Cloud Build
+#
+# This workflow defines a Bazel {build, test} presubmit flow that auto-detects
+# changed targets from the triggering PR vs. the latest master.
+
+steps:
+  - name: gcr.io/cloud-builders/git
+    entrypoint: bash
+    args:
+      - "-c"
+      - infra/cloudbuild/helpers/git_ssh_setup.sh enfabrica/enkit
+    secretEnv:
+      - SSH_KEY
+    volumes:
+      - name: ssh
+        path: /root/.ssh
+
+  - name: gcr.io/cloud-builders/git
+    entrypoint: bash
+    args:
+      - -c
+      - infra/cloudbuild/helpers/git_rebase_pr.sh 100
+    volumes:
+      - name: ssh
+        path: /root/.ssh
+
+  - name: gcr.io/devops-284019/developer_testing:scott_presubmit_test
+    entrypoint: /opt/enfabrica/bin/enkit
+    args:
+      - bazel
+      - affected-targets
+      - list
+      - --start=origin/master
+      - --end=github_pr
+      - --affected_targets_file=/affected-targets/build.txt
+      - --affected_tests_file=/affected-targets/test.txt
+      - --presubmit_config=presubmit.textproto
+      - --loglevel-console=info
+    volumes:
+      - name: affected-targets
+        path: /affected-targets
+
+  - name: gcr.io/cloud-builders/git
+    entrypoint: bash
+    args:
+      - -c
+      - infra/cloudbuild/helpers/log_affected_targets.sh /affected-targets/build.txt /affected-targets/test.txt
+    volumes:
+      - name: affected-targets
+        path: /affected-targets
+
+  - name: gcr.io/devops-284019/developer_testing:scott_presubmit_test
+    entrypoint: bash
+    args:
+      - -c
+      - infra/cloudbuild/helpers/bazel_build.sh /affected-targets/build.txt
+    volumes:
+      - name: affected-targets
+        path: /affected-targets
+
+  - name: gcr.io/devops-284019/developer_testing:scott_presubmit_test
+    entrypoint: bash
+    args:
+      - -c
+      - infra/cloudbuild/helpers/bazel_test.sh /affected-targets/test.txt
+    volumes:
+      - name: affected-targets
+        path: /affected-targets
+
+availableSecrets:
+  secretManager:
+    # SSH key for fetching from enfabrica private repos
+    - versionName: projects/496137108493/secrets/github-enfabrica-bot-key/versions/latest
+      env: SSH_KEY
+
+timeout: 20m
+options:
+  machineType: E2_HIGHCPU_8

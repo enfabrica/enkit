@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/enfabrica/enkit/lib/server"
-	lmpb "github.com/enfabrica/enkit/license_manager/proto"
-	"github.com/enfabrica/enkit/license_manager/service"
+	fpb "github.com/enfabrica/enkit/flextape/proto"
+	"github.com/enfabrica/enkit/flextape/service"
 
 	"google.golang.org/grpc"
 )
@@ -11,7 +11,7 @@ import (
 func main() {
 	grpcs := grpc.NewServer()
 	s := service.New()
-	lmpb.RegisterLicenseManagerServer(grpcs, s)
+	fpb.RegisterFlextapeServer(grpcs, s)
 
 	server.Run(nil, grpcs)
 }
