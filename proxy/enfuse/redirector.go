@@ -19,7 +19,7 @@ type RedirectServer struct {
 func (r *RedirectServer) ListenAndServe() error {
 	mux := http.NewServeMux()
 	upgrader := websocket.Upgrader{}
-	pool := &SocketConnectionPool{}
+	pool := &WebsocketPool{}
 	mux.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		conn, err := upgrader.Upgrade(writer, request, nil)
 		if err != nil {
@@ -31,7 +31,7 @@ func (r *RedirectServer) ListenAndServe() error {
 				log.Printf(err.Error())
 			}
 			for {
-				//m, t, err := conn.ReadMessage()
+				//m, t, err := webConn.ReadMessage()
 				//if err != nil {
 				//	log.Printf(err.Error())
 				//	continue
@@ -43,11 +43,11 @@ func (r *RedirectServer) ListenAndServe() error {
 				t, m, err := conn.ReadMessage()
 				fmt.Println("got client read")
 				if err != nil {
-					log.Println("err reading from conn")
+					log.Println("err reading from webConn")
 					continue
 				}
 				fmt.Println("writing to server", m)
-				if err := pool.WriteToServer(t, m, conn); err != nil {
+				if err := pool.WriteWebsocketServer(t, m, conn); err != nil {
 					log.Printf("err writing to server %s \n", err)
 				}
 
@@ -136,7 +136,7 @@ func HandleReads(name string, src *websocket.Conn, dst net.Conn, shutdown chan s
 func HandleWriter(name string, src net.Conn, dst *websocket.Conn, showdown chan struct{}) <-chan error {
 	retErr := make(chan error, 1)
 	go func() {
-		_, err := io.Copy(&socketShim{dst, nil, DefaultPayloadStrategy}, src)
+		_, err := io.Copy(&SocketShim{NewWebsocketLock(dst), nil, 0}, src)
 		retErr <- err
 	}()
 	return retErr

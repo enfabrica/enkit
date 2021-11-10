@@ -7,8 +7,8 @@ import (
 )
 
 // PayloadAppendStrategy is the strategy used to append to the uuid of whatever connection to the existing payload
-// the first integer returned is the length of the prefix of the payload, and the second is the factory function to generate
-//
+// the first integer returned is the length of the prefixLen of the payload, and the second is the factory function to generate
+// Payload strategy cannot return a 0 byte array.
 type PayloadAppendStrategy = func() (int, func() ([]byte, error))
 
 var DefaultPayloadStrategy PayloadAppendStrategy = func() (int, func() ([]byte, error)) {
