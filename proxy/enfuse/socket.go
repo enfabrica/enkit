@@ -99,7 +99,7 @@ func (w *WebsocketTCPShim) handleWrites() {
 }
 
 // handleRead will read from the net.Conn and write the full payload to webConn
-func (w WebsocketTCPShim) handleReadToWebsocket(c net.Conn, uid []byte) {
+func (w *WebsocketTCPShim) handleReadToWebsocket(c net.Conn, uid []byte) {
 	go func() {
 		if _, err := io.Copy(SocketShim{WebConn: w.webConn, Prefix: uid, PrefixLen: len(uid)}, c); err != nil {
 			fmt.Println(err, "err copying for client")
@@ -107,6 +107,8 @@ func (w WebsocketTCPShim) handleReadToWebsocket(c net.Conn, uid []byte) {
 	}()
 }
 
-func (w *WebsocketTCPShim) Close() {
-
+//TODO(adam): decide whether or not it's even necessary to have websocketTCPShim be a struct.
+//entirely possible for it to just be a function
+func (w *WebsocketTCPShim) Close() error  {
+	return nil
 }

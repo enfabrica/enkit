@@ -66,7 +66,6 @@ func TestSocketShim(t *testing.T) {
 	// this will now forward connections to the net.Listener
 	serverShim := enfuse.NewWebsocketTCPShim(enfuse.DefaultPayloadStrategy, serverNetLis, serverWebConn)
 	defer serverShim.Close()
-
 	for _, c := range testConnections {
 		_, err := c.Shim.Write([]byte(c.Name))
 		assert.NoError(t, err)
