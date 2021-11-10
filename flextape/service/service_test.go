@@ -162,6 +162,7 @@ func TestAllocate(t *testing.T) {
 					Queued: &fpb.Queued{
 						InvocationId: "1",
 						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						QueuePosition: 1,
 					},
 				},
 			},
@@ -232,6 +233,7 @@ func TestAllocate(t *testing.T) {
 					Queued: &fpb.Queued{
 						InvocationId: "1",
 						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						QueuePosition: 1,
 					},
 				},
 			},
@@ -268,6 +270,7 @@ func TestAllocate(t *testing.T) {
 					Queued: &fpb.Queued{
 						InvocationId: "2",
 						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						QueuePosition: 2,
 					},
 				},
 			},
@@ -339,6 +342,7 @@ func TestAllocate(t *testing.T) {
 					Queued: &fpb.Queued{
 						InvocationId: "1",
 						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						QueuePosition: 1,
 					},
 				},
 			},

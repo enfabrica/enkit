@@ -23,9 +23,11 @@ func formatLicenseType(l *fpb.License) string {
 	return strings.Join([]string{l.GetVendor(), l.GetFeature()}, "::")
 }
 
-// Enqueue puts the supplied invocation at the back of the queue.
-func (l *license) Enqueue(inv *invocation) {
+// Enqueue puts the supplied invocation at the back of the queue. Returns the
+// 1-based index the invocation was queued at.
+func (l *license) Enqueue(inv *invocation) uint32 {
 	l.queue = append(l.queue, inv)
+	return uint32(len(l.queue))
 }
 
 // Allocate attempts to associate the supplied invocation with a license, if
@@ -81,14 +83,15 @@ func (l *license) ExpireQueued(expiry time.Time) {
 }
 
 // GetQueued returns an invocation by ID if the invocation is queued, or nil
-// otherwise.
-func (l *license) GetQueued(invID string) *invocation {
-	for _, inv := range l.queue {
+// otherwise. If the returned invocation is not nil, the 1-based index (queue
+// position) is also returned.
+func (l *license) GetQueued(invID string) (*invocation, uint32) {
+	for i, inv := range l.queue {
 		if inv.ID == invID {
-			return inv
+			return inv, uint32(i+1)
 		}
 	}
-	return nil
+	return nil, 0
 }
 
 // GetStats returns a LicenseStats message for this license type.

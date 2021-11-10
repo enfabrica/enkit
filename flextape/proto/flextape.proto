@@ -85,6 +85,11 @@ message Queued {
   // placed at the back of the queue.
   string invocation_id = 1;
 
+  // Location of this invocation in the queue. Invocations in position 1 are
+  // next to be allocated, with higher positions getting allocations later than
+  // lower positions.
+  uint32 queue_position = 3;
+
   // Time at which client should issue its next AllocateRequest. The client
   // should issue its next poll after this time; if it fails to poll for
   // significantly longer (>5s) it may be moved to the back of the queue.

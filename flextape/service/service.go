@@ -172,7 +172,7 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.
 			},
 		}, nil
 	}
-	if inv := lic.GetQueued(invocationID); inv != nil {
+	if inv, pos := lic.GetQueued(invocationID); inv != nil {
 		// Invocation is queued
 		inv.LastCheckin = timeNow()
 		return &fpb.AllocateResponse{
@@ -180,6 +180,7 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.
 				Queued: &fpb.Queued{
 					InvocationId: invocationID,
 					NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
+					QueuePosition: pos,
 				},
 			},
 		}, nil
@@ -197,12 +198,13 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.
 		BuildTag:    invMsg.GetBuildTag(),
 		LastCheckin: timeNow(),
 	}
-	lic.Enqueue(inv)
+	pos := lic.Enqueue(inv)
 	return &fpb.AllocateResponse{
 		ResponseType: &fpb.AllocateResponse_Queued{
 			Queued: &fpb.Queued{
 				InvocationId: invocationID,
 				NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
+				QueuePosition: pos,
 			},
 		},
 	}, nil
