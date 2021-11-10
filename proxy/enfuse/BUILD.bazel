@@ -11,10 +11,13 @@ go_library(
     importpath = "github.com/enfabrica/enkit/proxy/enfuse",
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/kcerts:go_default_library",
+        "//lib/srand:go_default_library",
         "//proxy/enfuse/rpc:go_default_library",
         "@org_bazil_fuse//:go_default_library",
         "@org_bazil_fuse//fs:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//credentials:go_default_library",
     ],
 )
 
@@ -24,12 +27,13 @@ go_test(
     tags = [
         "no-sandbox",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//lib/knetwork:go_default_library",
         "//lib/srand:go_default_library",
-        "//proxy/enfuse/rpc:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
+        "@org_bazil_fuse//:go_default_library",
         "@org_bazil_fuse//fs/fstestutil:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],

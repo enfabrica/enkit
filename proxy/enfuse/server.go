@@ -2,14 +2,20 @@ package enfuse
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func ServeDirectory(mods ...ServerConfigMod) error {
@@ -86,6 +92,57 @@ func (s *FuseServer) FileInfo(ctx context.Context, request *fusepb.FileInfoReque
 
 func (s *FuseServer) Serve() error {
 	grpcs := grpc.NewServer()
+	if s.cfg.ClientInfoChan != nil {
+		// Means we are running with mTlS.
+		opts, err := kcerts.NewOptions(
+			kcerts.WithCountries([]string{"US"}),
+			kcerts.WithOrganizations([]string{"Enfabrica"}),
+			kcerts.WithValidUntil(time.Now().AddDate(3, 0, 0)),
+			kcerts.WithNotValidBefore(time.Now().Add(-10*time.Minute)), // we add this for misconfigured clock wiggle room
+			kcerts.WithDnsNames(s.cfg.DnsNames),
+			kcerts.WithIpAddresses(s.cfg.IpAddresses),
+		)
+		if err != nil {
+			return err
+		}
+		ca, caPemBytes, caPk, err := kcerts.GenerateNewCARoot(opts)
+		if err != nil {
+			return err
+		}
+		_, interPemBytes, interPk, err := kcerts.GenerateIntermediateCertificate(opts, ca, caPk)
+		if err != nil {
+			return err
+		}
+		_, clientCertPemBytes, clientCertPk, err := kcerts.GenerateServerKey(opts, ca, caPk)
+		if err != nil {
+			return err
+		}
+		rootPool := x509.NewCertPool()
+		rootCertificate, err := tls.X509KeyPair(caPemBytes, pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(caPk)}))
+		if err != nil {
+			return err
+		}
+		rootPool.AppendCertsFromPEM(caPemBytes)
+		interPkPemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(interPk)})
+		intermediateCertificate, err := tls.X509KeyPair(interPemBytes, interPkPemBytes)
+		if err != nil {
+			return err
+		}
+		s.cfg.ClientInfoChan <- &ClientEncryptionInfo{
+			CaPublicPem:         caPemBytes,
+			IntermediateCertPem: interPemBytes,
+			ClientPk:            pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientCertPk)}),
+			ClientCertPem:       clientCertPemBytes,
+		}
+		grpcs = grpc.NewServer(
+			grpc.Creds(credentials.NewTLS(&tls.Config{
+				Certificates: []tls.Certificate{rootCertificate, intermediateCertificate},
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+				RootCAs:      rootPool,
+				ClientCAs:    rootPool,
+			})),
+		)
+	}
 	fusepb.RegisterFuseControllerServer(grpcs, s)
 	if s.cfg.L == nil {
 		l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.cfg.Url, s.cfg.Port))

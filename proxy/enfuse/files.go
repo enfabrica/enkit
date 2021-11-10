@@ -46,6 +46,7 @@ type Dir struct {
 	Dir       string
 	LastFetch time.Time
 	mu        sync.Mutex
+	*ConnectConfig
 }
 
 func (f *Dir) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse.LookupResponse) (fs.Node, error) {
@@ -80,9 +81,6 @@ func (f *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 func (f *Dir) fetchData() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if time.Since(f.LastFetch) < 5*time.Second {
-		return nil
-	}
 	r, err := f.Client.FileInfo(context.Background(), &fusepb.FileInfoRequest{Dir: f.Dir})
 	if err != nil {
 		return err
@@ -99,6 +97,7 @@ type File struct {
 	Info      *fusepb.FileInfo
 	FetchTime time.Time
 	mu        sync.Mutex
+	*ConnectConfig
 }
 
 func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
