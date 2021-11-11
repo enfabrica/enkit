@@ -32,6 +32,7 @@ go_test(
         "socket_test.go",
         "websocket_test.go",
     ],
+    race = "on",
     tags = [
         "no-sandbox",
     ],

@@ -26,11 +26,6 @@ func (w *WebsocketLocker) WriteMessage(messageType int, payload []byte) error {
 	return w.c.WriteMessage(messageType, payload)
 }
 
-// Raw exists just in case something needs to be inspected on the underlying connection. Use at own risk.
-func (w *WebsocketLocker) Raw() *websocket.Conn {
-	return w.c
-}
-
 func NewWebsocketLock(c *websocket.Conn) *WebsocketLocker {
 	return &WebsocketLocker{
 		c: c,
@@ -40,7 +35,8 @@ func NewWebsocketLock(c *websocket.Conn) *WebsocketLocker {
 var NoServerErr = errors.New("the current server is not set")
 
 // WebsocketPool is a connection pool with the ability to demux from single server connection and multiple clients.
-// it can hold
+// On the first attempted write to the server, it will attempt to find an existing client, otherwise it will save the
+// writing connection as a client. When the server writes back the output will be redirected to it.
 type WebsocketPool struct {
 	mu sync.Mutex
 
