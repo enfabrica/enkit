@@ -52,7 +52,4 @@ func TestSanityPool(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NoError(t, p.WriteWebsocketServer(websocket.BinaryMessage, append(uid, []byte("hello")...), serverConn))
-
-	clientLock := p.Fetch(uid)
-	assert.Equal(t, clientLock.Raw(), serverConn)
 }

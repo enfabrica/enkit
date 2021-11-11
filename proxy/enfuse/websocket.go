@@ -26,11 +26,6 @@ func (w *WebsocketLocker) WriteMessage(messageType int, payload []byte) error {
 	return w.c.WriteMessage(messageType, payload)
 }
 
-// Raw exists just in case something needs to be inspected on the underlying connection. Use at own risk.
-func (w *WebsocketLocker) Raw() *websocket.Conn {
-	return w.c
-}
-
 func NewWebsocketLock(c *websocket.Conn) *WebsocketLocker {
 	return &WebsocketLocker{
 		c: c,
