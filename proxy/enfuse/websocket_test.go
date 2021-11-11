@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func makeEchoServer(t *testing.T) *httptest.Server {
@@ -48,6 +49,14 @@ func TestSanityPool(t *testing.T) {
 
 	assert.NoError(t, p.SetServer(serverConn))
 	assert.True(t, p.ServerPresent())
+	go func() {
+		for _ = range make([]int, 100){
+			go assert.NoError(t, p.SetServer(serverConn))
+			go assert.True(t, p.ServerPresent())
+		}
+	}()
+	time.Sleep(2 * time.Second)
+
 	uid, err := factoryUIDFunc()
 	assert.NoError(t, err)
 

@@ -35,7 +35,8 @@ func NewWebsocketLock(c *websocket.Conn) *WebsocketLocker {
 var NoServerErr = errors.New("the current server is not set")
 
 // WebsocketPool is a connection pool with the ability to demux from single server connection and multiple clients.
-// it can hold
+// On the first attempted write to the server, it will attempt to find an existing client, otherwise it will save the
+// writing connection as a client. When the server writes back the output will be redirected to it.
 type WebsocketPool struct {
 	mu sync.Mutex
 
