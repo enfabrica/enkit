@@ -1,7 +1,6 @@
 package enfuse_test
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/knetwork"
 	"github.com/enfabrica/enkit/proxy/enfuse"
@@ -13,7 +12,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 type testClientConn struct {
@@ -72,11 +70,20 @@ func TestSocketShim(t *testing.T) {
 	}
 	for _, c := range testConnections {
 		buf := make([]byte, 20000)
-		_, err = c.Shim.Read(buf)
+		numBytesRead, err := c.Shim.Read(buf)
 		assert.Equal(t, io.EOF, err)
-		assert.Equal(t, fmt.Sprintf("hello %s", c.Name), string(bytes.Trim(buf, "\x00")))
+		assert.Equal(t, fmt.Sprintf("hello %s", c.Name), string(buf[:numBytesRead]))
 	}
-	time.Sleep(1 * time.Second)
+	for _, c := range testConnections {
+		_, err := c.Shim.Write([]byte(c.Name))
+		assert.NoError(t, err)
+	}
+	for _, c := range testConnections {
+		buf := make([]byte, 20000)
+		numBytesRead, err := c.Shim.Read(buf)
+		assert.Equal(t, io.EOF, err)
+		assert.Equal(t, fmt.Sprintf("hello %s", c.Name), string(buf[:numBytesRead]))
+	}
 }
 
 // handleServerLis just spawns a new handleNewServerConn for every new connection

@@ -1,6 +1,7 @@
 package enfuse
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/gorilla/websocket"
@@ -26,8 +27,9 @@ func (s SocketShim) Read(p []byte) (n int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	copy(p, data[s.PrefixLen:])
-	return 0, io.EOF
+	realData := bytes.Trim(data, "\x00")
+	copy(p, realData[s.PrefixLen:])
+	return len(realData[s.PrefixLen:]), io.EOF
 }
 
 func (s SocketShim) Write(p []byte) (n int, err error) {
@@ -110,6 +112,6 @@ func (w *WebsocketTCPShim) handleReadToWebsocket(c net.Conn, uid []byte) {
 
 //TODO(adam): decide whether or not it's even necessary to have websocketTCPShim be a struct.
 //entirely possible for it to just be a function
-func (w *WebsocketTCPShim) Close() error  {
+func (w *WebsocketTCPShim) Close() error {
 	return nil
 }
