@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 # Rebase PR onto the tip of master.
 # Requires:
@@ -48,15 +48,15 @@ git checkout -b github_pr
 # properly.
 git fetch --deepen="${FETCH_DEPTH}"
 
-# Rebase or error
+# Merge or error
 # TODO(scott): Add instructions for rebasing or a pointer to such instructions
 # in the error message.
-readonly COMMON_ANCESTOR="$(git merge-base origin/master github_pr)"
-git rebase "${COMMON_ANCESTOR}" github_pr --onto origin/master || { echo "
+git checkout origin/master
+git merge github_pr --log -m "Update PR with latest master" || { echo "
 ********************************************************************************
-** Auto-rebase failure **                                                      *
+** Auto-update failure **                                                      *
 ********************************************************************************
-* Presubmits rebase your PR onto the latest master before running, but this    *
+* Presubmits update your PR with the latest master before running, but this    *
 * has failed because your PR is too out-of-date. Please rebase your PR to pick *
 * updates from master and re-push.                                             *
 ********************************************************************************
