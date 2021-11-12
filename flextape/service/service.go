@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -23,20 +24,24 @@ type Service struct {
 	allocationRefreshDuration time.Duration // Allocations not refreshed within this duration are expired
 }
 
-func New() *Service {
+func licensesFromConfig(config *fpb.Config) map[string]*license {
+	licenses := map[string]*license{}
+	for _, l := range config.GetLicenseConfigs() {
+		name := fmt.Sprintf("%s::%s", l.GetLicense().GetVendor(), l.GetLicense().GetFeature())
+		licenses[name] = &license{
+			totalAvailable: int(l.GetQuantity()),
+			allocations:    map[string]*invocation{},
+		}
+	}
+	return licenses
+}
+
+func New(config *fpb.Config) *Service {
+	licenses := licensesFromConfig(config)
+
 	service := &Service{
 		currentState: stateStarting,
-		// TODO: Read this from a config file and pass it in
-		licenses: map[string]*license{
-			"xilinx::foo": &license{
-				totalAvailable: 2,
-				allocations:    map[string]*invocation{},
-			},
-			"xilinx::bar": &license{
-				totalAvailable: 2,
-				allocations:    map[string]*invocation{},
-			},
-		},
+		licenses: licenses,
 		// TODO: Read this from flags
 		queueRefreshDuration:      5 * time.Second,
 		allocationRefreshDuration: 5 * time.Second,
@@ -178,8 +183,8 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.
 		return &fpb.AllocateResponse{
 			ResponseType: &fpb.AllocateResponse_Queued{
 				Queued: &fpb.Queued{
-					InvocationId: invocationID,
-					NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
+					InvocationId:  invocationID,
+					NextPollTime:  timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
 					QueuePosition: pos,
 				},
 			},
@@ -202,8 +207,8 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.
 	return &fpb.AllocateResponse{
 		ResponseType: &fpb.AllocateResponse_Queued{
 			Queued: &fpb.Queued{
-				InvocationId: invocationID,
-				NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
+				InvocationId:  invocationID,
+				NextPollTime:  timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
 				QueuePosition: pos,
 			},
 		},
