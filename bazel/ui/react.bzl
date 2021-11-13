@@ -24,7 +24,7 @@ Main Commands:
 """
 
 # TODO(adam): fail macro on conflict of yarn lock. cannot have same deps in different package jsons
-def react_project(name, srcs, package_jsons, yarn_locks, publics, tsconfig, patches, **kwargs):
+def react_project(name, srcs, package_jsons, yarn_locks, publics, tsconfig, patches, includes, **kwargs):
     runner_dir_name = name + "-runner"
     merge_json_name = name + "-merge-json"
     native.genrule(
@@ -43,6 +43,19 @@ def react_project(name, srcs, package_jsons, yarn_locks, publics, tsconfig, patc
         base_dir = runner_dir_name,
         **kwargs
     )
+    index = 0
+    copy_includes_name = "copy-includes-"
+    includes_targets = []
+    for i in includes:
+        dir_name = paths.join(runner_dir_name, i["to"])
+        includes_targets.append(copy_includes_name + str(index))
+        rebase_and_copy_files(
+            name = copy_includes_name + str(index),
+            source_files = i["labels"],
+            prefix = i["from"],
+            base_dir = dir_name,
+            **kwargs
+        )
     copy_public_name = name + "-copy-public"
     rebase_and_copy_files(
         name = copy_public_name,
@@ -91,7 +104,7 @@ def react_project(name, srcs, package_jsons, yarn_locks, publics, tsconfig, patc
         copy_extras_name,
         name + "-copy-patches",
         "@npm//:node_modules",
-    ]
+    ] + includes_targets
     react_scripts(
         name = name + "-start",
         args = [
