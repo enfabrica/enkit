@@ -2339,6 +2339,53 @@ function gee__whatsout() {
   fi
 }
 
+function gee__owners() {
+  _check_cwd
+  _set_main
+
+  local FILES=()
+  mapfile -t FILES < <("${GIT}" diff --name-only "${MAIN}...HEAD"; /bin/true)
+
+  local ROOT
+  ROOT="$(_get_branch_rootdir)"
+  local RULES=()
+  echo $ROOT
+  ls -l "${ROOT}/CODEOWNERS"
+  mapfile -t RULES < <( \
+    sed -e 's/[[:space:]]*#.*//' < "${ROOT}/CODEOWNERS" \
+    | grep -v -e '^[[:space:]]*$' )
+
+  local F O R
+  for F in "${FILES[@]}"; do
+    O=""
+    for R in "${RULES[@]}"; do
+      local EXP VAL
+      read -r EXP VAL <<<"${R}"
+      if [[ "$EXP" == "/"* ]]; then
+        if [[ "$F" == "${EXP}"* ]]; then
+          O="${VAL}"
+        fi
+      elif [[ "$EXP" == *"/" ]]; then
+        if [[ "$F" == */"${EXP}"* ]]; then
+          O="${VAL}"
+        fi
+      elif [[ "$EXP" == "*"* ]]; then
+        if [[ "$F" == *"${EXP:1}" ]]; then
+          O="${VAL}"
+        fi
+      else
+        if [[ "$F" == "${EXP}" ]]; then
+          O="${VAL}"
+        fi
+      fi
+    done
+    echo "$F: $O"
+    if [[ -n "${O}" ]]; then
+      echo "$O"
+    fi
+  done
+}
+
 ##########################################################################
 # lsbranches command
 ##########################################################################
