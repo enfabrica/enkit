@@ -1,0 +1,179 @@
+# TODO(INFRA-164): This is a bogus license for backwards-compatibility with the
+# old annotations, which name the bogus feature "vivado" instead of an actual
+# feature managed by the flexlm server. Once all rules name features below, we
+# should drop this license entry.
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "vivado"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "Vivado_System_Edition"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "ISE_System_Edition"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "cmac_usplus"
+  }
+  quantity: 9999
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "sdnet_p4"
+  }
+  quantity: 1
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "hcam_base"
+  }
+  quantity: 1
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "tcam_10Mbits"
+  }
+  quantity: 1
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "ChipScopePro_SIOTK"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "ChipscopePro"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "ISE"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "SysGen"
+  }
+  quantity: 6
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "XPS"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "HLS"
+  }
+  quantity: 6
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "ISIM"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "PlanAhead"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "SDK"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "PartialReconfiguration"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "Simulation"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "Implementation"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "Analyzer"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "Synthesis"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "xilinx"
+    feature: "ModelComposer"
+  }
+  quantity: 3
+}
