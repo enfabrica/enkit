@@ -2253,51 +2253,99 @@ function gee__whatsout() {
   fi
 }
 
-function gee__owners() {
+##########################################################################
+# codeowners command
+##########################################################################
+
+_register_help "codeowners" \
+  "Provide detailed information about required approvals for this PR." \
+  owners reviewers \
+  <<'EOT'
+Usage: gee codeowners
+
+Gee examines the set of modified files in this branch, and compares it against
+the rules in the CODEOWNERS file.  Gee then presents the user with detailed
+information about which approvals are necessary to submit this PR:
+
+*  Each line contains a list of users who are code owners of at least
+   some part of the PR.
+
+*  A minimum of one user from each line must provide approval in order for the
+   PR to be merged.
+
+EOT
+
+function gee__owners() { gee__codeowners "$@"; }
+function gee__reviewers() { gee__codeowners "$@"; }
+function gee__codeowners() {
   _check_cwd
   _set_main
 
   local FILES=()
-  mapfile -t FILES < <("${GIT}" diff --name-only "${MAIN}...HEAD"; /bin/true)
+  mapfile -t FILES < <(
+    (
+      "${GIT}" diff --name-only "${MAIN}...HEAD";
+      "${GIT}" diff --name-only;
+    ) | sort -u; /bin/true )
+  if [[ "${#FILES[@]}" -eq 0 ]]; then
+    _warn "There are no tracked, modified files in this client."
+    return 0
+  fi
 
   local ROOT
   ROOT="$(_get_branch_rootdir)"
   local RULES=()
-  echo $ROOT
-  ls -l "${ROOT}/CODEOWNERS"
+  if ! [[ -f "${ROOT}/CODEOWNERS" ]]; then
+    _warn "No CODEOWNERS file was found in ${ROOT}."
+    return 0
+  fi
   mapfile -t RULES < <( \
     sed -e 's/[[:space:]]*#.*//' < "${ROOT}/CODEOWNERS" \
     | grep -v -e '^[[:space:]]*$' )
 
-  local F O R
-  for F in "${FILES[@]}"; do
-    O=""
-    for R in "${RULES[@]}"; do
-      local EXP VAL
-      read -r EXP VAL <<<"${R}"
-      if [[ "$EXP" == "/"* ]]; then
-        if [[ "$F" == "${EXP}"* ]]; then
-          O="${VAL}"
+  local OWNERS=()
+  mapfile -t OWNERS < <(
+    # Check each file against CODEOWNERS rules, in order.  The last matching
+    # rule determines the owners associated with that file.
+    local F O R
+    for F in "${FILES[@]}"; do
+      O=""
+      for R in "${RULES[@]}"; do
+        local EXP VAL
+        read -r EXP VAL <<<"${R}"
+        if [[ "$EXP" == "/"* ]]; then
+          if [[ "/$F" == "${EXP}"* ]]; then
+            O="${VAL}"
+          fi
+        elif [[ "$EXP" == *"/" ]]; then
+          if [[ "/$F" == */"${EXP}"* ]]; then
+            O="${VAL}"
+          fi
+        elif [[ "$EXP" == "*"* ]]; then
+          if [[ "/$F" == *"${EXP:1}" ]]; then
+            O="${VAL}"
+          fi
+        else
+          if [[ "/$F" == "${EXP}" ]]; then
+            O="${VAL}"
+          fi
         fi
-      elif [[ "$EXP" == *"/" ]]; then
-        if [[ "$F" == */"${EXP}"* ]]; then
-          O="${VAL}"
-        fi
-      elif [[ "$EXP" == "*"* ]]; then
-        if [[ "$F" == *"${EXP:1}" ]]; then
-          O="${VAL}"
-        fi
-      else
-        if [[ "$F" == "${EXP}" ]]; then
-          O="${VAL}"
-        fi
+      done
+      if [[ -n "${O}" ]]; then
+        # sort and uniquify the words in each line:
+        echo "${O}" | xargs -n1 | sort -u | xargs
       fi
-    done
-    echo "$F: $O"
-    if [[ -n "${O}" ]]; then
-      echo "$O"
-    fi
-  done
+    done | sort -u)
+
+  if [[ "${#OWNERS[@]}" -eq 0 ]]; then
+    _info "This PR can be submitted with approval from any repo owner."
+  elif [[ "${#OWNERS[@]}" -eq 1 ]]; then
+    _info "This PR will require approval from at least one of these people:"
+    _info "${OWNERS[@]}"
+  else
+    _info "This PR will require approval from at least one persom from each line:"
+    _info "${OWNERS[@]}"
+  fi
 }
 
 ##########################################################################
