@@ -2,8 +2,8 @@ import React from 'react';
 import logo from './logo.svg';
 import './App.css';
 import {Button} from '@material-ui/core';
-import {EchoControllerClient} from './proto/rpc/test/example/rpc/echo_grpc_web_pb';
-import {EchoRequest, EchoResponse} from './proto/rpc/test/example/rpc/echo_pb';
+import {EchoControllerClient} from 'rpc/rpc/test/example/rpc/echo_grpc_web_pb';
+import {EchoRequest, EchoResponse} from 'rpc/rpc/test/example/rpc/echo_pb';
 
 
 function App() {
@@ -11,7 +11,7 @@ function App() {
     let request = new EchoRequest();
     request.setMessage('Hello World!');
     let stream = client.echo(request, {});
-    stream.on('data', function(response) {
+    stream.on('data', function(response: EchoResponse) {
         console.log(response.getMessage());
     });
     stream.on('status', function(status) {

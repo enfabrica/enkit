@@ -17,10 +17,19 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react-jsx"
+    "noEmit": false,
+    "jsx": "react-jsx",
+    "paths": {
+      "rpc/*": [
+        "./rpc/*",
+        "../../bazel-bin/ui/example-runner/rpc/*",
+      ],
+      "src/*": [
+        "./src/*"
+      ]
+    }
   },
   "include": [
-    "src"
-  ]
+    "src", "rpc",
+  ],
 }

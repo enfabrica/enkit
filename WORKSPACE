@@ -62,7 +62,7 @@ container_pull(
     repository = "distroless/base",
 )
 
-load("@build_bazel_rules_nodejs//:index.bzl", "yarn_install")
+load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
 
 http_archive(
     name = "rules_proto_grpc",
@@ -71,11 +71,11 @@ http_archive(
     urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.0.1.tar.gz"],
 )
 
-yarn_install(
+node_repositories(
+    node_version = "16.13",
     # Name this npm so that Bazel Label references look like @npm//package
-    name = "npm",
     package_json = "//ui:package.json",
-    yarn_lock = "//ui:yarn.lock",
+    yarn_version = "1.22",
 )
 
 load("@rules_proto_grpc//:repositories.bzl", "grpc_web_plugin_linux", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
