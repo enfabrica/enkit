@@ -1702,6 +1702,7 @@ function _print_codeowners() {
       "${GIT}" diff --name-only "${MAIN}...HEAD";
       "${GIT}" diff --name-only;
     ) | sort -u; /bin/true )
+  _info "FILES: ${FILES[*]}"
   if [[ "${#FILES[@]}" -eq 0 ]]; then
     _warn "There are no tracked, modified files in this client."
     return 0
@@ -1748,6 +1749,7 @@ function _print_codeowners() {
       # sort and uniquify the words in each line:
       echo "${O}" | xargs -n1 | sort -u | xargs
     fi
+    _info "O=${O}"
   done | sort -u
 }
 
