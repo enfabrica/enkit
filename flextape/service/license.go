@@ -59,18 +59,10 @@ func formatLicenseType(l *fpb.License) string {
 	return strings.Join([]string{l.GetVendor(), l.GetFeature()}, "::")
 }
 
-<<<<<<< HEAD
 // Enqueue puts the supplied invocation at the back of the queue. Returns the
 // 1-based index the invocation was queued at.
 func (l *license) Enqueue(inv *invocation) uint32 {
-||||||| parent of ae74ac9 (flextape: Add metrics)
-// Enqueue puts the supplied invocation at the back of the queue.
-func (l *license) Enqueue(inv *invocation) {
-=======
-// Enqueue puts the supplied invocation at the back of the queue.
-func (l *license) Enqueue(inv *invocation) {
 	defer l.updateMetrics()
->>>>>>> ae74ac9 (flextape: Add metrics)
 	l.queue = append(l.queue, inv)
 	return uint32(len(l.queue))
 }
