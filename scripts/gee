@@ -3027,6 +3027,9 @@ Tested:
 EndOfPrTemplate
 
     # add CODEOWNERS annotation
+    #
+    # TODO(jonathan): move CODEOWNERS annotation to a separate comment, instead
+    # of the PR body.
     local OWNERS=()
     mapfile -t OWNERS < <(_print_codeowners)
     if [[ "${#OWNERS[@]}" -eq 0 ]]; then
@@ -3049,6 +3052,9 @@ EndOfPrTemplate
     "${GIT}" diff --name_only "${PARENT}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
     printf "#\n# Here is your commit log:\n"
     "${GIT}" log --reverse "${PARENT}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
+
+    # TODO(jonathan): add support for specifying tags and reviewers in the
+    #                 PR description.
   ) >"${BODYFILE}"
 
   _info "PR message body follows:"
@@ -3071,8 +3077,6 @@ EndOfPrTemplate
   # Parse metadata from PR description.
   local TITLE
   TITLE="$(head -1 "${BODYFILE}")"
-  # TODO(jonathan): add support for specifying tags and reviewers in the
-  #                 PR description.
 
   # Note: we must label origin as the upstream branch for "gh pr create" to
   # automatically pick the branch to use for the PR request.
