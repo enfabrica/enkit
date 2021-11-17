@@ -1748,8 +1748,8 @@ function _print_codeowners() {
     if [[ -n "${O}" ]]; then
       # sort and uniquify the words in each line:
       echo "${O}" | xargs -n1 | sort -u | xargs
+      echo >&2 "${O}" | xargs -n1 | sort -u | xargs
     fi
-    _info "O=${O}"
   done | sort -u
 }
 
@@ -3055,12 +3055,11 @@ EndOfPrTemplate
   _info "PR message body follows:"
   cat "${BODYFILE}" >&2
   declare -g RESP=""
-  _info "Which editor do you want to use to edit your PR description?"
-  # TODO(jonathan): support other editors?
-  _choose_one "Editor: [V]im, [e]macs)" "vVeE" "v"
+  _choose_one "Do you want to edit this message? ([V]im, [e]macs, [n]o, [a]bort)  " "vVeEnNaA" "v"
   case "${RESP}" in
     [vV]*) vim "${BODYFILE}"; ;;
     [eE]*) emacs "${BODYFILE}"; ;;
+    [aA]*) _fatal "Aborted."; ;;
   esac
 
   # Remove all comments from the description and squeeze multiple blank
