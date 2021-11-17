@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 
 	fpb "github.com/enfabrica/enkit/flextape/proto"
 	"github.com/enfabrica/enkit/flextape/service"
 	"github.com/enfabrica/enkit/lib/server"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/prototext"
 )
@@ -57,5 +59,8 @@ func main() {
 	s := service.New(config)
 	fpb.RegisterFlextapeServer(grpcs, s)
 
-	server.Run(nil, grpcs)
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	server.Run(mux, grpcs)
 }

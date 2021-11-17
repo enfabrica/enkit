@@ -9,15 +9,19 @@ load("//bazel:deps.bzl", "enkit_deps")
 
 enkit_deps()
 
-load("//bazel:init.bzl", "enkit_init")
-
-enkit_init()
-
 # gazelle:repo bazel_gazelle
 
 load("//bazel:go_repositories.bzl", "go_repositories")
 
+# Needs to be before enkit_init() so that if there are duplicates between our
+# deps and third-party tool deps instantiated in enkit_init, ours take
+# precedence. Our dependencies should be strictly newer than those named by
+# third-party tools.
 go_repositories()
+
+load("//bazel:init.bzl", "enkit_init")
+
+enkit_init()
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
