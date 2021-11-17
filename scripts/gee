@@ -1748,7 +1748,6 @@ function _print_codeowners() {
     if [[ -n "${O}" ]]; then
       # sort and uniquify the words in each line:
       echo "${O}" | xargs -n1 | sort -u | xargs
-      echo >&2 "${O}" | xargs -n1 | sort -u | xargs
     fi
   done | sort -u
 }
