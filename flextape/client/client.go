@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sync/atomic"
 	"time"
 
 	fpb "github.com/enfabrica/enkit/flextape/proto"
@@ -82,6 +83,12 @@ func (c *LicenseClient) Guard(ctx context.Context, cmd string, args ...string) e
 // acquire returns nil if the license is successfully acquired, or an error if
 // acquisition failed.
 func (c *LicenseClient) acquire(ctx context.Context) error {
+	var queuePos uint32
+	var reqID atomic.Value
+	doneChan := make(chan struct{})
+	defer close(doneChan)
+	go logQueuePosition(&reqID, &queuePos, 30*time.Second, doneChan)
+
 	req := &fpb.AllocateRequest{
 		Invocation: c.invocation,
 	}
@@ -95,14 +102,33 @@ func (c *LicenseClient) acquire(ctx context.Context) error {
 		switch r := res.GetResponseType().(type) {
 		case *fpb.AllocateResponse_LicenseAllocated:
 			req.GetInvocation().Id = r.LicenseAllocated.GetInvocationId()
+			fmt.Fprintf(os.Stderr, "flextape request %s: reserved license; running tool\n", r.LicenseAllocated.GetInvocationId())
 			return nil
 		case *fpb.AllocateResponse_Queued:
 			req.GetInvocation().Id = r.Queued.GetInvocationId()
+			reqID.Store(req.GetInvocation().GetId())
+			atomic.StoreUint32(&queuePos, r.Queued.GetQueuePosition())
 			sleepTime := min(time.Until(r.Queued.GetNextPollTime().AsTime())*4/5, time.Second)
 			time.Sleep(sleepTime)
 			continue
 		default:
 			return fmt.Errorf("unhandled response type %T", r)
+		}
+	}
+}
+
+// logQueuePosition prints the queue position queuePos to stderr every
+// `interval` until `done` is closed.
+func logQueuePosition(id *atomic.Value, queuePos *uint32, interval time.Duration, done chan struct{}) {
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+
+	for {
+		select {
+		case <-tick.C:
+			fmt.Fprintf(os.Stderr, "flextape request %s: queued at position: %v\n", id.Load().(string), atomic.LoadUint32(queuePos))
+		case <-done:
+			return
 		}
 	}
 }
