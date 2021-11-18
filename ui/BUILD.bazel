@@ -22,7 +22,11 @@ react_project(
     name = "ptunnel",
     src = "//ui/ptunnel:srcs",
     copy_to_root = [
-        "//ui/ptunnel:yarn.lock",
+        "//ui/frontend:yarn.lock",
+        "//ui:webpack.prod.js",
+        "//ui:webpack.common.js",
+        "//ui:webpack.dev.js",
+        "//ui:babel.config.json",
     ],
     includes = [],
     package_jsons = [
