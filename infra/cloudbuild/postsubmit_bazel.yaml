@@ -20,6 +20,8 @@ steps:
     env:
       - "BAZEL_PROFILE=cloudbuild"
 
-timeout: 30m
+timeout: 20m
 options:
-  machineType: E2_MEDIUM
+  # The default of 1 vCPU cannot pull the container, build and test all of enkit
+  # in 1hr
+  machineType: E2_HIGHCPU_8
