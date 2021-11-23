@@ -59,10 +59,12 @@ func licensesFromConfig(config *fpb.Config) map[string]*license {
 	for _, l := range config.GetLicenseConfigs() {
 		name := fmt.Sprintf("%s::%s", l.GetLicense().GetVendor(), l.GetLicense().GetFeature())
 		licenses[name] = &license{
+			name:           name,
 			totalAvailable: int(l.GetQuantity()),
 			allocations:    map[string]*invocation{},
 		}
 	}
+	fmt.Printf("%+v\n", licenses)
 	return licenses
 }
 
@@ -71,7 +73,7 @@ func New(config *fpb.Config) *Service {
 
 	service := &Service{
 		currentState: stateStarting,
-		licenses: licenses,
+		licenses:     licenses,
 		// TODO: Read this from flags
 		queueRefreshDuration:      5 * time.Second,
 		allocationRefreshDuration: 5 * time.Second,
