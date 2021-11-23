@@ -13,14 +13,6 @@ def enkit_deps():
             ],
         )
 
-    if "com_github_ccontavalli_bazel_rules" not in excludes:
-        http_archive(
-            name = "com_github_ccontavalli_bazel_rules",
-            sha256 = "0d0d8e644fd616d0ee225444889295914405df77cc549e8fc87ad6fd8b9bbb25",
-            strip_prefix = "bazel-rules-6",
-            urls = ["https://github.com/ccontavalli/bazel-rules/archive/v6.tar.gz"],
-        )
-
     if "build_bazel_rules_nodejs" not in excludes:
         http_archive(
             name = "build_bazel_rules_nodejs",
