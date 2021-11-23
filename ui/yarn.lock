@@ -1204,7 +1204,7 @@
     "@babel/helper-validator-identifier" "^7.15.7"
     to-fast-properties "^2.0.0"
 
-"@bazel/labs@^4.4.5":
+"@bazel/labs@4.4.5":
   version "4.4.5"
   resolved "https://registry.yarnpkg.com/@bazel/labs/-/labs-4.4.5.tgz#ae4306124c481ba55254b5958ff947553332659e"
   integrity sha512-z8IOSPSWYQoXgEmxu+Bo45j5f0vNzVdeisXhcHQd2luWu7l8uGk+PaZ8C95Ezo9so9OtWjc1dZR12OlJq6rsWw==
@@ -1214,7 +1214,7 @@
   resolved "https://registry.yarnpkg.com/@bazel/runfiles/-/runfiles-3.5.1.tgz#4322861334c3fb755ef8135e6464e871d0c8a2b6"
   integrity sha512-SnfQB42h8mpRap50p8KpNQlGtdBKP1uekDTd5YiqneOEdKlzhOG00yRfjyuiWgOVeNgm4MnvBvE8kH/josOCTQ==
 
-"@bazel/typescript@^4.4.5":
+"@bazel/typescript@4.4.5":
   version "4.4.5"
   resolved "https://registry.yarnpkg.com/@bazel/typescript/-/typescript-4.4.5.tgz#0b323a292910dbfdc5f90312377e9282c73035f0"
   integrity sha512-Cgq7ZXGkFPAAOn2t9C9JWIDkSjDKB7AkwNgXEwrPwpchKgdoCcD1uMieiErfwBB0FWgJF1xvwwLGOnWA6E/G0A==
@@ -1333,7 +1333,7 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-1.2.1.tgz#b520529ec21d8e5945a1851dfd1c32e94e39ff45"
   integrity sha512-ZnQMnLV4e7hDlUvw8H+U8ASL02SS2Gn6+9Ac3wGGLIe7+je2AeAOxPY+izIPJDfFDb7eDjev0Us8MO1iFRN8hA==
 
-"@improbable-eng/grpc-web@^0.15.0":
+"@improbable-eng/grpc-web@0.15.0":
   version "0.15.0"
   resolved "https://registry.yarnpkg.com/@improbable-eng/grpc-web/-/grpc-web-0.15.0.tgz#3e47e9fdd90381a74abd4b7d26e67422a2a04bef"
   integrity sha512-ERft9/0/8CmYalqOVnJnpdDry28q+j+nAlFFARdjyxXDJ+Mhgv9+F600QC8BR9ygOfrXRlAk6CvST2j+JCpQPg==
@@ -2112,7 +2112,7 @@
   dependencies:
     "@types/react" "*"
 
-"@types/react@*", "@types/react@^17.0.34":
+"@types/react@*", "@types/react@17.0.34":
   version "17.0.34"
   resolved "https://registry.yarnpkg.com/@types/react/-/react-17.0.34.tgz#797b66d359b692e3f19991b6b07e4b0c706c0102"
   integrity sha512-46FEGrMjc2+8XhHXILr+3+/sTe3OfzSPU9YGKILLrUYbQ1CLQC9Daqo1KzENGXAWwrFwiY0l4ZbF20gRvgpWTg==
@@ -9670,7 +9670,7 @@ react-app-polyfill@^2.0.0:
     regenerator-runtime "^0.13.7"
     whatwg-fetch "^3.4.1"
 
-react-app-rewired@^2.1.8:
+react-app-rewired@2.1.8:
   version "2.1.8"
   resolved "https://registry.yarnpkg.com/react-app-rewired/-/react-app-rewired-2.1.8.tgz#e192f93b98daf96889418d33d3e86cf863812b56"
   integrity sha512-wjXPdKPLscA7mn0I1de1NHrbfWdXz4S1ladaGgHVKdn1hTgKK5N6EdGIJM0KrS6bKnJBj7WuqJroDTsPKKr66Q==
