@@ -7,7 +7,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//bazel/utils:binary.bzl", "declare_binary")
 load("@npm//poi:index.bzl", "poi")
 load("@npm//webpack:index.bzl", "webpack")
-
+load("@npm//jest:index.bzl", "jest")
 """Creates a react project after running create-react-app.
 
 Args:
@@ -142,11 +142,9 @@ def react_project(name, src, package_jsons, copy_to_root, public, tsconfig, patc
         **kwargs
     )
 
-    nodejs_test(
+    jest(
         name = name + "-test",
-        entry_point = "@npm//:node_modules/poi/bin/cli.js",
         args = [
-            "--node_options=--require=./$(rootpath :" + chdir_script_name + ")",
             "--test",
             "--no-cache",
         ],
@@ -155,5 +153,6 @@ def react_project(name, src, package_jsons, copy_to_root, public, tsconfig, patc
         # Windows users with permissions can use --enable_runfiles
         # to make this test work
         tags = ["no-bazelci-windows"],
+        chdir = paths.join(native.package_name(), runner_dir_name),
         **kwargs
     )
