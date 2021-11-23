@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package bestie.proto;
+
+option go_package = "github.com/enfabrica/enkit/bestie/proto";
+
+service Greeter {
+  // "Hello-world"-style RPC for testing connectivity
+  rpc Greet(GreetRequest) returns (GreetResponse) {}
+}
+
+message GreetRequest {
+  // Name of entity to greet
+  string name = 1;
+}
+
+message GreetResponse {
+  // Greeting phrase
+  string greeting = 2;
+}
