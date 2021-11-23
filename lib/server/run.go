@@ -15,7 +15,7 @@ import (
 // Run runs the specified HTTP handlers and/or gRPC server on a port specified
 // by the `PORT` environment variable. If no HTTP mux or gRPC server is provided
 // (is nil), one with default routes/services will be started, respectively.
-func Run(mux http.Handler, grpcs *grpc.Server) {
+func Run(mux *http.ServeMux, grpcs *grpc.Server) {
 	if mux == nil {
 		mux = http.NewServeMux()
 	}
