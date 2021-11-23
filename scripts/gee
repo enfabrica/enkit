@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.5"
+readonly VERSION="0.2.6"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -3136,36 +3136,52 @@ function gee__fix() {
 #                 and gcd branch@? to find last-edited directory.
 # TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 
-_register_help "gcd" "Find the current directory in a different branch." <<'EOT'
-Usage: gcd [-b] <branch>
+_register_help "gcd" "Change directory to another branch." <<'EOT'
+Usage: gcd [-b] <branch>[/<path>]
 
-The "-b" option will cause the branch to be created if it doesn't already exist.
+The "gee gcd" command is not meant to be used directly, but is instead designed
+to be called from the "gcd" bash function, which can be imported into your
+environment with gee's "bash_setup" command, like this:
 
-The "gcd" command is not meant to be used directly, but is instead designed to
-be called from the "gcd" bash function.
+    eval "$(gee bash_setup)"
 
-To import this function into your environment, add to your .bashrc
-file:
+(This command should be added to your .bashrc file.)
 
-    source ~/gee/enkit/master/scripts/gee_aliases.bash
+Once imported, the "gcd" function can be used to change directory between
+branches.
 
-Or for a quick version:
+If only "<branch>" is specified, "gcd" will change directory to the same
+relative directory in another branch.  If "<branch>/<path>" is specified,
+"gcd" will change directory to the specified path beneath the specified
+branch.
 
-    function gcd() { cd "$(gee gcd "$@")"; }
+For example:
+
+  cd ~/gee/enkit/branch1/foo/bar
+  # now in ~/gee/enkit/branch1/foo/bar
+  gcd branch2
+  # now in ~/gee/enkit/branch2/foo/bar
+  gcd branch3/foo
+  # now in ~/gee/enkit/branch3/foo
+
+gcd also updates the following environment variables:
+
+  BROOT always contains the path to the root directory of the current branch.
+  BRBIN always contains the path to the bazel-bin directory beneath root.
 
 EOT
 
 function gee__gcd() {
-  local BRANCH REL_PATH OPT_B
+  local TARGET BRANCH REL_PATH OPT_B
   OPT_B=0
   if [[ "$1" == "-b" ]]; then
     OPT_B=1
     shift
   fi
-  BRANCH="$1"
+  TARGET="$1"
   _set_main
-  if [[ -z "${BRANCH}" ]]; then
-    BRANCH="${MAIN}"
+  if [[ -z "${TARGET}" ]]; then
+    TARGET="${MAIN}"
   fi
 
   if ! _in_gee_branch; then
@@ -3175,7 +3191,16 @@ function gee__gcd() {
     _die "Can't find ${REPO}/${MAIN} branch.  Something is very wrong here."
   fi
 
-  REL_PATH="$(git rev-parse --show-prefix)"
+  # Parse the TARGET specifier.
+  if [[ "${TARGET}" == *"/"* ]]; then
+    # TARGET is <branch>/<directory>:
+    BRANCH="${TARGET%%/*}"
+    REL_PATH="${TARGET#*/}"
+  else
+    # otherwise, target is just the branch name:
+    BRANCH="${TARGET}"
+    REL_PATH="$(git rev-parse --show-prefix)"
+  fi
 
   # check whether BRANCH exists: 
   if ! _local_branch_exists "${BRANCH}"; then
@@ -3461,20 +3486,7 @@ function gee() {
 
 function gcd() {
   if (( "$#" == 0 )); then
-    cat <<'EOT'
-Usage: gcd <branch-name>
-
-"gcd" changes the current working directory to the same relative directory in
-another branch.
-
-For example:
-
-  cd ~/gee/enkit/branch1/foo/bar
-  # now in ~/gee/enkit/branch1/foo/bar
-  gcd branch2
-  # now in ~/gee/enkit/branch2/foo/bar
-
-EOT
+    gee help gcd
     return 1
   fi
 
@@ -3482,6 +3494,8 @@ EOT
   if [[ -n "${D}" ]]; then
     cd "${D}"
   fi
+  export BROOT="$(git rev-parse --show-toplevel)"
+  export BRBIN="${BROOT}/bazel-bin"
 }
 
 function _gee_completion_branches() {
