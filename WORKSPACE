@@ -64,24 +64,9 @@ container_pull(
 
 load("@build_bazel_rules_nodejs//:index.bzl", "yarn_install")
 
-http_archive(
-    name = "rules_proto_grpc",
-    sha256 = "28724736b7ff49a48cb4b2b8cfa373f89edfcb9e8e492a8d5ab60aa3459314c8",
-    strip_prefix = "rules_proto_grpc-4.0.1",
-    urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.0.1.tar.gz"],
-)
-
 yarn_install(
     # Name this npm so that Bazel Label references look like @npm//package
     name = "npm",
     package_json = "//ui:package.json",
     yarn_lock = "//ui:yarn.lock",
 )
-
-load("@rules_proto_grpc//:repositories.bzl", "grpc_web_plugin_linux", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
-
-rules_proto_grpc_toolchains()
-
-rules_proto_grpc_repos()
-
-grpc_web_plugin_linux()
