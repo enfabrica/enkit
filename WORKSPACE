@@ -73,7 +73,6 @@ http_archive(
 
 node_repositories(
     node_version = "16.13",
-    # Name this npm so that Bazel Label references look like @npm//package
     package_json = "//ui:package.json",
     yarn_version = "1.22",
 )
