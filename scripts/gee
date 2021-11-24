@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.6"
+readonly VERSION="0.2.7"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -911,7 +911,7 @@ function _read_cmd() {
     RC="${!TMP}"  # indirect
     unset "${VAR}[-1]"
     if [[ "${RC}" -ne 0 ]]; then
-      _warn "Command failed with exit code ${RC}"
+      _warn "Command returned non-zero exit code: ${RC}"
       if [[ -n "${NOFAIL}" ]]; then
         RC=0
       fi
@@ -2844,7 +2844,7 @@ function gee__pr_make() {
   )
   PR_ARGS+=( "$@" )
   _gh pr create "${PR_ARGS[@]}"
-  # _gh pr checks  # not sure why this is problematic.
+  # _gh pr checks  # These take a while to run, no point checking now.
   _gh_pr_view
   local NUM_REVIEWERS
   NUM_REVIEWERS="$(gh pr view \
@@ -2856,6 +2856,74 @@ function gee__pr_make() {
   rm "${BODYFILE}"
 }
   
+##########################################################################
+# pr_check command
+##########################################################################
+
+_register_help "pr_check" \
+  "Checks whether presubmit tests for a PR." \
+  "pr_checks" "check_pr" <<'EOT'
+Usage: gee pr_check
+
+Checks presubmit tests.
+EOT
+
+function gee__check_pr() { gee__pr_check "$@"; }
+function gee__pr_checks() { gee__pr_check "$@"; }
+function gee__pr_check() {
+  local -a CHECKS=()
+  local -A CHECK_COUNTS=()
+  local PENDING=1
+  local CHECKS_FAILED=0
+  local WAIT=0
+  while [[ "${PENDING}" -ne 0 ]]; do
+    if _read_cmd CHECKS "${GH}" pr checks; then
+      _info "${CHECKS[@]}"
+      # no failures, nothing pending.
+      _info "All checks successful."
+      CHECKS_FAILED=0
+      PENDING=0
+    else
+      _info "${CHECKS[@]}"
+      # something went wrong.  Is a test pending, or did we get a failure?
+      CHECK_COUNTS=()
+      local LINE
+      for LINE in "${CHECKS[@]}"; do
+        local -a FIELDS=()
+        read -r -a FIELDS <<< "${LINE}"
+        (( CHECK_COUNTS["${FIELDS[2]}"]++ )) || /bin/true
+      done
+      local REPORT="gh pr checks:"
+      local KEY
+      for KEY in "${!CHECK_COUNTS[@]}"; do
+        REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
+      done
+      _info "${REPORT}"
+      CHECKS_FAILED="${CHECK_COUNTS["fail"]}"
+      PENDING="${CHECK_COUNTS["pending"]}"
+      if [[ "${PENDING}" -ne 0 ]]; then
+        if (( WAIT == 0 )); then
+          declare -g RESP=""
+          _choose_one "Some checks are still pending.  [W]ait, [r]etry, [a]bort, or [c]ontinue without waiting?  " \
+            "rwac" "w"
+          if [[ "${RESP}" == "a" ]]; then
+            _fatal "Aborted."
+          elif [[ "${RESP}" == "c" ]]; then
+            return 1
+          elif [[ "${RESP}" == "w" ]]; then
+            _info "Waiting until all pending tests are complete."
+            WAIT=1
+          fi
+        fi
+        sleep 10
+      fi
+    fi
+  done
+  if (( CHECKS_FAILED > 0 )); then
+    _warn "Some presubmit checks have failed."
+  fi
+  return "${CHECKS_FAILED}"
+}
 
 ##########################################################################
 # submit_pr command
@@ -2873,16 +2941,20 @@ function gee__merge() { gee__pr_submit "$@"; }
 function gee__pr_submit() {
   _check_cwd
   _check_gh_auth
+
+  # Presubmit check: does remote branch exist?
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
     _die "Remote branch ${CURRENT_BRANCH} does not exist."
   fi
+  # Presubmit check: Are there uncommitted local changes?
   local DIFFS
   DIFFS="$("${GIT}" diff --name-only | wc -l)"
   if (( "${DIFFS}" != 0 )); then
     _fatal "Will not submit: current branch has uncommitted changes."
   fi
+  # Presubmit check: Is the remote branch in sync with the local branch:
   local -a COUNTS
   read -r -a COUNTS < \
     <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
@@ -2893,6 +2965,14 @@ function gee__pr_submit() {
   if [[ "${COUNTS[0]}" -gt 0 ]]; then
     _warn "Local ${CURRENT_BRANCH} is ${COUNTS[0]} commits ahead of remote origin/${CURRENT_BRANCH}."
     _fatal "Will not submit PR."
+  fi
+
+  # Presubmit check: Are presubmit checks passing?
+  if ! gee__pr_check; then
+    if ! confirm_default_no \
+      "Presubmit checks did not succeed.  Proceed anyway? (y/N)  "; then
+      _fatal "PR submission aborted."
+    fi
   fi
 
   # Get some information about this PR before we merge.
