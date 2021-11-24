@@ -2876,8 +2876,6 @@ function gee__pr_check() {
   local PENDING=1
   local CHECKS_FAILED=0
   local WAIT=0
-  local STARTED
-  STARTED="$(date +%s)"
   while [[ "${PENDING}" -ne 0 ]]; do
     if _read_cmd CHECKS "${GH}" pr checks; then
       _info "${CHECKS[@]}"
