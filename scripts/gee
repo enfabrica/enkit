@@ -2502,7 +2502,7 @@ function gee__commit() {
     fi
     # We always push upstream so that users have a backup in case they lose their
     # laptop:
-    _git push -u origin "${CURRENT_BRANCH}"
+    _git push --quiet -u origin "${CURRENT_BRANCH}"
   fi
 }
 
@@ -2582,7 +2582,7 @@ function gee__pr_checkout() {
   _write_parents_file
 
   _checkout_or_die "${BRANCH}"
-  _git push origin "${BRANCH}"
+  _git push --quiet origin "${BRANCH}"
   _info "Pulled PR #${PRNUM} into branch \"${BRANCH}\""
 } 
 
@@ -2830,7 +2830,7 @@ function gee__pr_make() {
 
   # Note: we must label origin as the upstream branch for "gh pr create" to
   # automatically pick the branch to use for the PR request.
-  _git push -u origin "${CURRENT_BRANCH}"
+  _git push --quiet u origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
   #  -R specifies the repo that we are pushing changes into.
   #  -H specifies the branch that contains outstanding commits,
@@ -3011,7 +3011,7 @@ function gee__pr_submit() {
   # Reset this branch to now contain the squash-merged commit:
   _checkout_or_die "${CURRENT_BRANCH}"  # make sure we're in the right branch.
   _git checkout -B "${CURRENT_BRANCH}" "upstream/${MAIN}"
-  _git push -u origin "+${CURRENT_BRANCH}"
+  _git push --quiet -u origin "+${CURRENT_BRANCH}"
 
   # After a squash merge, we have a potential problem for child (and
   # grandchild) branches of this one.  When they attempt to rebase, they will
@@ -3097,7 +3097,7 @@ function gee__remove_branch() {
   _git worktree remove --force "${BR}"
   _git branch -D "${BR}"
   if _remote_branch_exists origin "${BR}"; then
-    _git_can_fail push origin --delete "${BR}"
+    _git_can_fail push --quiet origin --delete "${BR}"
   else
     _info "Not deleting remote branch ${BR}: was never created."
   fi
