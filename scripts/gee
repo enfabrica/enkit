@@ -2904,8 +2904,8 @@ function gee__pr_check() {
       if [[ "${PENDING}" -ne 0 ]]; then
         if (( WAIT == 0 )); then
           declare -g RESP=""
-          _choose_one "Some checks are still pending.  [R]etry, [w]ait, [a]bort, or [c]ontinue?  " \
-            "rwac" "r"
+          _choose_one "Some checks are still pending.  [W]ait, [r]etry, [a]bort, or [c]ontinue without waiting?  " \
+            "rwac" "w"
           if [[ "${RESP}" == "a" ]]; then
             _fatal "Aborted."
           elif [[ "${RESP}" == "c" ]]; then
