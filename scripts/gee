@@ -2886,7 +2886,6 @@ function gee__pr_check() {
     else
       _info "${CHECKS[@]}"
       # something went wrong.  Is a test pending, or did we get a failure?
-      CHECKS_FAILED=1
       CHECK_COUNTS=()
       local LINE
       for LINE in "${CHECKS[@]}"; do
@@ -2900,6 +2899,7 @@ function gee__pr_check() {
         REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
       done
       _info "${REPORT}"
+      CHECKS_FAILED="${CHECK_COUNTS["fail"]}"
       PENDING="${CHECK_COUNTS["pending"]}"
       if [[ "${PENDING}" -ne 0 ]]; then
         if (( WAIT == 0 )); then
@@ -2919,6 +2919,9 @@ function gee__pr_check() {
       fi
     fi
   done
+  if (( CHECKS_FAILED > 0 )); then
+    _warn "Some presubmit checks have failed."
+  fi
   return "${CHECKS_FAILED}"
 }
 
