@@ -3124,87 +3124,30 @@ function gee__remove_branch() {
 ##########################################################################
 
 _register_help "fix" "Run automatic code formatters over changed files only." <<'EOT'
-Usage: gee fix
+Usage: gee fix [<files>]
 
-Runs a set of language formatting tools over open files in this branch.
+Looks for a "fix_format.sh" script in the root directory of the current branch,
+and runs it.  This script runs a set of language formatting tools over either:
+
+  - the files specified on the command line, or
+  - if no files are specified, all of the locally changed files in this
+    branch.
 
 Note: "gee fix" (which fixes code in a branch) is different from "gee repair"
 (which checks the gee directory for errors and repairs them).
+
+Note: "fix_format.sh" used to be integrated into gee, but has been separated
+out as formatting rules are highly project specific.
 EOT
 
 function gee__fix() {
-  _check_cwd
-  local BRANCH
-  BRANCH="$(_get_current_branch)"
-  local BDIR MERGEBASE B
-  _set_main
-  MERGEBASE="$(git merge-base "origin/${MAIN}" "${BRANCH}")"
+  local BDIR
   BDIR="$(_get_branch_rootdir)"
-  cd "${BDIR}"
-
-  local -a FILES=()
-  local FNAME
-  while read -r FNAME; do
-    FILES+=( "$(readlink -f "${FNAME}")" )
-  done < <( "${GIT}" diff --name-only "${MERGEBASE}" )
-
-  # buildifier:
-  local -a BZL_FILES=()
-  for FNAME in "${FILES[@]}"; do
-    B="$(basename "${FNAME}")"
-    if [[ "${B}" =~ \.bzl$|^BUILD|WORKSPACE ]]; then
-      BZL_FILES+=( "${FNAME}" )
-    fi
-  done
-  if (( "${#BZL_FILES[@]}" )); then
-    _info "buildifier: Fixing ${BZL_FILES[*]}"
-    _cmd /usr/bin/bazelisk run \
-        --noshow_progress --noshow_loading_progress --logging=0 \
-        --ui_event_filters=-info,-debug \
-        @com_github_bazelbuild_buildtools//buildifier:buildifier \
-        -- \
-        -v --add_tables "${BDIR}/bazel/buildifier.tables.json" \
-        "${BZL_FILES[@]}"
+  if [[ -x "${BDIR}/fix_format.sh" ]]; then
+    _cmd "${BDIR}/fix_format.sh" "$@"
+  else
+    _fatal "No fix_format.sh script exists in this repository."
   fi
-
-  # clang-format, if available:
-  local -a CLANG_FILES=()
-  for FNAME in "${FILES[@]}"; do
-    if [[ "${FNAME}" =~ \.h$|\.c$|\.cc$|\.cpp ]]; then
-      CLANG_FILES+=( "${FNAME}" )
-    fi
-  done
-  if (( "${#CLANG_FILES[@]}" )); then
-    local CLANG_FORMAT=""
-    if [[ -x /usr/bin/clang-format-10 ]]; then
-      CLANG_FORMAT="/usr/bin/clang-format-10"
-    fi
-    if [[ -n "${CLANG_FORMAT}" ]]; then
-      _info "clang-format: Fixing ${CLANG_FILES[*]}"
-      local STYLE="Google"
-      if [[ -f "${BDIR}/cc.clang_format" ]]; then
-        STYLE="${BDIR}/cc.clang_format"
-      fi
-      _cmd "${CLANG_FORMAT}" --verbose --style="${STYLE}" -i "${CLANG_FILES[@]}"
-    else
-      _warn "No clang-format tool available."
-    fi
-  fi
-
-  # pyformat, if available:
-  if [[ -x "${BDIR}/pyformat.sh" ]]; then
-    local -a PY_FILES=()
-    for FNAME in "${FILES[@]}"; do
-      if [[ "${FNAME}" =~ \.py$ ]]; then
-        PY_FILES+=("${FNAME}")
-      fi
-    done
-    if (( "${#PY_FILES[@]}" )); then
-      _cmd "${BDIR}/pyformat.sh" "${PY_FILES[@]}"
-    fi
-  fi
-
-  # TODO(jonathan): Add more formatters.
 }
 
 ##########################################################################
