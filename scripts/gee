@@ -1215,7 +1215,11 @@ function _interactive_conflict_resolution() {
                   _die "Rebase command failed, but rebase is not in progress.  Bug!"
                 fi
                 _warn "Rebase operation had merge conflicts."
+              else
+                _info "Rebase succeeded."
               fi
+              RESTART=1
+              DONE=1
             fi
             ;;
           [Ss])
