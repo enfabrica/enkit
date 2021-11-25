@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.7"
+readonly VERSION="0.2.8"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -1192,7 +1192,12 @@ function _interactive_conflict_resolution() {
             fi
             ;;
           [Gg])
-            _git mergetool --gui "${FILE}"
+            local GUI_MERGETOOL
+            GUI_MERGETOOL="$(git config --get merge.guitool)"
+            if [[ -z "${GUI_MERGETOOL}" ]]; then
+              GUI_MERGETOOL=meld  # default
+            fi
+            _git mergetool --tool="${GUI_MERGETOOL}" --no-prompt "${FILE}"
             M="$("${GIT}" diff --check "${FILE}" | grep -c "conflict marker" | cat)"
             if (( M == 0 )); then
               DONE=1
