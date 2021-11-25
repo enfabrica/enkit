@@ -3926,7 +3926,7 @@ function main() {
   cmdname="$(tr '-' '_' <<< "${cmdname}")"
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     case "${cmdname}" in
-      bash_setup|repair) 
+      bash_setup|repair)
         # skip startup checks
         ;;
       *) _startup_checks ;;
