@@ -2,7 +2,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["token.go"],
+    srcs = [
+        "asymmetric.go",
+        "symmetric.go",
+        "time.go",
+        "token.go",
+    ],
     importpath = "github.com/enfabrica/enkit/lib/token",
     visibility = ["//visibility:public"],
     deps = ["@org_golang_x_crypto//nacl/sign:go_default_library"],
@@ -10,7 +15,11 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["token_test.go"],
+    srcs = [
+        "symmetric_test.go",
+        "time_test.go",
+        "token_test.go",
+    ],
     embed = [":go_default_library"],
     deps = ["@com_github_stretchr_testify//assert:go_default_library"],
 )
