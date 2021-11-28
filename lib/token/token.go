@@ -35,10 +35,9 @@
 package token
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/gob"
+	"github.com/enfabrica/enkit/lib/config/marshal"
 )
 
 // Used internally to define keys exported via context.
@@ -112,21 +111,39 @@ type StringEncoder interface {
 
 type TypeEncoder struct {
 	be BinaryEncoder
+	ma marshal.Marshaller
 }
 
-func NewTypeEncoder(be BinaryEncoder) *TypeEncoder {
-	return &TypeEncoder{
-		be: be,
+type TypeEncoderSetter func(*TypeEncoder)
+
+// WithMarshaller selects a specific marshaller to use with NewTypeEncoder.
+//
+// If none is specified, by default NewTypeEncoder will use a gob encoder.
+// Note that different marshaller may impose different constraints.
+func WithMarshaller(ma marshal.Marshaller) TypeEncoderSetter {
+	return func(te *TypeEncoder) {
+		te.ma = ma
 	}
+}
+
+func NewTypeEncoder(be BinaryEncoder, setter ...TypeEncoderSetter) *TypeEncoder {
+	te := &TypeEncoder{
+		be: be,
+		ma: marshal.Gob,
+	}
+
+	for _, set := range setter {
+		set(te)
+	}
+	return te
 }
 
 func (t *TypeEncoder) Encode(data interface{}) ([]byte, error) {
-	buffer := bytes.Buffer{}
-	enc := gob.NewEncoder(&buffer)
-	if err := enc.Encode(data); err != nil {
+	buffer, err := t.ma.Marshal(data)
+	if err != nil {
 		return nil, err
 	}
-	return t.be.Encode(buffer.Bytes())
+	return t.be.Encode(buffer)
 }
 
 func (t *TypeEncoder) Decode(ctx context.Context, data []byte, output interface{}) (context.Context, error) {
@@ -135,11 +152,10 @@ func (t *TypeEncoder) Decode(ctx context.Context, data []byte, output interface{
 		return ctx, derr
 	}
 
-	enc := gob.NewDecoder(bytes.NewReader(data))
-	nerr := enc.Decode(output)
+	nerr := t.ma.Unmarshal(data, output)
 
 	err := derr
-	if derr == nil {
+	if err == nil {
 		err = nerr
 	}
 	return ctx, err
