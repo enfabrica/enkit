@@ -88,6 +88,7 @@ func (hd *Directory) Write(name string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	tmp.Close()
 
 	if err := ioutil.WriteFile(tmp.Name(), data, 0660); err != nil {
 		os.Remove(tmp.Name())
