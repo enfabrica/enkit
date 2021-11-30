@@ -29,5 +29,5 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
-	server.Run(mux, grpcs)
+	server.CloudRun(mux, grpcs)
 }
