@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.8"
+readonly VERSION="0.2.9"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -1386,7 +1386,7 @@ function _safer_rebase() {
   fi
 
   _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
-  _git push --quiet -u origin "+${CHILD}"
+  _push_to_origin "+${CHILD}"
 }
 
 function _is_rebase_in_progress() {
@@ -1399,6 +1399,15 @@ function _is_rebase_in_progress() {
     return 1  # 1=false
   fi
 }
+
+function _push_to_origin() {
+  local B="$1"
+  if [[ -z "${B}" ]]; then
+    B="$(_get_current_branch)"
+  fi
+  _git push --quiet -u origin "${B}"
+}
+
 
 function _checkout_or_die() {
   # we want to check out a branch.  Maybe there is already a
@@ -1483,7 +1492,7 @@ function _update_from_upstream() {
   if (( COUNTS[0] != 0 )); then
     _fatal "pull failed: upstream/${UPSTREAM_BRANCH} is ${COUNTS[1]} commits ahead of ${LOCAL_BRANCH}"
   fi
-  _git push --quiet -u origin "+${MAIN}"
+  _push_to_origin "+${MAIN}"
 }
 
 function _update_main() {
@@ -2030,7 +2039,7 @@ function gee__unpack() {
 ##   _git add --all
 ##   _git commit -a -F "${TMPFILE}"
 ##   rm "${TMPFILE}"
-##   _git push -u origin "+${CURRENT_BRANCH}"  # update remote branch too
+##   _push_to_origin "+${CURRENT_BRANCH}"  # update remote branch too
 ##   _git log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}"
 ## }
 
@@ -2511,7 +2520,7 @@ function gee__commit() {
     fi
     # We always push upstream so that users have a backup in case they lose their
     # laptop:
-    _git push --quiet -u origin "${CURRENT_BRANCH}"
+    _push_to_origin "${CURRENT_BRANCH}"
   fi
 }
 
@@ -2591,7 +2600,7 @@ function gee__pr_checkout() {
   _write_parents_file
 
   _checkout_or_die "${BRANCH}"
-  _git push --quiet origin "${BRANCH}"
+  _push_to_origin "${BRANCH}"
   _info "Pulled PR #${PRNUM} into branch \"${BRANCH}\""
 } 
 
@@ -2839,7 +2848,7 @@ function gee__pr_make() {
 
   # Note: we must label origin as the upstream branch for "gh pr create" to
   # automatically pick the branch to use for the PR request.
-  _git push --quiet u origin "${CURRENT_BRANCH}"
+  _push_to_origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
   #  -R specifies the repo that we are pushing changes into.
   #  -H specifies the branch that contains outstanding commits,
@@ -3020,7 +3029,7 @@ function gee__pr_submit() {
   # Reset this branch to now contain the squash-merged commit:
   _checkout_or_die "${CURRENT_BRANCH}"  # make sure we're in the right branch.
   _git checkout -B "${CURRENT_BRANCH}" "upstream/${MAIN}"
-  _git push --quiet -u origin "+${CURRENT_BRANCH}"
+  _push_to_origin "+${CURRENT_BRANCH}"
 
   # After a squash merge, we have a potential problem for child (and
   # grandchild) branches of this one.  When they attempt to rebase, they will
