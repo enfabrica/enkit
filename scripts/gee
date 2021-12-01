@@ -3097,10 +3097,15 @@ function gee__pr_submit() {
   local -a ALT_KIDS=()
   _read_cmd ALT_KIDS _gee_get_all_children_of "${CURRENT_BRANCH}"
 
-  # 1c. Uniquify the list of kids
+  # 1c. Uniquify the list of kids, and also remove all branches that don't
+  # exist anymore.  TODO(jonathan): prune dead branches from parents file.
   local -A UNIQUE_KIDS=()
   local K
-  for K in "${GITKIDS[@]}" "${ALT_KIDS[@]}"; do UNIQUE_KIDS["${K}"]=1; done
+  for K in "${GITKIDS[@]}" "${ALT_KIDS[@]}"; do
+    if _local_branch_exists "${K}"; then
+      UNIQUE_KIDS["${K}"]=1;
+    fi
+  done
   local -a KIDS=()
   KIDS+=( "${!UNIQUE_KIDS[@]}" )  # get keys of UNIQUE_KIDS
 
@@ -3173,7 +3178,7 @@ function gee__remove_branch() {
   _git worktree remove --force "${BR}"
   _git branch -D "${BR}"
   if _remote_branch_exists origin "${BR}"; then
-    _git_can_fail push --quiet origin --delete "${BR}"
+    _git_can_fail push --quiet origin --delete "${BR}" | cat
   else
     _info "Not deleting remote branch ${BR}: was never created."
   fi
