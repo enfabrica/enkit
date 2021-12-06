@@ -1,11 +1,11 @@
 #!/bin/bash
 
 if read -r -d '' USAGE <<'EOT'
-. __ _  ___  ___ 
+. __ _  ___  ___
  / _` |/ _ \/ _ \  git
 | (_| |  __/  __/  enabled
  \__, |\___|\___|  enfabrication
- |___/           
+ |___/
 
 gee version: {{VERSION}}
 
@@ -101,16 +101,16 @@ then :; fi
 #    $feature: fork of main (or other $feature), contains
 #        local changes.  May have 0 or 1 PRs associated with it.
 #    origin/$feature: github backup of $feature branch.
-# 
+#
 # Updates flow in one direction through these branches:
-# 
+#
 #   upstream/main -> main -> origin/main -> $feature -> origin/$feature
-# 
+#
 # The user only commits changes to $feature.
-# 
+#
 # Changes then migrate from origin/$feature back to upstream/main when a PR is
 # approved and merged.
-# 
+#
 # Note: We are transitioning from "master" to "main."  Gee always tries to find
 # a "main" remote branch first, but falls back to "master" if "main" does not
 # exist.
@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.9"
+readonly VERSION="0.2.10"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -227,7 +227,7 @@ _COLOR_INFO="$(tput setaf 1)"
 
 ##########################################################################
 # utility functions
-# 
+#
 # (the good stuff, the commands, are in the next section below.)
 ##########################################################################
 
@@ -559,7 +559,7 @@ function _startup_checks() {
     fi
     eval "$(enkit agent print)"
   fi
-  
+
   set +e
   ssh-add -l >/dev/null
   RC=$?
@@ -701,7 +701,7 @@ function _get_parent_branch() {
   fi
 
   _warn "Strangely, ${BRANCH} was missing from ${REPO_DIR}/.gee/parents."
-  
+
   # The safest thing to do is to just set parent to $MAIN and move on.
   PARENTS["${BRANCH}"]="${MAIN}"
   echo "${MAIN}"
@@ -1540,7 +1540,7 @@ function _read_parents_file() {
   if [[ ! -f "${PATH}" ]]; then
     /usr/bin/touch "${PATH}"
   fi
-  local BRANCH PARENT MB 
+  local BRANCH PARENT MB
   while read -r BRANCH PARENT MB; do
     PARENTS["${BRANCH}"]="${PARENT}"
     MERGEBASES["${BRANCH}"]="${MERGEBASE}"
@@ -1712,8 +1712,8 @@ function gee__init() {
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
   _git remote -v
- 
-  # Fix the name of the main branch to match the actual branch name: 
+
+  # Fix the name of the main branch to match the actual branch name:
   local OLD_MAIN="${MAIN}"
   unset MAIN
   _set_main_by_asking_github
@@ -1723,8 +1723,8 @@ function gee__init() {
 
   _info "Created ${REPO_DIR}/${MAIN}"
 
-  # by default, enable vimdiff:
-  gee__config enable_vim
+  # by default, enable meld (guitool) and vimdiff (mergetool):
+  gee__config default
 }
 
 ##########################################################################
@@ -1737,21 +1737,41 @@ Usage: gee config <option>
 
 Valid configuration options are:
 
+* "default": Reset to default settings.
 * "enable_vim": Set "vimdiff" as your merge tool.
 * "enable_emacs": Set "emacs" as your merge tool.
 * "enable_vscode": Set "vscode" as your GUI merge tool.
+* "enable_meld": Set "meld" as your GUI merge tool.
 EOT
 function gee__config() {
   case "$1" in
+    default)
+      gee__config enable_vim
+      gee__config enable_meld
+      ;;
     enable_vim)
+      _info "Setting vimdiff as the default text-based diff and merge tool."
       _git config --global merge.tool vimdiff
       _git config --global merge.conflictstyle diff3
       _git config --global mergetool.prompt false
+      _git config --global diff.difftool vimdiff
+      _git config --global difftool.vimdiff.cmd \
+        "vimdiff \"\$LOCAL\" \"\$REMOTE\""
       ;;
     enable_vscode)
+      _info "Setting vscode as the default GUI diff and merge tool."
       _git config --global merge.guitool vscode
       _git config --global mergetool.vscode.cmd \
          "code --wait \$MERGED"
+      ;;
+    enable_meld)
+      _info "Setting meld as the default GUI diff and merge tool."
+      _git config --global merge.guitool meld
+      _git config --global mergetool.meld.cmd \
+        "/usr/bin/meld \"\$LOCAL\" \"\$MERGED\" \"\$REMOTE\" --output \"\$MERGED\""
+      _git config --global diff.guitool meld
+      _git config --global difftool.meld.cmd \
+        "/usr/bin/meld \"\$LOCAL\" \"\$REMOTE\""
       ;;
     enable_emacs)
       # TODO: I'm hoping an emacs expert can contribute
@@ -1759,7 +1779,7 @@ function gee__config() {
       _fatal "enable_emacs: not yet supported."
       ;;
     *)
-      _info "Valid options include:" \ enable_vim \ enable_emacs \ enable_vscode
+      _info "Valid options include:" \ default \ enable_vim \ enable_emacs \ enable_vscode
       _fatal "Unknown configuration directive."
       ;;
   esac
@@ -1843,7 +1863,7 @@ function gee__log() {
   local -a PRETTYLOG=(
       log
       --color
-      --graph 
+      --graph
       "--pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'"
       --abbrev-commit
   )
@@ -1981,13 +2001,13 @@ function gee__unpack() {
 ## ##########################################################################
 ## # squash command
 ## ##########################################################################
-## 
+##
 ## _register_help "squash" "Squash all commits in this branch." <<'EOT'
 ## Usage: gee squash
-## 
+##
 ## Squash all commits in this branch to a single commit.
 ## EOT
-## 
+##
 ## function gee__squash() {
 ##   _check_cwd
 ##   # Note: there is no longer any need to squash before sending out for review,
@@ -2034,7 +2054,7 @@ function gee__unpack() {
 ##   head -n 1 "${TMPFILE}"
 ##   _confirm_or_exit \
 ##     "Are you sure you want to squash ${NUM_COMMITS} commits? (y/N)  "
-## 
+##
 ##   _git reset --soft "${MERGE_BASE}"
 ##   _git add --all
 ##   _git commit -a -F "${TMPFILE}"
@@ -2452,7 +2472,7 @@ EOT
 
 function gee__set_parent() {
   _check_cwd
-  local BRANCH PARENT 
+  local BRANCH PARENT
   BRANCH="$(_get_current_branch)"
   PARENT="$1"
   if [[ -z "${PARENT}" ]]; then
@@ -2602,7 +2622,7 @@ function gee__pr_checkout() {
   _checkout_or_die "${BRANCH}"
   _push_to_origin "${BRANCH}"
   _info "Pulled PR #${PRNUM} into branch \"${BRANCH}\""
-} 
+}
 
 ##########################################################################
 # pr_list command
@@ -2698,7 +2718,7 @@ EOT
 function gee__edpr() { gee__pr_edit "$@"; }
 function gee__pred() { gee__pr_edit "$@"; }
 function gee__edit_pr() { gee__pr_edit "$@"; }
-function gee__pr_edit() { 
+function gee__pr_edit() {
   _check_cwd
   _check_gh_auth
   local CURRENT_BRANCH
@@ -2873,7 +2893,7 @@ function gee__pr_make() {
   fi
   rm "${BODYFILE}"
 }
-  
+
 ##########################################################################
 # pr_check command
 ##########################################################################
@@ -3005,7 +3025,7 @@ function gee__pr_submit() {
   _info "PR contains ${#COMMITS[@]} commits, changing ${#FILES[@]} files."
 
   _confirm_or_exit "About to merge.  Confirm? (y/N)  "
- 
+
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
     # gh-cli treats this as a special case for some reason.
@@ -3080,7 +3100,7 @@ Removes a branch and it's associated directory.
 EOT
 
 function gee__rmbr() { gee__remove_branch "$@"; }
-function gee__remove_branch() { 
+function gee__remove_branch() {
   local BR="$1";
   if [[ -z "${BR}" ]]; then
     BR="$(_get_current_branch)"
@@ -3243,7 +3263,7 @@ function gee__gcd() {
     REL_PATH="$(git rev-parse --show-prefix)"
   fi
 
-  # check whether BRANCH exists: 
+  # check whether BRANCH exists:
   if ! _local_branch_exists "${BRANCH}"; then
     if (( OPT_B == 1 )); then
       gee__mkbr "${BRANCH}" >&2
@@ -3504,13 +3524,13 @@ function gee__bash_setup() {
 #
 #   eval "$(~/bin/gee bash_setup)"
 
-function gee() { 
+function gee() {
   # TODO(jonathan): now that gee isn't being invoked by enkit, perhaps
   # this function isn't needed anymore?  But if I remove it, users with
   # incorrect PATHs will break.
   if [[ -n "${GEE_BINARY}" ]]; then
     "${GEE_BINARY}" "$@";
-  elif [[ -x ~/bin/gee ]]; then 
+  elif [[ -x ~/bin/gee ]]; then
     # use locally installed gee if available.
     ~/bin/gee "$@";
   else
@@ -3793,7 +3813,7 @@ function gee__upgrade() {
         fi
       fi
       chmod +x "${GEE_PATH}"
-      if [[ -f "${GEE_PATH}".backup ]]; then 
+      if [[ -f "${GEE_PATH}".backup ]]; then
         rm -f "${GEE_PATH}".backup
       fi
       _info "${GEE_PATH} has been upgraded."
