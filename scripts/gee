@@ -2915,13 +2915,7 @@ EndOfPrTemplate
   # lines into single blank lines:
   sed -i '/^#/d;/\S/,/^\s*$/!d' "${BODYFILE}"
 
-  # Check that the PR description contains at least two paragraphs.
-  local LINES
-  LINES="$(wc -l "${BODYFILE}")"
-  if (( LINES < 3 )); then
-    _fatal "You must provide a PR description containing at least a title" \
-           "and one additional paragraph."
-  fi
+  # TODO(jonathan): Check that the PR description contains at least two paragraphs.
 
   # Parse metadata from PR description.
   local TITLE
