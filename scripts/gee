@@ -3007,7 +3007,7 @@ function gee__pr_submit() {
 
   # Presubmit check: Are presubmit checks passing?
   if ! gee__pr_check; then
-    if ! confirm_default_no \
+    if ! _confirm_default_no \
       "Presubmit checks did not succeed.  Proceed anyway? (y/N)  "; then
       _fatal "PR submission aborted."
     fi
