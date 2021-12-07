@@ -1665,6 +1665,29 @@ function _gh_pr_view() {
   _gh pr view --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
 }
 
+function _check_pr_description() {
+  local PATH="$1"
+  local -a LINES
+  mapfile -t LINES <"${PATH}"
+  if [[ "${#LINES[@]}" -lt 3 ]]; then
+    _warn "The description must contain at least a title, a blank line, and a body."
+    return 1
+  fi
+  if [[ -z "${LINES[0]}" ]]; then
+    _warn "The first line of the description must be the title."
+    return 1
+  fi
+  if [[ -n "${LINES[1]}" ]]; then
+    _warn "The second line of the description must be blank."
+    return 1
+  fi
+  if [[ -z "${LINES[2]}" ]]; then
+    _warn "The third line must be the beginning of the longer description."
+    return 1
+  fi
+  return 0
+}
+
 ##########################################################################
 # init command
 ##########################################################################
@@ -2919,7 +2942,8 @@ EndOfPrTemplate
   # lines into single blank lines:
   sed -i '/^#/d;/\S/,/^\s*$/!d' "${BODYFILE}"
 
-  # TODO(jonathan): Check that the PR description contains at least two paragraphs.
+  # Check that the PR description looks valid
+  _check_pr_description "${BODYFILE}"
 
   # Parse metadata from PR description.
   local TITLE
