@@ -2891,8 +2891,7 @@ Tested:
 # In this section, list any relevant Jira tickets or other metadata tags.
 #
 # For example:
-# JIRA=PROJ-1234,PROJ-5678
-Tags:
+# Jira: PROJ-1234,PROJ-5678
 
 
 EndOfPrTemplate
