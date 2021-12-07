@@ -2885,9 +2885,14 @@ function gee__pr_make() {
 
 
 # In this section, describe what testing was done to validate your change.
+Tested:
 
 
-# In this section, list any relevant Jira tickets.
+# In this section, list any relevant Jira tickets or other metadata tags.
+#
+# For example:
+# JIRA=PROJ-1234,PROJ-5678
+Tags:
 
 
 EndOfPrTemplate
