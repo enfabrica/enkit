@@ -5,18 +5,9 @@ import (
 	"strings"
 )
 
-const Seperator = "\n "
+const Separator = "\n  "
 
-type MultiError struct {
-	err1 error
-	err2 error
-}
-
-var (
-	_ error                           = &MultiError{}
-	_ interface{ Unwrap() error }     = &MultiError{}
-	_ interface{ Is(err error) bool } = &MultiError{}
-)
+type MultiError []error
 
 // New creates a MultiError from a list of errors.
 // It has two primary intended uses:
@@ -26,6 +17,8 @@ var (
 //		> errors.Is(err, &myTypedErr)
 //
 //
+// This is just a convenience wrapper to ensure that if there is no error,
+// if errs has len() == 0, or all errors are nil, nil is returned.
 // * Capture tracing from fmt.Errorf
 // 		> myTypedErr := errors.New("ssh agent failed to query keyring")
 //		> return multierror.Wrap(myTypedErr, fmt.Errorf("mw raw log %v", realAgentErr))
@@ -35,18 +28,16 @@ func New(errs []error) error {
 	if len(errs) == 0 {
 		return nil
 	}
-	l := len(errs)
-	if l >= 2 {
-		return &MultiError{err1: errs[0], err2: New(errs[1:])}
-	}
-	if l == 1 {
-		return &MultiError{err1: errs[0], err2: nil}
+	for _, err := range errs {
+		if err != nil {
+			return MultiError(errs)
+		}
 	}
 	return nil
 }
 
-func Wrap(ers ...error) error {
-	return New(ers)
+func Wrap(err ...error) error {
+	return New(err)
 }
 
 // NewOr creates a MultiError from a list of errors, or returns the fallback error.
@@ -57,40 +48,51 @@ func NewOr(errs []error, fallback error) error {
 	if len(errs) == 0 {
 		return fallback
 	}
-	return New(errs)
+	for _, err := range errs {
+		if err != nil {
+			return MultiError(errs)
+		}
+	}
+	return fallback
 }
 
 // Unwrap for MultiError always returns nil, as there is no reasonable way to implement it.
 //
 // Use As and Is methods, or loop over the list directly to access the underlying errors.
-func (multi *MultiError) Unwrap() error {
-	return multi.err2
+func (multi MultiError) Unwrap() error {
+	if len(multi) == 0 {
+		return nil
+	}
+	return multi[0]
 }
 
 // As for MultiError returns the first error that can be considered As the specified target.
 func (multi MultiError) As(target interface{}) bool {
-	if errors.As(multi.err1, target) {
-		return true
+	for _, err := range multi {
+		if errors.As(err, target) {
+			return true
+		}
 	}
-	return errors.As(multi.err2, target)
+	return false
 }
 
 // Is for MultiError returns true if any of the errors listed can be considered of the target type.
 func (multi MultiError) Is(target error) bool {
-	if errors.Is(multi.err1, target) {
-		return true
+	for _, err := range multi {
+		if errors.Is(err, target) {
+			return true
+		}
 	}
-	return errors.Is(multi.err2, target)
+	return false
 }
 
-// Error unwraps a MultError recursively
-func (multi *MultiError) Error() string {
+func (multi MultiError) Error() string {
 	var messages []string
-	if multi.err1 != nil {
-		messages = append(messages, multi.err1.Error())
+	for _, err := range multi {
+		if err == nil {
+			continue
+		}
+		messages = append(messages, err.Error())
 	}
-	if multi.err2 != nil {
-		messages = append(messages, multi.err2.Error())
-	}
-	return strings.Join(messages, Seperator)
+	return strings.Join(messages, Separator)
 }

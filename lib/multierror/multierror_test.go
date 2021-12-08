@@ -34,7 +34,7 @@ func TestSanityIsError(t *testing.T) {
 	assert.True(t, errors.Is(err, ThreeErr))
 	assert.True(t, errors.Is(err, FourErr))
 	realErrStrings := []string{OneErr.Error(), ThreeErr.Error(), FourErr.Error()}
-	assert.Equal(t, strings.Join(realErrStrings, multierror.Seperator), err.Error())
+	assert.Equal(t, strings.Join(realErrStrings, multierror.Separator), err.Error())
 }
 
 func TestSanityAsError(t *testing.T) {
@@ -69,7 +69,7 @@ func TestSingleNestedMultiErr(t *testing.T) {
 	assert.True(t, errors.Is(newErr, FourErr))
 	assert.True(t, errors.Is(newErr, SevenErr))
 	realErrStrings := []string{OneErr.Error(), ThreeErr.Error(), OneErr.Error(), FourErr.Error(), SevenErr.Error(), tErr.Error()}
-	assert.Equal(t, strings.Join(realErrStrings, multierror.Seperator), newErr.Error())
+	assert.Equal(t, strings.Join(realErrStrings, multierror.Separator), newErr.Error())
 	var testNameErr *nameError
 	assert.True(t, errors.As(newErr, &testNameErr))
 	assert.Equal(t, testNameErr.Error(), tErr.Error())
