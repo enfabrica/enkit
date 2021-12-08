@@ -17,7 +17,6 @@ type MultiError []error
 //		> errors.Is(err, &myTypedErr)
 //
 //
-// This is just a convenience wrapper to ensure that if there is no error,
 // if errs has len() == 0, or all errors are nil, nil is returned.
 // * Capture tracing from fmt.Errorf
 // 		> myTypedErr := errors.New("ssh agent failed to query keyring")
@@ -42,7 +41,6 @@ func Wrap(err ...error) error {
 
 // NewOr creates a MultiError from a list of errors, or returns the fallback error.
 //
-// Just like New, but gurantees that an error is returned. If the list of errors is
 // empty, it will return the supplied error instead.
 func NewOr(errs []error, fallback error) error {
 	if len(errs) == 0 {
@@ -63,27 +61,23 @@ func (multi MultiError) Unwrap() error {
 	if len(multi) == 0 {
 		return nil
 	}
-	return multi[0]
+	return multi[1:]
 }
 
 // As for MultiError returns the first error that can be considered As the specified target.
 func (multi MultiError) As(target interface{}) bool {
-	for _, err := range multi {
-		if errors.As(err, target) {
-			return true
-		}
+	if len(multi) == 0 {
+		return false
 	}
-	return false
+	return errors.As(multi[0], target)
 }
 
 // Is for MultiError returns true if any of the errors listed can be considered of the target type.
 func (multi MultiError) Is(target error) bool {
-	for _, err := range multi {
-		if errors.Is(err, target) {
-			return true
-		}
+	if len(multi) == 0 {
+		return false
 	}
-	return false
+	return errors.Is(multi[0], target)
 }
 
 func (multi MultiError) Error() string {

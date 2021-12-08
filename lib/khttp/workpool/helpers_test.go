@@ -109,7 +109,7 @@ func TestRetry(t *testing.T) {
 	wg.Wait()
 
 	assert.NotNil(t, errs)
-	assert.Equal(t, "Multiple errors:\n  error attempt 1\n  error attempt 2\n  error attempt 3\n  error attempt 4\n  error attempt 5", errs.Error())
+	assert.Equal(t, "error attempt 1\n  error attempt 2\n  error attempt 3\n  error attempt 4\n  error attempt 5", errs.Error())
 	assert.Equal(t, 5, calls)
 	assert.Equal(t, 4, waits) // No wait after the last call, and before the first.
 }
