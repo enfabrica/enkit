@@ -707,6 +707,26 @@ function _get_parent_branch() {
   echo "${MAIN}"
 }
 
+function _gee_get_all_children_of() {
+  local PARENT="$1"
+  local -a QUEUE=( "${PARENT}" )
+  local -A KIDSMAP=()
+  _read_parents_file  # populate PARENTS associative array
+  while [[ "${#QUEUE[@]}" -ne 0 ]]; do
+    PARENT="${QUEUE[0]}"
+    QUEUE=("${QUEUE[@]:1}")  # shift QUEUE
+    for CHILD in "${!PARENTS[@]}"; do
+      if [[ "${PARENTS["${CHILD}"]}" == "${PARENT}" ]]; then
+        if ! [[ -v "KIDSMAP[${CHILD}]" ]]; then
+          KIDSMAP["${CHILD}"]=1
+          QUEUE+=("${CHILD}")
+        fi
+      fi
+    done
+  done
+  printf "%q\n" "${!KIDSMAP[@]}" | sort
+}
+
 function _update_branch_to_worktree() {
   # Initialize the global BRANCH_TO_WORKTREE associative array with
   # a mapping of branch names onto worktree paths.
@@ -3057,17 +3077,40 @@ function gee__pr_submit() {
   # leading to conflicts.  To avoid these conflicts, we rebase all branches of
   # the current branch now.
 
-  # 1. Check for child branches of the change we just squash-merged.  By using
-  # the "git branch --contains" command, we get all descendants (grandchildren,
-  # etc.).  We look for branches that contain the first commit in the sequence
-  # of commits that were squash-merged, since all derived branches must at
-  # least contain that one commit.  (Note that COMMITS are in reverse
-  # chronological order, so COMMITS[-1] is the earliest commit.)
+  # 1. Check for child branches of the change we just squash-merged.
+
+  # 1a. By using the "git branch --contains" command, we get all descendants
+  # (grandchildren, etc.), even if the branch isn't listed as a child in gee's
+  # branch ancestry metadata.  We look for branches that contain the first
+  # commit in the sequence of commits that were squash-merged, since all
+  # derived branches must at least contain that one commit.  (Note that COMMITS
+  # are in reverse chronological order, so COMMITS[-1] is the earliest commit.)
   local FIRST_SQUASHED_COMMIT="${COMMITS[-1]}"
-  local -a KIDS=()
-  _read_cmd KIDS \
+  local -a GITKIDS=()
+  _read_cmd GITKIDS \
     "${GIT}" branch --format "%(refname:short)" --contains "${FIRST_SQUASHED_COMMIT}"
-  if [[ "${#KIDS[@]}" -eq 0 ]]; then
+
+  # 1b. The above command can fail if a parent branch was rebased, and a child branch
+  # wasn't, in such as way that "FIRST_SQUASHED_COMMIT" is no longer part of that branch.
+  # This happens rarely but often enough that we should use gee's parents metadata as
+  # a fallback.  Better to rebase too many branches than too few.
+  local -a ALT_KIDS=()
+  _read_cmd ALT_KIDS _gee_get_all_children_of "${CURRENT_BRANCH}"
+
+  # 1c. Uniquify the list of kids, and also remove all branches that don't
+  # exist anymore.  TODO(jonathan): prune dead branches from parents file.
+  local -A UNIQUE_KIDS=()
+  local K
+  for K in "${GITKIDS[@]}" "${ALT_KIDS[@]}"; do
+    if _local_branch_exists "${K}"; then
+      UNIQUE_KIDS["${K}"]=1;
+    fi
+  done
+  local -a KIDS=()
+  KIDS+=( "${!UNIQUE_KIDS[@]}" )  # get keys of UNIQUE_KIDS
+
+  # 1d. Bail early if there are no kids.
+  if [[ "${#K2[@]}" -eq 0 ]]; then
     # Our job is done here.
     return 0
   fi
@@ -3135,7 +3178,7 @@ function gee__remove_branch() {
   _git worktree remove --force "${BR}"
   _git branch -D "${BR}"
   if _remote_branch_exists origin "${BR}"; then
-    _git_can_fail push --quiet origin --delete "${BR}"
+    _git_can_fail push --quiet origin --delete "${BR}" | cat
   else
     _info "Not deleting remote branch ${BR}: was never created."
   fi
