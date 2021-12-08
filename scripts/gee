@@ -3110,14 +3110,27 @@ function gee__pr_submit() {
   mapfile -t FILES < <( "${GIT}" diff --name-only "${MERGEBASE}"..HEAD )
   _info "PR contains ${#COMMITS[@]} commits, changing ${#FILES[@]} files."
 
-  # Extract the first comment as the commit message.
+  # Extract the title and first comment as the commit message.
   local BODYFILE
   BODYFILE="$(mktemp -t pr.message.XXXXXX.txt)"
-  gh pr view | sed -n '/^--/,$p' | tail +2 >"${BODYFILE}"
-  _info "Commit message will be:"
-  cat "${BODYFILE}"
+  TEMPFILE="$(mktemp -t pr.temp.XXXXXX.txt)"
+  gh pr view > "${TEMPFILE}"
+  grep "^title:" "${TEMPFILE}" | sed 's/title:\s*//' >"${BODYFILE}"
+  echo "" >> "${BODYFILE}"
+  sed -n '/^--/,$p' "${TEMPFILE}" | tail +2 >> "${BODYFILE}"
+  rm "${TEMPFILE}"
 
-  _confirm_or_exit "About to merge.  Confirm? (y/N)  "
+  declare -g RESP=""
+  while /bin/true; do
+    _info "Commit message will be:"
+    cat "${BODYFILE}"
+    _choose_one "About to merge.  Confirm? [y]es,[e]dit,[N]o  " "n"
+    case "${RESP}" in
+      [eE]*) vim "${BODYFILE}"; ;;
+      [nN]*) _fatal  "Aborted."; ;;
+      [yY]*) break; ;;
+    esac
+  done
 
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
