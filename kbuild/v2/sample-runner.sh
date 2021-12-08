@@ -24,7 +24,8 @@ BUILD_ROOT=${BUILD_ROOT:-${HOME}/scratch/kernel-builder}
 BUILD_DIR="$BUILD_ROOT/build"
 OUTPUT_DEB_DIR="$BUILD_ROOT/deb"
 OUTPUT_REPO_DIR="$BUILD_ROOT/repo"
-OUTPUT_ARCHIVE_DIR="$BUILD_ROOT/archive"
+OUTPUT_BAZEL_ARCHIVE_DIR="$BUILD_ROOT/bazel-archive"
+OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive"
 
 mkdir -p $BUILD_DIR
 
@@ -34,11 +35,14 @@ mkdir -p $BUILD_DIR
 # Creates a portable Debian APT repository for each flavour
 ./repo.sh $OUTPUT_DEB_DIR "$KERNEL_FLAVOURS" $OUTPUT_REPO_DIR
 
-# Creates a bazel ready tarball of the Debian APT repository for each flavour
-./archive.sh $OUTPUT_DEB_DIR $OUTPUT_REPO_DIR "$KERNEL_FLAVOURS" $OUTPUT_ARCHIVE_DIR
+# Creates a bazel ready tarball for building kernel modules
+./archive-bazel.sh $OUTPUT_DEB_DIR "$KERNEL_FLAVOURS" $OUTPUT_BAZEL_ARCHIVE_DIR
+
+# Creates a tarball of a Debian APT repository for each flavour
+./archive-deb.sh $OUTPUT_DEB_DIR $OUTPUT_REPO_DIR "$KERNEL_FLAVOURS" $OUTPUT_DEB_ARCHIVE_DIR
 
 # Uploads the bazel ready tarball for each flavour
-./upload.sh $OUTPUT_DEB_DIR $OUTPUT_ARCHIVE_DIR "$KERNEL_FLAVOURS" "kernel/${KERNEL_BRANCH}"
+./upload.sh $OUTPUT_DEB_DIR $OUTPUT_BAZEL_ARCHIVE_DIR $OUTPUT_DEB_ARCHIVE_DIR "$KERNEL_FLAVOURS" "kernel/${KERNEL_BRANCH}"
 
 # Next update the bazel WORKSPACE with new kernel_tree_version() stanzas for each flavour
 # Should be something like:

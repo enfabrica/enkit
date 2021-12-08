@@ -4,6 +4,7 @@
 #
 # Inputs:
 # - a flat directory containing the kernel .debs
+# - a Debian APT repo
 # - a space separated list of kernel flavours
 # - an output directory to place the generated APT repo
 
@@ -17,7 +18,7 @@ INPUT_REPO_ROOT="$(realpath $2)"
 KERNEL_FLAVOURS="$3"
 OUTPUT_ARCHIVE_ROOT="$(realpath $4)"
 
-INSTALL_TEMPLATE="$(dirname $(realpath $0))/install-template.sh"
+INSTALL_TEMPLATE="$(dirname $(realpath $0))/template/install-deb.sh"
 if [ ! -r "$INSTALL_TEMPLATE" ] ; then
     echo "ERROR: unable to find install script template: $INSTALL_TEMPLATE"
     exit 1
@@ -47,7 +48,7 @@ make_archive() {
 
     local flavour_repo="${INPUT_REPO_ROOT}/${flavour}"
     local kernel_version="${KERNEL_BASE}-${flavour}"
-    local archive="${OUTPUT_ARCHIVE_ROOT}/${kernel_version}.tar.gz"
+    local archive="${OUTPUT_ARCHIVE_ROOT}/deb-${kernel_version}.tar.gz"
 
     local install_script="${flavour_repo}/install-${kernel_version}.sh"
 
@@ -63,7 +64,7 @@ make_archive() {
     chmod 755 "$install_script"
 
     # create tarball
-    echo -n "${flavour}: Generating artifact archive file... "
+    echo -n "${flavour}: Generating Debian APT archive file... "
     tar -C "$flavour_repo" --create --gzip --file "$archive" .
     echo "Done."
 }

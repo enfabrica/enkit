@@ -9,21 +9,8 @@ KERNEL_FLAVOUR="%%KERNEL_FLAVOUR%%"
 KERNEL_BASE="%%KERNEL_BASE%%"
 DEB_VERSION="%%DEB_VERSION%%"
 ARCH="%%ARCH%%"
-DIST="%%DIST%%"
-COMP="%%COMP%%"
 
 KERNEL_VERSION="${KERNEL_BASE}-${KERNEL_FLAVOUR}"
-
-
-usage() {
-    cat<<EOF
-usage: ${0##*/} OPTS
-
-    -b Install for building kernel modules with Bazel
-    -c Output APT sources.list.d config, but do not install
-    -a Install APT sources.list.d config
-EOF
-}
 
 # The install script is expected to output the path of the directory
 # to use for bazel builds.
@@ -34,13 +21,13 @@ install_bazel_build() {
     rm -rf "$install_dir"
     mkdir -p "$install_dir"
 
-    local common_linux_headers_deb="${BASE_DIR}/pool/linux-headers-${KERNEL_BASE}_${DEB_VERSION}_all.deb"
+    local common_linux_headers_deb="linux-headers-${KERNEL_BASE}_${DEB_VERSION}_all.deb"
     if [ ! -r "$common_linux_headers_deb" ] ; then
         echo "ERROR: unable to find common header .deb: $common_linux_headers_deb"
         exit 1
     fi
 
-    local arch_linux_headers_deb="${BASE_DIR}/pool/linux-headers-${KERNEL_BASE}-${KERNEL_FLAVOUR}_${DEB_VERSION}_${ARCH}.deb"
+    local arch_linux_headers_deb="linux-headers-${KERNEL_BASE}-${KERNEL_FLAVOUR}_${DEB_VERSION}_${ARCH}.deb"
     if [ ! -r "$arch_linux_headers_deb" ] ; then
         echo "ERROR: unable to find arch header .deb: $arch_linux_headers_deb"
         exit 1
@@ -72,37 +59,4 @@ install_bazel_build() {
     exit 1
 }
 
-APT_SOURCES_FILE="enf-kernel-${KERNEL_VERSION}-${DIST}.list"
-
-output_apt_config() {
-    local verbose="$1"
-
-    if [ "$verbose" = "1" ] ; then
-       echo "Use this line for /etc/apt/sources.list.d/${APT_SOURCES_FILE}"
-    fi
-    echo "deb [arch=${ARCH} trusted=yes] copy:${BASE_DIR}/ $DIST $COMP"
-    exit 0
-}
-
-install_apt_config() {
-    if [ "$(id -u)" != "0" ] ; then
-        echo "ERROR: sudo is required to install apt configuration"
-        exit 1
-    fi
-    output_apt_config > "/etc/apt/sources.list.d/${APT_SOURCES_FILE}"
-    exit 0
-}
-
-while getopts :bca o
-do
-    case $o in
-        b) install_bazel_build;;
-        c) output_apt_config 1;;
-        a) install_apt_config;;
-        *) usage; exit 1;;
-    esac
-done
-
-# If no options are specified, install for a bazel build for backward
-# compatibility with kernel_tree_version().
 install_bazel_build
