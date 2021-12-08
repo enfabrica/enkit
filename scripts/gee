@@ -2924,7 +2924,7 @@ function gee__pr_check() {
     else
       _info "${CHECKS[@]}"
       # something went wrong.  Is a test pending, or did we get a failure?
-      CHECK_COUNTS=()
+      CHECK_COUNTS=( [fail]=0 )
       local LINE
       for LINE in "${CHECKS[@]}"; do
         local -a FIELDS=()
