@@ -37,8 +37,8 @@ func (exist doesNotExist) Error() string {
 
 func TestSanityIsError(t *testing.T) {
 	err := multierror.Wrap(OneErr, ThreeErr, FourErr)
-	assertErrIsAllSubErr(t, err, ThreeErr, FourErr)
-	assertErrIsNotAllSubErr(t, err, TwoErr, FiveErr, SevenErr)
+	assertErrIsSubErr(t, err, ThreeErr, FourErr)
+	assertErrIsNotSubErr(t, err, TwoErr, FiveErr, SevenErr)
 	assertErrContainsAllSubStrings(t, err, ThreeErr, FourErr, OneErr)
 }
 
@@ -70,8 +70,8 @@ func TestSingleNestedMultiErr(t *testing.T) {
 	tErr := &nameError{"TestSingleNestedMultiErr"}
 	subErr := multierror.Wrap(OneErr, FourErr, SevenErr, tErr)
 	err := multierror.Wrap(OneErr, ThreeErr, subErr)
-	assertErrIsAllSubErr(t, err, OneErr, ThreeErr, FourErr, SevenErr)
-	assertErrIsNotAllSubErr(t, err, TwoErr, SixErr)
+	assertErrIsSubErr(t, err, OneErr, ThreeErr, FourErr, SevenErr)
+	assertErrIsNotSubErr(t, err, TwoErr, SixErr)
 	assertErrContainsAllSubStrings(t, err, OneErr, ThreeErr, OneErr, FourErr, SevenErr, tErr)
 	var testNameErr *nameError
 	assert.True(t, errors.As(err, &testNameErr))
@@ -84,13 +84,13 @@ func assertErrContainsAllSubStrings(t *testing.T, primary error, rest ...error) 
 	}
 }
 
-func assertErrIsAllSubErr(t *testing.T, primary error, rest ...error) {
+func assertErrIsSubErr(t *testing.T, primary error, rest ...error) {
 	for _, err := range rest {
 		assert.True(t, errors.Is(primary, err))
 	}
 }
 
-func assertErrIsNotAllSubErr(t *testing.T, primary error, rest ...error) {
+func assertErrIsNotSubErr(t *testing.T, primary error, rest ...error) {
 	for _, err := range rest {
 		assert.False(t, errors.Is(primary, err))
 	}
