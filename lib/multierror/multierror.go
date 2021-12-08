@@ -10,6 +10,7 @@ const Separator = "\n  "
 type MultiError []error
 
 // New creates a MultiError from a list of errors.
+// if errs has len() == 0, or all errors are nil, nil is returned.
 // It has two primary intended uses:
 // * Capture maybe returns of ACID-style transactions or stack tracing.
 // 		> myTypedErr := errors.New("my specific query failed in transaction")
@@ -17,7 +18,6 @@ type MultiError []error
 //		> errors.Is(err, &myTypedErr)
 //
 //
-// if errs has len() == 0, or all errors are nil, nil is returned.
 // * Capture tracing from fmt.Errorf
 // 		> myTypedErr := errors.New("ssh agent failed to query keyring")
 //		> return multierror.Wrap(myTypedErr, fmt.Errorf("mw raw log %v", realAgentErr))
@@ -40,7 +40,6 @@ func Wrap(err ...error) error {
 }
 
 // NewOr creates a MultiError from a list of errors, or returns the fallback error.
-//
 // empty, it will return the supplied error instead.
 func NewOr(errs []error, fallback error) error {
 	if len(errs) == 0 {
