@@ -1,0 +1,32 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["faketree.go"],
+    importpath = "github.com/enfabrica/enkit/faketree",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//lib/multierror:go_default_library",
+        "@com_github_docker_docker//pkg/reexec:go_default_library",
+        "@com_github_spf13_pflag//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "faketree",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["faketree_test.go"],
+    embed = [":go_default_library"],
+    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+)
+
+sh_test(
+    name = "faketree_sh_test",
+    srcs = ["faketree_test.sh"],
+    data = [":faketree"],
+)

@@ -1,0 +1,60 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
+load("//bazel/cloud_run:defs.bzl", "cloud_run_deploy")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/enfabrica/enkit/bestie/server",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bestie/proto:go_default_library",
+        "//lib/server:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "bestie",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "bestie_tar",
+    srcs = [":bestie"],
+    package_dir = "/enfabrica/bin",
+)
+
+container_image(
+    name = "bestie_image",
+    base = "@golang_base//image",
+    cmd = [
+        "/enfabrica/bin/bestie",
+    ],
+    tars = [
+        ":bestie_tar",
+    ],
+)
+
+container_push(
+    name = "bestie_image_push",
+    format = "Docker",
+    image = ":bestie_image",
+    registry = "gcr.io",
+    repository = "devops-284019/infra/bestie",
+    # TODO: Change this tag to "live"
+    tag = "testing",
+)
+
+cloud_run_deploy(
+    name = "bestie_cloud_run_deploy",
+    access = "public",
+    image = "gcr.io/devops-284019/infra/bestie",
+    image_version = "testing",
+    project = "bestie-builds",
+    region = "us-west1",
+    service = "bestie",
+)

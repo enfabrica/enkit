@@ -1,11 +1,11 @@
 #!/bin/bash
 
 if read -r -d '' USAGE <<'EOT'
-. __ _  ___  ___ 
+. __ _  ___  ___
  / _` |/ _ \/ _ \  git
 | (_| |  __/  __/  enabled
  \__, |\___|\___|  enfabrication
- |___/           
+ |___/
 
 gee version: {{VERSION}}
 
@@ -101,16 +101,16 @@ then :; fi
 #    $feature: fork of main (or other $feature), contains
 #        local changes.  May have 0 or 1 PRs associated with it.
 #    origin/$feature: github backup of $feature branch.
-# 
+#
 # Updates flow in one direction through these branches:
-# 
+#
 #   upstream/main -> main -> origin/main -> $feature -> origin/$feature
-# 
+#
 # The user only commits changes to $feature.
-# 
+#
 # Changes then migrate from origin/$feature back to upstream/main when a PR is
 # approved and merged.
-# 
+#
 # Note: We are transitioning from "master" to "main."  Gee always tries to find
 # a "main" remote branch first, but falls back to "master" if "main" does not
 # exist.
@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.6"
+readonly VERSION="0.2.11"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -227,7 +227,7 @@ _COLOR_INFO="$(tput setaf 1)"
 
 ##########################################################################
 # utility functions
-# 
+#
 # (the good stuff, the commands, are in the next section below.)
 ##########################################################################
 
@@ -559,7 +559,7 @@ function _startup_checks() {
     fi
     eval "$(enkit agent print)"
   fi
-  
+
   set +e
   ssh-add -l >/dev/null
   RC=$?
@@ -701,10 +701,30 @@ function _get_parent_branch() {
   fi
 
   _warn "Strangely, ${BRANCH} was missing from ${REPO_DIR}/.gee/parents."
-  
+
   # The safest thing to do is to just set parent to $MAIN and move on.
   PARENTS["${BRANCH}"]="${MAIN}"
   echo "${MAIN}"
+}
+
+function _gee_get_all_children_of() {
+  local PARENT="$1"
+  local -a QUEUE=( "${PARENT}" )
+  local -A KIDSMAP=()
+  _read_parents_file  # populate PARENTS associative array
+  while [[ "${#QUEUE[@]}" -ne 0 ]]; do
+    PARENT="${QUEUE[0]}"
+    QUEUE=("${QUEUE[@]:1}")  # shift QUEUE
+    for CHILD in "${!PARENTS[@]}"; do
+      if [[ "${PARENTS["${CHILD}"]}" == "${PARENT}" ]]; then
+        if ! [[ -v "KIDSMAP[${CHILD}]" ]]; then
+          KIDSMAP["${CHILD}"]=1
+          QUEUE+=("${CHILD}")
+        fi
+      fi
+    done
+  done
+  printf "%q\n" "${!KIDSMAP[@]}" | sort
 }
 
 function _update_branch_to_worktree() {
@@ -911,7 +931,7 @@ function _read_cmd() {
     RC="${!TMP}"  # indirect
     unset "${VAR}[-1]"
     if [[ "${RC}" -ne 0 ]]; then
-      _warn "Command failed with exit code ${RC}"
+      _warn "Command returned non-zero exit code: ${RC}"
       if [[ -n "${NOFAIL}" ]]; then
         RC=0
       fi
@@ -1192,7 +1212,12 @@ function _interactive_conflict_resolution() {
             fi
             ;;
           [Gg])
-            _git mergetool --gui "${FILE}"
+            local GUI_MERGETOOL
+            GUI_MERGETOOL="$(git config --get merge.guitool)"
+            if [[ -z "${GUI_MERGETOOL}" ]]; then
+              GUI_MERGETOOL=meld  # default
+            fi
+            _git mergetool --tool="${GUI_MERGETOOL}" --no-prompt "${FILE}"
             M="$("${GIT}" diff --check "${FILE}" | grep -c "conflict marker" | cat)"
             if (( M == 0 )); then
               DONE=1
@@ -1215,7 +1240,11 @@ function _interactive_conflict_resolution() {
                   _die "Rebase command failed, but rebase is not in progress.  Bug!"
                 fi
                 _warn "Rebase operation had merge conflicts."
+              else
+                _info "Rebase succeeded."
               fi
+              RESTART=1
+              DONE=1
             fi
             ;;
           [Ss])
@@ -1377,7 +1406,7 @@ function _safer_rebase() {
   fi
 
   _info "To undo: git checkout ${CHILD}; git reset --hard ${CHILD}.REBASE_BACKUP"
-  _git push --quiet -u origin "+${CHILD}"
+  _push_to_origin "+${CHILD}"
 }
 
 function _is_rebase_in_progress() {
@@ -1390,6 +1419,15 @@ function _is_rebase_in_progress() {
     return 1  # 1=false
   fi
 }
+
+function _push_to_origin() {
+  local B="$1"
+  if [[ -z "${B}" ]]; then
+    B="$(_get_current_branch)"
+  fi
+  _git push --quiet -u origin "${B}"
+}
+
 
 function _checkout_or_die() {
   # we want to check out a branch.  Maybe there is already a
@@ -1474,7 +1512,7 @@ function _update_from_upstream() {
   if (( COUNTS[0] != 0 )); then
     _fatal "pull failed: upstream/${UPSTREAM_BRANCH} is ${COUNTS[1]} commits ahead of ${LOCAL_BRANCH}"
   fi
-  _git push --quiet -u origin "+${MAIN}"
+  _push_to_origin "+${MAIN}"
 }
 
 function _update_main() {
@@ -1522,7 +1560,7 @@ function _read_parents_file() {
   if [[ ! -f "${PATH}" ]]; then
     /usr/bin/touch "${PATH}"
   fi
-  local BRANCH PARENT MB 
+  local BRANCH PARENT MB
   while read -r BRANCH PARENT MB; do
     PARENTS["${BRANCH}"]="${PARENT}"
     MERGEBASES["${BRANCH}"]="${MERGEBASE}"
@@ -1627,6 +1665,29 @@ function _gh_pr_view() {
   _gh pr view --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
 }
 
+function _check_pr_description() {
+  local PATH="$1"
+  local -a LINES
+  mapfile -t LINES <"${PATH}"
+  if [[ "${#LINES[@]}" -lt 3 ]]; then
+    _warn "The description must contain at least a title, a blank line, and a body."
+    return 1
+  fi
+  if [[ -z "${LINES[0]}" ]]; then
+    _warn "The first line of the description must be the title."
+    return 1
+  fi
+  if [[ -n "${LINES[1]}" ]]; then
+    _warn "The second line of the description must be blank."
+    return 1
+  fi
+  if [[ -z "${LINES[2]}" ]]; then
+    _warn "The third line must be the beginning of the longer description."
+    return 1
+  fi
+  return 0
+}
+
 ##########################################################################
 # init command
 ##########################################################################
@@ -1694,8 +1755,8 @@ function gee__init() {
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
   _git remote -v
- 
-  # Fix the name of the main branch to match the actual branch name: 
+
+  # Fix the name of the main branch to match the actual branch name:
   local OLD_MAIN="${MAIN}"
   unset MAIN
   _set_main_by_asking_github
@@ -1705,8 +1766,8 @@ function gee__init() {
 
   _info "Created ${REPO_DIR}/${MAIN}"
 
-  # by default, enable vimdiff:
-  gee__config enable_vim
+  # by default, enable meld (guitool) and vimdiff (mergetool):
+  gee__config default
 }
 
 ##########################################################################
@@ -1719,21 +1780,41 @@ Usage: gee config <option>
 
 Valid configuration options are:
 
+* "default": Reset to default settings.
 * "enable_vim": Set "vimdiff" as your merge tool.
 * "enable_emacs": Set "emacs" as your merge tool.
 * "enable_vscode": Set "vscode" as your GUI merge tool.
+* "enable_meld": Set "meld" as your GUI merge tool.
 EOT
 function gee__config() {
   case "$1" in
+    default)
+      gee__config enable_vim
+      gee__config enable_meld
+      ;;
     enable_vim)
+      _info "Setting vimdiff as the default text-based diff and merge tool."
       _git config --global merge.tool vimdiff
       _git config --global merge.conflictstyle diff3
       _git config --global mergetool.prompt false
+      _git config --global diff.difftool vimdiff
+      _git config --global difftool.vimdiff.cmd \
+        "vimdiff \"\$LOCAL\" \"\$REMOTE\""
       ;;
     enable_vscode)
+      _info "Setting vscode as the default GUI diff and merge tool."
       _git config --global merge.guitool vscode
       _git config --global mergetool.vscode.cmd \
          "code --wait \$MERGED"
+      ;;
+    enable_meld)
+      _info "Setting meld as the default GUI diff and merge tool."
+      _git config --global merge.guitool meld
+      _git config --global mergetool.meld.cmd \
+        "/usr/bin/meld \"\$LOCAL\" \"\$MERGED\" \"\$REMOTE\" --output \"\$MERGED\""
+      _git config --global diff.guitool meld
+      _git config --global difftool.meld.cmd \
+        "/usr/bin/meld \"\$LOCAL\" \"\$REMOTE\""
       ;;
     enable_emacs)
       # TODO: I'm hoping an emacs expert can contribute
@@ -1741,7 +1822,7 @@ function gee__config() {
       _fatal "enable_emacs: not yet supported."
       ;;
     *)
-      _info "Valid options include:" \ enable_vim \ enable_emacs \ enable_vscode
+      _info "Valid options include:" \ default \ enable_vim \ enable_emacs \ enable_vscode
       _fatal "Unknown configuration directive."
       ;;
   esac
@@ -1825,7 +1906,7 @@ function gee__log() {
   local -a PRETTYLOG=(
       log
       --color
-      --graph 
+      --graph
       "--pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'"
       --abbrev-commit
   )
@@ -1963,13 +2044,13 @@ function gee__unpack() {
 ## ##########################################################################
 ## # squash command
 ## ##########################################################################
-## 
+##
 ## _register_help "squash" "Squash all commits in this branch." <<'EOT'
 ## Usage: gee squash
-## 
+##
 ## Squash all commits in this branch to a single commit.
 ## EOT
-## 
+##
 ## function gee__squash() {
 ##   _check_cwd
 ##   # Note: there is no longer any need to squash before sending out for review,
@@ -2016,12 +2097,12 @@ function gee__unpack() {
 ##   head -n 1 "${TMPFILE}"
 ##   _confirm_or_exit \
 ##     "Are you sure you want to squash ${NUM_COMMITS} commits? (y/N)  "
-## 
+##
 ##   _git reset --soft "${MERGE_BASE}"
 ##   _git add --all
 ##   _git commit -a -F "${TMPFILE}"
 ##   rm "${TMPFILE}"
-##   _git push -u origin "+${CURRENT_BRANCH}"  # update remote branch too
+##   _push_to_origin "+${CURRENT_BRANCH}"  # update remote branch too
 ##   _git log --oneline "${PARENT_BRANCH}..${CURRENT_BRANCH}"
 ## }
 
@@ -2434,7 +2515,7 @@ EOT
 
 function gee__set_parent() {
   _check_cwd
-  local BRANCH PARENT 
+  local BRANCH PARENT
   BRANCH="$(_get_current_branch)"
   PARENT="$1"
   if [[ -z "${PARENT}" ]]; then
@@ -2502,7 +2583,7 @@ function gee__commit() {
     fi
     # We always push upstream so that users have a backup in case they lose their
     # laptop:
-    _git push -u origin "${CURRENT_BRANCH}"
+    _push_to_origin "${CURRENT_BRANCH}"
   fi
 }
 
@@ -2582,9 +2663,9 @@ function gee__pr_checkout() {
   _write_parents_file
 
   _checkout_or_die "${BRANCH}"
-  _git push origin "${BRANCH}"
+  _push_to_origin "${BRANCH}"
   _info "Pulled PR #${PRNUM} into branch \"${BRANCH}\""
-} 
+}
 
 ##########################################################################
 # pr_list command
@@ -2680,7 +2761,7 @@ EOT
 function gee__edpr() { gee__pr_edit "$@"; }
 function gee__pred() { gee__pr_edit "$@"; }
 function gee__edit_pr() { gee__pr_edit "$@"; }
-function gee__pr_edit() { 
+function gee__pr_edit() {
   _check_cwd
   _check_gh_auth
   local CURRENT_BRANCH
@@ -2807,30 +2888,72 @@ function gee__pr_make() {
   mapfile -t PARENT_PRS < <( _list_open_pr_numbers "$(_get_parent_branch)" )
   local BODYFILE
   BODYFILE="$(mktemp -t prbody.XXXXXX.txt)"
-  printf "PR generated by %q from branch %q.\n" "${USER}" "${CURRENT_BRANCH}" \
-    >"${BODYFILE}"
-  if (( "${#PARENT_PRS[@]}" > 0 )); then
-    printf "Derived from branch %q's PR #%d.\n" "${PARENT}" "${PARENT_PRS[0]}" \
-      >>"${BODYFILE}"
-  fi
-  printf "\nCommits:\n" >>"${BODYFILE}"
-  "${GIT}" log --format="*  %h %s" --reverse \
-    "${PARENT}...${CURRENT_BRANCH}" >>"${BODYFILE}"
+  (
+    cat <<'EndOfPrTemplate'
+# Pull request template
+#
+# This template is designed to help you write a good PR description.  This
+# description will be used as the first comment for your pull request, and will
+# ultimately become the squash-merge commit message for your change when you
+# run "gee pr_submit".  Note that all lines that start with a "#" will be
+# deleted.
+#
+# The first line if your PR description should be the PR title.  This
+# description should describe what is being affected, and what the change does.
+# For example: "scripts/gee: Add new PR template."
+
+
+# In this section, explain why the PR is necessary and what the PR desires to
+# achieve.
+
+
+# In this section, describe what testing was done to validate your change.
+Tested:
+
+
+# In this section, list any relevant Jira tickets or other metadata tags.
+#
+# For example:
+# Jira: PROJ-1234,PROJ-5678
+
+
+EndOfPrTemplate
+    printf "PR generated by %q from branch %q.\n" "${USER}" "${CURRENT_BRANCH}" 
+    if (( "${#PARENT_PRS[@]}" > 0 )); then
+      printf "Derived from branch %q's PR #%d.\n" "${PARENT}" "${PARENT_PRS[0]}"
+    fi
+    printf "\n# The following files were modified in this PR:\n"
+    "${GIT}" diff --name_only "${PARENT}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
+    printf "#\n# Here is your commit log:\n"
+    "${GIT}" log --reverse "${PARENT}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
+  ) >"${BODYFILE}"
   _info "PR message body follows:"
   cat "${BODYFILE}" >&2
   declare -g RESP=""
-  _choose_one "Do you want to edit this message? ([V]im, [e]macs, [n]o)  " "vVeEnN" "v"
+  _info "Which editor do you want to use to edit your PR description?"
+  # TODO(jonathan): support other editors?
+  _choose_one "Editor: [V]im, [e]macs)" "vVeE" "v"
   case "${RESP}" in
     [vV]*) vim "${BODYFILE}"; ;;
     [eE]*) emacs "${BODYFILE}"; ;;
   esac
 
-  # Note: there is no longer any need to squash before sending out for review,
-  # as we always merge with "gh pr merge --squash".
+  # Remove all comments from the description and squeeze multiple blank
+  # lines into single blank lines:
+  sed -i '/^#/d;/\S/,/^\s*$/!d' "${BODYFILE}"
+
+  # Check that the PR description looks valid
+  _check_pr_description "${BODYFILE}"
+
+  # Parse metadata from PR description.
+  local TITLE
+  TITLE="$(head -1 "${BODYFILE}")"
+  # TODO(jonathan): add support for specifying tags and reviewers in the
+  #                 PR description.
 
   # Note: we must label origin as the upstream branch for "gh pr create" to
   # automatically pick the branch to use for the PR request.
-  _git push -u origin "${CURRENT_BRANCH}"
+  _push_to_origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
   #  -R specifies the repo that we are pushing changes into.
   #  -H specifies the branch that contains outstanding commits,
@@ -2839,12 +2962,13 @@ function gee__pr_make() {
   local -a PR_ARGS
   PR_ARGS+=(
     --repo "${UPSTREAM}/${REPO}"
+    --title "${TITLE}"
     -H "${GHUSER}:${CURRENT_BRANCH}"
     --body-file "${BODYFILE}"
   )
   PR_ARGS+=( "$@" )
   _gh pr create "${PR_ARGS[@]}"
-  # _gh pr checks  # not sure why this is problematic.
+  # _gh pr checks  # These take a while to run, no point checking now.
   _gh_pr_view
   local NUM_REVIEWERS
   NUM_REVIEWERS="$(gh pr view \
@@ -2855,7 +2979,75 @@ function gee__pr_make() {
   fi
   rm "${BODYFILE}"
 }
-  
+
+##########################################################################
+# pr_check command
+##########################################################################
+
+_register_help "pr_check" \
+  "Checks whether presubmit tests for a PR." \
+  "pr_checks" "check_pr" <<'EOT'
+Usage: gee pr_check
+
+Checks presubmit tests.
+EOT
+
+function gee__check_pr() { gee__pr_check "$@"; }
+function gee__pr_checks() { gee__pr_check "$@"; }
+function gee__pr_check() {
+  local -a CHECKS=()
+  local -A CHECK_COUNTS=()
+  local PENDING=1
+  local CHECKS_FAILED=0
+  local WAIT=0
+  while [[ "${PENDING}" -ne 0 ]]; do
+    if _read_cmd CHECKS "${GH}" pr checks; then
+      _info "${CHECKS[@]}"
+      # no failures, nothing pending.
+      _info "All checks successful."
+      CHECKS_FAILED=0
+      PENDING=0
+    else
+      _info "${CHECKS[@]}"
+      # something went wrong.  Is a test pending, or did we get a failure?
+      CHECK_COUNTS=( [fail]=0 )
+      local LINE
+      for LINE in "${CHECKS[@]}"; do
+        local -a FIELDS=()
+        read -r -a FIELDS <<< "${LINE}"
+        (( CHECK_COUNTS["${FIELDS[2]}"]++ )) || /bin/true
+      done
+      local REPORT="gh pr checks:"
+      local KEY
+      for KEY in "${!CHECK_COUNTS[@]}"; do
+        REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
+      done
+      _info "${REPORT}"
+      CHECKS_FAILED="${CHECK_COUNTS["fail"]}"
+      PENDING="${CHECK_COUNTS["pending"]}"
+      if [[ "${PENDING}" -ne 0 ]]; then
+        if (( WAIT == 0 )); then
+          declare -g RESP=""
+          _choose_one "Some checks are still pending.  [W]ait, [r]etry, [a]bort, or [c]ontinue without waiting?  " \
+            "rwac" "w"
+          if [[ "${RESP}" == "a" ]]; then
+            _fatal "Aborted."
+          elif [[ "${RESP}" == "c" ]]; then
+            return 1
+          elif [[ "${RESP}" == "w" ]]; then
+            _info "Waiting until all pending tests are complete."
+            WAIT=1
+          fi
+        fi
+        sleep 10
+      fi
+    fi
+  done
+  if (( CHECKS_FAILED > 0 )); then
+    _warn "Some presubmit checks have failed."
+  fi
+  return "${CHECKS_FAILED}"
+}
 
 ##########################################################################
 # submit_pr command
@@ -2873,16 +3065,20 @@ function gee__merge() { gee__pr_submit "$@"; }
 function gee__pr_submit() {
   _check_cwd
   _check_gh_auth
+
+  # Presubmit check: does remote branch exist?
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
     _die "Remote branch ${CURRENT_BRANCH} does not exist."
   fi
+  # Presubmit check: Are there uncommitted local changes?
   local DIFFS
   DIFFS="$("${GIT}" diff --name-only | wc -l)"
   if (( "${DIFFS}" != 0 )); then
     _fatal "Will not submit: current branch has uncommitted changes."
   fi
+  # Presubmit check: Is the remote branch in sync with the local branch:
   local -a COUNTS
   read -r -a COUNTS < \
     <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
@@ -2893,6 +3089,14 @@ function gee__pr_submit() {
   if [[ "${COUNTS[0]}" -gt 0 ]]; then
     _warn "Local ${CURRENT_BRANCH} is ${COUNTS[0]} commits ahead of remote origin/${CURRENT_BRANCH}."
     _fatal "Will not submit PR."
+  fi
+
+  # Presubmit check: Are presubmit checks passing?
+  if ! gee__pr_check; then
+    if ! _confirm_default_no \
+      "Presubmit checks did not succeed.  Proceed anyway? (y/N)  "; then
+      _fatal "PR submission aborted."
+    fi
   fi
 
   # Get some information about this PR before we merge.
@@ -2906,8 +3110,15 @@ function gee__pr_submit() {
   mapfile -t FILES < <( "${GIT}" diff --name-only "${MERGEBASE}"..HEAD )
   _info "PR contains ${#COMMITS[@]} commits, changing ${#FILES[@]} files."
 
+  # Extract the first comment as the commit message.
+  local BODYFILE
+  BODYFILE="$(mktemp -t pr.message.XXXXXX.txt)"
+  gh pr view | sed -n '/^--/,$p' | tail +2 >"${BODYFILE}"
+  _info "Commit message will be:"
+  cat "${BODYFILE}"
+
   _confirm_or_exit "About to merge.  Confirm? (y/N)  "
- 
+
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
     # gh-cli treats this as a special case for some reason.
@@ -2916,7 +3127,12 @@ function gee__pr_submit() {
   # Tag the old head commit so we can keep track after squashing:
   _git tag --force "${CURRENT_BRANCH}-unsquashed" "${CURRENT_BRANCH}"
 
-  _gh pr merge --squash --repo "${UPSTREAM}/${REPO}" "${FROM_BRANCH}"
+  _gh pr merge \
+    --squash \
+    --body-file "${BODYFILE}" \
+    --repo "${UPSTREAM}/${REPO}" \
+    "${FROM_BRANCH}"
+  rm "${BODYFILE}"
   _update_main
 
   # Confirm that the merge was successful:
@@ -2931,7 +3147,7 @@ function gee__pr_submit() {
   # Reset this branch to now contain the squash-merged commit:
   _checkout_or_die "${CURRENT_BRANCH}"  # make sure we're in the right branch.
   _git checkout -B "${CURRENT_BRANCH}" "upstream/${MAIN}"
-  _git push -u origin "+${CURRENT_BRANCH}"
+  _push_to_origin "+${CURRENT_BRANCH}"
 
   # After a squash merge, we have a potential problem for child (and
   # grandchild) branches of this one.  When they attempt to rebase, they will
@@ -2939,17 +3155,40 @@ function gee__pr_submit() {
   # leading to conflicts.  To avoid these conflicts, we rebase all branches of
   # the current branch now.
 
-  # 1. Check for child branches of the change we just squash-merged.  By using
-  # the "git branch --contains" command, we get all descendants (grandchildren,
-  # etc.).  We look for branches that contain the first commit in the sequence
-  # of commits that were squash-merged, since all derived branches must at
-  # least contain that one commit.  (Note that COMMITS are in reverse
-  # chronological order, so COMMITS[-1] is the earliest commit.)
+  # 1. Check for child branches of the change we just squash-merged.
+
+  # 1a. By using the "git branch --contains" command, we get all descendants
+  # (grandchildren, etc.), even if the branch isn't listed as a child in gee's
+  # branch ancestry metadata.  We look for branches that contain the first
+  # commit in the sequence of commits that were squash-merged, since all
+  # derived branches must at least contain that one commit.  (Note that COMMITS
+  # are in reverse chronological order, so COMMITS[-1] is the earliest commit.)
   local FIRST_SQUASHED_COMMIT="${COMMITS[-1]}"
-  local -a KIDS=()
-  _read_cmd KIDS \
+  local -a GITKIDS=()
+  _read_cmd GITKIDS \
     "${GIT}" branch --format "%(refname:short)" --contains "${FIRST_SQUASHED_COMMIT}"
-  if [[ "${#KIDS[@]}" -eq 0 ]]; then
+
+  # 1b. The above command can fail if a parent branch was rebased, and a child branch
+  # wasn't, in such as way that "FIRST_SQUASHED_COMMIT" is no longer part of that branch.
+  # This happens rarely but often enough that we should use gee's parents metadata as
+  # a fallback.  Better to rebase too many branches than too few.
+  local -a ALT_KIDS=()
+  _read_cmd ALT_KIDS _gee_get_all_children_of "${CURRENT_BRANCH}"
+
+  # 1c. Uniquify the list of kids, and also remove all branches that don't
+  # exist anymore.  TODO(jonathan): prune dead branches from parents file.
+  local -A UNIQUE_KIDS=()
+  local K
+  for K in "${GITKIDS[@]}" "${ALT_KIDS[@]}"; do
+    if _local_branch_exists "${K}"; then
+      UNIQUE_KIDS["${K}"]=1;
+    fi
+  done
+  local -a KIDS=()
+  KIDS+=( "${!UNIQUE_KIDS[@]}" )  # get keys of UNIQUE_KIDS
+
+  # 1d. Bail early if there are no kids.
+  if [[ "${#K2[@]}" -eq 0 ]]; then
     # Our job is done here.
     return 0
   fi
@@ -2982,7 +3221,7 @@ Removes a branch and it's associated directory.
 EOT
 
 function gee__rmbr() { gee__remove_branch "$@"; }
-function gee__remove_branch() { 
+function gee__remove_branch() {
   local BR="$1";
   if [[ -z "${BR}" ]]; then
     BR="$(_get_current_branch)"
@@ -3017,7 +3256,7 @@ function gee__remove_branch() {
   _git worktree remove --force "${BR}"
   _git branch -D "${BR}"
   if _remote_branch_exists origin "${BR}"; then
-    _git_can_fail push origin --delete "${BR}"
+    _git_can_fail push --quiet origin --delete "${BR}" | cat
   else
     _info "Not deleting remote branch ${BR}: was never created."
   fi
@@ -3044,87 +3283,30 @@ function gee__remove_branch() {
 ##########################################################################
 
 _register_help "fix" "Run automatic code formatters over changed files only." <<'EOT'
-Usage: gee fix
+Usage: gee fix [<files>]
 
-Runs a set of language formatting tools over open files in this branch.
+Looks for a "fix_format.sh" script in the root directory of the current branch,
+and runs it.  This script runs a set of language formatting tools over either:
+
+  - the files specified on the command line, or
+  - if no files are specified, all of the locally changed files in this
+    branch.
 
 Note: "gee fix" (which fixes code in a branch) is different from "gee repair"
 (which checks the gee directory for errors and repairs them).
+
+Note: "fix_format.sh" used to be integrated into gee, but has been separated
+out as formatting rules are highly project specific.
 EOT
 
 function gee__fix() {
-  _check_cwd
-  local BRANCH
-  BRANCH="$(_get_current_branch)"
-  local BDIR MERGEBASE B
-  _set_main
-  MERGEBASE="$(git merge-base "origin/${MAIN}" "${BRANCH}")"
+  local BDIR
   BDIR="$(_get_branch_rootdir)"
-  cd "${BDIR}"
-
-  local -a FILES=()
-  local FNAME
-  while read -r FNAME; do
-    FILES+=( "$(readlink -f "${FNAME}")" )
-  done < <( "${GIT}" diff --name-only "${MERGEBASE}" )
-
-  # buildifier:
-  local -a BZL_FILES=()
-  for FNAME in "${FILES[@]}"; do
-    B="$(basename "${FNAME}")"
-    if [[ "${B}" =~ \.bzl$|^BUILD|WORKSPACE ]]; then
-      BZL_FILES+=( "${FNAME}" )
-    fi
-  done
-  if (( "${#BZL_FILES[@]}" )); then
-    _info "buildifier: Fixing ${BZL_FILES[*]}"
-    _cmd /usr/bin/bazelisk run \
-        --noshow_progress --noshow_loading_progress --logging=0 \
-        --ui_event_filters=-info,-debug \
-        @com_github_bazelbuild_buildtools//buildifier:buildifier \
-        -- \
-        -v --add_tables "${BDIR}/bazel/buildifier.tables.json" \
-        "${BZL_FILES[@]}"
+  if [[ -x "${BDIR}/fix_format.sh" ]]; then
+    _cmd "${BDIR}/fix_format.sh" "$@"
+  else
+    _fatal "No fix_format.sh script exists in this repository."
   fi
-
-  # clang-format, if available:
-  local -a CLANG_FILES=()
-  for FNAME in "${FILES[@]}"; do
-    if [[ "${FNAME}" =~ \.h$|\.c$|\.cc$|\.cpp ]]; then
-      CLANG_FILES+=( "${FNAME}" )
-    fi
-  done
-  if (( "${#CLANG_FILES[@]}" )); then
-    local CLANG_FORMAT=""
-    if [[ -x /usr/bin/clang-format-10 ]]; then
-      CLANG_FORMAT="/usr/bin/clang-format-10"
-    fi
-    if [[ -n "${CLANG_FORMAT}" ]]; then
-      _info "clang-format: Fixing ${CLANG_FILES[*]}"
-      local STYLE="Google"
-      if [[ -f "${BDIR}/cc.clang_format" ]]; then
-        STYLE="${BDIR}/cc.clang_format"
-      fi
-      _cmd "${CLANG_FORMAT}" --verbose --style="${STYLE}" -i "${CLANG_FILES[@]}"
-    else
-      _warn "No clang-format tool available."
-    fi
-  fi
-
-  # pyformat, if available:
-  if [[ -x "${BDIR}/pyformat.sh" ]]; then
-    local -a PY_FILES=()
-    for FNAME in "${FILES[@]}"; do
-      if [[ "${FNAME}" =~ \.py$ ]]; then
-        PY_FILES+=("${FNAME}")
-      fi
-    done
-    if (( "${#PY_FILES[@]}" )); then
-      _cmd "${BDIR}/pyformat.sh" "${PY_FILES[@]}"
-    fi
-  fi
-
-  # TODO(jonathan): Add more formatters.
 }
 
 ##########################################################################
@@ -3202,7 +3384,7 @@ function gee__gcd() {
     REL_PATH="$(git rev-parse --show-prefix)"
   fi
 
-  # check whether BRANCH exists: 
+  # check whether BRANCH exists:
   if ! _local_branch_exists "${BRANCH}"; then
     if (( OPT_B == 1 )); then
       gee__mkbr "${BRANCH}" >&2
@@ -3463,13 +3645,13 @@ function gee__bash_setup() {
 #
 #   eval "$(~/bin/gee bash_setup)"
 
-function gee() { 
+function gee() {
   # TODO(jonathan): now that gee isn't being invoked by enkit, perhaps
   # this function isn't needed anymore?  But if I remove it, users with
   # incorrect PATHs will break.
   if [[ -n "${GEE_BINARY}" ]]; then
     "${GEE_BINARY}" "$@";
-  elif [[ -x ~/bin/gee ]]; then 
+  elif [[ -x ~/bin/gee ]]; then
     # use locally installed gee if available.
     ~/bin/gee "$@";
   else
@@ -3752,7 +3934,7 @@ function gee__upgrade() {
         fi
       fi
       chmod +x "${GEE_PATH}"
-      if [[ -f "${GEE_PATH}".backup ]]; then 
+      if [[ -f "${GEE_PATH}".backup ]]; then
         rm -f "${GEE_PATH}".backup
       fi
       _info "${GEE_PATH} has been upgraded."
@@ -3845,9 +4027,12 @@ function main() {
   # Let's make pr-submit and pr_submit equivalent:
   cmdname="$(tr '-' '_' <<< "${cmdname}")"
   if type "gee__${cmdname}" >/dev/null 2>&1; then
-    if [[ "${cmdname}" != "bash_setup" ]]; then
-      _startup_checks
-    fi
+    case "${cmdname}" in
+      bash_setup|repair)
+        # skip startup checks
+        ;;
+      *) _startup_checks ;;
+    esac
     "gee__${cmdname}" "$@"
     ABNORMAL=0
   else

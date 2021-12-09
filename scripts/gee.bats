@@ -48,3 +48,36 @@ setup() {
   run _parse_options "abcdef:g" -b -c -f foo bar -g -a -z bum
   assert_failure
 }
+
+@test "_gee_get_all_children_of test" {
+  declare PARENTS_FILE_IS_LOADED=1
+  declare -A PARENTS=(
+    ["bar"]="foo"
+    ["bum"]="foo"
+    ["foo"]="a1"
+    ["a1"]="a"
+    ["echo"]="bum"
+    ["delta"]="bar"
+    ["charlie"]="bar"
+    ["xray"]="a"
+  )
+  run _gee_get_all_children_of foo
+  printf "got: %q\n" "$output" >&3
+  assert_output $'bar\nbum\ncharlie\ndelta\necho'
+}
+
+@test "_check_pr_description checks" {
+  printf "this: is a good title\n\nthis is a body\nmore body\n" > /tmp/goodpr.1
+  printf "this: is a good title\nthis is a body\nmore body\n" > /tmp/badpr.1
+  printf "this: is a good title\n" > /tmp/badpr.2
+  printf "\nthis: is a good title\n\nfoobar\n" > /tmp/badpr.3
+  run _check_pr_description /tmp/goodpr.1
+  assert_success
+  run _check_pr_description /tmp/badpr.1
+  assert_failure
+  run _check_pr_description /tmp/badpr.2
+  assert_failure
+  run _check_pr_description /tmp/badpr.3
+  assert_failure
+}
+

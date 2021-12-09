@@ -1,10 +1,12 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/flextape/server",
-    visibility = ["//visibility:public"],
+    visibility = ["//visibility:private"],
     deps = [
         "//flextape/proto:go_default_library",
         "//flextape/service:go_default_library",
@@ -19,4 +21,40 @@ go_binary(
     name = "flextape",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "flextape_tar",
+    srcs = [":flextape"],
+    package_dir = "/enfabrica/bin",
+)
+
+pkg_tar(
+    name = "flextape_config_tar",
+    srcs = ["flextape_config.textproto"],
+    package_dir = "/enfabrica/config",
+)
+
+container_image(
+    name = "flextape_image",
+    base = "@golang_base//image",
+    cmd = [
+        "/enfabrica/bin/flextape",
+        "--service_config=/enfabrica/config/flextape_config.textproto",
+    ],
+    tars = [
+        ":flextape_tar",
+        ":flextape_config_tar",
+    ],
+)
+
+container_push(
+    name = "flextape_image_push",
+    format = "Docker",
+    image = ":flextape_image",
+    registry = "gcr.io",
+    repository = "devops-284019/infra/flextape",
+    stamp = True,
+    # TODO: Change this tag to "live"
+    tag = "testing",
 )
