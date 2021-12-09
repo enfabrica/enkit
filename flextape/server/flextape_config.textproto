@@ -177,3 +177,35 @@ license_configs {
   }
   quantity: 3
 }
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "Affirma_sim_analysis_env"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "COSLITE_ACCESS"
+  }
+  quantity: 1
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "Integrated_Metrics_Center"
+  }
+  quantity: 3
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "Xcelium_Single_Core"
+  }
+  quantity: 3
+}
