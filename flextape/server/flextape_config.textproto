@@ -178,6 +178,18 @@ license_configs {
   quantity: 3
 }
 
+# TODO(INFRA-164): This is a bogus license for backwards-compatibility with the
+# old annotations, which name the bogus feature "xcelium" instead of an actual
+# feature managed by the flexlm server. Once all rules name features below, we
+# should drop this license entry.
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "xcelium"
+  }
+  quantity: 3
+}
+
 license_configs {
   license {
     vendor: "cadence"
