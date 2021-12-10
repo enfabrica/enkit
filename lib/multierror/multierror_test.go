@@ -42,6 +42,17 @@ func TestSanityIsError(t *testing.T) {
 	assertErrContainsAllSubStrings(t, err, ThreeErr, FourErr, OneErr)
 }
 
+func TestFmtError(t *testing.T) {
+	errs := []error{
+		fmt.Errorf("outer caused by %w", fmt.Errorf("inner caused by %w", OneErr)),
+		fmt.Errorf("outer caused by %w", fmt.Errorf("inner caused by %w", TwoErr)),
+	}
+	err := multierror.New(errs)
+	assert.True(t, errors.Is(err, OneErr))
+	assert.True(t, errors.Is(err, TwoErr))
+	assert.False(t, errors.Is(err, ThreeErr))
+}
+
 func TestSanityAsError(t *testing.T) {
 	tErr := &nameError{
 		name: "test 1",
