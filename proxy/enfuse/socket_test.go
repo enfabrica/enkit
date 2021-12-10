@@ -109,7 +109,6 @@ func handleNewServerConn(t *testing.T, c net.Conn) {
 
 // creatBasicServer is a ruddy implementation of a redirect server. It's *really* basic and just serves as a conn forwarder.
 func creatBasicServer(t *testing.T) *http.ServeMux {
-	fmt.Println("calling create basicServer")
 	upg := websocket.Upgrader{}
 	pool := enfuse.NewPool(enfuse.DefaultPayloadStrategy)
 	m := http.NewServeMux()
