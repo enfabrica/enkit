@@ -37,8 +37,8 @@ func (s SocketShim) Write(p []byte) (n int, err error) {
 	return len(p), s.WebConn.WriteMessage(websocket.BinaryMessage, realPayload)
 }
 
-func NewSocketShim(start PayloadAppendStrategy, Conn *websocket.Conn) (*SocketShim, error) {
-	pLen, f := start()
+func NewSocketShim(strategy PayloadAppendStrategy, Conn *websocket.Conn) (*SocketShim, error) {
+	pLen, f := strategy()
 	pre, err := f()
 	if err != nil {
 		return nil, err
@@ -46,8 +46,8 @@ func NewSocketShim(start PayloadAppendStrategy, Conn *websocket.Conn) (*SocketSh
 	return &SocketShim{PrefixLen: pLen, Prefix: pre, WebConn: NewWebsocketLock(Conn)}, nil
 }
 
-func NewWebsocketTCPShim(strat PayloadAppendStrategy, lis net.Listener, web *websocket.Conn) *WebsocketTCPShim {
-	l, _ := strat()
+func NewWebsocketTCPShim(strategy PayloadAppendStrategy, lis net.Listener, web *websocket.Conn) *WebsocketTCPShim {
+	l, _ := strategy()
 	wShim := &WebsocketTCPShim{
 		clientMap: map[string]net.Conn{},
 		prefixLen: l,
