@@ -100,7 +100,6 @@ func handleNewServerConn(t *testing.T, c net.Conn) {
 	for {
 		buf := make([]byte, 1024)
 		_, err := c.Read(buf)
-		fmt.Println("after readall", string(buf))
 		assert.NoError(t, err)
 		retBytes := append([]byte("hello "), buf...)
 		_, err = c.Write(retBytes)

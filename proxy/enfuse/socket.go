@@ -78,7 +78,7 @@ func (w *WebsocketTCPShim) handleWrites() {
 	for {
 		_, data, err := w.webConn.ReadMessage()
 		if err != nil {
-			w.l.Warnf("Error reading from websocket %v", err)
+			w.l.Errorf("Error reading from websocket %v", err)
 			continue
 		}
 		uid := data[:w.prefixLen]
@@ -105,13 +105,11 @@ func (w *WebsocketTCPShim) handleWrites() {
 func (w *WebsocketTCPShim) handleReadToWebsocket(c net.Conn, uid []byte) {
 	go func() {
 		if _, err := io.Copy(SocketShim{WebConn: w.webConn, Prefix: uid, PrefixLen: len(uid)}, c); err != nil {
-			fmt.Println(err, "err copying for client")
+			fmt.Printf("err copying for client %v", err)
 		}
 	}()
 }
 
-//TODO(adam): decide whether or not it's even necessary to have websocketTCPShim be a struct.
-//entirely possible for it to just be a function
 func (w *WebsocketTCPShim) Close() error {
 	return nil
 }
