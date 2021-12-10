@@ -111,7 +111,7 @@ func TestJoinServerAndPoll(t *testing.T) {
 	assert.Equal(t, 2, len(allRecordsRes))
 	assert.Nil(t, s.Stop())
 	assert.Nil(t, lis.Close())
-	assert.Equal(t, []string{"10.0.0.4", "10.0.0.1"}, allRecordsRes)
+	assert.ElementsMatch(t, []string{"10.0.0.4", "10.0.0.1"}, allRecordsRes)
 	time.Sleep(20 * time.Millisecond)
 
 	//Test serialization
