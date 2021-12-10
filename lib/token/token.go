@@ -1,3 +1,37 @@
+// Package token provides primitives to create and decode cryptographic tokens.
+//
+// The library is built around the concept of Encoders: objects capable of turning
+// a byte array into another, by, for example, adding a cryptographic signature
+// created with an asymmetric key, encrypting the data, adding an expiry time, or
+// by chaining multiple encoders together.
+//
+// Additionally, the library provides a few higher level adapters that allow to
+// serialize golang structs into an array of bytes, or to turn an array of bytes
+// into a string.
+//
+// For example, by using something like:
+//
+//     be, err := token.NewSymmetricEncoder(...)
+//     if err ...
+//     
+//     encoder := token.NewTypeEncoder(token.NewChainedEncoder(
+//         token.NewTimeEncoder(nil, time.Second * 10), be, token.NewBase64URLEncoder()) 
+//
+// you will get an encoder that when used like:
+//
+//      uData := struct {
+//        Username, Lang string
+//      }{"myname", "english"}
+//
+//      b64string, err := encoder.Encode(uData)
+//
+// will convert a struct into a byte array, add the time the serialization happened,
+// encrypt all with a symmetric key, and then convert to base64.
+//
+// On Decode(), the original array will be returned after applying all the necessary
+// transformations and verifications. For example, Decode() will error out if the data
+// is older than 10 seconds, the maximum lifetime supplied to NewTimeEncoder.
+// 
 package token
 
 import (
@@ -15,16 +49,29 @@ import (
 	"time"
 	)
 
-// Use internally to define keys exported via context.
+// Used internally to define keys exported via context.
 type contextKey string
 
-// BinaryEncoders convert an array of bytes into another by applying binary transformations.
-// For example: encryption, signature, ...
+// BinaryEncoders convert an array of bytes into another by applying binary
+// transformations.
+//
+// For example: they can encrypt the data, compress it, sign it, augment it
+// with metadata (like an expiration time), and so on.
 type BinaryEncoder interface {
+	// Encode will transform the input array of bytes into the returned one.
 	Encode([]byte) ([]byte, error)
+
+	// Decode will return the original array of bytes after decoding it.
+	//
+	// The context can be used to access additional metadata.
+	// See examples below.
 	Decode(context.Context, []byte) (context.Context, []byte, error)
 }
 
+// ChainedEncoder is a set of BinaryEncoders to be applied in sequence.
+//
+// This allows, for example, to add additional signatures to data after
+// encrypting it, or to add an expiration time.
 type ChainedEncoder []BinaryEncoder
 
 func NewChainedEncoder(enc ...BinaryEncoder) *ChainedEncoder {
@@ -64,12 +111,14 @@ func (ce *ChainedEncoder) Decode(ctx context.Context, data []byte) (context.Cont
 }
 
 // StringEncoders convert an array of bytes into a string safe for specific applications.
-// For example: mime64, url, ...
+//
+// For example: mime64 encoding, url encoding, hex, ...
 type StringEncoder interface {
 	Encode([]byte) (string, error)
 	Decode(context.Context, string) (context.Context, []byte, error)
 }
 
+// TimeSource is a function that returns the current time.
 type TimeSource func() time.Time
 
 // TimeEncoder is an encoder that saves the time the data was encoded.
@@ -77,13 +126,20 @@ type TimeSource func() time.Time
 // On Decode, it checks with the supplied validity and time source, and
 // fails validation if the data is considered expired.
 //
-// When data is expired is determined solely by who is reading the data.
-// Expiry information is not encoded in the token.
+// If data is expired is determined solely by the consumer of the data,
+// based on the time the data was created.
+//
+// Expiry information is not encoded in the resulting byte array.
 type TimeEncoder struct {
 	validity time.Duration
 	now      TimeSource
 }
 
+// NewTimeEncoder creates a new TimeEncoder.
+//
+// source is a TimeSource to read the time from.
+// validity is used on decode together with the issued time carried with
+// the data to determine if the data is to be considered expired or not.
 func NewTimeEncoder(source TimeSource, validity time.Duration) *TimeEncoder {
 	if source == nil {
 		source = time.Now
@@ -103,10 +159,42 @@ func (t *TimeEncoder) Encode(data []byte) ([]byte, error) {
 	return append(timedata[:written], data...), nil
 }
 
+// ExpiredError is returned if the data is considered expired.
 var ExpiredError = fmt.Errorf("signature expired")
+
+// IssuedTimeKey allows to access the time encoded by TimeEncoder.Encode.
+//
+// During Deocde() the context supplied is annotated with the time extracted
+// while decoding the data.
+//
+// Example:
+//   te := NewTimeEncoder(...)
+//   ...
+//   ctx, data, err := te.Decode(context.Background(), original)
+//   ...
+//   etime, ok := ctx.Value(token.IssuedTimeKey).(time.Time)
+//   if !ok {
+//     ...
+//   }
 var IssuedTimeKey = contextKey("issued")
+
+// MaxTimeKey allows to access the maximum validity of the data.
+//
+// MaxTimeKey can be accessed and used just like explained for IssuedTimeKey.
 var MaxTimeKey = contextKey("max")
 
+// Decode decodes TimeEncoder encoded data.
+//
+// It returns ExpiredError if the data was issued before the
+// validity time supplied to NewTimeEncoder.
+// It returns a generic error if the data is considered corrupted
+// or invalid for any other reason.
+//
+// Decode always tries to return as much data as possible, together
+// with IssuedTime and MaxTime information in the context, even
+// if the data is expired.
+// This allows, for example, to write code to override/ignore the ExpiredError,
+// or to print user friendly messages indicating when the data was expired.
 func (t *TimeEncoder) Decode(ctx context.Context, data []byte) (context.Context, []byte, error) {
 	issued, parsed := binary.Varint(data)
 	if parsed <= 0 {
@@ -130,12 +218,21 @@ func (t *TimeEncoder) Decode(ctx context.Context, data []byte) (context.Context,
 // On Decode, it checks with the supplied time source, and fails validation if
 // the data is considered expired.
 //
+// This means that the Encode()r of the data is in control of when the
+// clients using Decode() will consider it expired, as they will generally
+// enforce the stored expiry time.
+//
 // Expiry information is encoded in the token by whoever created the data.
 type ExpireEncoder struct {
 	validity time.Duration
 	now      TimeSource
 }
 
+// NewExpireEncoder creates a new ExpireEncoder.
+//
+// source is a source of time, TimeSource.
+// validity is the dessired lifetime of the data. It is used during encode to
+// store a desired expire time alongisde the data.
 func NewExpireEncoder(source TimeSource, validity time.Duration) *ExpireEncoder {
 	if source == nil {
 		source = time.Now
@@ -155,8 +252,23 @@ func (t *ExpireEncoder) Encode(data []byte) ([]byte, error) {
 	return append(timedata[:written], data...), nil
 }
 
+// ExpiresTimeKey allows to access the time the data is expected to expire.
+//
+// It can be accessed and used just like explained for IssuedTimeKey.
 var ExpiresTimeKey = contextKey("expire")
 
+// Decode decodes ExpireEncoder encoded data.
+//
+// It returns ExpiredError if the time supplied by the passed TimeSource is
+// past the ExpiresTime carried alongside the data.
+// It returns a generic error if the data is considered corrupted or invalid
+// for any other reason.
+//
+// Decode always tries to return as much data as possible, together with
+// ExpiresTime information in the context, even if the data is expired.
+//
+// This allows, for example, to write code to override/ignore the ExpiredError,
+// or to print user friendly messages indicating when the data was expired.
 func (t *ExpireEncoder) Decode(ctx context.Context, data []byte) (context.Context, []byte, error) {
 	expires, parsed := binary.Varint(data)
 	if parsed <= 0 {
@@ -390,6 +502,9 @@ func (pk *SigningKey) ToBytes() *[64]byte {
 	return (*[64]byte)(pk)
 }
 
+// SigningEncoder is an encoder that adds a cryptographically strong signature to the data.
+//
+// Data will fail to decode if the signature is invalid.
 type SigningEncoder struct {
 	rng       *rand.Rand
 	signing   *SigningKey
