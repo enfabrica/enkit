@@ -2267,8 +2267,15 @@ function gee__update() {
   local PREVIOUS_B
   PREVIOUS_B="$(_get_parent_branch "${CURRENT_BRANCH}")"
 
+  _set_main
+  if [[ "${PREVIOUS_B}" == "${MAIN}" ]]; then
+    _banner "Updating branch \"${MAIN}\""
+    _update_main
+  fi
+
   _checkout_or_die "${CURRENT_BRANCH}"
   # Rebase from PREVIOUS_B onto B
+  _banner "Updating \"${CURRENT_BRANCH}\""
   _safer_rebase "${CURRENT_BRANCH}" "${PREVIOUS_B}"
   _info Done.
 }
