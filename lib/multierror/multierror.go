@@ -87,5 +87,5 @@ func (multi MultiError) Error() string {
 		}
 		messages = append(messages, err.Error())
 	}
-	return strings.Join(messages, Separator)
+	return "Multiple errors:\n  " + strings.Join(messages, Separator)
 }
