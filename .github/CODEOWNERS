@@ -1,0 +1,3 @@
+# Changes to //third_party must be done exclusively via Copybara for imported
+# files. Reviewers should ensure this is the case.
+/third_party/ @minor-fixes
