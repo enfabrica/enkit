@@ -55,6 +55,5 @@ container_push(
     registry = "gcr.io",
     repository = "devops-284019/infra/flextape",
     stamp = True,
-    # TODO: Change this tag to "live"
-    tag = "testing",
+    tag = "latest",
 )
