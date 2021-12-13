@@ -161,6 +161,9 @@ message LicenseStats {
   // Flextape. This should be less than or equal to in_use_count.
   uint32 allocated_count = 5;
 
+  // Invocations that are currently allocated this license. These Invocation
+  // messages will not have the `licenses` field set - it is implied from being
+  // contained by this `LicenseStats`. This field is not inherently ordered.
   repeated Invocation allocated_invocations = 7;
 
   // Number of invocations queued for a license, as reported by the
@@ -168,6 +171,10 @@ message LicenseStats {
   // total_license_count.
   uint32 queued_count = 6;
 
+  // Invocations that are currently queued for this license. These Invocation
+  // messages will not have the `licenses` field set - it is implied from being
+  // contained by this `LicenseStats`. This field ordered from next invocation
+  // to be allocated to last invocation to be allocated.
   repeated Invocation queued_invocations = 8;
 }
 
