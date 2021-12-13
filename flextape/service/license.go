@@ -1,6 +1,7 @@
 package service
 
 import (
+	"sort"
 	"strings"
 	"time"
 
@@ -141,6 +142,15 @@ func (l *license) GetStats() *fpb.LicenseStats {
 	if len(fields) != 2 {
 		fields = []string{"<UNKNOWN>", l.name}
 	}
+	allocated := []*fpb.Invocation{}
+	for _, inv := range l.allocations{
+		allocated = append(allocated, inv.ToProto())
+	}
+	sort.Slice(allocated, func(i, j int) bool { return allocated[i].Id < allocated[j].Id })
+	queued := []*fpb.Invocation{}
+	for _, inv := range l.queue{
+		queued = append(queued, inv.ToProto())
+	}
 	return &fpb.LicenseStats{
 		License: &fpb.License{
 			Vendor:  fields[0],
@@ -149,7 +159,9 @@ func (l *license) GetStats() *fpb.LicenseStats {
 		Timestamp:         timestamppb.New(timeNow()),
 		TotalLicenseCount: uint32(l.totalAvailable),
 		AllocatedCount:    uint32(len(l.allocations)),
+		AllocatedInvocations: allocated,
 		QueuedCount:       uint32(len(l.queue)),
+		QueuedInvocations: queued,
 	}
 }
 

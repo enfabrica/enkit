@@ -886,6 +886,25 @@ func TestLicensesStatus(t *testing.T) {
 						TotalLicenseCount: 2,
 						AllocatedCount:    2,
 						QueuedCount:       1,
+						AllocatedInvocations: []*fpb.Invocation{
+							&fpb.Invocation{
+								Id: "5",
+								Owner: "unit_test",
+								BuildTag: "tag_1",
+							},
+							&fpb.Invocation{
+								Id: "8",
+								Owner: "unit_test",
+								BuildTag: "tag_2",
+							},
+						},
+						QueuedInvocations: []*fpb.Invocation{
+							&fpb.Invocation{
+								Id: "9",
+								Owner: "unit_test",
+								BuildTag: "tag_3",
+							},
+						},
 						Timestamp:         timestamppb.New(start),
 					},
 				},

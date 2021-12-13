@@ -109,6 +109,14 @@ type invocation struct {
 	LastCheckin time.Time // Time the invocation last had its queue position/allocation refreshed.
 }
 
+func (i *invocation) ToProto() *fpb.Invocation {
+	return &fpb.Invocation{
+		Owner: i.Owner,
+		BuildTag: i.BuildTag,
+		Id: i.ID,
+	}
+}
+
 type state int
 
 const (
