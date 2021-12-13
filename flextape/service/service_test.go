@@ -163,8 +163,8 @@ func TestAllocate(t *testing.T) {
 			want: &fpb.AllocateResponse{
 				ResponseType: &fpb.AllocateResponse_Queued{
 					Queued: &fpb.Queued{
-						InvocationId: "1",
-						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						InvocationId:  "1",
+						NextPollTime:  timestamppb.New(start.Add(5 * time.Second)),
 						QueuePosition: 1,
 					},
 				},
@@ -236,8 +236,8 @@ func TestAllocate(t *testing.T) {
 			want: &fpb.AllocateResponse{
 				ResponseType: &fpb.AllocateResponse_Queued{
 					Queued: &fpb.Queued{
-						InvocationId: "1",
-						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						InvocationId:  "1",
+						NextPollTime:  timestamppb.New(start.Add(5 * time.Second)),
 						QueuePosition: 1,
 					},
 				},
@@ -274,8 +274,8 @@ func TestAllocate(t *testing.T) {
 			want: &fpb.AllocateResponse{
 				ResponseType: &fpb.AllocateResponse_Queued{
 					Queued: &fpb.Queued{
-						InvocationId: "2",
-						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						InvocationId:  "2",
+						NextPollTime:  timestamppb.New(start.Add(5 * time.Second)),
 						QueuePosition: 2,
 					},
 				},
@@ -348,8 +348,8 @@ func TestAllocate(t *testing.T) {
 			want: &fpb.AllocateResponse{
 				ResponseType: &fpb.AllocateResponse_Queued{
 					Queued: &fpb.Queued{
-						InvocationId: "1",
-						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						InvocationId:  "1",
+						NextPollTime:  timestamppb.New(start.Add(5 * time.Second)),
 						QueuePosition: 1,
 					},
 				},
@@ -888,24 +888,24 @@ func TestLicensesStatus(t *testing.T) {
 						QueuedCount:       1,
 						AllocatedInvocations: []*fpb.Invocation{
 							&fpb.Invocation{
-								Id: "5",
-								Owner: "unit_test",
+								Id:       "5",
+								Owner:    "unit_test",
 								BuildTag: "tag_1",
 							},
 							&fpb.Invocation{
-								Id: "8",
-								Owner: "unit_test",
+								Id:       "8",
+								Owner:    "unit_test",
 								BuildTag: "tag_2",
 							},
 						},
 						QueuedInvocations: []*fpb.Invocation{
 							&fpb.Invocation{
-								Id: "9",
-								Owner: "unit_test",
+								Id:       "9",
+								Owner:    "unit_test",
 								BuildTag: "tag_3",
 							},
 						},
-						Timestamp:         timestamppb.New(start),
+						Timestamp: timestamppb.New(start),
 					},
 				},
 			},

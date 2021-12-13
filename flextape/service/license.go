@@ -130,7 +130,7 @@ func (l *license) ExpireQueued(expiry time.Time) {
 func (l *license) GetQueued(invID string) (*invocation, uint32) {
 	for i, inv := range l.queue {
 		if inv.ID == invID {
-			return inv, uint32(i+1)
+			return inv, uint32(i + 1)
 		}
 	}
 	return nil, 0
@@ -143,12 +143,12 @@ func (l *license) GetStats() *fpb.LicenseStats {
 		fields = []string{"<UNKNOWN>", l.name}
 	}
 	allocated := []*fpb.Invocation{}
-	for _, inv := range l.allocations{
+	for _, inv := range l.allocations {
 		allocated = append(allocated, inv.ToProto())
 	}
 	sort.Slice(allocated, func(i, j int) bool { return allocated[i].Id < allocated[j].Id })
 	queued := []*fpb.Invocation{}
-	for _, inv := range l.queue{
+	for _, inv := range l.queue {
 		queued = append(queued, inv.ToProto())
 	}
 	return &fpb.LicenseStats{
@@ -156,12 +156,12 @@ func (l *license) GetStats() *fpb.LicenseStats {
 			Vendor:  fields[0],
 			Feature: fields[1],
 		},
-		Timestamp:         timestamppb.New(timeNow()),
-		TotalLicenseCount: uint32(l.totalAvailable),
-		AllocatedCount:    uint32(len(l.allocations)),
+		Timestamp:            timestamppb.New(timeNow()),
+		TotalLicenseCount:    uint32(l.totalAvailable),
+		AllocatedCount:       uint32(len(l.allocations)),
 		AllocatedInvocations: allocated,
-		QueuedCount:       uint32(len(l.queue)),
-		QueuedInvocations: queued,
+		QueuedCount:          uint32(len(l.queue)),
+		QueuedInvocations:    queued,
 	}
 }
 

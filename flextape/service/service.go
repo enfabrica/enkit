@@ -111,9 +111,9 @@ type invocation struct {
 
 func (i *invocation) ToProto() *fpb.Invocation {
 	return &fpb.Invocation{
-		Owner: i.Owner,
+		Owner:    i.Owner,
 		BuildTag: i.BuildTag,
-		Id: i.ID,
+		Id:       i.ID,
 	}
 }
 
