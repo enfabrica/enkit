@@ -64,7 +64,6 @@ func licensesFromConfig(config *fpb.Config) map[string]*license {
 			allocations:    map[string]*invocation{},
 		}
 	}
-	fmt.Printf("%+v\n", licenses)
 	return licenses
 }
 
