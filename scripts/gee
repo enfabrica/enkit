@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.11"
+readonly VERSION="0.2.12"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -3188,7 +3188,7 @@ function gee__pr_submit() {
   KIDS+=( "${!UNIQUE_KIDS[@]}" )  # get keys of UNIQUE_KIDS
 
   # 1d. Bail early if there are no kids.
-  if [[ "${#K2[@]}" -eq 0 ]]; then
+  if [[ "${#KIDS[@]}" -eq 0 ]]; then
     # Our job is done here.
     return 0
   fi
