@@ -3188,7 +3188,7 @@ function gee__pr_submit() {
   KIDS+=( "${!UNIQUE_KIDS[@]}" )  # get keys of UNIQUE_KIDS
 
   # 1d. Bail early if there are no kids.
-  if [[ "${#K2[@]}" -eq 0 ]]; then
+  if [[ "${#KIDS[@]}" -eq 0 ]]; then
     # Our job is done here.
     return 0
   fi
