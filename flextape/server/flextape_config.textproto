@@ -187,7 +187,7 @@ license_configs {
     vendor: "cadence"
     feature: "xcelium"
   }
-  quantity: 3
+  quantity: 18 # 15 until 16Dec; 3 until 29Mar
 }
 
 license_configs {
@@ -195,7 +195,7 @@ license_configs {
     vendor: "cadence"
     feature: "Affirma_sim_analysis_env"
   }
-  quantity: 3
+  quantity: 18 # 15 until 16Dec; 3 until 29Mar
 }
 
 license_configs {
@@ -209,9 +209,65 @@ license_configs {
 license_configs {
   license {
     vendor: "cadence"
+    feature: "Encounter_C"
+  }
+  quantity: 2
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "Genus_Physical_Opt"
+  }
+  quantity: 6
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "Genus_Synthesis"
+  }
+  quantity: 6
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "Innovus_5nm_Opt"
+  }
+  quantity: 2
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "Innovus_C"
+  }
+  quantity: 2
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "Innovus_Hier_Opt"
+  }
+  quantity: 2
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "Innovus_Impl_System"
+  }
+  quantity: 2
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
     feature: "Integrated_Metrics_Center"
   }
-  quantity: 3
+  quantity: 18 # 15 until 16Dec; 3 until 29Mar
 }
 
 license_configs {
@@ -219,5 +275,29 @@ license_configs {
     vendor: "cadence"
     feature: "Xcelium_Single_Core"
   }
-  quantity: 3
+  quantity: 18 # 15 until 16Dec; 3 until 29Mar
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "jasper_papp"
+  }
+  quantity: 1
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "jasper_pcov"
+  }
+  quantity: 1
+}
+
+license_configs {
+  license {
+    vendor: "cadence"
+    feature: "jasper_pint"
+  }
+  quantity: 1
 }
