@@ -5,9 +5,11 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
+    embedsrcs = glob(["templates/*.tmpl"]),
     importpath = "github.com/enfabrica/enkit/flextape/server",
     visibility = ["//visibility:private"],
     deps = [
+        "//flextape/frontend:go_default_library",
         "//flextape/proto:go_default_library",
         "//flextape/service:go_default_library",
         "//lib/server:go_default_library",
