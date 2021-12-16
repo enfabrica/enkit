@@ -3741,7 +3741,7 @@ function gee_prompt_update_git_info() {
   fi
 
   local branch
-  read -r branch < <( git branch --show-current )
+  read -r branch < <( git rev-parse --abbrev-ref HEAD )
   GEE_PROMPT_BRANCH="${branch}"
 
   local mode=""
