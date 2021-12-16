@@ -4,21 +4,21 @@
 package frontend
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"bytes"
+	"html/template"
 	"io"
 	"net/http"
-	"html/template"
 
-	"github.com/enfabrica/enkit/flextape/service"
 	fpb "github.com/enfabrica/enkit/flextape/proto"
+	"github.com/enfabrica/enkit/flextape/service"
 )
 
 // Frontend is an HTTP handler for Flextape server-side generated pages.
 type Frontend struct {
 	tmpl *template.Template
-	svc *service.Service
+	svc  *service.Service
 }
 
 // New returns a Frontend that serves templates based on state from the supplied
@@ -26,7 +26,7 @@ type Frontend struct {
 func New(tmpl *template.Template, svc *service.Service) *Frontend {
 	return &Frontend{
 		tmpl: tmpl,
-		svc: svc,
+		svc:  svc,
 	}
 }
 
@@ -54,9 +54,9 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // said error is non-nil. Returns true if an error was written.
 func checkErr(w http.ResponseWriter, err error) bool {
 	if err != nil {
-	w.WriteHeader(500)
-	fmt.Fprintf(w, "%v\n", err)
-	return true
+		w.WriteHeader(500)
+		fmt.Fprintf(w, "%v\n", err)
+		return true
 	}
 	return false
 }

@@ -9,9 +9,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/enfabrica/enkit/flextape/frontend"
 	fpb "github.com/enfabrica/enkit/flextape/proto"
 	"github.com/enfabrica/enkit/flextape/service"
-	"github.com/enfabrica/enkit/flextape/frontend"
 	"github.com/enfabrica/enkit/lib/server"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -21,7 +21,7 @@ import (
 
 var (
 	//go:embed templates/*
-	templates embed.FS
+	templates     embed.FS
 	serviceConfig = flag.String("service_config", "", "Path to service configuration textproto")
 )
 
