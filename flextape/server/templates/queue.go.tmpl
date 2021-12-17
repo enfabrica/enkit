@@ -72,39 +72,32 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
         <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 
-        <!-- Keep collapsed state on refresh -->
         <script>
-         $(document).ready(function () {
-            // When a group is shown, save it as the active accordion group
-            $("#licenses_accordion").on('shown.bs.collapse', function () {
-                var active = $("#licenses_accordion .show").attr('id');
-                window.localStorage.setItem('activeAccordionGroup', active);
-            });
-            $("#licenses_accordion").on('hidden.bs.collapse', function () {
-                window.localStorage.removeItem('activeAccordionGroup');
-            });
-            var last = window.localStorage.getItem('activeAccordionGroup');
-            if (last != null) {
-                // Remove default collapse settings
-                $("#accordion .panel-collapse").removeClass('show');
-                // Show the account_last visible group
-                $("#" + last).addClass("show");
-            }
+        // Keep scroll position on refresh
+        document.addEventListener("DOMContentLoaded", function(event) { 
             var scrollpos = localStorage.getItem('scrollpos');
             if (scrollpos) window.scrollTo(0, scrollpos);
         });
-        </script>
-
-        <!-- Keep scroll position on refresh -->
-        <script>
-            document.addEventListener("DOMContentLoaded", function(event) { 
-                var scrollpos = localStorage.getItem('scrollpos');
-                if (scrollpos) window.scrollTo(0, scrollpos);
-            });
-
-            window.onbeforeunload = function(e) {
-                localStorage.setItem('scrollpos', window.scrollY);
-            };
+        // Keep collapsed state on refresh
+        $(document).ready(function () {
+           // When a group is shown, save it as the active accordion group
+           $("#licenses_accordion").on('shown.bs.collapse', function () {
+               var active = $("#licenses_accordion .show").attr('id');
+               window.localStorage.setItem('activeAccordionGroup', active);
+           });
+           $("#licenses_accordion").on('hidden.bs.collapse', function () {
+               window.localStorage.removeItem('activeAccordionGroup');
+           });
+           var last = window.localStorage.getItem('activeAccordionGroup');
+           if (last != null) {
+               // Remove default collapse settings
+               $("#accordion .panel-collapse").removeClass('show');
+               // Show the account_last visible group
+               $("#" + last).addClass("show");
+           }
+           var scrollpos = localStorage.getItem('scrollpos');
+           if (scrollpos) window.scrollTo(0, scrollpos);
+        });
         </script>
     </body>
 </html>

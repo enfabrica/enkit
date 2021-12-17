@@ -5,7 +5,6 @@ package frontend
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"html/template"
 	"io"
@@ -32,8 +31,7 @@ func New(tmpl *template.Template, svc *service.Service) *Frontend {
 
 // ServeHTTP serves the template for the queue page.
 func (f *Frontend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := context.TODO()
-	res, err := f.svc.LicensesStatus(ctx, &fpb.LicensesStatusRequest{})
+	res, err := f.svc.LicensesStatus(r.Context(), &fpb.LicensesStatusRequest{})
 	if checkErr(w, err) {
 		return
 	}
