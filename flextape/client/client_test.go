@@ -16,9 +16,9 @@ import (
 type fakeClient struct {
 	allocateCallCount int
 	allocateResponses []*fpb.AllocateResponse
-	refreshCallCount int
-	refreshResponses []*fpb.RefreshResponse
-	refreshCancel func()
+	refreshCallCount  int
+	refreshResponses  []*fpb.RefreshResponse
+	refreshCancel     func()
 }
 
 func (c *fakeClient) Allocate(context.Context, *fpb.AllocateRequest, ...grpc.CallOption) (*fpb.AllocateResponse, error) {
@@ -171,17 +171,17 @@ func TestLicenseClientRefresh(t *testing.T) {
 			wantCallCount: 3,
 		},
 		{
-			desc: "propagates error",
+			desc:          "propagates error",
 			wantCallCount: 1,
-			wantErr: "Refresh() failure",
+			wantErr:       "Refresh() failure",
 		},
 	}
 	for _, tc := range testCases {
-		t.Run(tc.desc, func (t *testing.T) {
+		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			fake := &fakeClient{
 				refreshResponses: tc.refreshResponses,
-				refreshCancel: cancel,
+				refreshCancel:    cancel,
 			}
 			client := &LicenseClient{
 				client: fake,

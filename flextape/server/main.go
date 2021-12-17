@@ -1,12 +1,15 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
 
+	"github.com/enfabrica/enkit/flextape/frontend"
 	fpb "github.com/enfabrica/enkit/flextape/proto"
 	"github.com/enfabrica/enkit/flextape/service"
 	"github.com/enfabrica/enkit/lib/server"
@@ -17,6 +20,8 @@ import (
 )
 
 var (
+	//go:embed templates/*
+	templates     embed.FS
 	serviceConfig = flag.String("service_config", "", "Path to service configuration textproto")
 )
 
@@ -55,12 +60,18 @@ func main() {
 	config, err := loadConfig(*serviceConfig)
 	exitIf(err)
 
+	template, err := template.ParseFS(templates, "**/*.tmpl")
+	exitIf(err)
+
 	grpcs := grpc.NewServer()
 	s := service.New(config)
 	fpb.RegisterFlextapeServer(grpcs, s)
 
+	fe := frontend.New(template, s)
+
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/queue", fe)
 
 	server.Run(mux, grpcs)
 }
