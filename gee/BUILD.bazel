@@ -3,20 +3,16 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/enfabrica/gee",
+    importpath = "github.com/enfabrica/enkit/gee",
     visibility = ["//visibility:private"],
     deps = [
-        "//gee/commands:go_default_library",
-        "//lib/client:go_default_library",
-        "//lib/client/commands:go_default_library",
-        "//lib/kflags/kcobra:go_default_library",
+        "//gee/cmd:go_default_library",
     ],
 )
 
 go_binary(
     name = "gee",
     embed = [":go_default_library"],
-    static = "on",
     visibility = ["//visibility:public"],
 )
 
@@ -51,7 +47,7 @@ load("//bazel/astore:defs.bzl", "astore_upload")
 
 astore_upload(
     name = "deploy",
-    file = "tools/gee",
+    file = "tools/gee-golang-beta",
     targets = [
         ":gee-linux-amd64",
         ":gee-darwin-amd64",
