@@ -91,6 +91,9 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tchap/zapext v1.0.0
 	github.com/ugorji/go v1.1.4 // indirect
+	github.com/ulikunitz/xz v0.5.8
+	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778
+	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
 	go.uber.org/goleak v1.1.10 // indirect
 	go.uber.org/tools v0.0.0-20190618225709-2cfd321de3ee // indirect
