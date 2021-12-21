@@ -7,12 +7,14 @@ go_library(
         "config.go",
         "files.go",
         "server.go",
+        "socket.go",
         "types.go",
         "websocket.go",
     ],
     importpath = "github.com/enfabrica/enkit/proxy/enfuse",
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/logger:go_default_library",
         "//lib/srand:go_default_library",
         "//proxy/enfuse/rpc:go_default_library",
         "@com_github_google_uuid//:go_default_library",
@@ -27,6 +29,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "e2e_test.go",
+        "socket_test.go",
         "websocket_test.go",
     ],
     race = "on",
