@@ -5,6 +5,9 @@ go 1.16
 require (
 	cloud.google.com/go/datastore v1.1.0
 	cloud.google.com/go/storage v1.10.0
+	github.com/Microsoft/go-winio v0.4.16 // indirect
+	github.com/alessio/shellescape v1.4.1 // indirect
+	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6 // indirect
 	github.com/bazelbuild/buildtools v0.0.0-20211007154642-8dd79e56e98e
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/coreos/go-oidc v2.2.1+incompatible

@@ -58,6 +58,12 @@ def go_repositories():
         version = "v0.0.0-20190924025748-f65c72e2690d",
     )
     go_repository(
+        name = "com_github_alessio_shellescape",
+        importpath = "github.com/alessio/shellescape",
+        version = "v1.4.1",
+        sum = "h1:V7yhSDDn8LP4lc4jS8pFkt0zCnzVJlG5JXy9BVKJUX0=",
+    )
+    go_repository(
         name = "com_github_alexkohler_prealloc",
         importpath = "github.com/alexkohler/prealloc",
         sum = "h1:Hbq0/3fJPQhNkN0dR95AVrr6R7tou91y0uHG5pOcUuw=",

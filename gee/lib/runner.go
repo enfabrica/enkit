@@ -44,7 +44,6 @@ func (runner *Runner) RunInDir(dir string, args ...string) *RunResult {
 	result := &RunResult{}
 	stdout_writer := io.MultiWriter(&result.stdout, os.Stdout)
 	stderr_writer := io.MultiWriter(&result.stderr, os.Stderr)
-	GetLogger().Info("foo", "bar")
 	cmd := exec.Command(args[0])
 	cmd.Args = args
 	cmd.Dir = dir
@@ -52,8 +51,10 @@ func (runner *Runner) RunInDir(dir string, args ...string) *RunResult {
 	cmd.Stdout = stdout_writer
 	cmd.Stderr = stderr_writer
 	cmd.Stdin = os.Stdin
+  GetLogger().Command(args...)
 	err := cmd.Run()
 	if err != nil {
+    GetLogger().Error(err.Error())
 		panic(err)
 	}
 	result.exit_code = cmd.ProcessState.ExitCode()

@@ -3,6 +3,7 @@ package lib
 import (
   "fmt"
 	"github.com/xo/terminfo"
+  "github.com/alessio/shellescape"
 	"os"
 	"strings"
   "syscall"
@@ -103,6 +104,7 @@ func (logger *Logger) Debug(lines ...string) {
 }
 
 func (logger *Logger) Command(args ...string) {
+  logger.Print(ColorAttr{bold: true, fg: 12, reverse: true}, []string{"CMD: " + shellescape.QuoteCommand(args)})
 }
 
 func (logger *Logger) Info(lines ...string) {
