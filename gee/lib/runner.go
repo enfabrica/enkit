@@ -2,6 +2,7 @@ package lib
 
 import (
 	"bytes"
+  "fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -19,8 +20,14 @@ type RunResult struct {
 }
 
 func NewRunner() *Runner {
+	var err error
 	runner := new(Runner)
 	runner.env = os.Environ()
+	runner.dir, err = os.Getwd()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	return runner
 }
 
