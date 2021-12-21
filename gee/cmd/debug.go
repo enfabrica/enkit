@@ -1,24 +1,10 @@
-/*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package cmd
 
 import (
   "github.com/enfabrica/gee/lib"
 
 	"github.com/spf13/cobra"
+  "github.com/spf13/viper"
 )
 
 // debugCmd represents the debug command
@@ -32,11 +18,16 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-    l := lib.NewLogger()
+    l := lib.GetLogger()
     l.DumpTermInfo()
-    l.Debug([]string{"debug"})
-    l.Info([]string{"info"})
-    l.Banner([]string{"banner!"})
+    l.Debug("debug")
+    l.Info("info")
+    l.Banner("banner!", "This is a banner.")
+    l.Info(
+      "settings from " + viper.ConfigFileUsed(),
+      "upstream: " + viper.GetString("upstream"),
+      "repository: " + viper.GetString("repository"),
+      viper.GetString("git_path"))
 	},
 }
 

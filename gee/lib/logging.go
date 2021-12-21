@@ -23,6 +23,8 @@ type Logger struct {
   columns   int
 }
 
+var logger *Logger = nil
+
 func NewLogger() *Logger {
 	var err error
 	logger := new(Logger)
@@ -41,6 +43,13 @@ func NewLogger() *Logger {
   logger.columns = int(ws.col)
 
 	return logger
+}
+
+func GetLogger() *Logger {
+  if logger == nil {
+    logger = NewLogger()
+  }
+  return logger
 }
 
 func (logger *Logger) DumpTermInfo() {
@@ -89,28 +98,28 @@ func (logger *Logger) Print(c ColorAttr, lines []string) {
   logger.ti.Fprintf(os.Stderr, terminfo.ExitAttributeMode)
 }
 
-func (logger *Logger) Debug(lines []string) {
+func (logger *Logger) Debug(lines ...string) {
 	logger.Print(ColorAttr{fg: 2}, lines)
 }
 
-func (logger *Logger) Info(lines []string) {
+func (logger *Logger) Info(lines ...string) {
 	logger.Print(ColorAttr{fg: 1}, lines)
 }
 
-func (logger *Logger) Warning(lines []string) {
+func (logger *Logger) Warning(lines ...string) {
 	logger.Print(ColorAttr{fg: 11}, lines)
 }
 
-func (logger *Logger) Error(lines []string) {
+func (logger *Logger) Error(lines ...string) {
 	logger.Print(ColorAttr{fg: 15, bg: 3, bold: true}, lines)
 }
 
-func (logger *Logger) Fatal(lines []string) {
-	logger.Error(lines)
+func (logger *Logger) Fatal(lines ...string) {
+	logger.Error(lines...)
 	os.Exit(1)
 }
 
-func (logger *Logger) Banner(lines []string) {
+func (logger *Logger) Banner(lines ...string) {
   columns := logger.columns
 	logger.PrintColorAttr(ColorAttr{bold: true, fg: 15, bg: 3})
 	os.Stderr.WriteString(strings.Repeat("#", columns-1) + "\n")

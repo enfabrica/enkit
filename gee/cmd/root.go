@@ -4,6 +4,7 @@ import (
   "fmt"
   "os"
   "github.com/spf13/cobra"
+  "github.com/enfabrica/gee/lib"
 
   homedir "github.com/mitchellh/go-homedir"
   "github.com/spf13/viper"
@@ -144,6 +145,12 @@ func initConfig() {
   }
   if repository, err := flags.GetString("repository"); (err != nil) && (repository != "") {
     viper.Set("repository", repository)
+  }
+  if viper.GetString("upstream") == "" {
+    lib.GetLogger().Fatal(`Error: "upstream" is not configured.`)
+  }
+  if viper.GetString("repository") == "" {
+    lib.GetLogger().Fatal(`Error: "repository" is not configured.`)
   }
 }
 
