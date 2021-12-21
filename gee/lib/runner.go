@@ -54,13 +54,14 @@ func (runner *singletonRunner) RunInDir(dir string, args ...string) *RunResult {
 	cmd.Stdout = stdout_writer
 	cmd.Stderr = stderr_writer
 	cmd.Stdin = os.Stdin
-  GetLogger().Command(args...)
+  Logger().Command(args...)
 	err := cmd.Run()
 	if err != nil {
-    GetLogger().Error(err.Error())
+    Logger().Error(err.Error())
 		panic(err)
 	}
 	result.exit_code = cmd.ProcessState.ExitCode()
+  Logger().Debugf("Exited with exit_code=%d", result.exit_code)
 	return result
 }
 

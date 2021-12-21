@@ -11,5 +11,6 @@ go_library(
     deps = [
         "@com_github_xo_terminfo//:go_default_library",
         "@com_github_alessio_shellescape//:go_default_library",
+        "@com_github_spf13_viper//:go_default_library",
     ],
 )
