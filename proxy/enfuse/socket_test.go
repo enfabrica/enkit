@@ -41,7 +41,7 @@ func TestSocketShim(t *testing.T) {
 	defer s.Close()
 
 	// Dial all websocket clients to the httptest.Server
-	url := strings.Replace(s.URL, "http", "ws", -1)
+	url := strings.ReplaceAll(s.URL, "http", "ws")
 	for _, c := range testConnections {
 		webConn, _, err := websocket.DefaultDialer.Dial(url+"/client", nil)
 		assert.NoError(t, err)
