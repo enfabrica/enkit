@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -64,7 +65,6 @@ func licensesFromConfig(config *fpb.Config) map[string]*license {
 			allocations:    map[string]*invocation{},
 		}
 	}
-	fmt.Printf("%+v\n", licenses)
 	return licenses
 }
 
@@ -107,6 +107,14 @@ type invocation struct {
 	Owner       string    // Client-provided owner
 	BuildTag    string    // Client-provided build tag. May not be unique across invocations
 	LastCheckin time.Time // Time the invocation last had its queue position/allocation refreshed.
+}
+
+func (i *invocation) ToProto() *fpb.Invocation {
+	return &fpb.Invocation{
+		Owner:    i.Owner,
+		BuildTag: i.BuildTag,
+		Id:       i.ID,
+	}
 }
 
 type state int
@@ -348,5 +356,19 @@ func (s *Service) LicensesStatus(ctx context.Context, req *fpb.LicensesStatusReq
 	for _, lic := range s.licenses {
 		res.LicenseStats = append(res.LicenseStats, lic.GetStats())
 	}
+	// Sort by vendor, then feature, with two groups: first group has either
+	// allocations or queued invocations, second group has neither.
+	sort.Slice(res.LicenseStats, func(i, j int) bool {
+		aHasEntries := res.LicenseStats[i].GetAllocatedCount() > 0 || res.LicenseStats[i].GetQueuedCount() > 0
+		bHasEntries := res.LicenseStats[j].GetAllocatedCount() > 0 || res.LicenseStats[j].GetQueuedCount() > 0
+		if aHasEntries != bHasEntries {
+			return aHasEntries
+		}
+		licA, licB := res.LicenseStats[i].GetLicense(), res.LicenseStats[j].GetLicense()
+		if licA.GetVendor() == licB.GetVendor() {
+			return licA.GetFeature() < licB.GetFeature()
+		}
+		return licA.GetVendor() < licB.GetVendor()
+	})
 	return res, nil
 }

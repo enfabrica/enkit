@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.11"
+readonly VERSION="0.2.14"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -3110,14 +3110,27 @@ function gee__pr_submit() {
   mapfile -t FILES < <( "${GIT}" diff --name-only "${MERGEBASE}"..HEAD )
   _info "PR contains ${#COMMITS[@]} commits, changing ${#FILES[@]} files."
 
-  # Extract the first comment as the commit message.
+  # Extract the title and first comment as the commit message.
   local BODYFILE
   BODYFILE="$(mktemp -t pr.message.XXXXXX.txt)"
-  gh pr view | sed -n '/^--/,$p' | tail +2 >"${BODYFILE}"
-  _info "Commit message will be:"
-  cat "${BODYFILE}"
+  TEMPFILE="$(mktemp -t pr.temp.XXXXXX.txt)"
+  "${GH}" pr view > "${TEMPFILE}"
+  grep "^title:" "${TEMPFILE}" | sed 's/title:\s*//' >"${BODYFILE}"
+  echo "" >> "${BODYFILE}"
+  sed -n '/^--/,$p' "${TEMPFILE}" | tail +2 >> "${BODYFILE}"
+  rm "${TEMPFILE}"
 
-  _confirm_or_exit "About to merge.  Confirm? (y/N)  "
+  declare -g RESP=""
+  while /bin/true; do
+    _info "Commit message will be:"
+    cat "${BODYFILE}"
+    _choose_one "About to merge.  Confirm? [y]es,[e]dit,[N]o  " "yeN" "n"
+    case "${RESP}" in
+      [eE]*) "${EDITOR:-vim}" "${BODYFILE}"; ;;
+      [nN]*) _fatal  "Aborted."; ;;
+      [yY]*) break; ;;
+    esac
+  done
 
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
@@ -3188,7 +3201,7 @@ function gee__pr_submit() {
   KIDS+=( "${!UNIQUE_KIDS[@]}" )  # get keys of UNIQUE_KIDS
 
   # 1d. Bail early if there are no kids.
-  if [[ "${#K2[@]}" -eq 0 ]]; then
+  if [[ "${#KIDS[@]}" -eq 0 ]]; then
     # Our job is done here.
     return 0
   fi
@@ -3741,7 +3754,7 @@ function gee_prompt_update_git_info() {
   fi
 
   local branch
-  read -r branch < <( git branch --show-current )
+  read -r branch < <( git rev-parse --abbrev-ref HEAD )
   GEE_PROMPT_BRANCH="${branch}"
 
   local mode=""
