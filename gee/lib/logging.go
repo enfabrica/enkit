@@ -1,14 +1,26 @@
 package lib
 
 import (
+  "fmt"
 	"github.com/xo/terminfo"
 	"os"
 	"strings"
+  "syscall"
+  "unsafe"
 )
+
+// for TIOCGWINSZ ioctl:
+type winsize struct {
+  row uint16
+  col uint16
+  xpixel uint16
+  ypixel uint16
+}
 
 type Logger struct {
 	ti        *terminfo.Terminfo
 	verbosity int
+  columns   int
 }
 
 func NewLogger() *Logger {
@@ -18,7 +30,26 @@ func NewLogger() *Logger {
 	if err != nil {
 		panic(err)
 	}
+  ws := &winsize{}
+  retCode, _, errno := syscall.Syscall(syscall.SYS_IOCTL,
+    uintptr(syscall.Stderr),
+    uintptr(syscall.TIOCGWINSZ),
+    uintptr(unsafe.Pointer(ws)))
+  if int(retCode) == -1 {
+    panic(errno)
+  }
+  logger.columns = int(ws.col)
+
 	return logger
+}
+
+func (logger *Logger) DumpTermInfo() {
+  logger.ti.Fprintf(os.Stderr, terminfo.EnterBoldMode)
+  logger.ti.Fprintf(os.Stderr, terminfo.EnterBoldMode)
+  fmt.Printf("from: %s\n", logger.ti.File)
+  logger.PrintColorAttr(ColorAttr{fg: 2, bold: true})
+  fmt.Printf("colors: %d\n", logger.ti.Num(terminfo.MaxColors))
+  fmt.Printf("columns: %d\n", logger.columns)
 }
 
 type ColorAttr struct {
@@ -29,7 +60,12 @@ type ColorAttr struct {
 }
 
 func (logger *Logger) PrintColorAttr(c ColorAttr) {
-	os.Stderr.WriteString(logger.ti.Colorf(c.fg, c.bg, ""))
+  if c.fg != 0 {
+    logger.ti.Fprintf(os.Stderr, terminfo.SetAForeground, c.fg)
+  }
+  if c.bg != 0 {
+    logger.ti.Fprintf(os.Stderr, terminfo.SetABackground, c.bg)
+  }
 	if c.bold {
     logger.ti.Fprintf(os.Stderr, terminfo.EnterBoldMode)
 	}
@@ -40,7 +76,7 @@ func (logger *Logger) PrintColorAttr(c ColorAttr) {
 
 func (logger *Logger) Print(c ColorAttr, lines []string) {
 	logger.PrintColorAttr(c)
-  columns := logger.ti.Num(terminfo.Columns)
+  columns := logger.columns
 	for _, line := range lines {
 		os.Stderr.WriteString(line)
 		// for terminals that don't support clear-to-end:
@@ -75,7 +111,7 @@ func (logger *Logger) Fatal(lines []string) {
 }
 
 func (logger *Logger) Banner(lines []string) {
-  columns := logger.ti.Num(terminfo.Columns)
+  columns := logger.columns
 	logger.PrintColorAttr(ColorAttr{bold: true, fg: 15, bg: 3})
 	os.Stderr.WriteString(strings.Repeat("#", columns-1) + "\n")
 	for _, line := range lines {
