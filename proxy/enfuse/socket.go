@@ -104,7 +104,7 @@ func (w *WebsocketTCPShim) handleWrites() {
 func (w *WebsocketTCPShim) handleReadToWebsocket(c net.Conn, uid []byte) {
 	go func() {
 		if _, err := io.Copy(SocketShim{WebConn: w.webConn, Prefix: uid, PrefixLen: len(uid)}, c); err != nil {
-			w.l.Errorf("err copying for client %v", err)
+			w.l.Errorf("err copying for client %w", err)
 		}
 	}()
 }

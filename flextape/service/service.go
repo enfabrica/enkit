@@ -2,15 +2,47 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	fpb "github.com/enfabrica/enkit/flextape/proto"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+var (
+	metricRequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Subsystem: "flextape",
+		Name:      "request_duration_seconds",
+		Help:      "RPC execution time as seen by the server",
+	},
+		[]string{
+			"method",
+			"response_code",
+		},
+	)
+	metricJanitorDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Subsystem: "flextape",
+		Name:      "janitor_duration_seconds",
+		Help:      "Janitor execution time",
+	})
+	metricRequestCodes = promauto.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: "flextape",
+		Name:      "response_count",
+		Help:      "Total number of response codes sent",
+	},
+		[]string{
+			"method",
+			"response_code",
+		},
+	)
 )
 
 // Service implements the LicenseManager gRPC service.
@@ -23,20 +55,25 @@ type Service struct {
 	allocationRefreshDuration time.Duration // Allocations not refreshed within this duration are expired
 }
 
-func New() *Service {
+func licensesFromConfig(config *fpb.Config) map[string]*license {
+	licenses := map[string]*license{}
+	for _, l := range config.GetLicenseConfigs() {
+		name := fmt.Sprintf("%s::%s", l.GetLicense().GetVendor(), l.GetLicense().GetFeature())
+		licenses[name] = &license{
+			name:           name,
+			totalAvailable: int(l.GetQuantity()),
+			allocations:    map[string]*invocation{},
+		}
+	}
+	return licenses
+}
+
+func New(config *fpb.Config) *Service {
+	licenses := licensesFromConfig(config)
+
 	service := &Service{
 		currentState: stateStarting,
-		// TODO: Read this from a config file and pass it in
-		licenses: map[string]*license{
-			"xilinx::foo": &license{
-				totalAvailable: 2,
-				allocations:    map[string]*invocation{},
-			},
-			"xilinx::bar": &license{
-				totalAvailable: 2,
-				allocations:    map[string]*invocation{},
-			},
-		},
+		licenses:     licenses,
 		// TODO: Read this from flags
 		queueRefreshDuration:      5 * time.Second,
 		allocationRefreshDuration: 5 * time.Second,
@@ -72,6 +109,14 @@ type invocation struct {
 	LastCheckin time.Time // Time the invocation last had its queue position/allocation refreshed.
 }
 
+func (i *invocation) ToProto() *fpb.Invocation {
+	return &fpb.Invocation{
+		Owner:    i.Owner,
+		BuildTag: i.BuildTag,
+		Id:       i.ID,
+	}
+}
+
 type state int
 
 const (
@@ -103,6 +148,8 @@ var (
 // been refreshed in a sufficient amount of time, as well as to promote queued
 // licenses to allocations.
 func (s *Service) janitor() {
+	defer updateJanitorMetrics(time.Now())
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Don't expire or promote anything during startup.
@@ -118,9 +165,23 @@ func (s *Service) janitor() {
 	}
 }
 
+func updateJanitorMetrics(startTime time.Time) {
+	d := time.Now().Sub(startTime)
+	metricJanitorDuration.Observe(d.Seconds())
+}
+
+func updateMetrics(method string, err *error, startTime time.Time) {
+	d := time.Now().Sub(startTime)
+	code := status.Code(*err)
+	metricRequestCodes.WithLabelValues(method, code.String()).Inc()
+	metricRequestDuration.WithLabelValues(method, code.String()).Observe(d.Seconds())
+}
+
 // Allocate allocates a license to the requesting invocation, or queues the
 // request if none are available. See the proto docstrings for more details.
-func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.AllocateResponse, error) {
+func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (retRes *fpb.AllocateResponse, retErr error) {
+	defer updateMetrics("Allocate", &retErr, time.Now())
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -178,8 +239,8 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.
 		return &fpb.AllocateResponse{
 			ResponseType: &fpb.AllocateResponse_Queued{
 				Queued: &fpb.Queued{
-					InvocationId: invocationID,
-					NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
+					InvocationId:  invocationID,
+					NextPollTime:  timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
 					QueuePosition: pos,
 				},
 			},
@@ -202,8 +263,8 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.
 	return &fpb.AllocateResponse{
 		ResponseType: &fpb.AllocateResponse_Queued{
 			Queued: &fpb.Queued{
-				InvocationId: invocationID,
-				NextPollTime: timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
+				InvocationId:  invocationID,
+				NextPollTime:  timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
 				QueuePosition: pos,
 			},
 		},
@@ -212,7 +273,9 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (*fpb.
 
 // Refresh serves as a keepalive to refresh an allocation while an invocation
 // is still using it. See the proto docstrings for more info.
-func (s *Service) Refresh(ctx context.Context, req *fpb.RefreshRequest) (*fpb.RefreshResponse, error) {
+func (s *Service) Refresh(ctx context.Context, req *fpb.RefreshRequest) (retRes *fpb.RefreshResponse, retErr error) {
+	defer updateMetrics("Refresh", &retErr, time.Now())
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -261,7 +324,9 @@ func (s *Service) Refresh(ctx context.Context, req *fpb.RefreshRequest) (*fpb.Re
 // Release returns an allocated license and/or unqueues the specified
 // invocation ID across all license types. See the proto docstrings for more
 // details.
-func (s *Service) Release(ctx context.Context, req *fpb.ReleaseRequest) (*fpb.ReleaseResponse, error) {
+func (s *Service) Release(ctx context.Context, req *fpb.ReleaseRequest) (retRes *fpb.ReleaseResponse, retErr error) {
+	defer updateMetrics("Release", &retErr, time.Now())
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -281,13 +346,29 @@ func (s *Service) Release(ctx context.Context, req *fpb.ReleaseRequest) (*fpb.Re
 
 // LicensesStatus returns the status for every license type. See the proto
 // docstrings for more details.
-func (s *Service) LicensesStatus(ctx context.Context, req *fpb.LicensesStatusRequest) (*fpb.LicensesStatusResponse, error) {
+func (s *Service) LicensesStatus(ctx context.Context, req *fpb.LicensesStatusRequest) (retRes *fpb.LicensesStatusResponse, retErr error) {
+	defer updateMetrics("LicensesStatus", &retErr, time.Now())
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	res := &fpb.LicensesStatusResponse{}
-	for name, lic := range s.licenses {
-		res.LicenseStats = append(res.LicenseStats, lic.GetStats(name))
+	for _, lic := range s.licenses {
+		res.LicenseStats = append(res.LicenseStats, lic.GetStats())
 	}
+	// Sort by vendor, then feature, with two groups: first group has either
+	// allocations or queued invocations, second group has neither.
+	sort.Slice(res.LicenseStats, func(i, j int) bool {
+		aHasEntries := res.LicenseStats[i].GetAllocatedCount() > 0 || res.LicenseStats[i].GetQueuedCount() > 0
+		bHasEntries := res.LicenseStats[j].GetAllocatedCount() > 0 || res.LicenseStats[j].GetQueuedCount() > 0
+		if aHasEntries != bHasEntries {
+			return aHasEntries
+		}
+		licA, licB := res.LicenseStats[i].GetLicense(), res.LicenseStats[j].GetLicense()
+		if licA.GetVendor() == licB.GetVendor() {
+			return licA.GetFeature() < licB.GetFeature()
+		}
+		return licA.GetVendor() < licB.GetVendor()
+	})
 	return res, nil
 }

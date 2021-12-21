@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/enfabrica/enkit/lib/errdiff"
 	fpb "github.com/enfabrica/enkit/flextape/proto"
+	"github.com/enfabrica/enkit/lib/errdiff"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
@@ -26,6 +26,7 @@ func testService(initialState state) *Service {
 		currentState: initialState,
 		licenses: map[string]*license{
 			"xilinx::feature_foo": &license{
+				name:           "xilinx::feature_foo",
 				totalAvailable: 2,
 				queue:          []*invocation{},
 				allocations:    map[string]*invocation{},
@@ -115,6 +116,7 @@ func TestAllocate(t *testing.T) {
 			wantErr:     "exactly one license spec",
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations:    map[string]*invocation{},
@@ -138,6 +140,7 @@ func TestAllocate(t *testing.T) {
 			wantErr:     "unknown license type",
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations:    map[string]*invocation{},
@@ -160,14 +163,15 @@ func TestAllocate(t *testing.T) {
 			want: &fpb.AllocateResponse{
 				ResponseType: &fpb.AllocateResponse_Queued{
 					Queued: &fpb.Queued{
-						InvocationId: "1",
-						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						InvocationId:  "1",
+						NextPollTime:  timestamppb.New(start.Add(5 * time.Second)),
 						QueuePosition: 1,
 					},
 				},
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue: []*invocation{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start},
@@ -203,6 +207,7 @@ func TestAllocate(t *testing.T) {
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -231,14 +236,15 @@ func TestAllocate(t *testing.T) {
 			want: &fpb.AllocateResponse{
 				ResponseType: &fpb.AllocateResponse_Queued{
 					Queued: &fpb.Queued{
-						InvocationId: "1",
-						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						InvocationId:  "1",
+						NextPollTime:  timestamppb.New(start.Add(5 * time.Second)),
 						QueuePosition: 1,
 					},
 				},
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue: []*invocation{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start},
@@ -268,14 +274,15 @@ func TestAllocate(t *testing.T) {
 			want: &fpb.AllocateResponse{
 				ResponseType: &fpb.AllocateResponse_Queued{
 					Queued: &fpb.Queued{
-						InvocationId: "2",
-						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						InvocationId:  "2",
+						NextPollTime:  timestamppb.New(start.Add(5 * time.Second)),
 						QueuePosition: 2,
 					},
 				},
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue: []*invocation{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start},
@@ -307,6 +314,7 @@ func TestAllocate(t *testing.T) {
 			wantErr:     "invocation_id not found",
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue: []*invocation{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start},
@@ -340,14 +348,15 @@ func TestAllocate(t *testing.T) {
 			want: &fpb.AllocateResponse{
 				ResponseType: &fpb.AllocateResponse_Queued{
 					Queued: &fpb.Queued{
-						InvocationId: "1",
-						NextPollTime: timestamppb.New(start.Add(5 * time.Second)),
+						InvocationId:  "1",
+						NextPollTime:  timestamppb.New(start.Add(5 * time.Second)),
 						QueuePosition: 1,
 					},
 				},
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue: []*invocation{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start},
@@ -386,6 +395,7 @@ func TestAllocate(t *testing.T) {
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -421,6 +431,7 @@ func TestAllocate(t *testing.T) {
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -484,6 +495,7 @@ func TestRefresh(t *testing.T) {
 			wantErr:     "invocation_id must be set",
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations:    map[string]*invocation{},
@@ -508,6 +520,7 @@ func TestRefresh(t *testing.T) {
 			wantErr:     "exactly one license spec",
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations:    map[string]*invocation{},
@@ -533,6 +546,7 @@ func TestRefresh(t *testing.T) {
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -565,6 +579,7 @@ func TestRefresh(t *testing.T) {
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -600,6 +615,7 @@ func TestRefresh(t *testing.T) {
 			wantErr:     "no available licenses",
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -626,6 +642,7 @@ func TestRefresh(t *testing.T) {
 			wantErr:     "invocation_id not allocated",
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations:    map[string]*invocation{},
@@ -656,6 +673,7 @@ func TestRefresh(t *testing.T) {
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -715,6 +733,7 @@ func TestRelease(t *testing.T) {
 			wantErr:     "invocation_id must be set",
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -740,6 +759,7 @@ func TestRelease(t *testing.T) {
 			want: &fpb.ReleaseResponse{},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -765,6 +785,7 @@ func TestRelease(t *testing.T) {
 			want: &fpb.ReleaseResponse{},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue: []*invocation{
 						&invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
@@ -791,6 +812,7 @@ func TestRelease(t *testing.T) {
 			wantErr:     "invocation_id not found",
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -864,12 +886,32 @@ func TestLicensesStatus(t *testing.T) {
 						TotalLicenseCount: 2,
 						AllocatedCount:    2,
 						QueuedCount:       1,
-						Timestamp:         timestamppb.New(start),
+						AllocatedInvocations: []*fpb.Invocation{
+							&fpb.Invocation{
+								Id:       "5",
+								Owner:    "unit_test",
+								BuildTag: "tag_1",
+							},
+							&fpb.Invocation{
+								Id:       "8",
+								Owner:    "unit_test",
+								BuildTag: "tag_2",
+							},
+						},
+						QueuedInvocations: []*fpb.Invocation{
+							&fpb.Invocation{
+								Id:       "9",
+								Owner:    "unit_test",
+								BuildTag: "tag_3",
+							},
+						},
+						Timestamp: timestamppb.New(start),
 					},
 				},
 			},
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue: []*invocation{
 						&invocation{ID: "9", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start},
@@ -937,6 +979,7 @@ func TestJanitor(t *testing.T) {
 			endTime: start,
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue: []*invocation{
 						&invocation{ID: "3", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start},
@@ -979,6 +1022,7 @@ func TestJanitor(t *testing.T) {
 			endTime: start,
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue: []*invocation{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
@@ -1007,6 +1051,7 @@ func TestJanitor(t *testing.T) {
 			endTime: start,
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{
@@ -1036,6 +1081,7 @@ func TestJanitor(t *testing.T) {
 			endTime: start,
 			wantLicenses: map[string]*license{
 				"xilinx::feature_foo": &license{
+					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
 					queue:          []*invocation{},
 					allocations: map[string]*invocation{

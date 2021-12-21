@@ -51,13 +51,13 @@ git fetch --deepen="${FETCH_DEPTH}"
 # Merge or error
 # TODO(scott): Add instructions for rebasing or a pointer to such instructions
 # in the error message.
-git checkout origin/master
-git merge github_pr --log -m "Update PR with latest master" || { echo "
-********************************************************************************
-** Auto-update failure **                                                      *
-********************************************************************************
-* Presubmits update your PR with the latest master before running, but this    *
-* has failed because your PR is too out-of-date. Please rebase your PR to pick *
-* updates from master and re-push.                                             *
-********************************************************************************
+git merge origin/master --log -m "Update PR with latest master" || { echo "
+*****************************************************************************************************************
+** Auto-update failure **                                                                                       *
+*****************************************************************************************************************
+* Presubmits update your PR with the latest master before running, but this has failed because your PR is too   *
+* out-of-date. Please rebase your PR to pick up updates from master, resolve any conflicts, and then re-push.   *
+* See the following doc for more info:                                                                          *
+* https://docs.google.com/document/d/1AraK2NjdFlNC3OwrePITGRJF138nZY49xRYRLm5aMqc/edit#bookmark=id.76mxp83nyp0m *
+*****************************************************************************************************************
 "; /bin/false; }

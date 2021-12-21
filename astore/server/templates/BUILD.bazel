@@ -1,4 +1,4 @@
-load("@com_github_ccontavalli_bazel_rules//qtc:defs.bzl", "qtpl_go_library")
+load("//bazel/qtc:defs.bzl", "qtpl_go_library")
 
 qtpl_go_library(
     name = "templates",

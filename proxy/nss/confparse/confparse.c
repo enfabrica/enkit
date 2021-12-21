@@ -604,7 +604,12 @@ error_code_e parse_quoted_string(parse_context_t *ctx, char **dest)
 
 	/* Code here can assume that the input is correct. */
 	*dest = malloc(ctx->cursor - start - escapes);
-	for (char *cursor = *dest; start < ctx->cursor - 1; ++start) {
+	for (char *cursor = *dest; ; ++start) {
+		if (start >= ctx->cursor - 1) {
+			*cursor = '\0';
+			break;
+		}
+
 		if (*start == '\\') {
 			*cursor++ = *++start;
 		} else {
