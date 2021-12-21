@@ -3124,7 +3124,7 @@ function gee__pr_submit() {
   while /bin/true; do
     _info "Commit message will be:"
     cat "${BODYFILE}"
-    _choose_one "About to merge.  Confirm? [y]es,[e]dit,[N]o  " "n"
+    _choose_one "About to merge.  Confirm? [y]es,[e]dit,[N]o  " "yeN" "n"
     case "${RESP}" in
       [eE]*) "${EDITOR:-vim}" "${BODYFILE}"; ;;
       [nN]*) _fatal  "Aborted."; ;;
