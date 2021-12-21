@@ -28,6 +28,9 @@ to quickly create a Cobra application.`,
 			"upstream: "+viper.GetString("upstream"),
 			"repository: "+viper.GetString("repository"),
 			viper.GetString("git_path"))
+    runner := lib.GetRunner()
+    runner.Run("/usr/bin/ls", "/tmp")
+    runner.Run("/usr/bin/pwd")
 	},
 }
 

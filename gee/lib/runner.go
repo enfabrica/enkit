@@ -40,12 +40,12 @@ func GetRunner() *Runner {
 	return runner
 }
 
-func (runner *Runner) RunInDir(path string, args []string, dir string) *RunResult {
+func (runner *Runner) RunInDir(dir string, args ...string) *RunResult {
 	result := &RunResult{}
 	stdout_writer := io.MultiWriter(&result.stdout, os.Stdout)
 	stderr_writer := io.MultiWriter(&result.stderr, os.Stderr)
 	GetLogger().Info("foo", "bar")
-	cmd := exec.Command(path)
+	cmd := exec.Command(args[0])
 	cmd.Args = args
 	cmd.Dir = dir
 	cmd.Env = runner.env
@@ -60,6 +60,6 @@ func (runner *Runner) RunInDir(path string, args []string, dir string) *RunResul
 	return result
 }
 
-func (runner *Runner) Run(path string, args []string) *RunResult {
-	return runner.RunInDir(path, args, runner.dir)
+func (runner *Runner) Run(args ...string) *RunResult {
+	return runner.RunInDir(runner.dir, args...)
 }
