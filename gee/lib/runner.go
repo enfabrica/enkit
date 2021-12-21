@@ -2,7 +2,7 @@ package lib
 
 import (
 	"bytes"
-  "fmt"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -12,6 +12,8 @@ type Runner struct {
 	env []string
 	dir string
 }
+
+var runner *Runner = nil
 
 type RunResult struct {
 	stdout    bytes.Buffer
@@ -31,10 +33,18 @@ func NewRunner() *Runner {
 	return runner
 }
 
+func GetRunner() *Runner {
+	if runner == nil {
+		runner = NewRunner()
+	}
+	return runner
+}
+
 func (runner *Runner) RunInDir(path string, args []string, dir string) *RunResult {
 	result := &RunResult{}
 	stdout_writer := io.MultiWriter(&result.stdout, os.Stdout)
 	stderr_writer := io.MultiWriter(&result.stderr, os.Stderr)
+	GetLogger().Info("foo", "bar")
 	cmd := exec.Command(path)
 	cmd.Args = args
 	cmd.Dir = dir
