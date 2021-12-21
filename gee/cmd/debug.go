@@ -1,10 +1,10 @@
 package cmd
 
 import (
-  "github.com/enfabrica/gee/lib"
+	"github.com/enfabrica/gee/lib"
 
 	"github.com/spf13/cobra"
-  "github.com/spf13/viper"
+	"github.com/spf13/viper"
 )
 
 // debugCmd represents the debug command
@@ -18,16 +18,16 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-    l := lib.GetLogger()
-    l.DumpTermInfo()
-    l.Debug("debug")
-    l.Info("info")
-    l.Banner("banner!", "This is a banner.")
-    l.Info(
-      "settings from " + viper.ConfigFileUsed(),
-      "upstream: " + viper.GetString("upstream"),
-      "repository: " + viper.GetString("repository"),
-      viper.GetString("git_path"))
+		l := lib.GetLogger()
+		l.DumpTermInfo()
+		l.Debug("debug")
+		l.Info("info")
+		l.Banner("banner!", "This is a banner.")
+		l.Info(
+			"settings from "+viper.ConfigFileUsed(),
+			"upstream: "+viper.GetString("upstream"),
+			"repository: "+viper.GetString("repository"),
+			viper.GetString("git_path"))
 	},
 }
 
