@@ -10,6 +10,14 @@ import (
   "unsafe"
 )
 
+type singletonLogger struct {
+	ti        *terminfo.Terminfo
+	verbosity int
+  columns   int
+}
+
+var logger *singletonLogger = nil
+
 // for TIOCGWINSZ ioctl:
 type winsize struct {
   row uint16
@@ -18,17 +26,9 @@ type winsize struct {
   ypixel uint16
 }
 
-type Logger struct {
-	ti        *terminfo.Terminfo
-	verbosity int
-  columns   int
-}
-
-var logger *Logger = nil
-
-func NewLogger() *Logger {
+func newLogger() *singletonLogger {
 	var err error
-	logger := new(Logger)
+	logger := new(singletonLogger)
 	logger.ti, err = terminfo.LoadFromEnv()
 	if err != nil {
 		panic(err)
@@ -46,22 +46,25 @@ func NewLogger() *Logger {
 	return logger
 }
 
-func GetLogger() *Logger {
+// Get a handle to the logger singleton.
+func Logger() *singletonLogger {
   if logger == nil {
     logger = NewLogger()
   }
   return logger
 }
 
-func (logger *Logger) DumpTermInfo() {
-  logger.ti.Fprintf(os.Stderr, terminfo.EnterBoldMode)
-  logger.ti.Fprintf(os.Stderr, terminfo.EnterBoldMode)
-  fmt.Printf("from: %s\n", logger.ti.File)
-  logger.PrintColorAttr(ColorAttr{fg: 2, bold: true})
-  fmt.Printf("colors: %d\n", logger.ti.Num(terminfo.MaxColors))
-  fmt.Printf("columns: %d\n", logger.columns)
+// Returns the width of the terminal in columns.
+func (logger *singletonLogger) GetColumns int {
+  return logger.columns
 }
 
+// Returns the maximum number of colors as specified by TERMINFO.
+func (logger *singletonLogger) GetMaxColors int {
+  return logger.ti.Num(terminfo.MaxColors)
+}
+
+// A structure for specifying text colors and attributes.
 type ColorAttr struct {
 	fg      int
 	bg      int
@@ -69,7 +72,7 @@ type ColorAttr struct {
 	reverse bool
 }
 
-func (logger *Logger) PrintColorAttr(c ColorAttr) {
+func (logger *singletonLogger) printColorAttr(c ColorAttr) {
   if c.fg != 0 {
     logger.ti.Fprintf(os.Stderr, terminfo.SetAForeground, c.fg)
   }
@@ -84,8 +87,9 @@ func (logger *Logger) PrintColorAttr(c ColorAttr) {
 	}
 }
 
-func (logger *Logger) Print(c ColorAttr, lines []string) {
-	logger.PrintColorAttr(c)
+// Generic logging function with arbitrary color/attributes.
+func (logger *singletonLogger) Log(c ColorAttr, lines []string) {
+	logger.printColorAttr(c)
   columns := logger.columns
 	for _, line := range lines {
 		os.Stderr.WriteString(line)
@@ -99,34 +103,41 @@ func (logger *Logger) Print(c ColorAttr, lines []string) {
   logger.ti.Fprintf(os.Stderr, terminfo.ExitAttributeMode)
 }
 
-func (logger *Logger) Debug(lines ...string) {
-	logger.Print(ColorAttr{fg: 2}, lines)
+// Log debug messages.
+func (logger *singletonLogger) Debug(lines ...string) {
+	logger.Log(ColorAttr{fg: 2}, lines)
 }
 
-func (logger *Logger) Command(args ...string) {
-  logger.Print(ColorAttr{bold: true, fg: 12, reverse: true}, []string{"CMD: " + shellescape.QuoteCommand(args)})
+// Log a properly shell-escaped command line.
+func (logger *singletonLogger) Command(args ...string) {
+  logger.Log(ColorAttr{bold: true, fg: 12, reverse: true}, []string{"CMD: " + shellescape.QuoteCommand(args)})
 }
 
-func (logger *Logger) Info(lines ...string) {
-	logger.Print(ColorAttr{fg: 1}, lines)
+// Log info messages.
+func (logger *singletonLogger) Info(lines ...string) {
+	logger.Log(ColorAttr{fg: 1}, lines)
 }
 
-func (logger *Logger) Warning(lines ...string) {
-	logger.Print(ColorAttr{fg: 11}, lines)
+// Log warning messages.
+func (logger *singletonLogger) Warning(lines ...string) {
+	logger.Log(ColorAttr{fg: 11}, lines)
 }
 
-func (logger *Logger) Error(lines ...string) {
-	logger.Print(ColorAttr{fg: 15, bg: 3, bold: true}, lines)
+// Log error messages.
+func (logger *singletonLogger) Error(lines ...string) {
+	logger.Log(ColorAttr{fg: 15, bg: 3, bold: true}, lines)
 }
 
-func (logger *Logger) Fatal(lines ...string) {
+// Log fatal error messages, then terminate.
+func (logger *singletonLogger) Fatal(lines ...string) {
 	logger.Error(lines...)
 	os.Exit(1)
 }
 
-func (logger *Logger) Banner(lines ...string) {
+// Create a banner log message.
+func (logger *singletonLogger) Banner(lines ...string) {
   columns := logger.columns
-	logger.PrintColorAttr(ColorAttr{bold: true, fg: 15, bg: 3})
+	logger.printColorAttr(ColorAttr{bold: true, fg: 15, bg: 3})
 	os.Stderr.WriteString(strings.Repeat("#", columns-1) + "\n")
 	for _, line := range lines {
 		os.Stderr.WriteString("# ")

@@ -8,22 +8,23 @@ import (
 	"os/exec"
 )
 
-type Runner struct {
+type singletonRunner struct {
 	env []string
 	dir string
 }
 
-var runner *Runner = nil
+var runner *singletonRunner = nil
 
+// The result of executing a subcommand.
 type RunResult struct {
 	stdout    bytes.Buffer
 	stderr    bytes.Buffer
 	exit_code int
 }
 
-func NewRunner() *Runner {
+func newRunner() *singletonRunner {
 	var err error
-	runner := new(Runner)
+	runner := new(singletonRunner)
 	runner.env = os.Environ()
 	runner.dir, err = os.Getwd()
 	if err != nil {
@@ -33,14 +34,16 @@ func NewRunner() *Runner {
 	return runner
 }
 
-func GetRunner() *Runner {
+// Return a handle to the singleton Runner object.
+func Runner() *singletonRunner {
 	if runner == nil {
-		runner = NewRunner()
+		runner = newRunner()
 	}
 	return runner
 }
 
-func (runner *Runner) RunInDir(dir string, args ...string) *RunResult {
+// Execute a command in a specified directory.
+func (runner *singletonRunner) RunInDir(dir string, args ...string) *RunResult {
 	result := &RunResult{}
 	stdout_writer := io.MultiWriter(&result.stdout, os.Stdout)
 	stderr_writer := io.MultiWriter(&result.stderr, os.Stderr)
@@ -61,6 +64,7 @@ func (runner *Runner) RunInDir(dir string, args ...string) *RunResult {
 	return result
 }
 
-func (runner *Runner) Run(args ...string) *RunResult {
+// Execute a command in the current working directory.
+func (runner *singletonRunner) Run(args ...string) *RunResult {
 	return runner.RunInDir(runner.dir, args...)
 }
