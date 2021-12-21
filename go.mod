@@ -1,6 +1,6 @@
 module github.com/enfabrica/enkit
 
-go 1.17
+go 1.16
 
 require (
 	cloud.google.com/go/datastore v1.1.0
