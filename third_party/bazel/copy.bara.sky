@@ -1,0 +1,49 @@
+core.workflow(
+    name = "default",
+    origin = git.origin(
+        url = "https://github.com/bazelbuild/bazel",
+        ref = "fbd4427136a9e204fdd6f64d0bd2463aaa8ac322",  # master as of 02Dec2021
+        partial_fetch = True,
+    ),
+    destination = git.github_pr_destination(
+        url = "https://github.com/enfabrica/enkit",
+        destination_ref = "master",
+    ),
+    origin_files = glob([
+        "src/main/protobuf/command_line.proto",
+        "src/main/protobuf/failure_details.proto",
+        "src/main/protobuf/invocation_policy.proto",
+        "src/main/protobuf/option_filters.proto",
+        "src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto",
+    ]),
+    destination_files = glob(
+        ["third_party/bazel/**"],
+        exclude = [
+            "third_party/bazel/README.md",
+            "third_party/bazel/**/BUILD.bazel",
+        ],
+    ),
+    authoring = authoring.overwrite(default = "Copybara <noreply@enfabrica.net>"),
+    transformations = [
+        # Replace java_package with go_package
+        core.replace(
+            before = 'java_package = "${id}";',
+            after = 'go_package = "github.com/enfabrica/enkit/third_party/bazel/proto";',
+            regex_groups = {
+                "id": "[a-zA-Z.]+",
+            },
+        ),
+        # Fix import paths
+        core.replace(
+            before = 'import "src/',
+            after = 'import "third_party/bazel/src/',
+        ),
+        # Root tree under //third_party/bazel
+        core.move(
+            before = "",
+            after = "third_party/bazel",
+        ),
+        metadata.add_header("Copybara update of third_party/bazel"),
+        metadata.replace_message("Copybara update from github.com/bazelbuild/bazel to //third_party/bazel\nSee //third_party/bazel/README.md for more details."),
+    ],
+)

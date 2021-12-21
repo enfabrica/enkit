@@ -1,0 +1,52 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+# TODO: Make these definitions compatible with what gazelle wants to emit.
+
+# gazelle:ignore
+
+package(default_visibility = ["//third_party/bazel:__subpackages__"])
+
+proto_library(
+    name = "command_line_proto",
+    srcs = ["command_line.proto"],
+    deps = [
+        ":option_filters_proto",
+    ],
+)
+
+proto_library(
+    name = "failure_details_proto",
+    srcs = ["failure_details.proto"],
+    deps = [
+        "@com_google_protobuf//:descriptor_proto",
+    ],
+)
+
+proto_library(
+    name = "option_filters_proto",
+    srcs = ["option_filters.proto"],
+)
+
+proto_library(
+    name = "invocation_policy_proto",
+    srcs = ["invocation_policy.proto"],
+)
+
+go_proto_library(
+    name = "proto",
+    importpath = "github.com/enfabrica/enkit/third_party/bazel/proto",
+    protos = [
+        ":command_line_proto",
+        ":failure_details_proto",
+        ":invocation_policy_proto",
+        ":option_filters_proto",
+    ],
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":proto"],
+    importpath = "github.com/enfabrica/enkit/third_party/bazel/proto",
+)

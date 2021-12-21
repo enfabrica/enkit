@@ -1,0 +1,27 @@
+# Bazel Postsubmit Cloud Build
+#
+# This workflow defines a Bazel {build, test} postsubmit flow that ensures that
+# builds in enkit are healthy.
+
+steps:
+  - name: gcr.io/devops-284019/developer:stable
+    entrypoint: /usr/bin/bazelisk
+    args:
+      - build
+      - //...
+    env:
+      - "BAZEL_PROFILE=cloudbuild"
+
+  - name: gcr.io/devops-284019/developer:stable
+    entrypoint: /usr/bin/bazelisk
+    args:
+      - test
+      - //...
+    env:
+      - "BAZEL_PROFILE=cloudbuild"
+
+timeout: 20m
+options:
+  # The default of 1 vCPU cannot pull the container, build and test all of enkit
+  # in 1hr
+  machineType: E2_HIGHCPU_8

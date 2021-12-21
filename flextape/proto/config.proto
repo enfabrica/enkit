@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package flextape.proto;
+
+import "flextape/proto/flextape.proto";
+
+option go_package = "github.com/enfabrica/enkit/flextape/proto";
+
+// Message used for server config file
+message Config {
+  // One LicenseConfig for each vendor::feature tuple.
+  // This should be configured from the license file the vendor provides.
+  repeated LicenseConfig license_configs = 1;
+}
+
+message LicenseConfig {
+  // vendor::feature tuple
+  flextape.proto.License license = 1;
+  // Total number of licenses that can be allocated.
+  uint32 quantity = 2;
+}

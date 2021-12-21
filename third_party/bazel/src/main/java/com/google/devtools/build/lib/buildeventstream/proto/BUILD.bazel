@@ -1,0 +1,37 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+# TODO: Make these definitions compatible with what gazelle wants to emit.
+
+# gazelle:ignore
+
+proto_library(
+    name = "build_event_stream_proto",
+    srcs = ["build_event_stream.proto"],
+    deps = [
+        "//third_party/bazel/src/main/protobuf:command_line_proto",
+        "//third_party/bazel/src/main/protobuf:failure_details_proto",
+        "//third_party/bazel/src/main/protobuf:invocation_policy_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:timestamp_proto",
+    ],
+)
+
+go_proto_library(
+    name = "build_event_stream_go_proto",
+    importpath = "github.com/enfabrica/enkit/third_party/bazel/buildeventstream",
+    protos = [
+        ":build_event_stream_proto",
+    ],
+    deps = [
+        "//third_party/bazel/src/main/protobuf:proto",
+    ],
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":build_event_stream_go_proto"],
+    importpath = "github.com/enfabrica/enkit/third_party/bazel/buildeventstream",
+    visibility = ["//bestie:__subpackages__"],
+)

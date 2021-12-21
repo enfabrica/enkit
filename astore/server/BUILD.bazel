@@ -1,4 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
+load("//bazel/appengine:defs.bzl", "go_appengine_deploy")
 
 # gazelle:resolve go github.com/enfabrica/enkit/astore/server/templates //astore/server/templates
 
@@ -39,8 +41,6 @@ go_binary(
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )
-
-load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
 
 # Generate a .go file containing all the credentials supplied during the build.
 go_embed_data(
@@ -103,8 +103,6 @@ go_library(
     importpath = "github.com/enfabrica/enkit/astore/server/assets",
     visibility = ["//visibility:public"],
 )
-
-load("@com_github_ccontavalli_bazel_rules//appengine:defs.bzl", "go_appengine_deploy")
 
 go_appengine_deploy(
     name = "deploy",
