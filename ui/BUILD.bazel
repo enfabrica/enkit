@@ -1,8 +1,13 @@
 load("//bazel/ui:react.bzl", "react_project")
+load("//bazel/utils:files.bzl", "rebase_and_copy_files")
 
 exports_files([
     "package.json",
     "merge.js",
+    "webpack.prod.js",
+    "webpack.common.js",
+    "webpack.dev.js",
+    "babel.config.json",
 ])
 
 # Note this patch (May 25th, 2021) has landed in jest 27. React scripts vendors jest, so at a later release of react-scripts
@@ -15,9 +20,15 @@ filegroup(
 
 react_project(
     name = "ptunnel",
-    srcs = [
-        "//ui/ptunnel:srcs",
+    src = "//ui/ptunnel:srcs",
+    copy_to_root = [
+        "//ui/frontend:yarn.lock",
+        "//ui:webpack.prod.js",
+        "//ui:webpack.common.js",
+        "//ui:webpack.dev.js",
+        "//ui:babel.config.json",
     ],
+    includes = [],
     package_jsons = [
         "//ui:package.json",
         "//ui/ptunnel:package.json",
@@ -25,12 +36,42 @@ react_project(
     patches = [
         "//ui:git-patches",
     ],
-    publics = [
+    public = [
         "//ui/ptunnel:public",
     ],
     tsconfig = "//ui/ptunnel:tsconfig.json",
     visibility = ["//visibility:public"],
-    yarn_locks = [
-        "//ui/ptunnel:yarn.lock",
+)
+
+react_project(
+    name = "example",
+    src = "//ui/frontend:srcs",
+    copy_to_root = [
+        "//ui/frontend:yarn.lock",
+        "//ui:webpack.prod.js",
+        "//ui:webpack.common.js",
+        "//ui:webpack.dev.js",
+        "//ui:babel.config.json",
     ],
+    includes = [
+        {
+            "from": "rpc",
+            "to": "rpc",
+            "labels": [
+                "//test/example/rpc:echoweb",
+            ],
+        },
+    ],
+    package_jsons = [
+        "//ui/frontend:package.json",
+        "//ui:package.json",
+    ],
+    patches = [
+        "//ui:git-patches",
+    ],
+    public = [
+        "//ui/frontend:public",
+    ],
+    tsconfig = "//ui/frontend:tsconfig.json",
+    visibility = ["//visibility:public"],
 )

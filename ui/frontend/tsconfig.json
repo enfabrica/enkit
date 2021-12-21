@@ -18,9 +18,18 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": false,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "rpc/*": [
+        "./rpc/*",
+        "../../bazel-bin/ui/example-runner/rpc/*",
+      ],
+      "src/*": [
+        "./src/*"
+      ]
+    }
   },
   "include": [
-    "src"
-  ]
+    "src", "rpc",
+  ],
 }

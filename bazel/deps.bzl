@@ -16,8 +16,8 @@ def enkit_deps():
     if "build_bazel_rules_nodejs" not in excludes:
         http_archive(
             name = "build_bazel_rules_nodejs",
-            sha256 = "4a5d654a4ccd4a4c24eca5d319d85a88a650edf119601550c95bf400c8cc897e",
-            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/3.5.1/rules_nodejs-3.5.1.tar.gz"],
+            sha256 = "f7037c8e295fdc921f714962aee7c496110052511e2b14076bd8e2d46bc9819c",
+            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/4.4.5/rules_nodejs-4.4.5.tar.gz"],
         )
 
     if "bazel_gazelle" not in excludes:

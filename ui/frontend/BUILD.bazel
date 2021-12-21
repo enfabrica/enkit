@@ -1,0 +1,20 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["src/**/*"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "public",
+    srcs = glob(["public/*"]),
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    [
+        "package.json",
+        "yarn.lock",
+        "tsconfig.json",
+    ],
+    visibility = ["//visibility:public"],
+)

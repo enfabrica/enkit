@@ -14,9 +14,6 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-// Run runs the specified HTTP handlers and/or gRPC server on a port specified
-// by the `PORT` environment variable. If no HTTP mux or gRPC server is provided
-// (is nil), one with default routes/services will be started, respectively.
 //
 // Run() starts a server supporting the following protocols:
 //

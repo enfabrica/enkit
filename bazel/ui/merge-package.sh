@@ -1,4 +1,5 @@
 #!/bin/bash
+# This script is a light wrapper around jq. It is designed to merge multiple json files together
 args=("$@")
 counter=0
 ss=""

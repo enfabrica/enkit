@@ -1,0 +1,11 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {},
+  "scripts": {
+    "start": "ibazel run //test/example:ui-start",
+    "build": "bazel build //test/example:ui-build",
+    "test": "ibazel test //test/example:ui-test"
+  }
+}
