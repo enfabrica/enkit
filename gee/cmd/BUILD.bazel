@@ -43,9 +43,9 @@ go_library(
     importpath = "github.com/enfabrica/enkit/gee/cmd",
     visibility = ["//visibility:public"],
     deps = [
+        "//gee/lib:go_default_library",
+        "@com_github_mitchellh_go_homedir//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@com_github_spf13_viper//:go_default_library",
-        "@com_github_mitchellh_go_homedir//:go_default_library",
-        "//gee/lib:go_default_library",
     ],
 )
