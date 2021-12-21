@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/enfabrica/gee/lib"
+	"github.com/enfabrica/enkit/gee/lib"
 	"github.com/spf13/cobra"
 	"os"
 

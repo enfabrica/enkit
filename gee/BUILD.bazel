@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/enfabrica/gee",
+    importpath = "github.com/enfabrica/enkit/gee",
     visibility = ["//visibility:private"],
     deps = [
         "//gee/cmd:go_default_library",
@@ -34,14 +34,15 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-go_binary(
-    name = "gee-win-amd64",
-    embed = [":go_default_library"],
-    goarch = "amd64",
-    goos = "windows",
-    static = "on",
-    visibility = ["//visibility:public"],
-)
+# disabled due to syscall incompatibility
+#go_binary(
+#    name = "gee-win-amd64",
+#    embed = [":go_default_library"],
+#    goarch = "amd64",
+#    goos = "windows",
+#    static = "on",
+#    visibility = ["//visibility:public"],
+#)
 
 load("//bazel/astore:defs.bzl", "astore_upload")
 
@@ -51,6 +52,6 @@ astore_upload(
     targets = [
         ":gee-linux-amd64",
         ":gee-darwin-amd64",
-        ":gee-win-amd64",
+        # ":gee-win-amd64",
     ],
 )

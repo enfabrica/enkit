@@ -40,7 +40,7 @@ go_library(
         "version.go",
         "whatsout.go",
     ],
-    importpath = "github.com/enfabrica/gee/cmd",
+    importpath = "github.com/enfabrica/enkit/gee/cmd",
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_spf13_cobra//:go_default_library",

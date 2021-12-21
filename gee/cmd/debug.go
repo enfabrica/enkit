@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/enfabrica/gee/lib"
+	"github.com/enfabrica/enkit/gee/lib"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

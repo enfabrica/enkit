@@ -1,7 +1,7 @@
 package main
 
 import (
-  "github.com/enfabrica/gee/cmd"
+  "github.com/enfabrica/enkit/gee/cmd"
 )
 
 func main() {
