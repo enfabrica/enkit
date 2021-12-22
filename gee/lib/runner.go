@@ -18,9 +18,17 @@ var runner *singletonRunner = nil
 
 // The result of executing a subcommand.
 type RunResult struct {
+	command   []string
 	stdout    bytes.Buffer
 	stderr    bytes.Buffer
 	exit_code int
+}
+
+func (result *RunResult) CheckExitCode() error {
+	if result.exit_code != 0 {
+		return fmt.Errorf("Got RC=%d from command %q", result.exit_code, result.command)
+	}
+	return nil
 }
 
 func newRunner() *singletonRunner {
@@ -46,6 +54,7 @@ func Runner() *singletonRunner {
 // Execute a command in a specified directory.
 func (runner *singletonRunner) RunInDir(dir string, args ...string) *RunResult {
 	result := &RunResult{}
+	result.command = args
 	stdout_writer := io.MultiWriter(&result.stdout, os.Stdout)
 	stderr_writer := io.MultiWriter(&result.stderr, os.Stderr)
 	cmd := exec.Command(args[0])
