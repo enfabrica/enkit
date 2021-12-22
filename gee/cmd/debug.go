@@ -19,6 +19,7 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		repoConfig = lib.NewRepoConfig(debugCmd.PersistentFlags())
 		l := lib.Logger()
 		l.Info(fmt.Sprintf("MaxColors=%d", l.GetMaxColors()))
 		l.Info(fmt.Sprintf("Columns=%d", l.GetColumns()))
@@ -27,8 +28,8 @@ to quickly create a Cobra application.`,
 		l.Banner("banner!", "This is a banner.")
 		l.Info(
 			"settings from "+viper.ConfigFileUsed(),
-			"upstream: "+viper.GetString("upstream"),
-			"repository: "+viper.GetString("repository"),
+			"upstream: "+repoConfig.Upstream,
+			"repository: "+repoConfig.Repository,
 			viper.GetString("git_path"))
 		lib.Runner().Run("/usr/bin/pwd")
 		lib.Runner().RunGit("version")

@@ -5,6 +5,7 @@ import (
 	"github.com/enfabrica/enkit/gee/lib"
 	"github.com/spf13/cobra"
 	"os"
+	"regexp"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
@@ -72,8 +73,6 @@ func init() {
 //         repo: enkit
 //     default_repo: internal
 func initConfig() {
-	viper.SetDefault("upstream", "")
-	viper.SetDefault("repository", "")
 	viper.SetDefault("git_path", "/usr/bin/git")
 	viper.SetDefault("gh_path", "/usr/bin/gh")
 	viper.SetDefault("jq_path", "/usr/bin/jq")
@@ -90,7 +89,6 @@ func initConfig() {
 	viper.SetConfigType("yaml")
 	if cfgFile != "" {
 		// Use config file from the flag.
-		fmt.Println("foo", cfgFile)
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
@@ -118,37 +116,5 @@ func initConfig() {
 			fmt.Println("Error parsing config file: ", err)
 			os.Exit(1)
 		}
-	}
-
-	// Override some flags:
-	// Use --select to choose a non-default repository to use.
-	flags := rootCmd.PersistentFlags()
-	selectRepo, _ := flags.GetString("select")
-	if selectRepo == "" {
-		selectRepo = viper.GetString("default_repo")
-	}
-	if selectRepo != "" {
-		if !viper.IsSet("repos." + selectRepo) {
-			fmt.Println("Error: repos." + selectRepo + " is not in your config file.")
-			os.Exit(1)
-		}
-		if upstream := viper.Get("repos." + selectRepo + ".upstream"); upstream != "" {
-			viper.Set("upstream", upstream)
-		}
-		if repository := viper.Get("repos." + selectRepo + ".repository"); repository != "" {
-			viper.Set("repository", repository)
-		}
-	} // selectRepo
-	if upstream, err := flags.GetString("upstream"); (err != nil) && (upstream != "") {
-		viper.Set("upstream", upstream)
-	}
-	if repository, err := flags.GetString("repository"); (err != nil) && (repository != "") {
-		viper.Set("repository", repository)
-	}
-	if viper.GetString("upstream") == "" {
-		lib.Logger().Fatal(`Error: "upstream" is not configured.`)
-	}
-	if viper.GetString("repository") == "" {
-		lib.Logger().Fatal(`Error: "repository" is not configured.`)
 	}
 }
