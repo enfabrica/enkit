@@ -1243,10 +1243,10 @@
   resolved "https://registry.yarnpkg.com/@bazel/labs/-/labs-4.4.5.tgz#ae4306124c481ba55254b5958ff947553332659e"
   integrity sha512-z8IOSPSWYQoXgEmxu+Bo45j5f0vNzVdeisXhcHQd2luWu7l8uGk+PaZ8C95Ezo9so9OtWjc1dZR12OlJq6rsWw==
 
-"@bazel/runfiles@3.5.1":
-  version "3.5.1"
-  resolved "https://registry.yarnpkg.com/@bazel/runfiles/-/runfiles-3.5.1.tgz#4322861334c3fb755ef8135e6464e871d0c8a2b6"
-  integrity sha512-SnfQB42h8mpRap50p8KpNQlGtdBKP1uekDTd5YiqneOEdKlzhOG00yRfjyuiWgOVeNgm4MnvBvE8kH/josOCTQ==
+"@bazel/runfiles@3.8.0":
+  version "3.8.0"
+  resolved "https://registry.yarnpkg.com/@bazel/runfiles/-/runfiles-3.8.0.tgz#b043732f1b422ec5b833d19a24fb7f2ebcb4902a"
+  integrity sha512-23pIqKMPcuXJvK9r/EWE+oy/V2pXSHITnlGj+HvPBfmnEJVKBW64M5YvLAJ2DY5bMF7SpGNJrxqK//GVCTJmdw==
 
 "@bazel/typescript@^4.4.5":
   version "4.4.5"
