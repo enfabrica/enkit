@@ -3,6 +3,7 @@ package lib
 import (
 	"bytes"
 	"fmt"
+	"github.com/spf13/viper"
 	"io"
 	"os"
 	"os/exec"
@@ -68,4 +69,14 @@ func (runner *singletonRunner) RunInDir(dir string, args ...string) *RunResult {
 // Execute a command in the current working directory.
 func (runner *singletonRunner) Run(args ...string) *RunResult {
 	return runner.RunInDir(runner.dir, args...)
+}
+
+func (runner *singletonRunner) RunGit(args ...string) *RunResult {
+	cmd := append([]string{viper.GetString("git_path")}, args...)
+	return runner.RunInDir(runner.dir, cmd...)
+}
+
+func (runner *singletonRunner) RunGh(args ...string) *RunResult {
+	cmd := append([]string{viper.GetString("gh_path")}, args...)
+	return runner.RunInDir(runner.dir, cmd...)
 }

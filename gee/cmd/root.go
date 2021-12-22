@@ -145,9 +145,9 @@ func initConfig() {
 		viper.Set("repository", repository)
 	}
 	if viper.GetString("upstream") == "" {
-		lib.GetLogger().Fatal(`Error: "upstream" is not configured.`)
+		lib.Logger().Fatal(`Error: "upstream" is not configured.`)
 	}
 	if viper.GetString("repository") == "" {
-		lib.GetLogger().Fatal(`Error: "repository" is not configured.`)
+		lib.Logger().Fatal(`Error: "repository" is not configured.`)
 	}
 }

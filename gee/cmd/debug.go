@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/enfabrica/enkit/gee/lib"
 
 	"github.com/spf13/cobra"
@@ -18,8 +19,9 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		l := lib.GetLogger()
-		l.DumpTermInfo()
+		l := lib.Logger()
+		l.Info(fmt.Sprintf("MaxColors=%d", l.GetMaxColors()))
+		l.Info(fmt.Sprintf("Columns=%d", l.GetColumns()))
 		l.Debug("debug")
 		l.Info("info")
 		l.Banner("banner!", "This is a banner.")
@@ -28,8 +30,8 @@ to quickly create a Cobra application.`,
 			"upstream: "+viper.GetString("upstream"),
 			"repository: "+viper.GetString("repository"),
 			viper.GetString("git_path"))
-    lib.Runner().Run("/usr/bin/ls", "/tmp")
-    lib.Runner().Run("/usr/bin/pwd")
+		lib.Runner().Run("/usr/bin/pwd")
+		lib.Runner().RunGit("version")
 	},
 }
 
