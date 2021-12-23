@@ -10,11 +10,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Flags:
+var (
+	flagAll bool
+)
+
 // initCmd represents the init command
 var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize a local gee repository.",
-	Long:  `Creates a new gee workspace in your ~/gee directory.`,
+	Use:     "init",
+	Short:   "Initialize a local gee repository.",
+	Long:    `Creates a new gee workspace in your ~/gee directory.`,
+	Example: `gee init --select internal`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("init called")
 		lib.InstallTools()
@@ -27,6 +33,8 @@ var initCmd = &cobra.Command{
 
 		lib.Logger().Infof("Initializing %q for %s/%s", repoConfig.GetRepoDir(),
 			repoConfig.Upstream, repoConfig.Repository)
+		lib.Runner().Run(lib.Cmd{}, "/usr/bin/mkdir", "-p", repoConfig.GetRepoDir())
+
 		origin_url := fmt.Sprintf("%s:%s/%s.git",
 			viper.GetString("git_ssh_username"),
 			viper.GetString("ghuser"),
@@ -71,14 +79,6 @@ var initCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// initCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// initCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	initCmd.Flags().BoolVarP(&flagAll, "all", "a", false,
+		"Initialize all repos in the configuration file.")
 }
