@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/enfabrica/enkit/gee/lib"
 	"github.com/spf13/cobra"
 	"os"
-	"regexp"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
