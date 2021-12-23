@@ -111,7 +111,11 @@ func (runner *singletonRunner) Run(a Cmd, args ...string) *RunResult {
 		}
 		cmd.Stdin = file
 	}
-	Logger().Command(cmd.Args...)
+	if a.VeryQuiet {
+		Logger().Debugf("%q", cmd.Args)
+	} else {
+		Logger().Command(cmd.Args...)
+	}
 	err := cmd.Run()
 	if err != nil {
 		Logger().Error(err.Error())

@@ -13,7 +13,7 @@ import (
 )
 
 func GetCurrentBranch() string {
-	result := Runner().RunGit(Cmd{Quiet: true}, "rev-parse", "--abbrev-ref", "HEAD")
+	result := Runner().RunGit(Cmd{VeryQuiet: true}, "rev-parse", "--abbrev-ref", "HEAD")
 	if err := result.CheckExitCode(); err != nil {
 		Logger().Fatalf("Error: %q", err)
 	}
@@ -150,7 +150,7 @@ func (repoConfig *RepoConfig) GetMainBranchNameFromGitHub() (string, error) {
 		viper.GetString("git_ssh_username"),
 		repoConfig.Upstream,
 		repoConfig.Repository)
-	result := Runner().RunGit(Cmd{CanFail: true}, "remote", "show", url)
+	result := Runner().RunGit(Cmd{CanFail: true, VeryQuiet: true}, "remote", "show", url)
 	if err := result.CheckExitCode(); err != nil {
 		return "", err
 	}
