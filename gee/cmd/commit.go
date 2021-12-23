@@ -8,20 +8,23 @@ import (
 )
 
 var (
-	flagAll     bool
 	flagMessage string
 )
 
 // commitCmd represents the commit command
 var commitCmd = &cobra.Command{
 	Use:   "commit",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "commit all changes in this branch.",
+	Long: `Usage: gee commit [-m message]
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Commits all outstanding changes (additions, changes, deletions) to your
+repository, and then backs up your work to your private github repository
+("origin").
+
+Example:
+
+    gee commit -m "Fixed BUILD file."
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("commit called")
 		lib.CheckInGeeRepo()
@@ -37,10 +40,7 @@ to quickly create a Cobra application.`,
 		}
 
 		lib.Runner().RunGit("add", "--all")
-		commit := []string{"commit"}
-		if flagAll {
-			commit = append(commit, "--all")
-		}
+		commit := []string{"commit", "--all"}
 		if flagMessage != "" {
 			commit = append(commit, "-m", flagMessage)
 		}
@@ -53,8 +53,6 @@ to quickly create a Cobra application.`,
 func init() {
 	rootCmd.AddCommand(commitCmd)
 
-	commitCmd.Flags().BoolVarP(&flagAll, "all", "a", false,
-		"Automatically stage files that have been modified or deleted.")
 	commitCmd.Flags().StringVarP(&flagMessage, "message", "m", "",
 		"Specify a commit message.")
 }
