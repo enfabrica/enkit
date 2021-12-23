@@ -71,6 +71,7 @@ func init() {
 //         repo: enkit
 //     default_repo: internal
 func initConfig() {
+	viper.SetDefault("gee_repo_dir", "~/gee")
 	viper.SetDefault("git_path", "/usr/bin/git")
 	viper.SetDefault("gh_path", "/usr/bin/gh")
 	viper.SetDefault("jq_path", "/usr/bin/jq")

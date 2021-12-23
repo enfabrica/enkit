@@ -18,16 +18,20 @@ var runner *singletonRunner = nil
 
 // The result of executing a subcommand.
 type RunResult struct {
-	command   []string
-	stdout    bytes.Buffer
-	stderr    bytes.Buffer
-	exit_code int
+	command  []string
+	Stdout   bytes.Buffer
+	Stderr   bytes.Buffer
+	ExitCode int
+}
+
+func (result *RunResult) Succeeded() bool {
+	return result.ExitCode == 0
 }
 
 // Raise an error on non-zero exit code.
 func (result *RunResult) CheckExitCode() error {
-	if result.exit_code != 0 {
-		return fmt.Errorf("Command failed (rc=%d): %q", result.exit_code, result.command)
+	if !result.Succeeded() {
+		return fmt.Errorf("Command failed (rc=%d): %q", result.ExitCode, result.command)
 	}
 	return nil
 }
@@ -35,8 +39,8 @@ func (result *RunResult) CheckExitCode() error {
 // Fail and terminate on non-zero exit code.
 // Example: result := Run(...).MustSucceed()
 func (result *RunResult) MustSucceed() *RunResult {
-	if result.exit_code != 0 {
-		Logger().Fatalf("Command failed (rc=%d): %q", result.exit_code, result.command)
+	if !result.Succeeded() {
+		Logger().Fatalf("Command failed (rc=%d): %q", result.ExitCode, result.command)
 	}
 	return result
 }
@@ -59,6 +63,10 @@ func Runner() *singletonRunner {
 		runner = newRunner()
 	}
 	return runner
+}
+
+func (runner *singletonRunner) ChDir(dir string) {
+	runner.dir = dir
 }
 
 // Cmd specifies a command to run.  Similar to exec.Cmd, but simpler
@@ -92,16 +100,16 @@ func (runner *singletonRunner) Run(a Cmd, args ...string) *RunResult {
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
 	} else if a.VeryQuiet {
-		cmd.Stdout = &result.stdout
-		cmd.Stderr = &result.stderr
+		cmd.Stdout = &result.Stdout
+		cmd.Stderr = &result.Stderr
 		cmd.Stdin = nil
 	} else if a.Quiet {
-		cmd.Stdout = &result.stdout
-		cmd.Stderr = io.MultiWriter(&result.stderr, os.Stderr)
+		cmd.Stdout = &result.Stdout
+		cmd.Stderr = io.MultiWriter(&result.Stderr, os.Stderr)
 		cmd.Stdin = nil
 	} else {
-		cmd.Stdout = io.MultiWriter(&result.stdout, os.Stdout)
-		cmd.Stderr = io.MultiWriter(&result.stderr, os.Stderr)
+		cmd.Stdout = io.MultiWriter(&result.Stdout, os.Stdout)
+		cmd.Stderr = io.MultiWriter(&result.Stderr, os.Stderr)
 		cmd.Stdin = nil
 	}
 	if a.FromFile != "" {
@@ -121,8 +129,8 @@ func (runner *singletonRunner) Run(a Cmd, args ...string) *RunResult {
 		Logger().Error(err.Error())
 		panic(err)
 	}
-	result.exit_code = cmd.ProcessState.ExitCode()
-	Logger().Debugf("Exited with exit_code=%d", result.exit_code)
+	result.ExitCode = cmd.ProcessState.ExitCode()
+	Logger().Debugf("Exited with ExitCode=%d", result.ExitCode)
 	if !a.CanFail {
 		result = result.MustSucceed()
 	}

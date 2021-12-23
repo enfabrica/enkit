@@ -3,7 +3,6 @@ package lib
 import (
 	"fmt"
 	"github.com/alessio/shellescape"
-	"github.com/spf13/viper"
 	"github.com/xo/terminfo"
 	"log"
 	"os"
@@ -57,12 +56,12 @@ func Logger() *singletonLogger {
 	return logger
 }
 
-func OpenFile(path string) error {
+func (logger *singletonLogger) OpenFile(path string) error {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}
-	logger.logFile = log.New(file, viper.GetString("upstream")+":"+viper.GetString("repository")+": ", log.Ldate|log.Ltime|log.Lshortfile)
+	logger.logFile = log.New(file, "", log.Ldate|log.Ltime|log.Lshortfile)
 	return nil
 }
 
@@ -127,14 +126,14 @@ func (logger *singletonLogger) Log(c ColorAttr, lines []string) {
 func (logger *singletonLogger) LogToFile(logtype string, lines []string) {
 	if logger.logFile != nil {
 		for _, line := range lines {
-			logger.logFile.Output(2, logtype+": "+line)
+			logger.logFile.Output(3, logtype+": "+line)
 		}
 	}
 }
 
 // Log a diagnostic message, to the log file if available.
 func (logger *singletonLogger) Debug(lines ...string) {
-	logger.LogToFile("DEBUG", lines)
+	logger.LogToFile("DBG", lines)
 	if logger.logFile == nil {
 		// write to terminal if logFile isn't available.
 		logger.Log(colorDebug, lines)
@@ -150,19 +149,19 @@ func (logger *singletonLogger) Command(args ...string) {
 
 // Log info messages.
 func (logger *singletonLogger) Info(lines ...string) {
-	logger.LogToFile("INFO", lines)
+	logger.LogToFile("INF", lines)
 	logger.Log(colorInfo, lines)
 }
 
 // Log warning messages.
 func (logger *singletonLogger) Warn(lines ...string) {
-	logger.LogToFile("WARN", lines)
+	logger.LogToFile("WRN", lines)
 	logger.Log(colorWarn, lines)
 }
 
 // Log error messages.
 func (logger *singletonLogger) Error(lines ...string) {
-	logger.LogToFile("ERROR", lines)
+	logger.LogToFile("ERR", lines)
 	logger.Log(colorError, lines)
 }
 
@@ -175,7 +174,7 @@ func (logger *singletonLogger) Fatal(lines ...string) {
 
 // Create a banner log message.
 func (logger *singletonLogger) Banner(lines ...string) {
-	logger.LogToFile("BANNER", lines)
+	logger.LogToFile("INF", lines)
 	columns := logger.columns
 	logger.printColorAttr(colorBanner)
 	os.Stderr.WriteString(strings.Repeat("#", columns-1) + "\n")
@@ -189,9 +188,15 @@ func (logger *singletonLogger) Banner(lines ...string) {
 }
 
 // Log a formatted diagnostic message, to the log file if available.
+func (logger *singletonLogger) Tracef(format string, a ...interface{}) {
+	message := fmt.Sprintf(format, a...)
+	logger.LogToFile("DBG", []string{message})
+}
+
+// Log a formatted diagnostic message, to the log file if available.
 func (logger *singletonLogger) Debugf(format string, a ...interface{}) {
 	message := fmt.Sprintf(format, a...)
-	logger.LogToFile("DEBUG", []string{message})
+	logger.LogToFile("DBG", []string{message})
 	if logger.logFile == nil {
 		// write to terminal if logFile isn't available.
 		logger.Log(colorDebug, []string{message})
@@ -201,21 +206,21 @@ func (logger *singletonLogger) Debugf(format string, a ...interface{}) {
 // Log a formatted info message.
 func (logger *singletonLogger) Infof(format string, a ...interface{}) {
 	message := fmt.Sprintf(format, a...)
-	logger.LogToFile("INFO", []string{message})
+	logger.LogToFile("INF", []string{message})
 	logger.Log(colorInfo, []string{message})
 }
 
 // Log a formatted warning message.
 func (logger *singletonLogger) Warnf(format string, a ...interface{}) {
 	message := fmt.Sprintf(format, a...)
-	logger.LogToFile("WARN", []string{message})
+	logger.LogToFile("WRN", []string{message})
 	logger.Log(colorWarn, []string{message})
 }
 
 // Log a formatted error message.
 func (logger *singletonLogger) Errorf(format string, a ...interface{}) {
 	message := fmt.Sprintf(format, a...)
-	logger.LogToFile("ERROR", []string{message})
+	logger.LogToFile("ERR", []string{message})
 	logger.Log(colorError, []string{message})
 }
 
@@ -230,7 +235,7 @@ func (logger *singletonLogger) Fatalf(format string, a ...interface{}) {
 // Create a banner log message.
 func (logger *singletonLogger) Bannerf(format string, a ...interface{}) {
 	message := fmt.Sprintf(format, a...)
-	logger.LogToFile("BANNER", []string{message})
+	logger.LogToFile("INF", []string{message})
 	columns := logger.columns
 	logger.printColorAttr(colorBanner)
 	os.Stderr.WriteString(strings.Repeat("#", columns-1) + "\n")

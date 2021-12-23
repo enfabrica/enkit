@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/enfabrica/enkit/gee/lib"
 	"github.com/spf13/cobra"
 )
@@ -18,14 +16,9 @@ var commitCmd = &cobra.Command{
 	Short:   "Commit all changes in this branch.",
 	Long: `Commits all outstanding changes (additions, changes, deletions) to your
 repository, and then backs up your work to your private github repository
-("origin").
-
-Example:
-
-    gee commit -m "Fixed BUILD file."
-`,
+("origin").`,
+	Example: `gee commit -m "Fixed BUILD file."`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("commit called")
 		lib.CheckInGeeRepo()
 		repoConfig := lib.NewRepoConfig(cmd.Flags())
 		main_branch := repoConfig.GetMainBranch()

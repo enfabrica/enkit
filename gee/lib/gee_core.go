@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	os_user "os/user"
+	"path/filepath"
 	"regexp"
 	"strings"
 
-	homedir "github.com/mitchellh/go-homedir"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -17,7 +18,7 @@ func GetCurrentBranch() string {
 	if err := result.CheckExitCode(); err != nil {
 		Logger().Fatalf("Error: %q", err)
 	}
-	return strings.TrimSpace(result.stdout.String())
+	return strings.TrimSpace(result.Stdout.String())
 }
 
 // CheckInGeeRepo verifies that we're in a gee-controlled directory,
@@ -31,6 +32,13 @@ func CheckInGeeRepo() {
 	if !re.MatchString(path) {
 		Logger().Fatalf("Not a gee directory: %q", path)
 	}
+}
+
+func RepoExists(upstream string, repo string) bool {
+	result := Runner().RunGh(
+		Cmd{CanFail: true, VeryQuiet: true},
+		"repo", "view", fmt.Sprintf("%s/%s", upstream, repo))
+	return result.Succeeded()
 }
 
 // Most configuration information is in viper, but the selection of the
@@ -98,11 +106,12 @@ func NewRepoConfig(flags *flag.FlagSet) *RepoConfig {
 
 // Return the absolute path to the current repository directory (not branch).
 func (repoConfig *RepoConfig) GetRepoDir() string {
-	home, err := homedir.Dir()
-	if err != nil {
-		Logger().Fatalf("Could not determine home directory: %q", err)
+	gee_repo_dir := viper.GetString("gee_repo_dir")
+	if strings.HasPrefix(gee_repo_dir, "~/") {
+		user, _ := os_user.Current()
+		gee_repo_dir = filepath.Join(user.HomeDir, gee_repo_dir[2:])
 	}
-	return fmt.Sprintf("%s/%s/%s", home, repoConfig.Upstream, repoConfig.Repository)
+	return filepath.Join(gee_repo_dir, repoConfig.Upstream, repoConfig.Repository)
 }
 
 // DirectoryExists returns true if a path exists and is a directory.
@@ -156,12 +165,29 @@ func (repoConfig *RepoConfig) GetMainBranchNameFromGitHub() (string, error) {
 	}
 
 	re_head_branch := regexp.MustCompile(`HEAD branch: (\S+)`)
-	scanner := bufio.NewScanner(&result.stdout)
+	scanner := bufio.NewScanner(&result.Stdout)
 	for scanner.Scan() {
 		mo := re_head_branch.FindSubmatch(scanner.Bytes())
 		if mo != nil {
 			return string(mo[1]), nil
 		}
 	}
-	return "", fmt.Errorf("Unparseable output from %q: %q", result.command, result.stdout)
+	return "", fmt.Errorf("Unparseable output from %q: %q", result.command, result.Stdout)
+}
+
+func InstallTools() {
+	// TODO
+}
+
+func CheckSsh() bool {
+	// TODO
+	return true
+}
+
+func SshEnroll() {
+	// TODO
+}
+
+func CheckGhAuth() {
+	// TODO
 }
