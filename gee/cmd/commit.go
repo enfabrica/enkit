@@ -13,11 +13,10 @@ var (
 
 // commitCmd represents the commit command
 var commitCmd = &cobra.Command{
-	Use:   "commit",
-	Short: "commit all changes in this branch.",
-	Long: `Usage: gee commit [-m message]
-
-Commits all outstanding changes (additions, changes, deletions) to your
+	Use:     "commit [-m message]",
+	Aliases: []string{"c", "co"},
+	Short:   "Commit all changes in this branch.",
+	Long: `Commits all outstanding changes (additions, changes, deletions) to your
 repository, and then backs up your work to your private github repository
 ("origin").
 
