@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"regexp"
@@ -116,10 +117,31 @@ func (repoConfig *RepoConfig) GetMainBranch() string {
 		return repoConfig.MainBranch
 	}
 	// Ask github
-	if br, err := GetMainBranchNameFromGitHub(); err != nil {
+	if br, err := repoConfig.GetMainBranchNameFromGitHub(); err != nil {
 		Logger().Fatalf("Could not determine main branch: %q", err)
 	} else {
 		repoConfig.MainBranch = br
 	}
 	return repoConfig.MainBranch
+}
+
+func (repoConfig *RepoConfig) GetMainBranchNameFromGitHub() (string, error) {
+	url := fmt.Sprintf("%s:%s/%s.git",
+		viper.GetString("git_ssh_username"),
+		repoConfig.Upstream,
+		repoConfig.Repository)
+	result := Runner().RunGit("remote", "show", url)
+	if err := result.CheckExitCode(); err != nil {
+		return "", err
+	}
+
+	re_head_branch := regexp.MustCompile(`HEAD branch: (\S+)`)
+	scanner := bufio.NewScanner(&result.stdout)
+	for scanner.Scan() {
+		mo := re_head_branch.FindSubmatch(scanner.Bytes())
+		if mo != nil {
+			return string(mo[1]), nil
+		}
+	}
+	return "", fmt.Errorf("Unparseable output from %q: %q", result.command, result.stdout)
 }
