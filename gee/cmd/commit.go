@@ -25,13 +25,9 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("commit called")
 		lib.CheckInGeeRepo()
-		fmt.Println("a")
 		repoConfig := lib.NewRepoConfig(cmd.Flags())
-		fmt.Println("b")
 		main_branch := repoConfig.GetMainBranch()
-		fmt.Println("c")
 		current_branch := lib.GetCurrentBranch()
-		fmt.Println("d")
 		if current_branch == main_branch {
 			lib.Logger().Info(
 				"gee's workflow doesn't let you make commits to the master branch.",
