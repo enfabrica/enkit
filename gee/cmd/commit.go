@@ -3,7 +3,13 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/enfabrica/enkit/gee/lib"
 	"github.com/spf13/cobra"
+)
+
+var (
+	flagAll     bool
+	flagMessage string
 )
 
 // commitCmd represents the commit command
@@ -18,19 +24,41 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("commit called")
+		lib.CheckInGeeRepo()
+		fmt.Println("a")
+		repoConfig := lib.NewRepoConfig(cmd.Flags())
+		fmt.Println("b")
+		main_branch := repoConfig.GetMainBranch()
+		fmt.Println("c")
+		current_branch := lib.GetCurrentBranch()
+		fmt.Println("d")
+		if current_branch == main_branch {
+			lib.Logger().Info(
+				"gee's workflow doesn't let you make commits to the master branch.",
+				"You should move your changes to another branch.  For example:",
+				"  git add -a; git stash; gcd -b new1; git stash apply")
+			lib.Logger().Fatalf("Commit to %q branch denied.", main_branch)
+		}
+
+		lib.Runner().RunGit("add", "--all")
+		commit := []string{"commit"}
+		if flagAll {
+			commit = append(commit, "--all")
+		}
+		if flagMessage != "" {
+			commit = append(commit, "-m", flagMessage)
+		}
+		commit = append(commit, args...)
+		lib.Runner().RunGit(commit...)
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(commitCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// commitCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// commitCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	commitCmd.Flags().BoolVarP(&flagAll, "all", "a", false,
+		"Automatically stage files that have been modified or deleted.")
+	commitCmd.Flags().StringVarP(&flagMessage, "message", "m", "",
+		"Specify a commit message.")
 }

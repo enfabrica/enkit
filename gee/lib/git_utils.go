@@ -5,7 +5,16 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	"regexp"
+	"strings"
 )
+
+func GetCurrentBranch() string {
+	result := Runner().RunGit("rev-parse", "--abbrev-ref", "HEAD")
+	if err := result.CheckExitCode(); err != nil {
+		Logger().Fatalf("Error: %q", err)
+	}
+	return strings.TrimSpace(result.stdout.String())
+}
 
 func GetMainBranchNameFromGitHub() (string, error) {
 	url := fmt.Sprintf("%s:%s/%s.git",
