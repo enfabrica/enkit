@@ -12,7 +12,7 @@ test "$?" == 125 || {
   fail "--help should return error status 125"
 }
 
-uid=$($ft -- sh -c 'echo $UID')
+uid=$($ft -- sh -c 'echo $(id -u)')
 test "$?" == 0 || {
   fail "simple shell command failed"
 }
@@ -20,7 +20,7 @@ test "$uid" == "$UID" || {
   fail "uid does not match expected uid - $uid"
 }
 
-uid=$($ft --root -- sh -c 'echo $UID')
+uid=$($ft --root -- sh -c 'echo $(id -u)')
 test "$?" == 0 || {
   fail "starting as root failed"
 }
