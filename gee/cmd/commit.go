@@ -39,14 +39,13 @@ Example:
 			lib.Logger().Fatalf("Commit to %q branch denied.", main_branch)
 		}
 
-		lib.Runner().RunGit("add", "--all")
+		lib.Runner().RunGit(lib.Cmd{}, "add", "--all")
 		commit := []string{"commit", "--all"}
 		if flagMessage != "" {
 			commit = append(commit, "-m", flagMessage)
 		}
 		commit = append(commit, args...)
-		lib.Runner().RunGit(commit...)
-
+		lib.Runner().RunGit(lib.Cmd{}, commit...)
 	},
 }
 

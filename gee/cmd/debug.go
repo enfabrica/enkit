@@ -31,8 +31,8 @@ to quickly create a Cobra application.`,
 			"upstream: "+repoConfig.Upstream,
 			"repository: "+repoConfig.Repository,
 			viper.GetString("git_path"))
-		lib.Runner().Run("/usr/bin/pwd")
-		lib.Runner().RunGit("version")
+		lib.Runner().Run(lib.Cmd{}, "/usr/bin/pwd")
+		lib.Runner().RunGit(lib.Cmd{}, "version")
 	},
 }
 

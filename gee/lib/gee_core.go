@@ -5,11 +5,20 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	homedir "github.com/mitchellh/go-homedir"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
+
+func GetCurrentBranch() string {
+	result := Runner().RunGit(Cmd{Quiet: true}, "rev-parse", "--abbrev-ref", "HEAD")
+	if err := result.CheckExitCode(); err != nil {
+		Logger().Fatalf("Error: %q", err)
+	}
+	return strings.TrimSpace(result.stdout.String())
+}
 
 // CheckInGeeRepo verifies that we're in a gee-controlled directory,
 // or exits.
@@ -141,7 +150,7 @@ func (repoConfig *RepoConfig) GetMainBranchNameFromGitHub() (string, error) {
 		viper.GetString("git_ssh_username"),
 		repoConfig.Upstream,
 		repoConfig.Repository)
-	result := Runner().RunGit("remote", "show", url)
+	result := Runner().RunGit(Cmd{CanFail: true}, "remote", "show", url)
 	if err := result.CheckExitCode(); err != nil {
 		return "", err
 	}
