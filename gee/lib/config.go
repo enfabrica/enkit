@@ -25,10 +25,10 @@ func CheckInGeeRepo() {
 // Most configuration information is in viper, but the selection of the
 // specific repository we're working with is a bit special:
 type RepoConfig struct {
-	Select     string
-	Upstream   string
-	Repository string
-	MainBranch string
+	Select     string // which repo block from the configuration file
+	Upstream   string // the selected repository owner
+	Repository string // the selected repository
+	MainBranch string // the name of the main (master?) branch
 }
 
 // NewRepoConfig determines upstream/repository settings based on the user's
