@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+// CheckInGeeRepo verifies that we're in a gee-controlled directory,
+// or exits.
 func CheckInGeeRepo() {
 	path, err := os.Getwd()
 	if err != nil {
@@ -85,6 +87,7 @@ func NewRepoConfig(flags *flag.FlagSet) *RepoConfig {
 	return config
 }
 
+// Return the absolute path to the current repository directory (not branch).
 func (repoConfig *RepoConfig) GetRepoDir() string {
 	home, err := homedir.Dir()
 	if err != nil {
@@ -93,6 +96,7 @@ func (repoConfig *RepoConfig) GetRepoDir() string {
 	return fmt.Sprintf("%s/%s/%s", home, repoConfig.Upstream, repoConfig.Repository)
 }
 
+// DirectoryExists returns true if a path exists and is a directory.
 func DirectoryExists(path string) bool {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -101,6 +105,8 @@ func DirectoryExists(path string) bool {
 	return fi.IsDir()
 }
 
+// GetMainBranch determines the name of the main branch for this repository
+// (usually main or master).
 func (repoConfig *RepoConfig) GetMainBranch() string {
 	// Return cached value:
 	if repoConfig.MainBranch != "" {
@@ -118,13 +124,18 @@ func (repoConfig *RepoConfig) GetMainBranch() string {
 	}
 	// Ask github
 	if br, err := repoConfig.GetMainBranchNameFromGitHub(); err != nil {
-		Logger().Fatalf("Could not determine main branch: %q", err)
+		// Give up and assume "main"
+		Logger().Debugf("Could not determine main branch: %q", err)
+		return "main"
 	} else {
 		repoConfig.MainBranch = br
 	}
 	return repoConfig.MainBranch
 }
 
+// GetMainBranchNameFromGitHub attempts to inspect the upstream
+// repository on github to determine what name of main branch
+// (usually main or master).
 func (repoConfig *RepoConfig) GetMainBranchNameFromGitHub() (string, error) {
 	url := fmt.Sprintf("%s:%s/%s.git",
 		viper.GetString("git_ssh_username"),
