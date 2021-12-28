@@ -134,6 +134,10 @@ func HangingHandler(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(24 * 365 * time.Hour)
 }
 
+// StartURL starts an http server listening on a random port.
+//
+// Uses the supplied http.Handler to serve pages, returns the
+// full URL it is listening on.
 func StartURL(s http.Handler) (*url.URL, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -149,6 +153,7 @@ func StartURL(s http.Handler) (*url.URL, error) {
 	}, nil
 }
 
+// Start is just like StartURL, but returns a string instead of an URL object.
 func Start(s http.Handler) (string, error) {
 	u, err := StartURL(s)
 	if err != nil {
@@ -157,6 +162,7 @@ func Start(s http.Handler) (string, error) {
 	return u.String(), err
 }
 
+// StartServerURL is like StartURL, except it creates and returns a new mux.
 func StartServerURL(h Handler) (*http.ServeMux, *url.URL, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", h)
@@ -164,6 +170,7 @@ func StartServerURL(h Handler) (*http.ServeMux, *url.URL, error) {
 	return mux, res, err
 }
 
+// StartServer is just like Start, excepts it creates and returns a new mux.
 func StartServer(h Handler) (*http.ServeMux, string, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", h)

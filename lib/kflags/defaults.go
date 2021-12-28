@@ -18,8 +18,14 @@ type Flag interface {
 	SetContent(string, []byte) error
 }
 
-// GoFlagSet wraps a flag.FloagSet from the go standard library and completes the
+// GoFlagSet wraps a flag.FlagSet from the go standard library and completes the
 // implementation of the FlagSet interface in this module.
+//
+// For example, to use the default "flag" library FlagSet:
+//
+//     var set kflags.FlagSet
+//     set = &kflags.GoFlagSet{FlagSet: flag.CommandLine}
+//
 type GoFlagSet struct {
 	*flag.FlagSet
 }

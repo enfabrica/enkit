@@ -96,6 +96,43 @@ var ErrorLoops = errors.New("You have been redirected back to this url - but you
 	"something wrong in your cookies, or your setup")
 var ErrorCannotAuthenticate = errors.New("Who are you? Sorry, you have no authentication cookie, and there is no authentication service configured")
 
+// Authenticate parses the request received to authenticate the user.
+//
+// Typically, the Authenticate() function will check if the request contains a valid
+// cookie, some authentication header, or parameters passed in the URL. If everything
+// goes well, it returns a CredentialsCookie. Otherwise, it will either start the
+// authentication process (nil error is returned), or returns an error.
+//
+// There are thus 3 possible combinations of return values:
+// - A non-nil CredentialsCookie, and a nil error - meaning that the request was
+//   successfully authenticated. The CredentialsCookie contains details of the
+//   user.
+// - A nil CredentialsCookie, and a non-nil error - meaning that the request
+//   was not authenticated, and that it was not possible to kickstart the
+//   authentication process. The error is generally non-recoverable.
+// - A nil CredentialsCookie, and a nil error - meaning that the request was
+//   not authenticated, but that the authentication process was kickstarted.
+//
+//   In this case, the caller should consider the request already handled,
+//   and just return. The Authenticate function either performed a redirect,
+//   or otherwise took care of the next step (by, for example, setting a
+//   cookie or displaying an error page).
+//
+// An Authenticate function should always do its best to try to authenticate
+// the user, no matter what the request contains. An invalid or expired cookie
+// or invalid headers should not result in an error returned. Instead, the
+// function should attempt to re-authenticate the user.
+//
+// An Authenticate function should return an error only if there is some
+// unrecoverable condition. For example, a server configuration error, an error
+// in a crypto function, or a database error.
+//
+// Parameters are:
+// - An http.ResponseWriter, used to perform redirects, or otherwise add cookies
+//   or headers.
+// - An http.Request, parsed to look for credentials.
+// - A redirect url, a page to send the user back to in case authentication
+//   is required, and the user has to be sent to a different page.
 type Authenticate func(w http.ResponseWriter, r *http.Request, rurl *url.URL) (*CredentialsCookie, error)
 
 func CreateRedirectURL(r *http.Request) *url.URL {

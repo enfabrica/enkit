@@ -108,7 +108,7 @@ func Get(url string, handler ResponseHandler, mod ...Modifier) error {
 	return Do(http.MethodGet, url, handler, mod...)
 }
 
-// Get will perform a POST request to retrieve the specified url by invoking the Do method.
+// Post will perform a POST request to retrieve the specified url by invoking the Do method.
 func Post(url string, handler ResponseHandler, mod ...Modifier) error {
 	return Do(http.MethodPost, url, handler, mod...)
 }
