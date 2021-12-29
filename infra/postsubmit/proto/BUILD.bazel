@@ -8,6 +8,6 @@ proto_library(
 
 go_proto_library(
     name = "postsubmit_go_proto",
-    importpath = "github.com/enfabrica/internal/infra/postsubmit/proto",
+    importpath = "github.com/enfabrica/enkit/infra/postsubmit/proto",
     proto = ":postsubmit_proto",
 )
