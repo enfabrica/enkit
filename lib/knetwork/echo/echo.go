@@ -9,6 +9,8 @@
 //
 // This is most useful for testing code that requires a TCP endpoint on
 // the other end.
+//
+// +build !release
 package echo
 
 import (
