@@ -23,10 +23,13 @@ type Flags struct {
 	Cache string
 }
 
+const DefaultPort = 9999
+var DefaultCache = configdir.LocalCache("enkit-certs")
+
 func DefaultFlags() *Flags {
 	return &Flags{
-		HttpPort: 9999,
-		Cache:    configdir.LocalCache("enkit-certs"),
+		HttpPort: DefaultPort,
+		Cache: DefaultCache,
 	}
 }
 
@@ -45,6 +48,13 @@ type Server struct {
 	HttpAddress  string
 	HttpsAddress string
 	CacheDir     string
+}
+
+func DefaultServer() *Server {
+	return &Server{
+		HttpAddress: fmt.Sprintf(":%d", DefaultPort),
+		CacheDir:    DefaultCache,
+	}
 }
 
 func FromFlags(flags *Flags) (*Server, error) {
