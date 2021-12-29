@@ -70,7 +70,7 @@ go_image(
     name = "enproxy-image",
     base = ":enproxy-base",
     binary = ":enproxy",
-    visibility = ["//visibility:public"],
+    visibility = ["//visibility:private"],
 )
 
 # To release a new version of enproxy, run:
