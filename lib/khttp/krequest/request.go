@@ -70,6 +70,17 @@ func SetHeader(key, value string) Modifier {
 	}
 }
 
+// SetHost overrides the host header in the request.
+//
+// This is useful, for example, when the name to lookup in DNS is
+// different than the name the server is expecting to receive.
+func SetHost(host string) Modifier {
+	return func(r *http.Request) error {
+		r.Host = host
+		return nil
+	}
+}
+
 // SetRawHeaders sets a set of values for a specific header, with no canonicalization.
 //
 // This is the same as SetHeader, except that the name of the header is not
