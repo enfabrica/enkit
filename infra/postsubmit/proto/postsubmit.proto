@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package infra.postsubmit;
+
+message Build {
+  // Name of this build. Needs to be unique among all builds, and should match
+  // the regex `[a-z][a-z_]+`.
+  string name = 1;
+
+  // Repository that this postsubmit builds code from. Should be one of:
+  // * `enfabrica/enkit`
+  // * `enfabrica/internal`
+  string repository = 2;
+
+  oneof trigger {
+    // Interval on which to run the build. This is a normal cron schedule
+    // expression (https://crontab.guru/), except that the minutes fields can
+    // (and should) be a `?` rather than fixed; this will be translated into a
+    // stable value based on the name of this build, which allows builds to not
+    // all hammer infrastructure by starting e.g. every hour on the hour.
+    string cron = 3;
+  }
+
+  // Bazel target patterns to include in the build.
+  repeated string include_patterns = 4;
+
+  // Bazel targets to exclude from the build; should be a subset of
+  // include_patterns.
+  repeated string exclude_patterns = 5;
+
+  // Tags to exclude from the build; build will not build targets that:
+  // * are tagged with at least one of the specified tags
+  // * depend on a target tagged with at least one of the specified tags
+  // The build will also not run tests tagged with at least one of the specified
+  // tags.
+  repeated string exclude_tags = 6;
+
+  // List of emails to get notifications when the build fails. Ideally this is a
+  // Google group email (create a group for the relevant dev team, if it does
+  // not exist) to record failures as well as any follow-up more publicly.
+  repeated string notification_emails = 7;
+}
