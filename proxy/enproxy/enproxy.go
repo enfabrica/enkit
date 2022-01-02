@@ -248,8 +248,11 @@ func WithLogging(logger logger.Logger) Modifier {
 func FromFlags(flags *Flags) Modifier {
 	return func(op *Options) error {
 		var config Config
+		if len(flags.ConfigContent) <= 0 {
+			return kflags.NewUsageErrorf("Config file is empty, or no config file specified. Check the --config flag.")
+		}
 		if err := marshal.UnmarshalDefault(flags.ConfigName, flags.ConfigContent, marshal.Json, &config); err != nil {
-			return kflags.NewUsageError(err)
+			return kflags.NewUsageErrorf("Invalid configuration file '%s': %w", flags.ConfigName, err)
 		}
 
 		if flags.Oauth.AuthURL != "" && !flags.DisabledAuthentication {
