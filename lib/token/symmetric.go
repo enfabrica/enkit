@@ -18,6 +18,10 @@ type SymmetricEncoder struct {
 
 type SymmetricSetter func(*SymmetricEncoder) error
 
+// UseSymmetricKey uses a key supplied as an array of bytes.
+//
+// The key can be any array of bytes long enough for the block cipher
+// selected. Use GenerateSymmetricKey to create one.
 func UseSymmetricKey(key []byte) SymmetricSetter {
 	return func(be *SymmetricEncoder) error {
 		be.key = key
@@ -25,6 +29,11 @@ func UseSymmetricKey(key []byte) SymmetricSetter {
 	}
 }
 
+// GenerateSymmetricKey generates a new symmetric key.
+//
+// size is the size of the key to generate in bits. If 0, defaults to 256.
+// The only valid values are those accepted by the underlying AES cipher:
+// 128, 192 or 256.
 func GenerateSymmetricKey(rng *rand.Rand, size int) ([]byte, error) {
 	if size == 0 {
 		size = 256
@@ -46,6 +55,9 @@ func GenerateSymmetricKey(rng *rand.Rand, size int) ([]byte, error) {
 }
 
 // Creates a new random key and stores it in settings, or return error.
+//
+// size represents the key size in bits. If size is 0, uses a default key size
+// of 256 bits.
 func WithGeneratedSymmetricKey(size int) SymmetricSetter {
 	return func(be *SymmetricEncoder) error {
 		key, err := GenerateSymmetricKey(be.rng, size)
@@ -58,6 +70,13 @@ func WithGeneratedSymmetricKey(size int) SymmetricSetter {
 
 // Reads a key from a file, or creates a new one and stores it in a file.
 // Returns error if it can't succeed in generating or storing a new key.
+//
+// size is the size in bits of the desired key. If left to 0, defaults to
+// 256 bits.
+//
+// The generated (or read) file is just the raw content of the key. For
+// example, for a key of 256 bits, it will generate a file of exactly
+// 32 bytes, containing the binary encoded key.
 func ReadOrGenerateSymmetricKey(path string, size int) SymmetricSetter {
 	if size == 0 {
 		size = 256
@@ -83,6 +102,24 @@ func ReadOrGenerateSymmetricKey(path string, size int) SymmetricSetter {
 	}
 }
 
+// NewSymmetricEncoder creates a new encoder using AES in GCM mode as a symmetric cipher.
+//
+// A typical way to use the encoder would be:
+//
+//    rng := rand.New(srand.Source)  // using github.com/enkit/lib/srand library.
+//    ...
+//    be, err := NewSymmetricEncoder(rng, ReadOrGenerateSymmetricKey("/etc/keys/connect.key", 0))
+//    if err != nil ...
+//
+// Or:
+//
+//    key, err := GenerateSymmetricKey(rng, 0)
+//    if err != nil ...
+//
+//    be, err := NewSymmetricEncoder(rng, UseSymmetricKey(key))
+//    ...
+//
+// followed by calls to Encode() and Decode().
 func NewSymmetricEncoder(rng *rand.Rand, setters ...SymmetricSetter) (*SymmetricEncoder, error) {
 	be := &SymmetricEncoder{rng: rng}
 	for _, setter := range setters {
@@ -106,6 +143,22 @@ func NewSymmetricEncoder(rng *rand.Rand, setters ...SymmetricSetter) (*Symmetric
 	}
 
 	return be, nil
+}
+
+// SymmetricCreator is a CryptoFactory suitable for use with NewMultiKeyCryptoEncoder().
+var SymmetricCreator CryptoFactory = func(rng *rand.Rand, key []byte) (BinaryEncoder, []byte, error) {
+	if key != nil {
+		be, err := NewSymmetricEncoder(rng, UseSymmetricKey(key))
+		return be, key, err
+	}
+
+	key, err := GenerateSymmetricKey(rng, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	be, err := NewSymmetricEncoder(rng, UseSymmetricKey(key))
+	return be, key, err
 }
 
 func (t *SymmetricEncoder) Encode(data []byte) ([]byte, error) {

@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "asymmetric.go",
+        "multi.go",
         "symmetric.go",
         "time.go",
         "token.go",
@@ -11,6 +12,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/token",
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/multierror:go_default_library",
         "@org_golang_x_crypto//nacl/box:go_default_library",
         "@org_golang_x_crypto//nacl/sign:go_default_library",
     ],
@@ -20,6 +22,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "asymmetric_test.go",
+        "multi_test.go",
         "symmetric_test.go",
         "time_test.go",
         "token_test.go",
