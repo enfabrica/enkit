@@ -1,0 +1,26 @@
+build:
+  options:
+    machineType: E2_HIGHCPU_8
+  steps:
+  - args:
+    - build
+    - //...
+    entrypoint: /usr/bin/bazelisk
+    env:
+    - BAZEL_PROFILE=cloudbuild
+    name: gcr.io/devops-284019/developer:stable
+  - args:
+    - test
+    - //...
+    entrypoint: /usr/bin/bazelisk
+    env:
+    - BAZEL_PROFILE=cloudbuild
+    name: gcr.io/devops-284019/developer:stable
+  timeout: 1200s
+createTime: '2021-12-22T17:00:24.852472140Z'
+id: 1b99a715-4526-4a8a-9667-e47f104e8f7d
+name: enkit-bazel-postsubmit
+sourceToBuild:
+  ref: refs/heads/master
+  repoType: GITHUB
+  uri: https://github.com/enfabrica/enkit
