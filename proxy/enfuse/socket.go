@@ -72,7 +72,6 @@ type WebsocketTCPShim struct {
 	l logger.Logger
 }
 
-// handleWrites will handle all writes from webConn to netConn. It reads the content of the payload based on
 func (w *WebsocketTCPShim) handleWrites() {
 	for {
 		_, data, err := w.webConn.ReadMessage()

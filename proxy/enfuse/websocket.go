@@ -60,7 +60,7 @@ func (scp *WebsocketPool) Fetch(m []byte) *WebsocketLocker {
 	return nil
 }
 
-func (scp *WebsocketPool) WriteWebsocketServer(msgType int, data []byte, conn *websocket.Conn) error {
+func (scp *WebsocketPool) WriteWebsocketServer(msgType int, data []byte, conn *WebsocketLocker) error {
 	scp.mu.Lock()
 	defer scp.mu.Unlock()
 	if scp.srvWebsocket == nil {
@@ -68,7 +68,7 @@ func (scp *WebsocketPool) WriteWebsocketServer(msgType int, data []byte, conn *w
 	}
 	uid := data[:scp.prefixLen]
 	if scp.Fetch(uid) == nil {
-		scp.websocketMap[string(uid)] = NewWebsocketLock(conn)
+		scp.websocketMap[string(uid)] = conn
 	}
 	return scp.srvWebsocket.WriteMessage(msgType, data)
 }

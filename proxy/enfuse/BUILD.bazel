@@ -41,6 +41,7 @@ go_test(
         "//lib/knetwork:go_default_library",
         "//lib/srand:go_default_library",
         "//proxy/enfuse/rpc:go_default_library",
+        "//proxy/enfuse/testserver:go_default_library",
         "@com_github_gorilla_websocket//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
         "@org_bazil_fuse//fs/fstestutil:go_default_library",
