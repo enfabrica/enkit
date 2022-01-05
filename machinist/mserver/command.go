@@ -33,9 +33,12 @@ func NewCommand(bf *client.BaseFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			mController, err := NewController(
+				WithStateFile(cpf.StateFile),
 				WithKDnsFlags(
 					kdns.WithTCPListener(dnsListener),
+					kdns.WithPort(cpf.DnsPort),
 					kdns.WithDomains(cpf.Domains),
 				),
 			)
@@ -61,6 +64,6 @@ func NewCommand(bf *client.BaseFlags) *cobra.Command {
 	c.PersistentFlags().IntVar(&cpf.DnsPort, "dns-port", 5353, "the udp port that the dns will be served on, also note it will also allocate the tcp socket on it as well")
 	c.PersistentFlags().StringSliceVar(&cpf.Domains, "domains", []string{}, "domains that the master ControlPlane will be serving")
 	c.PersistentFlags().StringVar(&cpf.BindNet, "bind-net", "127.0.0.1", "the address to bind the grpc listener to")
-	c.PersistentFlags().StringVar(&cpf.StateFile, "state", "./state.json", "file to write and load state to")
+	c.PersistentFlags().StringVar(&cpf.StateFile, "state", "", "file to write and load state to")
 	return c
 }

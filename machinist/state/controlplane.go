@@ -1,7 +1,6 @@
 package state
 
 import (
-	"fmt"
 	"github.com/enfabrica/enkit/lib/config/marshal"
 	"net"
 	"os"
@@ -23,12 +22,16 @@ type MachineController struct {
 func AddMachine(mc *MachineController, m *Machine) error {
 	mc.Lock()
 	defer mc.Unlock()
-	for _, mm := range mc.Machines {
-		if mm.Name == m.Name {
-			return fmt.Errorf("machinist: named machine %s already exists", m.Name)
+	modifiedInPlace := false
+	for i := range mc.Machines {
+		if mc.Machines[i].Name == m.Name {
+			mc.Machines[i] = m
+			modifiedInPlace = true
 		}
 	}
-	mc.Machines = append(mc.Machines, m)
+	if !modifiedInPlace {
+		mc.Machines = append(mc.Machines, m)
+	}
 	return nil
 }
 

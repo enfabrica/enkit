@@ -8,7 +8,8 @@ import (
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"github.com/enfabrica/enkit/machinist/state"
 	"github.com/miekg/dns"
-	"log"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"net"
 	"time"
 )
@@ -79,15 +80,13 @@ func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, pin
 		Tags: ping.Tag,
 	}
 	if err := state.AddMachine(en.State, newMachine); err != nil {
-		return err
+		return status.Errorf(codes.AlreadyExists, err.Error())
 	}
 	en.addNodeToDns(ping.Name, newMachine.Ips, newMachine.Tags)
 	return stream.Send(
 		&machinist.PollResponse{
 			Resp: &machinist.PollResponse_Result{
-				Result: &machinist.ActionResult{
-
-				},
+				Result: &machinist.ActionResult{},
 			},
 		})
 
@@ -99,7 +98,6 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("GOT %#v", in.Req)
 
 		switch r := in.Req.(type) {
 		case *machinist.PollRequest_Ping:
@@ -107,10 +105,8 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 
 		case *machinist.PollRequest_Register:
 			if err = en.HandleRegister(stream, r.Register); err != nil {
-				fmt.Println("error handling register", err.Error())
 				return err
 			}
-			log.Printf("Got REGISTER %#v", *r.Register)
 		}
 	}
 }
@@ -146,6 +142,7 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 		}
 	}
 }
+
 // ServeAllRecords will continuously poll Nodes() and create multiple _all.<domain> records containing the ip addresses
 // of all machines attached.
 // TODO(adam): be able to pass in a wrapped ticker for testing intervals

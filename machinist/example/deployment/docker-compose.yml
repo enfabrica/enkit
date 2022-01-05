@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  controlplane:
+    image: gcr.io/devops-284019/infra/machinist/controlplane:latest
+    command:
+      - "--state=/enfabrica/dns.state.json"
+      - "--dns-port=4455"
+      - "--bind-net=0.0.0.0"
+      - "--port=4456"
+      - "--domains=changeme.local"
+    ports:
+      - "4455:4455"
+      - "4456:4456"
+    volumes:
+      - "/enfabrica:/enfabrica"
