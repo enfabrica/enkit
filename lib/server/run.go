@@ -21,7 +21,7 @@ import (
 // ✔ grpc-web via websockets
 // ✔ HTTP 1.1
 // ✗ HTTP 2.0 (hijacked by grpc support)
-func Run(mux *http.ServeMux, grpcs *grpc.Server) {
+func Run(mux http.Handler, grpcs *grpc.Server) {
 	if mux == nil {
 		mux = http.NewServeMux()
 	}
