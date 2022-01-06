@@ -4,6 +4,7 @@
 package testserver
 
 import (
+	"bytes"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"net"
@@ -47,6 +48,7 @@ func handleNewHelloNetConn(t *testing.T, c net.Conn) {
 	for {
 		buf := make([]byte, 1024)
 		_, err := c.Read(buf)
+		buf = bytes.Trim(buf, "\x00")
 		assert.NoError(t, err)
 		retBytes := append([]byte("hello "), buf...)
 		_, err = c.Write(retBytes)

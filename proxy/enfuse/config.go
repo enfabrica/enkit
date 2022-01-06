@@ -1,14 +1,16 @@
 package enfuse
 
 import (
+	"google.golang.org/grpc"
 	"net"
 )
 
 type ConnectConfig struct {
-		Port int
-		Url  string
-		L    net.Listener
-	}
+	Port         int
+	Url          string
+	L            net.Listener
+	GrpcDialOpts []grpc.DialOption
+}
 
 type ConnectMod func(c *ConnectConfig)
 
@@ -31,6 +33,11 @@ var (
 	WithConnectConfig = func(c1 *ConnectConfig) ConnectMod {
 		return func(c *ConnectConfig) {
 			*c = *c1
+		}
+	}
+	WithGrpcDialOpts = func(opts ...grpc.DialOption) ConnectMod {
+		return func(c *ConnectConfig) {
+			c.GrpcDialOpts = opts
 		}
 	}
 )

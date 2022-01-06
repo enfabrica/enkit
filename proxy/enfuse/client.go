@@ -14,7 +14,7 @@ var (
 )
 
 func NewClient(config *ConnectConfig) (*FuseClient, error) {
-	conn, err := grpc.Dial(net.JoinHostPort(config.Url, strconv.Itoa(config.Port)), grpc.WithInsecure())
+	conn, err := grpc.Dial(net.JoinHostPort(config.Url, strconv.Itoa(config.Port)), config.GrpcDialOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -39,4 +39,3 @@ type FuseClient struct {
 func (f *FuseClient) Root() (fs.Node, error) {
 	return &Dir{Dir: "", Client: f.ConnClient}, nil
 }
-

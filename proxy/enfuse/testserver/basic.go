@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"testing"
 )
+
 // DoubleDigitPayloadStrategy is used for testing, just increments client payloads up to 20
 var DoubleDigitPayloadStrategy enfuse.PayloadAppendStrategy = func() (int, func() ([]byte, error)) {
 	counter := 1
@@ -31,19 +32,20 @@ func NewWebSocketBasicClientServer(t *testing.T) *httptest.Server {
 	pool := enfuse.NewPool(enfuse.DefaultPayloadStrategy)
 	m := http.NewServeMux()
 	m.HandleFunc("/client", func(writer http.ResponseWriter, request *http.Request) {
-		webConn, err := upg.Upgrade(writer, request, nil)
+		rawWebConn, err := upg.Upgrade(writer, request, nil)
 		if err != nil {
 			http.Error(writer, "internal test error", 500)
 			return
 		}
 		for {
+			webConn := enfuse.NewWebsocketLock(rawWebConn)
 			m, t, err := webConn.ReadMessage()
 			if err != nil {
 				fmt.Println(err.Error())
 				continue
 			}
-			if err := pool.WriteWebsocketServer(m, t, enfuse.NewWebsocketLock(webConn)); err != nil {
-				fmt.Println(err.Error())
+			if err := pool.WriteWebsocketServer(m, t, webConn); err != nil {
+				fmt.Println("error in write to server", err.Error())
 				continue
 			}
 		}

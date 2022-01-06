@@ -7,7 +7,6 @@ import (
 	"github.com/enfabrica/enkit/proxy/enfuse/testserver"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
-	"io"
 	"strings"
 	"testing"
 )
@@ -38,7 +37,6 @@ var testConnections []*testClientConn = []*testClientConn{
 
 func TestSocketShim(t *testing.T) {
 	s := testserver.NewWebSocketBasicClientServer(t)
-	defer s.Close()
 
 	// Dial all websocket clients to the httptest.Server
 	url := strings.ReplaceAll(s.URL, "http", "ws")
@@ -46,7 +44,7 @@ func TestSocketShim(t *testing.T) {
 		webConn, _, err := websocket.DefaultDialer.Dial(url+"/client", nil)
 		assert.NoError(t, err)
 		c.Conn = webConn
-		s, err := enfuse.NewSocketShim(enfuse.DefaultPayloadStrategy, webConn)
+		s, err := enfuse.NewSocketShim(enfuse.DefaultPayloadStrategy, enfuse.NewWebsocketLock(webConn))
 		assert.NoError(t, err)
 		c.Shim = s
 	}
@@ -59,7 +57,7 @@ func TestSocketShim(t *testing.T) {
 
 	// this will now forward connections to the net.Listener
 	serverShim := enfuse.NewWebsocketTCPShim(enfuse.DefaultPayloadStrategy, serverNetLis, serverWebConn)
-	defer serverShim.Close()
+
 	for _, c := range testConnections {
 		_, err := c.Shim.Write([]byte(c.Name))
 		assert.NoError(t, err)
@@ -67,7 +65,7 @@ func TestSocketShim(t *testing.T) {
 	for _, c := range testConnections {
 		buf := make([]byte, 20000)
 		numBytesRead, err := c.Shim.Read(buf)
-		assert.Equal(t, io.EOF, err)
+		assert.NoError(t, err)
 		assert.Equal(t, fmt.Sprintf("hello %s", c.Name), string(buf[:numBytesRead]))
 	}
 	for _, c := range testConnections {
@@ -77,7 +75,9 @@ func TestSocketShim(t *testing.T) {
 	for _, c := range testConnections {
 		buf := make([]byte, 20000)
 		numBytesRead, err := c.Shim.Read(buf)
-		assert.Equal(t, io.EOF, err)
+		assert.NoError(t, err)
 		assert.Equal(t, fmt.Sprintf("hello %s", c.Name), string(buf[:numBytesRead]))
 	}
+	s.Close()
+	assert.NoError(t, serverShim.Close())
 }

@@ -7,6 +7,8 @@ import (
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/proxy/enfuse"
 	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
+	"github.com/enfabrica/enkit/proxy/enfuse/testserver"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"io/fs"
@@ -19,6 +21,43 @@ import (
 	"testing"
 	"time"
 )
+
+func TestUsingBasicPeering(t *testing.T) {
+	relayServer := testserver.NewWebSocketBasicClientServer(t)
+	defer relayServer.Close()
+	sharingPeerWssConn, _, err := websocket.DefaultDialer.Dial(strings.ReplaceAll(relayServer.URL+"/server", "http", "ws"), nil)
+	assert.NoError(t, err)
+
+	consumingPeerWssConn, _, err := websocket.DefaultDialer.Dial(strings.ReplaceAll(relayServer.URL+"/client", "http", "ws"), nil)
+	assert.NoError(t, err)
+
+	consumingPeerShim, err := enfuse.NewSocketShim(enfuse.DefaultPayloadStrategy, enfuse.NewWebsocketLock(consumingPeerWssConn))
+	assert.NoError(t, err)
+
+	sharingPeerPort, err := knetwork.AllocatePort()
+	assert.Nil(t, err)
+
+	_ = enfuse.NewWebsocketTCPShim(enfuse.DefaultPayloadStrategy, sharingPeerPort.Listener, sharingPeerWssConn)
+
+	d, generatedFiles := CreateSeededTmpDir(t, 2)
+	assert.Nil(t, err)
+	s := enfuse.NewServer(
+		enfuse.NewServerConfig(
+			enfuse.WithDir(d),
+			enfuse.WithConnectMods(
+				enfuse.WithListener(sharingPeerPort.Listener),
+			),
+		),
+	)
+
+	go func() {
+		assert.Nil(t, s.Serve())
+	}()
+	c, err := enfuse.NewClient(&enfuse.ConnectConfig{GrpcDialOpts: []grpc.DialOption{consumingPeerShim.DialOpt(), grpc.WithInsecure()}})
+	assert.NoError(t, err)
+	ReadWriteClientFilesSubTest(t, c, generatedFiles)
+	relayServer.Close()
+}
 
 func TestNewFuseShareCommand(t *testing.T) {
 	d, generatedFiles := CreateSeededTmpDir(t, 2)
@@ -42,7 +81,12 @@ func TestNewFuseShareCommand(t *testing.T) {
 	assert.Nil(t, err)
 	defer conn.Close()
 	c := enfuse.FuseClient{ConnClient: fusepb.NewFuseControllerClient(conn)}
-	m, err := fstestutil.MountedT(t, &c, nil)
+
+	ReadWriteClientFilesSubTest(t, &c, generatedFiles)
+}
+
+func ReadWriteClientFilesSubTest(t *testing.T, consumingPeer *enfuse.FuseClient, generatedFiles []TmpFile) {
+	m, err := fstestutil.MountedT(t, consumingPeer, nil)
 	assert.NoError(t, err)
 	defer m.Close()
 
@@ -65,7 +109,7 @@ func TestNewFuseShareCommand(t *testing.T) {
 				btes, err := ioutil.ReadFile(realFile)
 				assert.NoError(t, err)
 				assert.Equal(t, len(genFile.Data), len(btes))
-				assert.Truef(t, reflect.DeepEqual(btes, genFile.Data), "dta returned by fs equal")
+				assert.Truef(t, reflect.DeepEqual(btes, genFile.Data), "data returned by fs equal")
 			}
 		}
 	}
