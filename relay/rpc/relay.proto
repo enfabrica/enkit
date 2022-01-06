@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+message NewSessionRequest {
+  bytes password = 1; // Password of the session. Only constraint is that it cannot be ""
+}
+
+message NewSessionResponse {
+  string session_id = 1; // uuidv4 session.
+  string sharing_peer_url = 2; // url for the sharing peer to connect to. Guaranteed to be a FQDN.
+  string consuming_peer_url = 3; // url for the consuming peer to connect to. Guaranteed to be a FQDN.
+}
+
+service RelayNegotiator {
+  rpc NewSession(NewSessionRequest) returns (NewSessionResponse) {}
+}
+
+// Non-Service data types
+
+// RelayHeader is the format of the header sent to the relay wss server in order to be parsed.
+// It should be sent in json format, using grpcpb.
+message RelayHeader {
+    string password = 1;
+}
