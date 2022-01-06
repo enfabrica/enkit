@@ -80,15 +80,11 @@ func (f *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 func (f *Dir) fetchData() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if time.Since(f.LastFetch) < 5*time.Second {
-		return nil
-	}
 	r, err := f.Client.FileInfo(context.Background(), &fusepb.FileInfoRequest{Dir: f.Dir})
 	if err != nil {
 		return err
 	}
 	f.Data = r.Files
-	f.LastFetch = time.Now()
 	return nil
 }
 

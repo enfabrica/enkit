@@ -14,31 +14,26 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"math/rand"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
-func TestUsingBasicPeering(t *testing.T) {
+func TestManyClientsUsingBasicPeering(t *testing.T) {
 	relayServer := testserver.NewWebSocketBasicClientServer(t)
 	defer relayServer.Close()
 	sharingPeerWssConn, _, err := websocket.DefaultDialer.Dial(strings.ReplaceAll(relayServer.URL+"/server", "http", "ws"), nil)
-	assert.NoError(t, err)
-
-	consumingPeerWssConn, _, err := websocket.DefaultDialer.Dial(strings.ReplaceAll(relayServer.URL+"/client", "http", "ws"), nil)
-	assert.NoError(t, err)
-
-	consumingPeerShim, err := enfuse.NewSocketShim(enfuse.DefaultPayloadStrategy, enfuse.NewWebsocketLock(consumingPeerWssConn))
 	assert.NoError(t, err)
 
 	sharingPeerPort, err := knetwork.AllocatePort()
 	assert.Nil(t, err)
 
 	_ = enfuse.NewWebsocketTCPShim(enfuse.DefaultPayloadStrategy, sharingPeerPort.Listener, sharingPeerWssConn)
-
 	d, generatedFiles := CreateSeededTmpDir(t, 2)
 	assert.Nil(t, err)
 	s := enfuse.NewServer(
@@ -53,9 +48,59 @@ func TestUsingBasicPeering(t *testing.T) {
 	go func() {
 		assert.Nil(t, s.Serve())
 	}()
+	wg := &sync.WaitGroup{}
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		consumingPeerShim := generateConsumingPeerShim(t, relayServer)
+		c, err := enfuse.NewClient(&enfuse.ConnectConfig{GrpcDialOpts: []grpc.DialOption{consumingPeerShim.DialOpt(), grpc.WithInsecure()}})
+		assert.NoError(t, err)
+		go ReadWriteClientFilesSubTest(t, c, generatedFiles, wg)
+	}
+	wg.Wait()
+	relayServer.Close()
+}
+
+func generateConsumingPeerShim(t *testing.T, relayServer *httptest.Server) *enfuse.SocketShim {
+	consumingPeerWssConn, _, err := websocket.DefaultDialer.Dial(strings.ReplaceAll(relayServer.URL+"/client", "http", "ws"), nil)
+	assert.NoError(t, err)
+
+	consumingPeerShim, err := enfuse.NewSocketShim(enfuse.DefaultPayloadStrategy, enfuse.NewWebsocketLock(consumingPeerWssConn))
+	assert.NoError(t, err)
+	return consumingPeerShim
+}
+
+func TestSingleClientUsingBasicPeering(t *testing.T) {
+	relayServer := testserver.NewWebSocketBasicClientServer(t)
+	defer relayServer.Close()
+	sharingPeerWssConn, _, err := websocket.DefaultDialer.Dial(strings.ReplaceAll(relayServer.URL+"/server", "http", "ws"), nil)
+	assert.NoError(t, err)
+
+	sharingPeerPort, err := knetwork.AllocatePort()
+	assert.Nil(t, err)
+
+	_ = enfuse.NewWebsocketTCPShim(enfuse.DefaultPayloadStrategy, sharingPeerPort.Listener, sharingPeerWssConn)
+	d, generatedFiles := CreateSeededTmpDir(t, 2)
+	assert.Nil(t, err)
+	s := enfuse.NewServer(
+		enfuse.NewServerConfig(
+			enfuse.WithDir(d),
+			enfuse.WithConnectMods(
+				enfuse.WithListener(sharingPeerPort.Listener),
+			),
+		),
+	)
+
+	go func() {
+		assert.Nil(t, s.Serve())
+	}()
+
+	consumingPeerShim := generateConsumingPeerShim(t, relayServer)
 	c, err := enfuse.NewClient(&enfuse.ConnectConfig{GrpcDialOpts: []grpc.DialOption{consumingPeerShim.DialOpt(), grpc.WithInsecure()}})
 	assert.NoError(t, err)
-	ReadWriteClientFilesSubTest(t, c, generatedFiles)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	ReadWriteClientFilesSubTest(t, c, generatedFiles, wg)
+	wg.Wait()
 	relayServer.Close()
 }
 
@@ -81,11 +126,14 @@ func TestNewFuseShareCommand(t *testing.T) {
 	assert.Nil(t, err)
 	defer conn.Close()
 	c := enfuse.FuseClient{ConnClient: fusepb.NewFuseControllerClient(conn)}
-
-	ReadWriteClientFilesSubTest(t, &c, generatedFiles)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	ReadWriteClientFilesSubTest(t, &c, generatedFiles, wg)
+	wg.Wait()
 }
 
-func ReadWriteClientFilesSubTest(t *testing.T, consumingPeer *enfuse.FuseClient, generatedFiles []TmpFile) {
+func ReadWriteClientFilesSubTest(t *testing.T, consumingPeer *enfuse.FuseClient, generatedFiles []TmpFile, wg *sync.WaitGroup) {
+	defer wg.Done()
 	m, err := fstestutil.MountedT(t, consumingPeer, nil)
 	assert.NoError(t, err)
 	defer m.Close()
@@ -119,7 +167,7 @@ type TmpFile struct {
 	Name string
 	Data []byte
 }
-
+// TODO(adam): speed this up
 func CreateSeededTmpDir(t *testing.T, num int) (string, []TmpFile) {
 	tmpDirName, err := os.MkdirTemp(os.TempDir(), "*")
 	assert.Nil(t, err)
