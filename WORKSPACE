@@ -1,5 +1,7 @@
 # gazelle:repository_macro bazel/go_repositories.bzl%go_repositories
 
+# NOOP CHANGE TO TEST PRESUBMIT
+
 workspace(
     name = "enkit",
     managed_directories = {"@npm": ["ui/node_modules"]},
