@@ -17,7 +17,7 @@ service RelayNegotiator {
 // Non-Service data types
 
 // RelayHeader is the format of the header sent to the relay wss server in order to be parsed.
-// It should be sent in json format, using grpcpb.
+// It should be sent in json format, using grpcpb. The Header key is X-Relay-Session.
 message RelayHeader {
     string password = 1;
 }
