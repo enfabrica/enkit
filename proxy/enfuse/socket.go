@@ -2,7 +2,6 @@ package enfuse
 
 import (
 	"context"
-	"fmt"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/gorilla/websocket"
@@ -146,8 +145,6 @@ func (w *WebsocketTCPShim) handleReadToWebsocket(c net.Conn, uid []byte) {
 	for {
 		if _, err := io.Copy(socketShim, c); err != nil {
 			w.l.Errorf("err copying for client %w", err)
-		} else {
-			fmt.Println("exiting io.Copy in handleReadToWebsocket")
 		}
 	}
 }
