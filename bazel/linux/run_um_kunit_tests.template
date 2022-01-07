@@ -1,8 +1,17 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 MODULE=$(dirname $(realpath {module}))
 TMPOUTPUT=$TEST_TMPDIR/.output
-{kernel} ubd0={rootfs} hostfs=$MODULE uml_dir=$TEST_TMPDIR | tee $TMPOUTPUT
+
+# The Bazel TEST_TMPDIR path tends to get long depending on the project
+# structure and the current working directory at the time of test invocation.
+# This overflows UNIX_PATH_MAX that UML sees when firing up. To prevent this,
+# create a temporary directory and link it under the Bazel tree so it gets
+# cleaned up properly after the test.
+UML_DIR=$(mktemp -u)
+ln -s ${TEST_TMPDIR} ${UML_DIR}
+
+{kernel} ubd0={rootfs} hostfs=$MODULE uml_dir=${UML_DIR} | tee $TMPOUTPUT
 {parser} parse < $TMPOUTPUT
