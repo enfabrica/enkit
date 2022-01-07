@@ -39,10 +39,10 @@ mkdir -p $BUILD_DIR
 ./archive-bazel.sh $OUTPUT_DEB_DIR "$KERNEL_FLAVOURS" $OUTPUT_BAZEL_ARCHIVE_DIR
 
 # Creates a tarball of a Debian APT repository for each flavour
-./archive-deb.sh $OUTPUT_DEB_DIR $OUTPUT_REPO_DIR "$KERNEL_FLAVOURS" $OUTPUT_DEB_ARCHIVE_DIR
+./archive-deb.sh $OUTPUT_DEB_DIR $OUTPUT_REPO_DIR "$KERNEL_FLAVOURS" $OUTPUT_APT_ARCHIVE_DIR
 
 # Uploads the bazel ready tarball for each flavour
-./upload.sh $OUTPUT_DEB_DIR $OUTPUT_BAZEL_ARCHIVE_DIR $OUTPUT_DEB_ARCHIVE_DIR "$KERNEL_FLAVOURS" "kernel/${KERNEL_BRANCH}"
+./upload.sh $OUTPUT_DEB_DIR $OUTPUT_BAZEL_ARCHIVE_DIR $OUTPUT_APT_ARCHIVE_DIR "$KERNEL_FLAVOURS" "kernel/${KERNEL_BRANCH}"
 
 # Next update the bazel WORKSPACE with new kernel_tree_version() stanzas for each flavour
 # Should be something like:
