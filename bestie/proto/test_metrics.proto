@@ -1,0 +1,60 @@
+// Chose proto3 primarily for compatibility with our infrastructure.
+syntax = "proto3";
+
+package bestie.proto;
+
+option go_package = "github.com/enfabrica/enkit/bestie/proto";
+
+// BigQuery table identifier.
+//    project - the Google Cloud billing entity set up for the organization to use
+//    dataset - logical container that holds tables and views; each group may create its own
+//    tablename - name of the table to hold these metrics; the same tablename is used across datasets
+message BigQueryTable {
+    string project = 1;
+    string dataset = 2;
+    string tablename = 3;
+}
+
+// BigQuery metric definition compatible with Prometheus remote read adapter.
+//
+// The 'tags' field is a freeform, JSON-like string with comma-separated key=value pairs.
+// Various tags may be used depending on the test application. Here are some examples:
+//     direction - a direction qualifier for the metric (e.g. rx, tx)
+//     realm - designates the test area of interest (e.g. systest, emulation)
+//     type - a subtype qualifier for the metric (e.g. for pps: flow, link, or total)
+//     units - the units used for the metric value (percent, Gbps, MB, etc.)
+//
+// The following tags are inserted by the BES Endpoint using information obtained
+// from the Bazel TestResults event:
+//     invocation_id - the invocation identifier assigned by the Bazel 'test' command
+//     test_name - identifies the test from which the metric originates
+//
+// Tags are also used to identify most of the setup information used to run a test, such
+// as the nodes used, MTU size, various offload modes, etc. These are stored as additional
+// tags rather than in separate relational tables so that they remain queryable by Prometheus.
+// For example:
+//    tx_node - device used to send the workload traffic
+//    tx_ifname - interface name used for sender node
+//    tx_ipaddr - IP address of sender node
+//    rx_node - device used to receive the workload traffic
+//    rx_ifname - interface name used for receiverer node
+//    rx_ipaddr - IP address of receiv node
+//    sr_profile - Shrinkray profile used to define test network topology
+//    tso_mode - TCP segment offload mode (header_only|header_fill|none)
+//
+// NOTE: It is TBD whether this .proto file should formally define certain commonly used
+//       tag names while allowing for others to be created ad hoc. Want to avoid the
+//       situation of having frequent updates to this .proto file, which in turn requires
+//       updating the BES Endpoint service.
+message TestMetric {
+    string metricname = 1;
+    string tags = 2;
+    double value = 3;
+    int64 timestamp = 4;  // nanoseconds since epoch (e.g. Python: time.time_ns())
+}
+
+// A set of metrics reported by a test run to be stored in the designated BigQuery table.
+message TestMetrics {
+    BigQueryTable table = 1;
+    repeated TestMetric metrics = 2;
+}
