@@ -993,7 +993,8 @@ function _install_tools() {
       | sudo /usr/bin/apt-key --keyring "${KRFILE}" add -
     echo "deb [arch=amd64 signed-by=${KRFILE}] https://cli.github.com/packages stable main" \
       | sudo /usr/bin/tee /etc/apt/sources.list.d/githubcli-archive.list
-    sudo /usr/bin/apt update && sudo /usr/bin/apt install gh
+    sudo /usr/bin/apt update || /bin/true  # ignore errors associated with stale repos.
+    sudo /usr/bin/apt install gh
     if [ ! -x ${GH} ]; then
       _fatal "Could not install gh."
     fi
@@ -1001,7 +1002,8 @@ function _install_tools() {
 
   if [ ! -x "${JQ}" ]; then
     _info "Installing missing tool: jq"
-    sudo /usr/bin/apt update && sudo /usr/bin/apt install jq
+    sudo /usr/bin/apt update || /bin/true  # ignore errors associated with stale repos.
+    sudo /usr/bin/apt install jq
     if [ ! -x "${JQ}" ]; then
       _fatal "Could not install jq."
     fi
