@@ -33,7 +33,7 @@ type metricTestResult struct {
 func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, invocationId, invocationSha string) error {
 	m := bazelBuildEvent.GetTestResult()
 	if m == nil {
-		return fmt.Errorf("Error extracting TestResult data from message\n\n")
+		return fmt.Errorf("Error extracting TestResult data from message")
 	}
 	// Get the 'bazel test' target name from the bazel build event id label.
 	testname := bazelBuildEvent.GetId().GetTestResult().GetLabel()
@@ -63,8 +63,7 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, invocationId, invocat
 		// lock protecting this entire handler function, so should be OK.
 		outfiles, err := unzipSource(ofuri, "")
 		if err != nil {
-			fmt.Printf("Error unzipping output file %s: %s\n", ofname, err)
-			return err
+			return fmt.Errorf("Error unzipping output file %s: %s", ofname, err)
 		}
 		// Display list of files contained in output zip file.
 		fmt.Printf("Found output file: %s\n  uri:\n    %s\n  files:\n", ofname, ofuri)
@@ -79,16 +78,19 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, invocationId, invocat
 			case "test_metrics.pb":
 				fmt.Printf("Processing output file: %s\n", basename)
 				res, err := getTestMetrics(outfile)
-				if err == nil {
-					fmt.Printf("  BigQuery Table: %s.%s.%s\n",
-						res.table.project, res.table.dataset, res.table.tablename)
-					for _, m := range res.metrics {
-						fmt.Printf("    Metric: metricname=%s value=%f timestamp=%d tags=%s\n",
-							m.metricname, m.value, m.timestamp, m.tags)
-					}
-					fmt.Println()
-					// TODO: Write metrics to BigQuery database table
+				if err != nil {
+					// Handle error internally.
+					fmt.Printf("%s\n\n", err)
+					continue
 				}
+				fmt.Printf("  BigQuery Table: %s.%s.%s\n",
+					res.table.project, res.table.dataset, res.table.tablename)
+				for _, m := range res.metrics {
+					fmt.Printf("    Metric: metricname=%s value=%f timestamp=%d tags=%s\n",
+						m.metricname, m.value, m.timestamp, m.tags)
+				}
+				fmt.Println()
+				// TODO: Write metrics to BigQuery database table
 			case "test_summary.pb":
 				// TODO: Add support for testcase summary pass/fail metrics.
 			default:
@@ -105,13 +107,11 @@ func getTestMetrics(fn string) (*metricTestResult, error) {
 	var result metricTestResult
 	in, err := ioutil.ReadFile(fn)
 	if err != nil {
-		fmt.Printf("Error reading file %s: %s\n", fn, err)
-		return nil, err
+		return nil, fmt.Errorf("Error reading file %s: %s", fn, err)
 	}
 	tmet := &tpb.TestMetrics{}
 	if err := proto.Unmarshal(in, tmet); err != nil {
-		fmt.Printf("Error parsing metric data: %s\n%s\n", err, in)
-		return nil, err
+		return nil, fmt.Errorf("Error parsing metric data: %s: %s", err, in)
 	}
 	table := tmet.GetTable()
 	metrics := tmet.GetMetrics()
