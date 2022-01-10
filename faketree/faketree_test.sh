@@ -1,7 +1,10 @@
 #!/bin/bash
 
+foundft="$(find . -name "faketree" -type f -executable)"
 ft="./faketree/faketree_/faketree"
-
+if [ ! -f $ft ]; then
+  ft=$foundft
+fi
 function fail() {
   echo -- "$@" >&2
   exit 1
@@ -9,7 +12,7 @@ function fail() {
 
 $ft --help &>/dev/null
 test "$?" == 125 || {
-  fail "--help should return error status 125"
+  fail "--help should return error status 125 but it returned ${$?}"
 }
 
 uid=$($ft -- sh -c 'echo $(id -u)')
