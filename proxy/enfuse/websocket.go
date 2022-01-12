@@ -38,8 +38,8 @@ var NoServerErr = errors.New("the current server is not set")
 // On the first attempted write to the server, it will attempt to find an existing client, otherwise it will save the
 // writing connection as a client. When the server writes back the output will be redirected to it.
 type WebsocketPool struct {
-	mu sync.Mutex
-
+	mu           sync.Mutex
+	srvMu        sync.Mutex
 	srvWebsocket *WebsocketLocker
 	websocketMap map[string]*WebsocketLocker
 
@@ -47,13 +47,16 @@ type WebsocketPool struct {
 }
 
 func (scp *WebsocketPool) SetServer(conn *websocket.Conn) error {
-	scp.mu.Lock()
-	defer scp.mu.Unlock()
+	scp.srvMu.Lock()
+	defer scp.srvMu.Unlock()
 	scp.srvWebsocket = NewWebsocketLock(conn)
 	return nil
 }
 
+// TODO(adam): look into why concurrent read here fails triggers the race test. Concurrent Read with write should be ok.
 func (scp *WebsocketPool) Fetch(m []byte) *WebsocketLocker {
+	scp.mu.Lock()
+	defer scp.mu.Unlock()
 	if v, ok := scp.websocketMap[string(m[:scp.prefixLen])]; ok {
 		return v
 	}
@@ -61,14 +64,16 @@ func (scp *WebsocketPool) Fetch(m []byte) *WebsocketLocker {
 }
 
 func (scp *WebsocketPool) WriteWebsocketServer(msgType int, data []byte, conn *WebsocketLocker) error {
-	scp.mu.Lock()
-	defer scp.mu.Unlock()
+	scp.srvMu.Lock()
+	defer scp.srvMu.Unlock()
 	if scp.srvWebsocket == nil {
 		return NoServerErr
 	}
 	uid := data[:scp.prefixLen]
 	if scp.Fetch(uid) == nil {
+		scp.mu.Lock()
 		scp.websocketMap[string(uid)] = conn
+		scp.mu.Unlock()
 	}
 	return scp.srvWebsocket.WriteMessage(msgType, data)
 }

@@ -26,7 +26,6 @@ import (
 
 func TestManyClientsUsingBasicPeering(t *testing.T) {
 	relayServer := testserver.NewWebSocketBasicClientServer(t)
-	defer relayServer.Close()
 	sharingPeerWssConn, _, err := websocket.DefaultDialer.Dial(strings.ReplaceAll(relayServer.URL+"/server", "http", "ws"), nil)
 	assert.NoError(t, err)
 
@@ -71,7 +70,6 @@ func generateConsumingPeerShim(t *testing.T, relayServer *httptest.Server) *enfu
 
 func TestSingleClientUsingBasicPeering(t *testing.T) {
 	relayServer := testserver.NewWebSocketBasicClientServer(t)
-	defer relayServer.Close()
 	sharingPeerWssConn, _, err := websocket.DefaultDialer.Dial(strings.ReplaceAll(relayServer.URL+"/server", "http", "ws"), nil)
 	assert.NoError(t, err)
 

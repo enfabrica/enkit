@@ -40,7 +40,6 @@ func TestWritesToServer(t *testing.T) {
 		recvMessages = append(recvMessages, string(input))
 		mu.Unlock()
 	})
-	defer s.Close()
 
 	url := strings.Replace(s.URL, "http", "ws", -1)
 	serverConn, _, err := websocket.DefaultDialer.Dial(url, nil)
@@ -63,6 +62,7 @@ func TestWritesToServer(t *testing.T) {
 	mu.Lock()
 	assert.ElementsMatch(t, messages, recvMessages)
 	mu.Unlock()
+	s.Close()
 }
 
 
