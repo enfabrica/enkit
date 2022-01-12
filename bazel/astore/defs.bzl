@@ -81,6 +81,18 @@ def _astore_download(ctx):
         command = command,
         tools = [ctx.executable._astore_client],
         outputs = [output],
+        execution_requirements = {
+            # We can't run these remotely since remote workers won't have
+            # credentials to fetch from astore.
+            # We should also avoid remotely caching since:
+            # * this means we need to give individuals permissions to remotely
+            #   cache local actions, which we currently don't do
+            # * we might spend lots of disk/network caching astore artifacts
+            #   remotely
+            "no-remote": "Don't run remotely or cache remotely",
+            "requires-network": "Downloads from astore",
+            "no-cache": "Not hermetic, since it doesn't refer to packages by hash",
+        },
     )
     return [DefaultInfo(files = depset([output]))]
 
