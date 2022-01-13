@@ -9,20 +9,17 @@ import (
 // WebsocketLocker is a mutex lock around a websocket since *websocket.Conn isn't threadsafe.
 // It has the same function types of a *websocket.Conn
 type WebsocketLocker struct {
-	c       *websocket.Conn
-	writeMu sync.Mutex
-	readMu  sync.Mutex
+	c  *websocket.Conn
+	mu sync.Mutex
 }
 
 func (w *WebsocketLocker) ReadMessage() (messageType int, p []byte, err error) {
-	w.readMu.Lock()
-	defer w.readMu.Unlock()
 	return w.c.ReadMessage()
 }
 
 func (w *WebsocketLocker) WriteMessage(messageType int, payload []byte) error {
-	w.writeMu.Lock()
-	defer w.writeMu.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	return w.c.WriteMessage(messageType, payload)
 }
 
@@ -80,6 +77,15 @@ func (scp *WebsocketPool) WriteWebsocketServer(msgType int, data []byte, conn *W
 
 func (scp *WebsocketPool) ServerPresent() bool {
 	return scp.srvWebsocket != nil
+}
+
+// WaitForServerSet will hand until the servers websocket is set.
+func (scp *WebsocketPool) WaitForServerSet() {
+	for {
+		if scp.srvWebsocket != nil {
+			return
+		}
+	}
 }
 
 func NewPool(strat PayloadAppendStrategy) *WebsocketPool {

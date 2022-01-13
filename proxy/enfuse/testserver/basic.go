@@ -42,11 +42,11 @@ func NewWebSocketBasicClientServer(t *testing.T) *httptest.Server {
 			m, t, err := webConn.ReadMessage()
 			if err != nil {
 				fmt.Println(err.Error())
-				continue
+				return
 			}
 			if err := pool.WriteWebsocketServer(m, t, webConn); err != nil {
 				fmt.Println("error in write to server", err.Error())
-				continue
+				return
 			}
 		}
 	})

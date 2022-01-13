@@ -45,7 +45,7 @@ func (s *SocketShim) Write(p []byte) (n int, err error) {
 }
 
 func (s *SocketShim) Close() error {
-	return nil
+	return s.WebConn.c.Close()
 }
 
 func (s *SocketShim) LocalAddr() net.Addr {
@@ -73,7 +73,7 @@ func (s *SocketShim) SetWriteDeadline(t time.Time) error {
 
 func (s *SocketShim) DialOpt() grpc.DialOption {
 	return grpc.WithContextDialer(func(ctx context.Context, uri string) (net.Conn, error) {
-		return NewSocketShim(DefaultPayloadStrategy, s.WebConn)
+		return s, nil
 	})
 }
 
@@ -89,13 +89,11 @@ func NewSocketShim(strategy PayloadAppendStrategy, WebLocker *WebsocketLocker) (
 func NewWebsocketTCPShim(strategy PayloadAppendStrategy, lis net.Listener, web *websocket.Conn) *WebsocketTCPShim {
 	l, _ := strategy()
 	wShim := &WebsocketTCPShim{
-		clientMap: map[string]net.Conn{},
 		prefixLen: l,
 		netConn:   lis,
-		webConn:   NewWebsocketLock(web),
 		l:         logger.DefaultLogger{Printer: log.Printf},
 	}
-	go wShim.handleWrites()
+	go wShim.handleWrites(NewWebsocketLock(web))
 	return wShim
 }
 
@@ -103,48 +101,50 @@ func NewWebsocketTCPShim(strategy PayloadAppendStrategy, lis net.Listener, web *
 // if the payload being written indicates it is a new client, it will create a new net.Conn via net.Dial
 // locally, and reuse that if the payload indicated it is the same client.
 type WebsocketTCPShim struct {
-	webConn *WebsocketLocker
 	netConn net.Listener
 
-	clientMap map[string]net.Conn
 	prefixLen int
 
 	l logger.Logger
 }
 
-func (w *WebsocketTCPShim) handleWrites() {
+func (w *WebsocketTCPShim) handleWrites(webConn *WebsocketLocker) {
+	clientMap := make(map[string]net.Conn)
 	for {
-		_, data, err := w.webConn.ReadMessage()
+		_, data, err := webConn.ReadMessage()
 		if err != nil {
 			w.l.Errorf("Error reading from websocket %v", err)
 			continue
 		}
 		uid := data[:w.prefixLen]
+		uidCpy := make([]byte, len(uid))
+		copy(uidCpy, uid) /* making a copy here of the uid makes it threadsafe to put into handleReads */
 		remainingData := data[w.prefixLen:]
-		clientConn := w.clientMap[string(uid)]
+		clientConn := clientMap[string(uid)]
 		if clientConn == nil {
 			clientConn, err = net.Dial(w.netConn.Addr().Network(), w.netConn.Addr().String())
 			if err != nil {
 				w.l.Warnf("Error dialing to existing listener %v", err)
 				continue
 			}
-			w.clientMap[string(uid)] = clientConn
-			go w.handleReadToWebsocket(clientConn, uid)
+			clientMap[string(uid)] = clientConn
+			go w.handleReadToWebsocket(clientConn, webConn, uidCpy)
 		}
 		_, err = clientConn.Write(remainingData)
 		if err != nil {
 			w.l.Warnf("Error writing to client %v", err)
-			continue
+			return
 		}
 	}
 }
 
 // handleRead will read from the net.Conn and write the full payload to webConn
-func (w *WebsocketTCPShim) handleReadToWebsocket(c net.Conn, uid []byte) {
-	socketShim := &SocketShim{WebConn: w.webConn, Prefix: uid, PrefixLen: len(uid), LoggingPrefix: "Sharing"}
+func (w *WebsocketTCPShim) handleReadToWebsocket(c net.Conn, webConn *WebsocketLocker, uid []byte) {
+	socketShim := &SocketShim{WebConn: webConn, Prefix: uid, PrefixLen: len(uid), LoggingPrefix: "Sharing"}
 	for {
 		if _, err := io.Copy(socketShim, c); err != nil {
 			w.l.Errorf("err copying for client %w", err)
+			return
 		}
 	}
 }

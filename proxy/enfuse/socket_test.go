@@ -17,29 +17,34 @@ type testClientConn struct {
 	Shim *enfuse.SocketShim
 }
 
-var testConnections []*testClientConn = []*testClientConn{
-	{
-		Name: "pluto",
-	},
-	{
-		Name: "donald",
-	},
-	{
-		Name: "mickey",
-	},
-	{
-		Name: "minnie mouse",
-	},
-	{
-		Name: "goofy",
-	},
-}
-
 func TestSocketShim(t *testing.T) {
+	var testConnections []*testClientConn = []*testClientConn{
+		{
+			Name: "pluto",
+		},
+		{
+			Name: "donald",
+		},
+		{
+			Name: "mickey",
+		},
+		{
+			Name: "minnie mouse",
+		},
+		{
+			Name: "goofy",
+		},
+	}
+
 	s := testserver.NewWebSocketBasicClientServer(t)
+	url := strings.ReplaceAll(s.URL, "http", "ws")
+	// Setup server
+	serverWebConn, _, err := websocket.DefaultDialer.Dial(url+"/server", nil)
+	assert.NoError(t, err)
+	serverNetLis, _ := knetwork.AllocatePort()
+	go testserver.WriteHellosToListener(t, serverNetLis)
 
 	// Dial all websocket clients to the httptest.Server
-	url := strings.ReplaceAll(s.URL, "http", "ws")
 	for _, c := range testConnections {
 		webConn, _, err := websocket.DefaultDialer.Dial(url+"/client", nil)
 		assert.NoError(t, err)
@@ -48,12 +53,6 @@ func TestSocketShim(t *testing.T) {
 		assert.NoError(t, err)
 		c.Shim = s
 	}
-
-	// Setup server
-	serverWebConn, _, err := websocket.DefaultDialer.Dial(url+"/server", nil)
-	assert.NoError(t, err)
-	serverNetLis, _ := knetwork.AllocatePort()
-	go testserver.WriteHellosToListener(t, serverNetLis)
 
 	// this will now forward connections to the net.Listener
 	serverShim := enfuse.NewWebsocketTCPShim(enfuse.DefaultPayloadStrategy, serverNetLis, serverWebConn)

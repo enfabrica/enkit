@@ -26,7 +26,9 @@ func NewWebsocketCounterServer(t *testing.T, onMessage func(input []byte)) *http
 		}
 		for {
 			_, data, err := webConn.ReadMessage()
-			assert.NoError(t, err)
+			if err != nil { /* we discard errors here because as of right now there is no way to disconnect gracefully https://github.com/gorilla/websocket/issues/448 */
+				return
+			}
 			onMessage(data)
 		}
 	})

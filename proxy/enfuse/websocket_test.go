@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestBasicPoolSet(t *testing.T) {
@@ -32,13 +31,11 @@ func TestWritesToServer(t *testing.T) {
 
 	assert.Nil(t, p.Fetch(make([]byte, uidLen)))
 	assert.False(t, p.ServerPresent())
-
 	var recvMessages []string
-	mu := sync.Mutex{}
+	wg := sync.WaitGroup{}
 	s := testserver.NewWebsocketCounterServer(t, func(input []byte) {
-		mu.Lock()
 		recvMessages = append(recvMessages, string(input))
-		mu.Unlock()
+		wg.Done()
 	})
 
 	url := strings.Replace(s.URL, "http", "ws", -1)
@@ -46,40 +43,43 @@ func TestWritesToServer(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NoError(t, p.SetServer(serverConn))
-
+	p.WaitForServerSet()
 	assert.True(t, p.ServerPresent())
 	messages := []string{"winnie", "piglet", "eeyore", "tigger"}
 	for _, message := range messages {
+		wg.Add(1)
 		cc, _, err := websocket.DefaultDialer.Dial(url, nil)
 		assert.NoError(t, err)
 		err = p.WriteWebsocketServer(websocket.BinaryMessage, []byte(message), enfuse.NewWebsocketLock(cc))
 		assert.NoError(t, err)
+		assert.NoError(t, cc.Close())
 	}
-	// give time for cpu cycles
-	time.Sleep(200 * time.Millisecond)
+	assert.NoError(t, serverConn.Close())
 	// These locks look silly, but it's to prevent race condition detecion with go's test suites,
 	// which is important to be on for the main package
-	mu.Lock()
+	wg.Wait()
 	assert.ElementsMatch(t, messages, recvMessages)
-	mu.Unlock()
 	s.Close()
 }
 
 
 func TestClientFetch(t *testing.T) {
-	s := testserver.NewWebsocketCounterServer(t, func(input []byte) {})
-	defer s.Close()
+	wg := &sync.WaitGroup{}
+	s := testserver.NewWebsocketCounterServer(t, func(input []byte) {
+		wg.Done()
+	})
 	url := strings.Replace(s.URL, "http", "ws", -1)
 	strategy := testserver.DoubleDigitPayloadStrategy
 	p := enfuse.NewPool(strategy)
 	serverConn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	assert.NoError(t, err)
 	assert.NoError(t, p.SetServer(serverConn))
-
+	p.WaitForServerSet()
 	clientConns := make([]*enfuse.WebsocketLocker, 5)
 	messages := []string{"winnie", "piglet", "eeyore", "tigger"}
 
 	for i, message := range messages {
+		wg.Add(1)
 		cc, _, err := websocket.DefaultDialer.Dial(url, nil)
 		assert.NoError(t, err)
 		ccLocker := enfuse.NewWebsocketLock(cc)
@@ -87,9 +87,10 @@ func TestClientFetch(t *testing.T) {
 		assert.NoError(t, err)
 		clientConns[i] = ccLocker
 	}
-	// give time for cpu cycles
-	time.Sleep(200 * time.Millisecond)
+	wg.Wait()
 	for i, message := range messages {
 		assert.Equal(t, clientConns[i], p.Fetch([]byte(message)))
 	}
+	s.Close()
+
 }

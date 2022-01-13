@@ -4,7 +4,6 @@ import (
 	"bazil.org/fuse/fs/fstestutil"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/knetwork"
-	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/proxy/enfuse"
 	fusepb "github.com/enfabrica/enkit/proxy/enfuse/rpc"
 	"github.com/enfabrica/enkit/proxy/enfuse/testserver"
@@ -177,9 +176,8 @@ func CreateSeededTmpDir(t *testing.T, num int) (string, []TmpFile) {
 }
 
 func createTmpFile(t *testing.T, tmpDirName string) TmpFile {
-	rng := rand.New(srand.Source)
 	cwd := tmpDirName
-	for i := 0; i < rng.Intn(5); i++ {
+	for i := 0; i < rand.Intn(5); i++ {
 		name, err := os.MkdirTemp(cwd, "*")
 		assert.NoError(t, err)
 		cwd = name
@@ -187,9 +185,9 @@ func createTmpFile(t *testing.T, tmpDirName string) TmpFile {
 	f, err := os.CreateTemp(cwd, "*.txt")
 	assert.Nil(t, err)
 	filename := f.Name()
-	sizeOfFile := 1024 * 1024 * (rng.Intn(2) + 1) // size of the file is greater than rpc data.
+	sizeOfFile := 1024 * 1024 * (rand.Intn(2) + 1) // size of the file is greater than rpc data.
 	content := make([]byte, sizeOfFile)
-	i, err := rng.Read(content)
+	i, err := rand.Read(content)
 	assert.NoError(t, err)
 	assert.Equal(t, sizeOfFile, i)
 	_, err = f.Write(content)
