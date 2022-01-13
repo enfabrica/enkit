@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/enfabrica/enkit/flextape/client/flextape_client",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//flextape/client:go_default_library",
+        "//flextape/proto:go_default_library",
+        "@com_github_google_uuid//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "flextape_client",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

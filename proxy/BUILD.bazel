@@ -46,11 +46,14 @@ go_library(
 )
 
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-load("@io_bazel_rules_docker//container:container.bzl", "container_push", "container_image")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
 
 container_image(
     name = "enproxy-base",
     base = "@go_image_base//image",
+    env = {
+        "HOME": "/cache",
+    },
 
     # enproxy needs to cache certificates in a directory so they survive
     # across restarts.
@@ -60,10 +63,10 @@ container_image(
     # up in a restart loop of the proxy without the cache, we'd quickly
     # exhaust this limit, and won't be able to get new certificates until
     # the rate limit grants more quota.
-    volumes = ["/cache", "/config"],
-    env = {
-      "HOME": "/cache",
-    },
+    volumes = [
+        "/cache",
+        "/config",
+    ],
 )
 
 go_image(
