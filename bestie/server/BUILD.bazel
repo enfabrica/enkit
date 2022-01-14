@@ -8,7 +8,6 @@ go_library(
     srcs = [
         "main.go",
         "testresult.go",
-        "unzipper.go",
     ],
     importpath = "github.com/enfabrica/enkit/bestie/server",
     visibility = ["//visibility:private"],

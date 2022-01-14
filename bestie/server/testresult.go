@@ -1,9 +1,11 @@
 package main
 
 import (
+	"archive/zip"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	tpb "github.com/enfabrica/enkit/bestie/proto"
@@ -33,86 +35,108 @@ type metricTestResult struct {
 func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, invocationId, invocationSha string) error {
 	m := bazelBuildEvent.GetTestResult()
 	if m == nil {
-		return fmt.Errorf("Error extracting TestResult data from message")
+		return fmt.Errorf("Error extracting TestResult data from event message")
 	}
 	// Get the 'bazel test' target name from the bazel build event id label.
 	testname := bazelBuildEvent.GetId().GetTestResult().GetLabel()
 	fmt.Printf("TestResult for %s: %s\n", testname, m.GetStatus())
 	fmt.Printf("  invocationId: %s\n  invocationSha: %s\n\n", invocationId, invocationSha)
 	outputFiles := m.GetTestActionOutput()
-	foundTestResults := -1
-	for i, of := range outputFiles {
-		ofname := of.GetName()
+	var ofname, ofuri string
+	found := false
+	for _, of := range outputFiles {
+		ofname = of.GetName()
+		ofuri = of.GetUri()
 		if strings.HasSuffix(ofname, "outputs.zip") {
-			foundTestResults = i
+			found = true
 			break
 		}
 	}
-	if foundTestResults >= 0 {
-		ofname := outputFiles[foundTestResults].GetName()
-		ofuri := outputFiles[foundTestResults].GetUri()
-		// Strip off any file:// prefix from the URI to access the local file system path.
-		filePrefix := "file://"
-		if strings.HasPrefix(ofuri, filePrefix) {
-			ofuri = ofuri[len(filePrefix):]
+	if !found {
+		return nil
+	}
+
+	// Strip off any file:// prefix from the URI to access the local file system path.
+	filePrefix := "file://"
+	if strings.HasPrefix(ofuri, filePrefix) {
+		ofuri = ofuri[len(filePrefix):]
+	}
+
+	// Process test metrics output file(s).
+	// Each output file contains a single (potentially large) protobuf message.
+	if err := extractZippedFiles(ofuri); err != nil {
+		return fmt.Errorf("Error processing %s file: %s", ofname, err)
+	}
+
+	return nil
+}
+
+// Look for and return a []byte slice with its contents.
+func extractZippedFiles(zipFile string) error {
+	metricsFileRE := regexp.MustCompile(`(^test_metrics.pb$|^test_metrics[_-]+[[:word:]-]*[[:alnum:]]\.pb$)`)
+	summaryFileRE := regexp.MustCompile(`(^test_summary.pb$|^test_summary[_-]+[[:word:]-]*[[:alnum:]]\.pb$)`)
+	allRE := []*regexp.Regexp{metricsFileRE, summaryFileRE}
+
+	reader, err := zip.OpenReader(zipFile)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	for _, file := range reader.File {
+		if file.FileInfo().IsDir() {
+			continue
 		}
-		// Unzip the output file contents into a temporary directory.
-		//
-		// Note: Must protect this with a mutex since multiple bazel test targets
-		// end up using this same bazel workspace directory. There is currently a
-		// lock protecting this entire handler function, so should be OK.
-		outfiles, err := unzipSource(ofuri, "")
-		if err != nil {
-			return fmt.Errorf("Error unzipping output file %s: %s", ofname, err)
-		}
-		// Display list of files contained in output zip file.
-		fmt.Printf("Found output file: %s\n  uri:\n    %s\n  files:\n", ofname, ofuri)
-		for _, outfile := range outfiles {
-			fmt.Printf("    %s\n", outfile)
-		}
-		fmt.Println()
-		// For certain file names of interest (sans path), process their contents.
-		for _, outfile := range outfiles {
-			basename := filepath.Base(outfile)
-			switch basename {
-			case "test_metrics.pb":
-				fmt.Printf("Processing output file: %s\n", basename)
-				res, err := getTestMetrics(outfile)
-				if err != nil {
-					// Handle error internally.
-					fmt.Printf("%s\n\n", err)
-					continue
-				}
-				fmt.Printf("  BigQuery Table: %s.%s.%s\n",
-					res.table.project, res.table.dataset, res.table.tablename)
-				for _, m := range res.metrics {
-					fmt.Printf("    Metric: metricname=%s value=%f timestamp=%d tags=%s\n",
-						m.metricname, m.value, m.timestamp, m.tags)
-				}
-				fmt.Println()
-				// TODO: Write metrics to BigQuery database table
-			case "test_summary.pb":
-				// TODO: Add support for testcase summary pass/fail metrics.
-			default:
-				// Ignore file.
+
+		//  Look for a matching file name using regular expression patterns.
+		match := ""
+		for _, re := range allRE {
+			match = re.FindString(filepath.Base(file.Name))
+			if len(match) > 0 {
+				break
 			}
-			fmt.Println()
+		}
+		if len(match) == 0 {
+			continue
+		}
+		fmt.Printf("Found output file to process: %s\n", file.Name)
+
+		f, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		// Read entire file contents into a byte slice.
+		data, err := ioutil.ReadAll(f)
+		if err != nil {
+			return err
+		}
+
+		// Extract all metrics from the file contents.
+		pResult, err := getTestMetricsFromFileData(&data)
+		if err != nil {
+			fmt.Printf("Error processing output file %s: %s\n", file.Name, err)
+			continue
+		}
+		if pResult != nil {
+			// Display the metric data on the console.
+			displayMetrics(pResult, 2)
+			// TODO: Upload test metrics to BigQuery database table.
 		}
 	}
 	return nil
 }
 
-// Read the test_metrics.pb file in its entirety and process the protobuf message within.
-func getTestMetrics(fn string) (*metricTestResult, error) {
-	var result metricTestResult
-	in, err := ioutil.ReadFile(fn)
-	if err != nil {
-		return nil, fmt.Errorf("Error reading file %s: %s", fn, err)
-	}
+// Extract the test metrics information from the protobuf message data read
+// from an output file. This is used for processing test_metrics*.pb and
+// test_summary*.pb output files.
+func getTestMetricsFromFileData(pbmsg *[]byte) (*metricTestResult, error) {
 	tmet := &tpb.TestMetrics{}
-	if err := proto.Unmarshal(in, tmet); err != nil {
-		return nil, fmt.Errorf("Error parsing metric data: %s: %s", err, in)
+	if err := proto.Unmarshal(*pbmsg, tmet); err != nil {
+		return nil, fmt.Errorf("Error parsing metric data: %s: %s", err, pbmsg)
 	}
+	var result metricTestResult
 	table := tmet.GetTable()
 	metrics := tmet.GetMetrics()
 	t := bigQueryTable{
@@ -131,4 +155,15 @@ func getTestMetrics(fn string) (*metricTestResult, error) {
 		result.metrics = append(result.metrics, m)
 	}
 	return &result, nil
+}
+
+// Print the test metric data using a starting indentation offset.
+func displayMetrics(res *metricTestResult, offset int) {
+	fmt.Printf("%*sBigQuery Table: %s.%s.%s\n", offset, "",
+		res.table.project, res.table.dataset, res.table.tablename)
+	for _, m := range res.metrics {
+		fmt.Printf("%*sMetric: metricname=%s value=%f timestamp=%d tags=%s\n",
+			offset*2, "", m.metricname, m.value, m.timestamp, m.tags)
+	}
+	fmt.Println()
 }

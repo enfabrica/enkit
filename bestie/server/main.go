@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 
 	"github.com/enfabrica/enkit/lib/server"
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
@@ -34,7 +33,6 @@ func deriveInvocationSha(invocationId string) string {
 }
 
 type BuildEventService struct {
-	lock sync.Mutex
 }
 
 func (s *BuildEventService) PublishLifecycleEvent(ctx context.Context, req *bpb.PublishLifecycleEventRequest) (*emptypb.Empty, error) {
@@ -43,9 +41,6 @@ func (s *BuildEventService) PublishLifecycleEvent(ctx context.Context, req *bpb.
 }
 
 func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildEvent_PublishBuildToolEventStreamServer) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	for {
 		req, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
