@@ -3,6 +3,7 @@ package httpp
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/khttp"
+	"github.com/enfabrica/enkit/proxy/amux/amuxie"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
@@ -46,7 +47,9 @@ func TestBuild(t *testing.T) {
 		},
 	}
 
-	mux, dohttpps, err := BuildMux(nil, nil, mapping, creator)
+	mux := amuxie.New()
+
+	dohttpps, err := PopulateMux(mux, nil, mapping, creator)
 	assert.Nil(t, err)
 	assert.Equal(t, []string{}, dohttpps)
 

@@ -42,6 +42,8 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/proxy/amux"
+	"github.com/enfabrica/enkit/proxy/amux/amuxie"
 	"github.com/enfabrica/enkit/proxy/httpp"
 	"github.com/enfabrica/enkit/proxy/nasshp"
 	"github.com/enfabrica/enkit/proxy/utils"
@@ -293,13 +295,13 @@ func New(rng *rand.Rand, mods ...Modifier) (*Enproxy, error) {
 	}
 	warns.Print(op.log.Warnf)
 
+	mux := amuxie.New()
+
 	pmods := []httpp.Modifier{httpp.WithLogging(op.log), httpp.WithAuthenticator(op.authenticate)}
-	hproxy, err := httpp.New(op.config.Mapping, append(pmods, op.pmods...)...)
-	if err != nil {
+	if _, err = httpp.New(mux, op.config.Mapping, append(pmods, op.pmods...)...); err != nil {
 		return nil, err
 	}
 
-	dispatcher := http.Handler(hproxy)
 	if op.authenticate == nil && !op.withoutNasshAuthentication {
 		op.log.Warnf("ssh gateway disabled as no authentication was configured")
 	} else {
@@ -314,38 +316,16 @@ func New(rng *rand.Rand, mods ...Modifier) (*Enproxy, error) {
 			return nil, err
 		}
 
-		// Why is a new mux created? Why not re-use the mux in hproxy? Why the funky logic below with empty host names?
-		//
-		// The httpp package uses the muxie mux by default. This mux can match directly on host name, and is generally
-		// great. Except it mangles the http request objects in such a way that gorilla/websocket fails to upgrade the
-		// connection.
-		//
-		// To work around that issue, we use two muxes:
-		// - one that dispatches based on host name, very simple, does not mangle the http request.
-		//   The goal of this mux is to route connection requests to either the ssh handler, or http proxy handler.
-		// - muxie, used by the proxy, to route all other requests.
-		//
-		// To support the two being configured on the same domain, or default domain, the muxie mux is configured
-		// as a fallback to the ssh mux.
-		mux := http.NewServeMux()
-		nasshp.Register(mux.HandleFunc)
-		mux.Handle("/", hproxy)
-
-		hosts := []khttp.HostDispatch{
-			{Host: nasshp.RelayHost(), Handler: mux},
-		}
-		if nasshp.RelayHost() != "" {
-			hosts = append(hosts, khttp.HostDispatch{Handler: hproxy})
+		rhost := nasshp.RelayHost()
+		root := amux.Mux(mux)
+		if rhost != "" {
+			root = mux.Host(rhost)
 		}
 
-		handler, err := khttp.NewHostDispatcher(hosts)
-		if err != nil {
-			return nil, err
-		}
-		dispatcher = handler
+		nasshp.Register(root.Handle)
 	}
 
-	return &Enproxy{log: op.log, mux: dispatcher, domains: append(op.config.Domains, hproxy.Domains...), starter: op.starter}, nil
+	return &Enproxy{log: op.log, mux: mux, domains: op.config.Domains, starter: op.starter}, nil
 }
 
 func (ep *Enproxy) Run() error {

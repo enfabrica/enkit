@@ -14,7 +14,7 @@ go_library(
         "//lib/logger:go_default_library",
         "//lib/multierror:go_default_library",
         "//lib/oauth:go_default_library",
-        "@com_github_kataras_muxie//:go_default_library",
+        "//proxy/amux:go_default_library",
     ],
 )
 
@@ -24,6 +24,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//lib/khttp:go_default_library",
+        "//proxy/amux/amuxie:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )

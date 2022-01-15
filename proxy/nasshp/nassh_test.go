@@ -63,7 +63,7 @@ func TestBasic(t *testing.T) {
 	assert.Nil(t, err)
 
 	mux := http.NewServeMux()
-	nassh.Register(mux.HandleFunc)
+	nassh.Register(mux.Handle)
 
 	tu, err := ktest.Start(&khttp.Dumper{Log: t.Logf, Real: mux})
 	assert.Nil(t, err)
