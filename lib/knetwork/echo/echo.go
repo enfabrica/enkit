@@ -1,3 +1,5 @@
+// +build !release
+//
 // Package echo implements a naive echo server.
 //
 // The echo server opens a port of choice, it spawns a goroutine for every
@@ -9,8 +11,6 @@
 //
 // This is most useful for testing code that requires a TCP endpoint on
 // the other end.
-//
-// +build !release
 package echo
 
 import (
