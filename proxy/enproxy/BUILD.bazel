@@ -1,0 +1,37 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["enproxy.go"],
+    importpath = "github.com/enfabrica/enkit/proxy/enproxy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/config/marshal:go_default_library",
+        "//lib/kflags:go_default_library",
+        "//lib/khttp:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/oauth:go_default_library",
+        "//proxy/httpp:go_default_library",
+        "//proxy/nasshp:go_default_library",
+        "//proxy/utils:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["enproxy_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//lib/khttp/krequest:go_default_library",
+        "//lib/khttp/ktest:go_default_library",
+        "//lib/khttp/protocol:go_default_library",
+        "//lib/knetwork/echo:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/oauth:go_default_library",
+        "//lib/token:go_default_library",
+        "//proxy/httpp:go_default_library",
+        "//proxy/nasshp:go_default_library",
+        "//proxy/ptunnel:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
+)

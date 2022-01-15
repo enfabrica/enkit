@@ -8,15 +8,10 @@ go_library(
     deps = [
         ":credentials",
         "//lib/client:go_default_library",
-        "//lib/config/marshal:go_default_library",
-        "//lib/kflags:go_default_library",
         "//lib/kflags/kcobra:go_default_library",
-        "//lib/khttp:go_default_library",
-        "//lib/oauth:go_default_library",
         "//lib/srand:go_default_library",
+        "//proxy/enproxy:go_default_library",
         "//proxy/httpp:go_default_library",
-        "//proxy/nasshp:go_default_library",
-        "//proxy/utils:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
     ],
 )
