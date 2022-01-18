@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"os/user"
+	"syscall"
 	"time"
 
 	"github.com/enfabrica/enkit/flextape/client"
@@ -46,7 +48,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	// TODO(INFRA-418): Insert signal handling here
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func(cancelFunc func()) {
+		sig := <-sigs
+		log.Printf("Flextape client caught signal %v; killing job...", sig)
+		cancel()
+	}(cancel)
 
 	c := client.New(fpb.NewFlextapeClient(conn), user.Username, vendor, feature, id.String())
 	err = c.Guard(ctx, cmd, args...)
