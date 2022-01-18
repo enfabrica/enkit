@@ -30,8 +30,8 @@ test "$?" == 0 || {
 test "$uid" == "0" || {
   fail "running as root failed - $uid"
 }
-
-dir=$($ft --mount /etc:/tmp/root/etc --chdir /tmp/root -- sh -c pwd)
+tmpdir=$(mktemp -d -t faketree-XXXXXXXXXX)
+dir=$($ft --mount $tmpdir:/tmp/root/etc --chdir /tmp/root -- sh -c pwd)
 test "$?" == 0 || {
   fail "unexpected failure in simple mount"
 }
@@ -39,20 +39,21 @@ test "$dir" == "/tmp/root" || {
   fail "chdir failed, poorly - $dir"
 }
 
-dir=$($ft --mount /etc:/tmp/root/etc --chdir /tmp/root/etc -- sh -c 'realpath `pwd`')
+dir=$($ft --mount $tmpdir:/tmp/root/etc --chdir /tmp/root/etc -- sh -c 'realpath `pwd`')
 test "$?" == 0 || {
   fail "unexpected failure in simple mount"
 }
 test "$dir" == "/tmp/root/etc" || {
   fail "realpath pwd does not match - $dir"
 }
-
-$ft --mount /etc:/tmp/root/etc --chdir /tmp/root/etc -- sh -c 'exit 12' &>/dev/null
+$ft --mount $tmpdir:/tmp/root/etc --chdir /tmp/root/etc -- sh -c 'exit 12' &>/dev/null
 test "$?" == 12 || {
   fail "faketree was suppsoed to propagate error 12"
 }
 
-$ft --mount /etc:/tmp/root/etc --chdir /tmp/root/etc -- sh -c 'cat ./hosts' &>/dev/null
+tmpfile=$(mktemp $tmpdir/faketree.XXXXXX)
+cmd="cat ./$tmpfile"
+$ft --mount $tmpdir:/tmp/root/etc --chdir /tmp/root/etc -- sh -c $cmd &>/dev/null
 test "$?" == 0 || {
   fail "faketree could not mount /etc correctly - no hosts file??"
 }
