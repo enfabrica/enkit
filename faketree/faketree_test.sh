@@ -55,7 +55,7 @@ tmpfile=$(mktemp $tmpdir/faketree.XXXXXX)
 cmd="cat ./$tmpfile"
 $ft --mount $tmpdir:/tmp/root/etc --chdir /tmp/root/etc -- sh -c $cmd &>/dev/null
 test "$?" == 0 || {
-  fail "faketree could not mount /etc correctly - no hosts file??"
+  fail "faketree could not find $tmpfile correctly - no $tmpdir directory"
 }
 
 $ft --fail --mount /non-existing-path:/tmp/root/etc -- sh -c 'pwd' &>/dev/null
