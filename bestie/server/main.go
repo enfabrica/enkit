@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -19,18 +17,6 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-// Derive a unique invocation SHA value.
-func deriveInvocationSha(invocationId string) string {
-	// The SHA value allows combining multiple items in the future
-	// (e.g. invocationId, buildId, timestamp) to uniquely identify
-	// a bazel test stream without impacting the database schema.
-	//
-	// We still want to store the actual invocationId in the database
-	// to match it up with build log references, etc.
-	hash := sha256.Sum256([]byte(invocationId))
-	return hex.EncodeToString(hash[:])
-}
 
 type BuildEventService struct {
 }
@@ -54,23 +40,18 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 
 		// Access protobuf message sections of interest.
 		obe := req.GetOrderedBuildEvent()
-		event := obe.Event
+		event := obe.GetEvent()
+		streamId := obe.GetStreamId()
 		//bazelEvent := event.GetBazelEvent()
-
-		streamId := obe.StreamId
-		invocationId := streamId.InvocationId
-		//buildId := streamId.BuildId
-		invocationSha := deriveInvocationSha(invocationId)
 
 		switch buildEvent := event.Event.(type) {
 		case *bpb.BuildEvent_BazelEvent:
 			var bazelBuildEvent bes.BuildEvent
-			//fmt.Printf("BuildTool: BuildEvent_BazelEvent: \n%T\n%s\n\n", buildEvent.BazelEvent, buildEvent.BazelEvent)
 			if err := ptypes.UnmarshalAny(buildEvent.BazelEvent, &bazelBuildEvent); err != nil {
 				return err
 			}
 			if m := bazelBuildEvent.GetTestResult(); m != nil {
-				if err := handleTestResultEvent(bazelBuildEvent, invocationId, invocationSha); err != nil {
+				if err := handleTestResultEvent(bazelBuildEvent, streamId); err != nil {
 					return err
 				}
 			}

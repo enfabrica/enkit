@@ -5,33 +5,31 @@ package bestie.proto;
 
 option go_package = "github.com/enfabrica/enkit/bestie/proto";
 
-// BigQuery table identifier.
-//    project - the Google Cloud billing entity set up for the organization to use
-//    dataset - logical container that holds tables and views; each group may create its own
-//    tablename - name of the table to hold these metrics; the same tablename is used across datasets
-message BigQueryTable {
-    string project = 1;
-    string dataset = 2;
-    string tablename = 3;
-}
-
 // BigQuery metric definition compatible with Prometheus remote read adapter.
 //
-// The 'tags' field is a freeform, JSON-like string with comma-separated key=value pairs.
+// The 'tags' field is a list of key/value pairs, with each key and value formatted
+// as a string. There is no restriction on the number of tags per metric, nor are there
+// any mandatory keys required for each metric. Note that these tags are translated
+// by the BES Endpoint into a JSON-like string of comma-separated key=value pairs
+// for consumption by BigQuery.
+//
 // Various tags may be used depending on the test application. Here are some examples:
 //     direction - a direction qualifier for the metric (e.g. rx, tx)
 //     realm - designates the test area of interest (e.g. systest, emulation)
 //     type - a subtype qualifier for the metric (e.g. for pps: flow, link, or total)
 //     units - the units used for the metric value (percent, Gbps, MB, etc.)
 //
-// The following tags are inserted by the BES Endpoint using information obtained
+// The following tags are always inserted by the BES Endpoint using information obtained
 // from the Bazel TestResults event:
 //     invocation_id - the invocation identifier assigned by the Bazel 'test' command
+//     invocation_sha - a SHA256 hash representing the following attributes provided by
+//                      the Bazel 'test' command: invocation_id, build_id, run
+//     run - the individual run number of the Bazel test (i.e. --runs_per_test option)
 //     test_name - identifies the test from which the metric originates
 //
 // Tags are also used to identify most of the setup information used to run a test, such
 // as the nodes used, MTU size, various offload modes, etc. These are stored as additional
-// tags rather than in separate relational tables so that they remain queryable by Prometheus.
+// tags, rather than in separate relational tables, so that they can be queried by Prometheus.
 // For example:
 //    tx_node - device used to send the workload traffic
 //    tx_ifname - interface name used for sender node
@@ -48,13 +46,39 @@ message BigQueryTable {
 //       updating the BES Endpoint service.
 message TestMetric {
     string metricname = 1;
-    string tags = 2;
+    repeated KeyValuePair tags = 2;
     double value = 3;
     int64 timestamp = 4;  // nanoseconds since epoch (e.g. Python: time.time_ns())
 }
 
-// A set of metrics reported by a test run to be stored in the designated BigQuery table.
+// Each metric tag must be supplied in the form of a key/value string pair.
+message KeyValuePair {
+    string key = 1;
+    string value = 2;
+}
+
+// BigQuery table identifier (OPTIONAL)
+//    dataset - logical container that holds tables and views; each group may create its own
+//    tablename - name of the table to hold these metrics; the same tablename is used across datasets
+//
+// The BigQuery project identifier is the Google Cloud billing entity set up for the organization to use.
+// This is predefined and is therefore omitted from the protobuf message definition.
+//
+// The BigQuery table specification is optional, as a suitable default is chosen by the BES Endpoint.
+// This message may be useful for development testing, however, when updating the "production" metrics table
+// is undesirable.
+message BigQueryTable {
+    //string project = 1;
+    string dataset = 2;
+    string tablename = 3;
+}
+
+// A set of metrics reported by a test run to be stored in BigQuery.
+// The BES Endpoint normally decides which BigQuery table to use, but
+// an optional table identifier may be specified for development testing, etc.
 message TestMetrics {
-    BigQueryTable table = 1;
-    repeated TestMetric metrics = 2;
+    repeated TestMetric metrics = 1;
+    oneof optional_table {
+        BigQueryTable table = 20;
+    };
 }

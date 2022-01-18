@@ -2,14 +2,18 @@ package main
 
 import (
 	"archive/zip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	tpb "github.com/enfabrica/enkit/bestie/proto"
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
+	"google.golang.org/genproto/googleapis/devtools/build/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -19,9 +23,14 @@ type bigQueryTable struct {
 	tablename string
 }
 
+type keyValuePair struct {
+	key   string
+	value string
+}
+
 type testMetric struct {
 	metricname string
-	tags       string
+	tags       []keyValuePair
 	value      float64
 	timestamp  int64
 }
@@ -31,16 +40,52 @@ type metricTestResult struct {
 	metrics []testMetric
 }
 
+// Pertinent fields to uniquely identify a Bazel event stream.
+type bazelStream struct {
+	buildId       string
+	invocationId  string
+	testName      string
+	run           string
+	invocationSha string // derived
+}
+
+// Derive a unique invocation SHA value.
+func deriveInvocationSha(items []string) string {
+	// The SHA value allows combining one or more items
+	// (e.g. invocationId, buildId, run) to uniquely identify
+	// a bazel test stream without impacting the database schema.
+	hash := sha256.Sum256([]byte(strings.Join(items[:], ".")))
+	return hex.EncodeToString(hash[:])
+}
+
+// Store fields that help identify this Bazel stream.
+func identifyStream(bazelBuildEvent bes.BuildEvent, streamId *build.StreamId) bazelStream {
+	// Extract the stream identifier fields of interest.
+	stream := bazelStream{
+		buildId:      streamId.GetBuildId(),
+		invocationId: streamId.GetInvocationId(),
+		run:          strconv.Itoa(int(bazelBuildEvent.GetId().GetTestResult().GetRun())),
+		testName:     bazelBuildEvent.GetId().GetTestResult().GetLabel(),
+	}
+	// Calculate a SHA256 hash using the following fields to uniquely identify this stream.
+	stream.invocationSha = deriveInvocationSha([]string{stream.invocationId, stream.buildId, stream.run})
+	return stream
+}
+
 // Handle metrics extraction from the TestResult event.
-func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, invocationId, invocationSha string) error {
+func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.StreamId) error {
+	stream := identifyStream(bazelBuildEvent, streamId)
 	m := bazelBuildEvent.GetTestResult()
 	if m == nil {
 		return fmt.Errorf("Error extracting TestResult data from event message")
 	}
-	// Get the 'bazel test' target name from the bazel build event id label.
-	testname := bazelBuildEvent.GetId().GetTestResult().GetLabel()
-	fmt.Printf("TestResult for %s: %s\n", testname, m.GetStatus())
-	fmt.Printf("  invocationId: %s\n  invocationSha: %s\n\n", invocationId, invocationSha)
+
+	fmt.Printf("TestResult for %s: %s\n", stream.testName, m.GetStatus())
+	fmt.Printf("  run: %s\n", stream.run)
+	fmt.Printf("  buildId: %s\n", stream.buildId)
+	fmt.Printf("  invocationId: %s\n", stream.invocationId)
+	fmt.Printf("  invocationSha: %s\n\n", stream.invocationSha)
+
 	outputFiles := m.GetTestActionOutput()
 	var ofname, ofuri string
 	found := false
@@ -64,7 +109,7 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, invocationId, invocat
 
 	// Process test metrics output file(s).
 	// Each output file contains a single (potentially large) protobuf message.
-	if err := extractZippedFiles(ofuri); err != nil {
+	if err := extractZippedFiles(stream, ofuri); err != nil {
 		return fmt.Errorf("Error processing %s file: %s", ofname, err)
 	}
 
@@ -72,7 +117,7 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, invocationId, invocat
 }
 
 // Look for and return a []byte slice with its contents.
-func extractZippedFiles(zipFile string) error {
+func extractZippedFiles(stream bazelStream, zipFile string) error {
 	metricsFileRE := regexp.MustCompile(`(^test_metrics.pb$|^test_metrics[_-]+[[:word:]-]*[[:alnum:]]\.pb$)`)
 	summaryFileRE := regexp.MustCompile(`(^test_summary.pb$|^test_summary[_-]+[[:word:]-]*[[:alnum:]]\.pb$)`)
 	allRE := []*regexp.Regexp{metricsFileRE, summaryFileRE}
@@ -136,21 +181,24 @@ func getTestMetricsFromFileData(pbmsg *[]byte) (*metricTestResult, error) {
 	if err := proto.Unmarshal(*pbmsg, tmet); err != nil {
 		return nil, fmt.Errorf("Error parsing metric data: %s: %s", err, pbmsg)
 	}
-	var result metricTestResult
 	table := tmet.GetTable()
 	metrics := tmet.GetMetrics()
-	t := bigQueryTable{
-		project:   table.GetProject(),
-		dataset:   table.GetDataset(),
-		tablename: table.GetTablename(),
+	var result metricTestResult
+	if table != nil {
+		result.table = bigQueryTable{
+			// The project is not defined by the protobuf message.
+			dataset:   table.GetDataset(),
+			tablename: table.GetTablename(),
+		}
 	}
-	result.table = t
 	for _, metric := range metrics {
 		m := testMetric{
 			metricname: metric.GetMetricname(),
-			tags:       metric.GetTags(),
 			value:      metric.GetValue(),
 			timestamp:  metric.GetTimestamp(),
+		}
+		for _, mtag := range metric.GetTags() {
+			m.tags = append(m.tags, keyValuePair{mtag.GetKey(), mtag.GetValue()})
 		}
 		result.metrics = append(result.metrics, m)
 	}
@@ -159,8 +207,11 @@ func getTestMetricsFromFileData(pbmsg *[]byte) (*metricTestResult, error) {
 
 // Print the test metric data using a starting indentation offset.
 func displayMetrics(res *metricTestResult, offset int) {
-	fmt.Printf("%*sBigQuery Table: %s.%s.%s\n", offset, "",
-		res.table.project, res.table.dataset, res.table.tablename)
+	tableId := "<using default>"
+	if len(res.table.dataset) != 0 || len(res.table.tablename) != 0 {
+		tableId = fmt.Sprintf("%s.%s", res.table.dataset, res.table.tablename)
+	}
+	fmt.Printf("%*sBigQuery Table: %s\n", offset, "", tableId)
 	for _, m := range res.metrics {
 		fmt.Printf("%*sMetric: metricname=%s value=%f timestamp=%d tags=%s\n",
 			offset*2, "", m.metricname, m.value, m.timestamp, m.tags)
