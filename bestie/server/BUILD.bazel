@@ -1,7 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
-load("//bazel/cloud_run:defs.bzl", "cloud_run_deploy")
 
 go_library(
     name = "go_default_library",
@@ -56,14 +55,4 @@ container_push(
     repository = "devops-284019/infra/bestie",
     # TODO: Change this tag to "live"
     tag = "testing",
-)
-
-cloud_run_deploy(
-    name = "bestie_cloud_run_deploy",
-    access = "public",
-    image = "gcr.io/devops-284019/infra/bestie",
-    image_version = "testing",
-    project = "bestie-builds",
-    region = "us-west1",
-    service = "bestie",
 )

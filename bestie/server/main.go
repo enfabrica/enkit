@@ -9,8 +9,8 @@ import (
 
 	"github.com/enfabrica/enkit/lib/server"
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
-	"github.com/golang/protobuf/ptypes"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	bpb "google.golang.org/genproto/googleapis/devtools/build/v1"
 	"google.golang.org/grpc"
@@ -77,5 +77,5 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
-	server.CloudRun(mux, grpcs)
+	server.Run(mux, grpcs)
 }
