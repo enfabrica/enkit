@@ -1864,15 +1864,18 @@ function gee__make_branch() {
   _checkout_or_die "${CURRENT_BRANCH}"
 
   local -a ARGS=( worktree add "${REPO_DIR}/${BRNAME}" )
-  if [[ -n "${SHA}" ]]; then
-    ARGS+=( "${SHA}" )
-  fi
   _git "${ARGS[@]}"
   _info "Created ${REPO_DIR}/${BRNAME}"
 
   _read_parents_file
   PARENTS["${BRNAME}"]="${CURRENT_BRANCH}"
   _write_parents_file
+
+  if [[ -n "${SHA}" ]]; then
+    _info "Setting HEAD of branch \"${BRNAME}\" to \"${SHA}\""
+    _checkout_or_die "${BRNAME}"
+    git reset --hard "${SHA}"
+  fi
 
   # If the user has created a branch whose name matches an
   # existing branch in their existing repo, pull those changes
