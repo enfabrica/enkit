@@ -118,9 +118,8 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 
 // Look for and return a []byte slice with its contents.
 func extractZippedFiles(stream bazelStream, zipFile string) error {
-	metricsFileRE := regexp.MustCompile(`(^test_metrics.pb$|^test_metrics[_-]+[[:word:]-]*[[:alnum:]]\.pb$)`)
-	summaryFileRE := regexp.MustCompile(`(^test_summary.pb$|^test_summary[_-]+[[:word:]-]*[[:alnum:]]\.pb$)`)
-	allRE := []*regexp.Regexp{metricsFileRE, summaryFileRE}
+	// regex: basically *.metrics.pb (with reasonable constraints)
+	pbFileRE := regexp.MustCompile(`(^\.?[[:word:]][[:word:]-.]*\.metrics\.pb$)`)
 
 	reader, err := zip.OpenReader(zipFile)
 	if err != nil {
@@ -133,14 +132,8 @@ func extractZippedFiles(stream bazelStream, zipFile string) error {
 			continue
 		}
 
-		//  Look for a matching file name using regular expression patterns.
-		match := ""
-		for _, re := range allRE {
-			match = re.FindString(filepath.Base(file.Name))
-			if len(match) > 0 {
-				break
-			}
-		}
+		//  Look for a matching file name using a regular expression pattern.
+		match := pbFileRE.FindString(filepath.Base(file.Name))
 		if len(match) == 0 {
 			continue
 		}
@@ -159,9 +152,9 @@ func extractZippedFiles(stream bazelStream, zipFile string) error {
 		}
 
 		// Extract all metrics from the file contents.
-		pResult, err := getTestMetricsFromFileData(&data)
+		pResult, err := getTestMetricsFromFileData(data)
 		if err != nil {
-			fmt.Printf("Error processing output file %s: %s\n", file.Name, err)
+			fmt.Printf("Error processing output file %s: %s\n\n", file.Name, err)
 			continue
 		}
 		if pResult != nil {
@@ -174,12 +167,11 @@ func extractZippedFiles(stream bazelStream, zipFile string) error {
 }
 
 // Extract the test metrics information from the protobuf message data read
-// from an output file. This is used for processing test_metrics*.pb and
-// test_summary*.pb output files.
-func getTestMetricsFromFileData(pbmsg *[]byte) (*metricTestResult, error) {
+// from an output file. This is used for processing *.metrics.pb output files.
+func getTestMetricsFromFileData(pbmsg []byte) (*metricTestResult, error) {
 	tmet := &tpb.TestMetrics{}
-	if err := proto.Unmarshal(*pbmsg, tmet); err != nil {
-		return nil, fmt.Errorf("Error parsing metric data: %s: %s", err, pbmsg)
+	if err := proto.Unmarshal(pbmsg, tmet); err != nil {
+		return nil, fmt.Errorf("Error extracting metric data from protobuf message: %s", err)
 	}
 	table := tmet.GetTable()
 	metrics := tmet.GetMetrics()
