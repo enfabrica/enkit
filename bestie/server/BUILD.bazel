@@ -57,13 +57,3 @@ container_push(
     # TODO: Change this tag to "live"
     tag = "testing",
 )
-
-cloud_run_deploy(
-    name = "bestie_cloud_run_deploy",
-    access = "public",
-    image = "gcr.io/devops-284019/infra/bestie",
-    image_version = "testing",
-    project = "bestie-builds",
-    region = "us-west1",
-    service = "bestie",
-)
