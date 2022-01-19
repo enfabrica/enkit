@@ -2409,7 +2409,7 @@ _register_help "codeowners" \
   "Provide detailed information about required approvals for this PR." \
   owners reviewers \
   <<'EOT'
-Usage: gee codeowners
+Usage: gee codeowners [--comment]
 
 Gee examines the set of modified files in this branch, and compares it against
 the rules in the CODEOWNERS file.  Gee then presents the user with detailed
@@ -2421,22 +2421,39 @@ information about which approvals are necessary to submit this PR:
 *  A minimum of one user from each line must provide approval in order for the
    PR to be merged.
 
+If `--comment` option is specified, the codeowners information is appended to the
+current PR as a new comment.
+
 EOT
 
 function gee__owners() { gee__codeowners "$@"; }
 function gee__reviewers() { gee__codeowners "$@"; }
 function gee__codeowners() {
-  local OWNERS=()
-  mapfile -t OWNERS < <(_print_codeowners)
+  local OPT_COMMENT=0
+  if [[ "$1" == "--comment" ]]; then
+    OPT_COMMENT=1
+  fi
 
-  if [[ "${#OWNERS[@]}" -eq 0 ]]; then
-    _info "This PR can be submitted with approval from any repo owner."
-  elif [[ "${#OWNERS[@]}" -eq 1 ]]; then
-    _info "This PR will require approval from at least one of these people:"
-    _info "${OWNERS[@]}"
-  else
-    _info "This PR will require approval from at least one persom from each line:"
-    _info "${OWNERS[@]}"
+  local COMMENT
+  read -d "" COMMENT < <(
+    # add a second comment containing the CODEOWNERS annotation
+    local OWNERS=()
+    mapfile -t OWNERS < <(_print_codeowners)
+    if [[ "${#OWNERS[@]}" -eq 0 ]]; then
+      printf "This PR can be submitted with approval from any repo owner.\n\n"
+    elif [[ "${#OWNERS[@]}" -eq 1 ]]; then
+      printf "This PR requires approval from at least one of these reviewers:\n"
+      printf "  %s\n" % "${OWNERS[@]}"
+    else
+      printf "This PR requires approval from at least one reviewer from each line:\n"
+      printf "  %s\n" % "${OWNERS[@]}"
+    fi
+    printf "\n"
+  )
+
+  _info "${COMMENT}"
+  if (( OPT_COMMENT )); then
+    _gh pr comment --body "${COMMENT}"
   fi
 }
 
@@ -3026,23 +3043,6 @@ Tested:
 
 EndOfPrTemplate
 
-    # add CODEOWNERS annotation
-    #
-    # TODO(jonathan): move CODEOWNERS annotation to a separate comment, instead
-    # of the PR body.
-    local OWNERS=()
-    mapfile -t OWNERS < <(_print_codeowners)
-    if [[ "${#OWNERS[@]}" -eq 0 ]]; then
-      printf "This PR can be submitted with approval from any repo owner.\n\n"
-    elif [[ "${#OWNERS[@]}" -eq 1 ]]; then
-      printf "This PR requires approval from at least one of these reviewers:\n"
-      printf "  %s\n" % "${OWNERS[@]}"
-    else
-      printf "This PR requires approval from at least one reviewer from each line:\n"
-      printf "  %s\n" % "${OWNERS[@]}"
-    fi
-    printf "\n"
-
     if (( "${#PARENT_PRS[@]}" > 0 )); then
       printf "NOTE: this PR includes changes that are also in PR #%d.\n" "${PARENT_PRS[0]}"
       printf "      Review and submit that PR first, so that this PR will be\n"
@@ -3095,6 +3095,9 @@ EndOfPrTemplate
   )
   PR_ARGS+=( "$@" )
   _gh pr create "${PR_ARGS[@]}"
+
+  gee__codeowners --comment
+
   # _gh pr checks  # These take a while to run, no point checking now.
   _gh_pr_view
   local NUM_REVIEWERS
