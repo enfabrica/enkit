@@ -1702,7 +1702,6 @@ function _print_codeowners() {
       "${GIT}" diff --name-only "${MAIN}...HEAD";
       "${GIT}" diff --name-only;
     ) | sort -u; /bin/true )
-  _info "FILES: ${FILES[*]}"
   if [[ "${#FILES[@]}" -eq 0 ]]; then
     _warn "There are no tracked, modified files in this client."
     return 0
@@ -2435,7 +2434,7 @@ function gee__codeowners() {
   fi
 
   local COMMENT
-  read -d "" COMMENT < <(
+  read -r -d "" COMMENT < <(
     # add a second comment containing the CODEOWNERS annotation
     local OWNERS=()
     mapfile -t OWNERS < <(_print_codeowners)
@@ -2443,13 +2442,13 @@ function gee__codeowners() {
       printf "This PR can be submitted with approval from any repo owner.\n\n"
     elif [[ "${#OWNERS[@]}" -eq 1 ]]; then
       printf "This PR requires approval from at least one of these reviewers:\n"
-      printf "  %s\n" % "${OWNERS[@]}"
+      printf "  %s\n" "${OWNERS[@]}"
     else
       printf "This PR requires approval from at least one reviewer from each line:\n"
-      printf "  %s\n" % "${OWNERS[@]}"
+      printf "  %s\n" "${OWNERS[@]}"
     fi
     printf "\n"
-  )
+  ) || /bin/true
 
   _info "${COMMENT}"
   if (( OPT_COMMENT )); then
