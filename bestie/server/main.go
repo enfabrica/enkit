@@ -8,13 +8,14 @@ import (
 	"net/http"
 
 	"github.com/enfabrica/enkit/lib/server"
-	_ "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
+	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/encoding/prototext"
 	bpb "google.golang.org/genproto/googleapis/devtools/build/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type BuildEventService struct {
@@ -37,8 +38,29 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 
 		fmt.Printf("# BEP BuildToolEvent message:\n%s\n\n", prototext.Format(req))
 
+		// Access protobuf message sections of interest.
+		obe := req.GetOrderedBuildEvent()
+		event := obe.GetEvent()
+		streamId := obe.GetStreamId()
+		//bazelEvent := event.GetBazelEvent()
+
+		switch buildEvent := event.Event.(type) {
+		case *bpb.BuildEvent_BazelEvent:
+			var bazelBuildEvent bes.BuildEvent
+			if err := ptypes.UnmarshalAny(buildEvent.BazelEvent, &bazelBuildEvent); err != nil {
+				return err
+			}
+			if m := bazelBuildEvent.GetTestResult(); m != nil {
+				if err := handleTestResultEvent(bazelBuildEvent, streamId); err != nil {
+					return err
+				}
+			}
+		default:
+			fmt.Printf("Ignoring Bazel event type %T\n", buildEvent)
+		}
+
 		res := &bpb.PublishBuildToolEventStreamResponse{
-			StreamId: req.GetOrderedBuildEvent().StreamId,
+			StreamId:       req.GetOrderedBuildEvent().StreamId,
 			SequenceNumber: req.GetOrderedBuildEvent().SequenceNumber,
 		}
 		if err := stream.Send(res); err != nil {
