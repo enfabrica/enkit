@@ -13,5 +13,5 @@ TMPOUTPUT=$TEST_TMPDIR/.output
 UML_DIR=$(mktemp -u)
 ln -s ${TEST_TMPDIR} ${UML_DIR}
 
-{kernel} ubd0={rootfs} hostfs=$MODULE uml_dir=${UML_DIR} | tee $TMPOUTPUT
+{kernel} con0=null,fd:1 con1=null,fd:1 ubd0={rootfs} hostfs=$MODULE uml_dir=${UML_DIR} | tee $TMPOUTPUT
 {parser} parse < $TMPOUTPUT
