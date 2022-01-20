@@ -232,8 +232,6 @@ func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*N
 	return np, nil
 }
 
-type MuxHandle func(pattern string, handler func(http.ResponseWriter, *http.Request))
-
 func (np *NasshProxy) ServeCookie(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	ext := params.Get("ext")
@@ -762,8 +760,24 @@ func (np *NasshProxy) ProxySsh(logid string, r *http.Request, w http.ResponseWri
 	return err
 }
 
+// MuxHandle is a function capable of instructing an http Mux to invoke an handler for a path.
+//
+// pattern is a string representing a path without host (example: "/", or "/test").
+// No wildcards or field extraction is used by nasshp, only constants need to be supported
+// by MuxHandle.
+//
+// handler is the http.Handler to invoke for the specified path.
+type MuxHandle func(pattern string, handler http.Handler)
+
+// Register is a convenience function to configure all the handlers in your favourite Mux.
+//
+// It configures the http paths and corresponding handlers that are necessary for
+// a nassh implementation to support.
+//
+// Registering the paths can also be done manually. Rather than document the required paths
+// in comments here,look at the source code of the function.
 func (np *NasshProxy) Register(add MuxHandle) {
-	add("/cookie", np.ServeCookie)
-	add("/proxy", np.ServeProxy)
-	add("/connect", np.ServeConnect)
+	add("/cookie", http.HandlerFunc(np.ServeCookie))
+	add("/proxy", http.HandlerFunc(np.ServeProxy))
+	add("/connect", http.HandlerFunc(np.ServeConnect))
 }

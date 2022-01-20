@@ -3,7 +3,7 @@ package httpp
 import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/kataras/muxie"
+	"github.com/enfabrica/enkit/proxy/amux"
 
 	"fmt"
 	"net/http"
@@ -11,19 +11,12 @@ import (
 )
 
 type Proxy struct {
-	// Public, as it provides the ServeHTTP method, needed to serve the proxy.
-	*muxie.Mux
-	Domains []string
-
+	Domains       []string
 	authenticator oauth.Authenticate
-	mapping       []Mapping
 	log           logger.Logger
 
-	stripCookie  []string
-	cachedir     string
-	httpAddress  string
-	httpsAddress string
-	authURL      *url.URL
+	stripCookie []string
+	authURL     *url.URL
 }
 
 type AuthenticatedProxy struct {
@@ -111,7 +104,7 @@ func WithAuthenticator(authenticator oauth.Authenticate) Modifier {
 	}
 }
 
-func New(mapping []Mapping, mod ...Modifier) (*Proxy, error) {
+func New(mux amux.Mux, mapping []Mapping, mod ...Modifier) (*Proxy, error) {
 	p := &Proxy{
 		log: logger.Nil,
 	}
@@ -120,12 +113,11 @@ func New(mapping []Mapping, mod ...Modifier) (*Proxy, error) {
 	}
 
 	p.log.Infof("Mappings are: %v", mapping)
-	mux, domains, err := BuildMux(nil, p.log, mapping, p.CreateServer)
+	domains, err := PopulateMux(mux, p.log, mapping, p.CreateServer)
 	if err != nil {
 		return nil, err
 	}
 
-	p.Mux = mux
 	p.Domains = domains
 	return p, nil
 }
