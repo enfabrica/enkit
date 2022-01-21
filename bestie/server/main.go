@@ -44,12 +44,18 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 		streamId := obe.GetStreamId()
 		//bazelEvent := event.GetBazelEvent()
 
+		// See BuildEvent.Event in build_events.pb.go for list of event types supported.
 		switch buildEvent := event.Event.(type) {
 		case *bpb.BuildEvent_BazelEvent:
 			var bazelBuildEvent bes.BuildEvent
 			if err := ptypes.UnmarshalAny(buildEvent.BazelEvent, &bazelBuildEvent); err != nil {
 				return err
 			}
+			bazelEventId := bazelBuildEvent.GetId()
+			if ok := bazelEventId.GetBuildFinished(); ok != nil {
+				SrvStats.bazelBuildsTotal()
+			}
+			SrvStats.bazelEventsTotal(bazelEventId.Id)
 			if m := bazelBuildEvent.GetTestResult(); m != nil {
 				if err := handleTestResultEvent(bazelBuildEvent, streamId); err != nil {
 					return err
@@ -71,6 +77,8 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 }
 
 func main() {
+	SrvStats.init()
+
 	grpcs := grpc.NewServer()
 	bpb.RegisterPublishBuildEventServer(grpcs, &BuildEventService{})
 

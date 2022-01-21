@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -102,6 +101,7 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 	}
 
 	// Strip off any file:// prefix from the URI to access the local file system path.
+	// TODO (PR-394): Handle similar adjustment for Cloud Run URI.
 	filePrefix := "file://"
 	if strings.HasPrefix(ofuri, filePrefix) {
 		ofuri = ofuri[len(filePrefix):]
@@ -118,9 +118,6 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 
 // Look for and return a []byte slice with its contents.
 func extractZippedFiles(stream bazelStream, zipFile string) error {
-	// regex: basically *.metrics.pb (with reasonable constraints)
-	pbFileRE := regexp.MustCompile(`(^\.?[[:word:]][[:word:]-.]*\.metrics\.pb$)`)
-
 	reader, err := zip.OpenReader(zipFile)
 	if err != nil {
 		return err
@@ -132,9 +129,8 @@ func extractZippedFiles(stream bazelStream, zipFile string) error {
 			continue
 		}
 
-		//  Look for a matching file name using a regular expression pattern.
-		match := pbFileRE.FindString(filepath.Base(file.Name))
-		if len(match) == 0 {
+		//  Look for any file named *.metrics.pb.
+		if !strings.HasSuffix(filepath.Base(file.Name), ".metrics.pb") {
 			continue
 		}
 		fmt.Printf("Found output file to process: %s\n", file.Name)
@@ -146,6 +142,7 @@ func extractZippedFiles(stream bazelStream, zipFile string) error {
 		defer f.Close()
 
 		// Read entire file contents into a byte slice.
+		// TODO (PR-394): Need to chunk the .pb file into multiple messages, or enforce a max metrics file size.
 		data, err := ioutil.ReadAll(f)
 		if err != nil {
 			return err
@@ -159,7 +156,7 @@ func extractZippedFiles(stream bazelStream, zipFile string) error {
 		}
 		if pResult != nil {
 			// Display the metric data on the console.
-			displayMetrics(pResult, 2)
+			displayTestMetrics(pResult, 2)
 			// TODO: Upload test metrics to BigQuery database table.
 		}
 	}
@@ -198,7 +195,7 @@ func getTestMetricsFromFileData(pbmsg []byte) (*metricTestResult, error) {
 }
 
 // Print the test metric data using a starting indentation offset.
-func displayMetrics(res *metricTestResult, offset int) {
+func displayTestMetrics(res *metricTestResult, offset int) {
 	tableId := "<using default>"
 	if len(res.table.dataset) != 0 || len(res.table.tablename) != 0 {
 		tableId = fmt.Sprintf("%s.%s", res.table.dataset, res.table.tablename)
