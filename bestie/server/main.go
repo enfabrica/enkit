@@ -53,9 +53,9 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 			}
 			bazelEventId := bazelBuildEvent.GetId()
 			if ok := bazelEventId.GetBuildFinished(); ok != nil {
-				SrvStats.bazelBuildsTotal()
+				ServiceStats.incrementBuildsTotal()
 			}
-			SrvStats.bazelEventsTotal(bazelEventId.Id)
+			ServiceStats.incrementEventsTotal(bazelEventId.Id)
 			if m := bazelBuildEvent.GetTestResult(); m != nil {
 				if err := handleTestResultEvent(bazelBuildEvent, streamId); err != nil {
 					return err
@@ -77,7 +77,7 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 }
 
 func main() {
-	SrvStats.init()
+	ServiceStats.init()
 
 	grpcs := grpc.NewServer()
 	bpb.RegisterPublishBuildEventServer(grpcs, &BuildEventService{})

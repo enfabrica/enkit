@@ -39,69 +39,35 @@ var besEventIds = map[string]string{
 	"ConvenienceSymlinksIdentified": "convenience_symlinks_identified",
 }
 
-// BES Prometheus metric definition.
-// Use this for untagged counters.
-type besPromMetric struct {
-	label string
-	ctr   prometheus.Counter
-}
-
-// BES Prometheus metric vector definition.
-// Use this for tagged counters.
-type besPromMetricVec struct {
-	ctr *prometheus.CounterVec
-}
-
-// BES Prometheus histogram definition.
-type besPromHistogram struct {
-	ctr prometheus.Histogram
-}
-
-// Number of BES messages seen by event type.const
-type besEvents struct {
-	bazelBuildsTotal besPromMetric
-	bazelEventsTotal besPromMetricVec
-}
-
-// Define BES Endpoint service counters being exposed through Prometheus.
-var (
-	promBazelBuildsTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: "bes",
-			Subsystem: "srv",
-			Name:      "bazel_builds_total",
-			Help:      "Total number of Bazel builds seen",
-		})
-	promBazelEventsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "bes",
-			Subsystem: "srv",
-			Name:      "bazel_events_total",
-			Help:      "Total observed events, tagged by event ID",
-		},
-		[]string{"id"},
-	)
-)
-
 // Service statistics.
 type serviceStats struct {
 	// General Build Event Stream stats.
-	besEvents
+	buildsTotal prometheus.Counter
+	eventsTotal *prometheus.CounterVec
 }
 
 // Statistic values to report to Prometheus for this service.
-var SrvStats serviceStats = serviceStats{
-	besEvents: besEvents{
-		// List of defined BazelBuildEvent IDs from build_event_stream.proto.
-		bazelBuildsTotal: besPromMetric{ctr: promBazelBuildsTotal},
-		bazelEventsTotal: besPromMetricVec{ctr: promBazelEventsTotal},
-	},
+var ServiceStats serviceStats = serviceStats{
+	buildsTotal: prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "builds_total",
+			Help:      "Total number of Bazel builds seen",
+		}),
+	eventsTotal: prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "events_total",
+			Help:      "Total observed Bazel events, tagged by event ID",
+		},
+		[]string{"id"},
+	),
 }
 
 // Register all service stats metrics with Prometheus.
 func (s *serviceStats) registerPrometheusMetrics() {
-	prometheus.MustRegister(s.besEvents.bazelBuildsTotal.ctr)
-	prometheus.MustRegister(s.besEvents.bazelEventsTotal.ctr)
+	prometheus.MustRegister(s.buildsTotal)
+	prometheus.MustRegister(s.eventsTotal)
 }
 
 // Run-time initialization of service stats struct.
@@ -114,12 +80,12 @@ func (s *serviceStats) init() {
 //
 
 // Increment total number of Bazel builds seen.
-func (s *serviceStats) bazelBuildsTotal() {
-	s.besEvents.bazelBuildsTotal.ctr.Inc()
+func (s *serviceStats) incrementBuildsTotal() {
+	s.buildsTotal.Inc()
 }
 
 // Increment per-event count.
-func (s *serviceStats) bazelEventsTotal(bevid interface{}) {
+func (s *serviceStats) incrementEventsTotal(bevid interface{}) {
 	x := strings.Split(fmt.Sprintf("%T", bevid), "_")
 	id := x[len(x)-1] // use last split item
 	label := besEventIds["Unknown"]
@@ -129,5 +95,5 @@ func (s *serviceStats) bazelEventsTotal(bevid interface{}) {
 		// Make note of this condition. Probably means .proto file definition was updated.
 		fmt.Printf("Detected unknown event id: %s\n\n", id)
 	}
-	s.besEvents.bazelEventsTotal.ctr.WithLabelValues(label).Inc()
+	s.eventsTotal.WithLabelValues(label).Inc()
 }
