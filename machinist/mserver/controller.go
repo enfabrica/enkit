@@ -143,27 +143,35 @@ func (en *Controller) addNodeToDns(name string, ips []net.IP, tags []string) {
 	}
 }
 
-// ServeAllRecords will continuously poll Nodes() and create multiple _all.<domain> records containing the ip addresses
+// ServeAllAndInfoRecords will continuously poll Nodes() and create multiple _all.<domain> records containing the ip addresses
 // of all machines attached.
 // TODO(adam): be able to pass in a wrapped ticker for testing intervals
-func (en *Controller) ServeAllRecords(killChannel chan struct{}, killChannelAck chan struct{}) {
+func (en *Controller) ServeAllAndInfoRecords(killChannel chan struct{}, killChannelAck chan struct{}) {
 	for {
 		select {
 		case <-time.After(en.allRecordsRefreshRate):
 			ns := en.Nodes()
 			for _, d := range en.dnsServer.Domains {
 				dnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", "_all", d))
-				var rs []dns.RR
+				infoDnsName := dns.CanonicalName(fmt.Sprintf("%s.%s", "_info", d))
+				var allDnsRecords []dns.RR
+				var infoDnsRecords []dns.RR
 				for _, v := range ns {
 					for _, i := range v.Ips {
 						rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", dnsName, "A", i.String()))
 						if err != nil {
 							en.Log.Errorf("err: %v", err)
 						}
-						rs = append(rs, rr)
+						infoRR, err := dns.NewRR(fmt.Sprintf("%s %s { name: %s, ip: %s }", infoDnsName, "TXT", v.Name, i.String()))
+						if err != nil {
+							en.Log.Errorf("err: %v", err)
+						}
+						allDnsRecords = append(allDnsRecords, rr)
+						infoDnsRecords = append(infoDnsRecords, infoRR)
 					}
 				}
-				en.dnsServer.SetEntry(dnsName, rs)
+				en.dnsServer.SetEntry(dnsName, allDnsRecords)
+				en.dnsServer.SetEntry(infoDnsName, infoDnsRecords)
 			}
 		case <-killChannel:
 			killChannelAck <- struct{}{}

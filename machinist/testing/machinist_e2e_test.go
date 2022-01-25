@@ -109,11 +109,16 @@ func TestJoinServerAndPoll(t *testing.T) {
 	allRecordsRes, err := customResolver.LookupHost(context.TODO(), "_all.enkitdev")
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(allRecordsRes))
+
+	infoRecords, err := customResolver.LookupTXT(context.TODO(), "_info.enkitdev")
+	assert.NoError(t, err)
+	assert.Equal(t, len(infoRecords), 2)
+	assert.ElementsMatch(t, []string{"{name:test01,ip:10.0.0.4}", "{name:test02,ip:10.0.0.1}"}, infoRecords)
+
 	assert.Nil(t, s.Stop())
 	assert.Nil(t, lis.Close())
 	assert.ElementsMatch(t, []string{"10.0.0.4", "10.0.0.1"}, allRecordsRes)
 	time.Sleep(20 * time.Millisecond)
-
 	//Test serialization
 	dnsLis, customResolver = registerPort(t)
 	dnsAddr, err = dnsLis.Address()
