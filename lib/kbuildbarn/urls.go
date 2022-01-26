@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// ByteStreamUrl retieves the CAS id and bytes of an action based on the input url.
+// ByteStreamUrl retrieves  the CAS id and bytes of an action based on the input url.
 // For example, bytestream://build.local.enfabrica.net:8000/blobs/a9a664559b4d29ecb70613fad33acfb287f2fa378178e131feaaebb5dafa231a/465
 // should return (a9a664559b4d29ecb70613fad33acfb287f2fa378178e131feaaebb5dafa231a, 465, nil)
 // which is a BuildBarnParams.Hash, BuildBarnParams.Size, error.Error
@@ -38,10 +38,10 @@ type BuildBarnParams struct {
 	Scheme  string
 
 	// These are the default buildbarn templates for their different types inside the CAS
-	FileTemplate      string
 	ActionTemplate    string
 	CommandTemplate   string
 	DirectoryTemplate string
+	FileTemplate      string
 }
 
 // the following default values are arbitrary, based on what current works with buildbarn
@@ -52,6 +52,12 @@ var (
 	DefaultDirectoryTemplate = "/blobs/directory/%s-%s/"
 )
 
+// NewBuildBarnParams generates a new Buildbarn url translator for other apis.
+// The intended use case is something like RetryUntilSuccess where:
+// The application retrieves a dead bytestream//: url, and extracts the artifact information from that using ByteStreamUrl
+// The external application can then use baseurl (which changes based on the location of the buildbarn instance),
+// fileName (which is optional) and the extracted hash and size to generate valid urls via BuildBarnParams.ActionUrl etc.
+// External applications can use them e.g. save the now valid urls; load balance onto the urls that are valid, etc.
 func NewBuildBarnParams(baseUrl, fileName, hash, size string) *BuildBarnParams {
 	// These are prefilled defaults, we can change at will
 	return &BuildBarnParams{
@@ -111,6 +117,12 @@ func (bbp BuildBarnParams) CommandUrl() string {
 	return u.String()
 }
 
+func readAndClose(rc io.ReadCloser) ([]byte, error) {
+	// normally we do defer log.ErrorIfNotNull(DeferFunc()) but that isn't plumbed yet
+	defer func() { _ = rc.Close() }()
+	return ioutil.ReadAll(rc)
+}
+
 // RetryUntilSuccess just blasts through all possible urls until it hits one that works. This is intended for
 // applications that are blind to the type of artifact
 func RetryUntilSuccess(params BuildBarnParams) ([]byte, error) {
@@ -124,7 +136,7 @@ func RetryUntilSuccess(params BuildBarnParams) ([]byte, error) {
 			errs = append(errs)
 			continue
 		}
-		return ioutil.ReadAll(rc)
+		return readAndClose(rc)
 	}
 	return nil, multierror.New(errs)
 }
