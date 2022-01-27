@@ -85,8 +85,8 @@ func TestRetryUntilSuccess(t *testing.T) {
 	alwaysFailServer := httptest.NewServer(alwaysFailHandler)
 	directorySuccessServer := httptest.NewServer(succeedOnDirectoryHandler)
 
-	failParams := kbuildbarn.NewBuildBarnParams(removeHttpScheme(alwaysFailServer.URL), "", "foo", "bar")
-	succeedParams := kbuildbarn.NewBuildBarnParams(removeHttpScheme(directorySuccessServer.URL), "", "foo", "bar")
+	failParams := kbuildbarn.NewBuildBarnParams(removeHttpScheme(alwaysFailServer.URL), "", "foo", kbuildbarn.WithFileName("bar"))
+	succeedParams := kbuildbarn.NewBuildBarnParams(removeHttpScheme(directorySuccessServer.URL), "", "foo", kbuildbarn.WithFileName("bar"))
 
 	resp, err := kbuildbarn.RetryUntilSuccess(succeedParams)
 	assert.NoError(t, err)
@@ -95,4 +95,31 @@ func TestRetryUntilSuccess(t *testing.T) {
 	_, err = kbuildbarn.RetryUntilSuccess(failParams)
 	assert.Error(t, err)
 
+}
+
+func TestDefaultUrlGeneration(t *testing.T) {
+	exampleUrl := "bytestream://build.local.enfabrica.net:8000/blobs/foo/bar"
+	hash, size, err := kbuildbarn.ByteStreamUrl(exampleUrl)
+	assert.NoError(t, err)
+	defaultGenerator := kbuildbarn.NewBuildBarnParams("buildbarn.local", hash, size)
+	assert.Equal(t, "http://buildbarn.local/blobs/action/foo-bar", defaultGenerator.ActionUrl())
+	assert.Equal(t, "http://buildbarn.local/blobs/command/foo-bar", defaultGenerator.CommandUrl())
+	assert.Equal(t, "http://buildbarn.local/blobs/directory/foo-bar", defaultGenerator.DirectoryUrl())
+	assert.Equal(t, "http://buildbarn.local/blobs/file/foo-bar/", defaultGenerator.FileUrl())
+}
+
+func TestFileUrlGeneration(t *testing.T) {
+	exampleUrl := "bytestream://build.local.enfabrica.net:8000/blobs/foo/bar"
+	hash, size, err := kbuildbarn.ByteStreamUrl(exampleUrl)
+	assert.NoError(t, err)
+	defaultGenerator := kbuildbarn.NewBuildBarnParams("buildbarn.local", hash, size, kbuildbarn.WithFileName("mickey.mouse"))
+	assert.Equal(t, "http://buildbarn.local/blobs/file/foo-bar/mickey.mouse", defaultGenerator.FileUrl())
+}
+func TestByteStreamGeneration(t *testing.T) {
+	exampleUrl := "bytestream://build.local.enfabrica.net:8000/blobs/foo/bar"
+	hash, size, err := kbuildbarn.ByteStreamUrl(exampleUrl)
+	assert.NoError(t, err)
+	defaultGenerator := kbuildbarn.NewBuildBarnParams("buildbarn.local", hash, size,
+		kbuildbarn.WithScheme("bytestream"))
+	assert.Equal(t, "bytestream://buildbarn.local/blobs/foo/bar", defaultGenerator.ByteStreamUrl())
 }

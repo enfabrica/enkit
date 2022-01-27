@@ -6,7 +6,10 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 # gazelle:ignore
 
-package(default_visibility = ["//third_party/bazel:__subpackages__"])
+package(default_visibility = [
+    "//third_party/bazel:__subpackages__",
+    "//third_party/buildbuddy/proto:__pkg__",
+])
 
 proto_library(
     name = "command_line_proto",
@@ -43,10 +46,4 @@ go_proto_library(
         ":invocation_policy_proto",
         ":option_filters_proto",
     ],
-)
-
-go_library(
-    name = "go_default_library",
-    embed = [":proto"],
-    importpath = "github.com/enfabrica/enkit/third_party/bazel/proto",
 )

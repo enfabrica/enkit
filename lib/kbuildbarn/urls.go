@@ -38,38 +38,49 @@ type BuildBarnParams struct {
 	Scheme  string
 
 	// These are the default buildbarn templates for their different types inside the CAS
-	ActionTemplate    string
-	CommandTemplate   string
-	DirectoryTemplate string
-	FileTemplate      string
+	ActionTemplate     string
+	CommandTemplate    string
+	DirectoryTemplate  string
+	FileTemplate       string
+	ByteStreamTemplate string
 }
 
 // the following default values are arbitrary, based on what current works with buildbarn
 var (
-	DefaultFileTemplate      = "/blobs/file/%s-%s/%s"
-	DefaultActionTemplate    = "/blobs/action/%s-%s/"
-	DefaultCommandTemplate   = "/blobs/command/%s-%s"
-	DefaultDirectoryTemplate = "/blobs/directory/%s-%s/"
+	DefaultFileTemplate       = "/blobs/file/%s-%s/%s"
+	DefaultActionTemplate     = "/blobs/action/%s-%s"
+	DefaultCommandTemplate    = "/blobs/command/%s-%s"
+	DefaultDirectoryTemplate  = "/blobs/directory/%s-%s"
+	DefaultByteStreamTemplate = "/blobs/%s/%s"
 )
 
 // NewBuildBarnParams generates a new Buildbarn url translator for other apis.
 // The intended use case is something like RetryUntilSuccess where:
 // The application retrieves a dead bytestream//: url, and extracts the artifact information from that using ByteStreamUrl
 // The external application can then use baseurl (which changes based on the location of the buildbarn instance),
-// fileName (which is optional) and the extracted hash and size to generate valid urls via BuildBarnParams.ActionUrl etc.
+// and the extracted hash and size to generate valid urls via BuildBarnParams.ActionUrl etc.
 // External applications can use them e.g. save the now valid urls; load balance onto the urls that are valid, etc.
-func NewBuildBarnParams(baseUrl, fileName, hash, size string) *BuildBarnParams {
+func NewBuildBarnParams(baseUrl, hash, size string, opts ...Option) *BuildBarnParams {
+	defaultOpts := options{
+		Scheme:             "http",
+		ByteStreamTemplate: DefaultByteStreamTemplate,
+		FileName:           "",
+	}
+	for _, o := range opts {
+		o.apply(&defaultOpts)
+	}
 	// These are prefilled defaults, we can change at will
 	return &BuildBarnParams{
-		Scheme:            "http",
-		FileName:          fileName,
-		BaseUrl:           baseUrl,
-		Hash:              hash,
-		Size:              size,
-		FileTemplate:      DefaultFileTemplate,
-		ActionTemplate:    DefaultActionTemplate,
-		CommandTemplate:   DefaultCommandTemplate,
-		DirectoryTemplate: DefaultDirectoryTemplate,
+		Scheme:             defaultOpts.Scheme,
+		FileName:           defaultOpts.FileName,
+		BaseUrl:            baseUrl,
+		Hash:               hash,
+		Size:               size,
+		FileTemplate:       DefaultFileTemplate,
+		ActionTemplate:     DefaultActionTemplate,
+		CommandTemplate:    DefaultCommandTemplate,
+		DirectoryTemplate:  DefaultDirectoryTemplate,
+		ByteStreamTemplate: defaultOpts.ByteStreamTemplate,
 	}
 }
 
@@ -118,6 +129,15 @@ func (bbp BuildBarnParams) CommandUrl() string {
 		Scheme: bbp.Scheme,
 		Host:   bbp.BaseUrl,
 		Path:   fmt.Sprintf(bbp.CommandTemplate, bbp.Hash, bbp.Size),
+	}
+	return u.String()
+}
+
+func (bbp BuildBarnParams) ByteStreamUrl() string {
+	u := &url.URL{
+		Scheme: bbp.Scheme,
+		Host:   bbp.BaseUrl,
+		Path:   fmt.Sprintf(bbp.ByteStreamTemplate, bbp.Hash, bbp.Size),
 	}
 	return u.String()
 }
