@@ -78,6 +78,11 @@ func performRequest(client *http.Client, url string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode != 200 {
+		respBody, err := ioutil.ReadAll(resp.Body)
+		defer func() { _ = resp.Body.Close() }()
+		return nil, multierror.New([]error{fmt.Errorf("error response %s", respBody), err})
+	}
 	return resp.Body, nil
 }
 
@@ -125,7 +130,7 @@ func readAndClose(rc io.ReadCloser) ([]byte, error) {
 
 // RetryUntilSuccess just blasts through all possible urls until it hits one that works. This is intended for
 // applications that are blind to the type of artifact
-func RetryUntilSuccess(params BuildBarnParams) ([]byte, error) {
+func RetryUntilSuccess(params *BuildBarnParams) ([]byte, error) {
 	urls := []string{
 		params.FileUrl(), params.ActionUrl(), params.CommandUrl(), params.DirectoryUrl(),
 	}
@@ -133,7 +138,7 @@ func RetryUntilSuccess(params BuildBarnParams) ([]byte, error) {
 	for _, uri := range urls {
 		rc, err := performRequest(http.DefaultClient, uri)
 		if err != nil {
-			errs = append(errs)
+			errs = append(errs, err)
 			continue
 		}
 		return readAndClose(rc)
