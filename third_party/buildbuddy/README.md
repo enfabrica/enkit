@@ -20,5 +20,5 @@ Copybara controls:
 1. Run Copybara, providing a new branch name to use for the PR:
 
    ```
-   copybara third_party/bazel/copy.bara.sky --github-destination-pr-branch your_branch_name
+   copybara third_party/buildbuddy/copy.bara.sky --github-destination-pr-branch your_branch_name
    ```
