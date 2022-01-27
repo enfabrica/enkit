@@ -9,6 +9,10 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 proto_library(
     name = "build_event_stream_proto",
     srcs = ["build_event_stream.proto"],
+    visibility = [
+        "//third_party/bazel:__subpackages__",
+        "//third_party/buildbuddy/proto:__pkg__",
+    ],
     deps = [
         "//third_party/bazel/src/main/protobuf:command_line_proto",
         "//third_party/bazel/src/main/protobuf:failure_details_proto",
@@ -24,14 +28,12 @@ go_proto_library(
     protos = [
         ":build_event_stream_proto",
     ],
+    visibility = [
+        "//bestie:__subpackages__",
+        "//lib/bes:__subpackages__",
+        "//third_party/buildbuddy/proto:__pkg__",
+    ],
     deps = [
         "//third_party/bazel/src/main/protobuf:proto",
     ],
-)
-
-go_library(
-    name = "go_default_library",
-    embed = [":build_event_stream_go_proto"],
-    importpath = "github.com/enfabrica/enkit/third_party/bazel/buildeventstream",
-    visibility = ["//bestie:__subpackages__"],
 )
