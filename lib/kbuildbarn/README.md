@@ -11,7 +11,7 @@ Examples:
     ====== 
     hash, size, err := kbuildbarn.ByteStreamUrl("bytestream://127.0.0.1/blobs/curry/444")
 
-    bbparam := kbuildbarn.NewBuildBarnParams("http://foo.internal", "foo.bar", hash, size)
+    bbparam := kbuildbarn.NewBuildBarnParams("http://foo.internal", hash, size, kbuildbarn.WithFileName("foo.bar"))
     
     ======
     MyApplication.Upload(bbparams.FileUrl())
