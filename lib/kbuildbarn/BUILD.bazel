@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["urls.go"],
+    srcs = [
+        "options.go",
+        "urls.go",
+    ],
     importpath = "github.com/enfabrica/enkit/lib/kbuildbarn",
     visibility = ["//visibility:public"],
     deps = ["//lib/multierror:go_default_library"],
