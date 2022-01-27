@@ -2,8 +2,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["echo.go"],
     testonly = True,
+    srcs = ["echo.go"],
     importpath = "github.com/enfabrica/enkit/lib/knetwork/echo",
     visibility = ["//visibility:public"],
 )

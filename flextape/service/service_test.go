@@ -8,14 +8,13 @@ import (
 
 	fpb "github.com/enfabrica/enkit/flextape/proto"
 	"github.com/enfabrica/enkit/lib/errdiff"
+	"github.com/enfabrica/enkit/lib/testutil"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/prashantv/gostub"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -54,14 +53,6 @@ func (s *Service) withAllocation(licenseType string, inv *invocation) *Service {
 func (s *Service) withQueued(licenseType string, inv *invocation) *Service {
 	s.licenses[licenseType].queue = append(s.licenses[licenseType].queue, inv)
 	return s
-}
-
-// assertProtoEqual fails a test with a descriptive diff if got != want.
-func assertProtoEqual(t *testing.T, got proto.Message, want proto.Message) {
-	t.Helper()
-	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
-		t.Errorf("Proto messages do not match:\n%s\n", diff)
-	}
 }
 
 // assertCmp fails a test with a descriptive diff if got != want, respecting a
@@ -460,7 +451,7 @@ func TestAllocate(t *testing.T) {
 			if gotErr != nil {
 				return
 			}
-			assertProtoEqual(t, tc.want, got)
+			testutil.AssertProtoEqual(t, tc.want, got)
 		})
 	}
 }
@@ -701,7 +692,7 @@ func TestRefresh(t *testing.T) {
 			if gotErr != nil {
 				return
 			}
-			assertProtoEqual(t, tc.want, got)
+			testutil.AssertProtoEqual(t, tc.want, got)
 		})
 	}
 }
@@ -841,7 +832,7 @@ func TestRelease(t *testing.T) {
 			if gotErr != nil {
 				return
 			}
-			assertProtoEqual(t, tc.want, got)
+			testutil.AssertProtoEqual(t, tc.want, got)
 		})
 	}
 }
@@ -942,7 +933,7 @@ func TestLicensesStatus(t *testing.T) {
 			if gotErr != nil {
 				return
 			}
-			assertProtoEqual(t, tc.want, got)
+			testutil.AssertProtoEqual(t, tc.want, got)
 		})
 	}
 }
