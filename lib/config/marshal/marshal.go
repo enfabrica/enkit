@@ -1,6 +1,8 @@
 package marshal
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"github.com/pelletier/go-toml"
 	"gopkg.in/yaml.v2"
@@ -40,4 +42,25 @@ func (j *YamlEncoder) Unmarshal(data []byte, value interface{}) error {
 }
 func (j *YamlEncoder) Extension() string {
 	return "yaml"
+}
+
+type GobEncoder struct{}
+
+func (g *GobEncoder) Marshal(value interface{}) ([]byte, error) {
+	buffer := bytes.Buffer{}
+	enc := gob.NewEncoder(&buffer)
+	if err := enc.Encode(value); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+func (j *GobEncoder) Unmarshal(data []byte, value interface{}) error {
+	enc := gob.NewDecoder(bytes.NewReader(data))
+	if err := enc.Decode(value); err != nil {
+		return err
+	}
+	return nil
+}
+func (j *GobEncoder) Extension() string {
+	return "gob"
 }

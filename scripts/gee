@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.14"
+readonly VERSION="0.2.15"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -993,7 +993,8 @@ function _install_tools() {
       | sudo /usr/bin/apt-key --keyring "${KRFILE}" add -
     echo "deb [arch=amd64 signed-by=${KRFILE}] https://cli.github.com/packages stable main" \
       | sudo /usr/bin/tee /etc/apt/sources.list.d/githubcli-archive.list
-    sudo /usr/bin/apt update && sudo /usr/bin/apt install gh
+    sudo /usr/bin/apt-get update || /bin/true  # ignore errors associated with stale repos.
+    sudo /usr/bin/apt-get install gh
     if [ ! -x ${GH} ]; then
       _fatal "Could not install gh."
     fi
@@ -1001,7 +1002,8 @@ function _install_tools() {
 
   if [ ! -x "${JQ}" ]; then
     _info "Installing missing tool: jq"
-    sudo /usr/bin/apt update && sudo /usr/bin/apt install jq
+    sudo /usr/bin/apt-get update || /bin/true  # ignore errors associated with stale repos.
+    sudo /usr/bin/apt-get install jq
     if [ ! -x "${JQ}" ]; then
       _fatal "Could not install jq."
     fi
@@ -1862,15 +1864,18 @@ function gee__make_branch() {
   _checkout_or_die "${CURRENT_BRANCH}"
 
   local -a ARGS=( worktree add "${REPO_DIR}/${BRNAME}" )
-  if [[ -n "${SHA}" ]]; then
-    ARGS+=( "${SHA}" )
-  fi
   _git "${ARGS[@]}"
   _info "Created ${REPO_DIR}/${BRNAME}"
 
   _read_parents_file
   PARENTS["${BRNAME}"]="${CURRENT_BRANCH}"
   _write_parents_file
+
+  if [[ -n "${SHA}" ]]; then
+    _info "Setting HEAD of branch \"${BRNAME}\" to \"${SHA}\""
+    _checkout_or_die "${BRNAME}"
+    git reset --hard "${SHA}"
+  fi
 
   # If the user has created a branch whose name matches an
   # existing branch in their existing repo, pull those changes

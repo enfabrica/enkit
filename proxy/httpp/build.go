@@ -6,7 +6,7 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
-	"github.com/kataras/muxie"
+	"github.com/enfabrica/enkit/proxy/amux"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -40,14 +40,14 @@ func NewProxy(fromurl, tourl string, transform *Transform) (*httputil.ReversePro
 
 	proxy := &httputil.ReverseProxy{Director: director}
 	proxy.Transport = &http.Transport{
-	        TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	return proxy, nil
 }
 
 type ProxyCreator func(m *Mapping) (http.Handler, error)
 
-func BuildMux(mux *muxie.Mux, log logger.Logger, mappings []Mapping, creator ProxyCreator) (*muxie.Mux, []string, error) {
+func PopulateMux(mux amux.Mux, log logger.Logger, mappings []Mapping, creator ProxyCreator) ([]string, error) {
 	if log == nil {
 		log = logger.Nil
 	}
@@ -59,11 +59,7 @@ func BuildMux(mux *muxie.Mux, log logger.Logger, mappings []Mapping, creator Pro
 		hosts[fromHost] = append(hosts[fromHost], &mappings[ix])
 	}
 
-	if mux == nil {
-		mux = muxie.NewMux()
-	}
-
-	add := func(host, from, to string, trans *Transform, mux *muxie.Mux, proxy http.Handler) {
+	add := func(host, from, to string, trans *Transform, mux amux.Mux, proxy http.Handler) {
 		t := "default transforms"
 		if trans != nil {
 			t = fmt.Sprintf("%+v", trans)
@@ -76,12 +72,12 @@ func BuildMux(mux *muxie.Mux, log logger.Logger, mappings []Mapping, creator Pro
 	for host, mappings := range hosts {
 		hmux := mux
 		if host != "" {
-			hmux = muxie.NewMux()
+			hmux = mux.Host(host)
 		}
 		for ix, mapping := range mappings {
 			proxy, err := creator(mapping)
 			if err != nil {
-				return nil, dohttpps, fmt.Errorf("error in mapping entry %d - %w", ix, err)
+				return dohttpps, fmt.Errorf("error in mapping entry %d - %w", ix, err)
 			}
 			path := mapping.From.Path
 			if path == "" {
@@ -96,8 +92,7 @@ func BuildMux(mux *muxie.Mux, log logger.Logger, mappings []Mapping, creator Pro
 		}
 		if host != "" {
 			dohttpps = append(dohttpps, host)
-			mux.HandleRequest(muxie.Host(host), hmux)
 		}
 	}
-	return mux, dohttpps, multierror.New(errs)
+	return dohttpps, multierror.New(errs)
 }

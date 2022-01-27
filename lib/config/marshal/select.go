@@ -18,12 +18,15 @@ var Yaml = &YamlEncoder{}
 // Use marshal.Json to encode/decode from Json format.
 var Json = &JsonEncoder{}
 
+// Use marshal.Gob to encode/decode from Gob format.
+var Gob = &GobEncoder{}
+
 // Set of known encoders/decoders, in preference order.
 var Known = []FileMarshaller{
-	Toml, Json, Yaml,
+	Toml, Json, Yaml, Gob,
 }
 
-// Represents a sorted list of marshallers. Lowest indes is the most preferred marshaller.
+// Represents a sorted list of marshallers. Lowest index is the most preferred marshaller.
 type FileMarshallers []FileMarshaller
 
 // ByExtension returns the first FileMarshaller based on the extension of the path provided.

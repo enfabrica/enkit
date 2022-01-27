@@ -43,6 +43,10 @@ type NasshProxy struct {
 	connections sync.Map
 }
 
+func (np *NasshProxy) RelayHost() string {
+	return np.relayHost
+}
+
 type options struct {
 	bufferSize       int
 	symmetricSetters []token.SymmetricSetter
@@ -148,7 +152,7 @@ func FromFlags(fl *Flags) Modifier {
 		if len(fl.SymmetricKey) == 0 {
 			key, err := token.GenerateSymmetricKey(o.rng, 0)
 			if err != nil {
-				return fmt.Errorf("the world is about to end, even random nubmer generators are failing - %w", err)
+				return fmt.Errorf("the world is about to end, even random number generators are failing - %w", err)
 			}
 			fl.SymmetricKey = key
 		}
@@ -183,6 +187,14 @@ func WithTimeouts(timeouts *Timeouts) Modifier {
 	}
 }
 
+// New creates a new instance of a nasshp tunnel protocol.
+//
+// rng MUST be a secure random number generator, use github.com/enfabrica/lib/srand
+// in case of doubt to create one.
+// authenticator is optional, can be left to nil to disable authentication.
+//
+// mods MUST either contain FromFlags, to initialize all the nassh parameters from
+// command line flags, or it MUST provide a symmetric key with nasshp.WithSymmetricOptions.
 func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*NasshProxy, error) {
 	o := &options{rng: rng, bufferSize: 8192}
 	np := &NasshProxy{
@@ -207,7 +219,7 @@ func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*N
 	if np.encoder == nil {
 		be, err := token.NewSymmetricEncoder(rng, o.symmetricSetters...)
 		if err != nil {
-			return nil, fmt.Errorf("error setting up symmetric encryption: %w", err)
+			return nil, fmt.Errorf("nassh - error setting up symmetric encryption: %w", err)
 		}
 
 		ue := token.NewBase64UrlEncoder()
@@ -219,8 +231,6 @@ func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*N
 	}
 	return np, nil
 }
-
-type MuxHandle func(pattern string, handler func(http.ResponseWriter, *http.Request))
 
 func (np *NasshProxy) ServeCookie(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
@@ -750,8 +760,24 @@ func (np *NasshProxy) ProxySsh(logid string, r *http.Request, w http.ResponseWri
 	return err
 }
 
+// MuxHandle is a function capable of instructing an http Mux to invoke an handler for a path.
+//
+// pattern is a string representing a path without host (example: "/", or "/test").
+// No wildcards or field extraction is used by nasshp, only constants need to be supported
+// by MuxHandle.
+//
+// handler is the http.Handler to invoke for the specified path.
+type MuxHandle func(pattern string, handler http.Handler)
+
+// Register is a convenience function to configure all the handlers in your favourite Mux.
+//
+// It configures the http paths and corresponding handlers that are necessary for
+// a nassh implementation to support.
+//
+// Registering the paths can also be done manually. Rather than document the required paths
+// in comments here,look at the source code of the function.
 func (np *NasshProxy) Register(add MuxHandle) {
-	add("/cookie", np.ServeCookie)
-	add("/proxy", np.ServeProxy)
-	add("/connect", np.ServeConnect)
+	add("/cookie", http.HandlerFunc(np.ServeCookie))
+	add("/proxy", http.HandlerFunc(np.ServeProxy))
+	add("/connect", http.HandlerFunc(np.ServeConnect))
 }

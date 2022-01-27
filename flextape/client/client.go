@@ -67,6 +67,11 @@ func (c *LicenseClient) Guard(ctx context.Context, cmd string, args ...string) e
 		cancel()
 		// Wait for command to fail/be killed
 		<-jobResult
+		// If the error received was nil, probably the context got cancelled, so
+		// report that as the error instead.
+		if err == nil {
+			err = ctx.Err()
+		}
 		return fmt.Errorf("lost license and killed job: %w", err)
 	case err := <-jobResult:
 		// Command has finished, either with success or error

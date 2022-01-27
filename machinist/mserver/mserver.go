@@ -49,7 +49,7 @@ func (s *ControlPlane) Run() error {
 		s.killChannel <- s.Controller.dnsServer.Run()
 	}()
 	s.Controller.Init()
-	go s.Controller.ServeAllRecords(s.allRecordsKillChannel, s.allRecordsKillAckChannel)
+	go s.Controller.ServeAllAndInfoRecords(s.allRecordsKillChannel, s.allRecordsKillAckChannel)
 	go s.Controller.WriteState()
 	return grpcs.Serve(s.Listener)
 }

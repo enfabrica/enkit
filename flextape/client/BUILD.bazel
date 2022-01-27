@@ -4,7 +4,11 @@ go_library(
     name = "go_default_library",
     srcs = ["client.go"],
     importpath = "github.com/enfabrica/enkit/flextape/client",
-    visibility = ["//manager/client:__pkg__"],
+    visibility = [
+        "//flextape/client/flextape_client:__pkg__",
+        # TODO(scott): Drop this when deleting the code
+        "//manager/client:__pkg__",
+    ],
     deps = ["//flextape/proto:go_default_library"],
 )
 

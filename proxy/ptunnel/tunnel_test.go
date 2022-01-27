@@ -91,7 +91,7 @@ func TestBasic(t *testing.T) {
 	assert.Nil(t, err)
 
 	mux := http.NewServeMux()
-	nassh.Register(mux.HandleFunc)
+	nassh.Register(mux.Handle)
 
 	log.Printf("SERVER")
 	tu, err := ktest.Start(&khttp.Dumper{Log: log.Printf, Real: mux})
@@ -173,7 +173,7 @@ func TestHostLookup(t *testing.T) {
 	)
 	assert.Nil(t, err)
 	m := http.NewServeMux()
-	nassh.Register(m.HandleFunc)
+	nassh.Register(m.Handle)
 	s := httptest.NewServer(m)
 	t.Run("Test Host Resolution with Allowed List", func(t *testing.T) {
 		for _, h := range hosts {
