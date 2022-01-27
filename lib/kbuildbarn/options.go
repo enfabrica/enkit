@@ -2,7 +2,6 @@ package kbuildbarn
 
 type options struct {
 	Scheme string
-
 	FileName           string
 	ByteStreamTemplate string
 }
