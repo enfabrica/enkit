@@ -89,7 +89,7 @@ func performRequest(client *http.Client, url string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		respBody, err := ioutil.ReadAll(resp.Body)
 		defer func() { _ = resp.Body.Close() }()
 		return nil, multierror.New([]error{fmt.Errorf("error response %s", respBody), err})
