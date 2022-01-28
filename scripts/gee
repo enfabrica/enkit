@@ -846,10 +846,10 @@ function _banner() {
   fi
   BAR="$(head -c "$(( LEN + 4 ))" /dev/zero | tr '\0' '#')"
   BLANK="$(head -c "$(( COLS - LEN - 4 ))" /dev/zero | tr '\0' ' ')"
-  printf "\n" >&2
-  printf "%s%s%s\n" "${_COLOR_BANNER}" "${BAR}" "${BLANK}" >&2
-  printf "# %-${LEN}.${LEN}s #${BLANK}\n" "$@" >&2
-  printf "%s%s%s\n" "${BAR}" "${BLANK}" "${_COLOR_RST}" >&2
+  printf >&2 "\n"
+  printf >&2 "%s%s%s\n" "${_COLOR_BANNER}" "${BAR}" "${BLANK}"
+  printf >&2 "# %-${LEN}.${LEN}s #${BLANK}\n" "$@"
+  printf >&2 "%s%s%s\n" "${BAR}" "${BLANK}" "${_COLOR_RST}"
 }
 
 
@@ -891,7 +891,7 @@ function _cmd() {
     if [[ $VERBOSE -gt 0 ]]; then
       local C
       C=$(( COLS - 4 ))
-      printf "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+      printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
     fi
     set +e
     "$@"
@@ -907,7 +907,7 @@ function _cmd() {
   else
     local C
     C=$(( COLS - 7 ))
-    printf "${_COLOR_CMD}DRYRUN:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+    printf >&2 "${_COLOR_CMD}DRYRUN:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
   fi
 }
 
@@ -922,7 +922,7 @@ function _read_cmd() {
     if [[ $VERBOSE -gt 0 ]]; then
       local C
       C=$(( COLS - 4 ))
-      printf "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+      printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
     fi
     set +e
     mapfile -t "${VAR}" < <("$@"; printf "%d\n" "$?")
@@ -941,7 +941,7 @@ function _read_cmd() {
   else
     local C
     C=$(( COLS - 7 ))
-    printf "${_COLOR_CMD}DRYRUN:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
+    printf >&2 "${_COLOR_CMD}DRYRUN:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
   fi
 }
 
