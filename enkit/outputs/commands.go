@@ -174,7 +174,7 @@ func NewShutdown(root *Root) *Shutdown {
 			Use:   "shutdown",
 			Short: "Unmount all builds under particular directory",
 			Example: `  $ enkit outputs shutdown
-	Unmounts bb_clientd, and deletes all links to build artifacts.`,
+	Unmounts all builds in the given output root and resets the output root to a pristine state.`,
 		},
 		root: root,
 	}
