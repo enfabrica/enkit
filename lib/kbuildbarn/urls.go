@@ -28,15 +28,6 @@ func ParseByteStreamUrl(byteStream string) (string, string, error) {
 }
 
 
-// the following default values are arbitrary, based on what current works with buildbarn
-const (
-	DefaultFileTemplate       = "/blobs/file/%s-%s/%s"
-	DefaultActionTemplate     = "/blobs/action/%s-%s"
-	DefaultCommandTemplate    = "/blobs/command/%s-%s"
-	DefaultDirectoryTemplate  = "/blobs/directory/%s-%s"
-	DefaultByteStreamTemplate = "/blobs/%s/%s"
-)
-
 func performRequest(client *http.Client, url string) (io.ReadCloser, error) {
 	resp, err := client.Get(url)
 	if err != nil {
