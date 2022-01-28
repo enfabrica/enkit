@@ -17,9 +17,6 @@ import (
 )
 
 var (
-	BuildBuddyProdURL    = mustParseURL("https://buddy.bazel.corp.enfabrica.net")
-	BuildBuddyStagingURL = mustParseURL("https://buddy.staging-bazel.corp.enfabrica.net")
-
 	getInvocationEndpoint = mustParseURL("rpc/BuildBuddyService/GetInvocation")
 )
 

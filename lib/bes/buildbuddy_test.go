@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/enfabrica/enkit/lib/errdiff"
@@ -152,7 +153,7 @@ func TestGetBuildEvents(t *testing.T) {
 			ctx := context.Background()
 			testClient := newTestHttpClient(t, tc.resCode, tc.response)
 			buildBuddy := &BuildBuddyClient{
-				baseEndpoint: BuildBuddyStagingURL,
+				baseEndpoint: &url.URL{},
 				httpClient:   testClient,
 				apiKey:       "foobar",
 			}
