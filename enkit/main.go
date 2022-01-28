@@ -1,10 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/proxy/enfuse/fusecmd"
 
 	acommands "github.com/enfabrica/enkit/astore/client/commands"
+	ocommands "github.com/enfabrica/enkit/enkit/outputs"
 	bazelcmds "github.com/enfabrica/enkit/lib/bazel/commands"
 	bcommands "github.com/enfabrica/enkit/lib/client/commands"
 	tcommands "github.com/enfabrica/enkit/proxy/ptunnel/commands"
@@ -49,7 +53,18 @@ func main() {
 	bazel := bazelcmds.New(base)
 	root.AddCommand(bazel.Command)
 
+	outputs, err := ocommands.New(base)
+	exitIf(err)
+	root.AddCommand(outputs.Command)
+
 	root.AddCommand(fusecmd.New())
 
 	base.Run(kcobra.HideFlags(set), populator, runner)
+}
+
+func exitIf(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
 }
