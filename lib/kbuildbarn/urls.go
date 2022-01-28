@@ -69,7 +69,7 @@ func RetryUntilSuccess(urls []string ) ([]byte, error) {
 	for _, uri := range urls {
 		rc, err := performRequest(http.DefaultClient, uri)
 		if err != nil {
-			errs = append(errs)
+			errs = append(errs, err)
 			continue
 		}
 		return readAndClose(rc)

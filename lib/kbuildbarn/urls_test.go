@@ -98,8 +98,8 @@ func TestRetryUntilSuccess(t *testing.T) {
 	}
 	succeedUrls := []string {
 		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithActionUrlTemplate()),
-		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithActionUrlTemplate()),
-		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithActionUrlTemplate()),
+		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithDirectoryUrlTemplate()),
+		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithCommandUrlTemplate()),
 		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithActionUrlTemplate()),
 		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithFileName("bar")),
 	}
