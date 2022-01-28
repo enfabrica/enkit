@@ -54,7 +54,7 @@ var TestByteStreamUrlTable = []BytStreamResult{
 
 func TestByteStreamUrl(t *testing.T) {
 	for _, c := range TestByteStreamUrlTable {
-		hash, size, err := kbuildbarn.ByteStreamUrl(c.Url)
+		hash, size, err := kbuildbarn.ParseByteStreamUrl(c.Url)
 		if c.ShouldFail {
 			assert.Error(t, err)
 		} else {
@@ -67,27 +67,34 @@ func TestByteStreamUrl(t *testing.T) {
 
 func TestDefaultUrlGeneration(t *testing.T) {
 	exampleUrl := "bytestream://build.local.enfabrica.net:8000/blobs/foo/bar"
-	hash, size, err := kbuildbarn.ByteStreamUrl(exampleUrl)
+	hash, size, err := kbuildbarn.ParseByteStreamUrl(exampleUrl)
 	assert.NoError(t, err)
-	defaultGenerator := kbuildbarn.NewBuildBarnParams("buildbarn.local", hash, size)
-	assert.Equal(t, "http://buildbarn.local/blobs/action/foo-bar", defaultGenerator.ActionUrl())
-	assert.Equal(t, "http://buildbarn.local/blobs/command/foo-bar", defaultGenerator.CommandUrl())
-	assert.Equal(t, "http://buildbarn.local/blobs/directory/foo-bar", defaultGenerator.DirectoryUrl())
-	assert.Equal(t, "http://buildbarn.local/blobs/file/foo-bar/", defaultGenerator.FileUrl())
+	baseName := "buildbarn.local"
+	assert.Equal(t, "http://buildbarn.local/blobs/action/foo-bar", kbuildbarn.Url(baseName, hash, size, kbuildbarn.WithActionUrlTemplate()))
+	assert.Equal(t, "http://buildbarn.local/blobs/command/foo-bar", kbuildbarn.Url(baseName, hash, size, kbuildbarn.WithCommandUrlTemplate()))
+	assert.Equal(t, "http://buildbarn.local/blobs/directory/foo-bar", kbuildbarn.Url(baseName, hash, size, kbuildbarn.WithDirectoryUrlTemplate()))
+	assert.Equal(t, "http://buildbarn.local/blobs/file/foo-bar/", kbuildbarn.Url(baseName, hash, size, kbuildbarn.WithFileName("")))
 }
 
 func TestFileUrlGeneration(t *testing.T) {
 	exampleUrl := "bytestream://build.local.enfabrica.net:8000/blobs/foo/bar"
-	hash, size, err := kbuildbarn.ByteStreamUrl(exampleUrl)
+	hash, size, err := kbuildbarn.ParseByteStreamUrl(exampleUrl)
+	basename := "buildbarn.local"
 	assert.NoError(t, err)
-	defaultGenerator := kbuildbarn.NewBuildBarnParams("buildbarn.local", hash, size, kbuildbarn.WithFileName("mickey.mouse"))
-	assert.Equal(t, "http://buildbarn.local/blobs/file/foo-bar/mickey.mouse", defaultGenerator.FileUrl())
+	assert.Equal(t, "http://buildbarn.local/blobs/file/foo-bar/mickey.mouse", kbuildbarn.Url(basename, hash, size, kbuildbarn.WithFileName("mickey.mouse")))
 }
 func TestByteStreamGeneration(t *testing.T) {
 	exampleUrl := "bytestream://build.local.enfabrica.net:8000/blobs/foo/bar"
-	hash, size, err := kbuildbarn.ByteStreamUrl(exampleUrl)
+	hash, size, err := kbuildbarn.ParseByteStreamUrl(exampleUrl)
+	basename := "buildbarn.local"
 	assert.NoError(t, err)
-	defaultGenerator := kbuildbarn.NewBuildBarnParams("buildbarn.local", hash, size,
-		kbuildbarn.WithScheme("bytestream"))
-	assert.Equal(t, "bytestream://buildbarn.local/blobs/foo/bar", defaultGenerator.ByteStreamUrl())
+	assert.Equal(t, "bytestream://buildbarn.local/blobs/foo/bar", kbuildbarn.Url(basename, hash, size, kbuildbarn.WithByteStreamTemplate()))
+}
+
+func TestFileGeneration(t *testing.T) {
+	exampleUrl := "bytestream://build.local.enfabrica.net:8000/blobs/foo/bar"
+	hash, size, err := kbuildbarn.ParseByteStreamUrl(exampleUrl)
+	basename := "/root"
+	assert.NoError(t, err)
+	assert.Equal(t, "/root/blobs/file/foo-bar/foo.go", kbuildbarn.File(basename, hash, size, kbuildbarn.WithFileName("foo.go")))
 }
