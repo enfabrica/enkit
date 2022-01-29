@@ -22,15 +22,16 @@ type ReplaceableBrowser struct {
 	log logger.Logger
 
 	notifier chan error
-	wc       *websocket.Conn
-	err      error
+	wc       *websocket.Conn  // Protected by lock.
+	err      error            // Protected by lock.
 
 	lock sync.RWMutex
 	cond *sync.Cond
 
 	readUntil, writtenUntil uint32
 
-	pendingWack, pendingRack uint32 // obsolete!
+	// Contended, use atomic.Load/Store to read/write.
+	pendingWack, pendingRack uint32
 }
 
 func NewReplaceableBrowser(log logger.Logger) *ReplaceableBrowser {
@@ -53,9 +54,8 @@ func (gb *ReplaceableBrowser) GetWack() (*websocket.Conn, uint32, uint32, error)
 		gb.cond.Wait()
 	}
 
-	wack := gb.pendingWack
-	gb.pendingWack = 0
-	return gb.wc, gb.pendingRack, wack, gb.err
+	wack := atomic.SwapUint32(&gb.pendingWack, 0)
+	return gb.wc, atomic.LoadUint32(&gb.pendingRack), wack, gb.err
 }
 
 func (gb *ReplaceableBrowser) GetRack() (*websocket.Conn, uint32, uint32, error) {
@@ -65,9 +65,8 @@ func (gb *ReplaceableBrowser) GetRack() (*websocket.Conn, uint32, uint32, error)
 		gb.cond.Wait()
 	}
 
-	rack := gb.pendingRack
-	gb.pendingRack = 0
-	return gb.wc, rack, gb.pendingWack, gb.err
+	rack := atomic.SwapUint32(&gb.pendingRack, 0)
+	return gb.wc, rack, atomic.LoadUint32(&gb.pendingWack), gb.err
 }
 
 func (gb *ReplaceableBrowser) Set(wc *websocket.Conn, rack, wack uint32) waiter {
