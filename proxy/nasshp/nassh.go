@@ -491,6 +491,7 @@ func (np *readWriter) proxyFromBrowser(ssh net.Conn) (err error) {
 	defer ssh.Close()
 	defer wrecv.Drop()
 
+retry:
 	for {
 		// The browser WACK is the server RACK.
 		wc, rack, wack, err := np.browser.GetRack()
@@ -512,20 +513,17 @@ func (np *readWriter) proxyFromBrowser(ssh net.Conn) (err error) {
 			continue
 		}
 
-		read, err := browser.Read(ackbuffer[:])
-		if err != nil {
-			if err != io.EOF {
-				np.browser.Error(wc, err)
+		for ackread := 0; ackread < len(ackbuffer); {
+			read, err := browser.Read(ackbuffer[ackread:])
+			if err != nil {
+				if err != io.EOF {
+					np.browser.Error(wc, err)
+				}
+				continue retry
 			}
-			continue
+			ackread += read
 		}
 
-		// Short reads would be possible in a normal socket, but here we are reading a framed websocket
-		// message from an http connection, consuming data from a pre-existing buffer.
-		if read < 4 {
-			np.browser.Error(wc, fmt.Errorf("short read from browser: %d bytes only", read))
-			continue
-		}
 		wack = binary.BigEndian.Uint32(ackbuffer[:])
 		if wack&0xff000000 != 0 {
 			np.browser.Error(wc, fmt.Errorf("browser told us there was an error by setting bits %01x", (wack&0xff000000)>>24))
