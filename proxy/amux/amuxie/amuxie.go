@@ -6,6 +6,7 @@ import (
 	"github.com/enfabrica/enkit/proxy/amux"
 	"github.com/kataras/muxie"
 	"net/http"
+	"strings"
 )
 
 type Mux struct {
@@ -19,6 +20,9 @@ func New() *Mux {
 func (m *Mux) Host(host string) amux.Mux {
 	h := muxie.NewMux()
 	m.HandleRequest(muxie.Host(host), h)
+	if !strings.HasSuffix(host, ".") {
+		m.HandleRequest(muxie.Host(host + "."), h)
+	}
 
 	return &Mux{h}
 }
