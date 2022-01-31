@@ -13,6 +13,7 @@ sh_binary(
         ":bats_lib",
         "@bats_assert//:bats_assert_lib",
         "@bats_support//:bats_support_lib",
+        "@bats_file//:bats_file_lib",
     ],
     visibility = ["//visibility:public"],
 )
