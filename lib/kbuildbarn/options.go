@@ -1,7 +1,5 @@
 package kbuildbarn
 
-import "fmt"
-
 type options struct {
 	Scheme       string
 	PathTemplate string
@@ -69,13 +67,40 @@ func WithDirectoryUrlTemplate() Option {
 	return pathTemplateOption(DefaultDirectoryTemplate)
 }
 
-type templateArgsOption []interface{}
+type templateArgsOption []string
 
 func (ta templateArgsOption) apply(opts *options) {
+	s := make([]interface{}, len(ta))
+	for i, v := range ta {
+		s[i] = v
+	}
+	opts.TemplateArgs = s
+}
+
+func WithTemplateArgs(args ...string) Option {
+	return templateArgsOption(args)
+}
+
+type templateAppendArgsOption []interface{}
+
+func (ta templateAppendArgsOption) apply(opts *options) {
 	opts.TemplateArgs = append(opts.TemplateArgs, ta...)
-	fmt.Println(opts.TemplateArgs)
+}
+
+func WithAdditionalTemplateArgs(args ...interface{}) Option {
+	return templateAppendArgsOption{args}
 }
 
 func WithFileName(s string) Option {
-	return multipleOption{pathTemplateOption(DefaultFileTemplate), templateArgsOption{s}}
+	return multipleOption{pathTemplateOption(DefaultFileTemplate), templateAppendArgsOption{s}}
+}
+
+type customTemplate string
+
+func (ct customTemplate) apply(opts *options) {
+	opts.PathTemplate = string(ct)
+}
+
+func WithFileTemplate(s string) Option {
+	return customTemplate(s)
 }

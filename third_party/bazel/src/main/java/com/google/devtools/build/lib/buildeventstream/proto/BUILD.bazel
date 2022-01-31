@@ -10,6 +10,7 @@ proto_library(
     name = "build_event_stream_proto",
     srcs = ["build_event_stream.proto"],
     visibility = [
+        "//lib/kbuildbarn:__subpackages__",
         "//third_party/bazel:__subpackages__",
         "//third_party/buildbuddy/proto:__pkg__",
     ],
@@ -31,6 +32,7 @@ go_proto_library(
     visibility = [
         "//bestie:__subpackages__",
         "//lib/bes:__subpackages__",
+        "//lib/kbuildbarn:__subpackages__",
         "//third_party/buildbuddy/proto:__pkg__",
     ],
     deps = [
