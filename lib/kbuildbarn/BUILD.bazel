@@ -4,18 +4,26 @@ go_library(
     name = "go_default_library",
     srcs = [
         "options.go",
+        "protoparse.go",
         "urls.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/kbuildbarn",
     visibility = ["//visibility:public"],
-    deps = ["//lib/multierror:go_default_library"],
+    deps = [
+        "//lib/multierror:go_default_library",
+        "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
+    ],
 )
 
 go_test(
     name = "go_default_test",
-    srcs = ["urls_test.go"],
+    srcs = [
+        "protoparse_test.go",
+        "urls_test.go",
+    ],
     deps = [
         ":go_default_library",
+        "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
