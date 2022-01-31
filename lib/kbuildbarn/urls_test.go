@@ -3,6 +3,9 @@ package kbuildbarn_test
 import (
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	"github.com/stretchr/testify/assert"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -63,6 +66,50 @@ func TestByteStreamUrl(t *testing.T) {
 			assert.Equal(t, c.ExpectedSize, size)
 		}
 	}
+}
+
+func removeHttpScheme(url string) string {
+	return strings.ReplaceAll(url, "http://", "")
+}
+
+func TestRetryUntilSuccess(t *testing.T) {
+	succeedOnDirectoryHandler := http.NewServeMux()
+	succeedOnDirectoryHandler.HandleFunc("/blobs/directory/", func(writer http.ResponseWriter, request *http.Request) {
+		_, err := writer.Write([]byte("hello world"))
+		assert.NoError(t, err)
+	})
+	alwaysFailHandler := http.NewServeMux()
+	alwaysFailHandler.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		http.Error(writer, "my error", http.StatusInternalServerError)
+	})
+	alwaysFailServer := httptest.NewServer(alwaysFailHandler)
+	directorySuccessServer := httptest.NewServer(succeedOnDirectoryHandler)
+
+	failBaseName := removeHttpScheme(alwaysFailServer.URL)
+	succeedBaseName := removeHttpScheme(directorySuccessServer.URL)
+	hash := "foo"
+	size := "bar"
+	failUrls := []string {
+		kbuildbarn.Url(failBaseName, hash, size, kbuildbarn.WithActionUrlTemplate()),
+		kbuildbarn.Url(failBaseName, hash, size, kbuildbarn.WithDirectoryUrlTemplate()),
+		kbuildbarn.Url(failBaseName, hash, size, kbuildbarn.WithCommandUrlTemplate()),
+		kbuildbarn.Url(failBaseName, hash, size, kbuildbarn.WithByteStreamTemplate()),
+		kbuildbarn.Url(failBaseName, hash, size, kbuildbarn.WithFileName("bar")),
+	}
+	succeedUrls := []string {
+		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithActionUrlTemplate()),
+		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithDirectoryUrlTemplate()),
+		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithCommandUrlTemplate()),
+		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithActionUrlTemplate()),
+		kbuildbarn.Url(succeedBaseName, hash, size, kbuildbarn.WithFileName("bar")),
+	}
+	resp, err := kbuildbarn.RetryUntilSuccess(succeedUrls)
+	assert.NoError(t, err)
+	assert.Equal(t, "hello world", string(resp))
+
+	_, err = kbuildbarn.RetryUntilSuccess(failUrls)
+	assert.Error(t, err)
+
 }
 
 func TestDefaultUrlGeneration(t *testing.T) {

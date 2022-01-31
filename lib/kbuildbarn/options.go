@@ -1,7 +1,5 @@
 package kbuildbarn
 
-import "fmt"
-
 type options struct {
 	Scheme       string
 	PathTemplate string
@@ -73,7 +71,6 @@ type templateArgsOption []interface{}
 
 func (ta templateArgsOption) apply(opts *options) {
 	opts.TemplateArgs = append(opts.TemplateArgs, ta...)
-	fmt.Println(opts.TemplateArgs)
 }
 
 func WithFileName(s string) Option {
