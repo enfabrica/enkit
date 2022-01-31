@@ -8,23 +8,23 @@ import (
 )
 
 func TestEmpty(t *testing.T) {
-	result := kbuildbarn.GenerateLinksForNamedSetOfFiles(&bespb.NamedSetOfFiles{}, "", "", "")
+	result := kbuildbarn.GenerateLinksForFiles([]*bespb.File{}, "", "", "")
 	assert.Nil(t, result)
 }
 
 func TestSingleContain(t *testing.T) {
-	simple := &bespb.NamedSetOfFiles{Files: []*bespb.File{
+	simple := []*bespb.File{
 		{
 			Name: "simple.txt", Digest: "digest", Length: 614,
 		},
-	}}
-	result := kbuildbarn.GenerateLinksForNamedSetOfFiles(simple, "/enfabrica/mymount", "myInvocation", "localCluster")
+	}
+	result := kbuildbarn.GenerateLinksForFiles(simple, "/enfabrica/mymount", "myInvocation", "localCluster")
 	assert.Equal(t, "/enfabrica/mymount/cas/localCluster/blobs/file/digest", result[0].Src)
 	assert.Equal(t, "/enfabrica/mymount/scratch/myInvocation/simple.txt", result[0].Dest)
 }
 
 func TestParseMany(t *testing.T) {
-	many := &bespb.NamedSetOfFiles{Files: []*bespb.File{
+	many := []*bespb.File{
 		{
 			Name: "simple.txt", Digest: "digest0", Length: 614,
 		},
@@ -37,7 +37,7 @@ func TestParseMany(t *testing.T) {
 		{
 			Name: "tarball.tar", Digest: "digest3", Length: 777,
 		},
-	}}
+	}
 	baseName := "/foo/bar"
 	clusterName := "duster"
 	invocationPrefix := "invocation"
@@ -47,7 +47,7 @@ func TestParseMany(t *testing.T) {
 		"/foo/bar/scratch/invocation/one/two/foo.bar":  "/foo/bar/cas/duster/blobs/file/digest2",
 		"/foo/bar/scratch/invocation/tarball.tar":      "/foo/bar/cas/duster/blobs/file/digest3",
 	}
-	r := kbuildbarn.GenerateLinksForNamedSetOfFiles(many, baseName, invocationPrefix, clusterName)
+	r := kbuildbarn.GenerateLinksForFiles(many, baseName, invocationPrefix, clusterName)
 	for expectedDest, expectedSim := range expected {
 		foundByDest := r.FindByDest(expectedDest)
 		foundBySim := r.FindBySrc(expectedSim)

@@ -38,11 +38,11 @@ func (l BBClientdList) FindByDest(s string) *BBClientDLink {
 	return nil
 }
 
-// GenerateLinksForNamedSetOfFiles will generate a BBClientDLink who has a list of all symlinks from the single bespb.NamedSetOfFiles msg.
+// GenerateLinksForFiles will generate a BBClientdList who has a list of all symlinks from a list of *bespb.File msg.
 // If the msg has no files, it will return nil.
-func GenerateLinksForNamedSetOfFiles(filesPb *bespb.NamedSetOfFiles, baseName, invocationPrefix, clusterName string) BBClientdList {
+func GenerateLinksForFiles(filesPb []*bespb.File, baseName, invocationPrefix, clusterName string) BBClientdList {
 	var toReturn []*BBClientDLink
-	for _, f := range filesPb.GetFiles() {
+	for _, f := range filesPb {
 		size := strconv.Itoa(int(f.Length))
 		simSource := File(baseName, f.Digest, size,
 			WithFileTemplate(DefaultBBClientdCasFileTemplate),
