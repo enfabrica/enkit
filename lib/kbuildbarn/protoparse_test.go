@@ -19,8 +19,8 @@ func TestSingleContain(t *testing.T) {
 		},
 	}}
 	result := kbuildbarn.GenerateLinksForNamedSetOfFiles(simple, "/enfabrica/mymount", "myInvocation", "localCluster")
-	assert.Equal(t, "/enfabrica/mymount/cas/localCluster/blobs/file/digest", result.Src)
-	assert.Equal(t, "/enfabrica/mymount/scratch/myInvocation/simple.txt", result.Dest)
+	assert.Equal(t, "/enfabrica/mymount/cas/localCluster/blobs/file/digest", result[0].Src)
+	assert.Equal(t, "/enfabrica/mymount/scratch/myInvocation/simple.txt", result[0].Dest)
 }
 
 func TestParseMany(t *testing.T) {
