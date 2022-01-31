@@ -1,4 +1,4 @@
-package kzip
+package karchive
 
 import (
 	"context"
@@ -49,7 +49,7 @@ func (d *TempUnzipDir) Path(relPath string) string {
 // no longer in-use.
 func Unzip(ctx context.Context, zipPath string) (*TempUnzipDir, error) {
 	template := fmt.Sprintf(
-		"kzip_%s_*",
+		"karchive_%s_*",
 		strings.Replace(
 			filepath.Base(zipPath),
 			".",

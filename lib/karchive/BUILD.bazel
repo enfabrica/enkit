@@ -6,6 +6,7 @@ go_library(
         "decoder.go",
         "mkdir.go",
         "untar.go",
+        "unzip.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/karchive",
     visibility = ["//visibility:public"],
@@ -17,7 +18,14 @@ go_test(
     srcs = [
         "mkdir_test.go",
         "untar_test.go",
+        "unzip_test.go",
     ],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    deps = [
+        "//lib/errdiff:go_default_library",
+        "//lib/testutil:go_default_library",
+        "@com_github_prashantv_gostub//:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
 )

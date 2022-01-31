@@ -1,4 +1,4 @@
-package kzip
+package karchive
 
 import (
 	"context"
@@ -27,7 +27,7 @@ func TestUnzip(t *testing.T) {
 			desc:          "successful unzip",
 			path:          "/foo/bar.zip",
 			wantArgs:      []string{"unzip", "/foo/bar.zip", "-d"},
-			wantDirPrefix: "/tmp/kzip_bar_zip_",
+			wantDirPrefix: "/tmp/karchive_bar_zip_",
 		},
 	}
 	for _, tc := range testCases {
@@ -69,7 +69,7 @@ func TestUnzipActual(t *testing.T) {
 	}{
 		{
 			desc: "successful unzip",
-			path: testutil.MustRunfile("lib/kzip/testdata/small.zip"),
+			path: testutil.MustRunfile("lib/karchive/testdata/small.zip"),
 			wantFiles: []string{
 				"movies/xmas.txt",
 				"tv_shows/cartoons.txt",
