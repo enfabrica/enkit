@@ -1,24 +1,24 @@
 package amux_test
 
 import (
-	"testing"
-	  "github.com/stretchr/testify/assert"
-	"github.com/enfabrica/enkit/proxy/amux"
-	"github.com/enfabrica/enkit/proxy/amux/amuxie"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"fmt"
+	"testing"
+	"github.com/enfabrica/enkit/proxy/amux"
+	"github.com/enfabrica/enkit/proxy/amux/amuxie"
+	"github.com/stretchr/testify/assert"
 )
 
 func CountHandler(counter *int) http.Handler {
-return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
-	*counter += 1
-})
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*counter += 1
+	})
 }
 
 var NilHandler = http.HandlerFunc(
-func (w http.ResponseWriter, r *http.Request) {
-},
+	func(w http.ResponseWriter, r *http.Request) {
+	},
 )
 
 func Request(m amux.Mux, host, path string) int {
@@ -31,7 +31,6 @@ func Request(m amux.Mux, host, path string) int {
 	resp := w.Result()
 	return resp.StatusCode
 }
-
 
 func TestMuxConformance(t *testing.T) {
 	var m amux.Mux
@@ -78,7 +77,6 @@ func TestMuxConformance(t *testing.T) {
 	assert.Equal(t, http.StatusOK, Request(m, "whatever.", "/prefix/test1/test2/test3"))
 	assert.Equal(t, http.StatusOK, Request(m, "whatever.", "/prefix/bar/test2/test3"))
 	assert.Equal(t, http.StatusNotFound, Request(m, "whatever", "/prefix"))
-
 
 	assert.Equal(t, http.StatusOK, Request(m, "host1.net", "/"))
 	assert.Equal(t, http.StatusNotFound, Request(m, "host1.net", "/not-found"))

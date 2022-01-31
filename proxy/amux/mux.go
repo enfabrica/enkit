@@ -36,7 +36,7 @@ type Mux interface {
 	// specific paths in this specific domain, or add more FQDN matches.
 	//
 	// If the specified FQDN does not terminate with a ".", the Mux is
-	// expected to match the FQDN both with a terminating "." and without. 
+	// expected to match the FQDN both with a terminating "." and without.
 	//
 	// The "empty host string" is considered a wildcard matching any FQDN,
 	// meaning that the route will be used in any case there is no more
