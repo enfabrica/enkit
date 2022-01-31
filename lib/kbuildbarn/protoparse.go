@@ -46,10 +46,10 @@ func GenerateLinksForNamedSetOfFiles(filesPb *bespb.NamedSetOfFiles, baseName, i
 		size := strconv.Itoa(int(f.Length))
 		simSource := File(baseName, f.Digest, size,
 			WithFileTemplate(DefaultBBClientdCasFileTemplate),
-			WithTemplateArgs([]interface{}{clusterName, f.Digest}))
+			WithTemplateArgs(clusterName, f.Digest))
 		simDest := File(baseName, f.Digest, size,
 			WithFileTemplate(DefaultBBClientdScratchFileTemplate),
-			WithTemplateArgs([]interface{}{invocationPrefix, f.Name}))
+			WithTemplateArgs(invocationPrefix, f.Name))
 		toReturn = append(toReturn, &BBClientDLink{Dest: simDest, Src: simSource})
 	}
 	return toReturn

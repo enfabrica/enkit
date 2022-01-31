@@ -67,14 +67,18 @@ func WithDirectoryUrlTemplate() Option {
 	return pathTemplateOption(DefaultDirectoryTemplate)
 }
 
-type templateArgsOption [][]interface{}
+type templateArgsOption []string
 
 func (ta templateArgsOption) apply(opts *options) {
-	opts.TemplateArgs = ta[0]
+	s := make([]interface{}, len(ta))
+	for i, v := range ta {
+		s[i] = v
+	}
+	opts.TemplateArgs = s
 }
 
-func WithTemplateArgs(args []interface{}) Option {
-	return templateArgsOption{args}
+func WithTemplateArgs(args ...string) Option {
+	return templateArgsOption(args)
 }
 
 type templateAppendArgsOption []interface{}
