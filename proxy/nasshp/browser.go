@@ -99,6 +99,10 @@ type TerminatingError struct {
 	error
 }
 
+func (te *TerminatingError) Unwrap() error {
+	return te.error
+}
+
 func (gb *ReplaceableBrowser) Close(err error) {
 	gb.lock.Lock() // This is an exclusive write lock.
 	defer gb.lock.Unlock()

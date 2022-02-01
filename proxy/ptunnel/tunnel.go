@@ -382,8 +382,12 @@ func NewTunnel(pool *nasshp.BufferPool, mods ...Modifier) (*Tunnel, error) {
 	return tl, nil
 }
 
+// CloseRequested error is returned to interrupt Reads/Writes once a Close()
+// has been requested by the user.
+var CloseRequested = errors.New("close requested")
+
 func (t *Tunnel) Close() {
-	err := fmt.Errorf("close requested")
+	err := CloseRequested
 	t.browser.Close(err)
 	t.SendWin.Fail(err)
 	t.ReceiveWin.Fail(err)
@@ -422,7 +426,10 @@ func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ..
 		})
 
 		waiter := t.browser.Set(conn, ack, pos)
-		return waiter.Wait()
+		if err := waiter.Wait(); errors.Is(err, CloseRequested) {
+			return nil
+		}
+		return err
 	})
 }
 
