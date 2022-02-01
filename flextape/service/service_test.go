@@ -55,15 +55,6 @@ func (s *Service) withQueued(licenseType string, inv *invocation) *Service {
 	return s
 }
 
-// assertCmp fails a test with a descriptive diff if got != want, respecting a
-// set of compare options.
-func assertCmp(t *testing.T, got interface{}, want interface{}, opts ...cmp.Option) {
-	t.Helper()
-	if diff := cmp.Diff(want, got, opts...); diff != "" {
-		t.Errorf("Objects are not equal:\n%s\n", diff)
-	}
-}
-
 // fakeID serves as a fake unique ID generator for testing purposes.
 type fakeID struct {
 	counter int64
@@ -445,7 +436,7 @@ func TestAllocate(t *testing.T) {
 
 			got, gotErr := tc.server.Allocate(ctx, tc.req)
 
-			assertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
+			testutil.AssertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
 			assert.Equal(t, tc.wantErrCode.String(), status.Code(gotErr).String())
 			errdiff.Check(t, gotErr, tc.wantErr)
 			if gotErr != nil {
@@ -686,7 +677,7 @@ func TestRefresh(t *testing.T) {
 
 			got, gotErr := tc.server.Refresh(ctx, tc.req)
 
-			assertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
+			testutil.AssertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
 			assert.Equal(t, tc.wantErrCode.String(), status.Code(gotErr).String())
 			errdiff.Check(t, gotErr, tc.wantErr)
 			if gotErr != nil {
@@ -826,7 +817,7 @@ func TestRelease(t *testing.T) {
 
 			got, gotErr := tc.server.Release(ctx, tc.req)
 
-			assertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
+			testutil.AssertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
 			assert.Equal(t, tc.wantErrCode.String(), status.Code(gotErr).String())
 			errdiff.Check(t, gotErr, tc.wantErr)
 			if gotErr != nil {
@@ -927,7 +918,7 @@ func TestLicensesStatus(t *testing.T) {
 
 			got, gotErr := tc.server.LicensesStatus(ctx, tc.req)
 
-			assertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
+			testutil.AssertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
 			assert.Equal(t, tc.wantErrCode.String(), status.Code(gotErr).String())
 			errdiff.Check(t, gotErr, tc.wantErr)
 			if gotErr != nil {
@@ -1095,7 +1086,7 @@ func TestJanitor(t *testing.T) {
 			*now = tc.endTime
 			tc.server.janitor()
 
-			assertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
+			testutil.AssertCmp(t, tc.server.licenses, tc.wantLicenses, cmp.AllowUnexported(invocation{}, license{}))
 		})
 	}
 }
