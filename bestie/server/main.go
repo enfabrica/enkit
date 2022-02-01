@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
+	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/server"
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
 
@@ -58,6 +61,7 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 			ServiceStats.incrementEventsTotal(bazelEventId.Id)
 			if m := bazelBuildEvent.GetTestResult(); m != nil {
 				if err := handleTestResultEvent(bazelBuildEvent, streamId); err != nil {
+					fmt.Printf("Error handling Bazel event %T: %s\n", bazelEventId.Id, err)
 					return err
 				}
 			}
@@ -76,8 +80,43 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 	return nil
 }
 
+// Command line arguments.
+var (
+	argBaseUrl   = flag.String("baseurl", "", "Base URL for accessing output artifacts in the build cluster (required)")
+	argDataset   = flag.String("dataset", "", "BigQuery dataset name (required) -- staging, production")
+	argTableName = flag.String("tablename", "testmetrics", "BigQuery table name")
+)
+
+func checkCommandArgs() error {
+	var errs []error
+	// The --baseurl command line arg is required.
+	// Note: This value is ignored for local invocations of the BES Endpoint and can be set to anything.
+	if len(*argBaseUrl) == 0 {
+		errs = append(errs, fmt.Errorf("--baseurl must be specified"))
+	}
+	// The --dataset command line arg is required.
+	if len(*argDataset) == 0 {
+		errs = append(errs, fmt.Errorf("--dataset must be specified"))
+	}
+	if len(errs) > 0 {
+		return multierror.New(errs)
+	}
+
+	// Set/override the default values.
+	deploymentBaseUrl = *argBaseUrl
+	bigQueryTableDefault.dataset = *argDataset
+	bigQueryTableDefault.tablename = *argTableName
+
+	return nil
+}
+
 func main() {
 	ServiceStats.init()
+
+	flag.Parse()
+	if err := checkCommandArgs(); err != nil {
+		log.Fatalf("Invalid command: %s", err)
+	}
 
 	grpcs := grpc.NewServer()
 	bpb.RegisterPublishBuildEventServer(grpcs, &BuildEventService{})

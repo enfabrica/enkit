@@ -44,6 +44,12 @@ type serviceStats struct {
 	// General Build Event Stream stats.
 	buildsTotal prometheus.Counter
 	eventsTotal *prometheus.CounterVec
+
+	// BigQuery interaction stats.
+	bigQueryExceptionTotal *prometheus.CounterVec
+	bigQueryInsertDelay    prometheus.Histogram
+	bigQueryInsertTotal    *prometheus.CounterVec
+	bigQueryMetricTotal    *prometheus.CounterVec
 }
 
 // Statistic values to report to Prometheus for this service.
@@ -62,12 +68,48 @@ var ServiceStats serviceStats = serviceStats{
 		},
 		[]string{"id"},
 	),
+	bigQueryExceptionTotal: prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "bigquery_exception_total",
+			Help:      "Total BigQuery operational exceptions, tagged by type",
+		},
+		[]string{"type"},
+	),
+	bigQueryInsertDelay: prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: "bestie",
+			Name:      "bigquery_insert_delay",
+			Help:      "Historgram of BigQuery table insertion delay, in seconds",
+			Buckets:   []float64{0.0, 5.0, 10.0, 30.0, 60.0, 90.0, 120.0},
+		},
+	),
+	bigQueryInsertTotal: prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "bigquery_insert_total",
+			Help:      "Total BigQuery table insertions, tagged by result status",
+		},
+		[]string{"status"},
+	),
+	bigQueryMetricTotal: prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "bigquery_metric_total",
+			Help:      "Total BigQuery metrics processed, tagged by result status",
+		},
+		[]string{"status"},
+	),
 }
 
 // Register all service stats metrics with Prometheus.
 func (s *serviceStats) registerPrometheusMetrics() {
 	prometheus.MustRegister(s.buildsTotal)
 	prometheus.MustRegister(s.eventsTotal)
+	prometheus.MustRegister(s.bigQueryExceptionTotal)
+	prometheus.MustRegister(s.bigQueryInsertDelay)
+	prometheus.MustRegister(s.bigQueryInsertTotal)
+	prometheus.MustRegister(s.bigQueryMetricTotal)
 }
 
 // Run-time initialization of service stats struct.
@@ -96,4 +138,39 @@ func (s *serviceStats) incrementEventsTotal(bevid interface{}) {
 		fmt.Printf("Detected unknown event id: %s\n\n", id)
 	}
 	s.eventsTotal.WithLabelValues(label).Inc()
+}
+
+// BigQuery operational exceptions.
+func (s *serviceStats) incrementBigQueryExcessDelay() {
+	s.bigQueryExceptionTotal.WithLabelValues("excess_delay").Inc()
+}
+func (s *serviceStats) incrementBigQueryProtobufError() {
+	s.bigQueryExceptionTotal.WithLabelValues("protobuf_error").Inc()
+}
+func (s *serviceStats) incrementBigQueryTableNotFound() {
+	s.bigQueryExceptionTotal.WithLabelValues("table_not_found").Inc()
+}
+
+// BigQuery row insertion delay (histogram).
+func (s *serviceStats) incrementBigQueryInsertDelay(seconds int) {
+	s.bigQueryInsertDelay.Observe(float64(seconds))
+}
+
+// BigQuery row insertion outcome.
+func (s *serviceStats) incrementBigQueryInsertError() {
+	s.bigQueryInsertTotal.WithLabelValues("error").Inc()
+}
+func (s *serviceStats) incrementBigQueryInsertOK() {
+	s.bigQueryInsertTotal.WithLabelValues("ok").Inc()
+}
+func (s *serviceStats) incrementBigQueryInsertTimeout() {
+	s.bigQueryInsertTotal.WithLabelValues("timeout").Inc()
+}
+
+// BigQuery total metrics processed.
+func (s *serviceStats) incrementBigQueryMetricDiscard(count int) {
+	s.bigQueryMetricTotal.WithLabelValues("discard").Add(float64(count))
+}
+func (s *serviceStats) incrementBigQueryMetricUpload(count int) {
+	s.bigQueryMetricTotal.WithLabelValues("upload").Add(float64(count))
 }
