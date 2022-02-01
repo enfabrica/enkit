@@ -52,10 +52,15 @@ func TestMergeResults(t *testing.T) {
 	assert.Equal(t, len(sameFiles), len(allResults))
 
 	assert.ElementsMatch(t, linkToDestArray(allResults), linkToDestArray(onlyTestResults), linkToDestArray(onlyNamedFileResults))
+
+	testUnique(t, linkToDestArray(allResults))
+	testUnique(t, linkToDestArray(onlyNamedFileResults))
+	testUnique(t, linkToDestArray(onlyTestResults))
+
 }
 
 func linkToDestArray(l kbuildbarn.BBClientdList) []string {
-	s := make([]string, len(l))
+	var s []string
 	for _, v := range l {
 		s = append(s, v.Dest)
 	}
@@ -100,6 +105,10 @@ func TestUniqueResponses(t *testing.T) {
 	allResults, err := kbuildbarn.GenerateSymlinks(buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, namedSetSize+sharedFileSize, len(allResults))
+
+	testUnique(t, linkToDestArray(allResults))
+	testUnique(t, linkToDestArray(onlyNamedFileResults))
+	testUnique(t, linkToDestArray(onlyTestResults))
 }
 
 type testHttpClient struct {
@@ -123,7 +132,7 @@ func newTestHttpClient(t *testing.T, code int, res proto.Message) *testHttpClien
 	}
 }
 
-func (c *testHttpClient) Do(req *http.Request) (*http.Response, error) {
+func (c *testHttpClient) Do(_ *http.Request) (*http.Response, error) {
 	cpyMsg := make([]byte, len(c.msg))
 	copy(cpyMsg, c.msg)
 	return &http.Response{
@@ -143,4 +152,18 @@ func generateManyFiles(size int) []*bespb.File {
 		toReturn = append(toReturn, e)
 	}
 	return toReturn
+}
+
+func testUnique(t *testing.T, strSlice []string) {
+	keys := make(map[string]bool)
+	for _, entry := range strSlice {
+		if entry == "" {
+			t.Error("entry should not be empty string")
+		}
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+		} else {
+			assert.Failf(t, "elements we not unique in array, duplicates of %s were found", entry)
+		}
+	}
 }
