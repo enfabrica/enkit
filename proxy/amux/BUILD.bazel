@@ -1,8 +1,18 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
     srcs = ["mux.go"],
     importpath = "github.com/enfabrica/enkit/proxy/amux",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["mux_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//proxy/amux/amuxie:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
 )

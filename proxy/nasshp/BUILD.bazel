@@ -23,6 +23,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "blocking_test.go",
         "nassh_test.go",
         "window_test.go",
     ],

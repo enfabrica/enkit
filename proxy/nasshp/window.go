@@ -290,9 +290,9 @@ func (w *SendWindow) Reset(trunc uint32) error {
 		return fmt.Errorf("invalid ack, requires going before last ack, for which we have no buffer (ack: %d, acked: %d)", value, w.acknowledged)
 	}
 	w.Acknowledge(int(value - w.acknowledged))
-	w.buffer.InsertListBefore(w.buffer.First(), &w.pending)
 
-	w.buffer.Last().offset = 0
+	w.buffer.First().offset = 0
+	w.buffer.InsertListBefore(w.buffer.First(), &w.pending)
 	w.buffer.First().offset = w.buffer.First().acknowledged
 
 	w.Emptied = w.acknowledged
@@ -401,6 +401,10 @@ func (w *ReceiveWindow) Fill(size int) uint64 {
 
 func (w *ReceiveWindow) ToEmpty() []byte {
 	first := w.buffer.First()
+	if w.reset != 0  && first.next == w.buffer.End() {
+		return nil
+	}
+
 	data := first.data[first.offset:]
 	if len(data) == 0 && first.next != w.buffer.End() {
 		w.pool.Put(w.buffer.Drop(first))

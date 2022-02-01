@@ -33,34 +33,48 @@ type Mux interface {
 	// The host string is expected to be a FQDN. Not a subdomain.
 	//
 	// The function returns a Mux that can be used to define handlers for
-	// specific paths in this specific domain, or add more host matches.
+	// specific paths in this specific domain, or add more FQDN matches.
 	//
-	// The "empty host string" is considered a wildcard matching any FQDN.
-	// Any path defined via Handle()
+	// If the specified FQDN does not terminate with a ".", the Mux is
+	// expected to match the FQDN both with a terminating "." and without.
 	//
-	// The enproxy code does not otherwise use any form of pattern matching.
-	// No regular expressions or wildcards are required.
+	// The "empty host string" is considered a wildcard matching any FQDN,
+	// meaning that the route will be used in any case there is no more
+	// specific host match. If a default route for all hosts is needed,
+	// the route must be added on all hosts.
+	//
+	// The enproxy code does not otherwise expect any form of pattern
+	// matching in host names. No regular expressions or wildcards are
+	// required.
 	//
 	// However, if the enproxy configuration file contains wildcards or
-	// regular expressions, they are passed unmodified to the supplied Mux
+	// regular expressions, those are passed unmodified to the supplied Mux
 	// interface and transparently handled by the configured handlers.
 	//
 	// If a Mux with support for patterns in Host() is thus provided to
-	// enproxy, the corresponding functionalities will work and be available
-	// to users of enproxy.
+	// enproxy, the corresponding functionalities will work and be
+	// available to users of enproxy.
 	Host(host string) Mux
 
 	// Handle allows to match on an http path.
 	//
 	// The string is expected to be a full path, starting with "/".
+	// The empty string is not allowed, and will result in undefined behavior.
 	//
 	// When Handle is called on a newly initialized Mux, eg, one that was
-	// not created by a call to Host(), the path is expected to be
-	// configured on the empty host domain, "". See the Host()
-	// documentation for details.
+	// not created by a call to Host(), the path is treated as being configured
+	// on the empty host domain, "". See the Host() documentation for details.
 	//
-	// If the path ends with "/", it is assumed to be a prefix match.
-	// Any subdirectory of such path will need to be routed to the handler.
+	// The match is always exact, unless it ends with a "*". A trailing "*"
+	// indicates that any suffix of that path is accepted.
+	//
+	// enproxy only requires trailing "*" support after a /, indicating all
+	// sub-paths of a specific directory.
+	//
+	// Just like the Host() directive, however, patterns are forwarded
+	// without further validation or transformation to the Mux, so any
+	// additional functionality of the Mux can be directly exposed in the
+	// config.
 	//
 	// When the underlying mux invokes the corresponding http.Handler,
 	// the supplied ResponseWriter MUST be type castable to the
