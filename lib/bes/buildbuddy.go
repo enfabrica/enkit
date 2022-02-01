@@ -36,7 +36,7 @@ type BuildBuddyClient struct {
 // specified URL. If not nil, auth cookies are discovered via BaseFlags and
 // added to every request. apiKey must be a valid BuildBuddy API key (other
 // forms of auth are not currently supported).
-func NewBuildBuddyClient(u *url.URL, bf *client.BaseFlags, apiKey string, client httpDoer) (*BuildBuddyClient, error) {
+func NewBuildBuddyClient(u *url.URL, bf *client.BaseFlags, apiKey string) (*BuildBuddyClient, error) {
 	var jar http.CookieJar
 	if bf != nil {
 		_, cookie, err := bf.IdentityCookie()
@@ -50,14 +50,20 @@ func NewBuildBuddyClient(u *url.URL, bf *client.BaseFlags, apiKey string, client
 		}
 		jar.SetCookies(u, []*http.Cookie{cookie})
 	}
-	if client == nil {
-		client = &http.Client{Jar: jar}
-	}
 	return &BuildBuddyClient{
 		baseEndpoint: u,
-		httpClient:   client,
+		httpClient:   &http.Client{Jar: jar},
 		apiKey:       apiKey,
 	}, nil
+}
+
+// NewTestClient makes a client specifically for testing. Not meant to be used in hot code.
+func NewTestClient(doer httpDoer) *BuildBuddyClient {
+	return &BuildBuddyClient{
+		baseEndpoint: &url.URL{},
+		httpClient:   doer,
+		apiKey:       "",
+	}
 }
 
 // GetBuildEvents fetches all BES events from the specified invocation by ID. It

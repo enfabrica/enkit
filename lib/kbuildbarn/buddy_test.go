@@ -11,7 +11,6 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"strconv"
 	"testing"
 )
@@ -39,8 +38,7 @@ func TestMergeResults(t *testing.T) {
 			},
 		}}
 	testHttpClient := newTestHttpClient(t, 200, e)
-	buddy, err := bes.NewBuildBuddyClient(&url.URL{}, nil, "", testHttpClient)
-	assert.NoError(t, err)
+	buddy := bes.NewTestClient(testHttpClient)
 	onlyTestResults, err := kbuildbarn.GenerateSymlinks(buddy, "/base", "invocation", "cluster", kbuildbarn.WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, len(sameFiles), len(onlyTestResults))
@@ -94,8 +92,7 @@ func TestUniqueResponses(t *testing.T) {
 			},
 		}}
 	testHttpClient := newTestHttpClient(t, 200, e)
-	buddy, err := bes.NewBuildBuddyClient(&url.URL{}, nil, "", testHttpClient)
-	assert.NoError(t, err)
+	buddy := bes.NewTestClient(testHttpClient)
 	onlyTestResults, err := kbuildbarn.GenerateSymlinks(buddy, "/base", "invocation", "cluster", kbuildbarn.WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, sharedFileSize, len(onlyTestResults))
