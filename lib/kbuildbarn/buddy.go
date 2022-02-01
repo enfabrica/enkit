@@ -28,8 +28,7 @@ func WithNamedSetOfFiles() FilterOption {
 	}
 }
 
-func GenerateSymlinks(client *bes.BuildBuddyClient, baseName, invocation, clusterName string, options ...FilterOption) (SymlinkList, error) {
-	ctx := context.Background()
+func GenerateSymlinks(ctx context.Context, client *bes.BuildBuddyClient, baseName, invocation, clusterName string, options ...FilterOption) (SymlinkList, error) {
 	result, err := client.GetBuildEvents(ctx, invocation)
 	if err != nil {
 		return nil, err

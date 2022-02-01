@@ -2,6 +2,7 @@ package kbuildbarn_test
 
 import (
 	"bytes"
+	"context"
 	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
@@ -39,13 +40,14 @@ func TestMergeResults(t *testing.T) {
 		}}
 	testHttpClient := newTestHttpClient(t, 200, e)
 	buddy := bes.NewTestClient(testHttpClient)
-	onlyTestResults, err := kbuildbarn.GenerateSymlinks(buddy, "/base", "invocation", "cluster", kbuildbarn.WithTestResults())
+	ctx := context.TODO()
+	onlyTestResults, err := kbuildbarn.GenerateSymlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, len(sameFiles), len(onlyTestResults))
-	onlyNamedFileResults, err := kbuildbarn.GenerateSymlinks(buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles())
+	onlyNamedFileResults, err := kbuildbarn.GenerateSymlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles())
 	assert.NoError(t, err)
 	assert.Equal(t, len(sameFiles), len(onlyNamedFileResults))
-	allResults, err := kbuildbarn.GenerateSymlinks(buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
+	allResults, err := kbuildbarn.GenerateSymlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, len(sameFiles), len(allResults))
 
@@ -93,13 +95,14 @@ func TestUniqueResponses(t *testing.T) {
 		}}
 	testHttpClient := newTestHttpClient(t, 200, e)
 	buddy := bes.NewTestClient(testHttpClient)
-	onlyTestResults, err := kbuildbarn.GenerateSymlinks(buddy, "/base", "invocation", "cluster", kbuildbarn.WithTestResults())
+	ctx := context.TODO()
+	onlyTestResults, err := kbuildbarn.GenerateSymlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, sharedFileSize, len(onlyTestResults))
-	onlyNamedFileResults, err := kbuildbarn.GenerateSymlinks(buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles())
+	onlyNamedFileResults, err := kbuildbarn.GenerateSymlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles())
 	assert.NoError(t, err)
 	assert.Equal(t, namedSetSize+sharedFileSize, len(onlyNamedFileResults))
-	allResults, err := kbuildbarn.GenerateSymlinks(buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
+	allResults, err := kbuildbarn.GenerateSymlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, namedSetSize+sharedFileSize, len(allResults))
 
