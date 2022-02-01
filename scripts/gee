@@ -2025,6 +2025,10 @@ function gee__diff() {
   local PARENT_BRANCH
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
+  if [[ "${PARENT_BRANCH}" == upstream/* ]]; then
+    _git fetch upstream "${PARENT_BRANCH#upstream/}"
+    PARENT_BRANCH="FETCH_HEAD"
+  fi
   if (( "$#" )); then
     _git_can_fail diff "${PARENT_BRANCH}"...HEAD -- "$@"
   else
