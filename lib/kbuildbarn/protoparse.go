@@ -38,6 +38,21 @@ func (l BBClientdList) FindByDest(s string) *BBClientDLink {
 	return nil
 }
 
+// MergeLists strips out duplicate BBClientDLink.Dest from multiple BBClientdList and flattens them to one BBClientdList.
+func MergeLists(lists ...BBClientdList) BBClientdList {
+	cMap := make(map[string]bool)
+	var toReturn BBClientdList
+	for _, l := range lists {
+		for _, entry := range l {
+			if _, value := cMap[entry.Dest]; !value {
+				cMap[entry.Dest] = true
+				toReturn = append(toReturn, entry)
+			}
+		}
+	}
+	return toReturn
+}
+
 // GenerateLinksForFiles will generate a BBClientdList who has a list of all symlinks from a list of *bespb.File msg.
 // If the msg has no files, it will return nil.
 func GenerateLinksForFiles(filesPb []*bespb.File, baseName, invocationPrefix, clusterName string) BBClientdList {

@@ -4,7 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = ["buildbuddy.go"],
     importpath = "github.com/enfabrica/enkit/lib/bes",
-    visibility = ["//bes_log_fetcher:__pkg__"],
+    visibility = [
+        "//bes_log_fetcher:__pkg__",
+        "//lib/kbuildbarn:__subpackages__",
+    ],
     deps = [
         "//lib/client:go_default_library",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",

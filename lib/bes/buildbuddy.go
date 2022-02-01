@@ -20,6 +20,8 @@ var (
 	getInvocationEndpoint = mustParseURL("rpc/BuildBuddyService/GetInvocation")
 )
 
+var _ httpDoer = http.DefaultClient
+
 type httpDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
@@ -34,7 +36,7 @@ type BuildBuddyClient struct {
 // specified URL. If not nil, auth cookies are discovered via BaseFlags and
 // added to every request. apiKey must be a valid BuildBuddy API key (other
 // forms of auth are not currently supported).
-func NewBuildBuddyClient(u *url.URL, bf *client.BaseFlags, apiKey string) (*BuildBuddyClient, error) {
+func NewBuildBuddyClient(u *url.URL, bf *client.BaseFlags, apiKey string, client httpDoer) (*BuildBuddyClient, error) {
 	var jar http.CookieJar
 	if bf != nil {
 		_, cookie, err := bf.IdentityCookie()
@@ -48,11 +50,12 @@ func NewBuildBuddyClient(u *url.URL, bf *client.BaseFlags, apiKey string) (*Buil
 		}
 		jar.SetCookies(u, []*http.Cookie{cookie})
 	}
-
-	httpClient := &http.Client{Jar: jar}
+	if client == nil {
+		client = &http.Client{Jar: jar}
+	}
 	return &BuildBuddyClient{
 		baseEndpoint: u,
-		httpClient:   httpClient,
+		httpClient:   client,
 		apiKey:       apiKey,
 	}, nil
 }
