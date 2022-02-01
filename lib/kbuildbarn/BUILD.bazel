@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "buddy.go",
         "options.go",
         "protoparse.go",
         "urls.go",
@@ -10,6 +11,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/kbuildbarn",
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/bes:go_default_library",
         "//lib/multierror:go_default_library",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
     ],
@@ -18,12 +20,16 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "buddy_test.go",
         "protoparse_test.go",
         "urls_test.go",
     ],
     deps = [
         ":go_default_library",
+        "//lib/bes:go_default_library",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
+        "//third_party/buildbuddy/proto:buildbuddy_go_proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )

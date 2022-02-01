@@ -20,6 +20,8 @@ var (
 	getInvocationEndpoint = mustParseURL("rpc/BuildBuddyService/GetInvocation")
 )
 
+var _ httpDoer = http.DefaultClient
+
 type httpDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
@@ -48,13 +50,20 @@ func NewBuildBuddyClient(u *url.URL, bf *client.BaseFlags, apiKey string) (*Buil
 		}
 		jar.SetCookies(u, []*http.Cookie{cookie})
 	}
-
-	httpClient := &http.Client{Jar: jar}
 	return &BuildBuddyClient{
 		baseEndpoint: u,
-		httpClient:   httpClient,
+		httpClient:   &http.Client{Jar: jar},
 		apiKey:       apiKey,
 	}, nil
+}
+
+// NewTestClient makes a client specifically for testing. Not meant to be used in hot code.
+func NewTestClient(doer httpDoer) *BuildBuddyClient {
+	return &BuildBuddyClient{
+		baseEndpoint: &url.URL{},
+		httpClient:   doer,
+		apiKey:       "",
+	}
 }
 
 // GetBuildEvents fetches all BES events from the specified invocation by ID. It
