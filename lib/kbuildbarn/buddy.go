@@ -6,10 +6,10 @@ import (
 	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
 )
 
-type FilterOption func(event *bespb.BuildEvent, baseName, invocation, clusterName string) SymlinkList
+type FilterOption func(event *bespb.BuildEvent, baseName, invocation, clusterName string) HardlinkList
 
 func WithTestResults() FilterOption {
-	return func(event *bespb.BuildEvent, baseName, invocation, clusterName string) SymlinkList {
+	return func(event *bespb.BuildEvent, baseName, invocation, clusterName string) HardlinkList {
 		testResult := event.GetTestResult()
 		if testResult != nil {
 			return GenerateLinksForFiles(testResult.TestActionOutput, baseName, invocation, clusterName)
@@ -19,7 +19,7 @@ func WithTestResults() FilterOption {
 }
 
 func WithNamedSetOfFiles() FilterOption {
-	return func(event *bespb.BuildEvent, baseName, invocation, clusterName string) SymlinkList {
+	return func(event *bespb.BuildEvent, baseName, invocation, clusterName string) HardlinkList {
 		nsof := event.GetNamedSetOfFiles()
 		if nsof != nil {
 			return GenerateLinksForFiles(nsof.Files, baseName, invocation, clusterName)
@@ -28,12 +28,12 @@ func WithNamedSetOfFiles() FilterOption {
 	}
 }
 
-func GenerateSymlinks(ctx context.Context, client *bes.BuildBuddyClient, baseName, invocation, clusterName string, options ...FilterOption) (SymlinkList, error) {
+func GenerateSymlinks(ctx context.Context, client *bes.BuildBuddyClient, baseName, invocation, clusterName string, options ...FilterOption) (HardlinkList, error) {
 	result, err := client.GetBuildEvents(ctx, invocation)
 	if err != nil {
 		return nil, err
 	}
-	var parsedResults []SymlinkList
+	var parsedResults []HardlinkList
 	for _, event := range result {
 		for _, fOpt := range options {
 			parsedResults = append(parsedResults, fOpt(event, baseName, invocation, clusterName))

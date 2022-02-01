@@ -59,7 +59,7 @@ func TestMergeResults(t *testing.T) {
 
 }
 
-func linkToDestArray(l kbuildbarn.SymlinkList) []string {
+func linkToDestArray(l kbuildbarn.HardlinkList) []string {
 	var s []string
 	for _, v := range l {
 		s = append(s, v.Dest)
