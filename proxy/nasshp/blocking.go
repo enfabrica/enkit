@@ -6,12 +6,19 @@ import (
 	"time"
 )
 
+// Waiter is similar to sync.CondWait as it can be used exactly
+// the same way, except:
+// - it only supports a single waiter.
+//   Having more than one waiter will lead to undefined behavior.
+// - it allows to configure wait timeouts.
+// - it allows to propagate error failures.
 type Waiter struct {
 	l sync.Locker
 	c chan bool
 	e error
 }
 
+// NewWaiter creates a new Waiter.
 func NewWaiter(l sync.Locker) *Waiter {
 	return &Waiter{
 		l: l,
@@ -19,13 +26,17 @@ func NewWaiter(l sync.Locker) *Waiter {
 	}
 }
 
+// Fail will cause anyone waiting on Wait*() to receive the specified error.
+// Do NOT hold the lock when invoking Fail().
 func (w *Waiter) Fail(err error) {
 	w.l.Lock()
 	defer w.l.Unlock()
 	w.e = err
-	close(w.c)
+	w.Signal()
 }
 
+// Signal will notify anyone waiting on Wait*() to check the condition again.
+// It can be invoked with or without the lock held.
 func (w *Waiter) Signal() {
 	select {
 	case w.c <- true:
@@ -33,15 +44,30 @@ func (w *Waiter) Signal() {
 	}
 }
 
+// Wait for a signal to check that the desired condition has changed.
+//
+// The specified lock MUST be held before calling Wait.
+// Just like with CondWait(), wait can return spurious events, where
+// error is nil, but none of the desired conditions has changed.
 func (w *Waiter) Wait() error {
+	if w.e != nil {
+		return w.e
+	}
+
 	w.l.Unlock()
 	_ = <-w.c
 	w.l.Lock()
+
 	return w.e
 }
 
+// ErrorExpired is returned by WaitFor when the timer expires without events.
 var ErrorExpired = errors.New("timer expired")
 
+// WaitFor is just like Wait(), but with a timeout.
+//
+// The specified lock MUST be held before calling Wait.
+// If the timeout expires, ErrorExpired is returned.
 func (w *Waiter) WaitFor(d time.Duration) error {
 	w.l.Unlock()
 	select {
@@ -188,6 +214,7 @@ func (b *BlockingSendWindow) Fill(size int) uint64 {
 func (b *BlockingSendWindow) Reset(wu uint32) error {
 	b.l.Lock()
 	defer b.l.Unlock()
+	b.ce.Signal()
 	return b.w.Reset(wu)
 }
 
@@ -232,6 +259,7 @@ func (b *BlockingSendWindow) Empty(size int) {
 	b.l.Lock()
 	defer b.l.Unlock()
 	b.w.Empty(size)
+	b.cf.Signal()
 }
 
 func (b *BlockingSendWindow) Fail(err error) {
