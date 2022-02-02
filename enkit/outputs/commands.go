@@ -103,7 +103,8 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
 	//TODO: check for bb_clientd here before running completion
-	if err := os.Mkdir(filepath.Join(c.root.OutputsRoot, "scratch", c.InvocationID), 0777); err != nil && !os.IsExist(err) {
+	scratchInvocationPath := filepath.Join(c.root.OutputsRoot, "scratch", c.InvocationID)
+	if err := os.Mkdir(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("could not create scratch dir %w", err)
 	}
 	var errs []error
@@ -123,7 +124,23 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
-	return multierror.New(errs)
+	if len(errs) != 0 {
+		return fmt.Errorf("error writing links to disk %w", multierror.New(errs))
+	}
+	h, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("could not find user home directory %w", err)
+	}
+	outputPath := filepath.Join(h, "outputs")
+	outputInvocationPath := filepath.Join(outputPath, c.InvocationID)
+	if err := os.MkdirAll(outputPath, 0777); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("could not create %s: %w", outputPath, err)
+	}
+	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputPath, err)
+	}
+	fmt.Printf("Outputs mounted in: ~/outputs/%s \n", c.InvocationID)
+	return nil
 }
 
 type Unmount struct {
