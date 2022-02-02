@@ -9,3 +9,4 @@ exclude_patterns: "//:gazelle"
 exclude_patterns: "//:gazelle-runner"
 
 exclude_tags: "manual"
+exclude_tags: "no-cloudbuild"
