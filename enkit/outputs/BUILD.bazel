@@ -6,7 +6,10 @@ go_library(
     importpath = "github.com/enfabrica/enkit/enkit/outputs",
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/bes:go_default_library",
         "//lib/client:go_default_library",
+        "//lib/kbuildbarn:go_default_library",
+        "//lib/multierror:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
     ],
 )
