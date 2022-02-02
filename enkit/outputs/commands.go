@@ -61,14 +61,11 @@ type Mount struct {
 	*cobra.Command
 	root *Root
 
-	BuildBuddyApiKey  string
-	BuildBuddyUrl     string
-	ClusterName       string
-	DryRun            bool
-	InvocationID      string
-	SymlinkFormat     string
-	UseTestResults    bool
-	UseBuildArtifacts bool
+	BuildBuddyApiKey string
+	BuildBuddyUrl    string
+	ClusterName      string
+	DryRun           bool
+	InvocationID     string
 }
 
 func NewMount(root *Root) *Mount {
@@ -86,8 +83,6 @@ func NewMount(root *Root) *Mount {
 	command.Flags().StringVar(&command.BuildBuddyUrl, "url", "", "build buddy url instance")
 	command.Flags().StringVar(&command.ClusterName, "cluster", "", "name of the cluster")
 	command.Flags().StringVarP(&command.InvocationID, "invocation", "i", "", "invocation id to mount")
-	command.Flags().BoolVarP(&command.UseTestResults, "test-artifacts", "t", true, "mount test artifacts")
-	command.Flags().BoolVarP(&command.UseBuildArtifacts, "build-artifacts", "b", false, "mount build artifacts")
 	command.Flags().BoolVar(&command.DryRun, "dry-run", false, "if set, will print out the symlinks generated from the invocation, and not attempt to create them")
 
 	command.Command.RunE = command.Run
@@ -97,32 +92,24 @@ func NewMount(root *Root) *Mount {
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	buddyUrl, err := url.Parse(c.BuildBuddyUrl)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
 	}
 	bc, err := bes.NewBuildBuddyClient(buddyUrl, c.root.BaseFlags, c.BuildBuddyApiKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed generating new buildbuddy client: %w", err)
 	}
-	var mods []kbuildbarn.FilterOption
-	if c.UseTestResults {
-		fmt.Println("mounting with test artifacts")
-		mods = append(mods, kbuildbarn.WithTestResults())
-	}
-	if c.UseBuildArtifacts {
-		fmt.Println("mounting with build artifacts")
-		mods = append(mods, kbuildbarn.WithNamedSetOfFiles())
-	}
-	r, err := kbuildbarn.GenerateSymlinks(context.Background(), bc, c.root.OutputsRoot, c.InvocationID, c.ClusterName, mods...)
+	r, err := kbuildbarn.GenerateHardlinks(context.Background(), bc, c.root.OutputsRoot, c.InvocationID, c.ClusterName, kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
 	if err != nil {
-		return err
+		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
+	//TODO: check for bb_clientd here before running completion
 	if err := os.Mkdir(filepath.Join(c.root.OutputsRoot, "scratch", c.InvocationID), 0777); err != nil && !os.IsExist(err) {
-		return err
+		return fmt.Errorf("could not create scratch dir %w", err)
 	}
 	var errs []error
 	if c.DryRun {
 		for _, v := range r {
-			fmt.Printf("symlink to generate from:%s to:%s \n ", v.Src, v.Dest)
+			fmt.Printf("link to generate from:%s to:%s \n ", v.Src, v.Dest)
 		}
 	} else {
 		for _, v := range r {
@@ -131,7 +118,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 				errs = append(errs, err)
 				continue
 			}
-			if err := os.Symlink(v.Src, v.Dest); err != nil && !os.IsExist(err) {
+			if err := os.Link(v.Src, v.Dest); err != nil && !os.IsExist(err) {
 				errs = append(errs, err)
 			}
 		}
