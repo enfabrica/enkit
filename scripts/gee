@@ -1701,7 +1701,7 @@ function _print_codeowners() {
 
   local -A RMAP=()
   local REVIEWER STATE
-  while read REVIEWER STATE; do
+  while read -r REVIEWER STATE; do
     RMAP["${REVIEWER}"]="${STATE}"
   done < <(
     ${GH} pr view --json reviews \
