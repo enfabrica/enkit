@@ -1,14 +1,14 @@
 package astore
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
 	astorepb "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/knetwork"
 	"github.com/enfabrica/enkit/lib/progress"
-	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"strings"
 )
 
@@ -35,12 +35,11 @@ func (r *realFileFetcher) FileContent(ctx context.Context, path string) (string,
 	return b.String(), err
 }
 
-func FillCobraCommand(c *cobra.Command, bf *client.BaseFlags, sf *client.ServerFlags, fileName string) error {
+func ReadConfig(v *viper.Viper, bf *client.BaseFlags, sf *client.ServerFlags, fileName string, obj interface{}) error {
 	_, cookie, err := bf.IdentityCookie()
 	if err != nil {
 		return err
 	}
-
 	storeconn, err := sf.Connect(client.WithCookie(cookie))
 	if err != nil {
 		return err
@@ -50,7 +49,12 @@ func FillCobraCommand(c *cobra.Command, bf *client.BaseFlags, sf *client.ServerF
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("content is", content)
+	v.SetConfigType("yaml")
+	if err := v.ReadConfig(bytes.NewBufferString(content)); err != nil {
+		return err
+	}
+	if err := v.Unmarshal(&obj); err != nil {
+		return err
+	}
 	return nil
 }

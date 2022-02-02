@@ -51,6 +51,6 @@ go_library(
         "//lib/client:go_default_library",
         "//lib/knetwork:go_default_library",
         "//lib/progress:go_default_library",
-        "@com_github_spf13_cobra//:go_default_library",
+        "@com_github_spf13_viper//:go_default_library",
     ],
 )

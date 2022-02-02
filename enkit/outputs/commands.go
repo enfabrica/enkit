@@ -7,6 +7,7 @@ import (
 	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	"github.com/enfabrica/enkit/lib/multierror"
+	"github.com/spf13/viper"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ type Root struct {
 	*cobra.Command
 	*client.BaseFlags
 	*client.ServerFlags
+	*viper.Viper
 	OutputsRoot string
 }
 
@@ -47,6 +49,7 @@ func NewRoot(base *client.BaseFlags, sf *client.ServerFlags) (*Root, error) {
 		},
 		BaseFlags:   base,
 		ServerFlags: sf,
+		Viper:       viper.New(),
 	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -58,15 +61,18 @@ func NewRoot(base *client.BaseFlags, sf *client.ServerFlags) (*Root, error) {
 	return rc, nil
 }
 
+type MountConfig struct {
+	ApiKey  string `yaml:"ApiKey"`
+	Cluster string `yaml:"cluster"`
+	Url     string `yaml:"url"`
+}
+
 type Mount struct {
 	*cobra.Command
-	root *Root
-
-	BuildBuddyApiKey string
-	BuildBuddyUrl    string
-	ClusterName      string
-	DryRun           bool
-	InvocationID     string
+	root         *Root
+	config       *MountConfig
+	DryRun       bool
+	InvocationID string
 }
 
 func NewMount(root *Root) *Mount {
@@ -78,11 +84,14 @@ func NewMount(root *Root) *Mount {
 	Mounts outputs from build 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07 to the
 	default location.`,
 		},
-		root: root,
+		root:   root,
+		config: &MountConfig{},
 	}
-	command.Flags().StringVar(&command.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
-	command.Flags().StringVar(&command.BuildBuddyUrl, "url", "", "build buddy url instance")
-	command.Flags().StringVar(&command.ClusterName, "cluster", "", "name of the cluster")
+
+	command.Flags().StringVar(&command.config.ApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
+	command.Flags().StringVar(&command.config.Url, "url", "", "build buddy url instance")
+	command.Flags().StringVar(&command.config.Cluster, "cluster", "", "name of the cluster")
+
 	command.Flags().StringVarP(&command.InvocationID, "invocation", "i", "", "invocation id to mount")
 	command.Flags().BoolVar(&command.DryRun, "dry-run", false, "if set, will print out the hardlinks generated from the invocation, and not attempt to create them")
 
@@ -91,18 +100,18 @@ func NewMount(root *Root) *Mount {
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	if err := astore.FillCobraCommand(c.Command, c.root.BaseFlags, c.root.ServerFlags, "testconfigs/example.yaml"); err != nil {
-		fmt.Printf("error fetching with things %v", err)
+	if err := astore.ReadConfig(c.root.Viper, c.root.BaseFlags, c.root.ServerFlags, "enkitconfigs/outputs.yaml", c.config); err != nil {
+		fmt.Printf("error fetching astore config %v", err)
 	}
-	buddyUrl, err := url.Parse(c.BuildBuddyUrl)
+	buddyUrl, err := url.Parse(c.config.Url)
 	if err != nil {
 		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
 	}
-	bc, err := bes.NewBuildBuddyClient(buddyUrl, c.root.BaseFlags, c.BuildBuddyApiKey)
+	bc, err := bes.NewBuildBuddyClient(buddyUrl, c.root.BaseFlags, c.config.ApiKey)
 	if err != nil {
 		return fmt.Errorf("failed generating new buildbuddy client: %w", err)
 	}
-	r, err := kbuildbarn.GenerateHardlinks(context.Background(), bc, c.root.OutputsRoot, c.InvocationID, c.ClusterName, kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
+	r, err := kbuildbarn.GenerateHardlinks(context.Background(), bc, c.root.OutputsRoot, c.InvocationID, c.config.Cluster, kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
 	if err != nil {
 		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
