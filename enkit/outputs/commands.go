@@ -83,7 +83,7 @@ func NewMount(root *Root) *Mount {
 	command.Flags().StringVar(&command.BuildBuddyUrl, "url", "", "build buddy url instance")
 	command.Flags().StringVar(&command.ClusterName, "cluster", "", "name of the cluster")
 	command.Flags().StringVarP(&command.InvocationID, "invocation", "i", "", "invocation id to mount")
-	command.Flags().BoolVar(&command.DryRun, "dry-run", false, "if set, will print out the symlinks generated from the invocation, and not attempt to create them")
+	command.Flags().BoolVar(&command.DryRun, "dry-run", false, "if set, will print out the hardlinks generated from the invocation, and not attempt to create them")
 
 	command.Command.RunE = command.Run
 	return command
