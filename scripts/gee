@@ -3700,6 +3700,17 @@ function gee__repair() {
 
   _gee_fix_remote_origin_fetch_config
 
+  if ! _gh auth status; then
+    _warn "Looks like you were not able to authenticate to the github REST API."
+    _info "Let's try re-authenticating to github:"
+    _gh auth login
+
+    if ! _gh auth status; then
+      _warn "Still can't authenticate to github!  You might need more help."
+      # Gallantly attempt to carry on in the face of adversity...
+    fi
+  fi
+
   if ! _in_gee_repo; then
     _fatal "Not in a gee repo directory, aborting further repairs."
   fi
