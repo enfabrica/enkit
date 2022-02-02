@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.17"
+readonly VERSION="0.2.18"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -1691,10 +1691,24 @@ function _check_pr_description() {
 }
 
 # _print_codeowners prints a codeowners report for the opened files
-# in this branch.
+# in this branch.  It also annotates each user with their associated
+# review state (ie, COMMENTED, APPROVED) if available.  Note that
+# for this feature to work, CODEOWNERS must be expressed as a list
+# of github usernames, not email addresses.
 function _print_codeowners() {
   _check_cwd
   _set_main
+
+  local -A RMAP=()
+  local REVIEWER STATE
+  while read -r REVIEWER STATE; do
+    RMAP["${REVIEWER}"]="${STATE}"
+  done < <(
+    ${GH} pr view --json reviews \
+      --jq ".reviews[] | [.author.login, .state] | @tsv" \
+      2>/dev/null \
+      | cat
+  )
 
   local FILES=()
   mapfile -t FILES < <(
@@ -1745,8 +1759,20 @@ function _print_codeowners() {
       fi
     done
     if [[ -n "${O}" ]]; then
-      # sort and uniquify the words in each line:
-      echo "${O}" | xargs -n1 | sort -u | xargs
+      local -a owners=()
+      mapfile -t owners < <( echo "${O}" | xargs -n1 | sort -u )
+      local owner
+      for owner in "${owners[@]}"; do
+        local oname="${owner}"
+        if [[ "${oname}" != *@* ]]; then
+          oname="\@${oname}"
+        fi
+        if [[ "${RMAP["${owner}"]+found}" ]]; then
+          echo "${oname}(${RMAP["${owner}"]})"
+        else
+          echo "${oname}"
+        fi
+      done | xargs
     fi
   done | sort -u
 }
