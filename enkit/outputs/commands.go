@@ -137,7 +137,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not create %s: %w", outputPath, err)
 	}
 	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputPath, err)
+		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputInvocationPath, err)
 	}
 	fmt.Printf("Outputs mounted in: ~/outputs/%s \n", c.InvocationID)
 	return nil
