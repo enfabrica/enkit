@@ -65,6 +65,7 @@ require (
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/miekg/dns v1.1.41 // indirect
+	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20200921180117-858c6e7e6b7e // indirect
