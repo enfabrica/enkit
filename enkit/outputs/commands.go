@@ -3,6 +3,7 @@ package outputs
 import (
 	"context"
 	"fmt"
+	"github.com/enfabrica/enkit/astore"
 	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	"github.com/enfabrica/enkit/lib/multierror"
@@ -17,12 +18,12 @@ import (
 type Root struct {
 	*cobra.Command
 	*client.BaseFlags
-
+	*client.ServerFlags
 	OutputsRoot string
 }
 
-func New(base *client.BaseFlags) (*Root, error) {
-	root, err := NewRoot(base)
+func New(base *client.BaseFlags, sf *client.ServerFlags) (*Root, error) {
+	root, err := NewRoot(base, sf)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +36,7 @@ func New(base *client.BaseFlags) (*Root, error) {
 	return root, nil
 }
 
-func NewRoot(base *client.BaseFlags) (*Root, error) {
+func NewRoot(base *client.BaseFlags, sf *client.ServerFlags) (*Root, error) {
 	rc := &Root{
 		Command: &cobra.Command{
 			Use:           "outputs",
@@ -44,9 +45,9 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 			SilenceErrors: true,
 			Long:          `outputs - commands for mounting remotely-built Bazel outputs`,
 		},
-		BaseFlags: base,
+		BaseFlags:   base,
+		ServerFlags: sf,
 	}
-
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect $HOME: %w", err)
@@ -90,6 +91,9 @@ func NewMount(root *Root) *Mount {
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
+	if err := astore.FillCobraCommand(c.Command, c.root.BaseFlags, c.root.ServerFlags, "testconfigs/example.yaml"); err != nil {
+		fmt.Printf("error fetching with things %v", err)
+	}
 	buddyUrl, err := url.Parse(c.BuildBuddyUrl)
 	if err != nil {
 		return fmt.Errorf("failed parsing buildbuddy url: %w", err)

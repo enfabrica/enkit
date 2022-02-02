@@ -1,10 +1,14 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 # gazelle:exclude e2e_test.go
 go_test(
     name = "go_default_test",
-    srcs = ["server_test.go"],
+    srcs = [
+        "cobra_test.go",
+        "server_test.go",
+    ],
     data = glob(["testdata/**"]),
+    embed = [":go_default_library"],
     deps = [
         "//astore/atesting:go_default_library",
         "//astore/rpc:astore-go",
@@ -33,5 +37,20 @@ go_test(
         "@com_github_stretchr_testify//assert:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//test/bufconn:go_default_library",
+    ],
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["cobra.go"],
+    importpath = "github.com/enfabrica/enkit/astore",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//astore/client/astore:go_default_library",
+        "//astore/rpc:astore-go",
+        "//lib/client:go_default_library",
+        "//lib/knetwork:go_default_library",
+        "//lib/progress:go_default_library",
+        "@com_github_spf13_cobra//:go_default_library",
     ],
 )

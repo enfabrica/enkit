@@ -38,8 +38,8 @@ func main() {
 	login := bcommands.NewLogin(base, rng, populator)
 	root.AddCommand(login.Command)
 
-	astore := acommands.New(base)
-	root.AddCommand(astore.Command)
+	astoreCmd := acommands.New(base)
+	root.AddCommand(astoreCmd.Command)
 
 	tunnel := tcommands.NewTunnel(base)
 	root.AddCommand(tunnel.Command)
@@ -53,7 +53,7 @@ func main() {
 	bazel := bazelcmds.New(base)
 	root.AddCommand(bazel.Command)
 
-	outputs, err := ocommands.New(base)
+	outputs, err := ocommands.New(base, astoreCmd.ServerFlags)
 	exitIf(err)
 	root.AddCommand(outputs.Command)
 
