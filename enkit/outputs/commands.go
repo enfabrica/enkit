@@ -3,14 +3,18 @@ package outputs
 import (
 	"context"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/bes"
-	"github.com/enfabrica/enkit/lib/kbuildbarn"
-	"github.com/enfabrica/enkit/lib/multierror"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 
+	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/kbuildbarn"
+	bbexec "github.com/enfabrica/enkit/lib/kbuildbarn/exec"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/multierror"
+
 	"github.com/spf13/cobra"
 )
 
@@ -102,8 +106,16 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
-	//TODO: check for bb_clientd here before running completion
-	scratchInvocationPath := filepath.Join(c.root.OutputsRoot, "scratch", c.InvocationID)
+	bbOpts := bbexec.NewClientOptions(
+		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
+		8866, // TODO: This needs to come from a managed tunnel
+		c.root.OutputsRoot,
+	)
+	_, err = bbexec.MaybeStartClient(bbOpts)
+	if err != nil {
+		return fmt.Errorf("failed to start bb_clientd: %w", err)
+	}
+	scratchInvocationPath := filepath.Join(bbOpts.ScratchDir(), c.InvocationID)
 	if err := os.Mkdir(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("could not create scratch dir %w", err)
 	}
@@ -127,15 +139,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if len(errs) != 0 {
 		return fmt.Errorf("error writing links to disk %w", multierror.New(errs))
 	}
-	h, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("could not find user home directory %w", err)
-	}
-	outputPath := filepath.Join(h, "outputs")
-	outputInvocationPath := filepath.Join(outputPath, c.InvocationID)
-	if err := os.MkdirAll(outputPath, 0777); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("could not create %s: %w", outputPath, err)
-	}
+	outputInvocationPath := filepath.Join(c.root.OutputsRoot, c.InvocationID)
 	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputInvocationPath, err)
 	}
