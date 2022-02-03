@@ -73,6 +73,6 @@ availableSecrets:
     - versionName: projects/496137108493/secrets/github-enfabrica-bot-key/versions/latest
       env: SSH_KEY
 
-timeout: 20m
+timeout: 30m
 options:
   machineType: E2_HIGHCPU_8
