@@ -409,7 +409,7 @@ func DefaultShell() string {
 // Exec calls exec() with the specified arguments.
 func Exec(args ...string) {
 	if len(args) == 0 {
-		args = []string{DefaultShell()}
+		args = []string{DefaultShell(), "--norc", "--noprofile"}
 	}
 
 	binary, err := exec.LookPath(args[0])
