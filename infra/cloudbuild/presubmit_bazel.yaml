@@ -24,7 +24,7 @@ steps:
       - name: ssh
         path: /root/.ssh
 
-  - name: gcr.io/devops-284019/developer_testing:scott_presubmit_test
+  - name: gcr.io/devops-284019/developer:enkit-bazel-presubmit
     entrypoint: /opt/enfabrica/bin/enkit
     args:
       - bazel
@@ -49,7 +49,7 @@ steps:
       - name: affected-targets
         path: /affected-targets
 
-  - name: gcr.io/devops-284019/developer_testing:scott_presubmit_test
+  - name: gcr.io/devops-284019/developer:enkit-bazel-presubmit
     entrypoint: bash
     args:
       - -c
@@ -58,7 +58,7 @@ steps:
       - name: affected-targets
         path: /affected-targets
 
-  - name: gcr.io/devops-284019/developer_testing:scott_presubmit_test
+  - name: gcr.io/devops-284019/developer:enkit-bazel-presubmit
     entrypoint: bash
     args:
       - -c
