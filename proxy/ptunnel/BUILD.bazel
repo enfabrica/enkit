@@ -22,6 +22,7 @@ go_test(
     srcs = ["tunnel_test.go"],
     embed = [":go_default_library"],
     deps = [
+        "//lib/errdiff:go_default_library",
         "//lib/khttp:go_default_library",
         "//lib/khttp/ktest:go_default_library",
         "//lib/khttp/protocol:go_default_library",

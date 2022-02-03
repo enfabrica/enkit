@@ -12,6 +12,8 @@ go_library(
         "//lib/kbuildbarn/exec:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/multierror:go_default_library",
+        "//proxy/ptunnel:go_default_library",
+        "//proxy/ptunnel/exec:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
     ],
 )

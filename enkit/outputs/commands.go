@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/enfabrica/enkit/lib/bes"
@@ -15,8 +17,14 @@ import (
 	bbexec "github.com/enfabrica/enkit/lib/kbuildbarn/exec"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
+	"github.com/enfabrica/enkit/proxy/ptunnel"
+	tunnelexec "github.com/enfabrica/enkit/proxy/ptunnel/exec"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	localTunnelPort = 8822
 )
 
 type Root struct {
@@ -68,7 +76,7 @@ type Mount struct {
 
 	BuildBuddyApiKey string
 	BuildBuddyUrl    string
-	ClusterName      string
+	ClusterHost      string
 	DryRun           bool
 	InvocationID     string
 }
@@ -86,7 +94,7 @@ func NewMount(root *Root) *Mount {
 	}
 	command.Flags().StringVar(&command.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
 	command.Flags().StringVar(&command.BuildBuddyUrl, "url", "", "build buddy url instance")
-	command.Flags().StringVar(&command.ClusterName, "cluster", "", "name of the cluster")
+	command.Flags().StringVar(&command.ClusterHost, "buildbarn_host", "", "host:port of BuildBarn instance")
 	command.Flags().StringVarP(&command.InvocationID, "invocation", "i", "", "invocation id to mount")
 	command.Flags().BoolVar(&command.DryRun, "dry-run", false, "if set, will print out the hardlinks generated from the invocation, and not attempt to create them")
 
@@ -94,7 +102,39 @@ func NewMount(root *Root) *Mount {
 	return command
 }
 
+// maybeSetupTunnel takes a "host:port" string and starts a background tunnel
+// targeting that host/port if necessary. It returns a host and port that
+// clients should connect to, which could either be the original host/port if no
+// tunnel was necessary, or a modified host/port if a tunnel was necessary.
+func maybeSetupTunnel(hostPort string) (string, int, error) {
+	host, port, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		return "", 0, fmt.Errorf("can't split %q into host+port: %w", hostPort, err)
+	}
+	parsedPort, err := strconv.ParseInt(port, 10, 32)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to parse port %q: %w", port, err)
+	}
+	shouldTunnel, err := ptunnel.ShouldTunnel(host)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to determine if tunnel is required for %q: %w", host, err)
+	}
+	if shouldTunnel {
+		if err := tunnelexec.NewBackgroundTunnel(host, int(parsedPort), localTunnelPort); err != nil {
+			return "", 0, fmt.Errorf("failed to start tunnel to %q: %w", hostPort, err)
+		}
+		return host, localTunnelPort, nil
+	}
+	return host, int(parsedPort), nil
+}
+
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
+	host, port, err := maybeSetupTunnel(c.ClusterHost)
+	if err != nil {
+		return err
+	}
+	host, port = host, port
+
 	buddyUrl, err := url.Parse(c.BuildBuddyUrl)
 	if err != nil {
 		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
@@ -118,7 +158,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		bc,
 		bbOpts.MountDir,
 		c.InvocationID,
-		c.ClusterName,
+		c.ClusterHost,
 		kbuildbarn.WithNamedSetOfFiles(),
 		kbuildbarn.WithTestResults(),
 	)
