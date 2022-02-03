@@ -84,10 +84,21 @@ node_repositories(
     yarn_version = "1.22",
 )
 
-load("@rules_proto_grpc//:repositories.bzl", "grpc_web_plugin_linux", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
+load(
+    "@rules_proto_grpc//:repositories.bzl",
+    "grpc_web_plugin_darwin",
+    "grpc_web_plugin_linux",
+    "grpc_web_plugin_windows",
+    "rules_proto_grpc_repos",
+    "rules_proto_grpc_toolchains",
+)
 
 rules_proto_grpc_toolchains()
 
 rules_proto_grpc_repos()
 
 grpc_web_plugin_linux()
+
+grpc_web_plugin_darwin()
+
+grpc_web_plugin_windows()
