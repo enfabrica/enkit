@@ -1,7 +1,12 @@
 package outputs
 
 import (
+	"context"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/bes"
+	"github.com/enfabrica/enkit/lib/kbuildbarn"
+	"github.com/enfabrica/enkit/lib/multierror"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -55,26 +60,87 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 type Mount struct {
 	*cobra.Command
 	root *Root
+
+	BuildBuddyApiKey string
+	BuildBuddyUrl    string
+	ClusterName      string
+	DryRun           bool
+	InvocationID     string
 }
 
 func NewMount(root *Root) *Mount {
 	command := &Mount{
 		Command: &cobra.Command{
-			Use:   "mount [invocation ID]",
+			Use:   "mount",
 			Short: "Mount the build outputs of a particular invocation",
 			Example: `  $ enkit outputs mount 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07
 	Mounts outputs from build 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07 to the
 	default location.`,
-			Args: cobra.ExactArgs(1),
 		},
 		root: root,
 	}
+	command.Flags().StringVar(&command.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
+	command.Flags().StringVar(&command.BuildBuddyUrl, "url", "", "build buddy url instance")
+	command.Flags().StringVar(&command.ClusterName, "cluster", "", "name of the cluster")
+	command.Flags().StringVarP(&command.InvocationID, "invocation", "i", "", "invocation id to mount")
+	command.Flags().BoolVar(&command.DryRun, "dry-run", false, "if set, will print out the hardlinks generated from the invocation, and not attempt to create them")
+
 	command.Command.RunE = command.Run
 	return command
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf("`enkit outputs mount` is unimplemented")
+	buddyUrl, err := url.Parse(c.BuildBuddyUrl)
+	if err != nil {
+		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
+	}
+	bc, err := bes.NewBuildBuddyClient(buddyUrl, c.root.BaseFlags, c.BuildBuddyApiKey)
+	if err != nil {
+		return fmt.Errorf("failed generating new buildbuddy client: %w", err)
+	}
+	r, err := kbuildbarn.GenerateHardlinks(context.Background(), bc, c.root.OutputsRoot, c.InvocationID, c.ClusterName, kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
+	if err != nil {
+		return fmt.Errorf("hard links could not be generated: %w", err)
+	}
+	//TODO: check for bb_clientd here before running completion
+	scratchInvocationPath := filepath.Join(c.root.OutputsRoot, "scratch", c.InvocationID)
+	if err := os.Mkdir(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("could not create scratch dir %w", err)
+	}
+	var errs []error
+	if c.DryRun {
+		for _, v := range r {
+			fmt.Printf("link to generate from:%s to:%s \n ", v.Src, v.Dest)
+		}
+	} else {
+		for _, v := range r {
+			dir := filepath.Dir(v.Dest)
+			if err := os.MkdirAll(dir, 0777); err != nil && !os.IsExist(err) {
+				errs = append(errs, err)
+				continue
+			}
+			if err := os.Link(v.Src, v.Dest); err != nil && !os.IsExist(err) {
+				errs = append(errs, err)
+			}
+		}
+	}
+	if len(errs) != 0 {
+		return fmt.Errorf("error writing links to disk %w", multierror.New(errs))
+	}
+	h, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("could not find user home directory %w", err)
+	}
+	outputPath := filepath.Join(h, "outputs")
+	outputInvocationPath := filepath.Join(outputPath, c.InvocationID)
+	if err := os.MkdirAll(outputPath, 0777); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("could not create %s: %w", outputPath, err)
+	}
+	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputInvocationPath, err)
+	}
+	fmt.Printf("Outputs mounted in: ~/outputs/%s \n", c.InvocationID)
+	return nil
 }
 
 type Unmount struct {

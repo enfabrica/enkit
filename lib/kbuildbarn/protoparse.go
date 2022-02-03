@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	DefaultBBClientdCasFileTemplate     = "cas/%s/blobs/file/%s"
+	DefaultBBClientdCasFileTemplate     = "cas/%s/blobs/file/%s-%s"
 	DefaultBBClientdScratchFileTemplate = "scratch/%s/%s"
 )
 
@@ -58,11 +58,20 @@ func MergeLists(lists ...HardlinkList) HardlinkList {
 func GenerateLinksForFiles(filesPb []*bespb.File, baseName, invocationPrefix, clusterName string) HardlinkList {
 	var toReturn []*Hardlink
 	for _, f := range filesPb {
+		digest := f.Digest
 		size := strconv.Itoa(int(f.Length))
-		simSource := File(baseName, f.Digest, size,
+		if digest == "" {
+			hash, psize, err := ParseByteStreamUrl(f.GetUri())
+			if err != nil {
+				continue
+			}
+			digest = hash
+			size = psize
+		}
+		simSource := File(baseName, digest, size,
 			WithFileTemplate(DefaultBBClientdCasFileTemplate),
-			WithTemplateArgs(clusterName, f.Digest))
-		simDest := File(baseName, f.Digest, size,
+			WithTemplateArgs(clusterName, digest, size))
+		simDest := File(baseName, digest, size,
 			WithFileTemplate(DefaultBBClientdScratchFileTemplate),
 			WithTemplateArgs(invocationPrefix, f.Name))
 		toReturn = append(toReturn, &Hardlink{Dest: simDest, Src: simSource})

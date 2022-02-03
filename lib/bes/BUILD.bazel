@@ -5,8 +5,7 @@ go_library(
     srcs = ["buildbuddy.go"],
     importpath = "github.com/enfabrica/enkit/lib/bes",
     visibility = [
-        "//bes_log_fetcher:__pkg__",
-        "//lib/kbuildbarn:__subpackages__",
+        "//visibility:public",
     ],
     deps = [
         "//lib/client:go_default_library",
