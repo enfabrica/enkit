@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 
 # Gazelle seems to not detect my existing proto_library rules, and
 # create new ones with names I don't like. So here you go, gazelle!
@@ -19,8 +20,6 @@ proto_library(
     deps = [
     ],
 )
-
-load("@rules_proto//proto:defs.bzl", "proto_library")
 
 go_proto_library(
     name = "astore-proto-lib",
