@@ -1753,7 +1753,7 @@ function _print_codeowners() {
           O="${VAL}"
         fi
       else
-        if [[ "/$F" == "${EXP}" ]]; then
+        if [[ "/$F" == *"/${EXP}" ]]; then
           O="${VAL}"
         fi
       fi
