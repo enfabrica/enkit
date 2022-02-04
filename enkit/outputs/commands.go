@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/client"
@@ -102,10 +103,6 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed generating new buildbuddy client: %w", err)
 	}
-	r, err := kbuildbarn.GenerateHardlinks(context.Background(), bc, c.root.OutputsRoot, c.InvocationID, c.ClusterName, kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
-	if err != nil {
-		return fmt.Errorf("hard links could not be generated: %w", err)
-	}
 	bbOpts := bbexec.NewClientOptions(
 		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
 		8866, // TODO: This needs to come from a managed tunnel
@@ -114,6 +111,19 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	_, err = bbexec.MaybeStartClient(bbOpts)
 	if err != nil {
 		return fmt.Errorf("failed to start bb_clientd: %w", err)
+	}
+	time.Sleep(5 * time.Second)
+	r, err := kbuildbarn.GenerateHardlinks(
+		context.Background(),
+		bc,
+		bbOpts.MountDir,
+		c.InvocationID,
+		c.ClusterName,
+		kbuildbarn.WithNamedSetOfFiles(),
+		kbuildbarn.WithTestResults(),
+	)
+	if err != nil {
+		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
 	scratchInvocationPath := filepath.Join(bbOpts.ScratchDir(), c.InvocationID)
 	if err := os.Mkdir(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {

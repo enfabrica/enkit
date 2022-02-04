@@ -126,7 +126,7 @@ local blobstoreConfig = {
   // Addressable Storage can be loaded lazily. This file system relies
   // on credentials captured through gRPC.
   fuse: {
-    mountPath: '{{.HomeDir}}',
+    mountPath: '{{.MountDir}}',
     directoryEntryValidity: '300s',
     inodeAttributeValidity: '300s',
     // Enabling this option may be necessary if you want to permit

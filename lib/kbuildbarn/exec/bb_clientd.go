@@ -120,7 +120,7 @@ func (c *Client) Shutdown() error {
 	}
 	c.options.log.Debugf("bb_clientd process %d killed successfully", c.pid)
 
-	err = c.options.unmountHome()
+	err = c.options.unmountMountDir()
 	if err != nil {
 	}
 	return nil
@@ -164,7 +164,7 @@ type ClientOptions struct {
 	// to the config avoids duplicating path generation code both here and in the
 	// config.
 	CacheDir           string
-	HomeDir            string
+	MountDir           string
 	CasBlocksDir       string
 	PersistentStateDir string
 	OutputsDir         string
@@ -184,12 +184,12 @@ type ClientOptions struct {
 func NewClientOptions(log logger.Logger, tunnelPort int, outputBase string) *ClientOptions {
 	clientRoot := filepath.Join(outputBase, ".bb_clientd")
 	cacheDir := filepath.Join(clientRoot, "cache")
-	homeDir := filepath.Join(clientRoot, "home")
+	mountDir := filepath.Join(clientRoot, "mount")
 	return &ClientOptions{
 		TunnelPort:         tunnelPort,
 		OutputBase:         outputBase,
 		CacheDir:           cacheDir,
-		HomeDir:            homeDir,
+		MountDir:           mountDir,
 		CasBlocksDir:       filepath.Join(cacheDir, "/cas/blocks"),
 		PersistentStateDir: filepath.Join(cacheDir, "/cas/persistent_state"),
 		OutputsDir:         filepath.Join(cacheDir, "/outputs"),
@@ -204,7 +204,7 @@ func NewClientOptions(log logger.Logger, tunnelPort int, outputBase string) *Cli
 }
 
 func (o *ClientOptions) ScratchDir() string {
-	return filepath.Join(o.HomeDir, "/scratch")
+	return filepath.Join(o.MountDir, "/scratch")
 }
 
 // writeConfig spills the bb_clientd Jsonnet
@@ -250,14 +250,14 @@ func (o *ClientOptions) init() error {
 	if err := os.MkdirAll(o.OutputsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create bb_clientd outputs dir %q: %w", o.OutputsDir, err)
 	}
-	if err := os.MkdirAll(o.HomeDir, 0755); err != nil {
+	if err := os.MkdirAll(o.MountDir, 0755); err != nil {
 		// Creation of this dir can fail if a previous invocation uses this as a
 		// mount point; try to unmount it and then create the directory.
-		if err := o.unmountHome(); err != nil {
-			return fmt.Errorf("failed to unmount bb_clientd home %q during init: %w", o.HomeDir, err)
+		if err := o.unmountMountDir(); err != nil {
+			return fmt.Errorf("failed to unmount bb_clientd home %q during init: %w", o.MountDir, err)
 		}
-		if err := os.MkdirAll(o.HomeDir, 0755); err != nil {
-			return fmt.Errorf("failed to create bb_clientd home dir %q: %w", o.HomeDir, err)
+		if err := os.MkdirAll(o.MountDir, 0755); err != nil {
+			return fmt.Errorf("failed to create bb_clientd home dir %q: %w", o.MountDir, err)
 		}
 	}
 	o.log.Debugf("Finished init of outputBase %q", o.OutputBase)
@@ -284,11 +284,11 @@ func (o *ClientOptions) writePidfile(pid int) error {
 	return nil
 }
 
-func (o *ClientOptions) unmountHome() error {
-	fusermountCmd := exec.Command("fusermount", "-u", o.HomeDir)
+func (o *ClientOptions) unmountMountDir() error {
+	fusermountCmd := exec.Command("fusermount", "-u", o.MountDir)
 	output, err := fusermountCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("fusermount on %q failed: %v. Output:\n%s\n", o.HomeDir, err, string(output))
+		return fmt.Errorf("fusermount on %q failed: %v. Output:\n%s\n", o.MountDir, err, string(output))
 	}
 	return nil
 }
