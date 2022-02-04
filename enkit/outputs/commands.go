@@ -16,7 +16,9 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
 
+	"github.com/enfabrica/enkit/astore"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 type Root struct {
@@ -24,7 +26,9 @@ type Root struct {
 	*client.BaseFlags
 	*client.ServerFlags
 	*viper.Viper
-	OutputsRoot string
+	OutputsRoot      string
+	// TODO(adam): make it so that the default remote config paths can be configured via dns
+	RemoteConfigPath string
 }
 
 func New(base *client.BaseFlags, sf *client.ServerFlags) (*Root, error) {
@@ -50,9 +54,10 @@ func NewRoot(base *client.BaseFlags, sf *client.ServerFlags) (*Root, error) {
 			SilenceErrors: true,
 			Long:          `outputs - commands for mounting remotely-built Bazel outputs`,
 		},
-		BaseFlags:   base,
-		ServerFlags: sf,
-		Viper:       viper.New(),
+		BaseFlags:        base,
+		ServerFlags:      sf,
+		Viper:            viper.New(),
+		RemoteConfigPath: "",
 	}
 
 	homeDir, err := os.UserHomeDir()
@@ -62,6 +67,7 @@ func NewRoot(base *client.BaseFlags, sf *client.ServerFlags) (*Root, error) {
 	defaultOutputsRoot := filepath.Join(homeDir, "outputs")
 
 	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs_root", defaultOutputsRoot, "Root dir of mounted outputs")
+	rc.PersistentFlags().StringVar(&rc.RemoteConfigPath, "remote-config", "enkitconfigs/outputs.yaml", "remote config of the output command")
 	return rc, nil
 }
 
@@ -104,7 +110,7 @@ func NewMount(root *Root) *Mount {
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	if err := astore.ReadConfig(c.root.Viper, c.root.BaseFlags, c.root.ServerFlags, "enkitconfigs/outputs.yaml", c.config); err != nil {
+	if err := astore.ReadConfig(c.root.Viper, c.root.BaseFlags, c.root.ServerFlags, c.root.RemoteConfigPath, c.config); err != nil {
 		fmt.Printf("error fetching astore config %v", err)
 	}
 	buddyUrl, err := url.Parse(c.config.Url)
