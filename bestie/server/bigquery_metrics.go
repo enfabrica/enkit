@@ -4,39 +4,28 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
-	bq "cloud.google.com/go/bigquery"
+	"cloud.google.com/go/bigquery"
 )
 
-type bigQuerySession struct {
-	ctx    context.Context
-	client *bq.Client
-}
-
 type bigQueryMetric struct {
-	metricname string
+	metricName string
 	tags       string // stringified JSON
 	value      float64
-	timestamp  string // "YYYY-MM-DD hh:mm:ss.uuuuuu"
+	timestamp  string // must be: "YYYY-MM-DD hh:mm:ss.uuuuuu"
 }
 
 type bigQueryTable struct {
 	project   string
 	dataset   string
-	tablename string
-}
-
-type keyValuePair struct {
-	key   string
-	value string
+	tableName string
 }
 
 type testMetric struct {
-	metricname string
-	tags       []keyValuePair
+	metricName string
+	tags       map[string]string
 	value      float64
 	timestamp  int64
 }
@@ -46,59 +35,93 @@ type metricTestResult struct {
 	metrics []testMetric
 }
 
-// BigQuery service location.
-const databaseLocation = "us-west1"
+// Timestamp datetime format required by BigQuery.
+// Go dictates that these particular field values must be used
+// when formatting datetime as a custom string.
+const timestampFormat = "2006-01-02 15:04:05.000000"
+
+// BigQuery test metrics table schema definition.
+// Although no longer creating tables in the code, this is kept for reference.
+//
+//var databaseSchema = bigquery.Schema{
+//	{Name: "metricname", Type: bigquery.StringFieldType, Description: "metric name", Required: true},
+//	{Name: "tags", Type: bigquery.StringFieldType, Description: "metric attribute tags"},
+//	{Name: "value", Type: bigquery.FloatFieldType, Description: "metric value"},
+//	{Name: "timestamp", Type: bigquery.TimestampFieldType, Description: "sample collection timestamp", Required: true},
+//}
 
 // Define default BigQuery table to use if not specified in Bazel TestResult event message.
 //
 // NOTE: If BES Endpoint needs to shard metrics into multiple tables, it will add a suitable
-// suffix to the tablename specified here.
+// suffix to the table name specified here.
 var bigQueryTableDefault = bigQueryTable{
 	project:   "bestie-builds",
 	dataset:   "",            // Must be specified as --dataset arg on the command line.
-	tablename: "testmetrics", // Can be overridden from the --tablename arg on the command line.
+	tableName: "testmetrics", // Can be overridden from the --table_name arg on the command line.
 }
 
 // Save implements the ValueSaver interface.
 // This example disables best-effort de-duplication, which allows for higher throughput.
-func (i *bigQueryMetric) Save() (map[string]bq.Value, string, error) {
-	ret := map[string]bq.Value{
-		"metricname": i.metricname,
+func (i *bigQueryMetric) Save() (map[string]bigquery.Value, string, error) {
+	ret := map[string]bigquery.Value{
+		"metricname": i.metricName,
 		"tags":       i.tags,
 		"value":      i.value,
 		"timestamp":  i.timestamp,
 	}
-	return ret, bq.NoDedupeID, nil
+	return ret, bigquery.NoDedupeID, nil
 }
 
-func getMetricsTableSchema() bq.Schema {
-	databaseSchema := bq.Schema{
-		{Name: "metricname", Type: bq.StringFieldType, Description: "metric name", Required: true},
-		{Name: "tags", Type: bq.StringFieldType, Description: "metric attribute tags"},
-		{Name: "value", Type: bq.FloatFieldType, Description: "metric value"},
-		{Name: "timestamp", Type: bq.TimestampFieldType, Description: "sample collection timestamp", Required: true},
+// Keep track of dataset and table names that were requested,
+// but do not exist. Display a log message the first time
+// each is encountered and every "rate" occurrence thereafter.
+var missingResource = make(map[string]int)
+var missingResourceMsgRate = 10
+
+// Report a missing dataset or table.
+func reportMissingResource(id, resourceType string) error {
+	if _, ok := missingResource[id]; !ok {
+		missingResource[id] = 0
 	}
-	return databaseSchema
+	missingResource[id]++
+	errMsg := fmt.Sprintf("The BigQuery %s %q does not exist", resourceType, id)
+	if (missingResource[id] % missingResourceMsgRate) == 1 {
+		logger.Printf("%s. Please create it and try again.", errMsg)
+	}
+	return fmt.Errorf("%s", errMsg)
+}
+
+// UnixMicro returns the local Time corresponding to the given Unix time,
+// usec microseconds since January 1, 1970 UTC.
+// NOTE: This function is copied from src/time/time.go in the Go library (version 1.17.6).
+func UnixMicro(usec int64) time.Time {
+	return time.Unix(usec/1e6, (usec%1e6)*1e3)
 }
 
 // Produce a formatted string of the table identifier.
-func (t bigQueryTable) formatDatasetId() string {
-	return fmt.Sprintf("`%s.%s`", t.project, t.dataset)
+func (t *bigQueryTable) formatDatasetId() string {
+	return fmt.Sprintf("%s.%s", t.project, t.dataset)
 }
 
 // Produce a formatted string of the dataset identifier.
-func (t bigQueryTable) formatTableId() string {
-	return fmt.Sprintf("`%s.%s.%s`", t.project, t.dataset, t.tablename)
+func (t *bigQueryTable) formatTableId() string {
+	return fmt.Sprintf("%s.%s.%s", t.project, t.dataset, t.tableName)
+}
+
+// Check if a BigQuery dataset exists based on reading its metadata.
+func (t *bigQueryTable) isDatasetExist(ctx context.Context, client *bigquery.Client) bool {
+	_, err := client.Dataset(t.dataset).Metadata(ctx)
+	return err == nil
 }
 
 // Check if a BigQuery table exists based on reading its metadata.
-func (t bigQueryTable) isTableExist(session bigQuerySession) bool {
-	_, err := session.client.Dataset(t.dataset).Table(t.tablename).Metadata(session.ctx)
+func (t *bigQueryTable) isTableExist(ctx context.Context, client *bigquery.Client) bool {
+	_, err := client.Dataset(t.dataset).Table(t.tableName).Metadata(ctx)
 	return err == nil
 }
 
 // Normalize BigQuery table references by filling in with defaults, as needed.
-func normalizeTableRef(t *bigQueryTable) {
+func (t *bigQueryTable) normalizeTableRef() {
 	// Always use the default project.
 	t.project = bigQueryTableDefault.project
 
@@ -107,68 +130,18 @@ func normalizeTableRef(t *bigQueryTable) {
 	if len(t.dataset) == 0 {
 		t.dataset = bigQueryTableDefault.dataset
 	}
-	if len(t.tablename) == 0 {
-		t.tablename = bigQueryTableDefault.tablename
+	if len(t.tableName) == 0 {
+		t.tableName = bigQueryTableDefault.tableName
 	}
-}
-
-// Create a new dataset using an explicit destination location.
-func createDataset(w io.Writer, t bigQueryTable, location string, session bigQuerySession) error {
-	meta := &bq.DatasetMetadata{
-		Location: location, // See https://cloud.google.com/bigquery/docs/locations
-	}
-	if err := session.client.Dataset(t.dataset).Create(session.ctx, meta); err != nil {
-		return fmt.Errorf("Error creating dataset '%s': %s\n", t.formatDatasetId(), err)
-	}
-	fmt.Fprintf(w, "Created dataset %s\n", t.formatDatasetId())
-	return nil
-}
-
-// Create a BigQuery table with a predefined schema.
-func createTable(w io.Writer, t bigQueryTable, session bigQuerySession) error {
-	// Always attempt to create the dataset that holds the table.
-	// This is faster than first querying the table metadata,
-	// then creating the dataset if not present.
-	// We expect an "already exists" error if the dataset currently
-	// exists for the project, which is the normal case.
-	if err := createDataset(w, t, databaseLocation, session); err != nil {
-		if !strings.Contains(strings.ToLower(err.Error()), "already exist") {
-			return err
-		}
-	}
-
-	// Create the table within the dataset.
-	tableSchema := getMetricsTableSchema()
-	fmt.Fprintln(w, "Metrics Table Schema:")
-	for _, field := range tableSchema {
-		fmt.Fprintf(w, "  %s (%s)\n", field.Name, field.Type)
-	}
-	fmt.Fprintln(w)
-
-	// NOTE: Not setting an expiration for BigQuery tables created by the endpoint.
-	// If an expiration was used and someone forgets to extend the deadline,
-	// the table and all of its data are deleted by BigQuery without warning.
-	metaData := &bq.TableMetadata{
-		Schema: tableSchema,
-		//ExpirationTime: time.Now().AddDate(1, 0, 0), // Table will be automatically deleted in 1 year
-	}
-	tableRef := session.client.Dataset(t.dataset).Table(t.tablename)
-	if err := tableRef.Create(session.ctx, metaData); err != nil {
-		if !strings.Contains(strings.ToLower(err.Error()), "already exist") {
-			return fmt.Errorf("Error creating table '%s': %s\n", t.formatTableId(), err)
-		}
-	} else {
-		fmt.Fprintf(w, "Created table %s\n", t.formatTableId())
-	}
-	return nil
 }
 
 // Translate protobuf metric to BigQuery metric.
-func translateMetric(stream bazelStream, m testMetric) (bigQueryMetric, error) {
-	// Process the slice of key/value pairs representing individual metric tags.
+// TODO: Decide whether to override client metric time with BES server current time.
+func translateMetric(stream *bazelStream, m *testMetric) (*bigQueryMetric, error) {
+	// Process the map of key/value pairs representing individual metric tags.
 	dat := make(map[string]string)
-	for _, kv := range m.tags {
-		dat[kv.key] = kv.value
+	for k, v := range m.tags {
+		dat[k] = v
 	}
 	// Insert additional tags using information that is only available
 	// to the BES endpoint through the Bazel event message itself.
@@ -181,19 +154,26 @@ func translateMetric(stream bazelStream, m testMetric) (bigQueryMetric, error) {
 	dat["test_name"] = stream.testName
 	tags, err := json.Marshal(dat)
 	if err != nil {
-		return bigQueryMetric{}, fmt.Errorf("Error converting JSON to string: %s", err)
+		return nil, fmt.Errorf("Error converting JSON to string: %w", err)
 	}
 
 	// Change the metric timestamp from integer to formatted string,
 	// since that is what BigQuery expects for a TIMESTAMP column.
 	//
-	// The incoming timestamp is UTC nanoseconds since epoch, but
-	// storing with microsecond granularity in BigQuery.
-	ts := m.timestamp / 1000
-	tsf := time.Unix(ts/1000000, ts%1000000).Format("2006-01-02 15:04:05.000000")
+	// The incoming timestamp is UTC nanoseconds since epoch (int64), which is
+	// a familiar value that can be produced by all test clients and passed in
+	// a protobuf message. It is formatted and stored with microsecond granularity
+	// in BigQuery.
+	//
+	// Note that a specific Format() string is required to create a timestamp
+	// format that BigQuery can work with. For example, BigQuery does not like "+0000 UTC"
+	// at the end of the string, which is the default format emitted by UnixMicro().String().
+	// See https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#timestamp_type
+	// for details.
+	tsf := UnixMicro(m.timestamp / 1e3).Format(timestampFormat)
 
-	return bigQueryMetric{
-		metricname: m.metricname,
+	return &bigQueryMetric{
+		metricName: m.metricName,
 		tags:       string(tags),
 		value:      m.value,
 		timestamp:  tsf,
@@ -201,27 +181,30 @@ func translateMetric(stream bazelStream, m testMetric) (bigQueryMetric, error) {
 }
 
 // Upload this set of metrics to the specified BigQuery table.
-func uploadTestMetrics(w io.Writer, stream bazelStream, r *metricTestResult) error {
+func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 	// Normalize the BigQuery table identifier based on whether one was specified
 	// in the protobuf message.
-	normalizeTableRef(&r.table)
-	fmt.Fprintf(w, "Normalized table ref: %s\n", r.table.formatTableId())
+	r.table.normalizeTableRef()
+	debugPrintf("Normalized table ref: %q\n", r.table.formatTableId())
 
 	// Get client context for this BigQuery operation.
 	ctx := context.Background()
-	client, err := bq.NewClient(ctx, r.table.project)
+	client, err := bigquery.NewClient(ctx, r.table.project)
 	if err != nil {
-		return fmt.Errorf("bigquery.NewClient: %v", err)
+		return fmt.Errorf("Error opening bigquery.NewClient: %w", err)
 	}
 	defer client.Close()
-	session := bigQuerySession{ctx: ctx, client: client}
 
-	// Check if the BigQuery dataset and table exists; create each as needed.
-	if exist := r.table.isTableExist(session); !exist {
-		ServiceStats.incrementBigQueryTableNotFound()
-		if err := createTable(w, r.table, session); err != nil {
-			return err
-		}
+	// Check that the BigQuery dataset and table already exists.
+	// For simplicity, the BES Endpoint is not responsible for creating
+	// either one. An administrator is expected to create these ahead of time.
+	if exist := r.table.isDatasetExist(ctx, client); !exist {
+		cidExceptionDatasetNotFound.increment()
+		return reportMissingResource(r.table.formatDatasetId(), "dataset")
+	}
+	if exist := r.table.isTableExist(ctx, client); !exist {
+		cidExceptionTableNotFound.increment()
+		return reportMissingResource(r.table.formatTableId(), "table")
 	}
 
 	// Prepare the metric rows for uploading to BigQuery.
@@ -231,22 +214,23 @@ func uploadTestMetrics(w io.Writer, stream bazelStream, r *metricTestResult) err
 	var rows []*bigQueryMetric
 	idx := 0
 	for _, m := range r.metrics {
-		// TODO: Decide whether to override client metric time with BES server current time.
-		bqMetric, err := translateMetric(stream, m)
+		pMetric, err := translateMetric(stream, &m)
 		if err != nil {
-			ServiceStats.incrementBigQueryMetricDiscard(1)
-			fmt.Fprintf(w, "Discarding metric %s due to error: %s\n", m, err)
+			cidMetricDiscard.increment()
+			logger.Printf("Discarding metric %s due to error: %s\n\n", m, err)
 			continue
 		}
-		bqMetrics = append(bqMetrics, bqMetric)
+		bqMetrics = append(bqMetrics, *pMetric)
 		rows = append(rows, &bqMetrics[idx])
 		idx++
 	}
-	fmt.Fprintf(w, "\nTranslated metrics for BigQuery upload:\n")
+	var sbuf strings.Builder
+	sbuf.WriteString("\nTranslated metrics for BigQuery upload:\n")
 	for _, bqMetric := range bqMetrics {
-		fmt.Fprintf(w, "  %v\n", bqMetric)
+		sbuf.WriteString(fmt.Sprintf("  %v\n", bqMetric))
 	}
-	fmt.Fprintln(w)
+	sbuf.WriteString("\n")
+	debugPrintln(sbuf.String())
 
 	// Attempt to upload the metrics, assuming the dataset and table
 	// both exist. If a "not found" error occurs, sleep for a while
@@ -257,17 +241,15 @@ func uploadTestMetrics(w io.Writer, stream bazelStream, r *metricTestResult) err
 	ok := false
 	insertionDelay := 0
 	sleepTime := 10
-	inserter := client.Dataset(r.table.dataset).Table(r.table.tablename).Inserter()
-	fmt.Fprintf(w, "Waiting for table insertion")
+	inserter := client.Dataset(r.table.dataset).Table(r.table.tableName).Inserter()
+	debugPrintf("Waiting for table insertion...\n")
 	for i := 0; i < 12; i++ {
 		if err := inserter.Put(ctx, rows); err != nil {
 			// Treat anything other than a "not found" error as a failure.
 			if !strings.Contains(strings.ToLower(err.Error()), "not found") {
-				fmt.Println(w)
-				ServiceStats.incrementBigQueryInsertError()
+				cidInsertError.increment()
 				return err
 			}
-			fmt.Fprintf(w, ".")
 		} else {
 			ok = true
 			break
@@ -275,14 +257,13 @@ func uploadTestMetrics(w io.Writer, stream bazelStream, r *metricTestResult) err
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 		insertionDelay += sleepTime
 	}
-	fmt.Fprintln(w)
 	if !ok {
-		ServiceStats.incrementBigQueryInsertTimeout()
-		return fmt.Errorf("Error uploading rows to table %s: insertion timed out", r.table.formatTableId())
+		cidInsertTimeout.increment()
+		return fmt.Errorf("Error uploading rows to table %q: insertion timed out", r.table.formatTableId())
 	}
-	ServiceStats.incrementBigQueryMetricUpload(len(rows))
-	ServiceStats.incrementBigQueryInsertOK()
-	ServiceStats.incrementBigQueryInsertDelay(insertionDelay)
-	fmt.Fprintf(w, "Successfully inserted %d rows (delay=%d)\n\n", len(rows), insertionDelay)
+	cidInsertOK.increment()
+	cidInsertDelay.update(insertionDelay)
+	cidMetricUpload.update(len(rows))
+	debugPrintf("Successfully inserted %d rows (delay=%d)\n\n", len(rows), insertionDelay)
 	return nil
 }

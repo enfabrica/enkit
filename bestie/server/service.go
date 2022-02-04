@@ -39,6 +39,24 @@ var besEventIds = map[string]string{
 	"ConvenienceSymlinksIdentified": "convenience_symlinks_identified",
 }
 
+// List of all Prometheus counter IDs.
+type counterId int
+
+const (
+	cidBuildsTotal              counterId = iota // 0
+	cidEventsTotal                               // 1
+	cidExceptionDatasetNotFound                  // 2
+	cidExceptionExcessDelay                      // 3
+	cidExceptionProtobufError                    // 4
+	cidExceptionTableNotFound                    // 5
+	cidInsertDelay                               // 6
+	cidInsertError                               // 7
+	cidInsertOK                                  // 8
+	cidInsertTimeout                             // 9
+	cidMetricDiscard                             // 10
+	cidMetricUpload                              // 11
+)
+
 // Service statistics.
 type serviceStats struct {
 	// General Build Event Stream stats.
@@ -46,10 +64,10 @@ type serviceStats struct {
 	eventsTotal *prometheus.CounterVec
 
 	// BigQuery interaction stats.
-	bigQueryExceptionTotal *prometheus.CounterVec
-	bigQueryInsertDelay    prometheus.Histogram
-	bigQueryInsertTotal    *prometheus.CounterVec
-	bigQueryMetricTotal    *prometheus.CounterVec
+	bigQueryExceptionsTotal *prometheus.CounterVec
+	bigQueryInsertDelay     prometheus.Histogram
+	bigQueryInsertsTotal    *prometheus.CounterVec
+	bigQueryMetricsTotal    *prometheus.CounterVec
 }
 
 // Statistic values to report to Prometheus for this service.
@@ -68,10 +86,10 @@ var ServiceStats serviceStats = serviceStats{
 		},
 		[]string{"id"},
 	),
-	bigQueryExceptionTotal: prometheus.NewCounterVec(
+	bigQueryExceptionsTotal: prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "bestie",
-			Name:      "bigquery_exception_total",
+			Name:      "bigquery_exceptions_total",
 			Help:      "Total BigQuery operational exceptions, tagged by type",
 		},
 		[]string{"type"},
@@ -84,18 +102,18 @@ var ServiceStats serviceStats = serviceStats{
 			Buckets:   []float64{0.0, 5.0, 10.0, 30.0, 60.0, 90.0, 120.0},
 		},
 	),
-	bigQueryInsertTotal: prometheus.NewCounterVec(
+	bigQueryInsertsTotal: prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "bestie",
-			Name:      "bigquery_insert_total",
+			Name:      "bigquery_inserts_total",
 			Help:      "Total BigQuery table insertions, tagged by result status",
 		},
 		[]string{"status"},
 	),
-	bigQueryMetricTotal: prometheus.NewCounterVec(
+	bigQueryMetricsTotal: prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "bestie",
-			Name:      "bigquery_metric_total",
+			Name:      "bigquery_metrics_total",
 			Help:      "Total BigQuery metrics processed, tagged by result status",
 		},
 		[]string{"status"},
@@ -106,10 +124,10 @@ var ServiceStats serviceStats = serviceStats{
 func (s *serviceStats) registerPrometheusMetrics() {
 	prometheus.MustRegister(s.buildsTotal)
 	prometheus.MustRegister(s.eventsTotal)
-	prometheus.MustRegister(s.bigQueryExceptionTotal)
+	prometheus.MustRegister(s.bigQueryExceptionsTotal)
 	prometheus.MustRegister(s.bigQueryInsertDelay)
-	prometheus.MustRegister(s.bigQueryInsertTotal)
-	prometheus.MustRegister(s.bigQueryMetricTotal)
+	prometheus.MustRegister(s.bigQueryInsertsTotal)
+	prometheus.MustRegister(s.bigQueryMetricsTotal)
 }
 
 // Run-time initialization of service stats struct.
@@ -117,17 +135,8 @@ func (s *serviceStats) init() {
 	s.registerPrometheusMetrics()
 }
 
-//
-// Accessor methods to update Prometheus metrics.
-//
-
-// Increment total number of Bazel builds seen.
-func (s *serviceStats) incrementBuildsTotal() {
-	s.buildsTotal.Inc()
-}
-
-// Increment per-event count.
-func (s *serviceStats) incrementEventsTotal(bevid interface{}) {
+// Get the label used to identify a BES event.
+func getEventLabel(bevid interface{}) string {
 	x := strings.Split(fmt.Sprintf("%T", bevid), "_")
 	id := x[len(x)-1] // use last split item
 	label := besEventIds["Unknown"]
@@ -135,42 +144,57 @@ func (s *serviceStats) incrementEventsTotal(bevid interface{}) {
 		label = promId
 	} else {
 		// Make note of this condition. Probably means .proto file definition was updated.
-		fmt.Printf("Detected unknown event id: %s\n\n", id)
+		logger.Printf("Detected unknown event id: %s\n\n", id)
 	}
-	s.eventsTotal.WithLabelValues(label).Inc()
+	return label
 }
 
-// BigQuery operational exceptions.
-func (s *serviceStats) incrementBigQueryExcessDelay() {
-	s.bigQueryExceptionTotal.WithLabelValues("excess_delay").Inc()
-}
-func (s *serviceStats) incrementBigQueryProtobufError() {
-	s.bigQueryExceptionTotal.WithLabelValues("protobuf_error").Inc()
-}
-func (s *serviceStats) incrementBigQueryTableNotFound() {
-	s.bigQueryExceptionTotal.WithLabelValues("table_not_found").Inc()
+// Increment the designated service statistic by 1.
+func (cid counterId) increment() {
+	go updatePrometheusCounter(cid, "", float64(1.0))
 }
 
-// BigQuery row insertion delay (histogram).
-func (s *serviceStats) incrementBigQueryInsertDelay(seconds int) {
-	s.bigQueryInsertDelay.Observe(float64(seconds))
+// Update the designated service statistic by adding the specified amount.
+func (cid counterId) update(amount int) {
+	go updatePrometheusCounter(cid, "", float64(amount))
 }
 
-// BigQuery row insertion outcome.
-func (s *serviceStats) incrementBigQueryInsertError() {
-	s.bigQueryInsertTotal.WithLabelValues("error").Inc()
-}
-func (s *serviceStats) incrementBigQueryInsertOK() {
-	s.bigQueryInsertTotal.WithLabelValues("ok").Inc()
-}
-func (s *serviceStats) incrementBigQueryInsertTimeout() {
-	s.bigQueryInsertTotal.WithLabelValues("timeout").Inc()
+// Update the designated service statistic by adding the specified amount.
+// Use this method whenever a qualifying label is needed for the metric.
+func (cid counterId) updateWithLabel(label string, amount int) {
+	go updatePrometheusCounter(cid, label, float64(amount))
 }
 
-// BigQuery total metrics processed.
-func (s *serviceStats) incrementBigQueryMetricDiscard(count int) {
-	s.bigQueryMetricTotal.WithLabelValues("discard").Add(float64(count))
-}
-func (s *serviceStats) incrementBigQueryMetricUpload(count int) {
-	s.bigQueryMetricTotal.WithLabelValues("upload").Add(float64(count))
+// Update the Prometheus counter corresponding to the service statistic ID.
+// NOTE: This should be invoked as a goroutine to do the actual counter update.
+func updatePrometheusCounter(cid counterId, label string, n float64) {
+	s := &ServiceStats
+	switch cid {
+	case cidBuildsTotal:
+		s.buildsTotal.Add(n)
+	case cidEventsTotal:
+		// There are too many BES event names to define a unique counter ID
+		// for each, so the caller must pass in the label to use.
+		s.eventsTotal.WithLabelValues(label).Add(n)
+	case cidExceptionDatasetNotFound:
+		s.bigQueryExceptionsTotal.WithLabelValues("dataset_not_found").Add(n)
+	case cidExceptionExcessDelay:
+		s.bigQueryExceptionsTotal.WithLabelValues("excess_delay").Add(n)
+	case cidExceptionProtobufError:
+		s.bigQueryExceptionsTotal.WithLabelValues("protobuf_error").Add(n)
+	case cidExceptionTableNotFound:
+		s.bigQueryExceptionsTotal.WithLabelValues("table_not_found").Add(n)
+	case cidInsertDelay:
+		s.bigQueryInsertDelay.Observe(float64(n))
+	case cidInsertError:
+		s.bigQueryInsertsTotal.WithLabelValues("error").Add(n)
+	case cidInsertOK:
+		s.bigQueryInsertsTotal.WithLabelValues("ok").Add(n)
+	case cidInsertTimeout:
+		s.bigQueryInsertsTotal.WithLabelValues("timeout").Add(n)
+	case cidMetricDiscard:
+		s.bigQueryMetricsTotal.WithLabelValues("discard").Add(float64(n))
+	case cidMetricUpload:
+		s.bigQueryMetricsTotal.WithLabelValues("upload").Add(float64(n))
+	}
 }
