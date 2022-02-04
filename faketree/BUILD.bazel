@@ -29,4 +29,8 @@ sh_test(
     name = "faketree_sh_test",
     srcs = ["faketree_test.sh"],
     data = [":faketree"],
+    tags = [
+        # Cloud Build cannot run privileged containers
+        "no-cloudbuild",
+    ],
 )
