@@ -58,7 +58,7 @@ message KeyValuePair {
 }
 
 // BigQuery table identifier (OPTIONAL)
-//    dataset - logical container that holds tables and views; each group may create its own
+//    dataset - logical container that holds tables and views
 //    tablename - name of the table to hold these metrics; the same tablename is used across datasets
 //
 // The BigQuery project identifier is the Google Cloud billing entity set up for the organization to use.
@@ -67,6 +67,9 @@ message KeyValuePair {
 // The BigQuery table specification is optional, as a suitable default is chosen by the BES Endpoint.
 // This message may be useful for development testing, however, when updating the "production" metrics table
 // is undesirable.
+//
+// NOTE: The BES Endpoint will not create the dataset and/or table for you. These must be created
+// manually ahead of time.
 message BigQueryTable {
     //string project = 1;
     string dataset = 2;
