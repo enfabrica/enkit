@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/client"
@@ -22,7 +23,10 @@ type Root struct {
 	*cobra.Command
 	*client.BaseFlags
 
-	OutputsRoot string
+	UserHomeDir string
+	OutputRoot  string
+	MountRoot   string
+	CacheRoot   string
 }
 
 func New(base *client.BaseFlags) (*Root, error) {
@@ -55,9 +59,14 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect $HOME: %w", err)
 	}
-	defaultOutputsRoot := filepath.Join(homeDir, "outputs")
+	rc.UserHomeDir = homeDir
+	defaultOutputsRoot := filepath.Join(homeDir, "bb_clientd")
+	defaultMountRoot := filepath.Join(defaultOutputsRoot, "bbmount")
+	defaultCacheRoot := filepath.Join(defaultOutputsRoot, "cache")
 
-	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs_root", defaultOutputsRoot, "Root dir of mounted outputs")
+	rc.PersistentFlags().StringVar(&rc.OutputRoot, "outputs-root", defaultOutputsRoot, "Root dir of mounted outputs")
+	rc.PersistentFlags().StringVar(&rc.MountRoot, "mount-root", defaultMountRoot, "Root dir of mounted outputs")
+	rc.PersistentFlags().StringVar(&rc.CacheRoot, "cache-root", defaultCacheRoot, "Root dir of bb_client cache")
 	return rc, nil
 }
 
@@ -102,23 +111,22 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed generating new buildbuddy client: %w", err)
 	}
-	r, err := kbuildbarn.GenerateHardlinks(context.Background(), bc, c.root.OutputsRoot, c.InvocationID, c.ClusterName, kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
+	r, err := kbuildbarn.GenerateHardlinks(context.Background(), bc, c.root.MountRoot, c.InvocationID, c.ClusterName, kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
 	if err != nil {
 		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
 	bbOpts := bbexec.NewClientOptions(
 		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
 		8866, // TODO: This needs to come from a managed tunnel
-		c.root.OutputsRoot,
+		c.root.MountRoot, c.root.CacheRoot,
 	)
 	_, err = bbexec.MaybeStartClient(bbOpts)
 	if err != nil {
 		return fmt.Errorf("failed to start bb_clientd: %w", err)
 	}
+	time.Sleep(5 * time.Second)
 	scratchInvocationPath := filepath.Join(bbOpts.ScratchDir(), c.InvocationID)
-	if err := os.Mkdir(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("could not create scratch dir %w", err)
-	}
+	time.Sleep(3 * time.Second)
 	var errs []error
 	if c.DryRun {
 		for _, v := range r {
@@ -139,7 +147,8 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if len(errs) != 0 {
 		return fmt.Errorf("error writing links to disk %w", multierror.New(errs))
 	}
-	outputInvocationPath := filepath.Join(c.root.OutputsRoot, c.InvocationID)
+
+	outputInvocationPath := filepath.Join(c.root.UserHomeDir, "outputs", c.InvocationID)
 	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputInvocationPath, err)
 	}

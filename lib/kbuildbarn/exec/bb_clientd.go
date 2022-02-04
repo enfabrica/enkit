@@ -181,13 +181,12 @@ type ClientOptions struct {
 
 // NewClientOptions returns options with sane defaults based on the specified
 // outputBase.
-func NewClientOptions(log logger.Logger, tunnelPort int, outputBase string) *ClientOptions {
-	clientRoot := filepath.Join(outputBase, ".bb_clientd")
-	cacheDir := filepath.Join(clientRoot, "cache")
-	homeDir := filepath.Join(clientRoot, "home")
+func NewClientOptions(log logger.Logger, tunnelPort int, mountDir, cacheDir string) *ClientOptions {
+	clientRoot := filepath.Join(mountDir)
+	homeDir := filepath.Join(clientRoot)
 	return &ClientOptions{
 		TunnelPort:         tunnelPort,
-		OutputBase:         outputBase,
+		OutputBase:         mountDir,
 		CacheDir:           cacheDir,
 		HomeDir:            homeDir,
 		CasBlocksDir:       filepath.Join(cacheDir, "/cas/blocks"),
@@ -197,8 +196,8 @@ func NewClientOptions(log logger.Logger, tunnelPort int, outputBase string) *Cli
 		GRPCSocketPath:     filepath.Join(cacheDir, "/grpc"),
 		KeyLocationMapPath: filepath.Join(cacheDir, "/cas/key_location_map"),
 		FilePoolDir:        filepath.Join(cacheDir, "/filepool"),
-		pidfilePath:        filepath.Join(clientRoot, "pid"),
-		configPath:         filepath.Join(clientRoot, "config.jsonnet"),
+		pidfilePath:        filepath.Join(cacheDir, "pid"),
+		configPath:         filepath.Join(cacheDir, "config.jsonnet"),
 		log:                log,
 	}
 }
