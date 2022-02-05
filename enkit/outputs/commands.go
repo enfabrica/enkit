@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	localTunnelPort = 8866
+	localTunnelPort = 8822
 )
 
 type Root struct {
@@ -145,7 +145,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	}
 	bbOpts := bbexec.NewClientOptions(
 		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
-		8866, // TODO: This needs to come from a managed tunnel
+		port,
 		c.root.OutputsRoot,
 	)
 	_, err = bbexec.MaybeStartClient(bbOpts)
