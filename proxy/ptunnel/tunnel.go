@@ -4,15 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/kflags"
-	"github.com/enfabrica/enkit/lib/khttp/kclient"
-	"github.com/enfabrica/enkit/lib/khttp/krequest"
-	"github.com/enfabrica/enkit/lib/khttp/protocol"
-	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/lib/retry"
-	"github.com/enfabrica/enkit/proxy/nasshp"
-	"github.com/gorilla/websocket"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,6 +13,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/khttp/kclient"
+	"github.com/enfabrica/enkit/lib/khttp/krequest"
+	"github.com/enfabrica/enkit/lib/khttp/protocol"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/retry"
+	"github.com/enfabrica/enkit/proxy/nasshp"
+
+	"github.com/gorilla/websocket"
 )
 
 type Tunnel struct {
@@ -647,4 +650,19 @@ func (t *Tunnel) Receive(file io.Writer) error {
 
 		}
 	}
+}
+
+// ShouldTunnel advises on whether the application should open a tunnel to
+// connect to the provided URL, or just connect to it directly. It returns an
+// error if DNS resolution for the URL fails or doesn't result in any IP
+// addresses.
+func ShouldTunnel(host string) (bool, error) {
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return false, fmt.Errorf("failed to look up %q: %w", host, err)
+	}
+	if len(ips) < 1 {
+		return false, fmt.Errorf("expected at least one IP for host %q; got 0", host)
+	}
+	return ips[0].IsLoopback(), nil
 }

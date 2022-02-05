@@ -2,15 +2,6 @@ package ptunnel
 
 import (
 	"fmt"
-	"github.com/enfabrica/enkit/lib/khttp"
-	"github.com/enfabrica/enkit/lib/khttp/ktest"
-	"github.com/enfabrica/enkit/lib/khttp/protocol"
-	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/enfabrica/enkit/lib/token"
-	"github.com/enfabrica/enkit/proxy/nasshp"
-	"github.com/enfabrica/enkit/proxy/utils"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"log"
 	"math/rand"
@@ -21,6 +12,18 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/enfabrica/enkit/lib/errdiff"
+	"github.com/enfabrica/enkit/lib/khttp"
+	"github.com/enfabrica/enkit/lib/khttp/ktest"
+	"github.com/enfabrica/enkit/lib/khttp/protocol"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/srand"
+	"github.com/enfabrica/enkit/lib/token"
+	"github.com/enfabrica/enkit/proxy/nasshp"
+	"github.com/enfabrica/enkit/proxy/utils"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func ReadN(r io.Reader, l int, buffer []byte) (int, error) {
@@ -189,6 +192,41 @@ func TestHostLookup(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestShouldTunnel(t *testing.T) {
+	testCases := []struct {
+		desc         string
+		host         string
+		shouldTunnel bool
+		wantErr      string
+	}{
+		{
+			desc:         "false for external URL",
+			host:         "www.enfabrica.net",
+			shouldTunnel: false,
+		},
+		{
+			desc:         "true for internal URL",
+			host:         "anything.local.enfabrica.net",
+			shouldTunnel: true,
+		},
+		{
+			desc:    "error for non-existent URL",
+			host:    "does.not.exist.enfabrica.net",
+			wantErr: "no such host",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			got, gotErr := ShouldTunnel(tc.host)
+			errdiff.Check(t, gotErr, tc.wantErr)
+			if gotErr != nil {
+				return
+			}
+			assert.Equal(t, got, tc.shouldTunnel)
+		})
+	}
 }
 
 func testCanConnect(serverUrl, host string, port int, shouldFail bool) func(t *testing.T) {
