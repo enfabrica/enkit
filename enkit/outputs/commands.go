@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	localTunnelPort = 8822
+	localTunnelPort = 8866
 )
 
 type Root struct {
@@ -158,7 +158,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		bc,
 		bbOpts.MountDir,
 		c.InvocationID,
-		c.ClusterHost,
+		host,
 		kbuildbarn.WithNamedSetOfFiles(),
 		kbuildbarn.WithTestResults(),
 	)
