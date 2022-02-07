@@ -276,6 +276,15 @@ func (o *ClientOptions) readPidfile() (int, error) {
 	return int(i), nil
 }
 
+func (o *ClientOptions) MaybeKill() error {
+	pid, err := o.readPidfile()
+	if err != nil {
+		return err
+	}
+	killCmd := exec.Command("kill", "-9", strconv.Itoa(pid))
+	return killCmd.Run()
+}
+
 func (o *ClientOptions) writePidfile(pid int) error {
 	err := os.WriteFile(o.pidfilePath, []byte(strconv.FormatInt(int64(pid), 10)), 0644)
 	if err != nil {
