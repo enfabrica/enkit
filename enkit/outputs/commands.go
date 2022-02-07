@@ -303,5 +303,27 @@ func NewShutdown(root *Root) *Shutdown {
 }
 
 func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf("`enkit outputs Shutdown` is unimplemented")
+	bbOpts := bbexec.NewClientOptions(
+		c.root.Log,
+		0, /* tunnel port does not matter in this case */
+		c.root.OutputsRoot,
+	)
+	var errs []error
+	// MaybeStartClient is used here to bind a client handle to an existing process, so that we can kill it. It may start a process that will be then killed quickly, which is acceptable but not ideal.
+	bbClient, err := bbexec.MaybeStartClient(bbOpts)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if bbClient != nil {
+		if err := bbClient.Shutdown(); err != nil {
+			errs = append(errs, fmt.Errorf("error maybe? killing the process of existing bb_clientd %v", err))
+		}
+	}
+	if err := os.RemoveAll(c.root.OutputsRoot); err != nil {
+		errs = append(errs, err)
+		c.root.Log.Errorf("error removing output root %s %v", c.root.OutputsRoot, err)
+		return multierror.New(errs)
+	}
+	fmt.Printf("Successfully deleted output root at %s \n", c.root.OutputsRoot)
+	return nil
 }
