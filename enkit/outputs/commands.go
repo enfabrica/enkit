@@ -145,7 +145,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	}
 	bbOpts := bbexec.NewClientOptions(
 		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
-		8866, // TODO: This needs to come from a managed tunnel
+		port,
 		c.root.OutputsRoot,
 	)
 	_, err = bbexec.MaybeStartClient(bbOpts)
@@ -158,7 +158,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		bc,
 		bbOpts.MountDir,
 		c.InvocationID,
-		c.ClusterHost,
+		host,
 		kbuildbarn.WithNamedSetOfFiles(),
 		kbuildbarn.WithTestResults(),
 	)
