@@ -133,8 +133,6 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	host, port = host, port
-
 	buddyUrl, err := url.Parse(c.BuildBuddyUrl)
 	if err != nil {
 		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
@@ -199,28 +197,33 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 
 type Unmount struct {
 	*cobra.Command
-	root *Root
+	root       *Root
+	Invocation string
 }
 
 func NewUnmount(root *Root) *Unmount {
 	command := &Unmount{
 		Command: &cobra.Command{
-			Use:   "unmount [invocation ID]",
+			Use:   "unmount",
 			Short: "Unmount the build outputs of a particular invocation",
 			Example: `  $ enkit outputs unmount 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07
 	Unmounts outputs from build 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07 from the
 	default location.`,
 			Aliases: []string{"umount"},
-			Args:    cobra.ExactArgs(1),
 		},
 		root: root,
 	}
 	command.Command.RunE = command.Run
+	command.Flags().StringVarP(&command.Invocation, "invocation", "i", "", "invocation id to mount")
 	return command
 }
 
 func (c *Unmount) Run(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf("`enkit outputs unmount` is unimplemented")
+	invoPath := filepath.Join(c.root.OutputsRoot, c.Invocation)
+	if err := os.Remove(invoPath); err != nil {
+		return fmt.Errorf("error removing %s: %v", invoPath, err)
+	}
+	return nil
 }
 
 type Run struct {
