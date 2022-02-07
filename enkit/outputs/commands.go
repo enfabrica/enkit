@@ -133,8 +133,6 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	host, port = host, port
-
 	buddyUrl, err := url.Parse(c.BuildBuddyUrl)
 	if err != nil {
 		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
