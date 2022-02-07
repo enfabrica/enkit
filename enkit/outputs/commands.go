@@ -2,6 +2,7 @@ package outputs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -215,12 +216,14 @@ func NewUnmount(root *Root) *Unmount {
 		root: root,
 	}
 	command.Command.RunE = command.Run
-	command.Flags().StringVarP(&command.Invocation, "invocation", "i", "", "invocation id to mount")
 	return command
 }
 
 func (c *Unmount) Run(cmd *cobra.Command, args []string) error {
-	invoPath := filepath.Join(c.root.OutputsRoot, c.Invocation)
+	if len(args) != 1 {
+		return errors.New("must provide a valid invocation")
+	}
+	invoPath := filepath.Join(c.root.OutputsRoot, args[0])
 	if err := os.RemoveAll(invoPath); err != nil {
 		return fmt.Errorf("error removing %s: %v", invoPath, err)
 	}
