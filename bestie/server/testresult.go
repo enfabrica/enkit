@@ -141,10 +141,12 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 		// Attempt to read the zip file failed.
 		return fmt.Errorf("Error reading %s file: %w", outFileName, readErr)
 	}
+	defer zipFileCloser.Close()
+
 	// Process test metrics output file(s).
 	// Each output file contains a single (potentially large) protobuf message.
 	// For now, it's up to the client to split large metric datasets into multiple .metrics.pb files.
-	if err := extractZippedFiles(stream, zipFileCloser); err != nil {
+	if err := processZip(stream, zipFileCloser); err != nil {
 		return fmt.Errorf("Error processing %s file: %w", outFileName, err)
 	}
 
@@ -152,11 +154,9 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 }
 
 // Use zipstream package to process zip files one-by-one without
-// first reading entire zip file contents into memory. All callers
-// depend on this function to close their zip file.
-func extractZippedFiles(stream *bazelStream, zipFileCloser io.ReadCloser) error {
-	zr := zipstream.NewReader(zipFileCloser)
-	defer zipFileCloser.Close()
+// first reading entire zip file contents into memory.
+func processZip(stream *bazelStream, zipFile io.Reader) error {
+	zr := zipstream.NewReader(zipFile)
 
 	// Accumulate any errors from processing each file within the zip file.
 	var errs []error
