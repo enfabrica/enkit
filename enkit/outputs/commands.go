@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -304,29 +303,24 @@ func NewShutdown(root *Root) *Shutdown {
 }
 
 func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
-	mountPath := filepath.Join(c.root.OutputsRoot, ".bb_clientd", "mount")
-	fuserMountCmd := exec.Command("fusermount", "-u", mountPath)
-	var errs []error
-	if err := fuserMountCmd.Run(); err != nil {
-		errs = append(errs, err)
-		return fmt.Errorf("err running `%s` %v", fuserMountCmd.String(), err)
-	}
 	bbOpts := bbexec.NewClientOptions(
 		c.root.Log,
 		0, /* tunnel port does not matter in this case */
 		c.root.OutputsRoot,
 	)
-	if err := bbOpts.MaybeKill(); err != nil {
-		errs = append(errs, err)
-		return fmt.Errorf("error maybe? killing the process of existing bb_clientd %v", err)
+	bbClient, err := bbexec.MaybeStartClient(bbOpts)
+	if err != nil {
+		return err
 	}
-
+	var errs []error
+	if err := bbClient.Shutdown(); err != nil {
+		errs = append(errs, fmt.Errorf("error maybe? killing the process of existing bb_clientd %v", err))
+	}
 	if err := os.RemoveAll(c.root.OutputsRoot); err != nil {
 		errs = append(errs, err)
 		c.root.Log.Errorf("error removing output root %s %v", c.root.OutputsRoot, err)
+		return multierror.New(errs)
 	}
-	if len(errs) == 0 {
-		fmt.Printf("Successfully deleted output root at %s \n", c.root.OutputsRoot)
-	}
-	return multierror.New(errs)
+	fmt.Printf("Successfully deleted output root at %s \n", c.root.OutputsRoot)
+	return nil
 }
