@@ -122,6 +122,7 @@ func (c *Client) Shutdown() error {
 
 	err = c.options.unmountMountDir()
 	if err != nil {
+		return err
 	}
 	return nil
 }

@@ -308,13 +308,15 @@ func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
 		0, /* tunnel port does not matter in this case */
 		c.root.OutputsRoot,
 	)
+	var errs []error
 	bbClient, err := bbexec.MaybeStartClient(bbOpts)
 	if err != nil {
-		return err
+		errs = append(errs, err)
 	}
-	var errs []error
-	if err := bbClient.Shutdown(); err != nil {
-		errs = append(errs, fmt.Errorf("error maybe? killing the process of existing bb_clientd %v", err))
+	if bbClient != nil {
+		if err := bbClient.Shutdown(); err != nil {
+			errs = append(errs, fmt.Errorf("error maybe? killing the process of existing bb_clientd %v", err))
+		}
 	}
 	if err := os.RemoveAll(c.root.OutputsRoot); err != nil {
 		errs = append(errs, err)
