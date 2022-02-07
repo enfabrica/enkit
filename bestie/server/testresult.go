@@ -1,13 +1,13 @@
 package main
 
 import (
-	"archive/zip"
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,6 +16,7 @@ import (
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	"github.com/enfabrica/enkit/lib/multierror"
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
+	"github.com/xenking/zipstream"
 	"google.golang.org/genproto/googleapis/devtools/build/v1"
 	"google.golang.org/protobuf/proto"
 )
@@ -55,9 +56,8 @@ func identifyStream(bazelBuildEvent bes.BuildEvent, streamId *build.StreamId) *b
 	return &stream
 }
 
-// Read the contents of a bytestream file.
-// TODO (INFRA-504): Can the zip file be processed in chunks using a streamed reader?
-func readBytestreamFile(fileName, bytestreamUri string) ([]byte, error) {
+// Open a bytestream file.
+func openBytestreamFile(fileName, bytestreamUri string) (io.ReadCloser, error) {
 	if len(deploymentBaseUrl) == 0 {
 		return nil, fmt.Errorf("base URL not specified")
 	}
@@ -73,21 +73,20 @@ func readBytestreamFile(fileName, bytestreamUri string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	respStatus := resp.StatusCode
-
-	// Read response body regardless of response status
-	// so it can be used in the HTTP error message below.
-	respBody, readErr := ioutil.ReadAll(resp.Body)
-
 	if respStatus != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error status %d: response: %s", respStatus, respBody)
+		return nil, fmt.Errorf("HTTP error status %d", respStatus)
 	}
-	if readErr != nil {
-		return nil, fmt.Errorf("%s file read error: %w", fileName, readErr)
-	}
+	return resp.Body, nil
+}
 
-	return respBody, nil
+// Open a local file.
+func openLocalFile(file string) (io.ReadCloser, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, fmt.Errorf("Error opening %s: %w", file, err)
+	}
+	return ioutil.NopCloser(f), nil
 }
 
 // Handle metrics extraction from the TestResult event.
@@ -119,7 +118,7 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 		return nil
 	}
 
-	var fileBytes []byte
+	var zipFileCloser io.ReadCloser
 	var readErr error = nil
 	urlParts := strings.Split(outFileUri, "://")
 	if len(urlParts) != 2 {
@@ -129,10 +128,10 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 	switch scheme {
 	case "bytestream":
 		// Handle cluster build scenario, translating bytestream:// URL to file URL for http.Get().
-		fileBytes, readErr = readBytestreamFile(outFileName, outFileUri)
+		zipFileCloser, readErr = openBytestreamFile(outFileName, outFileUri)
 	case "file":
 		// Use URI without file:// prefix to access the local file system path.
-		fileBytes, readErr = ioutil.ReadFile(fileRef)
+		zipFileCloser, readErr = openLocalFile(fileRef)
 	default:
 		// log and ignore this file: not a supported URL scheme prefix.
 		logger.Printf("Unexpected URI scheme when processing %s file: %s", outFileName, outFileUri)
@@ -142,74 +141,86 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 		// Attempt to read the zip file failed.
 		return fmt.Errorf("Error reading %s file: %w", outFileName, readErr)
 	}
-	if len(fileBytes) == 0 {
-		// Something went wrong reading zip file -- no data.
-		return fmt.Errorf("Error reading %s file: no data", outFileName)
-	}
 	// Process test metrics output file(s).
 	// Each output file contains a single (potentially large) protobuf message.
 	// For now, it's up to the client to split large metric datasets into multiple .metrics.pb files.
-	if err := extractZippedFiles(stream, fileBytes); err != nil {
+	if err := extractZippedFiles(stream, zipFileCloser); err != nil {
 		return fmt.Errorf("Error processing %s file: %w", outFileName, err)
 	}
 
 	return nil
 }
 
-// Look for and return a []byte slice with its contents.
-func extractZippedFiles(stream *bazelStream, fileBytes []byte) error {
-	zipReader, err := zip.NewReader(bytes.NewReader(fileBytes), int64(len(fileBytes)))
-	if err != nil {
-		return fmt.Errorf("Error reading output zip file: %w", err)
-	}
+// Use zipstream package to process zip files one-by-one without
+// first reading entire zip file contents into memory. All callers
+// depend on this function to close their zip file.
+func extractZippedFiles(stream *bazelStream, zipFileCloser io.ReadCloser) error {
+	zr := zipstream.NewReader(zipFileCloser)
+	defer zipFileCloser.Close()
 
+	// Accumulate any errors from processing each file within the zip file.
 	var errs []error
-	for _, file := range zipReader.File {
-		if file.FileInfo().IsDir() {
+
+	// Read each compressed file from the zip file.
+	for {
+		meta, err := zr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			errs = append(errs, fmt.Errorf("Error accessing zipped file: %w", err))
 			continue
 		}
 
 		//  Look for any file named *.metrics.pb.
-		if !strings.HasSuffix(filepath.Base(file.Name), ".metrics.pb") {
+		fileName := filepath.Clean(meta.Name)
+		if !strings.HasSuffix(filepath.Base(fileName), ".metrics.pb") {
 			continue
 		}
 
-		// TODO (INFRA-504): May need to chunk the .pb file into multiple messages, or enforce a max metrics file size.
-		// Read entire file contents into a byte slice.
-		f, err := file.Open()
+		// Read entire .metrics.pb file contents into a byte slice.
+		//
+		// According to the protobuf documentation, a single .pb message is not designed
+		// to be read in chunks. Protobuf does work with large message sizes so there
+		// is no attempt to split it, which would require a custom framing technique
+		// (e.g. 4-byte length prefixing) by both the sender and receiver.
+		//
+		// A test client (message sender) does have the option of presenting multiple
+		// *.metrics.pb files in outputs.zip, if needed, which is supported by this endpoint.
+		pbCompressedData, err := ioutil.ReadAll(zr)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("Error opening output file %q: %w", file.Name, err))
+			errs = append(errs, fmt.Errorf("Error reading output file %q: %w", fileName, err))
 			continue
 		}
-		data, err := ioutil.ReadAll(f)
-		f.Close()
-		if err != nil {
-			errs = append(errs, fmt.Errorf("Error reading output file %q: %w", file.Name, err))
-			continue
-		}
-
-		debugPrintf("Found output file to process: %s\n", file.Name)
+		debugPrintf("Read output file to process: %s\n", fileName)
 
 		// Extract all metrics from the file contents.
-		pResult, err := getTestMetricsFromFileData(data)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("Error extracting  metrics from output file %q: %w", file.Name, err))
+		if err := processMetricsProtobufFile(stream, pbCompressedData[:]); err != nil {
+			errs = append(errs, fmt.Errorf("Error processing output file %q: %w", fileName, err))
 			continue
 		}
-		if pResult != nil {
-			// Display the metric data on the console.
-			displayTestMetrics(pResult, 2)
-
-			// Upload test metrics to BigQuery database table.
-			if err := uploadTestMetrics(stream, pResult); err != nil {
-				errs = append(errs, fmt.Errorf("Error uploading metrics to BigQuery: %w", err))
-				continue
-			}
-		}
 	}
+
 	if len(errs) > 0 {
 		return multierror.New(errs)
 	}
+	return nil
+}
+
+func processMetricsProtobufFile(stream *bazelStream, pbMsg []byte) error {
+	pResult, err := getTestMetricsFromFileData(pbMsg)
+	if err != nil {
+		return fmt.Errorf("Error extracting protobuf metrics: %w", err)
+	}
+
+	// Display the metric data on the console.
+	displayTestMetrics(pResult, 2)
+
+	// Upload test metrics to BigQuery database table.
+	if err := uploadTestMetrics(stream, pResult); err != nil {
+		return fmt.Errorf("Error uploading metrics to BigQuery: %w", err)
+	}
+
 	return nil
 }
 
