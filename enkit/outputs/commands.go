@@ -199,7 +199,8 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 
 type Unmount struct {
 	*cobra.Command
-	root *Root
+	root       *Root
+	Invocation string
 }
 
 func NewUnmount(root *Root) *Unmount {
@@ -216,11 +217,16 @@ func NewUnmount(root *Root) *Unmount {
 		root: root,
 	}
 	command.Command.RunE = command.Run
+	command.Flags().StringVarP(&command.Invocation, "invocation", "i", "", "invocation id to mount")
 	return command
 }
 
 func (c *Unmount) Run(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf("`enkit outputs unmount` is unimplemented")
+	invoPath := filepath.Join(c.root.OutputsRoot, c.Invocation)
+	if err := os.RemoveAll(invoPath); err != nil {
+		return fmt.Errorf("error removing %s: %v", invoPath, err)
+	}
+	return nil
 }
 
 type Run struct {
