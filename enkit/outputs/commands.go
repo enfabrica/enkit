@@ -309,6 +309,7 @@ func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
 		c.root.OutputsRoot,
 	)
 	var errs []error
+	// MaybeStartClient is used here to bind a client handle to an existing process, so that we can kill it. It may start a process that will be then killed quickly, which is acceptable but not ideal.
 	bbClient, err := bbexec.MaybeStartClient(bbOpts)
 	if err != nil {
 		errs = append(errs, err)
