@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.20"
+readonly VERSION="0.2.21"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -159,7 +159,15 @@ readonly GEE_ON_ASTORE="test/gee"
 readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
 readonly JQ=/usr/bin/jq
-readonly SSHKEYFILE="${HOME}/.ssh/gee_github_ed25519"
+readonly -a SSHKEYFILES=("${HOME}/.ssh/id_ed25519" "${HOME}/.ssh/gee_github_ed25519")
+SSHKEYFILE="${SSHKEYFILES[0]}"  # default
+# Backwards compatibility: Use first keyfile that exists.
+for f in "${SSHKEYFILES[@]}"; do
+  if [[ -f "${f}" ]]; then
+    SSHKEYFILE="${f}"
+    break
+  fi
+done
 readonly ENKIT=/opt/enfabrica/bin/enkit
 readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
@@ -623,26 +631,34 @@ function _ssh_enroll() {
   fi
 
   # TODO(jonathan): Is this necessary?
-  cat <<EOT >> ~/.ssh/config
+  if [[ "${SSHKEYFILE}" != "${SSHKEYFILES[0]}" ]]; then
+    cat <<EOT >> ~/.ssh/config
 # gee: block start
 Host *.github.com
   IdentityFile ${SSHKEYFILE}
 # gee: block stop
 EOT
+  fi
 
   _cmd ssh-add "${SSHKEYFILE}"
   _gh config set git_protocol ssh
 
-  # Override BROWSER because xdg-open opens links2 on some systems, and
-  # links2 doesn't support github.
-  BROWSER="bash -c \"echo Open this URL: \$*\" --" \
-    _gh auth login
-  # The user might have to open their web browser at this point:
-  if (( ! YESYESYES )); then
-    read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+  _info "Checking your github access..."
+  if ! _gh auth status; then
+    _info "Let's try authenticating with the gh tool:"
+    # Override BROWSER because xdg-open opens links2 on some systems, and
+    # links2 doesn't support github.
+    BROWSER="bash -c \"echo Open this URL: \$*\" --" \
+      _gh auth login
+    # The user might have to open their web browser at this point:
+    if (( ! YESYESYES )); then
+      read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+    fi
   fi
 
-  _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"
+  if ! _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"; then
+    _warn "Could not add your key to github (maybe it's already there?)."
+  fi
 
   _gh ssh-key list
 
@@ -3683,6 +3699,17 @@ function gee__repair() {
   _install_tools
 
   _gee_fix_remote_origin_fetch_config
+
+  if ! _gh auth status; then
+    _warn "Looks like you were not able to authenticate to the github REST API."
+    _info "Let's try re-authenticating to github:"
+    _gh auth login
+
+    if ! _gh auth status; then
+      _warn "Still can't authenticate to github!  You might need more help."
+      # Gallantly attempt to carry on in the face of adversity...
+    fi
+  fi
 
   if ! _in_gee_repo; then
     _fatal "Not in a gee repo directory, aborting further repairs."
