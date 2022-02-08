@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.18"
+readonly VERSION="0.2.20"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -2014,8 +2014,7 @@ _register_help "diff" \
   "Differences in this branch." <<'EOT'
 Usage: gee diff [<files...>]
 
-Shows changes since this branch diverged from it's parent branch, including
-unstaged (uncommitted) changes.
+Diffs the current branch against its parent branch.
 
 If <files...> are omited, defaults to all files.
 EOT
@@ -2025,10 +2024,15 @@ function gee__diff() {
   local PARENT_BRANCH
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
+  # branches created with "gee pr_checkout" need special handling:
+  if [[ "${PARENT_BRANCH}" == upstream/* ]]; then
+    _git fetch upstream "${PARENT_BRANCH#upstream/}"
+    PARENT_BRANCH="FETCH_HEAD"
+  fi
   if (( "$#" )); then
-    _git_can_fail diff "${PARENT_BRANCH}"...HEAD -- "$@"
+    _git_can_fail diff "${PARENT_BRANCH}" -- "$@"
   else
-    _git_can_fail diff "${PARENT_BRANCH}"...HEAD
+    _git_can_fail diff "${PARENT_BRANCH}"
   fi
   if _branch_has_unstaged_changes; then
     _info "Note: This branch contains uncommitted changes."
