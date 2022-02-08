@@ -2050,6 +2050,14 @@ def go_repositories():
         sum = "h1:TCbipTQL2JiiCprBWx9frJ2eJlCYT00NmctrHxVAr70=",
         version = "v0.2.1",
     )
+
+    go_repository(
+        name = "com_github_xenking_zipstream",
+        importpath = "github.com/xenking/zipstream",
+        sum = "h1:6LfcpXfxO9kAGi0a+2N5C0ZZ6jyG4XULPiogOM7gJBU=",
+        version = "v1.0.1",
+    )
+
     go_repository(
         name = "com_github_xiang90_probing",
         importpath = "github.com/xiang90/probing",
