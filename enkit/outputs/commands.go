@@ -11,8 +11,10 @@ import (
 	"strconv"
 	"time"
 
+	faketreeexec "github.com/enfabrica/enkit/faketree/exec"
 	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/karchive"
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	bbexec "github.com/enfabrica/enkit/lib/kbuildbarn/exec"
 	"github.com/enfabrica/enkit/lib/logger"
@@ -267,7 +269,50 @@ func NewRun(root *Root) *Run {
 }
 
 func (c *Run) Run(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf("`enkit outputs run` is unimplemented")
+	ctx := context.Background()
+	switch {
+	case c.InvocationID != "":
+		return fmt.Errorf("Mounting directly from an invocation_id is not yet implemented")
+
+	case c.ZipPath != "":
+		unzipDir, err := karchive.Unzip(ctx, c.ZipPath)
+		if err != nil {
+			return fmt.Errorf("failed to unzip artifacts at %q: %w", c.ZipPath, err)
+		}
+		defer unzipDir.Close()
+		promptStr := fmt.Sprintf("\n[Artifacts shell: %s]\n\\w > ", c.ZipPath)
+		if err := faketreeexec.Run(
+			ctx,
+			promptStr,
+			map[string]string{
+				unzipDir.Root(): "/enfabrica",
+			},
+			"/enfabrica",
+			args,
+		); err != nil {
+			return fmt.Errorf("inner command returned error: %w", err)
+		}
+
+	case c.DirPath != "":
+		promptStr := fmt.Sprintf("\n[Artifacts shell: %s]\n\\w > ", c.DirPath)
+		if err := faketreeexec.Run(
+			ctx,
+			promptStr,
+			map[string]string{
+				c.DirPath: "/enfabrica",
+			},
+			"/enfabrica",
+			args,
+		); err != nil {
+			return fmt.Errorf("inner command returned error: %w", err)
+		}
+
+	default:
+		return fmt.Errorf("one of --invocation_id, --dir_path, --zip_path must be specified")
+
+	}
+
+	return nil
 }
 
 func (c *Run) validate(cmd *cobra.Command, args []string) error {

@@ -19,7 +19,7 @@ func Run(ctx context.Context, promptStr string, dirMap map[string]string, chdir 
 	if chdir != "" {
 		args = append(args, "--chdir", chdir)
 	}
-	if innerCmd != nil {
+	if len(innerCmd) > 0 {
 		args = append(args, "--")
 		args = append(args, innerCmd...)
 	}
