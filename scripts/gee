@@ -159,7 +159,7 @@ readonly GEE_ON_ASTORE="test/gee"
 readonly GIT=/usr/bin/git
 readonly GH=/usr/bin/gh
 readonly JQ=/usr/bin/jq
-readonly -a SSHKEYFILES=("${HOME}/.ssh/id_ed25519", "${HOME}/.ssh/gee_github_ed25519")
+readonly -a SSHKEYFILES=("${HOME}/.ssh/id_ed25519" "${HOME}/.ssh/gee_github_ed25519")
 SSHKEYFILE="${SSHKEYFILES[0]}"  # default
 # Backwards compatibility: Use first keyfile that exists.
 for f in "${SSHKEYFILES[@]}"; do
