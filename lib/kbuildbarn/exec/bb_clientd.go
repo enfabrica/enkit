@@ -155,7 +155,7 @@ func (c *Client) Shutdown() error {
 }
 
 func pollForProcessEnd(pid int, d time.Duration, interval time.Duration) error {
-	numRetries = int(d/interval)
+	numRetries := int(d/interval)
 	err := retry.New(
 		retry.WithWait(interval),
 		retry.WithAttempts(numRetries),
