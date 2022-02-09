@@ -512,7 +512,8 @@ function _startup_checks() {
   # Ensure that (most) gee commands are run from within the gee repository,
   # otherwise strange things might happen (if the user's home directory is a
   # git repository, for instance).
-  local GITDIR="$(readlink -f "$("${GIT}" rev-parse --git-common-dir)")"
+  local GITDIR
+  GITDIR="$(readlink -f "$("${GIT}" rev-parse --git-common-dir)")"
   if [[ "${GITDIR}" != "${GEE_DIR}"/*/.git ]]; then
     _warn "Error: refusing to run this gee command outside of the gee" \
           "repository."
