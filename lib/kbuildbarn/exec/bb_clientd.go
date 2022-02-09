@@ -154,7 +154,8 @@ func (l *outputLog) Write(p []byte) (int, error) {
 
 // ClientOptions contains all the configuration needed to start bb_clientd.
 type ClientOptions struct {
-	TunnelPort int
+	BuildbarnHost string
+	BuildbarnPort int
 	OutputBase string
 
 	// Template directories
@@ -182,12 +183,13 @@ type ClientOptions struct {
 
 // NewClientOptions returns options with sane defaults based on the specified
 // outputBase.
-func NewClientOptions(log logger.Logger, tunnelPort int, outputBase string) *ClientOptions {
+func NewClientOptions(log logger.Logger, host string, port int, outputBase string) *ClientOptions {
 	clientRoot := filepath.Join(outputBase, ".bb_clientd")
 	cacheDir := filepath.Join(clientRoot, "cache")
 	mountDir := filepath.Join(clientRoot, "mount")
 	return &ClientOptions{
-		TunnelPort:         tunnelPort,
+		BuildbarnHost:         host,
+		BuildbarnPort: port,
 		OutputBase:         outputBase,
 		CacheDir:           cacheDir,
 		MountDir:           mountDir,

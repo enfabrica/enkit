@@ -1,10 +1,10 @@
 // List of clusters to which bb_clientd is permitted to connect.
 local clusters = [
-  'build.local.enfabrica.net',
+  '{{.BuildbarnHost}}',
 ];
 
 local grpcClient(cluster) = {
-  address: cluster + ':{{.TunnelPort}}',
+  address: cluster + ':{{.BuildbarnPort}}',
   forwardMetadata: ['build.bazel.remote.execution.v2.requestmetadata-bin'],
   // Enable gRPC keepalives. Make sure to tune these settings based on
   // what your cluster permits.
