@@ -1780,8 +1780,8 @@ function _print_codeowners() {
       local owner
       for owner in "${owners[@]}"; do
         local oname="${owner}"
-        if [[ "${oname}" != *@* ]]; then
-          oname="\@${oname}"
+        if [[ "${oname}" == @* ]]; then
+          oname="${oname:1}"
         fi
         if [[ "${RMAP["${owner}"]+found}" ]]; then
           echo "${oname}(${RMAP["${owner}"]})"
