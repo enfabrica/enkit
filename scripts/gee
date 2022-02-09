@@ -514,7 +514,8 @@ function _startup_checks() {
   # git repository, for instance).
   local GITDIR="$(readlink -f "$("${GIT}" rev-parse --git-common-dir)")"
   if [[ "${GITDIR}" != "${GEE_DIR}"/*/.git ]]; then
-    _warn "Error: refusing to run a gee command outside of the gee repository."
+    _warn "Error: refusing to run this gee command outside of the gee" \
+          "repository."
     if [[ -d "${GEE_DIR}" ]]; then
       _info "Use \"gcd\" to switch to a gee branch and try again."
     else
