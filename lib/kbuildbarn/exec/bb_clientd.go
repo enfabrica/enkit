@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/retry"
 
 	"github.com/mitchellh/go-ps"
 )
@@ -76,22 +77,23 @@ func MaybeStartClient(o *ClientOptions, timeout time.Duration) (*Client, error) 
 		return nil, fmt.Errorf("error starting bb_clientd: %w", err)
 	}
 
-	// Wait for a directory under the mount dir to appear, so that we know
-	// bb_clientd is ready, up until `timeout`
-	stopTime := time.Now().Add(timeout)
-	for {
-		time.Sleep(100*time.Millisecond)
-		if time.Now().After(stopTime) {
-			return nil, fmt.Errorf("failed to find mount directory ready after %v", timeout)
-		}
+	retryWait := 250*time.Millisecond
+	numAttempts := int(timeout / retryWait)
+	err = retry.New(
+		retry.WithWait(retryWait),
+		retry.WithAttempts(numAttempts),
+	).Run(func() error {
 		_, err := os.Stat(filepath.Join(o.MountDir, "cas"))
 		if errors.Is(err, os.ErrNotExist) {
-			continue
+			return err
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to poll mount dir for ready: %w", err)
+			return retry.Fatal(err)
 		}
-		break
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for client ready in %v: %w", timeout, err)
 	}
 
 	err = o.writePidfile(pid)
