@@ -76,13 +76,10 @@ func MaybeStartClient(o *ClientOptions, timeout time.Duration) (ret *Client, ret
 	if err != nil {
 		return nil, fmt.Errorf("error starting bb_clientd: %w", err)
 	}
-	// From here on out, any returns should return a client handle instead of
-	// nil, so that we can shutdown in case of an error to avoid leaking the
-	// process.
-	ret = &Client{pid: pid, options: o}
+	client := &Client{pid: pid, options: o}
 	defer func() {
 		if retErr != nil {
-			ret.Shutdown()
+			client.Shutdown()
 		}
 	}()
 
@@ -102,14 +99,14 @@ func MaybeStartClient(o *ClientOptions, timeout time.Duration) (ret *Client, ret
 		return nil
 	})
 	if err != nil {
-		return ret, fmt.Errorf("failed to wait for client ready in %v: %w", timeout, err)
+		return nil, fmt.Errorf("failed to wait for client ready in %v: %w", timeout, err)
 	}
 
 	err = o.writePidfile(pid)
 	if err != nil {
-		return ret, fmt.Errorf("error recording PID of bb_clientd instance: %w", err)
+		return nil, fmt.Errorf("error recording PID of bb_clientd instance: %w", err)
 	}
-	return ret, nil
+	return client, nil
 }
 
 func startClient(options *ClientOptions) (int, error) {
