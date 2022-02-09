@@ -158,18 +158,24 @@ func (c *Client) Shutdown() error {
 }
 
 func pollForProcessEnd(pid int, d time.Duration, interval time.Duration) error {
-	until := time.Now().Add(d)
-	for time.Now().Before(until) {
-		time.Sleep(interval)
+	numRetries = int(d/interval)
+	err := retry.New(
+		retry.WithWait(interval),
+		retry.WithAttempts(numRetries),
+	).Run(func() error {
 		p, err := ps.FindProcess(pid)
 		if err != nil {
-			return fmt.Errorf("error while polling for process %d: %w", pid, err)
+			retry.Fatal(fmt.Errorf("error while polling for process %d: %w", pid, err))
 		}
 		if p == nil {
 			return nil
 		}
+		return fmt.Errorf("process %d still found", pid)
+	})
+	if err != nil {
+		return fmt.Errorf("process %d did not die in %s", pid, d)
 	}
-	return fmt.Errorf("process %d did not die in %s", pid, d)
+	return nil
 }
 
 type outputLog struct {
