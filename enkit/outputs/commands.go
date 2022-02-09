@@ -76,11 +76,12 @@ type Mount struct {
 	*cobra.Command
 	root *Root
 
-	BuildBuddyApiKey string
-	BuildBuddyUrl    string
-	ClusterHost      string
-	DryRun           bool
-	InvocationID     string
+	BuildBuddyApiKey      string
+	BuildBuddyUrl         string
+	BuildbarnHost         string
+	BuildbarnTunnelTarget string
+	DryRun                bool
+	InvocationID          string
 }
 
 func NewMount(root *Root) *Mount {
@@ -94,11 +95,12 @@ func NewMount(root *Root) *Mount {
 		},
 		root: root,
 	}
-	command.Flags().StringVar(&command.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
-	command.Flags().StringVar(&command.BuildBuddyUrl, "url", "", "build buddy url instance")
-	command.Flags().StringVar(&command.ClusterHost, "buildbarn_host", "", "host:port of BuildBarn instance")
+	command.Flags().StringVar(&command.BuildBuddyApiKey, "api_key", "", "build buddy api key used to bypass oauth2")
+	command.Flags().StringVar(&command.BuildBuddyUrl, "buildbuddy_url", "", "build buddy url instance")
+	command.Flags().StringVar(&command.BuildbarnHost, "buildbarn_host", "", "host:port of BuildBarn instance")
+	command.Flags().StringVar(&command.BuildbarnTunnelTarget, "buildbarn_tunnel_target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
 	command.Flags().StringVarP(&command.InvocationID, "invocation", "i", "", "invocation id to mount")
-	command.Flags().BoolVar(&command.DryRun, "dry-run", false, "if set, will print out the hardlinks generated from the invocation, and not attempt to create them")
+	command.Flags().BoolVar(&command.DryRun, "dry_run", false, "if set, will print out the hardlinks generated from the invocation, and not attempt to create them")
 
 	command.Command.RunE = command.Run
 	return command
@@ -108,7 +110,7 @@ func NewMount(root *Root) *Mount {
 // targeting that host/port if necessary. It returns a host and port that
 // clients should connect to, which could either be the original host/port if no
 // tunnel was necessary, or a modified host/port if a tunnel was necessary.
-func maybeSetupTunnel(hostPort string) (string, int, error) {
+func maybeSetupTunnel(hostPort string, tunnelTarget string) (string, int, error) {
 	host, port, err := net.SplitHostPort(hostPort)
 	if err != nil {
 		return "", 0, fmt.Errorf("can't split %q into host+port: %w", hostPort, err)
@@ -122,7 +124,7 @@ func maybeSetupTunnel(hostPort string) (string, int, error) {
 		return "", 0, fmt.Errorf("failed to determine if tunnel is required for %q: %w", host, err)
 	}
 	if shouldTunnel {
-		if err := tunnelexec.NewBackgroundTunnel(host, int(parsedPort), localTunnelPort); err != nil {
+		if err := tunnelexec.NewBackgroundTunnel(tunnelTarget, int(parsedPort), localTunnelPort); err != nil {
 			return "", 0, fmt.Errorf("failed to start tunnel to %q: %w", hostPort, err)
 		}
 		return host, localTunnelPort, nil
@@ -131,7 +133,7 @@ func maybeSetupTunnel(hostPort string) (string, int, error) {
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	host, port, err := maybeSetupTunnel(c.ClusterHost)
+	host, port, err := maybeSetupTunnel(c.BuildbarnHost, c.BuildbarnTunnelTarget)
 	if err != nil {
 		return err
 	}
@@ -145,6 +147,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	}
 	bbOpts := bbexec.NewClientOptions(
 		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
+		host,
 		port,
 		c.root.OutputsRoot,
 	)
@@ -353,7 +356,8 @@ func NewShutdown(root *Root) *Shutdown {
 func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
 	bbOpts := bbexec.NewClientOptions(
 		c.root.Log,
-		0, /* tunnel port does not matter in this case */
+		"", // Buildbarn remote host/port does not matter
+		0,
 		c.root.OutputsRoot,
 	)
 	var errs []error
