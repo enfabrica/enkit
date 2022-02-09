@@ -35,7 +35,7 @@ type Client struct {
 // Such processes are long-running and persist after this process ends.
 // MaybeStartClient will return a handle to an existing process in the specified
 // output base, or create one if it doesn't exist.
-func MaybeStartClient(o *ClientOptions, timeout time.Duration) (*Client, error) {
+func MaybeStartClient(o *ClientOptions, timeout time.Duration) (ret *Client, retErr error) {
 	// Look for existence of bb_clientd running in outputBase
 	pid, err := o.readPidfile()
 	if err != nil {
@@ -76,6 +76,15 @@ func MaybeStartClient(o *ClientOptions, timeout time.Duration) (*Client, error) 
 	if err != nil {
 		return nil, fmt.Errorf("error starting bb_clientd: %w", err)
 	}
+	// From here on out, any returns should return a client handle instead of
+	// nil, so that we can shutdown in case of an error to avoid leaking the
+	// process.
+	ret = &Client{pid: pid, options: o}
+	defer func() {
+		if retErr != nil {
+			ret.Shutdown()
+		}
+	}()
 
 	retryWait := 250*time.Millisecond
 	numAttempts := int(timeout / retryWait)
@@ -93,14 +102,14 @@ func MaybeStartClient(o *ClientOptions, timeout time.Duration) (*Client, error) 
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to wait for client ready in %v: %w", timeout, err)
+		return ret, fmt.Errorf("failed to wait for client ready in %v: %w", timeout, err)
 	}
 
 	err = o.writePidfile(pid)
 	if err != nil {
-		return nil, fmt.Errorf("error recording PID of bb_clientd instance: %w", err)
+		return ret, fmt.Errorf("error recording PID of bb_clientd instance: %w", err)
 	}
-	return &Client{pid: pid, options: o}, nil
+	return ret, nil
 }
 
 func startClient(options *ClientOptions) (int, error) {
