@@ -34,7 +34,7 @@ type Client struct {
 // Such processes are long-running and persist after this process ends.
 // MaybeStartClient will return a handle to an existing process in the specified
 // output base, or create one if it doesn't exist.
-func MaybeStartClient(o *ClientOptions) (*Client, error) {
+func MaybeStartClient(o *ClientOptions, timeout time.Duration) (*Client, error) {
 	// Look for existence of bb_clientd running in outputBase
 	pid, err := o.readPidfile()
 	if err != nil {
@@ -75,6 +75,25 @@ func MaybeStartClient(o *ClientOptions) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting bb_clientd: %w", err)
 	}
+
+	// Wait for a directory under the mount dir to appear, so that we know
+	// bb_clientd is ready, up until `timeout`
+	stopTime := time.Now().Add(timeout)
+	for {
+		time.Sleep(100*time.Millisecond)
+		if time.Now().After(stopTime) {
+			return nil, fmt.Errorf("failed to find mount directory ready after %v", timeout)
+		}
+		_, err := os.Stat(filepath.Join(o.MountDir, "cas"))
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to poll mount dir for ready: %w", err)
+		}
+		break
+	}
+
 	err = o.writePidfile(pid)
 	if err != nil {
 		return nil, fmt.Errorf("error recording PID of bb_clientd instance: %w", err)

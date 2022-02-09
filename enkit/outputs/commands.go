@@ -148,11 +148,10 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		port,
 		c.root.OutputsRoot,
 	)
-	_, err = bbexec.MaybeStartClient(bbOpts)
+	_, err = bbexec.MaybeStartClient(bbOpts, 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to start bb_clientd: %w", err)
 	}
-	time.Sleep(5 * time.Second)
 	r, err := kbuildbarn.GenerateHardlinks(
 		context.Background(),
 		bc,
@@ -358,7 +357,7 @@ func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
 	)
 	var errs []error
 	// MaybeStartClient is used here to bind a client handle to an existing process, so that we can kill it. It may start a process that will be then killed quickly, which is acceptable but not ideal.
-	bbClient, err := bbexec.MaybeStartClient(bbOpts)
+	bbClient, err := bbexec.MaybeStartClient(bbOpts, 5*time.Second)
 	if err != nil {
 		errs = append(errs, err)
 	}
