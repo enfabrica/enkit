@@ -1783,10 +1783,10 @@ function _print_codeowners() {
         if [[ "${oname}" == @* ]]; then
           oname="${oname:1}"
         fi
-        if [[ "${RMAP["${owner}"]+found}" ]]; then
-          echo "${oname}(${RMAP["${owner}"]})"
+        if [[ "${RMAP["${oname}"]+found}" ]]; then
+          echo "${owner}(${RMAP["${oname}"]})"
         else
-          echo "${oname}"
+          echo "${owner}"
         fi
       done | xargs
     fi
