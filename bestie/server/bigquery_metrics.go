@@ -151,7 +151,7 @@ func translateMetric(stream *bazelStream, m *testMetric) (*bigQueryMetric, error
 	dat["invocation_id"] = stream.invocationId
 	dat["invocation_sha"] = stream.invocationSha
 	dat["run"] = stream.run
-	dat["test_name"] = stream.testName
+	dat["test_target"] = stream.testTarget
 	tags, err := json.Marshal(dat)
 	if err != nil {
 		return nil, fmt.Errorf("Error converting JSON to string: %w", err)
