@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/retry"
 
 	"github.com/mitchellh/go-ps"
 )
@@ -34,7 +35,7 @@ type Client struct {
 // Such processes are long-running and persist after this process ends.
 // MaybeStartClient will return a handle to an existing process in the specified
 // output base, or create one if it doesn't exist.
-func MaybeStartClient(o *ClientOptions) (*Client, error) {
+func MaybeStartClient(o *ClientOptions, timeout time.Duration) (ret *Client, retErr error) {
 	// Look for existence of bb_clientd running in outputBase
 	pid, err := o.readPidfile()
 	if err != nil {
@@ -75,11 +76,37 @@ func MaybeStartClient(o *ClientOptions) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting bb_clientd: %w", err)
 	}
+	client := &Client{pid: pid, options: o}
+	defer func() {
+		if retErr != nil {
+			client.Shutdown()
+		}
+	}()
+
+	retryWait := 250*time.Millisecond
+	numAttempts := int(timeout / retryWait)
+	err = retry.New(
+		retry.WithWait(retryWait),
+		retry.WithAttempts(numAttempts),
+	).Run(func() error {
+		_, err := os.Stat(filepath.Join(o.MountDir, "cas"))
+		if errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if err != nil {
+			return retry.Fatal(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for client ready in %v: %w", timeout, err)
+	}
+
 	err = o.writePidfile(pid)
 	if err != nil {
 		return nil, fmt.Errorf("error recording PID of bb_clientd instance: %w", err)
 	}
-	return &Client{pid: pid, options: o}, nil
+	return client, nil
 }
 
 func startClient(options *ClientOptions) (int, error) {
@@ -128,18 +155,24 @@ func (c *Client) Shutdown() error {
 }
 
 func pollForProcessEnd(pid int, d time.Duration, interval time.Duration) error {
-	until := time.Now().Add(d)
-	for time.Now().Before(until) {
-		time.Sleep(interval)
+	numRetries := int(d/interval)
+	err := retry.New(
+		retry.WithWait(interval),
+		retry.WithAttempts(numRetries),
+	).Run(func() error {
 		p, err := ps.FindProcess(pid)
 		if err != nil {
-			return fmt.Errorf("error while polling for process %d: %w", pid, err)
+			retry.Fatal(fmt.Errorf("error while polling for process %d: %w", pid, err))
 		}
 		if p == nil {
 			return nil
 		}
+		return fmt.Errorf("process %d still found", pid)
+	})
+	if err != nil {
+		return fmt.Errorf("process %d did not die in %s", pid, d)
 	}
-	return fmt.Errorf("process %d did not die in %s", pid, d)
+	return nil
 }
 
 type outputLog struct {
