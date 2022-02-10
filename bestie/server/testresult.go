@@ -28,7 +28,7 @@ var deploymentBaseUrl string
 type bazelStream struct {
 	buildId       string
 	invocationId  string
-	testName      string
+	testTarget    string
 	run           string
 	invocationSha string // derived
 }
@@ -49,7 +49,7 @@ func identifyStream(bazelBuildEvent bes.BuildEvent, streamId *build.StreamId) *b
 		buildId:      streamId.GetBuildId(),
 		invocationId: streamId.GetInvocationId(),
 		run:          strconv.Itoa(int(bazelBuildEvent.GetId().GetTestResult().GetRun())),
-		testName:     bazelBuildEvent.GetId().GetTestResult().GetLabel(),
+		testTarget:   bazelBuildEvent.GetId().GetTestResult().GetLabel(),
 	}
 	// Calculate a SHA256 hash using the following fields to uniquely identify this stream.
 	stream.invocationSha = deriveInvocationSha([]string{stream.invocationId, stream.buildId, stream.run})
@@ -98,7 +98,7 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 	}
 
 	var sbuf strings.Builder
-	sbuf.WriteString(fmt.Sprintf("\nTestResult for %s: %s\n", stream.testName, m.GetStatus()))
+	sbuf.WriteString(fmt.Sprintf("\nTestResult for %s: %s\n", stream.testTarget, m.GetStatus()))
 	sbuf.WriteString(fmt.Sprintf("\trun: %s\n", stream.run))
 	sbuf.WriteString(fmt.Sprintf("\tbuildId: %s\n", stream.buildId))
 	sbuf.WriteString(fmt.Sprintf("\tinvocationId: %s\n", stream.invocationId))

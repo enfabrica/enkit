@@ -24,7 +24,6 @@ go_library(
         "@com_github_xenking_zipstream//:go_default_library",
         "@com_google_cloud_go_bigquery//:go_default_library",
         "@go_googleapis//google/devtools/build/v1:build_go_proto",
-        "@org_golang_google_api//googleapi:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext:go_default_library",
         "@org_golang_google_protobuf//proto:go_default_library",
