@@ -13,9 +13,26 @@ message Config {
   repeated LicenseConfig license_configs = 1;
 }
 
+// Default prioritizer. Licenses are allocated in the order they are requested.
+message FIFOPrioritizer {
+}
+
+// Allocates licenses so that they are spread evenly across users.
+//
+// This means that users can jump ahead of the line, or be bumped after new
+// requests.
+message EvenOwnersPrioritizer {
+}
+
 message LicenseConfig {
   // vendor::feature tuple
   flextape.proto.License license = 1;
   // Total number of licenses that can be allocated.
   uint32 quantity = 2;
+
+  // Strategy to distribute licenses.
+  oneof prioritizer {
+	FIFOPrioritizer fifo = 3;
+	EvenOwnersPrioritizer even_owners = 4;
+  }
 }

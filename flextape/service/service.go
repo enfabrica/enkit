@@ -59,10 +59,20 @@ func licensesFromConfig(config *fpb.Config) map[string]*license {
 	licenses := map[string]*license{}
 	for _, l := range config.GetLicenseConfigs() {
 		name := fmt.Sprintf("%s::%s", l.GetLicense().GetVendor(), l.GetLicense().GetFeature())
+
+		var prioritizer Prioritizer
+		switch l.Prioritizer.(type) {
+		case *fpb.LicenseConfig_Fifo:
+			prioritizer = &FIFOPrioritizer{}
+		case *fpb.LicenseConfig_EvenOwners:
+			prioritizer = NewEvenOwnersPrioritizer()
+		}
+
 		licenses[name] = &license{
 			name:           name,
 			totalAvailable: int(l.GetQuantity()),
 			allocations:    map[string]*invocation{},
+			prioritizer:    prioritizer,
 		}
 	}
 	return licenses
@@ -100,6 +110,28 @@ func New(config *fpb.Config) *Service {
 	return service
 }
 
+// QueueID is a monotonically increasing number representing the absolute
+// position of the item in the queue from when the queue was last emptied.
+//
+// If the element is reordered, so to be dequeued earlier, its QueueID
+// will be changed accordingly.
+type QueueID uint64
+
+// Position represents a relative position within the queue.
+//
+// For example, if this is the 3rd element in the queue, Position will be 3.
+//
+// Given the QueueID of an element its Position can be computed in O(1) by
+// subtracting the QueueID of the first element currently in the queue.
+type Position uint32
+
+// Priority represents some information that helps decide the relative
+// priority of this invocation compared to others.
+//
+// Priorities are assigned and managed by a configurable Prioritizer,
+// and their type depends on the Prioritizer used.
+type Priority interface{}
+
 // invocation maps to a particular command invocation that has requested a
 // license, and its associated metadata.
 type invocation struct {
@@ -107,6 +139,9 @@ type invocation struct {
 	Owner       string    // Client-provided owner
 	BuildTag    string    // Client-provided build tag. May not be unique across invocations
 	LastCheckin time.Time // Time the invocation last had its queue position/allocation refreshed.
+
+	QueueID  QueueID     // Position in the queue. 0 means the invocation has not been queued yet.
+	Priority interface{} // Priority of the item. Type and value depends on Prioritizer.
 }
 
 func (i *invocation) ToProto() *fpb.Invocation {
@@ -241,7 +276,7 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (retRe
 				Queued: &fpb.Queued{
 					InvocationId:  invocationID,
 					NextPollTime:  timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
-					QueuePosition: pos,
+					QueuePosition: uint32(pos),
 				},
 			},
 		}, nil
@@ -265,7 +300,7 @@ func (s *Service) Allocate(ctx context.Context, req *fpb.AllocateRequest) (retRe
 			Queued: &fpb.Queued{
 				InvocationId:  invocationID,
 				NextPollTime:  timestamppb.New(timeNow().Add(s.queueRefreshDuration)),
-				QueuePosition: pos,
+				QueuePosition: uint32(pos),
 			},
 		},
 	}, nil
