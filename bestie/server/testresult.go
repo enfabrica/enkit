@@ -232,9 +232,14 @@ func getTestMetricsFromFileData(pbmsg []byte) (*metricTestResult, error) {
 		cidExceptionProtobufError.increment()
 		return nil, fmt.Errorf("Error extracting metric data from protobuf message: %w", err)
 	}
-	table := tmet.GetTable()
-	metrics := tmet.GetMetrics()
+	metricSelector := tmet.GetMetricSelector()
+	if metricSelector == nil {
+		return nil, fmt.Errorf("Error accessing protobuf metrics: MetricSelector not found")
+	}
 	var result metricTestResult
+
+	// Check for optional BigQuery table specification within protobuf message.
+	table := tmet.GetTable()
 	if table != nil {
 		result.table = bigQueryTable{
 			// The project is not defined by the protobuf message.
@@ -242,14 +247,39 @@ func getTestMetricsFromFileData(pbmsg []byte) (*metricTestResult, error) {
 			tableName: table.GetTablename(),
 		}
 	}
-	for _, metric := range metrics {
-		m := testMetric{
-			metricName: metric.GetMetricname(),
-			tags:       map[string]string{},
-			value:      metric.GetValue(),
-			timestamp:  metric.GetTimestamp(),
+
+	// Process each of the metrics contained in the protobuf message.
+	for _, metricSel := range metricSelector {
+		var m testMetric
+		var metricTags []*tpb.KeyValuePair
+		switch metricSelType := metricSel.MetricSelectorOneof.(type) {
+		case *tpb.MetricSelector_ResultMetric:
+			metric := metricSel.GetResultMetric()
+			metricTags = metric.GetTags()
+			metricResult := metric.GetResult()
+			m = testMetric{
+				metricName: "testresult",
+				tags: map[string]string{
+					"result": strings.ToLower(metricResult.String()),
+					"type":   strings.ToLower(metric.GetType().String()),
+				},
+				value:     float64(metricResult.Number()),
+				timestamp: metric.GetTimestamp(),
+			}
+		case *tpb.MetricSelector_TestMetric:
+			metric := metricSel.GetTestMetric()
+			metricTags = metric.GetTags()
+			m = testMetric{
+				metricName: metric.GetMetricname(),
+				tags:       map[string]string{},
+				value:      metric.GetValue(),
+				timestamp:  metric.GetTimestamp(),
+			}
+		default:
+			debugPrintf("Ignoring TestMetric type %T\n\n", metricSelType)
+			continue
 		}
-		for _, mtag := range metric.GetTags() {
+		for _, mtag := range metricTags {
 			k, v := mtag.GetKey(), mtag.GetValue()
 			if len(k) != 0 {
 				m.tags[k] = v

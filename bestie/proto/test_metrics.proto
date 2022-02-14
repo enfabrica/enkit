@@ -5,6 +5,41 @@ package bestie.proto;
 
 option go_package = "github.com/enfabrica/enkit/bestie/proto";
 
+// Each metric tag must be supplied in the form of a key/value string pair.
+message KeyValuePair {
+    string key = 1;
+    string value = 2;
+}
+
+// Specialized BigQuery test result definition compatible with Prometheus remote read adapter.
+//
+// This message is similar to TestMetric, but with added restrictions to make it
+// less ambiguous for the message sender to construct properly. The same BigQuery
+// table holds both TestMetric and ResultMetric rows from a variety of test applications
+// (clients), therefore standardizing on a specific metricname ('testresult') is
+// essential. This name, a corresponding 'result' tag, and a numeric value is inserted
+// by the BES Endpoint service as it processes a ResultMetric message, therefore these are
+// not specifically defined by the message fields.
+//
+// The allowed Result values are PASS or FAIL, with INCOMPLETE indicating a test
+// that was intended to be run, but could not due to some extenuating condition, for
+// example reliance upon a specific DUT or traffic generator that was unavailable.
+message ResultMetric {
+    enum Type {
+        SUMMARY = 0; // default, if field not specified
+    }
+    Type type = 1;
+    enum Result {
+        FAIL = 0;
+        PASS = 1;
+        INCOMPLETE = 2;
+    }
+    Result result = 2;
+    repeated KeyValuePair tags = 3;
+    //double value = 4;  // not used (provided by BES Endpoint)
+    int64 timestamp = 5;  // nanoseconds since epoch (e.g. Python: time.time_ns())
+}
+
 // BigQuery metric definition compatible with Prometheus remote read adapter.
 //
 // The 'tags' field is a list of key/value pairs, with each key and value formatted
@@ -25,7 +60,7 @@ option go_package = "github.com/enfabrica/enkit/bestie/proto";
 //     invocation_sha - a SHA256 hash representing the following attributes provided by
 //                      the Bazel 'test' command: invocation_id, build_id, run
 //     run - the individual run number of the Bazel test (i.e. --runs_per_test option)
-//     test_name - identifies the test from which the metric originates
+//     test_target - identifies the 'bazel test' target from which the metric originates
 //
 // Tags are also used to identify most of the setup information used to run a test, such
 // as the nodes used, MTU size, various offload modes, etc. These are stored as additional
@@ -51,10 +86,13 @@ message TestMetric {
     int64 timestamp = 4;  // nanoseconds since epoch (e.g. Python: time.time_ns())
 }
 
-// Each metric tag must be supplied in the form of a key/value string pair.
-message KeyValuePair {
-    string key = 1;
-    string value = 2;
+// Define a metric selector message layer to control which kind of metric message
+// is represented.
+message MetricSelector {
+    oneof metric_selector_oneof {
+        ResultMetric result_metric = 1;
+        TestMetric test_metric = 2;
+    }
 }
 
 // BigQuery table identifier (OPTIONAL)
@@ -80,7 +118,7 @@ message BigQueryTable {
 // The BES Endpoint normally decides which BigQuery table to use, but
 // an optional table identifier may be specified for development testing, etc.
 message TestMetrics {
-    repeated TestMetric metrics = 1;
+    repeated MetricSelector metric_selector = 1;
     oneof optional_table {
         BigQueryTable table = 20;
     };
