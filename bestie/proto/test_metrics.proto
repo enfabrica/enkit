@@ -36,7 +36,7 @@ message ResultMetric {
     }
     Result result = 2;
     repeated KeyValuePair tags = 3;
-    //double value = 4;  // not used (provided by BES Endpoint)
+    double duration = 4;  // test case duration, in seconds
     int64 timestamp = 5;  // nanoseconds since epoch (e.g. Python: time.time_ns())
 }
 

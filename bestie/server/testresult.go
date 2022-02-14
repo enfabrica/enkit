@@ -256,14 +256,13 @@ func getTestMetricsFromFileData(pbmsg []byte) (*metricTestResult, error) {
 		case *tpb.MetricSelector_ResultMetric:
 			metric := metricSel.GetResultMetric()
 			metricTags = metric.GetTags()
-			metricResult := metric.GetResult()
 			m = testMetric{
 				metricName: "testresult",
 				tags: map[string]string{
-					"result": strings.ToLower(metricResult.String()),
+					"result": strings.ToLower(metric.GetResult().String()),
 					"type":   strings.ToLower(metric.GetType().String()),
 				},
-				value:     float64(metricResult.Number()),
+				value:     metric.GetDuration(),
 				timestamp: metric.GetTimestamp(),
 			}
 		case *tpb.MetricSelector_TestMetric:
