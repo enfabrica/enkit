@@ -210,10 +210,15 @@ EOT
 # Exclude git data that is potentially backed up to a remote server
 + /gee/*/.gee/*  # do back up gee's metadata files
 - /gee/          # don't back up anything else in gee-controlled repositories
+- gee/
+- /testgee/
+- testgee/
 - /.git/         # don't back up the contents of any .git directories.
 - **/.git/       # don't back up the contents of any .git directories.
 
 # Exclude these directories from backups:
+- /tmp/
+- tmp/
 - /bazel-**/
 - /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
 - /.gvfs/                           # contains mounted file systems?
@@ -233,6 +238,7 @@ EOT
 #Files:
 - bin/rclone
 - .bash_history*
+- .lesshst*
 - .python_history
 - .xsession-errors            # contains errors from the current graphical session
 - .recently-used              # recently used files
