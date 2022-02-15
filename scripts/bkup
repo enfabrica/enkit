@@ -207,6 +207,9 @@ EOT
   if ! [[ -e "${FILTERFILE}" ]]; then
     cat >"${FILTERFILE}" <<'EOT'
 # Exclude these directories from backups:
+- /gee/        # don't back up gee-controlled repositories
+- /.git/       # don't back up the contents of any .git directories.
+- **/.git/    # don't back up the contents of any .git directories.
 - /bazel-**/
 - /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
 - /.gvfs/                           # contains mounted file systems?
@@ -225,7 +228,7 @@ EOT
 
 #Files:
 - bin/rclone
-- .bash_history
+- .bash_history*
 - .python_history
 - .xsession-errors            # contains errors from the current graphical session
 - .recently-used              # recently used files
