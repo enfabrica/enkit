@@ -206,10 +206,13 @@ EOT
   # check for exclude file
   if ! [[ -e "${FILTERFILE}" ]]; then
     cat >"${FILTERFILE}" <<'EOT'
+# Exclude git data that is potentially backed up to a remote server
++ /gee/*/.gee/*  # do back up gee's metadata files
+- /gee/          # don't back up anything else in gee-controlled repositories
+- /.git/         # don't back up the contents of any .git directories.
+- **/.git/       # don't back up the contents of any .git directories.
+
 # Exclude these directories from backups:
-- /gee/        # don't back up gee-controlled repositories
-- /.git/       # don't back up the contents of any .git directories.
-- **/.git/    # don't back up the contents of any .git directories.
 - /bazel-**/
 - /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
 - /.gvfs/                           # contains mounted file systems?
