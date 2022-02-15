@@ -3859,7 +3859,9 @@ function gee__restore_all_branches() {
     local B BDIR
     B="$(basename "${RB}")"
     BDIR="${REPO_DIR}/${B}"
-    if ! [[ -d "${BDIR}" ]]; then
+    if [[ -d "${BDIR}" ]]; then
+      _info "Branch ${B} already exists, skipping."
+    else
       _info "Restoring ${B} from ${RB}"
       _checkout_or_die "${B}"
       local -a COUNTS
@@ -3872,6 +3874,7 @@ function gee__restore_all_branches() {
     fi
   done
 
+  _info "Running \"gee repair\" to reconstruct parents information."
   gee__repair
 
   _info "Done."
