@@ -3831,6 +3831,53 @@ function gee__repair() {
 }
 
 ##########################################################################
+# restore_all_branches command
+##########################################################################
+
+_register_help "restore_all_branches" "Check out all remote branches." <<'EOT'
+Usage: gee restore_all_branches
+
+Gee looks up all branches on the origin remote, and makes sure an equivalent
+branch is checked out and updated locally.
+EOT
+
+function gee__restore_all_branches() {
+  # Make sure all tools are available
+  _install_tools
+
+  _gee_fix_remote_origin_fetch_config
+
+  _git fetch origin
+
+  local -a BRANCHES=()
+  mapfile -t BRANCHES < <( \
+    git branch -r --format="%(refname:short)" | grep ^origin/ | grep -v HEAD )
+
+  _set_main
+  local RB
+  for RB in "${BRANCHES[@]}"; do
+    local B BDIR
+    B="$(basename "${RB}")"
+    BDIR="${REPO_DIR}/${B}"
+    if ! [[ -d "${BDIR}" ]]; then
+      _info "Restoring ${B} from ${RB}"
+      _checkout_or_die "${B}"
+      local -a COUNTS
+      read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${B}...${RB}" | cat)
+      if (( COUNTS[1] != 0 )); then
+        _git reset --hard "${RB}"
+      else
+        _info "${B} is already up to date."
+      fi
+    fi
+  done
+
+  gee__repair
+
+  _info "Done."
+}
+
+##########################################################################
 # bash_setup command
 ##########################################################################
 
