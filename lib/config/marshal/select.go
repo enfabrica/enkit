@@ -2,11 +2,13 @@ package marshal
 
 import (
 	"fmt"
-	"github.com/enfabrica/enkit/lib/multierror"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/enfabrica/enkit/lib/multierror"
 )
 
 // Use marshal.Toml to encode/decode from Toml format.
@@ -31,6 +33,10 @@ type FileMarshallers []FileMarshaller
 
 // ByExtension returns the first FileMarshaller based on the extension of the path provided.
 func (fm FileMarshallers) ByExtension(path string) FileMarshaller {
+	u, err := url.Parse(path)
+	if err == nil && u != nil {
+		path = u.Path
+	}
 	ext := strings.TrimPrefix(filepath.Ext(path), ".")
 	if ext == "" {
 		return nil
