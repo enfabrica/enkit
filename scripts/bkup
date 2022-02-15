@@ -40,12 +40,22 @@ readonly FILTERFILE="${CONFIGDIR}/filter-list.txt"
 readonly BUCKET="rclone-devops-284019"
 readonly PAGER="${PAGER:-less}"
 
-readonly DOCKER_ID="$(\
-  cat /proc/1/cgroup | grep -o -E 'docker/([a-f0-9]{12})' | sed 's/docker.//' | head -n 1 )"
-if [[ -z "${DOCKER_ID}" ]]; then
+LOCAL_VOLUME_ID="$(\
+  grep </proc/1/cgroup -o -E 'docker/([a-f0-9]{12})' | sed 's/docker.//' | head -n 1 )"
+if ! [[ -d ~/.config/rclone ]]; then
+  mkdir -p ~/.config/rclone
+fi
+if [[ -f ~/.config/rclone/volume_id.txt ]]; then
+  read -r LOCAL_VOLUME_ID < ~/.config/rclone/volume_id.txt
+fi
+readonly VOLUME_ID="${VOLUME_ID:-"${LOCAL_VOLUME_ID}"}"
+if [[ -z "${VOLUME_ID}" ]]; then
   echo >&2 "Could not determine docker id, aborting."
 fi
-readonly RPATH="bkup/${USER}/${DOCKER_ID}"
+if ! [[ -f ~/.config/rclone/volume_id.txt ]]; then
+  echo "${VOLUME_ID}" > ~/.config/rclone/volume_id.txt
+fi
+readonly RPATH="bkup/${USER}/${VOLUME_ID}"
 
 function _check_remote() {
   "${RCLONE}" ls remote:"${BUCKET}" --max-depth 1 &> /dev/null
@@ -147,9 +157,13 @@ files to enable backups.
 EOT
 
 function _install_rclone() {
-  local URL ZIPFILE
+  local URL
   URL="https://downloads.rclone.org/rclone-current-linux-amd64.zip"
   _cmd curl -fsS "${URL}" -o /tmp/rclone.zip
+  if ! command -v unzip; then
+    _cmd sudo apt update
+    _cmd sudo apt install unzip
+  fi
   _cmd unzip -j /tmp/rclone.zip \*/rclone -d "${BINDIR}"
   _cmd rm /tmp/rclone.zip
   _cmd "${RCLONE}" --version
@@ -192,6 +206,12 @@ EOT
   # check for exclude file
   if ! [[ -e "${FILTERFILE}" ]]; then
     cat >"${FILTERFILE}" <<'EOT'
+# Exclude git data that is potentially backed up to a remote server
++ /gee/*/.gee/*  # do back up gee's metadata files
+- /gee/          # don't back up anything else in gee-controlled repositories
+- /.git/         # don't back up the contents of any .git directories.
+- **/.git/       # don't back up the contents of any .git directories.
+
 # Exclude these directories from backups:
 - /bazel-**/
 - /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
@@ -211,7 +231,7 @@ EOT
 
 #Files:
 - bin/rclone
-- .bash_history
+- .bash_history*
 - .python_history
 - .xsession-errors            # contains errors from the current graphical session
 - .recently-used              # recently used files
@@ -243,6 +263,7 @@ function bkup__backup() {
   _startup_checks
   _check_or_authorize_remote
   local -a OPTS=(
+    "--transfers=8"  # 8 threads
     --links     # store symlinks as metadata
     --progress  # show progress
     --fast-list # pre-scan directory.  Maybe buggy?
@@ -379,7 +400,7 @@ function bkup__diff() {
   fi
 
   local TMPFILE
-  TMPFILE="$(/usr/bin/mktemp "$(basename $1).XXXXXX")"
+  TMPFILE="$(/usr/bin/mktemp "$(basename "$1").XXXXXX")"
   _cmd "${RCLONE}" cat \
     "remote:${BUCKET}/${RPATH}${LPATH}" \
     "${OPTS[@]}" \
@@ -405,11 +426,15 @@ function bkup__restore() {
   _startup_checks
   _check_or_authorize_remote
   local -a OPTS=(
+    "--transfers=8"
     --links
     --progress
     --update
     --max-delete 0
   )
+  if [[ -f "${FILTERFILE}" ]]; then
+    OPTS+=( --filter-from "${FILTERFILE}" )
+  fi
 
   if [[ "$#" -eq 0 ]]; then
     echo >&2 "\"restore\" requires at least one file to restore."
@@ -418,7 +443,7 @@ function bkup__restore() {
   fi
 
   local TMPFILE F REL_P
-  TMPFILE="$(tempfile)"
+  TMPFILE="$(/usr/bin/mktemp bkup.restore.XXXXXX)"
   for F in "$@"; do
     REL_P="$(realpath -m --relative-base="${HOME}" "${F}")"
     if [[ "${REL_P}" =~ ^/ ]]; then
@@ -456,9 +481,13 @@ function bkup__restore_all() {
   _startup_checks
   _check_or_authorize_remote
   local -a OPTS=(
+    "--transfers=8"
     --links
     --max-delete 0
   )
+  if [[ -f "${FILTERFILE}" ]]; then
+    OPTS+=( --filter-from "${FILTERFILE}" )
+  fi
 
   local OVERWRITE=0
   local INTERACTIVE=0
@@ -492,6 +521,37 @@ function bkup__restore_all() {
     "remote:${BUCKET}/${RPATH}" \
     "${HOME}" \
     "${OPTS[@]}"
+}
+
+##########################################################################
+# lsvolumes command
+##########################################################################
+
+_register_help ls "List remote volumes." <<'EOT'
+Usage: bkup lsvolumes [<path>]
+
+Lists the set of volume ids associated with this account.  Volume ids
+are used to distinguish between backups of different machines for the
+same user.  If you are restoring a old machine to a new machine, and
+you want to associate the old machine's volume id with the new machine,
+write the volume id you want to `~/.config/rclone/volume_id.txt` .
+
+EOT
+function bkup__lsvolumes() {
+  _startup_checks
+  _check_or_authorize_remote
+  local -a OPTS=(
+    --links
+    --format pst
+    --separator $'\t'
+  )
+
+  local P
+  P="$(dirname "${RPATH}")"
+
+  _cmd "${RCLONE}" lsf \
+    "remote:${BUCKET}/${P}" \
+    "${OPTS[@]}" | /usr/bin/column -t -s $'\t'
 }
 
 ##########################################################################
