@@ -6,25 +6,25 @@ package service
 // decision, it must be invoked every time an entry is queued and dequeued, and
 // every time a license is allocated and released.
 type Prioritizer interface {
-	// Enqueued is called every time an invocation is queued.
-	Enqueued(inv *invocation)
-	// Dequeued is called every time an invocation is dequeued.
+	// OnEnqueue is called every time an invocation is queued.
+	OnEnqueue(inv *invocation)
+	// OnDequeue is called every time an invocation is dequeued.
 	//
 	// Note that an invocation may be dequeued because it is expired,
 	// because the user withdrew the request, or because an allocation
 	// is now possible.
-	// In this last case, Dequeued() will be followed by an Allocated()
+	// In this last case, OnDequeue() will be followed by an OnAllocate()
 	// call.
-	Dequeued(inv *invocation)
+	OnDequeue(inv *invocation)
 
-	// Allocated is called every time an invocation is allocated a license.
-	Allocated(inv *invocation)
-	// Released is called every time an invocation loses a license.
+	// OnAllocate is called every time an invocation is allocated a license.
+	OnAllocate(inv *invocation)
+	// OnRelease is called every time an invocation loses a license.
 	//
 	// This generally means that the invocation was serviced and the
 	// license is no longer needed, but it could be called also if,
 	// for example, a client timed out while holding a license.
-	Released(inv *invocation)
+	OnRelease(inv *invocation)
 
 	// Sorter is a function that returns a function capable of
 	// reordering the queue.
@@ -37,13 +37,13 @@ type Prioritizer interface {
 type FIFOPrioritizer struct {
 }
 
-func (_ *FIFOPrioritizer) Enqueued(inv *invocation) {
+func (_ *FIFOPrioritizer) OnEnqueue(inv *invocation) {
 }
-func (_ *FIFOPrioritizer) Dequeued(inv *invocation) {
+func (_ *FIFOPrioritizer) OnDequeue(inv *invocation) {
 }
-func (_ *FIFOPrioritizer) Allocated(inv *invocation) {
+func (_ *FIFOPrioritizer) OnAllocate(inv *invocation) {
 }
-func (_ *FIFOPrioritizer) Released(inv *invocation) {
+func (_ *FIFOPrioritizer) OnRelease(inv *invocation) {
 }
 func (_ *FIFOPrioritizer) Sorter() Sorter {
 	return nil
@@ -79,12 +79,12 @@ func NewEvenOwnersPrioritizer() *EvenOwnersPrioritizer {
 	}
 }
 
-func (so *EvenOwnersPrioritizer) Enqueued(inv *invocation) {
+func (so *EvenOwnersPrioritizer) OnEnqueue(inv *invocation) {
 	so.enqueued[inv.Owner] += 1
 	inv.Priority = so.enqueued[inv.Owner]
 }
 
-func (so *EvenOwnersPrioritizer) Dequeued(inv *invocation) {
+func (so *EvenOwnersPrioritizer) OnDequeue(inv *invocation) {
 	so.dequeued[inv.Owner] += 1
 	inv.Priority = nil
 	if so.dequeued[inv.Owner]-so.enqueued[inv.Owner] <= 0 {
@@ -94,11 +94,11 @@ func (so *EvenOwnersPrioritizer) Dequeued(inv *invocation) {
 	}
 }
 
-func (so *EvenOwnersPrioritizer) Allocated(inv *invocation) {
+func (so *EvenOwnersPrioritizer) OnAllocate(inv *invocation) {
 	so.allocated[inv.Owner] += 1
 }
 
-func (so *EvenOwnersPrioritizer) Released(inv *invocation) {
+func (so *EvenOwnersPrioritizer) OnRelease(inv *invocation) {
 	value := so.allocated[inv.Owner]
 	if value <= 1 {
 		delete(so.allocated, inv.Owner)
@@ -131,7 +131,7 @@ func (so *EvenOwnersPrioritizer) Sorter() Sorter {
 		//   users with fewer entries in the queue are prioritized first.
 		//
 		// Example:
-		//   Allocated: User A=10, User B=0
+		//   OnAllocate: User A=10, User B=0
 		//
 		//          Queue is:  A  A  A  A  A  B  A  A  B  B  B  B  B  B
 		//               uqp:  0  1  2  3  4  0  5  6  1  2  3  4  5  6
@@ -141,7 +141,7 @@ func (so *EvenOwnersPrioritizer) Sorter() Sorter {
 		//
 		// Let's say A and B queue more requests, and a 3rd user comes by:
 		//
-		//   Allocated: User A=10, User B=6, User C=0
+		//   OnAllocate: User A=10, User B=6, User C=0
 		//          Queue is:  A  A  A  A  A  A  A  B  B  B  B  B  C  C
 		//               uqp:  0  1  2  3  4  5  6  0  1  2  3  4  0  1
 		//               uqa: 10 11 12 13 14 15 16  6  7  8  9 10  0  1

@@ -67,7 +67,7 @@ func (l *license) Enqueue(inv *invocation) Position {
 	defer l.updateMetrics()
 
 	l.queue.Enqueue(inv)
-	l.prioritizer.Enqueued(inv)
+	l.prioritizer.OnEnqueue(inv)
 
 	l.queue.Sort(l.prioritizer.Sorter())
 	return l.queue.Position(inv)
@@ -80,7 +80,7 @@ func (l *license) Allocate(inv *invocation) bool {
 	if len(l.allocations) >= l.totalAvailable {
 		return false
 	}
-	l.prioritizer.Allocated(inv)
+	l.prioritizer.OnAllocate(inv)
 	l.allocations[inv.ID] = inv
 	return true
 }
@@ -95,8 +95,8 @@ func (l *license) Promote() {
 
 		invocation := l.queue.Dequeue()
 
-		l.prioritizer.Dequeued(invocation)
-		l.prioritizer.Allocated(invocation)
+		l.prioritizer.OnDequeue(invocation)
+		l.prioritizer.OnAllocate(invocation)
 
 		l.allocations[invocation.ID] = invocation
 	}
@@ -115,7 +115,7 @@ func (l *license) ExpireAllocations(expiry time.Time) {
 	newAllocations := map[string]*invocation{}
 	for k, v := range l.allocations {
 		if !v.LastCheckin.After(expiry) {
-			l.prioritizer.Released(v)
+			l.prioritizer.OnRelease(v)
 			continue
 		}
 		newAllocations[k] = v
@@ -132,7 +132,7 @@ func (l *license) ExpireQueued(expiry time.Time) {
 			return false
 		}
 
-		l.prioritizer.Dequeued(inv)
+		l.prioritizer.OnDequeue(inv)
 		return true
 	})
 }
@@ -183,7 +183,7 @@ func (l *license) Forget(invID string) int {
 	newAllocations := map[string]*invocation{}
 	for k, v := range l.allocations {
 		if k == invID {
-			l.prioritizer.Released(v)
+			l.prioritizer.OnRelease(v)
 			count++
 			continue
 		}
@@ -192,7 +192,7 @@ func (l *license) Forget(invID string) int {
 	}
 
 	if inv := l.queue.Forget(invID); inv != nil {
-		l.prioritizer.Dequeued(inv)
+		l.prioritizer.OnDequeue(inv)
 		count += 1
 	}
 

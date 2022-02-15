@@ -57,7 +57,7 @@ func (s *Service) withAllocation(licenseType string, inv *invocation) *Service {
 // invocation for a license.
 func (s *Service) withQueued(licenseType string, inv *invocation) *Service {
 	s.licenses[licenseType].queue.Enqueue(inv)
-	s.licenses[licenseType].prioritizer.Enqueued(inv)
+	s.licenses[licenseType].prioritizer.OnEnqueue(inv)
 	return s
 }
 
