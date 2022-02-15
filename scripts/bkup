@@ -181,7 +181,7 @@ function bkup__setup() {
   #check installed version of rclone to determine if update is necessary
   VERSION=$("${RCLONE}" --version 2>>errors | head -n 1)
   CURRENT_VERSION=$(curl -fsS https://downloads.rclone.org/version.txt)
-  if [[ "$version" != "$current_version" ]]; then
+  if [[ "$VERSION" != "$CURRENT_VERSION" ]]; then
     echo >&2 "Updating rclone from ${VERSION} to ${CURRENT_VERSION}"
     _install_rclone
   fi
