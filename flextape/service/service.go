@@ -125,13 +125,6 @@ type QueueID uint64
 // subtracting the QueueID of the first element currently in the queue.
 type Position uint32
 
-// Priority represents some information that helps decide the relative
-// priority of this invocation compared to others.
-//
-// Priorities are assigned and managed by a configurable Prioritizer,
-// and their type depends on the Prioritizer used.
-type Priority interface{}
-
 // invocation maps to a particular command invocation that has requested a
 // license, and its associated metadata.
 type invocation struct {
@@ -140,8 +133,7 @@ type invocation struct {
 	BuildTag    string    // Client-provided build tag. May not be unique across invocations
 	LastCheckin time.Time // Time the invocation last had its queue position/allocation refreshed.
 
-	QueueID  QueueID     // Position in the queue. 0 means the invocation has not been queued yet.
-	Priority interface{} // Priority of the item. Type and value depends on Prioritizer.
+	QueueID QueueID // Position in the queue. 0 means the invocation has not been queued yet.
 }
 
 func (i *invocation) ToProto() *fpb.Invocation {

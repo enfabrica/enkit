@@ -56,6 +56,10 @@ func (_ *FIFOPrioritizer) Sorter() Sorter {
 // and an user B comes by, it will prioritize B over A until there is a
 // 5 ~ 5 distribution in number of licenses.
 type EvenOwnersPrioritizer struct {
+	// Key: invocation.ID, value represents the absolute position of
+	// the element in the queue for the specific owner.
+	position map[string]uint64
+
 	// Key: invocation.Owner, value represents # of requests queued,
 	// monotonically increasing.
 	enqueued map[string]uint64
@@ -73,6 +77,7 @@ type EvenOwnersPrioritizer struct {
 
 func NewEvenOwnersPrioritizer() *EvenOwnersPrioritizer {
 	return &EvenOwnersPrioritizer{
+		position:  map[string]uint64{},
 		enqueued:  map[string]uint64{},
 		dequeued:  map[string]uint64{},
 		allocated: map[string]uint64{},
@@ -81,12 +86,12 @@ func NewEvenOwnersPrioritizer() *EvenOwnersPrioritizer {
 
 func (so *EvenOwnersPrioritizer) OnEnqueue(inv *invocation) {
 	so.enqueued[inv.Owner] += 1
-	inv.Priority = so.enqueued[inv.Owner]
+	so.position[inv.ID] = so.enqueued[inv.Owner]
 }
 
 func (so *EvenOwnersPrioritizer) OnDequeue(inv *invocation) {
 	so.dequeued[inv.Owner] += 1
-	inv.Priority = nil
+	delete(so.position, inv.ID)
 	if so.dequeued[inv.Owner]-so.enqueued[inv.Owner] <= 0 {
 		delete(so.enqueued, inv.Owner)
 		delete(so.dequeued, inv.Owner)
@@ -109,11 +114,11 @@ func (so *EvenOwnersPrioritizer) OnRelease(inv *invocation) {
 
 func (so *EvenOwnersPrioritizer) Sorter() Sorter {
 	return func(a, b *invocation) bool {
-		ap := a.Priority.(uint64)
+		ap := so.position[a.ID]
 		am := so.dequeued[a.Owner]
 		aa := so.allocated[a.Owner]
 
-		bp := b.Priority.(uint64)
+		bp := so.position[b.ID]
 		bm := so.dequeued[b.Owner]
 		ba := so.allocated[b.Owner]
 

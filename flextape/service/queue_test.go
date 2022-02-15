@@ -23,14 +23,12 @@ func TestQueueEmpty(t *testing.T) {
 func TestQueueOrdering(t *testing.T) {
 	iq := invocationQueue{}
 	for i := 10; i > 0; i-- {
-		iq.Enqueue(&invocation{ID: fmt.Sprintf("id-%02d", i), Priority: i + 100})
+		iq.Enqueue(&invocation{ID: fmt.Sprintf("id-%02d", i)})
 	}
 
-	// QueueID always matches the queue order, Priority is tied to the entry instead.
-	// Verify both after filling the queue.
+	// QueueID always matches the queue order. Verify it.
 	assert.Equal(t, 10, iq.Len())
 	for i := 0; i < 10; i++ {
-		assert.Equal(t, fmt.Sprintf("id-%02d", iq[i].Priority.(int)-100), iq[i].ID)
 		assert.Equal(t, QueueID(i+1), iq[i].QueueID)
 	}
 
@@ -42,7 +40,6 @@ func TestQueueOrdering(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		assert.Equal(t, QueueID(i+1), iq[i].QueueID)
 		assert.Equal(t, fmt.Sprintf("id-%02d", i+1), iq[i].ID)
-		assert.Equal(t, fmt.Sprintf("id-%02d", iq[i].Priority.(int)-100), iq[i].ID)
 	}
 
 	// One more time, with a random seed/random order.
@@ -50,14 +47,12 @@ func TestQueueOrdering(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		name := rand.Uint64()
 		iq[i].ID = fmt.Sprintf("id-%d", name)
-		iq[i].Priority = name
 	}
 	iq.Sort(func(a, b *invocation) bool {
 		return a.ID < b.ID
 	})
 	for i := 0; i < 10; i++ {
 		assert.Equal(t, QueueID(i+1), iq[i].QueueID)
-		assert.Equal(t, fmt.Sprintf("id-%d", iq[i].Priority.(uint64)), iq[i].ID)
 
 		inv, pos := iq.Get(iq[i].ID)
 		assert.Equal(t, inv, iq[i])
@@ -75,7 +70,6 @@ func TestQueueOrdering(t *testing.T) {
 	assert.Equal(t, 8, iq.Len())
 	for i := 0; i < iq.Len(); i++ {
 		assert.Equal(t, QueueID(i+1), iq[i].QueueID)
-		assert.Equal(t, fmt.Sprintf("id-%d", iq[i].Priority.(uint64)), iq[i].ID)
 
 		inv, pos := iq.Get(iq[i].ID)
 		assert.Equal(t, inv, iq[i])
@@ -96,8 +90,7 @@ func TestQueueIDs(t *testing.T) {
 		case 1:
 			fallthrough
 		case 2:
-			priority := rand.Uint64()
-			iq.Enqueue(&invocation{ID: fmt.Sprintf("id-%d", priority), Priority: priority})
+			iq.Enqueue(&invocation{ID: fmt.Sprintf("id-%d", i)})
 			l++
 
 		case 3:
@@ -120,8 +113,6 @@ func TestQueueIDs(t *testing.T) {
 
 		assert.Equal(t, l, iq.Len())
 		for i := 0; i < iq.Len(); i++ {
-			assert.Equal(t, fmt.Sprintf("id-%d", iq[i].Priority.(uint64)), iq[i].ID)
-
 			inv, pos := iq.Get(iq[i].ID)
 			assert.Equal(t, inv, iq[i])
 			assert.Equal(t, Position(i+1), pos)
