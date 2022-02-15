@@ -270,7 +270,7 @@ function bkup__backup() {
     --fast-list # pre-scan directory.  Maybe buggy?
     #  --update    # update will prevent removal of locally deleted files.
     --filter-from "${FILTERFILE}"  # skip specified files.
-    --backup-dir remote:${BUCKET}/${BACKUPPATH}  # move deleted files to BACKUP path
+    --backup-dir "remote:${BUCKET}/${BACKUPPATH}"  # move deleted files to BACKUP path
   )
   _cmd \
     flock ~/.bkup.backup.lock \
@@ -279,7 +279,7 @@ function bkup__backup() {
   # expire old files from BACKUP path
   _cmd \
     flock ~/.bkup.backup.locl \
-    "${RCLONE}" delete --min-age 7d remote:${BUCKET}/${BACKUPPATH}"  \
+    "${RCLONE}" delete --min-age 7d "remote:${BUCKET}/${BACKUPPATH}"  \
        --progress
 }
 
