@@ -5,6 +5,9 @@ package service
 // In order for the prioritizer to have enough data to make the prioritization
 // decision, it must be invoked every time an entry is queued and dequeued, and
 // every time a license is allocated and released.
+//
+// Prioritizers are NOT thread safe. The caller must guarantee that the use of
+// any method is serialized.
 type Prioritizer interface {
 	// OnEnqueue is called every time an invocation is queued.
 	OnEnqueue(inv *invocation)
