@@ -1538,7 +1538,7 @@ func TestPrioritization(t *testing.T) {
 
 		queued, converted := resp.ResponseType.(*fpb.AllocateResponse_Queued)
 		assert.True(t, converted)
-		// Note the +2 here, comes from the # of allocations from joe.
+		// Note the +3 here, comes from the # of allocations from joe.
 		assert.Equal(t, uint32(ix+1+3), queued.Queued.QueuePosition)
 	}
 
