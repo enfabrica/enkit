@@ -173,7 +173,7 @@ done
 readonly ENKIT=/opt/enfabrica/bin/enkit
 readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
-readonly CLONE_DEPTH=3  # a little bit of history
+readonly CLONE_DEPTH_MONTHS=3  # months of history to fetch
 readonly YESYESYES="${YESYESYES:-0}"  # for testing: disables all interactivity.
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
@@ -1857,8 +1857,14 @@ function gee__init() {
   if ! "${GH}" repo list | grep "^${GHUSER}/${REPO}" > /dev/null; then
     _gh repo fork --clone=false "${UPSTREAM}/${REPO}"
   fi
+  # Get the data from N months ago.  This is more useful than specifying
+  # --depth=3, and provides a big enough window that a user who is
+  # restoring a deleted gee repository is unlikely to have issues.
+  local OLDEST_COMMIT
+  OLDEST_COMMIT="$(date --date="-${CLONE_DEPTH_MONTHS} months" +"%Y-%M-%d")"
+  _info "Fetching all commits since ${OLDEST_COMMIT}"
   _git clone \
-    --depth "${CLONE_DEPTH}" \
+    --shallow-since "${OLDEST_COMMIT}" \
     --no-single-branch \
     "${URL}" \
     "${REPO_DIR}/${MAIN}"
