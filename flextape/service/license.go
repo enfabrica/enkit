@@ -51,7 +51,7 @@ type license struct {
 	totalAvailable int                    // Constant total number of licenses available for invocations.
 	allocations    map[string]*invocation // Map of invocation ID to invocation data for an allocated license.
 
-	queue       invocationq // List of invocations waiting for a license, in FIFO order.
+	queue       invocationQueue // List of invocations waiting for a license, in FIFO order.
 	prioritizer Prioritizer
 }
 

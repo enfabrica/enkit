@@ -31,7 +31,7 @@ func testServicePrio(initialState state, p Prioritizer) *Service {
 			"xilinx::feature_foo": &license{
 				name:           "xilinx::feature_foo",
 				totalAvailable: 2,
-				queue:          invocationq{},
+				queue:          invocationQueue{},
 				allocations:    map[string]*invocation{},
 				prioritizer:    p,
 			},
@@ -106,7 +106,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations:    map[string]*invocation{},
 					prioritizer:    &FIFOPrioritizer{},
 				},
@@ -131,7 +131,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations:    map[string]*invocation{},
 					prioritizer:    &FIFOPrioritizer{},
 				},
@@ -163,7 +163,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start, QueueID: 1},
 					},
 					allocations: map[string]*invocation{},
@@ -200,7 +200,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"1": &invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start},
 					},
@@ -238,7 +238,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start, QueueID: 1},
 					},
 					allocations: map[string]*invocation{},
@@ -277,7 +277,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start, QueueID: 1},
 						&invocation{ID: "2", Owner: "unit_test", BuildTag: "tag_2345", LastCheckin: start, QueueID: 2},
 					},
@@ -310,7 +310,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start, QueueID: 1},
 					},
 					allocations: map[string]*invocation{},
@@ -353,7 +353,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start, QueueID: 1},
 					},
 					allocations: map[string]*invocation{
@@ -393,7 +393,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"1": &invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start},
 					},
@@ -430,7 +430,7 @@ func TestAllocate(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"1": &invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
 						"2": &invocation{ID: "2", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
@@ -495,7 +495,7 @@ func TestRefresh(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations:    map[string]*invocation{},
 					prioritizer:    &FIFOPrioritizer{},
 				},
@@ -521,7 +521,7 @@ func TestRefresh(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations:    map[string]*invocation{},
 					prioritizer:    &FIFOPrioritizer{},
 				},
@@ -548,7 +548,7 @@ func TestRefresh(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"1": &invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
 					},
@@ -582,7 +582,7 @@ func TestRefresh(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
 					},
@@ -619,7 +619,7 @@ func TestRefresh(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
 						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
@@ -647,7 +647,7 @@ func TestRefresh(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations:    map[string]*invocation{},
 					prioritizer:    &FIFOPrioritizer{},
 				},
@@ -679,7 +679,7 @@ func TestRefresh(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
 					},
@@ -740,7 +740,7 @@ func TestRelease(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
 					},
@@ -767,7 +767,7 @@ func TestRelease(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
 					},
@@ -794,7 +794,7 @@ func TestRelease(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start, QueueID: 1},
 					},
 					allocations: map[string]*invocation{},
@@ -822,7 +822,7 @@ func TestRelease(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
 						"8": &invocation{ID: "8", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
@@ -922,7 +922,7 @@ func TestLicensesStatus(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "9", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start, QueueID: 1},
 					},
 					allocations: map[string]*invocation{
@@ -991,7 +991,7 @@ func TestJanitor(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "3", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start, QueueID: 1},
 					},
 					allocations: map[string]*invocation{
@@ -1035,7 +1035,7 @@ func TestJanitor(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start, QueueID: 1},
 						&invocation{ID: "3", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start, QueueID: 2},
 					},
@@ -1065,7 +1065,7 @@ func TestJanitor(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
 					},
@@ -1096,7 +1096,7 @@ func TestJanitor(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"5": &invocation{ID: "5", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},
 						"3": &invocation{ID: "3", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start},
@@ -1163,7 +1163,7 @@ func TestPrioritizerBasic(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start, QueueID: 1, Priority: uint64(1)},
 					},
 					allocations: map[string]*invocation{},
@@ -1200,7 +1200,7 @@ func TestPrioritizerBasic(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"1": &invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start},
 					},
@@ -1238,7 +1238,7 @@ func TestPrioritizerBasic(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start, QueueID: 1, Priority: uint64(1)},
 					},
 					allocations: map[string]*invocation{},
@@ -1277,7 +1277,7 @@ func TestPrioritizerBasic(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start, QueueID: 1, Priority: uint64(1)},
 						&invocation{ID: "2", Owner: "unit_test", BuildTag: "tag_2345", LastCheckin: start, QueueID: 2, Priority: uint64(2)},
 					},
@@ -1310,7 +1310,7 @@ func TestPrioritizerBasic(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start, QueueID: 1, Priority: uint64(1)},
 					},
 					allocations: map[string]*invocation{},
@@ -1353,7 +1353,7 @@ func TestPrioritizerBasic(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue: invocationq{
+					queue: invocationQueue{
 						&invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_3", LastCheckin: start, QueueID: 1, Priority: uint64(1)},
 					},
 					allocations: map[string]*invocation{
@@ -1393,7 +1393,7 @@ func TestPrioritizerBasic(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"1": &invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_1234", LastCheckin: start},
 					},
@@ -1430,7 +1430,7 @@ func TestPrioritizerBasic(t *testing.T) {
 				"xilinx::feature_foo": &license{
 					name:           "xilinx::feature_foo",
 					totalAvailable: 2,
-					queue:          invocationq{},
+					queue:          invocationQueue{},
 					allocations: map[string]*invocation{
 						"1": &invocation{ID: "1", Owner: "unit_test", BuildTag: "tag_2", LastCheckin: start},
 						"2": &invocation{ID: "2", Owner: "unit_test", BuildTag: "tag_1", LastCheckin: start},

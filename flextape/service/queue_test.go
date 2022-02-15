@@ -9,7 +9,7 @@ import (
 
 // Verify that methods don't break/crash on empty queues.
 func TestQueueEmpty(t *testing.T) {
-	iq := invocationq{}
+	iq := invocationQueue{}
 	assert.Nil(t, iq.Dequeue())
 	assert.Nil(t, iq.Dequeue())
 	assert.Equal(t, 0, iq.Len())
@@ -21,7 +21,7 @@ func TestQueueEmpty(t *testing.T) {
 }
 
 func TestQueueOrdering(t *testing.T) {
-	iq := invocationq{}
+	iq := invocationQueue{}
 	for i := 10; i > 0; i-- {
 		iq.Enqueue(&invocation{ID: fmt.Sprintf("id-%02d", i), Priority: i + 100})
 	}
@@ -86,7 +86,7 @@ func TestQueueOrdering(t *testing.T) {
 
 // Add/Remove items at random in the queue, verify that all invariants are maintained.
 func TestQueueIDs(t *testing.T) {
-	iq := invocationq{}
+	iq := invocationQueue{}
 	l := 0
 
 	for i := 0; i < 1000; i++ {

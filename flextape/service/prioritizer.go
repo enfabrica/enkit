@@ -29,7 +29,7 @@ type Prioritizer interface {
 	// Sorter is a function that returns a function capable of
 	// reordering the queue.
 	//
-	// The returned Sorter is generally passed to invocationq.Sort.
+	// The returned Sorter is generally passed to invocationQueue.Sort.
 	Sorter() Sorter
 }
 
