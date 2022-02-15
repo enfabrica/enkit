@@ -3853,8 +3853,10 @@ function gee__restore_all_branches() {
 
   _gee_fix_remote_origin_fetch_config
 
-  # TODO(jonathan): do I need to deepen this for shallow branches?
-  _git fetch origin
+  local OLDEST_COMMIT
+  OLDEST_COMMIT="$(date --date="-${CLONE_DEPTH_MONTHS} months" +"%Y-%M-%d")"
+  _info "Fetching all commits in origin since ${OLDEST_COMMIT}"
+  _git fetch origin --shallow-since "${OLDEST_COMMIT}"
 
   local -a BRANCHES=()
   mapfile -t BRANCHES < <( \
