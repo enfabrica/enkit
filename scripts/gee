@@ -3853,6 +3853,7 @@ function gee__restore_all_branches() {
 
   _gee_fix_remote_origin_fetch_config
 
+  # TODO(jonathan): do I need to deepen this for shallow branches?
   _git fetch origin
 
   local -a BRANCHES=()
