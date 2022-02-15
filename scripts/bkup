@@ -56,6 +56,7 @@ if ! [[ -f ~/.config/rclone/volume_id.txt ]]; then
   echo "${VOLUME_ID}" > ~/.config/rclone/volume_id.txt
 fi
 readonly RPATH="bkup/${USER}/${VOLUME_ID}"
+readonly BACKUPPATH="bkup/${USER}/${VOLUME_ID}_OLD"
 
 function _check_remote() {
   "${RCLONE}" ls remote:"${BUCKET}" --max-depth 1 &> /dev/null
@@ -267,12 +268,19 @@ function bkup__backup() {
     --links     # store symlinks as metadata
     --progress  # show progress
     --fast-list # pre-scan directory.  Maybe buggy?
-    --update    # only update out-of-date files
+    #  --update    # update will prevent removal of locally deleted files.
     --filter-from "${FILTERFILE}"  # skip specified files.
+    --backup-dir remote:${BUCKET}/${BACKUPPATH}  # move deleted files to BACKUP path
   )
   _cmd \
     flock ~/.bkup.backup.lock \
     "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
+
+  # expire old files from BACKUP path
+  _cmd \
+    flock ~/.bkup.backup.locl \
+    "${RCLONE}" delete --min-age 7d remote:${BUCKET}/${BACKUPPATH}"  \
+       --progress
 }
 
 ##########################################################################
