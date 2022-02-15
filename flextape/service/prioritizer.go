@@ -57,10 +57,10 @@ func (_ *FIFOPrioritizer) Sorter() Sorter {
 // 5 ~ 5 distribution in number of licenses.
 type EvenOwnersPrioritizer struct {
 	// Key: invocation.Owner, value represents # of requests queued,
-	// monothonically increasing.
+	// monotonically increasing.
 	enqueued map[string]uint64
 	// Key: invocation.Owner, value represents # of requests dequeued,
-	// monothonically increasing.
+	// monotonically increasing.
 	//
 	// "dequeued - queued" provides the # of entries in queue for the user.
 	// "current queue id - dequeued" provides the position in the queue.
