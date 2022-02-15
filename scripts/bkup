@@ -221,6 +221,7 @@ EOT
 - tmp/
 - /bazel-**/
 - /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
+- /.cargo/                          # rust binaries
 - /.gvfs/                           # contains mounted file systems?
 - /.local/share/gvfs-metadata/
 - /.Private/
