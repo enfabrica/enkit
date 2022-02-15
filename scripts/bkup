@@ -56,6 +56,7 @@ if ! [[ -f ~/.config/rclone/volume_id.txt ]]; then
   echo "${VOLUME_ID}" > ~/.config/rclone/volume_id.txt
 fi
 readonly RPATH="bkup/${USER}/${VOLUME_ID}"
+readonly BACKUPPATH="bkup/${USER}/${VOLUME_ID}_OLD"
 
 function _check_remote() {
   "${RCLONE}" ls remote:"${BUCKET}" --max-depth 1 &> /dev/null
@@ -180,7 +181,7 @@ function bkup__setup() {
   #check installed version of rclone to determine if update is necessary
   VERSION=$("${RCLONE}" --version 2>>errors | head -n 1)
   CURRENT_VERSION=$(curl -fsS https://downloads.rclone.org/version.txt)
-  if [[ "$version" != "$current_version" ]]; then
+  if [[ "$VERSION" != "$CURRENT_VERSION" ]]; then
     echo >&2 "Updating rclone from ${VERSION} to ${CURRENT_VERSION}"
     _install_rclone
   fi
@@ -209,12 +210,18 @@ EOT
 # Exclude git data that is potentially backed up to a remote server
 + /gee/*/.gee/*  # do back up gee's metadata files
 - /gee/          # don't back up anything else in gee-controlled repositories
+- gee/
+- /testgee/
+- testgee/
 - /.git/         # don't back up the contents of any .git directories.
 - **/.git/       # don't back up the contents of any .git directories.
 
 # Exclude these directories from backups:
+- /tmp/
+- tmp/
 - /bazel-**/
 - /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
+- /.cargo/                          # rust binaries
 - /.gvfs/                           # contains mounted file systems?
 - /.local/share/gvfs-metadata/
 - /.Private/
@@ -232,6 +239,7 @@ EOT
 #Files:
 - bin/rclone
 - .bash_history*
+- .lesshst*
 - .python_history
 - .xsession-errors            # contains errors from the current graphical session
 - .recently-used              # recently used files
@@ -262,17 +270,28 @@ EOT
 function bkup__backup() {
   _startup_checks
   _check_or_authorize_remote
+
+  # expire old files from BACKUP path
+  echo >&2 "Expiring old files from the remote backup directory."
+  _cmd \
+    flock ~/.bkup.backup.locl \
+    "${RCLONE}" delete --min-age 7d "remote:${BUCKET}/${BACKUPPATH}"  \
+       --progress
+
   local -a OPTS=(
     "--transfers=8"  # 8 threads
     --links     # store symlinks as metadata
     --progress  # show progress
     --fast-list # pre-scan directory.  Maybe buggy?
-    --update    # only update out-of-date files
+    #  --update    # update will prevent removal of locally deleted files.
     --filter-from "${FILTERFILE}"  # skip specified files.
+    --backup-dir "remote:${BUCKET}/${BACKUPPATH}"  # move deleted files to BACKUP path
   )
+  echo >&2 "Backing up local files to remote."
   _cmd \
     flock ~/.bkup.backup.lock \
     "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
+
 }
 
 ##########################################################################
