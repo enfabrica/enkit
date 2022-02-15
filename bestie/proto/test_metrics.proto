@@ -32,7 +32,8 @@ message ResultMetric {
     enum Result {
         FAIL = 0;
         PASS = 1;
-        INCOMPLETE = 2;
+        SKIP = 2;
+        INCOMPLETE = 3;
     }
     Result result = 2;
     repeated KeyValuePair tags = 3;
