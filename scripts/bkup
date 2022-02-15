@@ -263,6 +263,14 @@ EOT
 function bkup__backup() {
   _startup_checks
   _check_or_authorize_remote
+
+  # expire old files from BACKUP path
+  echo >&2 "Expiring old files from the remote backup directory."
+  _cmd \
+    flock ~/.bkup.backup.locl \
+    "${RCLONE}" delete --min-age 7d "remote:${BUCKET}/${BACKUPPATH}"  \
+       --progress
+
   local -a OPTS=(
     "--transfers=8"  # 8 threads
     --links     # store symlinks as metadata
@@ -272,15 +280,11 @@ function bkup__backup() {
     --filter-from "${FILTERFILE}"  # skip specified files.
     --backup-dir "remote:${BUCKET}/${BACKUPPATH}"  # move deleted files to BACKUP path
   )
+  echo >&2 "Backing up local files to remote."
   _cmd \
     flock ~/.bkup.backup.lock \
     "${RCLONE}" sync "${HOME}" "remote:${BUCKET}/${RPATH}" "${OPTS[@]}"
 
-  # expire old files from BACKUP path
-  _cmd \
-    flock ~/.bkup.backup.locl \
-    "${RCLONE}" delete --min-age 7d "remote:${BUCKET}/${BACKUPPATH}"  \
-       --progress
 }
 
 ##########################################################################
