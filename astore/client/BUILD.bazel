@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("//bazel/astore:defs.bzl", "astore_upload")
 
 go_library(
     name = "go_default_library",
@@ -47,8 +48,6 @@ go_binary(
     static = "on",
     visibility = ["//visibility:public"],
 )
-
-load("//bazel/astore:defs.bzl", "astore_upload")
 
 astore_upload(
     name = "deploy",

@@ -9,7 +9,7 @@ def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
     )
 
 def _astore_upload(ctx):
-    push = ctx.actions.declare_file("astore_upload.sh")
+    push = ctx.actions.declare_file("{}.sh".format(ctx.attr.name))
 
     if ctx.attr.dir and ctx.attr.file:
         fail("in '%s' rule for an astore_upload in %s - you can only set dir or file, not both" % (ctx.attr.name, ctx.build_file_path), "dir")
