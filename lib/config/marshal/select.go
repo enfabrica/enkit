@@ -31,7 +31,9 @@ var Known = []FileMarshaller{
 // Represents a sorted list of marshallers. Lowest index is the most preferred marshaller.
 type FileMarshallers []FileMarshaller
 
-// ByExtension returns the first FileMarshaller based on the extension of the path provided.
+// ByExtension returns the first FileMarshaller based on the extension of the
+// path provided. `path` can be either a local file path or a URL; if `path` is
+// a URL, the Path component of the URL is used for extension-based detection.
 func (fm FileMarshallers) ByExtension(path string) FileMarshaller {
 	u, err := url.Parse(path)
 	if err == nil && u != nil {
