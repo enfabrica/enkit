@@ -9,12 +9,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/atomic"
 	"net"
 	"net/http"
 	"os/exec"
 	"strconv"
-	"time"
 )
 
 var (
@@ -43,14 +41,6 @@ func SendMetricsRequest(ctx context.Context, c *config.Node) error {
 		}, func() float64 {
 			return numErr
 		})
-		averageErr := atomic.NewFloat64(0.0)
-		promauto.NewGaugeFunc(prometheus.GaugeOpts{
-			Name:      "dmesg_errors_per_second",
-			Namespace: "machinist",
-			Help:      "Logs from dmesg",
-		}, func() float64 {
-			return averageErr.Load()
-		})
 
 		cmd := exec.Command("dmesg", "-w", "--level=err")
 		stdout, err := cmd.StdoutPipe()
@@ -62,16 +52,9 @@ func SendMetricsRequest(ctx context.Context, c *config.Node) error {
 			fmt.Println(err)
 		}
 		buf := bufio.NewReader(stdout) // Notice that this is not in a loop
-		go func() {
-			for {
-				_ = <- time.After(1 * time.Second)
-				averageErr.Store(0.0)
-			}
-		}()
 		for {
 			line, _, _ := buf.ReadLine()
 			numErr += 1
-			averageErr.Add(1.0)
 			c.Root.Log.Infof(string(line))
 		}
 	}()
