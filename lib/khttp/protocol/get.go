@@ -6,9 +6,7 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/krequest"
 	"io"
 	"io/ioutil"
-	//	"log"
 	"net/http"
-	//	"net/http/httputil"
 	"time"
 )
 

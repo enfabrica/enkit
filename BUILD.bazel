@@ -45,3 +45,14 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 buildifier(
     name = "buildifier",
 )
+
+load("//bazel/linting:defs.bzl", "lint", "parse_lint")
+
+# TODO(adam): write a simple gazelle-like binary that walks the tree and puts any default_library that has a main as a lint rule, or puts a lint rules in that directory
+lint(
+    go_libs = [
+        "//machinist/cmd:go_default_library",
+        "//astore/server:go_default_library",
+        "//enkit:go_default_library",
+    ],
+)

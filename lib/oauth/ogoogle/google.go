@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"

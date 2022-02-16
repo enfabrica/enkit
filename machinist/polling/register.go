@@ -14,6 +14,7 @@ func SendRegisterRequests(ctx context.Context, client machinist_rpc.ControllerCl
 	if err != nil {
 		return err
 	}
+	
 	l := conf.Common.Root.Log
 	registerRequest := &machinist_rpc.PollRequest{
 		Req: &machinist_rpc.PollRequest_Register{

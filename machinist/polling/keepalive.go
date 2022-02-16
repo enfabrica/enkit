@@ -11,6 +11,7 @@ func SendKeepAliveRequest(ctx context.Context, client machinist_rpc.ControllerCl
 	if err != nil {
 		return err
 	}
+
 	for {
 		select {
 		case <-time.After(1 * time.Second):
