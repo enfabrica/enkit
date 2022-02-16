@@ -428,7 +428,7 @@ function bkup__diff() {
   fi
 
   local TMPFILE
-  TMPFILE="$(/usr/bin/mktemp "$(basename "$1").XXXXXX")"
+  TMPFILE="$(/usr/bin/mktemp "/tmp/$(basename "$1").XXXXXX")"
   _cmd "${RCLONE}" cat \
     "remote:${BUCKET}/${RPATH}${LPATH}" \
     "${OPTS[@]}" \
@@ -460,9 +460,6 @@ function bkup__restore() {
     --update
     --max-delete 0
   )
-  if [[ -f "${FILTERFILE}" ]]; then
-    OPTS+=( --filter-from "${FILTERFILE}" )
-  fi
 
   if [[ "$#" -eq 0 ]]; then
     echo >&2 "\"restore\" requires at least one file to restore."
@@ -471,7 +468,7 @@ function bkup__restore() {
   fi
 
   local TMPFILE F REL_P
-  TMPFILE="$(/usr/bin/mktemp bkup.restore.XXXXXX)"
+  TMPFILE="$(/usr/bin/mktemp /tmp/bkup.restore.XXXXXX)"
   for F in "$@"; do
     REL_P="$(realpath -m --relative-base="${HOME}" "${F}")"
     if [[ "${REL_P}" =~ ^/ ]]; then
