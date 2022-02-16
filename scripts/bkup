@@ -51,8 +51,8 @@ VOLUME_ID="${VOLUME_ID:-"${LOCAL_VOLUME_ID}"}"
 if [[ -z "${VOLUME_ID}" ]]; then
   echo >&2 "This seems to be your first time running bkup on this machine."
   echo >&2 ""
-  echo >&2 "bkup needs a unique (to you) identifier for the backup volume"
-  echo >&2 "associated with this machine."
+  echo >&2 "bkup needs an identifier for the backup volume associated with this"
+  echo >&2 "machine (for example, \"chromebook1\")."
   echo >&2 ""
   read -e -r -i "backup1" -p \
     "What shall we name this backup volume?  " \
@@ -216,48 +216,45 @@ EOT
   if ! [[ -e "${FILTERFILE}" ]]; then
     cat >"${FILTERFILE}" <<'EOT'
 # Exclude git data that is potentially backed up to a remote server
-+ /gee/*/.gee/*  # do back up gee's metadata files
-- /gee/          # don't back up anything else in gee-controlled repositories
-- gee/
++ **/.gee/*
+- /gee/
 - /testgee/
-- testgee/
-- /.git/         # don't back up the contents of any .git directories.
-- **/.git/       # don't back up the contents of any .git directories.
+- /gee.original/
+- /.git/
+- **/.git/
 
 # Exclude these directories from backups:
-- /tmp/
-- tmp/
 - /bazel-**/
-- /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
-- /.cargo/                          # rust binaries
-- /.gvfs/                           # contains mounted file systems?
+- /**/bazel-*/
+- /.gvfs/
 - /.local/share/gvfs-metadata/
 - /.Private/
 - /Private/
-- /.dbus/                           # session-specific
-- /.cache/
-- /.Trash/                          # do I need to say more?
+- /.dbus/
+- /.cache/**
+- /.cargo/**
+- /.Trash/
 - /.local/share/Trash/
-- /.aptitude/                       # cached packages lists
-- /.rustup/                         # local rust installation
-- /.poetry/                         # python poetry installation
-- /go/pkg/mod/                      # cached go packages
+- /.aptitude/
+- /.rustup/
+- /.poetry/
+- /.local/
+- /go/pkg/mod/**
 - /tmp/
 
 #Flash-specific:
-- .adobe**                          # Cache for flash, maybe others?
-- .macromedia**   # except for Flash persistence, there is no reason to keep this
+- .adobe**
+- .macromedia**
 
 #Files:
 - bin/rclone
 - .bash_history*
 - .lesshst*
 - .python_history
-- .xsession-errors            # contains errors from the current graphical session
-- .recently-used              # recently used files
+- .xsession-errors
+- .recently-used
 - .recently-used.xbel
 - .thumbnails
-
 EOT
     echo >&2 "Made ${FILTERFILE}"
   fi
