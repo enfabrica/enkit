@@ -239,6 +239,8 @@ EOT
 - /.Trash/                          # do I need to say more?
 - /.local/share/Trash/
 - /.aptitude/                       # cached packages lists
+- /go/pkg/mod/                      # cached go packages
+- /tmp/
 
 #Flash-specific:
 - .adobe**                          # Cache for flash, maybe others?
