@@ -72,12 +72,21 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 	}
 	defaultOutputsRoot := filepath.Join(homeDir, "outputs")
 
+	rc.Command.PersistentPreRunE = rc.validate
 	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs-root", defaultOutputsRoot, "Root dir of mounted outputs")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
 	return rc, nil
+}
+
+func (rc *Root) validate(cmd *cobra.Command, args []string) error {
+	_, _, err := rc.BaseFlags.IdentityCookie()
+	if err != nil {
+		return fmt.Errorf("failed to fetch identity cookie.\n\n\tYou must be logged in via `enkit login` to run this command.\n")
+	}
+	return nil
 }
 
 type Mount struct {
