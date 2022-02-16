@@ -1,14 +1,15 @@
-package kbuildbarn_test
+package kbuildbarn
 
 import (
-	"github.com/enfabrica/enkit/lib/kbuildbarn"
-	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEmpty(t *testing.T) {
-	result := kbuildbarn.GenerateLinksForFiles([]*bespb.File{}, "", "", "")
+	result := GenerateLinksForFiles([]*bespb.File{}, "", "", "", "")
 	assert.Nil(t, result)
 }
 
@@ -18,7 +19,7 @@ func TestSingleContain(t *testing.T) {
 			Name: "simple.txt", Digest: "digest", Length: 614,
 		},
 	}
-	result := kbuildbarn.GenerateLinksForFiles(simple, "/enfabrica/mymount", "myInvocation", "localCluster")
+	result := GenerateLinksForFiles(simple, "/enfabrica/mymount", "", "myInvocation", "localCluster")
 	assert.Equal(t, "/enfabrica/mymount/cas/localCluster/blobs/file/digest-614", result[0].Src)
 	assert.Equal(t, "/enfabrica/mymount/scratch/myInvocation/simple.txt", result[0].Dest)
 }
@@ -41,20 +42,24 @@ func TestParseMany(t *testing.T) {
 	baseName := "/foo/bar"
 	clusterName := "duster"
 	invocationPrefix := "invocation"
-	expected := map[string]string{
-		"/foo/bar/scratch/invocation/simple.txt":       "/foo/bar/cas/duster/blobs/file/digest0-614",
-		"/foo/bar/scratch/invocation/hello/simple.txt": "/foo/bar/cas/duster/blobs/file/digest1-43",
-		"/foo/bar/scratch/invocation/one/two/foo.bar":  "/foo/bar/cas/duster/blobs/file/digest2-888",
-		"/foo/bar/scratch/invocation/tarball.tar":      "/foo/bar/cas/duster/blobs/file/digest3-777",
+	expected := HardlinkList{
+		&Hardlink{
+			Src:  "/foo/bar/cas/duster/blobs/file/digest0-614",
+			Dest: "/foo/bar/scratch/invocation/subdir/simple.txt",
+		},
+		&Hardlink{
+			Src:  "/foo/bar/cas/duster/blobs/file/digest1-43",
+			Dest: "/foo/bar/scratch/invocation/subdir/hello/simple.txt",
+		},
+		&Hardlink{
+			Src:  "/foo/bar/cas/duster/blobs/file/digest2-888",
+			Dest: "/foo/bar/scratch/invocation/subdir/one/two/foo.bar",
+		},
+		&Hardlink{
+			Src:  "/foo/bar/cas/duster/blobs/file/digest3-777",
+			Dest: "/foo/bar/scratch/invocation/subdir/tarball.tar",
+		},
 	}
-	r := kbuildbarn.GenerateLinksForFiles(many, baseName, invocationPrefix, clusterName)
-	for expectedDest, expectedSim := range expected {
-		foundByDest := r.FindByDest(expectedDest)
-		foundBySim := r.FindBySrc(expectedSim)
-		assert.NotNil(t, foundBySim)
-		assert.NotNil(t, foundByDest)
-		assert.Equal(t, foundBySim, foundByDest)
-		assert.Equal(t, expectedDest, foundByDest.Dest)
-		assert.Equal(t, expectedSim, foundBySim.Src)
-	}
+	r := GenerateLinksForFiles(many, baseName, "subdir", invocationPrefix, clusterName)
+	assert.ElementsMatch(t, r, expected)
 }

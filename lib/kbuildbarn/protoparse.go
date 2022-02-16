@@ -1,13 +1,15 @@
 package kbuildbarn
 
 import (
-	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
+	"path/filepath"
 	"strconv"
+
+	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
 )
 
 const (
 	DefaultBBClientdCasFileTemplate     = "cas/%s/blobs/file/%s-%s"
-	DefaultBBClientdScratchFileTemplate = "scratch/%s/%s"
+	DefaultBBClientdScratchFileTemplate = "scratch/%s/%s/%s"
 )
 
 type HardlinkList []*Hardlink
@@ -53,9 +55,16 @@ func MergeLists(lists ...HardlinkList) HardlinkList {
 	return toReturn
 }
 
+func parsePathPrefix(prefix []string) string {
+	if len(prefix) == 3 && prefix[0] == "bazel-out" && prefix[2] == "bin" {
+		return "bazel-bin"
+	}
+	return filepath.Join(prefix...)
+}
+
 // GenerateLinksForFiles will generate a HardlinkList who has a list of all symlinks from a list of *bespb.File msg.
 // If the msg has no files, it will return nil.
-func GenerateLinksForFiles(filesPb []*bespb.File, baseName, invocationPrefix, clusterName string) HardlinkList {
+func GenerateLinksForFiles(filesPb []*bespb.File, baseName, destPrefix, invocationPrefix, clusterName string) HardlinkList {
 	var toReturn []*Hardlink
 	for _, f := range filesPb {
 		digest := f.Digest
@@ -68,12 +77,20 @@ func GenerateLinksForFiles(filesPb []*bespb.File, baseName, invocationPrefix, cl
 			digest = hash
 			size = psize
 		}
+		if destPrefix == "" {
+			// TODO: This is where the bazel-bin prefix gets inserted; ideally this
+			// would be done at a higher level.
+			destPrefix = parsePathPrefix(f.GetPathPrefix())
+		}
+		if destPrefix == "" {
+			destPrefix = "."
+		}
 		simSource := File(baseName, digest, size,
 			WithFileTemplate(DefaultBBClientdCasFileTemplate),
 			WithTemplateArgs(clusterName, digest, size))
-		simDest := File(baseName, digest, size,
+		simDest := filepath.Clean(File(baseName, digest, size,
 			WithFileTemplate(DefaultBBClientdScratchFileTemplate),
-			WithTemplateArgs(invocationPrefix, f.Name))
+			WithTemplateArgs(invocationPrefix, destPrefix, f.Name)))
 		toReturn = append(toReturn, &Hardlink{Dest: simDest, Src: simSource})
 	}
 	return toReturn

@@ -24,8 +24,8 @@ go_test(
         "protoparse_test.go",
         "urls_test.go",
     ],
+    embed = [":go_default_library"],
     deps = [
-        ":go_default_library",
         "//lib/bes:go_default_library",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
         "//third_party/buildbuddy/proto:buildbuddy_go_proto",

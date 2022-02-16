@@ -1,19 +1,20 @@
-package kbuildbarn_test
+package kbuildbarn
 
 import (
 	"bytes"
 	"context"
-	"github.com/enfabrica/enkit/lib/bes"
-	"github.com/enfabrica/enkit/lib/kbuildbarn"
-	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
-	bbpb "github.com/enfabrica/enkit/third_party/buildbuddy/proto"
-	"github.com/golang/protobuf/proto"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"testing"
+
+	"github.com/enfabrica/enkit/lib/bes"
+	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
+	bbpb "github.com/enfabrica/enkit/third_party/buildbuddy/proto"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMergeResults(t *testing.T) {
@@ -41,13 +42,13 @@ func TestMergeResults(t *testing.T) {
 	testHttpClient := newTestHttpClient(t, 200, e)
 	buddy := bes.NewTestClient(testHttpClient)
 	ctx := context.TODO()
-	onlyTestResults, err := kbuildbarn.GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithTestResults())
+	onlyTestResults, err := GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, len(sameFiles), len(onlyTestResults))
-	onlyNamedFileResults, err := kbuildbarn.GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles())
+	onlyNamedFileResults, err := GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", WithNamedSetOfFiles())
 	assert.NoError(t, err)
 	assert.Equal(t, len(sameFiles), len(onlyNamedFileResults))
-	allResults, err := kbuildbarn.GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
+	allResults, err := GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", WithNamedSetOfFiles(), WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, len(sameFiles), len(allResults))
 
@@ -59,7 +60,7 @@ func TestMergeResults(t *testing.T) {
 
 }
 
-func linkToDestArray(l kbuildbarn.HardlinkList) []string {
+func linkToDestArray(l HardlinkList) []string {
 	var s []string
 	for _, v := range l {
 		s = append(s, v.Dest)
@@ -96,13 +97,13 @@ func TestUniqueResponses(t *testing.T) {
 	testHttpClient := newTestHttpClient(t, 200, e)
 	buddy := bes.NewTestClient(testHttpClient)
 	ctx := context.TODO()
-	onlyTestResults, err := kbuildbarn.GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithTestResults())
+	onlyTestResults, err := GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, sharedFileSize, len(onlyTestResults))
-	onlyNamedFileResults, err := kbuildbarn.GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles())
+	onlyNamedFileResults, err := GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", WithNamedSetOfFiles())
 	assert.NoError(t, err)
 	assert.Equal(t, namedSetSize+sharedFileSize, len(onlyNamedFileResults))
-	allResults, err := kbuildbarn.GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", kbuildbarn.WithNamedSetOfFiles(), kbuildbarn.WithTestResults())
+	allResults, err := GenerateHardlinks(ctx, buddy, "/base", "invocation", "cluster", WithNamedSetOfFiles(), WithTestResults())
 	assert.NoError(t, err)
 	assert.Equal(t, namedSetSize+sharedFileSize, len(allResults))
 
