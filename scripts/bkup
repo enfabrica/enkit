@@ -239,6 +239,8 @@ EOT
 - /.Trash/                          # do I need to say more?
 - /.local/share/Trash/
 - /.aptitude/                       # cached packages lists
+- /.rustup/                         # local rust installation
+- /.poetry/                         # python poetry installation
 - /go/pkg/mod/                      # cached go packages
 - /tmp/
 
