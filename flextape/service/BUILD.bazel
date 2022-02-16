@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "license.go",
+        "prioritizer.go",
+        "queue.go",
         "service.go",
     ],
     importpath = "github.com/enfabrica/enkit/flextape/service",
@@ -21,7 +23,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["service_test.go"],
+    srcs = [
+        "queue_test.go",
+        "service_test.go",
+    ],
     embed = [":go_default_library"],
     deps = [
         "//flextape/proto:go_default_library",
