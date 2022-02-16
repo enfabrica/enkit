@@ -131,7 +131,7 @@ function bkup__help() {
       set -- "usage"
     fi
     if [[ "$1" == "usage" ]]; then
-      echo "${USAGE}" | sed "s/{{VERSION}}/${VERSION}/"
+      echo "${USAGE//\{\{VERSION\}\}/"${VERSION}"}"
       echo ""
     fi
     if [[ ("$1" == "usage") || ("$1" == "commands") ]]; then
@@ -610,12 +610,10 @@ function main() {
   local cmdname="$1"; shift
   if type "bkup__${cmdname}" >/dev/null 2>&1; then
     "bkup__${cmdname}" "$@"
-    ABNORMAL=0
   else
     echo >&2 "Unknown command ${cmdname}"
     echo ""
     bkup__help commands
-    ABNORMAL=0
     exit 2
   fi
 }
