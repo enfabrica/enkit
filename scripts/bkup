@@ -40,19 +40,27 @@ readonly FILTERFILE="${CONFIGDIR}/filter-list.txt"
 readonly BUCKET="rclone-devops-284019"
 readonly PAGER="${PAGER:-less}"
 
-LOCAL_VOLUME_ID="$(\
-  grep </proc/1/cgroup -o -E 'docker/([a-f0-9]{12})' | sed 's/docker.//' | head -n 1 )"
 if ! [[ -d ~/.config/rclone ]]; then
   mkdir -p ~/.config/rclone
 fi
+LOCAL_VOLUME_ID=""
 if [[ -f ~/.config/rclone/volume_id.txt ]]; then
   read -r LOCAL_VOLUME_ID < ~/.config/rclone/volume_id.txt
 fi
-readonly VOLUME_ID="${VOLUME_ID:-"${LOCAL_VOLUME_ID}"}"
+VOLUME_ID="${VOLUME_ID:-"${LOCAL_VOLUME_ID}"}"
 if [[ -z "${VOLUME_ID}" ]]; then
-  echo >&2 "Could not determine docker id, aborting."
-fi
-if ! [[ -f ~/.config/rclone/volume_id.txt ]]; then
+  echo >&2 "This seems to be your first time running bkup on this machine."
+  echo >&2 ""
+  echo >&2 "bkup needs a unique (to you) identifier for the backup volume"
+  echo >&2 "associated with this machine."
+  echo >&2 ""
+  read -e -r -i "backup1" -p \
+    "What shall we name this backup volume?  " \
+    VOLUME_ID
+  if [[ -z "${VOLUME_ID}" ]]; then
+    echo >&2 "Volume id can't be an empty string."
+    exit 1
+  fi
   echo "${VOLUME_ID}" > ~/.config/rclone/volume_id.txt
 fi
 readonly RPATH="bkup/${USER}/${VOLUME_ID}"
