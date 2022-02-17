@@ -4568,7 +4568,7 @@ function _render_html_manual() {
   echo "<h2>Command Summary</h2>"
   echo ""
   echo "<table>"
-  echo "  <th><td>Command</td><td>Summary</td></th>"
+  echo "  <tr><th>Command</th><th>Summary</th></tr>"
   local h h_cmd h_desc
   for h in "${HELP[@]}"; do
     IFS=": " read -r h_cmd h_desc <<< "${h}"
