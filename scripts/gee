@@ -147,7 +147,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.21"
+readonly VERSION="0.2.22"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -1780,13 +1780,13 @@ function _print_codeowners() {
       local owner
       for owner in "${owners[@]}"; do
         local oname="${owner}"
-        if [[ "${oname}" != *@* ]]; then
-          oname="\@${oname}"
+        if [[ "${oname}" == @* ]]; then
+          oname="${oname:1}"
         fi
-        if [[ "${RMAP["${owner}"]+found}" ]]; then
-          echo "${oname}(${RMAP["${owner}"]})"
+        if [[ "${RMAP["${oname}"]+found}" ]]; then
+          echo "${owner}(${RMAP["${oname}"]})"
         else
-          echo "${oname}"
+          echo "${owner}"
         fi
       done | xargs
     fi
