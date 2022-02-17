@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>gee man page</title>
+</head>
+<style>
+/* Derived from https://github.com/simonlc/Markdown-CSS          */
+/* Use permitted as per Unlicense license https://unlicense.org/ */
+html {
+  font-size: 100%;
+  overflow-y: scroll;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+body {
+  color: #444;
+  font-family: Verdana, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.5em;
+  padding: 1em;
+  margin: auto;
+  max-width: 42em;
+  background: #fefefe;
+}
+
+a {
+  color: #0645ad;
+  text-decoration: none;
+}
+
+a:visited {
+  color: #0b0080;
+}
+
+a:hover {
+  color: #06e;
+}
+
+a:active {
+  color: #faa700;
+}
+
+a:focus {
+  outline: thin dotted;
+}
+
+a:hover,
+a:active {
+  outline: 0;
+}
+
+::-moz-selection {
+  background: rgba(255, 255, 0, 0.3);
+  color: #000;
+}
+
+::selection {
+  background: rgba(255, 255, 0, 0.3);
+  color: #000;
+}
+
+a::-moz-selection {
+  background: rgba(255, 255, 0, 0.3);
+  color: #0645ad;
+}
+
+a::selection {
+  background: rgba(255, 255, 0, 0.3);
+  color: #0645ad;
+}
+
+p {
+  margin: 1em 0;
+}
+
+img {
+  max-width: 100%;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: normal;
+  color: #111;
+  line-height: 1em;
+}
+
+h4,
+h5,
+h6 {
+  font-weight: bold;
+}
+
+h1 {
+  font-size: 2.5em;
+}
+
+h2 {
+  font-size: 2em;
+}
+
+h3 {
+  font-size: 1.5em;
+}
+
+h4 {
+  font-size: 1.2em;
+}
+
+h5 {
+  font-size: 1em;
+}
+
+h6 {
+  font-size: 0.9em;
+}
+
+blockquote {
+  color: #666666;
+  margin: 0;
+  padding-left: 3em;
+  border-left: 0.5em #eee solid;
+}
+
+hr {
+  display: block;
+  border: 0;
+  border-top: 1px solid #aaa;
+  border-bottom: 1px solid #eee;
+  margin: 1em 0;
+  padding: 0;
+}
+
+pre,
+code,
+kbd,
+samp {
+  color: #000;
+  font-family: monospace, monospace;
+  _font-family: 'courier new', monospace;
+  font-size: 0.98em;
+}
+
+pre {
+  white-space: pre;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+b,
+strong {
+  font-weight: bold;
+}
+
+dfn {
+  font-style: italic;
+}
+
+ins {
+  background: #ff9;
+  color: #000;
+  text-decoration: none;
+}
+
+mark {
+  background: #ff0;
+  color: #000;
+  font-style: italic;
+  font-weight: bold;
+}
+
+sub,
+sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sup {
+  top: -0.5em;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+ul,
+ol {
+  margin: 1em 0;
+  padding: 0 0 0 2em;
+}
+
+li p:last-child {
+  margin: 0;
+}
+
+dd {
+  margin: 0 0 0 2em;
+}
+
+img {
+  border: 0;
+  -ms-interpolation-mode: bicubic;
+  vertical-align: middle;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+td {
+  vertical-align: top;
+}
+
+@media only screen and (min-width: 480px) {
+  body {
+    font-size: 14px;
+  }
+}
+
+@media only screen and (min-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    filter: none !important;
+    -ms-filter: none !important;
+  }
+
+  body {
+    font-size: 12pt;
+    max-width: 100%;
+  }
+
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+
+  hr {
+    height: 1px;
+    border: 0;
+    border-bottom: 1px solid black;
+  }
+
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+
+  abbr[title]:after {
+    content: " (" attr(title) ")";
+  }
+
+  .ir a:after,
+  a[href^="javascript:"]:after,
+  a[href^="#"]:after {
+    content: "";
+  }
+
+  pre,
+  blockquote {
+    border: 1px solid #999;
+    padding-right: 1em;
+    page-break-inside: avoid;
+  }
+
+  tr,
+  img {
+    page-break-inside: avoid;
+  }
+
+  img {
+    max-width: 100% !important;
+  }
+
+  @page :left {
+    margin: 15mm 20mm 15mm 10mm;
+  }
+
+  @page :right {
+    margin: 15mm 10mm 15mm 20mm;
+  }
+
+  p,
+  h2,
+  h3 {
+    orphans: 3;
+    widows: 3;
+  }
+
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+}
+</style>
+<body>
+<pre>
+. __ _  ___  ___
+ / _` |/ _ \/ _ \  git
+| (_| |  __/  __/  enabled
+ \__, |\___|\___|  enfabrication
+ |___/
+</pre>
+<p>
+gee version: 0.2.22
+</p>
+<p>
+gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
+tribal knowledge about how to use git the right way (for us), implementing one
+standard and well-supported workflow.  "gee" is also an instructional tool: by
+showing each command as it executes, gee helps users learn git.
+</p>
+
+<h2 id="Features">Features:</h2>
+<p>
+Uses the "worktree" feature so that:
+</p>
+<ol>
+<li>every branch is always visible in its own directory.</li>
+<li>switching branches is accomplished by changing directory.</li>
+<li>it's harder to accidentally save changes to the wrong branch.</li>
+<li>users can have uncommitted changes pending in more than one branch.</li>
+</ol>
+<p>
+All branch directories are named ~/gee/<REPO>/<<code>BRANCH</code>>.
+</p>
+<p>
+All local commits are automatically backed up to github.
+</p>
+<p>
+Tracks "parentage" (which branch is derived from which).
+</p>
+<p>
+Sets up and enforces use of ssh for all interactions with github.
+</p>
+<p>
+Supports multi-homed development (user can do work on various hosts without
+NFS-mounted home directories).
+</p>
+
+<h2 id="An">An example of simple use:</h2>
+<p>
+1. Run "gee init" to clone and check out the enfabrica/internal repo.  This
+   only needs to be done once per home directory.
+</p>
+<p>
+2. "cd ~/gee/internal/main" to start in the main branch.
+</p>
+<p>
+3. Make a feature branch: "gee make_branch my_feature"
+   Then: "cd $(gee gcd my_feature)"
+</p>
+<p>
+4. Make some changes, and call "gee commit" whenever needed to checkpoint
+   your work.
+</p>
+<p>
+5. Call "gee update" to pull new changes from upstream.
+</p>
+<p>
+6. When ready to send your change out for review:
+</p>
+<pre>
+    gee fix  # runs all automatic code formatters
+    gee commit -a -m "ran gee fix"
+    gee make_pr  # creates a pull request.
+</pre>
+<p>
+7. You can continue to make updates to your branch, and update your
+   PR by running "gee commit".
+</p>
+<p>
+8. When approved, run "gee submit_pr" to merge your change.
+</p>
+
+<h2 id="An">An example of more complex use:</h2>
+<p>
+You can continue to develop a second feature while the first feature is out for
+review.
+</p>
+<p>
+1. Make a branch of a branch:
+</p>
+<pre>
+     cd $(gee gcd my_feature)
+     gee mkbr my_feature2
+</pre>
+<p>
+3. Do work in the child branch:
+</p>
+<pre>
+     cd $(gee gcd my_feature2)
+</pre>
+<p>
+2. Recursively update a chain of branches:
+</p>
+<pre>
+     gee rupdate
+</pre>
+
+<h2>Command Summary</h2>
+
+<table>
+  <th><td>Command</td><td>Summary</td></th>
+  <tr><td>
+    <a href="#init">init</a>
+  </td><td>
+    initialize a new git workspace
+  </td></tr>
+  <tr><td>
+    <a href="#config">config</a>
+  </td><td>
+    Set various configuration options.
+  </td></tr>
+  <tr><td>
+    <a href="#make_branch">make_branch</a>
+  </td><td>
+    Create a new child branch based on the current branch.
+  </td></tr>
+  <tr><td>
+    <a href="#log">log</a>
+  </td><td>
+    Log of commits since parent branch.
+  </td></tr>
+  <tr><td>
+    <a href="#diff">diff</a>
+  </td><td>
+    Differences in this branch.
+  </td></tr>
+  <tr><td>
+    <a href="#pack">pack</a>
+  </td><td>
+    Exports all unsubmitted changes in this branch as a pack file.
+  </td></tr>
+  <tr><td>
+    <a href="#unpack">unpack</a>
+  </td><td>
+    Patch the local branch from a pack file.
+  </td></tr>
+  <tr><td>
+    <a href="#update">update</a>
+  </td><td>
+    integrate changes from parent into this branch.
+  </td></tr>
+  <tr><td>
+    <a href="#rupdate">rupdate</a>
+  </td><td>
+    Recursively integrate changes from parents into this branch.
+  </td></tr>
+  <tr><td>
+    <a href="#update_all">update_all</a>
+  </td><td>
+    Update all branches.
+  </td></tr>
+  <tr><td>
+    <a href="#whatsout">whatsout</a>
+  </td><td>
+    List locally changed files in this branch.
+  </td></tr>
+  <tr><td>
+    <a href="#codeowners">codeowners</a>
+  </td><td>
+    Provide detailed information about required approvals for this PR.
+  </td></tr>
+  <tr><td>
+    <a href="#lsbranches">lsbranches</a>
+  </td><td>
+    List information about each branch.
+  </td></tr>
+  <tr><td>
+    <a href="#cleanup">cleanup</a>
+  </td><td>
+    Automatically remove branches without local changes.
+  </td></tr>
+  <tr><td>
+    <a href="#get_parent">get_parent</a>
+  </td><td>
+    Which branch is this branch branched from?
+  </td></tr>
+  <tr><td>
+    <a href="#set_parent">set_parent</a>
+  </td><td>
+    Set another branch as parent of this branch.
+  </td></tr>
+  <tr><td>
+    <a href="#commit">commit</a>
+  </td><td>
+    Commit all changes in this branch
+  </td></tr>
+  <tr><td>
+    <a href="#revert">revert</a>
+  </td><td>
+    Revert specified files to match the parent branch.
+  </td></tr>
+  <tr><td>
+    <a href="#pr_checkout">pr_checkout</a>
+  </td><td>
+    Create a client containing someone's pull request.
+  </td></tr>
+  <tr><td>
+    <a href="#pr_list">pr_list</a>
+  </td><td>
+    List outstanding PRs
+  </td></tr>
+  <tr><td>
+    <a href="#pr_edit">pr_edit</a>
+  </td><td>
+    Edit an existing pull request.
+  </td></tr>
+  <tr><td>
+    <a href="#pr_view">pr_view</a>
+  </td><td>
+    View an existing pull request.
+  </td></tr>
+  <tr><td>
+    <a href="#pr_make">pr_make</a>
+  </td><td>
+    Creates a pull request from this branch.
+  </td></tr>
+  <tr><td>
+    <a href="#pr_check">pr_check</a>
+  </td><td>
+    Checks whether presubmit tests for a PR.
+  </td></tr>
+  <tr><td>
+    <a href="#pr_submit">pr_submit</a>
+  </td><td>
+    Merge the approved PR into the parent branch.
+  </td></tr>
+  <tr><td>
+    <a href="#remove_branch">remove_branch</a>
+  </td><td>
+    Remove a branch.
+  </td></tr>
+  <tr><td>
+    <a href="#fix">fix</a>
+  </td><td>
+    Run automatic code formatters over changed files only.
+  </td></tr>
+  <tr><td>
+    <a href="#gcd">gcd</a>
+  </td><td>
+    Change directory to another branch.
+  </td></tr>
+  <tr><td>
+    <a href="#hello">hello</a>
+  </td><td>
+    Check connectivity to github.
+  </td></tr>
+  <tr><td>
+    <a href="#create_ssh_key">create_ssh_key</a>
+  </td><td>
+    Create and enroll an ssh key.
+  </td></tr>
+  <tr><td>
+    <a href="#share">share</a>
+  </td><td>
+    Share your branch.
+  </td></tr>
+  <tr><td>
+    <a href="#repair">repair</a>
+  </td><td>
+    Repair your gee workspace.
+  </td></tr>
+  <tr><td>
+    <a href="#bash_setup">bash_setup</a>
+  </td><td>
+    Configure the bash environment for gee.
+  </td></tr>
+  <tr><td>
+    <a href="#upgrade">upgrade</a>
+  </td><td>
+    Upgrade the gee tool.
+  </td></tr>
+  <tr><td>
+    <a href="#version">version</a>
+  </td><td>
+    Print tool version information.
+  </td></tr>
+  <tr><td>
+    <a href="#help">help</a>
+  </td><td>
+    Print more help about a command.
+  </td></tr>
+</table>
+
+<h2>Commands</h2>
+
+<h3>init</h3>
+<p>
+Usage: gee init [<repo>]
+</p>
+<p>
+Arguments:
+</p>
+<p>
+   repo: Specifies which enfabrica repository to check out.
+         If repo is not specified, `internal` is used by default.
+</p>
+<p>
+`gee init` creates a new gee-controlled workspace in the user's home directory.
+The directory `~/gee/<repo>/main` will be created and populated, and all
+other branches will be checked out into `~/gee/<repo>/<branch>`.
+</p>
+
+<h3>config</h3>
+<p>
+Usage: gee config <option>
+</p>
+<p>
+Valid configuration options are:
+</p>
+<ol>
+<li>"default": Reset to default settings.</li>
+<li>"enable_vim": Set "vimdiff" as your merge tool.</li>
+<li>"enable_emacs": Set "emacs" as your merge tool.</li>
+<li>"enable_vscode": Set "vscode" as your GUI merge tool.</li>
+<li>"enable_meld": Set "meld" as your GUI merge tool.</li>
+</ol>
+
+<h3>make_branch</h3>
+<p>
+Aliases: mkbr
+</p>
+<p>
+Usage: gee make_branch <branch-name> [<commit-ish>]
+Aliases: mkbr
+</p>
+<p>
+Create a new branch based on the current branch.  The new branch will be located in the
+directory:
+  ~/gee/<repo>/<branch-name>
+</p>
+<p>
+If <commit-ish> is provided, sets the HEAD of the newly created branch to that
+revision.
+</p>
+
+<h3>log</h3>
+<p>
+Usage: gee log
+</p>
+
+<h3>diff</h3>
+<p>
+Usage: gee diff [<files...>]
+</p>
+<p>
+Diffs the current branch against its parent branch.
+</p>
+<p>
+If <files...> are omited, defaults to all files.
+</p>
+
+<h3>pack</h3>
+<p>
+Usage: gee pack [-c] [-o <file.pack>]
+</p>
+<p>
+Creates a pack file containing all unsubmitted changes in this branch.
+</p>
+<p>
+Flags:
+  -o  Specifies a file to write to, instead of stdout.
+</p>
+
+<h3>unpack</h3>
+<p>
+Usage: gee unpack <file.pack>
+</p>
+<p>
+"unpack" attempts to patch the current branch from a pack file.
+</p>
+
+<h3>update</h3>
+<p>
+Aliases: up
+</p>
+<p>
+Usage: gee update
+</p>
+<p>
+"gee update" attempts to rebase this branch atop its parent branch.
+</p>
+<p>
+If a merge conflict occurs, "gee" drops the user into a sub-shell where the
+user can either resolve the conflicts and continue, or abort the entire
+operation.
+</p>
+
+<h3>rupdate</h3>
+<p>
+Aliases: rup
+</p>
+<p>
+Usage: gee rupdate
+</p>
+<p>
+"gee rupdate" recursively rebases each branch onto it's parent.
+</p>
+<p>
+If a merge conflict occurs, "gee" drops the user into a sub-shell where the
+user can either resolve the conflicts and continue, or abort the entire
+operation.  Note that the merge conflict can be in a parent of the current
+branch.
+</p>
+
+<h3>update_all</h3>
+<p>
+Aliases: up_all
+</p>
+<p>
+Usage: gee update_all
+</p>
+<p>
+"gee update_all" updates all local branches (in the correct order),
+by rebasing child branches onto parent branches.
+</p>
+<p>
+If a merge conflict occurs, "gee" drops the user into a sub-shell where the
+user can either resolve the conflicts and continue, or abort the entire
+operation.  Note that the merge conflict can be in a parent of the current
+branch.
+</p>
+
+<h3>whatsout</h3>
+<p>
+Usage: gee whatsout
+</p>
+<p>
+Reports which files in this branch differ from parent branch.
+</p>
+
+<h3>codeowners</h3>
+<p>
+Aliases: owners reviewers
+</p>
+<p>
+Usage: gee codeowners [--comment]
+</p>
+<p>
+Gee examines the set of modified files in this branch, and compares it against
+the rules in the <code>CODEOWNERS</code> file.  Gee then presents the user with detailed
+information about which approvals are necessary to submit this PR:
+</p>
+<ol>
+<li>Each line contains a list of users who are code owners of at least</li>
+   some part of the PR.
+</ol>
+<ol>
+<li>A minimum of one user from each line must provide approval in order for the</li>
+   PR to be merged.
+</ol>
+<p>
+If `--comment` option is specified, the codeowners information is appended to the
+current PR as a new comment.
+</p>
+
+<h3>lsbranches</h3>
+<p>
+Aliases: lsb lsbr
+</p>
+<p>
+Usage: gee lsbranches
+</p>
+<p>
+List information about all branches.
+</p>
+<p>
+NOTE: the output of this command is likely to change in the near future.
+</p>
+
+<h3>cleanup</h3>
+<p>
+Usage: gee cleanup
+</p>
+<p>
+Automatically removes branches without local changes.
+</p>
+
+<h3>get_parent</h3>
+<p>
+Usage: gee get_parent
+</p>
+
+<h3>set_parent</h3>
+<p>
+Usage: gee set_parent <parent-branch>
+</p>
+<p>
+Gee keeps track of which branch each branch is branched from.  You can
+change the parent of the current branch with this command, but be sure
+to do a "gee update" operation afterwards.
+</p>
+
+<h3>commit</h3>
+<p>
+Aliases: push c
+</p>
+<p>
+Usage: gee commit [<git commit options>]
+</p>
+<p>
+Commits all outstanding changes (to the local branch, not the upstream branch),
+and uploads that commit to the user's private github repo.  "commit" can be
+used to checkpoint and back up work in progress.
+</p>
+<p>
+Example:
+</p>
+<pre>
+    gee commit -m "Added \"gee commit\" command."
+</pre>
+
+<h3>revert</h3>
+<p>
+Usage: gee revert <files...>
+</p>
+<p>
+Reverts changes to the specified files, so that they become identical to the
+version in the parent branch.  If the file doesn't exist in the parent
+branch, it is deleted from the current branch.
+</p>
+<p>
+Example:
+</p>
+<pre>
+    gee revert foobar.txt
+</pre>
+
+<h3>pr_checkout</h3>
+<p>
+Usage: gee pr_checkout <PR>
+</p>
+<p>
+Creates a new branch containing the specified pull request.
+</p>
+
+<h3>pr_list</h3>
+<p>
+Aliases: lspr list_pr prls
+</p>
+<p>
+Usage: gee pr_list [<user>]
+</p>
+<p>
+Lists information about PRs associated with the specified user (or yourself, if
+no user is specified).
+</p>
+<p>
+Example:
+</p>
+<p>
+$ gee lspr jonathan-enf
+PRs associated with this branch:
+OPEN 1181 codegen tool
+</p>
+<p>
+Open PRs authored by jonathan-enf:
+#1205   <code>REVIEW_REQUIRED</code> Fix libsystemc build file error.
+#1181   <code>REVIEW_REQUIRED</code> codegen tool
+#1158   <code>REVIEW_REQUIRED</code> Added @gmp//:libgmpxx
+#1148   <code>REVIEW_REQUIRED</code> Added gee to enkit.config.yaml.
+#1136   <code>REVIEW_REQUIRED</code> Unified PtrQueue and Queue implementations.
+#1130   <code>REVIEW_REQUIRED</code> Owners of /poc/{sim,models}
+#1059   <code>REVIEW_REQUIRED</code> CSV file helper library
+</p>
+<p>
+PRs pending their review:
+#1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
+</p>
+
+<h3>pr_edit</h3>
+<p>
+Aliases: edpr pred edit_pr
+</p>
+<p>
+Usage: gee edit_pr <args>
+</p>
+<p>
+Edit an outstanding pull request.
+</p>
+<p>
+All arguments are passed to "gh pr edit".
+</p>
+
+<h3>pr_view</h3>
+<p>
+Aliases: view_pr
+</p>
+<p>
+Usage: gee pr_view
+</p>
+<p>
+View an outstanding pull request.
+</p>
+
+<h3>pr_make</h3>
+<p>
+Aliases: mail send make_pr mkpr prmk
+</p>
+<p>
+Usage: gee make_pr <gh-options>
+</p>
+<p>
+Creates a new pull request from this branch.
+</p>
+<p>
+Uses the same options as "gh pr create".
+</p>
+
+<h3>pr_check</h3>
+<p>
+Aliases: pr_checks check_pr
+</p>
+<p>
+Usage: gee pr_check
+</p>
+<p>
+Checks presubmit tests.
+</p>
+
+<h3>pr_submit</h3>
+<p>
+Aliases: merge submit_pr
+</p>
+<p>
+Usage: gee submit_pr
+</p>
+<p>
+Merges an approved pull request.
+</p>
+
+<h3>remove_branch</h3>
+<p>
+Aliases: rmbr
+</p>
+<p>
+Usage: gee remove_branch <branch-name>
+</p>
+<p>
+Removes a branch and it's associated directory.
+</p>
+
+<h3>fix</h3>
+<p>
+Usage: gee fix [<files>]
+</p>
+<p>
+Looks for a "fix_format.sh" script in the root directory of the current branch,
+and runs it.  This script runs a set of language formatting tools over either:
+</p>
+<p>
+  - the files specified on the command line, or
+  - if no files are specified, all of the locally changed files in this
+    branch.
+</p>
+<p>
+Note: "gee fix" (which fixes code in a branch) is different from "gee repair"
+(which checks the gee directory for errors and repairs them).
+</p>
+<p>
+Note: "fix_format.sh" used to be integrated into gee, but has been separated
+out as formatting rules are highly project specific.
+</p>
+
+<h3>gcd</h3>
+<p>
+Usage: gcd [-b] <branch>[/<path>]
+</p>
+<p>
+The "gee gcd" command is not meant to be used directly, but is instead designed
+to be called from the "gcd" bash function, which can be imported into your
+environment with gee's "bash_setup" command, like this:
+</p>
+<pre>
+    eval "$(gee bash_setup)"
+</pre>
+<p>
+(This command should be added to your .bashrc file.)
+</p>
+<p>
+Once imported, the "gcd" function can be used to change directory between
+branches.
+</p>
+<p>
+If only "<branch>" is specified, "gcd" will change directory to the same
+relative directory in another branch.  If "<branch>/<path>" is specified,
+"gcd" will change directory to the specified path beneath the specified
+branch.
+</p>
+<p>
+For example:
+</p>
+<p>
+  cd ~/gee/enkit/branch1/foo/bar
+  # now in ~/gee/enkit/branch1/foo/bar
+  gcd branch2
+  # now in ~/gee/enkit/branch2/foo/bar
+  gcd branch3/foo
+  # now in ~/gee/enkit/branch3/foo
+</p>
+<p>
+gcd also updates the following environment variables:
+</p>
+<p>
+  BROOT always contains the path to the root directory of the current branch.
+  BRBIN always contains the path to the bazel-bin directory beneath root.
+</p>
+
+<h3>hello</h3>
+<p>
+Usage: gee hello
+</p>
+<p>
+Verifies that the user can communicate with github using ssh.
+</p>
+<p>
+For more information:
+  https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh
+</p>
+
+<h3>create_ssh_key</h3>
+<p>
+Usage: gee create_ssh_key
+</p>
+<p>
+This command will attempt to re-enroll you for ssh access to github.
+</p>
+<p>
+Normally, "gee init" will ensure that you have ssh access.  This command
+is only available if something else has gone wrong requiring that keys
+be updated.
+</p>
+
+<h3>share</h3>
+<p>
+Usage: gee share
+</p>
+<p>
+Displays URLs that you can paste into emails to share the contents of
+your branch with other users (in advance of sending out a PR).
+</p>
+
+<h3>repair</h3>
+<p>
+Usage: gee repair <command>
+</p>
+<p>
+Gee tries to control some metadata and attempts to file away some of the
+sharp edges from git.  Sometimes, bypassing gee to use git directly can
+cause some of gee's metadata to become stale.  This command fixes up
+any missing or incorrect metadata.
+</p>
+
+<h3>bash_setup</h3>
+<p>
+Usage: eval "$(~/bin/gee bash_setup)"
+</p>
+<p>
+The "bash_setup" command emits a set of bash aliases and functions that
+streamline the use of gee.  The following functions are exported:
+</p>
+<p>
+  "gee": invokes "gee $@"
+  "gcd": rapidly change between gee branch directories.
+</p>
+<p>
+Additionally, the following functions can be used to customize your
+command prompt with useful information about your git work tree:
+  "gee_prompt_git_info": prints git-related information suitable for
+    integrating into your own prompt.
+  "gee_prompt_print": Prints a string suitable for using as a prompt.
+  "gee_prompt_set_ps1": Sets PS1 to the output of gee_prompt_print.
+</p>
+<p>
+This custom git-aware prompt will keep you apprised of which git branch you are
+in, and will also tell you important information about the status of your
+branch (whether or not you are in the middle of a merge or rebase operation,
+whether there are uncommitted changes, and more).
+</p>
+<p>
+The easiest way to make use of the git-aware prompt is to modify your .bashrc
+file to set <code>PROMPT_COMMAND</code> to "gee_prompt_set_ps1", as shown below:
+</p>
+<pre>
+    export PROMPT_COMMAND="gee_prompt_set_ps1"
+</pre>
+<p>
+This prompt can be customized by setting the following environment variables:
+</p>
+<ol>
+<li>GEE_PROMPT: The PS1-style prompt string to put at the end of every prompt.</li>
+    Default:  `$' [\\!] \\w\033[0K\033[0m\n$ '`
+   More info: https://www.man7.org/linux/man-pages/man1/bash.1.html#PROMPTING
+<li>GEE_PROMPT_BG_COLOR: The ANSI color to use as the background (default: 5).</li>
+<li>GEE_PROMPT_FG1_COLOR: The foreground color for git-related info (default: 9).</li>
+<li>GEE_PROMPT_FG2_COLOR: The foreground color for GEE_PROMPT (default: 3).</li>
+</ol>
+<p>
+Easter egg: Use the "gee_prompt_test_colors" command to view a test pattern
+of the basic 4-bit ANSI color set.
+</p>
+<p>
+If you need further customization, you are encouraged to write your own
+version of gee_prompt_set_ps1.
+</p>
+<p>
+Also sets <code>GEE_BINARY</code> to point to this copy of gee.
+</p>
+
+<h3>upgrade</h3>
+<p>
+Usage: gee upgrade [--check]
+</p>
+
+<h3>version</h3>
+<p>
+Usage: gee version
+</p>
+
+<h3>help</h3>
+<p>
+Usage: gee help [<command>|usage|commands|html]
+</p>
+<p>
+The "usage" option produces gee's manual.
+</p>
+<p>
+The "commands" option shows a summary of all available commands.
+</p>
+<p>
+The "html" option produce's gee's manual, in html format.
+</p>
+
+</body>
+</html>
