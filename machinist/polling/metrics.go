@@ -24,7 +24,7 @@ var (
 		Name: "machinist_keepalive_fail",
 		Help: "The amount of times keepalive has failed",
 	})
-	dmesgErrors = promauto.NewGauge(prometheus.GaugeOpts{
+	dmesgErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name:      "dmesg_errors",
 		Namespace: "machinist",
 		Help:      "Logs from dmesg",
