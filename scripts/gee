@@ -172,6 +172,8 @@ x  # swap the pattern and hold spaces.
 s/^(.*___.*)/<pre>\1\n<\/pre>/  # use <pre> for ascii art.
 s/^(\n    .*)/<pre>\1\n<\/pre>/  # use <pre> for indented blocks.
 s/^(\n<li>.*)/<ol>\1\n<\/ol>/  # use <ol> for list items.
+/^\n[^<]/s/</\&lt;/g
+/^\n[^<]/s/>/\&gt;/g
 /^\n[^<]/s/([A-Z0-9_]{6,})/<code>\1<\/code>/g
 s/^(\n[^<].*)/<p>\1\n<\/p>/  # everything else is a paragraph.
 ENDOFSCRIPT
