@@ -46,13 +46,13 @@ option go_package = "github.com/enfabrica/enkit/bestie/proto";
 //       updating the BES Endpoint service.
 message TestMetric {
     string metricname = 1;
-    repeated KeyValuePair tags = 2;
+    repeated Tag tags = 2;
     double value = 3;
     int64 timestamp = 4;  // nanoseconds since epoch (e.g. Python: time.time_ns())
 }
 
 // Each metric tag must be supplied in the form of a key/value string pair.
-message KeyValuePair {
+message Tag {
     string key = 1;
     string value = 2;
 }
