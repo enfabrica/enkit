@@ -45,13 +45,14 @@ var (
 	)
 )
 
-// license manages allocations and queued invocations for a single license
-// type.
+// license manages allocations and queued invocations for a single license type.
 type license struct {
 	name           string                 // Name of the license, in vendor::feature format
 	totalAvailable int                    // Constant total number of licenses available for invocations.
-	queue          []*invocation          // List of invocations waiting for a license, in FIFO order.
 	allocations    map[string]*invocation // Map of invocation ID to invocation data for an allocated license.
+
+	queue       invocationQueue // List of invocations waiting for a license, in FIFO order.
+	prioritizer Prioritizer
 }
 
 // formatLicenseType returns a unique string for a particular vendor/feature
@@ -62,10 +63,14 @@ func formatLicenseType(l *fpb.License) string {
 
 // Enqueue puts the supplied invocation at the back of the queue. Returns the
 // 1-based index the invocation was queued at.
-func (l *license) Enqueue(inv *invocation) uint32 {
+func (l *license) Enqueue(inv *invocation) Position {
 	defer l.updateMetrics()
-	l.queue = append(l.queue, inv)
-	return uint32(len(l.queue))
+
+	l.queue.Enqueue(inv)
+	l.prioritizer.OnEnqueue(inv)
+
+	l.queue.Sort(l.prioritizer.Sorter())
+	return l.queue.Position(inv)
 }
 
 // Allocate attempts to associate the supplied invocation with a license, if
@@ -75,6 +80,7 @@ func (l *license) Allocate(inv *invocation) bool {
 	if len(l.allocations) >= l.totalAvailable {
 		return false
 	}
+	l.prioritizer.OnAllocate(inv)
 	l.allocations[inv.ID] = inv
 	return true
 }
@@ -84,12 +90,16 @@ func (l *license) Allocate(inv *invocation) bool {
 func (l *license) Promote() {
 	defer l.updateMetrics()
 	numFree := l.totalAvailable - len(l.allocations)
-	numAllocated := 0
-	for i := 0; i < numFree && i < len(l.queue); i++ {
-		l.allocations[l.queue[i].ID] = l.queue[i]
-		numAllocated++
+	for i := 0; i < numFree && l.queue.Len() > 0; i++ {
+		l.queue.Sort(l.prioritizer.Sorter())
+
+		invocation := l.queue.Dequeue()
+
+		l.prioritizer.OnDequeue(invocation)
+		l.prioritizer.OnAllocate(invocation)
+
+		l.allocations[invocation.ID] = invocation
 	}
-	l.queue = l.queue[numAllocated:]
 }
 
 // GetAllocated returns an invocation by ID if the invocation is allocated a
@@ -104,9 +114,11 @@ func (l *license) ExpireAllocations(expiry time.Time) {
 	defer l.updateMetrics()
 	newAllocations := map[string]*invocation{}
 	for k, v := range l.allocations {
-		if v.LastCheckin.After(expiry) {
-			newAllocations[k] = v
+		if !v.LastCheckin.After(expiry) {
+			l.prioritizer.OnRelease(v)
+			continue
 		}
+		newAllocations[k] = v
 	}
 	l.allocations = newAllocations
 }
@@ -115,25 +127,22 @@ func (l *license) ExpireAllocations(expiry time.Time) {
 // `expiry`.
 func (l *license) ExpireQueued(expiry time.Time) {
 	defer l.updateMetrics()
-	newQueued := []*invocation{}
-	for _, inv := range l.queue {
+	l.queue.Filter(func(pos Position, inv *invocation) bool {
 		if inv.LastCheckin.After(expiry) {
-			newQueued = append(newQueued, inv)
+			return false
 		}
-	}
-	l.queue = newQueued
+
+		l.prioritizer.OnDequeue(inv)
+		return true
+	})
 }
 
 // GetQueued returns an invocation by ID if the invocation is queued, or nil
 // otherwise. If the returned invocation is not nil, the 1-based index (queue
 // position) is also returned.
-func (l *license) GetQueued(invID string) (*invocation, uint32) {
-	for i, inv := range l.queue {
-		if inv.ID == invID {
-			return inv, uint32(i + 1)
-		}
-	}
-	return nil, 0
+func (l *license) GetQueued(invID string) (*invocation, Position) {
+	inv, pos := l.queue.Get(invID)
+	return inv, pos
 }
 
 // GetStats returns a LicenseStats message for this license type.
@@ -148,9 +157,10 @@ func (l *license) GetStats() *fpb.LicenseStats {
 	}
 	sort.Slice(allocated, func(i, j int) bool { return allocated[i].Id < allocated[j].Id })
 	queued := []*fpb.Invocation{}
-	for _, inv := range l.queue {
+	l.queue.Walk(func(pos Position, inv *invocation) bool {
 		queued = append(queued, inv.ToProto())
-	}
+		return true
+	})
 	return &fpb.LicenseStats{
 		License: &fpb.License{
 			Vendor:  fields[0],
@@ -160,7 +170,7 @@ func (l *license) GetStats() *fpb.LicenseStats {
 		TotalLicenseCount:    uint32(l.totalAvailable),
 		AllocatedCount:       uint32(len(l.allocations)),
 		AllocatedInvocations: allocated,
-		QueuedCount:          uint32(len(l.queue)),
+		QueuedCount:          uint32(l.queue.Len()),
 		QueuedInvocations:    queued,
 	}
 }
@@ -172,29 +182,26 @@ func (l *license) Forget(invID string) int {
 	count := 0
 	newAllocations := map[string]*invocation{}
 	for k, v := range l.allocations {
-		if k != invID {
-			newAllocations[k] = v
-		} else {
+		if k == invID {
+			l.prioritizer.OnRelease(v)
 			count++
+			continue
 		}
+
+		newAllocations[k] = v
 	}
 
-	newQueue := []*invocation{}
-	for _, inv := range l.queue {
-		if inv.ID != invID {
-			newQueue = append(newQueue, inv)
-		} else {
-			count++
-		}
+	if inv := l.queue.Forget(invID); inv != nil {
+		l.prioritizer.OnDequeue(inv)
+		count += 1
 	}
 
 	l.allocations = newAllocations
-	l.queue = newQueue
 	return count
 }
 
 func (l *license) updateMetrics() {
 	metricActiveCount.WithLabelValues(l.name).Set(float64(len(l.allocations)))
-	metricQueueSize.WithLabelValues(l.name).Set(float64(len(l.queue)))
+	metricQueueSize.WithLabelValues(l.name).Set(float64(l.queue.Len()))
 	metricTotalLicenses.WithLabelValues(l.name).Set(float64(l.totalAvailable))
 }

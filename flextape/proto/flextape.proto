@@ -87,9 +87,14 @@ message Queued {
   // placed at the back of the queue.
   string invocation_id = 1;
 
-  // Location of this invocation in the queue. Invocations in position 1 are
-  // next to be allocated, with higher positions getting allocations later than
-  // lower positions.
+  // Location of this invocation in the queue.
+  //
+  // Invocations in position 1 are next to be allocated, with higher positions
+  // getting allocations later than lower positions.
+  //
+  // The queue_position can increase or decrease over time depending on the
+  // license prioritization strategy configured, which may allow users to
+  // jump ahead of the line, or be bumped to the end of the line.
   uint32 queue_position = 3;
 
   // Time at which client should issue its next AllocateRequest. The client

@@ -33,7 +33,11 @@ type Root struct {
 	*cobra.Command
 	*client.BaseFlags
 
-	OutputsRoot string
+	OutputsRoot           string
+	BuildBuddyApiKey      string
+	BuildBuddyUrl         string
+	BuildbarnHost         string
+	BuildbarnTunnelTarget string
 }
 
 func New(base *client.BaseFlags) (*Root, error) {
@@ -68,7 +72,11 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 	}
 	defaultOutputsRoot := filepath.Join(homeDir, "outputs")
 
-	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs_root", defaultOutputsRoot, "Root dir of mounted outputs")
+	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs-root", defaultOutputsRoot, "Root dir of mounted outputs")
+	rc.PersistentFlags().StringVar(&rc.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
+	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
+	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
+	rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
 	return rc, nil
 }
 
@@ -76,11 +84,8 @@ type Mount struct {
 	*cobra.Command
 	root *Root
 
-	BuildBuddyApiKey string
-	BuildBuddyUrl    string
-	ClusterHost      string
-	DryRun           bool
-	InvocationID     string
+	DryRun       bool
+	InvocationID string
 }
 
 func NewMount(root *Root) *Mount {
@@ -94,10 +99,7 @@ func NewMount(root *Root) *Mount {
 		},
 		root: root,
 	}
-	command.Flags().StringVar(&command.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
-	command.Flags().StringVar(&command.BuildBuddyUrl, "url", "", "build buddy url instance")
-	command.Flags().StringVar(&command.ClusterHost, "buildbarn_host", "", "host:port of BuildBarn instance")
-	command.Flags().StringVarP(&command.InvocationID, "invocation", "i", "", "invocation id to mount")
+	command.Flags().StringVarP(&command.InvocationID, "invocation-id", "i", "", "invocation id to mount")
 	command.Flags().BoolVar(&command.DryRun, "dry-run", false, "if set, will print out the hardlinks generated from the invocation, and not attempt to create them")
 
 	command.Command.RunE = command.Run
@@ -108,7 +110,7 @@ func NewMount(root *Root) *Mount {
 // targeting that host/port if necessary. It returns a host and port that
 // clients should connect to, which could either be the original host/port if no
 // tunnel was necessary, or a modified host/port if a tunnel was necessary.
-func maybeSetupTunnel(hostPort string) (string, int, error) {
+func maybeSetupTunnel(hostPort string, tunnelTarget string) (string, int, error) {
 	host, port, err := net.SplitHostPort(hostPort)
 	if err != nil {
 		return "", 0, fmt.Errorf("can't split %q into host+port: %w", hostPort, err)
@@ -122,7 +124,7 @@ func maybeSetupTunnel(hostPort string) (string, int, error) {
 		return "", 0, fmt.Errorf("failed to determine if tunnel is required for %q: %w", host, err)
 	}
 	if shouldTunnel {
-		if err := tunnelexec.NewBackgroundTunnel(host, int(parsedPort), localTunnelPort); err != nil {
+		if err := tunnelexec.NewBackgroundTunnel(tunnelTarget, int(parsedPort), localTunnelPort); err != nil {
 			return "", 0, fmt.Errorf("failed to start tunnel to %q: %w", hostPort, err)
 		}
 		return host, localTunnelPort, nil
@@ -131,28 +133,28 @@ func maybeSetupTunnel(hostPort string) (string, int, error) {
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	host, port, err := maybeSetupTunnel(c.ClusterHost)
+	host, port, err := maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget)
 	if err != nil {
 		return err
 	}
-	buddyUrl, err := url.Parse(c.BuildBuddyUrl)
+	buddyUrl, err := url.Parse(c.root.BuildBuddyUrl)
 	if err != nil {
 		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
 	}
-	bc, err := bes.NewBuildBuddyClient(buddyUrl, c.root.BaseFlags, c.BuildBuddyApiKey)
+	bc, err := bes.NewBuildBuddyClient(buddyUrl, c.root.BaseFlags, c.root.BuildBuddyApiKey)
 	if err != nil {
 		return fmt.Errorf("failed generating new buildbuddy client: %w", err)
 	}
 	bbOpts := bbexec.NewClientOptions(
 		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
+		host,
 		port,
 		c.root.OutputsRoot,
 	)
-	_, err = bbexec.MaybeStartClient(bbOpts)
+	_, err = bbexec.MaybeStartClient(bbOpts, 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to start bb_clientd: %w", err)
 	}
-	time.Sleep(5 * time.Second)
 	r, err := kbuildbarn.GenerateHardlinks(
 		context.Background(),
 		bc,
@@ -216,7 +218,7 @@ func NewUnmount(root *Root) *Unmount {
 		root: root,
 	}
 	command.Command.RunE = command.Run
-	command.Flags().StringVarP(&command.Invocation, "invocation", "i", "", "invocation id to mount")
+	command.Flags().StringVarP(&command.Invocation, "invocation-id", "i", "", "invocation id to mount")
 	return command
 }
 
@@ -242,19 +244,19 @@ func NewRun(root *Root) *Run {
 		Command: &cobra.Command{
 			Use:   "run",
 			Short: "Mount build artifacts and execute an optional command on them",
-			Example: `  $ enkit outputs run --invocation=73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07
+			Example: `  $ enkit outputs run --invocation-id=73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07
 	Launches a shell with build outputs from a particular build re-rooted so that
 	paths are correct within the outputs themselves.
 
-  $ enkit outputs run --dir=/tmp/some_dir
+  $ enkit outputs run --dir-path=/tmp/some_dir
 	Launches a shell with build outputs in /tmp/some_dir re-rooted so that paths
 	are correct within the outputs themselves.
 
-  $ enkit outputs run --zip=/tmp/some.zip
+  $ enkit outputs run --zip-path=/tmp/some.zip
 	Unpacks the named zip into a tempdir, and then reroots the artifacts so that
 	paths are correct within the outputs themselves.
 
-  $ enkit outputs run --zip=/tmp/some-zip -- find .
+  $ enkit outputs run --zip-path=/tmp/some-zip -- find .
 	Runs "find ." in the unpacked zip after it is rerooted.`,
 		},
 		root: root,
@@ -262,9 +264,9 @@ func NewRun(root *Root) *Run {
 
 	command.Command.RunE = command.Run
 	command.Command.PreRunE = command.validate
-	command.Flags().StringVar(&command.InvocationID, "invocation_id", "", "If set, the build's invocation ID from which to mount artifacts")
-	command.Flags().StringVar(&command.DirPath, "dir_path", "", "If set, the path to already-unpacked artifacts to reroot")
-	command.Flags().StringVar(&command.ZipPath, "zip_path", "", "If set, the path to a zipped outputs file to unpack and re-root")
+	command.Flags().StringVar(&command.InvocationID, "invocation-id", "", "If set, the build's invocation ID from which to mount artifacts")
+	command.Flags().StringVar(&command.DirPath, "dir-path", "", "If set, the path to already-unpacked artifacts to reroot")
+	command.Flags().StringVar(&command.ZipPath, "zip-path", "", "If set, the path to a zipped outputs file to unpack and re-root")
 	return command
 }
 
@@ -272,7 +274,7 @@ func (c *Run) Run(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	switch {
 	case c.InvocationID != "":
-		return fmt.Errorf("Mounting directly from an invocation_id is not yet implemented")
+		return fmt.Errorf("Mounting directly from an invocation-id is not yet implemented")
 
 	case c.ZipPath != "":
 		unzipDir, err := karchive.Unzip(ctx, c.ZipPath)
@@ -308,7 +310,7 @@ func (c *Run) Run(cmd *cobra.Command, args []string) error {
 		}
 
 	default:
-		return fmt.Errorf("one of --invocation_id, --dir_path, --zip_path must be specified")
+		return fmt.Errorf("one of --invocation-id, --dir-path, --zip-path must be specified")
 
 	}
 
@@ -324,9 +326,9 @@ func (c *Run) validate(cmd *cobra.Command, args []string) error {
 	}
 	switch {
 	case setCount == 0:
-		return fmt.Errorf("One of --invocation_id, --dir_path, --zip_path must be set")
+		return fmt.Errorf("One of --invocation-id, --dir-path, --zip-path must be set")
 	case setCount >= 2:
-		return fmt.Errorf("Only one of --invocation_id, --dir_path, --zip_path may be set")
+		return fmt.Errorf("Only one of --invocation-id, --dir-path, --zip-path may be set")
 	}
 	return nil
 }
@@ -353,12 +355,13 @@ func NewShutdown(root *Root) *Shutdown {
 func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
 	bbOpts := bbexec.NewClientOptions(
 		c.root.Log,
-		0, /* tunnel port does not matter in this case */
+		"", // Buildbarn remote host/port does not matter
+		0,
 		c.root.OutputsRoot,
 	)
 	var errs []error
 	// MaybeStartClient is used here to bind a client handle to an existing process, so that we can kill it. It may start a process that will be then killed quickly, which is acceptable but not ideal.
-	bbClient, err := bbexec.MaybeStartClient(bbOpts)
+	bbClient, err := bbexec.MaybeStartClient(bbOpts, 5*time.Second)
 	if err != nil {
 		errs = append(errs, err)
 	}
