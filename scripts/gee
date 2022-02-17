@@ -16,21 +16,23 @@ showing each command as it executes, gee helps users learn git.
 
 ## Features:
 
-* Uses the "worktree" feature so that:
-   * every branch is always visible in its own directory.
-   * switching branches is accomplished by changing directory.
-   * it's harder to accidentally save changes to the wrong branch.
-   * users can have uncommitted changes pending in more than one branch.
-  All branch directories are named ~/gee/<REPO>/<BRANCH>.
+Uses the "worktree" feature so that:
 
-* All local commits are automatically backed up to github.
+* every branch is always visible in its own directory.
+* switching branches is accomplished by changing directory.
+* it's harder to accidentally save changes to the wrong branch.
+* users can have uncommitted changes pending in more than one branch.
 
-* Tracks lineage of branches-of-branches.
+All branch directories are named ~/gee/<REPO>/<BRANCH>.
 
-* Sets up and enforces use of ssh for all interactions with github.
+All local commits are automatically backed up to github.
 
-* Supports multi-homed development (user can do work on various hosts without
-  NFS-mounted home directories).
+Tracks "parentage" (which branch is derived from which).
+
+Sets up and enforces use of ssh for all interactions with github.
+
+Supports multi-homed development (user can do work on various hosts without
+NFS-mounted home directories).
 
 ## An example of simple use:
 
@@ -123,6 +125,64 @@ set -e
 if [[ -n "${DEBUG}" ]]; then
   set -x
 fi
+
+function _markdown_to_html() {
+  # Implements a very limited subset of markdown, implemented as a sed
+  # script.  This is the bare minimum set of functionality needed to
+  # render gee's manual page as HTML.
+  #
+  # Currently supported:
+  #
+  #   * Headers ("# foo").
+  #   * Code style (backticks).
+  #   * Lists ("* foo").
+  #   * Code-formatted blocks.
+  local SCRIPT
+  read -r -d '' SCRIPT <<'ENDOFSCRIPT' || /bin/true
+/^$/b blankline
+/^#/b header
+/^[[:blank:]]*\*/b list
+
+# plain text
+H
+b next
+
+# headers:
+: header
+/^# /s/^#[[:blank:]]+([[:alnum:]]+)(.*)/<h1 id="\1">\1\2<\/h1>/g
+/^## /s/^##[[:blank:]]+([[:alnum:]]+)(.*)/<h2 id="\1">\1\2<\/h2>/g
+/^### /s/^###[[:blank:]]+([[:alnum:]]+)(.*)/<h3 id="\1">\1\2<\/h3>/g
+H
+b next
+
+# lists:
+: list
+s/^[[:blank:]]*\*[[:blank:]]+(.*)/<li>\1<\/li>/g
+H
+b next
+
+: next
+$b blankline # implicit final blank line
+d
+
+# blank line
+: blankline
+z  # zap the pattern space.
+x  # swap the pattern and hold spaces.
+s/^(.*___.*)/<pre>\1\n<\/pre>/  # use <pre> for ascii art.
+s/^(\n    .*)/<pre>\1\n<\/pre>/  # use <pre> for indented blocks.
+s/^(\n<li>.*)/<ol>\1\n<\/ol>/  # use <ol> for list items.
+s/^(\n[^<].*)/<p>\1\n<\/p>/  # everything else is a paragraph.
+ENDOFSCRIPT
+  sed -E "${SCRIPT}"
+}
+
+# for testing gee's markdown implementation:
+function gee__markdown() {
+  _markdown_to_html
+}
+    
+
 
 function _fix_pwd() {
   # Make sure we're in a real directory.
@@ -684,7 +744,7 @@ function _register_help() {
   local -a ALIASES
   ALIASES=("$@")
   if (( "${#ALIASES[@]}" > 0 )); then
-    LONG="Aliases: ${ALIASES[*]}${NEWLINE}${LONG}"
+    LONG="Aliases: ${ALIASES[*]}${NEWLINE}${NEWLINE}${LONG}"
   fi
   LONGHELP+=(["${COMMAND}"]="${LONG}")
   for ALIAS in "${ALIASES[@]}"; do
@@ -4173,36 +4233,70 @@ function gee__version() {
 ##########################################################################
 
 _register_help "help" "Print more help about a command." <<'EOT'
-Usage: gee help <command>
+Usage: gee help [<command>|usage|commands|html]
+
+The "usage" option produces gee's manual.
+
+The "commands" option shows a summary of all available commands.
+
+The "html" option produce's gee's manual, in html format.
 EOT
 
+function _render_html_manual() {
+  echo "${USAGE//\{\{VERSION\}\}/"${VERSION}"}" | _markdown_to_html
+  echo ""
+  echo "<h2>Command Summary</h2>"
+  echo ""
+  echo "<table>"
+  echo "  <th><td>Command</td><td>Summary</td></th>"
+  local h h_cmd h_desc
+  for h in "${HELP[@]}"; do
+    read -r -d ":" h_cmd h_desc <<< "${h}"
+    echo "  <tr><td>${h_cmd}</td><td>${h_desc}</td></tr>"
+  done
+  echo "</table>"
+  echo ""
+  echo "<h2>Commands</h2>"
+  echo ""
+  for h in "${HELP[@]}"; do
+    read -r -d ":" h_cmd h_desc <<< "${h}"
+    echo "<h3>${h_cmd}</h3>"
+    echo "${LONGHELP["${h_cmd}"]}" | _markdown_to_html
+    echo ""
+  done
+}
+
 function gee__help() {
-  (
-    if (( "$#" == 0 )); then
-      set -- "usage"
-    fi
-    if [[ "$1" == "usage" ]]; then
-      echo "${USAGE//\{\{VERSION\}\}/"${VERSION}"}"
-      echo ""
-    fi
-    if [[ ("$1" == "usage") || ("$1" == "commands") ]]; then
-      echo "## Commands:"
-      echo ""
-      for h in "${HELP[@]}"; do
-        echo "  $h"
-      done | sort | column -t -s ":"
-      shift;
-    fi
-    while (( "$#" )); do
-      local COMMAND="$1"
-      shift
-      if [ "${LONGHELP[${COMMAND}]+_}" ]; then
-        echo "${LONGHELP[${COMMAND}]}"
-      else
-        echo "${COMMAND}: there is no help for this."
+  if [[ "$1" == "html" ]]; then
+    _render_html_manual
+  else
+    (
+      if (( "$#" == 0 )); then
+        set -- "usage"
       fi
-    done
-  ) | "${PAGER}"
+      if [[ "$1" == "usage" ]]; then
+        echo "${USAGE//\{\{VERSION\}\}/"${VERSION}"}"
+        echo ""
+      fi
+      if [[ ("$1" == "usage") || ("$1" == "commands") ]]; then
+        echo "## Commands:"
+        echo ""
+        for h in "${HELP[@]}"; do
+          echo "  $h"
+        done | sort | column -t -s ":"
+        shift;
+      fi
+      while (( "$#" )); do
+        local COMMAND="$1"
+        shift
+        if [ "${LONGHELP[${COMMAND}]+_}" ]; then
+          echo "${LONGHELP[${COMMAND}]}"
+        else
+          echo "${COMMAND}: there is no help for this."
+        fi
+      done
+    ) | "${PAGER}"
+  fi
 }
 
 function gee__banner() {
