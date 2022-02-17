@@ -24,6 +24,11 @@ var (
 		Name: "machinist_keepalive_fail",
 		Help: "The amount of times keepalive has failed",
 	})
+	dmesgErrors = promauto.NewGauge(prometheus.GaugeOpts{
+		Name:      "dmesg_errors",
+		Namespace: "machinist",
+		Help:      "Logs from dmesg",
+	})
 )
 
 // SendMetricsRequest polls the controlplane for metrics as well as spin up prometheus' node exporter.
@@ -33,15 +38,6 @@ func SendMetricsRequest(ctx context.Context, c *config.Node) error {
 		return nil
 	}
 	go func() {
-		numErr := 0.0
-		promauto.NewGaugeFunc(prometheus.GaugeOpts{
-			Name:      "dmesg_errors",
-			Namespace: "machinist",
-			Help:      "Logs from dmesg",
-		}, func() float64 {
-			return numErr
-		})
-
 		cmd := exec.Command("dmesg", "-w", "--level=err")
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
@@ -54,7 +50,7 @@ func SendMetricsRequest(ctx context.Context, c *config.Node) error {
 		buf := bufio.NewReader(stdout) // Notice that this is not in a loop
 		for {
 			line, _, _ := buf.ReadLine()
-			numErr += 1
+			dmesgErrors.Inc()
 			c.Root.Log.Infof(string(line))
 		}
 	}()
