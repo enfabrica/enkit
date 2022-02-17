@@ -70,11 +70,11 @@ review.
      cd $(gee gcd my_feature)
      gee mkbr my_feature2
 
-3. Do work in the child branch:
+2. Do work in the child branch:
 
      cd $(gee gcd my_feature2)
 
-2. Recursively update a chain of branches:
+3. Recursively update a chain of branches:
 
      gee rupdate
 
