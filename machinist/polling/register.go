@@ -29,7 +29,7 @@ func SendRegisterRequests(ctx context.Context, client machinist_rpc.ControllerCl
 			_, err := pollStream.Recv()
 			s, ok := status.FromError(err)
 			if ok {
-				l.Errorf("unable to send register request: %+v", s)
+				l.Errorf("unable to send register request: %+v", s.Message())
 			} else {
 				l.Errorf("unable to send request, unknown err: %w", err)
 			}
