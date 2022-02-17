@@ -149,9 +149,9 @@ b next
 
 # headers:
 : header
-/^# /s/^#[[:blank:]]+([[:alnum:]]+)(.*)/<h1 id="\1">\1\2<\/h1>/g
-/^## /s/^##[[:blank:]]+([[:alnum:]]+)(.*)/<h2 id="\1">\1\2<\/h2>/g
-/^### /s/^###[[:blank:]]+([[:alnum:]]+)(.*)/<h3 id="\1">\1\2<\/h3>/g
+/^# /s/^#[[:blank:]]+([[:alnum:]]+)(.*)/<a name="\1"><\/a><h1 id="\1">\1\2<\/h1>/g
+/^## /s/^##[[:blank:]]+([[:alnum:]]+)(.*)/<a name="\1"><\/a><h2 id="\1">\1\2<\/h2>/g
+/^### /s/^###[[:blank:]]+([[:alnum:]]+)(.*)/<a name="\1"><\/a><h3 id="\1">\1\2<\/h3>/g
 H
 b next
 
@@ -4584,7 +4584,7 @@ function _render_html_manual() {
   echo ""
   for h in "${HELP[@]}"; do
     read -r -d ":" h_cmd h_desc <<< "${h}"
-    echo "<h3>${h_cmd}</h3>"
+    echo "<h3 id="${h_cmd}">${h_cmd}</h3>"
     echo "${LONGHELP["${h_cmd}"]}" | _markdown_to_html
     echo ""
   done

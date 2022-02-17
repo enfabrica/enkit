@@ -323,7 +323,7 @@ standard and well-supported workflow.  "gee" is also an instructional tool: by
 showing each command as it executes, gee helps users learn git.
 </p>
 
-<h2 id="Features">Features:</h2>
+<a name="Features"></a><h2 id="Features">Features:</h2>
 <p>
 Uses the "worktree" feature so that:
 </p>
@@ -350,7 +350,7 @@ Supports multi-homed development (user can do work on various hosts without
 NFS-mounted home directories).
 </p>
 
-<h2 id="An">An example of simple use:</h2>
+<a name="An"></a><h2 id="An">An example of simple use:</h2>
 <p>
 1. Run "gee init" to clone and check out the enfabrica/internal repo.  This
    only needs to be done once per home directory.
@@ -385,7 +385,7 @@ NFS-mounted home directories).
 8. When approved, run "gee submit_pr" to merge your change.
 </p>
 
-<h2 id="An">An example of more complex use:</h2>
+<a name="An"></a><h2 id="An">An example of more complex use:</h2>
 <p>
 You can continue to develop a second feature while the first feature is out for
 review.
@@ -598,7 +598,7 @@ review.
 
 <h2>Commands</h2>
 
-<h3>init</h3>
+<h3 id=init>init</h3>
 <p>
 Usage: gee init [<repo>]
 </p>
@@ -615,7 +615,7 @@ The directory `~/gee/<repo>/main` will be created and populated, and all
 other branches will be checked out into `~/gee/<repo>/<branch>`.
 </p>
 
-<h3>config</h3>
+<h3 id=config>config</h3>
 <p>
 Usage: gee config <option>
 </p>
@@ -630,7 +630,7 @@ Valid configuration options are:
 <li>"enable_meld": Set "meld" as your GUI merge tool.</li>
 </ol>
 
-<h3>make_branch</h3>
+<h3 id=make_branch>make_branch</h3>
 <p>
 Aliases: mkbr
 </p>
@@ -648,12 +648,12 @@ If <commit-ish> is provided, sets the HEAD of the newly created branch to that
 revision.
 </p>
 
-<h3>log</h3>
+<h3 id=log>log</h3>
 <p>
 Usage: gee log
 </p>
 
-<h3>diff</h3>
+<h3 id=diff>diff</h3>
 <p>
 Usage: gee diff [<files...>]
 </p>
@@ -664,7 +664,7 @@ Diffs the current branch against its parent branch.
 If <files...> are omited, defaults to all files.
 </p>
 
-<h3>pack</h3>
+<h3 id=pack>pack</h3>
 <p>
 Usage: gee pack [-c] [-o <file.pack>]
 </p>
@@ -676,7 +676,7 @@ Flags:
   -o  Specifies a file to write to, instead of stdout.
 </p>
 
-<h3>unpack</h3>
+<h3 id=unpack>unpack</h3>
 <p>
 Usage: gee unpack <file.pack>
 </p>
@@ -684,7 +684,7 @@ Usage: gee unpack <file.pack>
 "unpack" attempts to patch the current branch from a pack file.
 </p>
 
-<h3>update</h3>
+<h3 id=update>update</h3>
 <p>
 Aliases: up
 </p>
@@ -700,7 +700,7 @@ user can either resolve the conflicts and continue, or abort the entire
 operation.
 </p>
 
-<h3>rupdate</h3>
+<h3 id=rupdate>rupdate</h3>
 <p>
 Aliases: rup
 </p>
@@ -717,7 +717,7 @@ operation.  Note that the merge conflict can be in a parent of the current
 branch.
 </p>
 
-<h3>update_all</h3>
+<h3 id=update_all>update_all</h3>
 <p>
 Aliases: up_all
 </p>
@@ -735,7 +735,7 @@ operation.  Note that the merge conflict can be in a parent of the current
 branch.
 </p>
 
-<h3>whatsout</h3>
+<h3 id=whatsout>whatsout</h3>
 <p>
 Usage: gee whatsout
 </p>
@@ -743,7 +743,7 @@ Usage: gee whatsout
 Reports which files in this branch differ from parent branch.
 </p>
 
-<h3>codeowners</h3>
+<h3 id=codeowners>codeowners</h3>
 <p>
 Aliases: owners reviewers
 </p>
@@ -768,7 +768,7 @@ If `--comment` option is specified, the codeowners information is appended to th
 current PR as a new comment.
 </p>
 
-<h3>lsbranches</h3>
+<h3 id=lsbranches>lsbranches</h3>
 <p>
 Aliases: lsb lsbr
 </p>
@@ -782,7 +782,7 @@ List information about all branches.
 NOTE: the output of this command is likely to change in the near future.
 </p>
 
-<h3>cleanup</h3>
+<h3 id=cleanup>cleanup</h3>
 <p>
 Usage: gee cleanup
 </p>
@@ -790,12 +790,12 @@ Usage: gee cleanup
 Automatically removes branches without local changes.
 </p>
 
-<h3>get_parent</h3>
+<h3 id=get_parent>get_parent</h3>
 <p>
 Usage: gee get_parent
 </p>
 
-<h3>set_parent</h3>
+<h3 id=set_parent>set_parent</h3>
 <p>
 Usage: gee set_parent <parent-branch>
 </p>
@@ -805,7 +805,7 @@ change the parent of the current branch with this command, but be sure
 to do a "gee update" operation afterwards.
 </p>
 
-<h3>commit</h3>
+<h3 id=commit>commit</h3>
 <p>
 Aliases: push c
 </p>
@@ -824,7 +824,7 @@ Example:
     gee commit -m "Added \"gee commit\" command."
 </pre>
 
-<h3>revert</h3>
+<h3 id=revert>revert</h3>
 <p>
 Usage: gee revert <files...>
 </p>
@@ -840,7 +840,7 @@ Example:
     gee revert foobar.txt
 </pre>
 
-<h3>pr_checkout</h3>
+<h3 id=pr_checkout>pr_checkout</h3>
 <p>
 Usage: gee pr_checkout <PR>
 </p>
@@ -848,7 +848,7 @@ Usage: gee pr_checkout <PR>
 Creates a new branch containing the specified pull request.
 </p>
 
-<h3>pr_list</h3>
+<h3 id=pr_list>pr_list</h3>
 <p>
 Aliases: lspr list_pr prls
 </p>
@@ -882,7 +882,7 @@ PRs pending their review:
 #1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
 </p>
 
-<h3>pr_edit</h3>
+<h3 id=pr_edit>pr_edit</h3>
 <p>
 Aliases: edpr pred edit_pr
 </p>
@@ -896,7 +896,7 @@ Edit an outstanding pull request.
 All arguments are passed to "gh pr edit".
 </p>
 
-<h3>pr_view</h3>
+<h3 id=pr_view>pr_view</h3>
 <p>
 Aliases: view_pr
 </p>
@@ -907,7 +907,7 @@ Usage: gee pr_view
 View an outstanding pull request.
 </p>
 
-<h3>pr_make</h3>
+<h3 id=pr_make>pr_make</h3>
 <p>
 Aliases: mail send make_pr mkpr prmk
 </p>
@@ -921,7 +921,7 @@ Creates a new pull request from this branch.
 Uses the same options as "gh pr create".
 </p>
 
-<h3>pr_check</h3>
+<h3 id=pr_check>pr_check</h3>
 <p>
 Aliases: pr_checks check_pr
 </p>
@@ -932,7 +932,7 @@ Usage: gee pr_check
 Checks presubmit tests.
 </p>
 
-<h3>pr_submit</h3>
+<h3 id=pr_submit>pr_submit</h3>
 <p>
 Aliases: merge submit_pr
 </p>
@@ -943,7 +943,7 @@ Usage: gee submit_pr
 Merges an approved pull request.
 </p>
 
-<h3>remove_branch</h3>
+<h3 id=remove_branch>remove_branch</h3>
 <p>
 Aliases: rmbr
 </p>
@@ -954,7 +954,7 @@ Usage: gee remove_branch <branch-name>
 Removes a branch and it's associated directory.
 </p>
 
-<h3>fix</h3>
+<h3 id=fix>fix</h3>
 <p>
 Usage: gee fix [<files>]
 </p>
@@ -976,7 +976,7 @@ Note: "fix_format.sh" used to be integrated into gee, but has been separated
 out as formatting rules are highly project specific.
 </p>
 
-<h3>gcd</h3>
+<h3 id=gcd>gcd</h3>
 <p>
 Usage: gcd [-b] <branch>[/<path>]
 </p>
@@ -1020,7 +1020,7 @@ gcd also updates the following environment variables:
   BRBIN always contains the path to the bazel-bin directory beneath root.
 </p>
 
-<h3>hello</h3>
+<h3 id=hello>hello</h3>
 <p>
 Usage: gee hello
 </p>
@@ -1032,7 +1032,7 @@ For more information:
   https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh
 </p>
 
-<h3>create_ssh_key</h3>
+<h3 id=create_ssh_key>create_ssh_key</h3>
 <p>
 Usage: gee create_ssh_key
 </p>
@@ -1045,7 +1045,7 @@ is only available if something else has gone wrong requiring that keys
 be updated.
 </p>
 
-<h3>share</h3>
+<h3 id=share>share</h3>
 <p>
 Usage: gee share
 </p>
@@ -1054,7 +1054,7 @@ Displays URLs that you can paste into emails to share the contents of
 your branch with other users (in advance of sending out a PR).
 </p>
 
-<h3>repair</h3>
+<h3 id=repair>repair</h3>
 <p>
 Usage: gee repair <command>
 </p>
@@ -1065,7 +1065,7 @@ cause some of gee's metadata to become stale.  This command fixes up
 any missing or incorrect metadata.
 </p>
 
-<h3>bash_setup</h3>
+<h3 id=bash_setup>bash_setup</h3>
 <p>
 Usage: eval "$(~/bin/gee bash_setup)"
 </p>
@@ -1121,17 +1121,17 @@ version of gee_prompt_set_ps1.
 Also sets <code>GEE_BINARY</code> to point to this copy of gee.
 </p>
 
-<h3>upgrade</h3>
+<h3 id=upgrade>upgrade</h3>
 <p>
 Usage: gee upgrade [--check]
 </p>
 
-<h3>version</h3>
+<h3 id=version>version</h3>
 <p>
 Usage: gee version
 </p>
 
-<h3>help</h3>
+<h3 id=help>help</h3>
 <p>
 Usage: gee help [<command>|usage|commands|html]
 </p>
