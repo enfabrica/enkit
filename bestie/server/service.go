@@ -48,13 +48,14 @@ const (
 	cidExceptionDatasetNotFound                  // 2
 	cidExceptionExcessDelay                      // 3
 	cidExceptionProtobufError                    // 4
-	cidExceptionTableNotFound                    // 5
-	cidInsertDelay                               // 6
-	cidInsertError                               // 7
-	cidInsertOK                                  // 8
-	cidInsertTimeout                             // 9
-	cidMetricDiscard                             // 10
-	cidMetricUpload                              // 11
+	cidExceptionXmlError                         // 5
+	cidExceptionTableNotFound                    // 6
+	cidInsertDelay                               // 7
+	cidInsertError                               // 8
+	cidInsertOK                                  // 9
+	cidInsertTimeout                             // 10
+	cidMetricDiscard                             // 11
+	cidMetricUpload                              // 12
 )
 
 // Service statistics.
@@ -182,6 +183,8 @@ func updatePrometheusCounter(cid counterId, label string, n float64) {
 		s.bigQueryExceptionsTotal.WithLabelValues("excess_delay").Add(n)
 	case cidExceptionProtobufError:
 		s.bigQueryExceptionsTotal.WithLabelValues("protobuf_error").Add(n)
+	case cidExceptionXmlError:
+		s.bigQueryExceptionsTotal.WithLabelValues("xml_error").Add(n)
 	case cidExceptionTableNotFound:
 		s.bigQueryExceptionsTotal.WithLabelValues("table_not_found").Add(n)
 	case cidInsertDelay:
