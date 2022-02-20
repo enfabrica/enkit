@@ -15,6 +15,7 @@ type xmlResult struct {
 	tcFile     string
 	tcClass    string
 	tcTestCase string
+	tcProps    map[string]string
 	result     string
 	duration   float64
 	testTime   time.Time
@@ -152,6 +153,10 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 				value:     xr.duration,
 				timestamp: xr.testTime.UnixNano(),
 			}
+			// Append any test case properties to result tags.
+			for k, v := range xr.tcProps {
+				m.tags[k] = v
+			}
 			result.metrics = append(result.metrics, m)
 		}
 	}
@@ -262,6 +267,12 @@ func parseStructuredXml(ts *TestSuite) ([]*xmlResult, error) {
 			xr.result = "pass"
 		}
 		xr.testTime = testTime
+		// Pick up any test case <property> attributes.
+		tcProps := make(map[string]string)
+		for _, prop := range tc.Properties.Props {
+			tcProps[prop.Name] = prop.Value
+		}
+		xr.tcProps = tcProps
 		xmlResults = append(xmlResults, &xr)
 	}
 	return xmlResults, nil
