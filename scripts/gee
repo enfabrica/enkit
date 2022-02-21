@@ -1650,8 +1650,10 @@ function _get_pull_requests() {
   fi
   "${GH}" pr view \
     --repo="${UPSTREAM}/${REPO}" "${FROM_BRANCH}" \
-    --json "state,number,title" \
-    --jq '[.state, .number, .title] | join(" ")' \
+    --json "state,number,title,isDraft" \
+    --jq 'if .isDraft then ["DRAFT", .number, .title] ' \
+      'else [.state, .number, .title] ' \
+      '| join(" ")' \
     | cat
 }
 
@@ -2959,6 +2961,7 @@ function gee__pr_debug() {
   _check_cwd
   _check_gh_auth
   local -a PRS=()
+  _get_pull_requests "$(_get_current_branch)"
   mapfile -t PRS < <( _list_open_pr_numbers )
   _info "Open pull requests: ${PRS[*]}"
   mapfile -t PRS < <( _list_merged_pr_numbers "")
@@ -3021,12 +3024,21 @@ function gee__pr_make() {
   _info "Destination branch: ${DEST_BRANCH}"
   _info "Merge base: ${MERGE_BASE}"
 
-  local -a OPEN_PRS
-  mapfile -t OPEN_PRS < <( _list_open_pr_numbers )
-  if (( "${#OPEN_PRS[@]}" )); then
-    _info "Open PR exists: ${OPEN_PRS[*]}" \
+  local STATE NUMBER TITLE
+  read -r STATE NUMBER TITLE < \
+    <( _get_pull_requests "${CURRENT_BRANCH}" | grep -v ^MERGED)
+  if [[ "${STATE}" == "OPEN" ]]; then
+    _info "Open PR exists: #${NUMBER} \"${TITLE}\"" \
           "Use \"gee commit\" to update existing PR."
     _fatal Aborted.
+  elif [[ "${STATE}" == "DRAFT" ]]; then
+    _info "Draft PR exists: #${NUMBER} \"${TITLE}\""
+    if _confirm_default_yes "Do you want to mark PR as ready for review? (Y/n)  "; then
+      _gh pr ready "${NUMBER}"
+      exit 0
+    else
+      _fatal "Leaving PR #${NUMBER} as a draft."
+    fi
   fi
 
   local UNCOMMITTED
@@ -3149,6 +3161,7 @@ EndOfPrTemplate
 
   local DRAFT=0
   if grep --quiet -E "^\s*DRAFT" "${BODYFILE}"; then
+    DRAFT=1
     PR_ARGS+=( --draft )
   fi
 
@@ -3156,16 +3169,21 @@ EndOfPrTemplate
 
   _gh pr create "${PR_ARGS[@]}"
 
-  gee__codeowners --comment
+  if (( DRAFT != 1 )); then
+    gee__codeowners --comment
+  fi
 
   # _gh pr checks  # These take a while to run, no point checking now.
   _gh_pr_view
-  local NUM_REVIEWERS
-  NUM_REVIEWERS="$(gh pr view \
-    --repo "${UPSTREAM}/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" \
-    --json reviewRequests --jq '.reviewRequests | length')"
-  if (( NUM_REVIEWERS == 0 )); then
-    _warn "Don't forget to add reviewers!"
+
+  if (( DRAFT != 1 )); then
+    local NUM_REVIEWERS
+    NUM_REVIEWERS="$(gh pr view \
+      --repo "${UPSTREAM}/${REPO}" "${GHUSER}:${CURRENT_BRANCH}" \
+      --json reviewRequests --jq '.reviewRequests | length')"
+    if (( NUM_REVIEWERS == 0 )); then
+      _warn "Don't forget to add reviewers!"
+    fi
   fi
   rm "${BODYFILE}"
 }
