@@ -3119,7 +3119,7 @@ EndOfPrTemplate
   # lines into single blank lines:
   sed -i '/^#/d;/\S/,/^\s*$/!d' "${BODYFILE}"
 
-  if grep -E "^\s*ABORT"; then
+  if grep -E "^\s*ABORT" "${BODYFILE}"; then
     _fatal "Aborting creation of new PR, as requested."
     exit 1
   fi
