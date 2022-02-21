@@ -1648,12 +1648,14 @@ function _get_pull_requests() {
     # gh-cli treats this as a special case for some reason.
     FROM_BRANCH="${BRANCH}"
   fi
+  local Q
+  Q='if .isDraft then ["DRAFT", .number, .title] '
+  Q+='else [.state, .number, .title] '
+  Q+='end | join(" ")'
   "${GH}" pr view \
     --repo="${UPSTREAM}/${REPO}" "${FROM_BRANCH}" \
     --json "state,number,title,isDraft" \
-    --jq 'if .isDraft then ["DRAFT", .number, .title] ' \
-      'else [.state, .number, .title] ' \
-      '| join(" ")' \
+    --jq "${Q}" \
     | cat
 }
 
