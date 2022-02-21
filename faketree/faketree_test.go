@@ -78,4 +78,22 @@ func TestParseFlags(t *testing.T) {
 
 	args = fl.Args()
 	assert.Equal(t, []string{"--uid", "12", "--gid", u.Gid, "--faketree", fl.Faketree, "--mount", "/etc/hosts:/tmp/hosts", "--mount", "/proc:/tmp/proc"}, args)
+
+	fl = NewFlags()
+	left, err = fl.Parse([]string{
+		"--uid=12", "--mount", ":/tmp/proc:ro,type=proc,data=foo", "--", "no pig",
+	})
+	assert.NoError(t, err)
+
+	args = fl.Args()
+	assert.Equal(t, []string{"--uid", "12", "--gid", u.Gid, "--faketree", fl.Faketree, "--mount", ":/tmp/proc:ro,type=proc,data=foo"}, args)
+
+	fl = NewFlags()
+	left, err = fl.Parse([]string{
+		"--uid=12", "--mount", "/test:/tmp/proc:   ro  ,recursive ,data=foo,bar,baz", "--", "no pig",
+	})
+	assert.NoError(t, err)
+
+	args = fl.Args()
+	assert.Equal(t, []string{"--uid", "12", "--gid", u.Gid, "--faketree", fl.Faketree, "--mount", "/test:/tmp/proc:ro,recursive,data=foo,bar,baz"}, args)
 }

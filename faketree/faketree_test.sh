@@ -67,3 +67,8 @@ $ft -- sh -c 'pwd' &>/dev/null
 test "$?" == 0 || {
   fail "faketree did not succeed even after the command was fixed"
 }
+
+$ft --fail --mount :/tmp/root/mytmp:ro,type=tmpfs -- sh -c "cat /proc/mounts" 2>/dev/null |egrep "tmpfs\s+/tmp/root/mytmp\s+tmpfs\s+ro"
+test "$?" == 0 || {
+  fail "faketree mounts do not show the just mounted tmpfs directory"
+}
