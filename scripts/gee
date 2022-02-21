@@ -3085,6 +3085,9 @@ Tested:
 # For example:
 # Jira: PROJ-1234,PROJ-5678
 
+# Having second thoughts?  Uncomment one of these two lines:
+# DRAFT   # To mark this PR as a "draft"
+# ABORT   # To abort the creation of a PR.
 
 EndOfPrTemplate
 
@@ -3116,6 +3119,11 @@ EndOfPrTemplate
   # lines into single blank lines:
   sed -i '/^#/d;/\S/,/^\s*$/!d' "${BODYFILE}"
 
+  if grep -E "^\s*ABORT"; then
+    _fatal "Aborting creation of new PR, as requested."
+    exit 1
+  fi
+
   # Check that the PR description looks valid
   _check_pr_description "${BODYFILE}"
 
@@ -3138,7 +3146,14 @@ EndOfPrTemplate
     -H "${GHUSER}:${CURRENT_BRANCH}"
     --body-file "${BODYFILE}"
   )
+
+  local DRAFT=0
+  if grep -E "^\s*DRAFT"; then
+    PR_ARGS+=( --draft )
+  fi
+
   PR_ARGS+=( "$@" )
+
   _gh pr create "${PR_ARGS[@]}"
 
   gee__codeowners --comment
