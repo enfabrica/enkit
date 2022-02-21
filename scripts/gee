@@ -3035,11 +3035,12 @@ function gee__pr_make() {
     _fatal Aborted.
   elif [[ "${STATE}" == "DRAFT" ]]; then
     _info "Draft PR exists: #${NUMBER} \"${TITLE}\""
-    if _confirm_default_yes "Do you want to mark PR as ready for review? (Y/n)  "; then
+    if _confirm_default_yes "Do you want to mark this PR as ready for review? (Y/n)  "; then
       _gh pr ready "${NUMBER}"
       exit 0
     else
-      _fatal "Leaving PR #${NUMBER} as a draft."
+      _info "Leaving PR #${NUMBER} as a draft."
+      exit 0
     fi
   fi
 
