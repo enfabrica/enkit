@@ -3148,7 +3148,7 @@ EndOfPrTemplate
   )
 
   local DRAFT=0
-  if grep -E "^\s*DRAFT"; then
+  if grep -E "^\s*DRAFT" "${BODYFILE}"; then
     PR_ARGS+=( --draft )
   fi
 
