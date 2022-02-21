@@ -194,7 +194,6 @@ func (l *license) Forget(invID string) int {
 	newAllocations := map[string]*invocation{}
 	for k, v := range l.allocations {
 		if k == invID {
-			metricLicenseReleaseReason.WithLabelValues("allocated_released").Inc()
 			l.prioritizer.OnRelease(v)
 			count++
 			continue
@@ -206,7 +205,6 @@ func (l *license) Forget(invID string) int {
 	if inv := l.queue.Forget(invID); inv != nil {
 		l.prioritizer.OnDequeue(inv)
 		count += 1
-		metricLicenseReleaseReason.WithLabelValues("queued_released").Inc()
 	}
 
 	l.allocations = newAllocations
