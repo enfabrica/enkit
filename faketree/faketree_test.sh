@@ -72,3 +72,16 @@ $ft --fail --mount :/tmp/root/mytmp:ro,type=tmpfs -- sh -c "cat /proc/mounts" 2>
 test "$?" == 0 || {
   fail "faketree mounts do not show the just mounted tmpfs directory"
 }
+
+$ft --fail --mount :/proc:type=proc -- sh -c 'echo $$' &>/dev/null
+test "$?" == 125 || {
+  fail "faketree allowed to mount /proc despite --fail and no --proc option"
+}
+
+shpid=$($ft --fail -- sh -c 'echo $$')
+test "$?" == 0 || {
+  fail "faketree failed to run a simple 'echo $$'"
+}
+test "$shpid" != 1 || {
+  fail "shell had pid of init in a dedicated pid namespace"
+}
