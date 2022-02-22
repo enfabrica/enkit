@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -17,7 +16,7 @@ type xmlResult struct {
 	tcTestCase string
 	tcProps    map[string]string
 	result     string
-	duration   float64
+	duration   string
 	testTime   time.Time
 }
 
@@ -145,12 +144,15 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 				metricName: "testresult",
 				tags: map[string]string{
 					"result":     xr.result,
+					"duration":   xr.duration,
 					"test_case":  xr.tcTestCase,
 					"test_class": xr.tcClass,
 					"test_file":  xr.tcFile,
 					"type":       "summary",
 				},
-				value:     xr.duration,
+				// Setting value to 1.0 so each test case result has same weight
+				// for PromQL count() and sum() operations.
+				value:     float64(1.0),
 				timestamp: xr.testTime.UnixNano(),
 			}
 			// Append any test case properties to result tags.
@@ -174,9 +176,10 @@ func parseUnstructuredXml(ts *TestSuite) ([]*xmlResult, error) {
 	//
 	// The last token in the MAKEREPORT: line is one of: passed, failed, or skipped.
 	//
-	// An abbreviated form of a skipped test is reported as follows:
+	// An abbreviated form of a test result is reported as follows
+	// (can be one of FAILED, PASSED, or SKIPPED):
 	//
-	//   systest/trial/test_app.py::TestHello::test_app_metrics_nofile SKIPPED
+	//   systest/trial/test_app.py::TestHello::test_app_metrics_nofile PASSED
 	//
 	// Also look for a single line containing the SKIPPEDSESSIONFINISH: token designating
 	// a test case that contains a pytest.skip() call during its execution:
@@ -187,7 +190,7 @@ func parseUnstructuredXml(ts *TestSuite) ([]*xmlResult, error) {
 	// from the second.
 	matches := make(map[string]string)
 	var key string
-	for _, line := range strings.Split(strings.TrimSuffix(ts.SystemOut, "\n"), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(ts.SystemOut), "\n") {
 		if strings.Contains(line, "Testing resource") {
 			key = strings.Split(strings.Split(line, " ")[0], "[")[0]
 		} else if strings.Contains(line, "MAKEREPORT") {
@@ -197,11 +200,20 @@ func parseUnstructuredXml(ts *TestSuite) ([]*xmlResult, error) {
 				matches[key] = val
 				key = ""
 			}
-		} else if strings.Contains(line, " SKIPPEDSESSIONFINISH:") ||
-			strings.Contains(line, " SKIPPED") {
+		} else if strings.Contains(line, " SKIPPEDSESSIONFINISH:") {
 			key = strings.Split(strings.Split(line, " ")[0], "[")[0]
 			matches[key] = "skipped"
 			key = ""
+		} else {
+			s := strings.Split(line, " ")
+			if len(s) == 2 {
+				if strings.Contains("FAILED PASSED SKIPPED", s[1]) {
+					// e.g.: systest/trial/test_app.py::TestHello::test_app_metrics_nofile PASSED
+					key = strings.Split(s[0], "[")[0]
+					matches[key] = strings.ToLower(s[1])
+					key = ""
+				}
+			}
 		}
 	}
 
@@ -214,7 +226,7 @@ func parseUnstructuredXml(ts *TestSuite) ([]*xmlResult, error) {
 		xr.tcFile = tcInfo[0]
 		xr.tcClass = tcInfo[1]
 		xr.tcTestCase = tcInfo[2]
-		xr.duration = float64(0.0)
+		xr.duration = "0.0"
 		if v == "failed" {
 			xr.result = "fail"
 		} else if v == "skipped" {
@@ -254,9 +266,7 @@ func parseStructuredXml(ts *TestSuite) ([]*xmlResult, error) {
 		xr.tcClass = classNameParts[len(classNameParts)-1]
 		xr.tcTestCase = tc.Name
 		// Use the testcase time attribute as its duration.
-		if xr.duration, err = strconv.ParseFloat(tc.Time, 64); err != nil {
-			xr.duration = float64(0.0)
-		}
+		xr.duration = tc.Time
 		// Derive the metric result string
 		// Note: The absence of a 'failure' or 'skipped' section means the test passed.
 		if len(tc.Failure.Message) > 0 {

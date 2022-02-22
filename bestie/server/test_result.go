@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,12 +20,6 @@ import (
 	"github.com/xenking/zipstream"
 	"google.golang.org/genproto/googleapis/devtools/build/v1"
 	"google.golang.org/protobuf/proto"
-)
-
-// Output file names
-const (
-	outputsZipFileName = "outputs.zip"
-	testXmlFileName    = "test.xml"
 )
 
 // Base URL to use for reading bytestream:// artifacts from cluster builds.
@@ -64,21 +59,20 @@ func identifyStream(bazelBuildEvent bes.BuildEvent, streamId *build.StreamId) *b
 
 // Open an output file for reading.
 func openOutputFile(fileName, fileUri string) (io.ReadCloser, error) {
-	urlParts := strings.Split(fileUri, "://")
-	if len(urlParts) != 2 {
+	u, err := url.Parse(fileUri)
+	if err != nil {
 		return nil, fmt.Errorf("Error reading %s file: malformed URL: %s", fileName, fileUri)
 	}
-	scheme, fileRef := urlParts[0], urlParts[1]
 
 	var fileCloser io.ReadCloser
 	var readErr error = nil
-	switch scheme {
+	switch u.Scheme {
 	case "bytestream":
 		// Handle cluster build scenario, translating bytestream:// URL to file URL for http.Get().
 		fileCloser, readErr = openBytestreamFile(fileName, fileUri)
 	case "file":
 		// Use URI without file:// prefix to access the local file system path.
-		fileCloser, readErr = openLocalFile(fileRef)
+		fileCloser, readErr = openLocalFile(u.Path)
 	default:
 		// log and ignore this file: not a supported URL scheme prefix.
 		readErr = fmt.Errorf("Unsupported URI scheme: %s", fileUri)
@@ -87,6 +81,7 @@ func openOutputFile(fileName, fileUri string) (io.ReadCloser, error) {
 		// Attempt to read the zip file failed.
 		return nil, fmt.Errorf("Error reading %q file: %w", fileName, readErr)
 	}
+	debugPrintf("Opened output file %q for processing\n", fileName)
 	return fileCloser, nil
 }
 
@@ -145,31 +140,29 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 		fileName = of.GetName()
 		fileUri = of.GetUri()
 
-		if !strings.HasSuffix(fileName, outputsZipFileName) &&
-			!strings.HasSuffix(fileName, testXmlFileName) {
-			// Ignore this file.
+		var err error
+		switch {
+		case strings.HasSuffix(fileName, "outputs.zip"):
+			fileCloser, err := openOutputFile(fileName, fileUri)
+			if err != nil {
+				break
+			}
+			defer fileCloser.Close()
+			err = processZipMetrics(stream, fileCloser)
+		case strings.HasSuffix(fileName, "test.xml"):
+			fileCloser, err := openOutputFile(fileName, fileUri)
+			if err != nil {
+				break
+			}
+			defer fileCloser.Close()
+			err = processXmlMetrics(stream, fileCloser)
+		default:
 			continue
 		}
 
-		fileCloser, err := openOutputFile(fileName, fileUri)
+		// Check for file open or processing error.
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%w", err))
-			continue
-		}
-		defer fileCloser.Close()
-
-		// Found an output file to process. It is one whose file suffix
-		// was not ruled out above.
-		debugPrintf("Processing output file %q\n", fileName)
-		if strings.HasSuffix(fileName, testXmlFileName) {
-			// test.xml
-			err = processXmlMetrics(stream, fileCloser)
-		} else {
-			// outputs.zip
-			err = processZipMetrics(stream, fileCloser)
-		}
-		if err != nil {
-			errs = append(errs, fmt.Errorf("Error processing file %q: %w", fileName, err))
 			continue
 		}
 	}
@@ -222,7 +215,7 @@ func processZipMetrics(stream *bazelStream, fileReader io.Reader) error {
 		debugPrintf("Read output file to process: %s\n", fileName)
 
 		// Extract all metrics from the protobuf file contents.
-		pResult, err := getTestMetricsFromProtobufData(fileData[:])
+		pResult, err := getTestMetricsFromProtobufData(fileData)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("Error extracting protobuf metrics from file %q: %w", fileName, err))
 			continue
