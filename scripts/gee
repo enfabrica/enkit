@@ -2854,21 +2854,21 @@ no user is specified).
 
 Example:
 
-$ gee lspr jonathan-enf
-PRs associated with this branch:
-OPEN 1181 codegen tool
+    $ gee lspr jonathan-enf
+    PRs associated with this branch:
+    OPEN 1181 codegen tool
 
-Open PRs authored by jonathan-enf:
-#1205   REVIEW_REQUIRED Fix libsystemc build file error.
-#1181   REVIEW_REQUIRED codegen tool
-#1158   REVIEW_REQUIRED Added @gmp//:libgmpxx
-#1148   REVIEW_REQUIRED Added gee to enkit.config.yaml.
-#1136   REVIEW_REQUIRED Unified PtrQueue and Queue implementations.
-#1130   REVIEW_REQUIRED Owners of /poc/{sim,models}
-#1059   REVIEW_REQUIRED CSV file helper library
+    Open PRs authored by jonathan-enf:
+    #1205   REVIEW_REQUIRED Fix libsystemc build file error.
+    #1181   REVIEW_REQUIRED codegen tool
+    #1158   REVIEW_REQUIRED Added @gmp//:libgmpxx
+    #1148   REVIEW_REQUIRED Added gee to enkit.config.yaml.
+    #1136   REVIEW_REQUIRED Unified PtrQueue and Queue implementations.
+    #1130   REVIEW_REQUIRED Owners of /poc/{sim,models}
+    #1059   REVIEW_REQUIRED CSV file helper library
 
-PRs pending their review:
-#1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
+    PRs pending their review:
+    #1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
 
 EOT
 function gee__lspr() { gee__pr_list "$@"; }
