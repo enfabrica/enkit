@@ -13,9 +13,15 @@ tribal knowledge about how to use git the right way (for us), implementing one
 standard and well-supported workflow.  "gee" is also an instructional tool: by
 showing each command as it executes, gee helps users learn git.
 
+1. foo bar:
+
+2. bee boo:
+
     testing
     a code
     block
+
+3. what what
 
 ## Features:
 
