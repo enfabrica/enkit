@@ -4229,15 +4229,25 @@ function _render_markdown_manual() {
   local -a U=()
   mapfile -t U <<< "${USAGE//\{\{VERSION\}\}/"${VERSION}"}"
   local LINE
-  local HEADER=1
+  local CODEBLOCK=1
   echo '```'
   for LINE in "${U[@]}"; do
-    if [[ "${HEADER}" == 1 && "${LINE}" == "" ]]; then
-      echo '```'
-      HEADER=0
+    if [[ "${CODEBLOCK}" == 1 ]]; then
+      if [[ "${LINE}" == "" ]]; then
+        echo '```'
+        CODEBLOCK=0
+      fi
+    else
+      if [[ "${LINE}" == "    "* ]]; then
+        echo '```shell'
+        CODEBLOCK=1
+      fi
     fi
     echo "${LINE}"
   done
+  if [[ "${CODEBLOCK}" == 1 ]]; then
+    echo '```'
+  fi
   echo ""
   echo "## Command Summary"
   echo ""
