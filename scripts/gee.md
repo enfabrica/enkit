@@ -13,6 +13,10 @@ tribal knowledge about how to use git the right way (for us), implementing one
 standard and well-supported workflow.  "gee" is also an instructional tool: by
 showing each command as it executes, gee helps users learn git.
 
+    testing
+    a code
+    block
+
 ## Features:
 
 Uses the "worktree" feature so that:
