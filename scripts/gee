@@ -3570,17 +3570,17 @@ branch.
 
 For example:
 
-  cd ~/gee/enkit/branch1/foo/bar
-  # now in ~/gee/enkit/branch1/foo/bar
-  gcd branch2
-  # now in ~/gee/enkit/branch2/foo/bar
-  gcd branch3/foo
-  # now in ~/gee/enkit/branch3/foo
+    cd ~/gee/enkit/branch1/foo/bar
+    # now in ~/gee/enkit/branch1/foo/bar
+    gcd branch2
+    # now in ~/gee/enkit/branch2/foo/bar
+    gcd branch3/foo
+    # now in ~/gee/enkit/branch3/foo
 
 gcd also updates the following environment variables:
 
-  BROOT always contains the path to the root directory of the current branch.
-  BRBIN always contains the path to the bazel-bin directory beneath root.
+* BROOT always contains the path to the root directory of the current branch.
+* BRBIN always contains the path to the bazel-bin directory beneath root.
 
 EOT
 
