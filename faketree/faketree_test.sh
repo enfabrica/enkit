@@ -85,3 +85,30 @@ test "$?" == 0 || {
 test "$shpid" != 1 || {
   fail "shell had pid of init in a dedicated pid namespace"
 }
+
+t1=$(mktemp $tmpdir/canary.XXXXXX)
+t2=$(mktemp $tmpdir/canary.XXXXXX)
+$ft --fail -- sh -c "(sleep 1; echo ready > $t1) & (sleep 2; echo ready > $t2) & exit 17"
+test "$?" == 17 || {
+  fail "faketree did not propagate error status correctly"
+}
+grep ready "$t1" &>/dev/null || {
+  fail "faketree completed before the first canary file was created? $t1 does not exist"
+}
+grep ready "$t2" &>/dev/null || {
+  fail "faketree completed before the second canary file was created? $t2 does not exist"
+}
+
+# Check that we get the correct exit status even when inner processes
+# are killed with signals. A bit of a hack to find it (hint: grep on lockfile),
+# wait for it (content of lockfile), and make sure the entire process group
+# dies (the short sleep inside, sleep is a subcommand).
+lock=$(mktemp $tmpdir/lock.XXXXXX)
+$ft --fail -- bash -c "echo 'ready' > $lock; while :; do sleep 0.5; done;" &
+while grep -L 'ready' $lock &>/dev/null; do sleep 0.2; done;
+kill -SEGV $(pgrep -nf $lock)
+wait %1
+status="$?"
+test "$status" == "139" || {
+  fail "faketree did not propagate error status correctly - got $status"
+}
