@@ -130,7 +130,7 @@ review.
 
 ### init
 
-Usage: gee init [<repo>]
+Usage: `gee init [<repo>]`
 
 Arguments:
 
@@ -143,7 +143,7 @@ other branches will be checked out into `~/gee/<repo>/<branch>`.
 
 ### config
 
-Usage: gee config <option>
+Usage: `gee config <option>`
 
 Valid configuration options are:
 
@@ -157,7 +157,7 @@ Valid configuration options are:
 
 Aliases: mkbr
 
-Usage: gee make_branch <branch-name> [<commit-ish>]
+Usage: `gee make_branch <branch-name> [<commit-ish>]`
 Aliases: mkbr
 
 Create a new branch based on the current branch.  The new branch will be located in the
@@ -169,11 +169,11 @@ revision.
 
 ### log
 
-Usage: gee log
+Usage: `gee log`
 
 ### diff
 
-Usage: gee diff [<files...>]
+Usage: `gee diff [<files...>]`
 
 Diffs the current branch against its parent branch.
 
@@ -181,7 +181,7 @@ If <files...> are omited, defaults to all files.
 
 ### pack
 
-Usage: gee pack [-c] [-o <file.pack>]
+Usage: `gee pack [-c] [-o <file.pack>]`
 
 Creates a pack file containing all unsubmitted changes in this branch.
 
@@ -190,7 +190,7 @@ Flags:
 
 ### unpack
 
-Usage: gee unpack <file.pack>
+Usage: `gee unpack <file.pack>`
 
 "unpack" attempts to patch the current branch from a pack file.
 
@@ -198,7 +198,7 @@ Usage: gee unpack <file.pack>
 
 Aliases: up
 
-Usage: gee update
+Usage: `gee update`
 
 "gee update" attempts to rebase this branch atop its parent branch.
 
@@ -210,7 +210,7 @@ operation.
 
 Aliases: rup
 
-Usage: gee rupdate
+Usage: `gee rupdate`
 
 "gee rupdate" recursively rebases each branch onto it's parent.
 
@@ -223,7 +223,7 @@ branch.
 
 Aliases: up_all
 
-Usage: gee update_all
+Usage: `gee update_all`
 
 "gee update_all" updates all local branches (in the correct order),
 by rebasing child branches onto parent branches.
@@ -235,7 +235,7 @@ branch.
 
 ### whatsout
 
-Usage: gee whatsout
+Usage: `gee whatsout`
 
 Reports which files in this branch differ from parent branch.
 
@@ -243,7 +243,7 @@ Reports which files in this branch differ from parent branch.
 
 Aliases: owners reviewers
 
-Usage: gee codeowners [--comment]
+Usage: `gee codeowners [--comment]`
 
 Gee examines the set of modified files in this branch, and compares it against
 the rules in the CODEOWNERS file.  Gee then presents the user with detailed
@@ -262,7 +262,7 @@ current PR as a new comment.
 
 Aliases: lsb lsbr
 
-Usage: gee lsbranches
+Usage: `gee lsbranches`
 
 List information about all branches.
 
@@ -270,17 +270,17 @@ NOTE: the output of this command is likely to change in the near future.
 
 ### cleanup
 
-Usage: gee cleanup
+Usage: `gee cleanup`
 
 Automatically removes branches without local changes.
 
 ### get_parent
 
-Usage: gee get_parent
+Usage: `gee get_parent`
 
 ### set_parent
 
-Usage: gee set_parent <parent-branch>
+Usage: `gee set_parent <parent-branch>`
 
 Gee keeps track of which branch each branch is branched from.  You can
 change the parent of the current branch with this command, but be sure
@@ -290,7 +290,7 @@ to do a "gee update" operation afterwards.
 
 Aliases: push c
 
-Usage: gee commit [<git commit options>]
+Usage: `gee commit [<git commit options>]`
 
 Commits all outstanding changes (to the local branch, not the upstream branch),
 and uploads that commit to the user's private github repo.  "commit" can be
@@ -302,7 +302,7 @@ Example:
 
 ### revert
 
-Usage: gee revert <files...>
+Usage: `gee revert <files...>`
 
 Reverts changes to the specified files, so that they become identical to the
 version in the parent branch.  If the file doesn't exist in the parent
@@ -314,7 +314,7 @@ Example:
 
 ### pr_checkout
 
-Usage: gee pr_checkout <PR>
+Usage: `gee pr_checkout <PR>`
 
 Creates a new branch containing the specified pull request.
 
@@ -322,7 +322,7 @@ Creates a new branch containing the specified pull request.
 
 Aliases: lspr list_pr prls
 
-Usage: gee pr_list [<user>]
+Usage: `gee pr_list [<user>]`
 
 Lists information about PRs associated with the specified user (or yourself, if
 no user is specified).
@@ -349,7 +349,7 @@ Example:
 
 Aliases: edpr pred edit_pr
 
-Usage: gee edit_pr <args>
+Usage: `gee edit_pr <args>`
 
 Edit an outstanding pull request.
 
@@ -359,7 +359,7 @@ All arguments are passed to "gh pr edit".
 
 Aliases: view_pr
 
-Usage: gee pr_view
+Usage: `gee pr_view`
 
 View an outstanding pull request.
 
@@ -367,7 +367,7 @@ View an outstanding pull request.
 
 Aliases: mail send make_pr mkpr prmk
 
-Usage: gee make_pr <gh-options>
+Usage: `gee make_pr <gh-options>`
 
 Creates a new pull request from this branch.
 
@@ -377,7 +377,7 @@ Uses the same options as "gh pr create".
 
 Aliases: pr_checks check_pr
 
-Usage: gee pr_check
+Usage: `gee pr_check`
 
 Checks presubmit tests.
 
@@ -385,7 +385,7 @@ Checks presubmit tests.
 
 Aliases: merge submit_pr
 
-Usage: gee submit_pr
+Usage: `gee submit_pr`
 
 Merges an approved pull request.
 
@@ -393,13 +393,13 @@ Merges an approved pull request.
 
 Aliases: rmbr
 
-Usage: gee remove_branch <branch-name>
+Usage: `gee remove_branch <branch-name>`
 
 Removes a branch and it's associated directory.
 
 ### fix
 
-Usage: gee fix [<files>]
+Usage: `gee fix [<files>]`
 
 Looks for a "fix_format.sh" script in the root directory of the current branch,
 and runs it.  This script runs a set of language formatting tools over either:
@@ -416,7 +416,7 @@ out as formatting rules are highly project specific.
 
 ### gcd
 
-Usage: gcd [-b] <branch>[/<path>]
+Usage: `gcd [-b] <branch>[/<path>]`
 
 The "gee gcd" command is not meant to be used directly, but is instead designed
 to be called from the "gcd" bash function, which can be imported into your
@@ -450,7 +450,7 @@ gcd also updates the following environment variables:
 
 ### hello
 
-Usage: gee hello
+Usage: `gee hello`
 
 Verifies that the user can communicate with github using ssh.
 
@@ -459,7 +459,7 @@ For more information:
 
 ### create_ssh_key
 
-Usage: gee create_ssh_key
+Usage: `gee create_ssh_key`
 
 This command will attempt to re-enroll you for ssh access to github.
 
@@ -469,14 +469,14 @@ be updated.
 
 ### share
 
-Usage: gee share
+Usage: `gee share`
 
 Displays URLs that you can paste into emails to share the contents of
 your branch with other users (in advance of sending out a PR).
 
 ### repair
 
-Usage: gee repair <command>
+Usage: `gee repair <command>`
 
 Gee tries to control some metadata and attempts to file away some of the
 sharp edges from git.  Sometimes, bypassing gee to use git directly can
@@ -485,7 +485,7 @@ any missing or incorrect metadata.
 
 ### bash_setup
 
-Usage: eval "$(~/bin/gee bash_setup)"
+Usage: `eval "$(~/bin/gee bash_setup)"`
 
 The "bash_setup" command emits a set of bash aliases and functions that
 streamline the use of gee.  The following functions are exported:
@@ -529,15 +529,15 @@ Also sets GEE_BINARY to point to this copy of gee.
 
 ### upgrade
 
-Usage: gee upgrade [--check]
+Usage: `gee upgrade [--check]`
 
 ### version
 
-Usage: gee version
+Usage: `gee version`
 
 ### help
 
-Usage: gee help [<command>|usage|commands|markdown]
+Usage: `gee help [<command>|usage|commands|markdown]`
 
 The "usage" option produces gee's manual.
 

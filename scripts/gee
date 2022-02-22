@@ -4266,7 +4266,8 @@ function _render_markdown_manual() {
     read -r -d ":" h_cmd h_desc <<< "${h}"
     echo "### ${h_cmd}"
     echo ""
-    echo "${LONGHELP["${h_cmd}"]}"
+    echo "${LONGHELP["${h_cmd}"]}" \
+      | perl -p -e 's/^Usage: (.*?)$/Usage: `$1`/gmso'
     echo ""
   done
 }
