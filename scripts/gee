@@ -4593,9 +4593,35 @@ function _render_html_manual() {
   _html_footer
 }
 
+function _render_markdown_manual() {
+  echo "${USAGE//\{\{VERSION\}\}/"${VERSION}"}"
+  echo ""
+  echo "## Command Summary"
+  echo ""
+  echo "| Command | Summary |"
+  echo "| ------- | ------- |"
+  local h h_cmd h_desc
+  for h in "${HELP[@]}"; do
+    IFS=": " read -r h_cmd h_desc <<< "${h}"
+    echo "| <a href=\"#{$h_cmd}\">`${h_cmd}`</a> | ${h_desc} |"
+  done
+  echo ""
+  echo "## Commands"
+  echo ""
+  for h in "${HELP[@]}"; do
+    read -r -d ":" h_cmd h_desc <<< "${h}"
+    echo "### ${h_cmd}"
+    echo ""
+    echo "${LONGHELP["${h_cmd}"]}"
+    echo ""
+  done
+}
+
 function gee__help() {
   if [[ "$1" == "html" ]]; then
     _render_html_manual
+  elif [[ "$1" == "markdown" ]]; then
+    _render_markdown_manual
   else
     (
       if (( "$#" == 0 )); then
