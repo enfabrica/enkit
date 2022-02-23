@@ -86,6 +86,10 @@ func processXmlMetrics(stream *bazelStream, fileReader io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("Error extracting XML metrics: %w", err)
 	}
+	if pResult == nil {
+		// Passive error processing XML data (already counted and/or logged).
+		return nil
+	}
 
 	// Send the metrics to BigQuery.
 	if err := processMetrics(stream, pResult); err != nil {
@@ -102,8 +106,9 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 	var result metricTestResult
 	var testSuites TestSuites
 	if err := xml.Unmarshal(pbmsg, &testSuites); err != nil {
-		cidExceptionXmlError.increment()
-		return nil, fmt.Errorf("Error extracting metric data from XML file: %w", err)
+		cidExceptionXmlParseError.increment()
+		debugPrintf("Error extracting metric data from XML file: %s", err)
+		return nil, nil
 	}
 
 	// Process each of the testcases contained in the testsuite.
@@ -125,17 +130,21 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 			tableName: tableName,
 		}
 
-		// The presence of a <system-out> tag means the output results are unformatted and
-		// must be processed by scraping the console output to the collect test case info.
-		var xmlResults []*xmlResult
-		var xerr error
+		// The presence of a <system-out> tag means the output results are unstructured and
+		// can only be processed by scraping the console output to the collect test case info.
+		// Since this is non-deterministic and error prone, unstructured XML is not supported
+		// (i.e. it requires the test applications to use junitxml style of output).
 		if len(ts.SystemOut) > 0 {
-			xmlResults, xerr = parseUnstructuredXml(&ts)
-		} else {
-			xmlResults, xerr = parseStructuredXml(&ts)
+			cidExceptionXmlUnstructuredError.increment()
+			debugPrintln("Unstructured XML test results not supported (use junitxml)")
+			return nil, nil
 		}
-		if xerr != nil {
-			return nil, fmt.Errorf("Error parsing XML test results: %w", xerr)
+
+		xmlResults, err := parseStructuredXml(&ts)
+		if err != nil {
+			cidExceptionXmlStructuredError.increment()
+			debugPrintf("Error parsing structured XML test results: %s", err)
+			return nil, nil
 		}
 
 		for _, xr := range xmlResults {
@@ -163,81 +172,6 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 		}
 	}
 	return &result, nil
-}
-
-// Parse a test.xml file that is output in a "raw" format, where individual
-// test case names and pass/fail results must be scraped from the console
-// output text string. This is the default format produced by 'bazel test'.
-func parseUnstructuredXml(ts *TestSuite) ([]*xmlResult, error) {
-	// Read each line of the console string, looking for two specific lines for each test case:
-	//
-	//   systest/trial/test_app.py::TestHello::test_app_metrics_nofile Testing resource 1322
-	//   MAKEREPORT: test_app.py::TestHello::test_app_metrics_nofile: passed
-	//
-	// The last token in the MAKEREPORT: line is one of: passed, failed, or skipped.
-	//
-	// An abbreviated form of a test result is reported as follows
-	// (can be one of FAILED, PASSED, or SKIPPED):
-	//
-	//   systest/trial/test_app.py::TestHello::test_app_metrics_nofile PASSED
-	//
-	// Also look for a single line containing the SKIPPEDSESSIONFINISH: token designating
-	// a test case that contains a pytest.skip() call during its execution:
-	//
-	//   systest/trial/test_app.py::TestHello::test_app_metrics_file[test.metrics.pb] SKIPPEDSESSIONFINISH: ...
-	//
-	// Extract the full test case ID from the first entry and the passed/failed/skipped result
-	// from the second.
-	matches := make(map[string]string)
-	var key string
-	for _, line := range strings.Split(strings.TrimSpace(ts.SystemOut), "\n") {
-		if strings.Contains(line, "Testing resource") {
-			key = strings.Split(strings.Split(line, " ")[0], "[")[0]
-		} else if strings.Contains(line, "MAKEREPORT") {
-			if len(key) > 0 {
-				vals := strings.Split(line, " ")
-				val := vals[len(vals)-1]
-				matches[key] = val
-				key = ""
-			}
-		} else if strings.Contains(line, " SKIPPEDSESSIONFINISH:") {
-			key = strings.Split(strings.Split(line, " ")[0], "[")[0]
-			matches[key] = "skipped"
-			key = ""
-		} else {
-			s := strings.Split(line, " ")
-			if len(s) == 2 {
-				if strings.Contains("FAILED PASSED SKIPPED", s[1]) {
-					// e.g.: systest/trial/test_app.py::TestHello::test_app_metrics_nofile PASSED
-					key = strings.Split(s[0], "[")[0]
-					matches[key] = strings.ToLower(s[1])
-					key = ""
-				}
-			}
-		}
-	}
-
-	// Process each found test case, storing the relevant result data in a common format.
-	var xmlResults []*xmlResult
-	testTime := time.Now() // use same time for each result
-	for k, v := range matches {
-		var xr xmlResult
-		tcInfo := strings.Split(k, "::")
-		xr.tcFile = tcInfo[0]
-		xr.tcClass = tcInfo[1]
-		xr.tcTestCase = tcInfo[2]
-		xr.duration = "0.0"
-		if v == "failed" {
-			xr.result = "fail"
-		} else if v == "skipped" {
-			xr.result = "skip"
-		} else {
-			xr.result = "pass"
-		}
-		xr.testTime = testTime
-		xmlResults = append(xmlResults, &xr)
-	}
-	return xmlResults, nil
 }
 
 // Parse a test.xml file that is properly structured with beginning and ending

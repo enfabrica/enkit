@@ -79,7 +79,7 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 			cidEventsTotal.updateWithLabel(getEventLabel(bazelEventId.Id), 1)
 			if m := bazelBuildEvent.GetTestResult(); m != nil {
 				if err := handleTestResultEvent(bazelBuildEvent, streamId); err != nil {
-					logger.Printf("Error handling Bazel event %T: %w\n\n", bazelEventId.Id, err)
+					logger.Printf("Error handling Bazel event %T: %s\n\n", bazelEventId.Id, err)
 					return err
 				}
 			}

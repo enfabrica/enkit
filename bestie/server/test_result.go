@@ -140,17 +140,18 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 		fileName = of.GetName()
 		fileUri = of.GetUri()
 
+		var fileCloser io.ReadCloser
 		var err error
 		switch {
 		case strings.HasSuffix(fileName, "outputs.zip"):
-			fileCloser, err := openOutputFile(fileName, fileUri)
+			fileCloser, err = openOutputFile(fileName, fileUri)
 			if err != nil {
 				break
 			}
 			defer fileCloser.Close()
 			err = processZipMetrics(stream, fileCloser)
 		case strings.HasSuffix(fileName, "test.xml"):
-			fileCloser, err := openOutputFile(fileName, fileUri)
+			fileCloser, err = openOutputFile(fileName, fileUri)
 			if err != nil {
 				break
 			}

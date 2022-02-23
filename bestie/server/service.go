@@ -43,19 +43,21 @@ var besEventIds = map[string]string{
 type counterId int
 
 const (
-	cidBuildsTotal              counterId = iota // 0
-	cidEventsTotal                               // 1
-	cidExceptionDatasetNotFound                  // 2
-	cidExceptionExcessDelay                      // 3
-	cidExceptionProtobufError                    // 4
-	cidExceptionXmlError                         // 5
-	cidExceptionTableNotFound                    // 6
-	cidInsertDelay                               // 7
-	cidInsertError                               // 8
-	cidInsertOK                                  // 9
-	cidInsertTimeout                             // 10
-	cidMetricDiscard                             // 11
-	cidMetricUpload                              // 12
+	cidBuildsTotal                   counterId = iota // 0
+	cidEventsTotal                                    // 1
+	cidExceptionDatasetNotFound                       // 2
+	cidExceptionExcessDelay                           // 3
+	cidExceptionProtobufError                         // 4
+	cidExceptionTableNotFound                         // 5
+	cidExceptionXmlParseError                         // 6
+	cidExceptionXmlStructuredError                    // 7
+	cidExceptionXmlUnstructuredError                  // 8
+	cidInsertDelay                                    // 9
+	cidInsertError                                    // 10
+	cidInsertOK                                       // 11
+	cidInsertTimeout                                  // 12
+	cidMetricDiscard                                  // 13
+	cidMetricUpload                                   // 14
 )
 
 // Service statistics.
@@ -183,10 +185,14 @@ func updatePrometheusCounter(cid counterId, label string, n float64) {
 		s.bigQueryExceptionsTotal.WithLabelValues("excess_delay").Add(n)
 	case cidExceptionProtobufError:
 		s.bigQueryExceptionsTotal.WithLabelValues("protobuf_error").Add(n)
-	case cidExceptionXmlError:
-		s.bigQueryExceptionsTotal.WithLabelValues("xml_error").Add(n)
 	case cidExceptionTableNotFound:
 		s.bigQueryExceptionsTotal.WithLabelValues("table_not_found").Add(n)
+	case cidExceptionXmlParseError:
+		s.bigQueryExceptionsTotal.WithLabelValues("xml_parse_error").Add(n)
+	case cidExceptionXmlStructuredError:
+		s.bigQueryExceptionsTotal.WithLabelValues("xml_structured_error").Add(n)
+	case cidExceptionXmlUnstructuredError:
+		s.bigQueryExceptionsTotal.WithLabelValues("xml_unstructured_error").Add(n)
 	case cidInsertDelay:
 		s.bigQueryInsertDelay.Observe(float64(n))
 	case cidInsertError:
