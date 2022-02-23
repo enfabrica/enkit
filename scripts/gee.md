@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.22
+gee version: 0.2.23
 
 gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
 tribal knowledge about how to use git the right way (for us), implementing one
@@ -369,7 +369,12 @@ Aliases: mail send make_pr mkpr prmk
 
 Usage: `gee make_pr <gh-options>`
 
-Creates a new pull request from this branch.
+Creates a new pull request from this branch.  The user will be asked to
+edit a PR description file before the PR is created.
+
+If you have any second thoughts during this process: Adding the token "DRAFT"
+to your PR description will cause the PR to be marked as a draft.  Adding the
+token "ABORT" will cause gee to abort the creation of your PR.
 
 Uses the same options as "gh pr create".
 
