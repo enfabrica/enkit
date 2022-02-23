@@ -32,9 +32,13 @@ func (mf *MountFlags) Normalize() (*MountFlags, error) {
 	if err != nil {
 		target = mf.Target
 	}
-	source, err := RealPath(mf.Source)
-	if err != nil {
-		return nil, fmt.Errorf("could not compute realpath of source %s: %w", mf.Source, err)
+
+	source := mf.Source
+	if source != "" {
+		source, err = RealPath(mf.Source)
+		if err != nil {
+			return nil, fmt.Errorf("could not compute realpath of source %s: %w", mf.Source, err)
+		}
 	}
 
 	retval := *mf
@@ -44,50 +48,121 @@ func (mf *MountFlags) Normalize() (*MountFlags, error) {
 }
 
 func (mf *MountFlags) Mount() error {
-	return syscall.Mount(mf.Source, mf.Target, mf.Fstype, mf.Flags, mf.Data)
+	source := mf.Source
+	if source == "" {
+		source = mf.Fstype
+		if source == "" {
+			source = "none"
+		}
+	}
+	return syscall.Mount(source, mf.Target, mf.Fstype, mf.Flags, mf.Data)
 }
 
-// TODO: implement this function.
-func ParseMountOptions(options string) (uintptr, string, string, error) {
-	//known := []struct {
-	//	Name  string
-	//	Value uintptr
-	//}{
-	//	{"dirsync", syscall.MS_DIRSYNC},
-	//	{"mandlock", syscall.MS_MANDLOCK},
-	//	{"noatime", syscall.MS_NOATIME},
-	//	{"nodev", syscall.MS_NODEV},
-	//	{"nodiratime", syscall.MS_NODIRATIME},
-	//	{"noexec", syscall.MS_NOEXEC},
-	//	{"nosuid", syscall.MS_NOSUID},
-	//	{"ro", syscall.MS_RDONLY},
-	//	{"recursive", syscall.MS_REC},
-	//	{"relatime", syscall.MS_RELATIME},
-	//	{"silent", syscall.MS_SILENT},
-	//	{"strictatime", syscall.MS_STRICTATIME},
-	//	{"sync", syscall.MS_SYNCHRONOUS},
-	//	{"remount", syscall.MS_REMOUNT},
-	//	{"bind", syscall.MS_BIND},
-	//	{"shared", syscall.MS_SHARED},
-	//	{"private", syscall.MS_PRIVATE},
-	//	{"slave", syscall.MS_SLAVE},
-	//	{"unbindable", syscall.MS_UNBINDABLE},
-	//	{"move", syscall.MS_MOVE},
-	//}
-	return 0, "", "", fmt.Errorf("options are not implemented yet")
+type MountOption struct {
+	Name  string
+	Value uintptr
 }
+
+type MountOptions []MountOption
+
+func (mo MountOptions) Find(option string) *MountOption {
+	for _, opt := range mo {
+		if opt.Name == option {
+			return &opt
+		}
+	}
+	return nil
+}
+
+func (mo MountOptions) Serialize(flags uintptr, fstype, fsdata string) string {
+	options := []string{}
+	if flags != DefaultMountFlags {
+		for _, opt := range mo {
+			if (uintptr(opt.Value) & flags) > 0 {
+				options = append(options, opt.Name)
+			}
+		}
+	}
+	if fstype != "" {
+		options = append(options, "type="+fstype)
+	}
+	if fsdata != "" {
+		options = append(options, "data="+fsdata)
+	}
+
+	return strings.Join(options, ",")
+}
+
+func (mo MountOptions) Parse(options string) (uintptr, string, string, error) {
+	fields := strings.Split(options, ",")
+
+	var fsflags uintptr
+	var fstype, fsdata string
+
+	var errs []error
+	for ix, field := range fields {
+		field = strings.TrimSpace(field)
+
+		if t := strings.TrimPrefix(field, "type="); len(t) < len(field) {
+			fstype = t
+			continue
+		}
+
+		// data can only be specified last, anything (including ",") after data
+		// is considered part of data.
+		if d := strings.TrimPrefix(field, "data="); len(d) < len(field) {
+			fsdata = strings.Join(append([]string{d}, fields[ix+1:]...), ",")
+			break
+		}
+
+		option := KnownOptions.Find(field)
+		if option == nil {
+			errs = append(errs, fmt.Errorf("file system option #%d is unknown: %s", ix, field))
+			continue
+		}
+
+		fsflags |= option.Value
+	}
+
+	return fsflags, fstype, fsdata, multierror.New(errs)
+}
+
+var KnownOptions = MountOptions{
+	{"dirsync", syscall.MS_DIRSYNC},
+	{"mandlock", syscall.MS_MANDLOCK},
+	{"noatime", syscall.MS_NOATIME},
+	{"nodev", syscall.MS_NODEV},
+	{"nodiratime", syscall.MS_NODIRATIME},
+	{"noexec", syscall.MS_NOEXEC},
+	{"nosuid", syscall.MS_NOSUID},
+	{"ro", syscall.MS_RDONLY},
+	{"recursive", syscall.MS_REC},
+	{"relatime", syscall.MS_RELATIME},
+	{"silent", syscall.MS_SILENT},
+	{"strictatime", syscall.MS_STRICTATIME},
+	{"sync", syscall.MS_SYNCHRONOUS},
+	{"remount", syscall.MS_REMOUNT},
+	{"bind", syscall.MS_BIND},
+	{"shared", syscall.MS_SHARED},
+	{"private", syscall.MS_PRIVATE},
+	{"slave", syscall.MS_SLAVE},
+	{"unbindable", syscall.MS_UNBINDABLE},
+	{"move", syscall.MS_MOVE},
+}
+
+var DefaultMountFlags = uintptr(syscall.MS_BIND | syscall.MS_REC | syscall.MS_PRIVATE)
 
 func NewMountFlags(mount string) (*MountFlags, error) {
 	var source, target, data, fstype string
 
-	flags := uintptr(syscall.MS_BIND | syscall.MS_REC | syscall.MS_PRIVATE)
+	flags := DefaultMountFlags
 	splits := strings.SplitN(mount, ":", 3)
 	switch len(splits) {
 	default:
 		return nil, fmt.Errorf("invalid mount: %s - format is '/source/path:/dest/path[:options]?'", mount)
 	case 3:
 		var err error
-		flags, fstype, data, err = ParseMountOptions(splits[2])
+		flags, fstype, data, err = KnownOptions.Parse(splits[2])
 		if err != nil {
 			return nil, err
 		}
@@ -107,14 +182,23 @@ func NewMountFlags(mount string) (*MountFlags, error) {
 }
 
 func (mf MountFlags) String() string {
-	return fmt.Sprintf("%s:%s", mf.Source, mf.Target)
+	options := KnownOptions.Serialize(mf.Flags, mf.Fstype, mf.Data)
+	if options != "" {
+		options = ":" + options
+	}
+
+	return fmt.Sprintf("%s:%s%s", mf.Source, mf.Target, options)
 }
 
 func (mf *MountFlags) MakeTarget(perms os.FileMode) error {
-	info, err := os.Stat(mf.Source)
+	var err error
+	var info os.FileInfo
+	if mf.Source != "" {
+		info, err = os.Stat(mf.Source)
+	}
 
 	var errs []error
-	if err != nil || info.IsDir() {
+	if err != nil || info == nil || info.IsDir() {
 		if err := os.MkdirAll(mf.Target, perms); err != nil {
 			errs = append(errs, fmt.Errorf("could not create target directory %s: %w", mf.Target, err))
 		}
