@@ -127,6 +127,14 @@ func (mo MountOptions) Parse(options string) (uintptr, string, string, error) {
 	return fsflags, fstype, fsdata, multierror.New(errs)
 }
 
+func (mo MountOptions) List() []string {
+	list := []string{}
+	for _, option := range mo {
+		list = append(list, option.Name)
+	}
+	return list
+}
+
 var KnownOptions = MountOptions{
 	{"dirsync", syscall.MS_DIRSYNC},
 	{"mandlock", syscall.MS_MANDLOCK},
@@ -225,6 +233,7 @@ type Flags struct {
 	Chdir    string
 	Faketree string
 	Perms    uint32
+	Proc     bool
 
 	Uid, Gid int
 	Mount    []MountFlags
@@ -258,6 +267,9 @@ func (opts *Flags) Args() []string {
 	}
 	if opts.Perms != kDefaultPerms {
 		args = append(args, "--perms", fmt.Sprint(opts.Perms))
+	}
+	if opts.Proc {
+		args = append(args, "--proc")
 	}
 
 	for _, mount := range opts.Mount {
@@ -370,6 +382,12 @@ func (opts *Flags) Parse(argv []string) ([]string, error) {
 
 	fs.BoolVar(&opts.Root, "root", opts.Root, "Make the command believe it has root (will force uid=0 and gid=0 regardless of --uid and --gid options)")
 	fs.BoolVar(&opts.Fail, "fail", opts.Fail, "Make fakeroot fail with an error in case any one of the setup steps fails. By default, faketree will continue.")
+	fs.BoolVar(&opts.Proc, "proc", opts.Proc,
+		"Don't ignore mounts of /proc, don't automatically mount /proc. "+
+			"Faketree internally mounts /proc in order to work. "+
+			"Given this, it will ignore any '--mount ...:/proc:...' request. "+
+			"Use --proc if you instead want to mount /proc on your own with --mount, and "+
+			"specify non standard options. Do so at your own risk, as faketree may no longer work.")
 
 	fs.StringVar(&opts.Hostname, "hostname", opts.Hostname, "Make the command believe it is running on a different host name")
 	fs.StringVar(&opts.Chdir, "chdir", opts.Chdir, "Change the current workingn directory to the one specified")
@@ -384,7 +402,8 @@ func (opts *Flags) Parse(argv []string) ([]string, error) {
 	fs.StringVar(&gid, "gid", strconv.Itoa(opts.Gid), "Make the command believe it is running as this gid")
 
 	var mounts []string
-	fs.StringArrayVar(&mounts, "mount", nil, "Override the layout of the filesystem to have the specified directories")
+	fs.StringArrayVar(&mounts, "mount", nil, "Override the layout of the filesystem to have the specified directories mounted. "+
+		"Syntax is: --mount path:destination:[options[,type=type]?[,data=...]?]?.")
 
 	if err := fs.Parse(argv); err != nil {
 		return nil, err
@@ -441,12 +460,48 @@ func initializeSystem() {
 			flags.LogOrFail("Skipping mount %s - %v", omount, err)
 			continue
 		}
+		if !flags.Proc && (mount.Target == "/proc" || mount.Target == "/proc/") {
+			flags.LogOrFail("Skipping mount %s - proc is automatically mounted (unless --proc is used)", omount)
+			continue
+		}
 
 		mkerr := mount.MakeTarget(os.FileMode(flags.Perms))
 		if err := mount.Mount(); err != nil {
 			if mkerr != nil {
 				flags.LogOrFail("Could not create mount target %s - %v", mount.Target, mkerr)
 			}
+			flags.LogOrFail("Could not mount %s - %v", mount, err)
+		}
+	}
+
+	// Why is this necessary? Mostly to unconfuse golang libraries.
+	//
+	// When the UidMappings and GidMappings are used, the /proc/$pid/uid_map and
+	// /proc/$pid/gid_map files must be updated. The golang exec library does this
+	// internally and transparently, but...
+	//
+	// When PID namespaces are used, the child process has a different view of PID
+	// numbers compared to the parent. Eg, getpid() in the child will
+	// return an integer completely different from what the parent has, possibly
+	// assigned to a different process in a different namespace.
+	//
+	// If /proc is not re-mounted in the child namespace, it will have /proc/$pid/...
+	// directories based on whoever mounted it last? so accessing /proc/$child_pid/...
+	// will fail, or point to the wrong process.
+	//
+	// This is generally a non-issue as processes tend to access their own data info
+	// through /proc/self/... which works regardless.
+	//
+	// But UidMappings and GidMappings are changing parameters for a 3rd party process,
+	// so /proc/... MUST have the correct PID directories for the specific namespace.
+	if !flags.Proc {
+		mount := MountFlags{
+			Target: "/proc",
+			Fstype: "proc",
+			// Default flags on an ubunut/debian box.
+			Flags: syscall.MS_RELATIME | syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID,
+		}
+		if err := mount.Mount(); err != nil {
 			flags.LogOrFail("Could not mount %s - %v", mount, err)
 		}
 	}
@@ -532,7 +587,8 @@ func enterSystem() {
 	cmd := NextCommand("initialize-system", flags, left)
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWNS | // independent set of mounts.
+		Cloneflags: syscall.CLONE_NEWPID | // Isolate PIDs. Necessary for a /proc mount to work.
+			syscall.CLONE_NEWNS | // independent set of mounts.
 			syscall.CLONE_NEWUTS | // host and domain names.
 			syscall.CLONE_NEWIPC | // sysv ipc
 			syscall.CLONE_NEWUSER, // new user namespace
@@ -556,7 +612,7 @@ func enterSystem() {
 	exit(cmd.Run())
 }
 
-const kHelpScreen = `
+var kHelpScreen = `
 faketree spawns a command so it runs with its own independent view of the
 file system, but with the same uid and privileges as the user who originally
 started the command.
@@ -588,6 +644,30 @@ For example:
          Runs the commands make and make install in a file system view
 	 that has /usr/bin, /usr/sbin, /var/log, ... mapped into the
 	 corresponding directories in /opt/build.
+
+Mount syntax:
+
+  The --mount option defaults to performing the equivalent of
+  'mount --rbind source-path destination-path'.
+
+  Additional options can be specified with
+     '--mount source:dest:[option[,type=...]?[,data=...]?]*'
+
+  With this syntax:
+    - If any option is specified, all options must be specified.
+      Eg, if you need to bind a directory in read only mode, you must
+      specify: '--mount source:dest:recursive,bind,ro'.
+    - Leave source "empty" to mount file systems that don't have
+      a source file/device. For example, to mount a tmpfs file system,
+      use '--mount :/destination/dir:type=tmpfs'.
+    - data=..., if specified, MUST be last. It allows to pass arbitrary
+      string options down to the file system layer.
+    - Internally, faketree needs /proc/ to be mounted and will mount it
+      automatically. Any request to mount /proc/ will be ignored, unless
+      --proc is specified, in which case a '--mount :proc:/proc:...' flag
+      must be supplied, otherwise faketree will fail to start.
+    - Most mount(8) options are supported, with the similar semantics:
+      ` + strings.Join(KnownOptions.List(), ",") + `
 `
 
 func exit(err error) {
@@ -614,8 +694,7 @@ func enterPrivileges(flags *Flags, left []string) {
 
 	cmd.Path = flags.Faketree
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWPID | // isolates pids
-			syscall.CLONE_NEWUSER, // new user namespace
+		Cloneflags: syscall.CLONE_NEWUSER, // new user namespace
 
 		UidMappings: []syscall.SysProcIDMap{
 			{
