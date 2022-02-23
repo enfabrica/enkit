@@ -4,4 +4,5 @@
 
 ### Release 0.2.23
 
+* Rendered gee help as a user manual, in markdown.
 * `pr_make`: Add support for marking PRs as "DRAFTs" or "ABORTing".
