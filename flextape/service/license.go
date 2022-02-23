@@ -43,6 +43,15 @@ var (
 			"license_type",
 		},
 	)
+	metricLicenseReleaseReason = promauto.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: "flextape",
+		Name:      "license_release_count",
+		Help:      "License release count by reason",
+	},
+		[]string{
+			"reason",
+		},
+	)
 )
 
 // license manages allocations and queued invocations for a single license type.
@@ -116,6 +125,7 @@ func (l *license) ExpireAllocations(expiry time.Time) {
 	for k, v := range l.allocations {
 		if !v.LastCheckin.After(expiry) {
 			l.prioritizer.OnRelease(v)
+			metricLicenseReleaseReason.WithLabelValues("allocated_expired").Inc()
 			continue
 		}
 		newAllocations[k] = v
@@ -133,6 +143,7 @@ func (l *license) ExpireQueued(expiry time.Time) {
 		}
 
 		l.prioritizer.OnDequeue(inv)
+		metricLicenseReleaseReason.WithLabelValues("queued_expired").Inc()
 		return true
 	})
 }
