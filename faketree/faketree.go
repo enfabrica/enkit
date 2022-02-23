@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"os/user"
 	"syscall"
 
@@ -302,14 +303,15 @@ func (mf *MountFlags) MakeTarget(perms os.FileMode) error {
 }
 
 type Flags struct {
-	Fail     bool
-	Root     bool
-	Hostname string
-	Chdir    string
-	Faketree string
-	Perms    uint32
-	Proc     bool
-	Wait     bool
+	Fail      bool
+	Root      bool
+	Hostname  string
+	Chdir     string
+	Faketree  string
+	Perms     uint32
+	Proc      bool
+	Wait      bool
+	Propagate bool
 
 	Uid, Gid int
 	Mount    []MountFlags
@@ -349,6 +351,9 @@ func (opts *Flags) Args() []string {
 	}
 	if !opts.Wait {
 		args = append(args, "--wait=false")
+	}
+	if !opts.Propagate {
+		args = append(args, "--propagate=false")
 	}
 
 	for _, mount := range opts.Mount {
@@ -432,10 +437,11 @@ const kDefaultExit = 125
 
 func NewFlags() *Flags {
 	flags := &Flags{
-		Uid:   os.Getuid(),
-		Gid:   os.Getgid(),
-		Perms: kDefaultPerms,
-		Wait:  true,
+		Uid:       os.Getuid(),
+		Gid:       os.Getgid(),
+		Perms:     kDefaultPerms,
+		Wait:      true,
+		Propagate: true,
 	}
 
 	// Realpath may fail due to how procfs is mounted.
@@ -469,6 +475,7 @@ func (opts *Flags) Parse(argv []string) ([]string, error) {
 			"Use --proc if you instead want to mount /proc on your own with --mount, and "+
 			"specify non standard options. Do so at your own risk, as faketree may no longer work.")
 	fs.BoolVar(&opts.Wait, "wait", opts.Wait, "Wait for all children of this process to die before returning.")
+	fs.BoolVar(&opts.Propagate, "propagate", opts.Propagate, "Take control of signal propagation - see help screen for more details.")
 
 	fs.StringVar(&opts.Hostname, "hostname", opts.Hostname, "Make the command believe it is running on a different host name")
 	fs.StringVar(&opts.Chdir, "chdir", opts.Chdir, "Change the current workingn directory to the one specified")
@@ -690,7 +697,7 @@ func enterSystem() {
 		},
 	}
 
-	exit(cmd.Run())
+	RunAndWait(false /* wait for ALL children */, flags.Propagate, cmd, 0)
 }
 
 var kHelpScreen = `
@@ -749,6 +756,47 @@ Mount syntax:
       must be supplied, otherwise faketree will fail to start.
     - Most mount(8) options are supported, with the similar semantics:
       ` + strings.Join(KnownOptions.List(), ",") + `
+
+Signals handling
+
+  When --signals=false, faketree does nothing for signal handling:
+
+      If a signal is sent to the PID of faketree, it will just affect
+      that faketree process. [** see below **]
+
+      If a signal is sent to the Proces Group of faketree, the signal will
+      reach both faketree and every child of faketree that did not change
+      the Process Group on its own. [** see below **]
+
+      it is easy to verify the process group structure with 'ps -ejf f'
+      from a shell.
+
+      ** When a signal like SIGTERM is sent to the parent faketree,
+      the parent faketree will terminate. The child fake tree will detect
+      the death of the parent, and send itself a SIGTERM.
+
+  When --signals=true, faketree tries to propagate signals reasonably:
+
+      Any signal received by faketree will be ignored to the extent the
+      OS allows for it, but will then be propagated to the child
+      (of course, SIGKILL cannot be ignored).
+
+      If the job control system running faketree sends signals to the
+      process group of faketree, this will result in multiple signals
+      delivered to the child (each faketree process will receive the
+      signal, and propagate it to its own child - the correct action here
+      would be to ignore the signal, but it's impossible to tell if the
+      caller is sending to a group, or to a single process - TODO: make
+      faketree change process group, so we are guaranteed that only faketree
+      gets the signal).
+
+      If the job control system just signals its direct children instead,
+      this will all work as expected.
+
+      ** When a signal like SIGTERM is sent to the parent faketree,
+      faketree will ignore it, pass it to the child faketree, pass it
+      the spawned command, which will likely terminate. Once the process
+      terminates, faketree will return the value to the caller.
 `
 
 func exit(err error) {
@@ -774,12 +822,42 @@ func exit(err error) {
 	os.Exit(kDefaultExit)
 }
 
+// ReceiveSignals creates a channel to receive all signals.
+func ReceiveSignals() chan os.Signal {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c)
+	signal.Reset(os.Signal(syscall.SIGCHLD))
+	return c
+}
+
+// PropagateSignals sends all signals received to the specified pid.
+//
+// It never returns, it is meant to be invoked by a goroutine.
+func PropagateSignals(c chan os.Signal, pid int) {
+	for {
+		s := <-c
+		syscall.Kill(pid, s.(syscall.Signal))
+	}
+}
+
 func enterPrivileges(flags *Flags, left []string) {
 	cmd := NextCommand("initialize-privileges", flags, left)
+
+	// When propagate is on, the parent won't die on SIGTERM, it will
+	// just propagate the signal here.
+	//
+	// If the parent dies, it was probably killed via SIGKILL, and it's
+	// likely the intent of the caller to make sure this process dies
+	// a horrible death now.
+	signal := syscall.SIGTERM
+	if flags.Propagate {
+		signal = syscall.SIGKILL
+	}
 
 	cmd.Path = flags.Faketree
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUSER, // new user namespace
+		Pdeathsig:  signal,
 
 		UidMappings: []syscall.SysProcIDMap{
 			{
@@ -797,12 +875,35 @@ func enterPrivileges(flags *Flags, left []string) {
 		},
 	}
 
+	RunAndWait(flags.Wait, flags.Propagate, cmd, -1)
+}
+
+// RunAndWait runs the specified command and waits for it.
+//
+// RunAndWait never returns, as it invokes exit() at the end.
+// It impelemnts the wait and propagate flag, as well as
+// waiting for the entire set of children, or just one.
+func RunAndWait(wait, propagate bool, cmd *exec.Cmd, pid int) {
+	// Avoid race condition by setting signal handlers before any chance of SIGCHLD.
+	var c chan os.Signal
+	if propagate {
+		c = ReceiveSignals()
+	}
+	if err := cmd.Start(); err != nil {
+		exit(err)
+	}
+	if propagate {
+		if pid == 0 {
+			pid = cmd.Process.Pid
+		}
+		go PropagateSignals(c, pid)
+	}
+
 	var err error
-	if flags.Wait {
-		cmd.Start()
+	if wait {
 		err = WaitChildren(cmd.Process)
 	} else {
-		err = cmd.Run()
+		err = cmd.Wait()
 	}
 
 	exit(err)

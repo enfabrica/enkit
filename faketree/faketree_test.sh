@@ -112,3 +112,22 @@ status="$?"
 test "$status" == "139" || {
   fail "faketree did not propagate error status correctly - got $status"
 }
+
+# Blast faketree with SIGTERM, command ignoring it should still complete, faketree
+# should keep waiting as if nothing happened.
+lock=$(mktemp $tmpdir/lock.XXXXXX)
+$ft --fail -- bash -c "trap '' TERM; echo 'started' > $lock; sleep 2; echo 'ready' > $lock" &
+# Until bash gets to the "trap ''..." it is vulnerable to signals, it will die.
+# Wait until it is safe to do so before blasting it with SIGTERM.
+while grep -L 'started' $lock &>/dev/null; do sleep 0.2; done;
+for r in {1..100}; do
+  kill -TERM %1
+done
+wait %1
+status="$?"
+test "$status" == "0" || {
+  fail "faketree was killed before completion? or failed? status $status"
+}
+grep ready "$lock" &>/dev/null || {
+  fail "faketree lock $lock file was not written correctly into."
+}
