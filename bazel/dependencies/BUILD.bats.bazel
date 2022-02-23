@@ -3,7 +3,7 @@
 
 sh_library(
     name = "bats_lib",
-    srcs = glob(["libexec/**"]),
+    srcs = glob(["lib/**", "libexec/**"]),
 )
 
 sh_binary(
