@@ -47,6 +47,81 @@ func (mf *MountFlags) Normalize() (*MountFlags, error) {
 	return &retval, nil
 }
 
+// ExitStatus wraps an exit code into an error.
+//
+// Workaround as there is no accessible constructor to create an ExitError.
+type ExitStatus int
+
+func (es ExitStatus) Error() string {
+	return fmt.Sprintf("process exited with status %d", int(es))
+}
+
+func (es ExitStatus) ExitCode() int {
+	return int(es)
+}
+
+// WaitChildren waits for all children of this process to die.
+//
+// If invoked from a normal process, it will only wait for direct children.
+//
+// If invoked as pid==1 (the init of a namespace) or after prctl(PR_CHILD_SUBREAPER),
+// it will wait for all children - direct or indirect - to die (indirect children
+// will be reparanted to pid==1 or the subreaper if their parent is killed).
+func WaitChildren(process *os.Process) error {
+	// Wait4 will fail with ECHILD if there are no children left.
+	// If no children are left it means that the process we spawned
+	// has completed, so let's return the status of that child.
+	//
+	// In the (impossible?) case that Wait4 returns "no child", but the
+	// process we spawned as not completed, return an error indicating
+	// that no child was found. Yes, confusing.
+	perr := error(syscall.ECHILD)
+	childerr := func(err error) error {
+		if errors.Is(err, syscall.ECHILD) {
+			return perr
+		}
+		return err
+	}
+
+	for {
+		var status syscall.WaitStatus
+		var rusage syscall.Rusage
+
+		// Wait for "any process that is our responsibility (-1)" to finish.
+		// (we are guaranteed at least one process was spawned, process)
+		pid, err := syscall.Wait4(-1, &status, 0, &rusage)
+		if err != nil {
+			return childerr(err)
+		}
+
+		// If pid == 0, with no error, it means there are more porcesses
+		// pending, we can just wait for real.
+		for pid != 0 {
+			// If it is our child, remember the exit code, but still wait
+			// for any other child to finish.
+			if pid == process.Pid && !status.Stopped() && !status.Continued() {
+				// Status returned by waitpid is a bitmask, "code << 8 | signal"
+				//
+				// If the child exited with a signal, the status will be 0.
+				// Mimic bash behavior here: return the signal # in that case.
+				if status.Exited() {
+					perr = ExitStatus(status.ExitStatus())
+				} else {
+					perr = ExitStatus(status)
+				}
+			}
+
+			// Are there more children to wait for? Unfortunately this will
+			// also collect the status code.
+			pid, err = syscall.Wait4(-1, &status, syscall.WNOHANG, &rusage)
+			if err != nil {
+				return childerr(err)
+			}
+		}
+	}
+	return perr
+}
+
 func (mf *MountFlags) Mount() error {
 	source := mf.Source
 	if source == "" {
@@ -234,6 +309,7 @@ type Flags struct {
 	Faketree string
 	Perms    uint32
 	Proc     bool
+	Wait     bool
 
 	Uid, Gid int
 	Mount    []MountFlags
@@ -270,6 +346,9 @@ func (opts *Flags) Args() []string {
 	}
 	if opts.Proc {
 		args = append(args, "--proc")
+	}
+	if !opts.Wait {
+		args = append(args, "--wait=false")
 	}
 
 	for _, mount := range opts.Mount {
@@ -356,6 +435,7 @@ func NewFlags() *Flags {
 		Uid:   os.Getuid(),
 		Gid:   os.Getgid(),
 		Perms: kDefaultPerms,
+		Wait:  true,
 	}
 
 	// Realpath may fail due to how procfs is mounted.
@@ -388,6 +468,7 @@ func (opts *Flags) Parse(argv []string) ([]string, error) {
 			"Given this, it will ignore any '--mount ...:/proc:...' request. "+
 			"Use --proc if you instead want to mount /proc on your own with --mount, and "+
 			"specify non standard options. Do so at your own risk, as faketree may no longer work.")
+	fs.BoolVar(&opts.Wait, "wait", opts.Wait, "Wait for all children of this process to die before returning.")
 
 	fs.StringVar(&opts.Hostname, "hostname", opts.Hostname, "Make the command believe it is running on a different host name")
 	fs.StringVar(&opts.Chdir, "chdir", opts.Chdir, "Change the current workingn directory to the one specified")
@@ -679,6 +760,10 @@ func exit(err error) {
 	if errors.As(err, &eerr) {
 		os.Exit(eerr.ExitCode())
 	}
+	var serr ExitStatus
+	if errors.As(err, &serr) {
+		os.Exit(serr.ExitCode())
+	}
 
 	if errors.Is(err, pflag.ErrHelp) {
 		fmt.Fprintf(os.Stderr, kHelpScreen)
@@ -712,7 +797,15 @@ func enterPrivileges(flags *Flags, left []string) {
 		},
 	}
 
-	exit(cmd.Run())
+	var err error
+	if flags.Wait {
+		cmd.Start()
+		err = WaitChildren(cmd.Process)
+	} else {
+		err = cmd.Run()
+	}
+
+	exit(err)
 }
 
 func main() {
