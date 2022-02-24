@@ -2089,10 +2089,10 @@ def go_repositories():
         importpath = "github.com/prometheus/prometheus",
         sum = "h1:7QPitgO2kOFG8ecuRn9O/4L9+10He72rVRJvMXrE9Hg=",
         version = "v2.5.0+incompatible",
-        build_directives = [
-            "gazelle:resolve proto gogoproto/gogo.proto @com_github_gogo_protobuf//gogoproto:gogoproto_proto",
-            "gazelle:resolve proto go gogoproto/gogo.proto @com_github_gogo_protobuf//gogoproto:gogoproto_go_proto",
-        ],
+        #build_directives = [
+        #    "gazelle:resolve proto gogoproto/gogo.proto @com_github_gogo_protobuf//gogoproto:gogoproto_proto",
+        #    "gazelle:resolve proto go gogoproto/gogo.proto @com_github_gogo_protobuf//gogoproto:gogoproto_go_proto",
+        #],
         build_file_proto_mode = "disable",
     )
 
