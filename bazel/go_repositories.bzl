@@ -2651,6 +2651,9 @@ def go_repositories():
         importpath = "cloud.google.com/go/storage",
         sum = "h1:5NQw6tOn3eMm0oE8vTkfjau18kjL79FlMjy/CHTpmoY=",
         version = "v1.18.2",
+        build_directives = [
+            "gazelle:resolve go google.golang.org/genproto/googleapis/storage/v2 @go_googleapis//google/storage/v2:storage_go_proto",
+        ],
     )
     go_repository(
         name = "com_shuralyov_dmitri_gpu_mtl",
