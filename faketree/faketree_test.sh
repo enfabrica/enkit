@@ -131,3 +131,13 @@ test "$status" == "0" || {
 grep ready "$lock" &>/dev/null || {
   fail "faketree lock $lock file was not written correctly into."
 }
+
+# Check that timeout is working as expected.
+# Note the inner shell () being backgrounded: the main shell returns immediately,
+# but the inner one remains running, for up to an hour.
+#
+# If timeout works, this command will complete in ~one second with status 12.
+$ft --fail --timeout=1s -- bash -c "(sleep 3600) &>/dev/null & exit 12"
+test "$?" == "12" || {
+  fail "faketree did not return the status of the main command"
+}
