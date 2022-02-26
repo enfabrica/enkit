@@ -137,7 +137,7 @@ grep ready "$lock" &>/dev/null || {
 # but the inner one remains running, for up to an hour.
 #
 # If timeout works, this command will complete in ~one second with status 12.
-$ft --fail --timeout=1s -- bash -c "(sleep 3600) &>/dev/null & exit 12"
+$ft --fail --wait-timeout=1s -- bash -c "(sleep 3600) &>/dev/null & exit 12"
 test "$?" == "12" || {
   fail "faketree did not return the status of the main command"
 }

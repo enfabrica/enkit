@@ -373,7 +373,7 @@ func (opts *Flags) Args() []string {
 		args = append(args, "--propagate=false")
 	}
 	if opts.Timeout != kDefaultTimeout {
-		args = append(args, "--timeout", opts.Timeout.String())
+		args = append(args, "--wait-timeout", opts.Timeout.String())
 	}
 
 	for _, mount := range opts.Mount {
@@ -502,11 +502,11 @@ func (opts *Flags) Parse(argv []string) ([]string, error) {
 			"Given this, it will ignore any '--mount ...:/proc:...' request. "+
 			"Use --proc if you instead want to mount /proc on your own with --mount, and "+
 			"specify non standard options. Do so at your own risk, as faketree may no longer work.")
-	fs.BoolVar(&opts.Wait, "wait", opts.Wait, "Wait for all children of this process to die before returning.")
+	fs.BoolVar(&opts.Wait, "wait", opts.Wait, "Wait for all direct and indirect children of this process to die before returning.")
 	fs.BoolVar(&opts.Propagate, "propagate", opts.Propagate, "Take control of signal propagation - see help screen for more details.")
-	fs.DurationVar(&opts.Timeout, "timeout", opts.Timeout,
-		"If wait is enabled, how long to wait at most for other processes in the namespace to terminate, "+
-			"after the command instantiated by fakeroot terminates. SIGKILL will be sent once timer expires.")
+	fs.DurationVar(&opts.Timeout, "wait-timeout", opts.Timeout,
+		"If wait is enabled, defines how long to wait at most for non-direct child processes to terminate. "+
+			"SIGKILL will be sent once timer expires. See help screen for more details, set to 0 to disable.")
 
 	fs.StringVar(&opts.Hostname, "hostname", opts.Hostname, "Make the command believe it is running on a different host name")
 	fs.StringVar(&opts.Chdir, "chdir", opts.Chdir, "Change the current workingn directory to the one specified")
@@ -838,8 +838,8 @@ Process Termination handling:
     soon as it terminates - no matter how many children it spawned, no matter if
     those children are alive.
 
-    Given that fakeroot confines its children in a PID namespace, as soon as
-    fakeroot terminates, all children will receive SIGKILL courtesy of the
+    Given that fakeroot confines its children to a PID namespace, as soon as
+    fakeroot terminates all children will receive SIGKILL courtesy of the
     linux kernel.
 
   If --wait is set to TRUE:
@@ -847,15 +847,18 @@ Process Termination handling:
     terminate. Once all children have terminated, it will exit with the status
     code of the one command it was asked to run.
 
-    If the command spawns a daemon, or a program that backgrounds and never
-    terminates, fakeroot will potentially run forever, and relies on the job
-    management system used to issue a SIGKILL to fakeroot after some time.
+    If the command spawns a daemon or any program that backgrounds and never
+    terminates, fakeroot will potentially run forever. In this case, run it
+    under a job management system that implements a timeout issuing SIGKILL
+    or use the --wait-timeout option.
 
-    If the --timeout option is provided, fakeroot will wait for OTHER children
+    If the --wait-timeout option is provided, fakeroot will wait for OTHER children
     for at most the timeout specified, and then send SIGKILL to all.
 
     In short: timeout timer is started once the one command fakeroot was asked
     to start terminates. Once it expires, all remaining children are sent SIGKILL.
+    It DOES NOT set a maximum time for the command set, rather a maximum time
+    for other processes spawned to terminate.
 `
 
 func exit(err error) {
