@@ -149,7 +149,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.23"
+readonly VERSION="0.2.24"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -3845,6 +3845,9 @@ Usage: gee restore_all_branches
 
 Gee looks up all branches on the origin remote, and makes sure an equivalent
 branch is checked out and updated locally.
+
+Note that gee isn't able to restore parentage metadata in this way.  Be
+sure to invoke `gee set_parent` in branches that benefit from this.
 EOT
 
 function gee__restore_all_branches() {

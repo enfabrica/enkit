@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.23
+gee version: 0.2.24
 
 gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
 tribal knowledge about how to use git the right way (for us), implementing one
@@ -115,6 +115,7 @@ review.
 | <a href="#pr_view">`pr_view`</a> | View an existing pull request. |
 | <a href="#remove_branch">`remove_branch`</a> | Remove a branch. |
 | <a href="#repair">`repair`</a> | Repair your gee workspace. |
+| <a href="#restore_all_branches">`restore_all_branches`</a> | Check out all remote branches. |
 | <a href="#revert">`revert`</a> | Revert specified files to match the parent branch. |
 | <a href="#rupdate">`rupdate`</a> | Recursively integrate changes from parents into this branch. |
 | <a href="#set_parent">`set_parent`</a> | Set another branch as parent of this branch. |
@@ -487,6 +488,16 @@ Gee tries to control some metadata and attempts to file away some of the
 sharp edges from git.  Sometimes, bypassing gee to use git directly can
 cause some of gee's metadata to become stale.  This command fixes up
 any missing or incorrect metadata.
+
+### restore_all_branches
+
+Usage: `gee restore_all_branches`
+
+Gee looks up all branches on the origin remote, and makes sure an equivalent
+branch is checked out and updated locally.
+
+Note that gee isn't able to restore parentage metadata in this way.  Be
+sure to invoke `gee set_parent` in branches that benefit from this.
 
 ### bash_setup
 
