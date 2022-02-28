@@ -40,19 +40,27 @@ readonly FILTERFILE="${CONFIGDIR}/filter-list.txt"
 readonly BUCKET="rclone-devops-284019"
 readonly PAGER="${PAGER:-less}"
 
-LOCAL_VOLUME_ID="$(\
-  grep </proc/1/cgroup -o -E 'docker/([a-f0-9]{12})' | sed 's/docker.//' | head -n 1 )"
 if ! [[ -d ~/.config/rclone ]]; then
   mkdir -p ~/.config/rclone
 fi
+LOCAL_VOLUME_ID=""
 if [[ -f ~/.config/rclone/volume_id.txt ]]; then
   read -r LOCAL_VOLUME_ID < ~/.config/rclone/volume_id.txt
 fi
-readonly VOLUME_ID="${VOLUME_ID:-"${LOCAL_VOLUME_ID}"}"
+VOLUME_ID="${VOLUME_ID:-"${LOCAL_VOLUME_ID}"}"
 if [[ -z "${VOLUME_ID}" ]]; then
-  echo >&2 "Could not determine docker id, aborting."
-fi
-if ! [[ -f ~/.config/rclone/volume_id.txt ]]; then
+  echo >&2 "This seems to be your first time running bkup on this machine."
+  echo >&2 ""
+  echo >&2 "bkup needs an identifier for the backup volume associated with this"
+  echo >&2 "machine (for example, \"chromebook1\")."
+  echo >&2 ""
+  read -e -r -i "backup1" -p \
+    "What shall we name this backup volume?  " \
+    VOLUME_ID
+  if [[ -z "${VOLUME_ID}" ]]; then
+    echo >&2 "Volume id can't be an empty string."
+    exit 1
+  fi
   echo "${VOLUME_ID}" > ~/.config/rclone/volume_id.txt
 fi
 readonly RPATH="bkup/${USER}/${VOLUME_ID}"
@@ -123,7 +131,7 @@ function bkup__help() {
       set -- "usage"
     fi
     if [[ "$1" == "usage" ]]; then
-      echo "${USAGE}" | sed "s/{{VERSION}}/${VERSION}/"
+      echo "${USAGE//\{\{VERSION\}\}/"${VERSION}"}"
       echo ""
     fi
     if [[ ("$1" == "usage") || ("$1" == "commands") ]]; then
@@ -208,44 +216,45 @@ EOT
   if ! [[ -e "${FILTERFILE}" ]]; then
     cat >"${FILTERFILE}" <<'EOT'
 # Exclude git data that is potentially backed up to a remote server
-+ /gee/*/.gee/*  # do back up gee's metadata files
-- /gee/          # don't back up anything else in gee-controlled repositories
-- gee/
++ **/.gee/*
+- /gee/
 - /testgee/
-- testgee/
-- /.git/         # don't back up the contents of any .git directories.
-- **/.git/       # don't back up the contents of any .git directories.
+- /gee.original/
+- /.git/
+- **/.git/
 
 # Exclude these directories from backups:
-- /tmp/
-- tmp/
 - /bazel-**/
-- /**/bazel-*/  # bazel-out, bazel-bin, bazel-testlogs, bazel-<brname>, etc.
-- /.cargo/                          # rust binaries
-- /.gvfs/                           # contains mounted file systems?
+- /**/bazel-*/
+- /.gvfs/
 - /.local/share/gvfs-metadata/
 - /.Private/
 - /Private/
-- /.dbus/                           # session-specific
-- /.cache/
-- /.Trash/                          # do I need to say more?
+- /.dbus/
+- /.cache/**
+- /.cargo/**
+- /.Trash/
 - /.local/share/Trash/
-- /.aptitude/                       # cached packages lists
+- /.aptitude/
+- /.rustup/
+- /.poetry/
+- /.local/
+- /go/pkg/mod/**
+- /tmp/
 
 #Flash-specific:
-- .adobe**                          # Cache for flash, maybe others?
-- .macromedia**   # except for Flash persistence, there is no reason to keep this
+- .adobe**
+- .macromedia**
 
 #Files:
 - bin/rclone
 - .bash_history*
 - .lesshst*
 - .python_history
-- .xsession-errors            # contains errors from the current graphical session
-- .recently-used              # recently used files
+- .xsession-errors
+- .recently-used
 - .recently-used.xbel
 - .thumbnails
-
 EOT
     echo >&2 "Made ${FILTERFILE}"
   fi
@@ -419,7 +428,7 @@ function bkup__diff() {
   fi
 
   local TMPFILE
-  TMPFILE="$(/usr/bin/mktemp "$(basename "$1").XXXXXX")"
+  TMPFILE="$(/usr/bin/mktemp "/tmp/$(basename "$1").XXXXXX")"
   _cmd "${RCLONE}" cat \
     "remote:${BUCKET}/${RPATH}${LPATH}" \
     "${OPTS[@]}" \
@@ -451,9 +460,6 @@ function bkup__restore() {
     --update
     --max-delete 0
   )
-  if [[ -f "${FILTERFILE}" ]]; then
-    OPTS+=( --filter-from "${FILTERFILE}" )
-  fi
 
   if [[ "$#" -eq 0 ]]; then
     echo >&2 "\"restore\" requires at least one file to restore."
@@ -462,7 +468,7 @@ function bkup__restore() {
   fi
 
   local TMPFILE F REL_P
-  TMPFILE="$(/usr/bin/mktemp bkup.restore.XXXXXX)"
+  TMPFILE="$(/usr/bin/mktemp /tmp/bkup.restore.XXXXXX)"
   for F in "$@"; do
     REL_P="$(realpath -m --relative-base="${HOME}" "${F}")"
     if [[ "${REL_P}" =~ ^/ ]]; then
@@ -546,7 +552,7 @@ function bkup__restore_all() {
 # lsvolumes command
 ##########################################################################
 
-_register_help ls "List remote volumes." <<'EOT'
+_register_help lsvolumes "List remote volumes." <<'EOT'
 Usage: bkup lsvolumes [<path>]
 
 Lists the set of volume ids associated with this account.  Volume ids
@@ -604,12 +610,10 @@ function main() {
   local cmdname="$1"; shift
   if type "bkup__${cmdname}" >/dev/null 2>&1; then
     "bkup__${cmdname}" "$@"
-    ABNORMAL=0
   else
     echo >&2 "Unknown command ${cmdname}"
     echo ""
     bkup__help commands
-    ABNORMAL=0
     exit 2
   fi
 }
