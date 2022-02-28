@@ -552,7 +552,7 @@ function bkup__restore_all() {
 # lsvolumes command
 ##########################################################################
 
-_register_help ls "List remote volumes." <<'EOT'
+_register_help lsvolumes "List remote volumes." <<'EOT'
 Usage: bkup lsvolumes [<path>]
 
 Lists the set of volume ids associated with this account.  Volume ids
