@@ -8,6 +8,8 @@ _ACCESS_MODES = [
 def _cloud_run_deploy_impl(ctx):
     access_flag = "--allow-unauthenticated" if ctx.attr.access == "public" else "--no-allow-unauthenticated"
     http2_flag = "--use-http2" if not ctx.attr.http2_downgrade else "--no-use-http2"
+    port_flag = "--port={}".format(ctx.attr.port)
+    args = " \\\n  ".join(['--args="{}"'.format(a) for a in ctx.attr.container_args])
 
     if ctx.attr.image_version.startswith("sha256:"):
         image = "{}@{}".format(ctx.attr.image, ctx.attr.image_version)
@@ -26,7 +28,9 @@ gcloud \\
   --image {image} \\
   --region {region} \\
   {access} \\
-  {http2_mode}
+  {http2_mode} \\
+  {port} \\
+  {args}
 """.format(
             project = ctx.attr.project,
             service_name = ctx.attr.service,
@@ -34,6 +38,8 @@ gcloud \\
             region = ctx.attr.region,
             access = access_flag,
             http2_mode = http2_flag,
+            port = port_flag,
+            args = args,
         ),
         is_executable = True,
     )
@@ -70,6 +76,13 @@ cloud_run_deploy = rule(
         "http2_downgrade": attr.bool(
             default = False,
             doc = "If true, service will only support HTTP2. If false, gcloud will downgrade HTTP2 to HTTP1.1 in the load balancer before the service.",
+        ),
+        "container_args": attr.string_list(
+            doc = "List of args to pass to the container",
+        ),
+        "port": attr.int(
+            default = 8080,
+            doc = "Port on which service listens for requests. If the container listens on $PORT, this can be left as the default. If the container listens on a hard-coded port, this should be set.",
         ),
     },
     executable = True,
