@@ -37,7 +37,7 @@ func main() {
 	}
 	c.Flags().StringVar(&servePrefix, "prefix", "/file/download", "the prefix of the http handler")
 	c.Flags().StringVar(&redirectUrlTo, "redirect-url", "buildbarn-buildbuddy-svc.buildbarn:8080", "the url of which to reverse proxy to")
-	c.Flags().StringVar(&byteStreamHost, "bytestream-host", "buildbarn-browser-svc.buildbarn", "the url of which to reverse proxy to")
+	c.Flags().StringVar(&byteStreamHost, "bytestream-host", "buildbarn-browser-svc.buildbarn", "the new host of the byte stream url")
 	c.Flags().IntVar(&port, "port", 8080, "port to serve on")
 
 	log.Fatal(c.Execute())
