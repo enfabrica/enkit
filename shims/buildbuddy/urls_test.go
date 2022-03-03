@@ -28,13 +28,12 @@ func TestFetchUrls(t *testing.T) {
 	})
 	exampleByteStreamHost := "foo.bar:1337"
 	testServer := httptest.NewServer(testMux)
-	turl, err := url.Parse(testServer.URL)
+	testServerUrl, err := url.Parse(testServer.URL)
 	assert.NoError(t, err)
-	proxy := httputil.NewSingleHostReverseProxy(turl)
-	for _, tar := range TestUrls {
-		req := httptest.NewRequest(http.MethodGet, tar, nil)
+	proxy := httputil.NewSingleHostReverseProxy(testServerUrl)
+	for _, testUrl := range TestUrls {
 		resp := httptest.NewRecorder()
-		DefaultHandleFunc(proxy, exampleByteStreamHost)(resp, req)
+		DefaultHandleFunc(proxy, exampleByteStreamHost)(resp, httptest.NewRequest(http.MethodGet, testUrl, nil))
 		r, err := ioutil.ReadAll(resp.Body)
 		assert.NoError(t, err)
 		parsedResp, err := url.Parse(string(r))
