@@ -79,10 +79,6 @@ def enkit_deps():
             build_file = "@enkit//bazel/dependencies:BUILD.bats.bazel",
         )
 
-    # rules_docker 0.14.4 is incompatible with rules_pkg 0.3.0 as of Oct/2020.
-    #
-    # When you update this dependency, please make sure rules_docker has been updated as well,
-    # and do run a docker build to ensure that there is no breakage.
     if "rules_pkg" not in excludes:
         http_archive(
             name = "rules_pkg",
