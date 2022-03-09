@@ -147,13 +147,18 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 			return nil, nil
 		}
 
+		metricName := "testresult"
 		for _, xr := range xmlResults {
 			// Construct the BigQuery metric from the XML results provided.
+			// Note that the metric name and creation datetime are also being stored
+			// in the metric tags to facilitate Grafana queries and displays,
+			// since Prometheus supplies its scrape time, which is not what we want.
 			var m testMetric = testMetric{
-				metricName: "testresult",
+				metricName: metricName,
 				tags: map[string]string{
-					"result":     xr.result,
 					"duration":   xr.duration,
+					"name":       metricName,
+					"result":     xr.result,
 					"test_case":  xr.tcTestCase,
 					"test_class": xr.tcClass,
 					"test_file":  xr.tcFile,
