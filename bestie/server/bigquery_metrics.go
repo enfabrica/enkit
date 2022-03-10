@@ -141,22 +141,21 @@ func translateMetric(stream *bazelStream, m *testMetric) (*bigQueryMetric, error
 	// Create a map to hold key/value pairs for various properties.
 	dat := make(map[string]string)
 
-	// Store the metric name as a tag in addition to the BigQuery table 'metricname'
-	// column so that it can be displayed in Grafana dashboard tables.
-	dat["metric_name"] = m.metricName
-
 	// Process the map of key/value pairs representing individual metric tags.
+	// These come from the test application.
 	for k, v := range m.tags {
 		dat[k] = v
 	}
 
-	// If a "created" tag was provided (nanoseconds since epoch),
-	// use it in place of the original metric timestamp value.
+	// If a "created" tag was provided by the test application (nanoseconds since epoch),
+	// use it in place of the original metric timestamp value. Delete the test app's
+	// "created" tag; it is replaced with a different "_created" tag below.
 	timestamp := m.timestamp
 	if val, ok := dat["created"]; ok {
+		delete(dat, "created")
 		ts, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
-			debugPrintf("Error converting string %s to int64: %q (value ignored)\n", val, err)
+			debugPrintf("Error converting 'created' timestamp %q to int64: %q (value ignored)\n", val, err)
 		} else {
 			timestamp = ts
 		}
@@ -177,22 +176,34 @@ func translateMetric(stream *bazelStream, m *testMetric) (*bigQueryMetric, error
 	// for details.
 	tsf := UnixMicro(timestamp / 1e3).Format(timestampFormat)
 
-	// Store the formatted timestamp string as a "created" tag for the metrics
+	// Store the metric name as a tag in addition to the BigQuery table 'metricname'
+	// column so that it can be displayed in certain Grafana dashboard tables.
+	//
+	// Note: To avoid potential tag name conflicts with tags created by the
+	// test application, the tags uniquely inserted by the BES Endpoint all
+	// begin with a leading underscore, by convention.
+	dat["_metric_name"] = m.metricName
+
+	// Store the formatted timestamp string as a "_created" tag for the metrics
 	// to facilitate defining Grafana metric queries by time of run, since
 	// Prometheus supplies its scrape time, which is not what we want.
 	// This is in addition to using it for the BigQuery table timestamp column.
-	// Overwrite the original value, which is not a formatted datetime string.
-	dat["created"] = tsf
+	//
+	// This replaces the test application's original "created" timestamp value,
+	// which is not a formatted datetime string. Since this is essentially a
+	// different tag value, use this opportunity to follow the BES-inserted tag
+	// naming convention.
+	dat["_created"] = tsf
 
 	// Insert additional tags using information that is only available
 	// to the BES endpoint through the Bazel event message itself.
 	//
 	// Storing both the invocationId and the invocationSha in the database,
 	// the former being useful to match up with build log references, etc.
-	dat["invocation_id"] = stream.invocationId
-	dat["invocation_sha"] = stream.invocationSha
-	dat["run"] = stream.run
-	dat["test_target"] = stream.testTarget
+	dat["_invocation_id"] = stream.invocationId
+	dat["_invocation_sha"] = stream.invocationSha
+	dat["_run"] = stream.run
+	dat["_test_target"] = stream.testTarget
 	tags, err := json.Marshal(dat)
 	if err != nil {
 		return nil, fmt.Errorf("Error converting JSON to string: %w", err)
