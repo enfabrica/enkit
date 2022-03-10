@@ -156,13 +156,13 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 			var m testMetric = testMetric{
 				metricName: metricName,
 				tags: map[string]string{
-					"duration":   xr.duration,
-					"name":       metricName,
-					"result":     xr.result,
-					"test_case":  xr.tcTestCase,
-					"test_class": xr.tcClass,
-					"test_file":  xr.tcFile,
-					"type":       "summary",
+					"duration":    xr.duration,
+					"metric_name": metricName,
+					"result":      xr.result,
+					"test_case":   xr.tcTestCase,
+					"test_class":  xr.tcClass,
+					"test_file":   xr.tcFile,
+					"type":        "summary",
 				},
 				// Setting value to 1.0 so each test case result has same weight
 				// for PromQL count() and sum() operations.

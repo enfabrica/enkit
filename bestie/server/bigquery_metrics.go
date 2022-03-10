@@ -143,7 +143,7 @@ func translateMetric(stream *bazelStream, m *testMetric) (*bigQueryMetric, error
 
 	// Store the metric name as a tag in addition to the BigQuery table 'metricname'
 	// column so that it can be displayed in Grafana dashboard tables.
-	dat["name"] = m.metricName
+	dat["metric_name"] = m.metricName
 
 	// Process the map of key/value pairs representing individual metric tags.
 	for k, v := range m.tags {
