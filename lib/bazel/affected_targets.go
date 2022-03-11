@@ -86,13 +86,16 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, l
 	// Get all target info for both VCS time points.
 	var startResults *QueryResult
 	var endResults *QueryResult
+	var startQueryErr error
+	var endQueryErr error
 	errs := goroutine.WaitAll(
 		func() error {
 			log.Infof("Querying dependency graph for 'before' workspace...")
 			var err error
 			startResults, err = startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
 			if err != nil {
-				return fmt.Errorf("failed to query deps for start point: %w", err)
+				startQueryErr = fmt.Errorf("failed to query deps for start point: %w", err)
+				return startQueryErr
 			}
 			log.Infof("Queried info for %d targets from 'before' workspace", len(startResults.Targets))
 			return nil
@@ -102,13 +105,24 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, l
 			var err error
 			endResults, err = endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
 			if err != nil {
-				return fmt.Errorf("failed to query deps for end point: %w", err)
+				endQueryErr = fmt.Errorf("failed to query deps for end point: %w", err)
+				return endQueryErr
 			}
 			log.Infof("Queried info for %d targets from 'after' workspace", len(endResults.Targets))
 			return nil
 		},
 	)
 	if errs != nil {
+		if startQueryErr != nil && endQueryErr == nil {
+			// We are calculating targets over a change that fixes the build graph
+			// (broken before, working after). In a presubmit context, we want this
+			// step to succeed, but there is no sensible list of targets that the
+			// change affects since the build graph was broken in one stage.
+			//
+			// Pass here but emit a warning.
+			log.Warnf("Broken build graph detected at start point; this change fixes the build graph, but no targets will be tested. This change must be tested manually.")
+			return nil, nil, nil // No changed targets and no error
+		}
 		return nil, nil, errs
 	}
 
