@@ -147,17 +147,29 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 			return nil, nil
 		}
 
+		metricName := "testresult"
 		for _, xr := range xmlResults {
 			// Construct the BigQuery metric from the XML results provided.
+			// Note that the metric name and creation datetime are also being stored
+			// in the metric tags to facilitate Grafana queries and displays,
+			// since Prometheus supplies its scrape time, which is not what we want.
+			//
+			// Note: To avoid potential tag name conflicts with tags created by the
+			// test application, the tags uniquely inserted by the BES Endpoint all
+			// begin with a leading underscore, by convention.
+			//
+			// Exception: Since the "type" tag normally comes from the test application,
+			// use the same tag name here for consistency in the database.
 			var m testMetric = testMetric{
-				metricName: "testresult",
+				metricName: metricName,
 				tags: map[string]string{
-					"result":     xr.result,
-					"duration":   xr.duration,
-					"test_case":  xr.tcTestCase,
-					"test_class": xr.tcClass,
-					"test_file":  xr.tcFile,
-					"type":       "summary",
+					"_duration":    xr.duration,
+					"_metric_name": metricName,
+					"_result":      xr.result,
+					"_test_case":   xr.tcTestCase,
+					"_test_class":  xr.tcClass,
+					"_test_file":   xr.tcFile,
+					"type":         "summary",
 				},
 				// Setting value to 1.0 so each test case result has same weight
 				// for PromQL count() and sum() operations.
