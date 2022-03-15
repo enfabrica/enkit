@@ -1606,3 +1606,41 @@ func TestPrioritization(t *testing.T) {
 	_, converted = resp.ResponseType.(*fpb.AllocateResponse_LicenseAllocated)
 	assert.True(t, converted, "%+v", resp.ResponseType)
 }
+
+func TestLicensesFromConfig(t *testing.T) {
+	testCases := []struct {
+		desc         string
+		config       *fpb.Config
+		wantLicenses map[string]*license
+	}{
+		{
+			desc: "unspecified prioritizer",
+			config: &fpb.Config{
+				LicenseConfigs: []*fpb.LicenseConfig{
+					&fpb.LicenseConfig{
+						License: &fpb.License{
+							Vendor:  "xilinx",
+							Feature: "foo_tool",
+						},
+						Quantity: 4,
+					},
+				},
+			},
+			wantLicenses: map[string]*license{
+				"xilinx::foo_tool": &license{
+					name:           "xilinx::foo_tool",
+					totalAvailable: 4,
+					allocations:    map[string]*invocation{},
+					queue:          nil,
+					prioritizer:    &FIFOPrioritizer{},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			got := licensesFromConfig(tc.config)
+			assert.Equal(t, tc.wantLicenses, got)
+		})
+	}
+}
