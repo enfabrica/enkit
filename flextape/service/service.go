@@ -66,6 +66,8 @@ func licensesFromConfig(config *fpb.Config) map[string]*license {
 			prioritizer = &FIFOPrioritizer{}
 		case *fpb.LicenseConfig_EvenOwners:
 			prioritizer = NewEvenOwnersPrioritizer()
+		default:
+			prioritizer = &FIFOPrioritizer{}
 		}
 
 		licenses[name] = &license{
