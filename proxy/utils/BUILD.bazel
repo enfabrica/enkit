@@ -2,11 +2,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["whitelist.go"],
+    srcs = [
+        "counter.go",
+        "types.go",
+        "whitelist.go",
+    ],
     importpath = "github.com/enfabrica/enkit/proxy/utils",
     visibility = ["//visibility:public"],
-    deps = [
-        "//lib/oauth:go_default_library",
-        "//proxy/nasshp:go_default_library",
-    ],
+    deps = ["//lib/oauth:go_default_library"],
 )

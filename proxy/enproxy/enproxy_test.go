@@ -13,12 +13,14 @@ import (
 	"github.com/enfabrica/enkit/proxy/nasshp"
 	"github.com/enfabrica/enkit/proxy/ptunnel"
 	"github.com/stretchr/testify/assert"
+	"github.com/prometheus/client_golang/prometheus"
 	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+	"sync"
 )
 
 // Deny returns an authenticator that either denies a request, or returns a constant cookie.
@@ -47,8 +49,10 @@ func Deny(cookie *oauth.CredentialsCookie, urls []string, log *[]string) oauth.A
 }
 
 // Server creates a Starter capable of binding an unused port and start an http server on it.
-func Server(url *string) Starter {
+func Server(wg *sync.WaitGroup, url *string) Starter {
+	wg.Add(1)
 	return func(log logger.Printer, handler http.Handler, domains ...string) error {
+		defer wg.Done()
 		var err error
 		*url, err = ktest.Start(handler)
 		return err
@@ -60,7 +64,7 @@ func TestInvalidConfig(t *testing.T) {
 	rng := rand.New(rand.NewSource(1))
 
 	// Config file without any mappings.
-	ep, err := New(rng, WithHttpStarter(Server(&url)))
+	ep, err := New(rng, WithHttpStarter(Server(&sync.WaitGroup{}, &url)))
 	assert.Regexp(t, "config file.*has no Mapping.*defined", err)
 	assert.Nil(t, ep)
 
@@ -76,14 +80,14 @@ func TestInvalidConfig(t *testing.T) {
 	}
 
 	// One mapping is provided, now authentication is required.
-	ep, err = New(rng, WithHttpStarter(Server(&url)), WithConfig(config))
+	ep, err = New(rng, WithHttpStarter(Server(&sync.WaitGroup{}, &url)), WithConfig(config))
 	assert.Regexp(t, "error in mapping entry 0", err)
 	assert.Nil(t, ep)
 
 	// Valid, but there is no tunnel configuration nor authentication, it should spew a few warnings.
 	accumulator := logger.NewAccumulator()
 	config.Mapping[0].Auth = httpp.MappingPublic
-	ep, err = New(rng, WithHttpStarter(Server(&url)), WithConfig(config), WithLogging(accumulator))
+	ep, err = New(rng, WithHttpStarter(Server(&sync.WaitGroup{}, &url)), WithConfig(config), WithLogging(accumulator))
 	assert.NoError(t, err)
 	assert.NotNil(t, ep)
 
@@ -168,21 +172,28 @@ func TestSimpleHTTP(t *testing.T) {
 		},
 	}
 
-	var fe string
 	rng := rand.New(rand.NewSource(1))
 
+	var fe string
+	var metrics string
+	var wg sync.WaitGroup
+	reg := prometheus.NewRegistry()
 	accessLog := []string{}
 	accumulator := logger.NewAccumulator()
-	ep, err := New(rng, WithHttpStarter(Server(&fe)), WithConfig(config),
+	ep, err := New(rng, WithHttpStarter(Server(&wg, &fe)), WithConfig(config), WithMetricsStarter(Server(&wg, &metrics)),
 		WithLogging(accumulator), WithAuthenticator(Deny(cookie, []string{"//test2.lan/deny"}, &accessLog)),
-		WithNasshpMods(nasshp.WithSymmetricOptions(token.WithGeneratedSymmetricKey(0))))
+		WithNasshpMods(nasshp.WithSymmetricOptions(token.WithGeneratedSymmetricKey(0))),
+		WithPrometheus(reg, reg))
 	assert.NoError(t, err)
 	assert.NotNil(t, ep)
 
-	ep.Run()
+	err = ep.Run()
+	assert.NoError(t, err)
+	wg.Wait()
 
 	var herr *protocol.HTTPError
 	body := ""
+	metrics += "/metrics"
 
 	// The root fe for test1.lan is not mapped anywhere, should return an error.
 	err = protocol.Get(fe, protocol.Read(protocol.String(&body)), protocol.WithRequestOptions(krequest.SetHost("test1.lan")))
@@ -284,4 +295,78 @@ func TestSimpleHTTP(t *testing.T) {
 	events := accumulator.Retrieve()
 	assert.True(t, len(events) > 1)
 	assert.Regexp(t, "- connects "+echoaddress.String(), events[len(events)-1].Message)
+
+	err = protocol.Get(metrics, protocol.Read(protocol.String(&body)))
+	assert.NoError(t, err)
+	lines := strings.Split(body, "\n")
+	// Surely there are more than 10 metrics...
+	assert.True(t, len(lines) > 10)
+	// Check that all metrics are expected...
+	assert.Regexp(t, "(?m)^(#|nasshp_)", body, "%s", body)
+}
+
+// Generate metrics through a prometheus PedanticRegistry, so that it will
+// report errors like conflicting metric names, incorrect representations, and such.
+func TestPedanticMetrics(t *testing.T) {
+	// Create a few http servers to use as backends.
+	s1, err := ktest.Start(http.HandlerFunc(ktest.StringHandler("s1")))
+	assert.Nil(t, err)
+
+	// Simple proxy config.
+	config := Config{
+		Mapping: []httpp.Mapping{
+			// A single file path on this host.
+			httpp.Mapping{
+				From: httpp.HostPath{
+					Host: "test1.lan",
+					Path: "/glad",
+				},
+				Auth: httpp.MappingPublic,
+				To:   s1,
+			},
+		},
+
+		// Allow any tunnel.
+		Tunnels: []string{"*"},
+	}
+
+	cookie := &oauth.CredentialsCookie{
+		Identity: oauth.Identity{
+			Id:           "id",
+			Username:     "username",
+			Organization: "organization",
+		},
+	}
+
+	var proxy string
+	var metrics string
+	var wg sync.WaitGroup
+	rng := rand.New(rand.NewSource(1))
+
+	// Ensures that no other variables are registered (eg, golang defaults) and...
+	// errors out in case there are inconsistencies in the declared variables.
+	reg := prometheus.NewPedanticRegistry()
+	accumulator := logger.NewAccumulator()
+	ep, err := New(rng, WithHttpStarter(Server(&wg, &proxy)), WithMetricsStarter(Server(&wg, &metrics)),
+		WithConfig(config), WithLogging(accumulator), WithAuthenticator(Deny(cookie, nil, nil)),
+		WithNasshpMods(nasshp.WithSymmetricOptions(token.WithGeneratedSymmetricKey(0))),
+		WithPrometheus(reg, reg))
+	assert.NoError(t, err)
+	assert.NotNil(t, ep)
+
+	err = ep.Run()
+	assert.NoError(t, err)
+	wg.Wait()
+
+	metrics += "/metrics"
+	body := ""
+
+	// The root fe for test1.lan is not mapped anywhere, should return an error.
+	err = protocol.Get(metrics, protocol.Read(protocol.String(&body)))
+	assert.NoError(t, err, "%s - %r", err, accumulator.Retrieve())
+	lines := strings.Split(body, "\n")
+	// Surely there are more than 10 metrics...
+	assert.True(t, len(lines) > 10)
+	// Check that all metrics are expected...
+	assert.Regexp(t, "(?m)^(#|nasshp_)", body, "%s", body)
 }

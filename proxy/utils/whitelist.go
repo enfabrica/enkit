@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/enfabrica/enkit/proxy/nasshp"
 	"path/filepath"
 )
 
@@ -37,13 +36,13 @@ func NewPatternList(allowed []string) (PatternList, error) {
 // Allow is a nasshp.Filter function that returns nasshp.VerdictAllow if the proto and hostport
 // string specified match any pattern in the list created with NewPatternList.
 // proto is one word.
-func (pl PatternList) Allow(proto string, ipport string, creds *oauth.CredentialsCookie) nasshp.Verdict {
+func (pl PatternList) Allow(proto string, ipport string, creds *oauth.CredentialsCookie) Verdict {
 	key := proto + "|" + ipport
 	for _, pattern := range pl {
 		match, err := filepath.Match(pattern, key)
 		if err == nil && match {
-			return nasshp.VerdictAllow
+			return VerdictAllow
 		}
 	}
-	return nasshp.VerdictDrop
+	return VerdictDrop
 }

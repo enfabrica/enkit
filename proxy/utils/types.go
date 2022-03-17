@@ -1,4 +1,4 @@
-package nasshp
+package utils
 
 type Verdict int
 
