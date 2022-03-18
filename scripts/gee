@@ -2822,6 +2822,7 @@ Usage: gee pr_checkout <PR>
 
 Creates a new branch containing the specified pull request.
 EOT
+
 function gee__pr_checkout() {
   _check_gh_auth
   _set_main
@@ -2845,6 +2846,81 @@ function gee__pr_checkout() {
   _checkout_or_die "${BRANCH}"
   _push_to_origin "${BRANCH}"
   _info "Pulled PR #${PRNUM} into branch \"${BRANCH}\""
+}
+
+##########################################################################
+# pr_push command
+##########################################################################
+_register_help "pr_push" \
+  "Push commits into another user's PR branch." <<'EOT'
+Usage: gee pr_push
+
+`gee pr_push` must be executed from within a branch created by `gee pr_checkout`.
+
+`gee commit` will create a local commit, and push that commit to `origin`, the
+remote repository owned by you.  `gee pr_push` can then be used to also push
+your commits into another user's remote pull request branch.
+
+`gee pr_push` will refuse to proceed unless all changes from the remote pull
+request branch are already integrated in your local branch, so you might need
+to `gee update` before `gee pr_push`.
+
+After pushing your changes into another user's PR branch, be sure to directly
+notify that user, so they know to pull your changes into their local branch.
+Otherwise, the other user might accidentally lose your commits entirely if they
+force-push.  Remote users can integrate your changes using the `gee update`
+command, or `git rebase --autostash origin/<branch>` if they aren't a gee user.
+
+EOT
+
+function gee__pr_push() {
+  # Check that we are in a PR branch
+  local BRANCH
+  BRANCH="$(_get_current_branch)"
+  _read_parents_file
+  local PRNUM=""
+  if [[ "${PARENTS["${BRANCH}"]}" == "upstream/refs/pull/*/head" ]]; then
+    PRNUM="$(cut -d '/' -f4)"
+  else
+    _fatal "This branch does not appear to have been made with \"gee pr_checkout\"."
+  fi
+  _info "This branch appears to be associated with PR #${PRNUM}."
+
+  # Identify remote branch
+  local -a DATA=()
+  _read_cmd DATA "${GH}" pr view \
+    --json author,headRefName,state \
+    --jq '.author["login"],.headRefName,.state'
+  local REMOTE_USER REMOTE_BRANCH REMOTE_STATE
+  REMOTE_USER="${DATA[0]}"
+  REMOTE_BRANCH="${DATA[1]}"
+  REMOTE_STATE="${DATA[2]}"
+
+  # Check that the remote branch hasn't already been merged.
+  if [[ "${REMOTE_STATE}" == "MERGED" ]]; then
+    _fatal "PR${PRNUM} has already been merged, refusing to proceed."
+  fi
+
+  # Fetch from remote branch.
+  if ! "${GIT}" remote get-url "${REMOTE_USER}" >/dev/null 2>&1; then
+    _git remote add "${REMOTE_USER}" "${GIT_AT_GITHUB}:${REMOTE_USER}/${REPO}.git" >&2
+  fi
+  _git fetch "${REMOTE_USER}" "${REMOTE_BRANCH}"
+
+  # Check if we are behind remote branch
+  local -a COUNTS
+  _read_cmd COUNTS "${GIT}" rev-list --left-right --count "${BRANCH}...FETCH_HEAD"
+  if [[ "${COUNTS[1]}" -gt 0 ]]; then
+    _warn "Remote branch ${REMOTE_USER}/${REMOTE_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${BRANCH}."
+    _fatal "You must \"gee update\" before trying to \"gee pr_push\"."
+  fi
+
+  # Push our changes to the remote branch
+  _git push "${REMOTE_USER}" "HEAD:${REMOTE_BRANCH}"
+  _info "Successfully pushed to PR#${PRNUM} (${REMOTE_USER}/${REMOTE_BRANCH})."
+
+  _warn "Please notify ${REMOTE_USER} that they should pull from their remote branch, " \
+        "otherwise they might accidentally force-commit over your changes."
 }
 
 ##########################################################################
