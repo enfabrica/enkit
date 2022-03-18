@@ -2716,13 +2716,24 @@ _register_help "commit" \
   "push" "c" <<'EOT'
 Usage: gee commit [<git commit options>]
 
-Commits all outstanding changes (to the local branch, not the upstream branch),
-and uploads that commit to the user's private github repo.  "commit" can be
-used to checkpoint and back up work in progress.
+Commits all outstanding changes to your local branch, and then immediately
+pushes your commits to `origin` (your private, remote github repository).
+
+"commit" can be used to checkpoint and back up work in progress.
+
+Note that if you are working in a PR-associated branch created with `gee
+pr_checkout`, your commits will be pushed to your `origin` remote, and the
+remote PR branch.  To contribute your changes back to another user's PR branch,
+use the `gee pr_push` command.
 
 Example:
 
     gee commit -m "Added \"gee commit\" command."
+
+See also:
+
+* pr_push
+
 EOT
 
 function gee__push() { gee__commit "$@"; }
@@ -2821,6 +2832,18 @@ _register_help "pr_checkout" \
 Usage: gee pr_checkout <PR>
 
 Creates a new branch containing the specified pull request.
+
+Note that the new will be configured so that `gee update` will update that
+branch by integrating changes from the original pull request.  However,
+`gee commit` will still only push commits to your own local and `origin`
+repositories.  If you want to push commits back into the original PR,
+use the `pr_push` command.
+
+See also:
+
+* commit
+* pr_push
+
 EOT
 
 function gee__pr_checkout() {
@@ -2871,10 +2894,18 @@ Otherwise, the other user might accidentally lose your commits entirely if they
 force-push.  Remote users can integrate your changes using the `gee update`
 command, or `git rebase --autostash origin/<branch>` if they aren't a gee user.
 
+See also:
+
+* commit
+* pr_checkout
+
 EOT
 
 function gee__pr_push() {
-  # Check that we are in a PR branch
+  # Check that we are in a PR branch (a branch created with pr_checkout).  This
+  # is somewhat inflexible, but since "pushing to another user's branch" is a
+  # bit of a risky activity, we should be extra careful here and only support
+  # one well-tested way of doing things.
   local BRANCH
   BRANCH="$(_get_current_branch)"
   _read_parents_file
