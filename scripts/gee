@@ -2263,13 +2263,22 @@ function gee__update() {
     read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
     if [[ "${COUNTS[1]}" -gt 0 ]]; then
       _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
-      _info "This could be caused by commiting changes to this branch from a different machine, " \
-            "or possibly you rebased your branch without pushing the updated branch to origin."
+      _info \
+        "There are two likely causes.  Either:" \
+        "" \
+        "* If you or another user pushed commits into this branch from another branch" \
+        "  or machine, in which case you probably want to integrate these changes, or" \
+        "" \
+        "* If you manually rebased your local branch, but forgot to force-push the" \
+        "  updated branch to origin, in which case you should do a force-push instead" \
+        "  of integrating."
       if _confirm_default_yes "Do you want to integrate changes from origin/${CURRENT_BRANCH}? (Y/n)  "; then
         _info "Pulling in changes from origin/${CURRENT_BRANCH}"
         HEAD="$("${GIT}" rev-parse HEAD)"
         _info "Old head commit before rebase: ${HEAD}"
         _git rebase --autostash "origin/${CURRENT_BRANCH}"
+      else
+        _info "You may need to \"git push -u origin --force\" to fix your origin remote."
       fi
     fi
   fi
