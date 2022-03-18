@@ -111,6 +111,7 @@ review.
 | <a href="#pr_edit">`pr_edit`</a> | Edit an existing pull request. |
 | <a href="#pr_list">`pr_list`</a> | List outstanding PRs |
 | <a href="#pr_make">`pr_make`</a> | Creates a pull request from this branch. |
+| <a href="#pr_push">`pr_push`</a> | Push commits into another user's PR branch. |
 | <a href="#pr_submit">`pr_submit`</a> | Merge the approved PR into the parent branch. |
 | <a href="#pr_view">`pr_view`</a> | View an existing pull request. |
 | <a href="#remove_branch">`remove_branch`</a> | Remove a branch. |
@@ -293,13 +294,23 @@ Aliases: push c
 
 Usage: `gee commit [<git commit options>]`
 
-Commits all outstanding changes (to the local branch, not the upstream branch),
-and uploads that commit to the user's private github repo.  "commit" can be
-used to checkpoint and back up work in progress.
+Commits all outstanding changes to your local branch, and then immediately
+pushes your commits to `origin` (your private, remote github repository).
+
+"commit" can be used to checkpoint and back up work in progress.
+
+Note that if you are working in a PR-associated branch created with `gee
+pr_checkout`, your commits will be pushed to your `origin` remote, and the
+remote PR branch.  To contribute your changes back to another user's PR branch,
+use the `gee pr_push` command.
 
 Example:
 
     gee commit -m "Added \"gee commit\" command."
+
+See also:
+
+* pr_push
 
 ### revert
 
@@ -318,6 +329,42 @@ Example:
 Usage: `gee pr_checkout <PR>`
 
 Creates a new branch containing the specified pull request.
+
+Note that the new will be configured so that `gee update` will update that
+branch by integrating changes from the original pull request.  However,
+`gee commit` will still only push commits to your own local and `origin`
+repositories.  If you want to push commits back into the original PR,
+use the `pr_push` command.
+
+See also:
+
+* commit
+* pr_push
+
+### pr_push
+
+Usage: `gee pr_push`
+
+`gee pr_push` must be executed from within a branch created by `gee pr_checkout`.
+
+`gee commit` will create a local commit, and push that commit to `origin`, the
+remote repository owned by you.  `gee pr_push` can then be used to also push
+your commits into another user's remote pull request branch.
+
+`gee pr_push` will refuse to proceed unless all changes from the remote pull
+request branch are already integrated in your local branch, so you might need
+to `gee update` before `gee pr_push`.
+
+After pushing your changes into another user's PR branch, be sure to directly
+notify that user, so they know to pull your changes into their local branch.
+Otherwise, the other user might accidentally lose your commits entirely if they
+force-push.  Remote users can integrate your changes using the `gee update`
+command, or `git rebase --autostash origin/<branch>` if they aren't a gee user.
+
+See also:
+
+* commit
+* pr_checkout
 
 ### pr_list
 
