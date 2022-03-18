@@ -2879,8 +2879,8 @@ function gee__pr_push() {
   BRANCH="$(_get_current_branch)"
   _read_parents_file
   local PRNUM=""
-  if [[ "${PARENTS["${BRANCH}"]}" == "upstream/refs/pull/*/head" ]]; then
-    PRNUM="$(cut -d '/' -f4)"
+  if [[ "${PARENTS[${BRANCH}]}" == upstream/refs/pull/*/head ]]; then
+    PRNUM="$(cut -d '/' -f4 <<< "${PARENTS[${BRANCH}]}")"
   else
     _fatal "This branch does not appear to have been made with \"gee pr_checkout\"."
   fi
@@ -2888,7 +2888,7 @@ function gee__pr_push() {
 
   # Identify remote branch
   local -a DATA=()
-  _read_cmd DATA "${GH}" pr view \
+  _read_cmd DATA "${GH}" pr view "${PRNUM}" \
     --json author,headRefName,state \
     --jq '.author["login"],.headRefName,.state'
   local REMOTE_USER REMOTE_BRANCH REMOTE_STATE
@@ -2909,10 +2909,15 @@ function gee__pr_push() {
 
   # Check if we are behind remote branch
   local -a COUNTS
-  _read_cmd COUNTS "${GIT}" rev-list --left-right --count "${BRANCH}...FETCH_HEAD"
+  read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${BRANCH}...FETCH_HEAD")
+  _info "Local has ${COUNTS[0]} more commit(s) than remote ${REMOTE_USER}/${REMOTE_BRANCH}."
+  _info "Remote has ${COUNTS[1]} more commit(s) than local."
+  if [[ "${COUNTS[0]}" -eq 0 ]]; then
+    _fatal "No local commits to push.  Perhaps you need to \"gee commit\" first?"
+  fi
   if [[ "${COUNTS[1]}" -gt 0 ]]; then
     _warn "Remote branch ${REMOTE_USER}/${REMOTE_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${BRANCH}."
-    _fatal "You must \"gee update\" before trying to \"gee pr_push\"."
+    _fatal "You must run \"gee update\" and then try again."
   fi
 
   # Push our changes to the remote branch
