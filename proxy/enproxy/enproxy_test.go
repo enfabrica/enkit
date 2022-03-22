@@ -12,15 +12,15 @@ import (
 	"github.com/enfabrica/enkit/proxy/httpp"
 	"github.com/enfabrica/enkit/proxy/nasshp"
 	"github.com/enfabrica/enkit/proxy/ptunnel"
-	"github.com/stretchr/testify/assert"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
-	"testing"
 	"sync"
+	"testing"
 )
 
 // Deny returns an authenticator that either denies a request, or returns a constant cookie.

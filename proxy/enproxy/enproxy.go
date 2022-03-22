@@ -106,9 +106,9 @@ func (config *Config) Parse() (utils.PatternList, Warnings, error) {
 
 // Flags represents command line flags necessary to define a proxy.
 type Flags struct {
-	Http  *khttp.Flags
-	Oauth *oauth.RedirectorFlags
-	Nassh *nasshp.Flags
+	Http       *khttp.Flags
+	Oauth      *oauth.RedirectorFlags
+	Nassh      *nasshp.Flags
 	Prometheus *khttp.Flags
 
 	ConfigContent          []byte
@@ -136,7 +136,7 @@ func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	fl.Http.Register(set, prefix)
 	fl.Oauth.Register(set, prefix)
 	fl.Nassh.Register(set, prefix)
-	fl.Prometheus.Register(set, prefix + "prometheus-")
+	fl.Prometheus.Register(set, prefix+"prometheus-")
 
 	set.ByteFileVar(&fl.ConfigContent, "config", fl.ConfigName, "Default config file location.", kflags.WithFilename(&fl.ConfigName))
 	set.BoolVar(&fl.DisabledAuthentication, "without-authentication", false, "allow tunneling even without authentication")
@@ -151,7 +151,7 @@ func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 type Starter func(log logger.Printer, handler http.Handler, domains ...string) error
 
 type Options struct {
-	log     logger.Logger
+	log logger.Logger
 
 	proxy   Starter
 	metrics Starter
@@ -324,7 +324,7 @@ type Enproxy struct {
 	domains []string
 
 	register prometheus.Registerer
-        gatherer prometheus.Gatherer
+	gatherer prometheus.Gatherer
 
 	proxy   Starter
 	metrics Starter
@@ -332,7 +332,7 @@ type Enproxy struct {
 
 func New(rng *rand.Rand, mods ...Modifier) (*Enproxy, error) {
 	op := &Options{
-		log:     &logger.DefaultLogger{Printer: log.Printf},
+		log:   &logger.DefaultLogger{Printer: log.Printf},
 		proxy: khttp.DefaultServer().Run,
 	}
 	if err := Modifiers(mods).Apply(op); err != nil {
@@ -390,11 +390,11 @@ func New(rng *rand.Rand, mods ...Modifier) (*Enproxy, error) {
 	}
 
 	return &Enproxy{
-		log: op.log,
-		mux: mux,
-		domains: append(append([]string{}, op.config.Domains...), hproxy.Domains...),
-		proxy: op.proxy,
-		metrics: op.metrics,
+		log:      op.log,
+		mux:      mux,
+		domains:  append(append([]string{}, op.config.Domains...), hproxy.Domains...),
+		proxy:    op.proxy,
+		metrics:  op.metrics,
 		gatherer: op.gatherer,
 		register: op.register,
 	}, nil

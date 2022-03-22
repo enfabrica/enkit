@@ -13,8 +13,10 @@ const (
 
 func (v Verdict) MergeOnlyAcceptAllow(vv Verdict) Verdict {
 	switch vv {
-	case VerdictDrop: return VerdictDrop // no doubt, we have to drop.
-	case VerdictUnknown: return v // whatever we decided before, is still valid.
+	case VerdictDrop:
+		return VerdictDrop // no doubt, we have to drop.
+	case VerdictUnknown:
+		return v // whatever we decided before, is still valid.
 	case VerdictAllow:
 		if v == VerdictUnknown {
 			return VerdictAllow
