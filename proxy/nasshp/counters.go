@@ -5,14 +5,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type AllowErrors struct { // DONE
+type AllowErrors struct {
 	InvalidCookie     utils.Counter
 	InvalidHostFormat utils.Counter
 	InvalidHostName   utils.Counter
 	Unauthorized      utils.Counter
 }
 
-type ProxyErrors struct { // DONE
+type ProxyErrors struct {
 	CookieInvalidParameters utils.Counter
 	CookieInvalidAuth       utils.Counter
 
@@ -33,7 +33,7 @@ type ProxyErrors struct { // DONE
 	SshDialFailed    utils.Counter
 }
 
-type ReadWriterCounters struct { // DONE
+type ReadWriterCounters struct {
 	BrowserWriterStarted utils.Counter
 	BrowserWriterStopped utils.Counter
 	BrowserWriterError   utils.Counter
