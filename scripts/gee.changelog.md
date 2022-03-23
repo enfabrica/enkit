@@ -2,6 +2,10 @@
 
 ## Releases
 
+### Release 0.2.25
+
+* Added `pr_push` command.
+
 ### Release 0.2.24
 
 * Added `restore_all_branches` command.
