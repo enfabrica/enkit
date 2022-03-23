@@ -86,9 +86,11 @@ test "$shpid" != 1 || {
   fail "shell had pid of init in a dedicated pid namespace"
 }
 
+# Disabling --wait-term is necessary here, otherwise the subshells will be
+# immediately sent SIGTERM, and exit.
 t1=$(mktemp $tmpdir/canary.XXXXXX)
 t2=$(mktemp $tmpdir/canary.XXXXXX)
-$ft --fail -- sh -c "(sleep 1; echo ready > $t1) & (sleep 2; echo ready > $t2) & exit 17"
+$ft --fail --wait-term=false -- sh -c "(sleep 1; echo ready > $t1) & (sleep 2; echo ready > $t2) & exit 17"
 test "$?" == 17 || {
   fail "faketree did not propagate error status correctly"
 }
@@ -96,6 +98,24 @@ grep ready "$t1" &>/dev/null || {
   fail "faketree completed before the first canary file was created? $t1 does not exist"
 }
 grep ready "$t2" &>/dev/null || {
+  fail "faketree completed before the second canary file was created? $t2 does not exist"
+}
+
+# This has one shell ignore SIGTERM, and the other not.
+# faketree should wait for the first shell to terminate, but kill the
+# other via SIGTERM immediately.
+# Use a long sleep in the command that faketree should kill to ensure
+# no race conditions.
+t1=$(mktemp $tmpdir/canary.XXXXXX)
+t2=$(mktemp $tmpdir/canary.XXXXXX)
+$ft --fail -- sh -c "(trap '' TERM; sleep 1; echo ready > $t1) & (sleep 100; echo ready > $t2) & exit 17"
+test "$?" == 17 || {
+  fail "faketree did not propagate error status correctly"
+}
+grep ready "$t1" &>/dev/null || {
+  fail "faketree completed before the first canary file was created? $t1 does not exist"
+}
+grep -L ready "$t2" &>/dev/null || {
   fail "faketree completed before the second canary file was created? $t2 does not exist"
 }
 

@@ -72,7 +72,7 @@ func (es ExitStatus) ExitCode() int {
 //
 // If timeout is specified, it will send SIGKILL itself to all children left
 // after timeout time has passed after the main process has terminated.
-func WaitChildren(timeout time.Duration, process *os.Process) error {
+func WaitChildren(timeout time.Duration, process *os.Process, termOnWait bool) error {
 	// Wait4 will fail with ECHILD if there are no children left.
 	// If no children are left it means that the process we spawned
 	// has completed, so let's return the status of that child.
@@ -115,6 +115,22 @@ func WaitChildren(timeout time.Duration, process *os.Process) error {
 					perr = ExitStatus(status.ExitStatus())
 				} else {
 					perr = ExitStatus(status)
+				}
+
+				// The main child of faketree has died.
+				//
+				// It should have taken care of its own
+				// children, but if it didn't, it's probably a
+				// good idea to ask them nicely to terminate.
+				//
+				// The timeout below won't be as nice.
+				//
+				// This path is hit commonly when the main
+				// process completes succesfully (job control
+				// system does not send SIGTERM) but children
+				// are left around.
+				if termOnWait {
+					syscall.Kill(-1, syscall.SIGTERM)
 				}
 
 				if timeout != 0 {
@@ -319,16 +335,17 @@ func (mf *MountFlags) MakeTarget(perms os.FileMode) error {
 }
 
 type Flags struct {
-	Fail      bool
-	Root      bool
-	Hostname  string
-	Chdir     string
-	Faketree  string
-	Perms     uint32
-	Proc      bool
-	Wait      bool
-	Propagate bool
-	Timeout   time.Duration
+	Fail       bool
+	Root       bool
+	Hostname   string
+	Chdir      string
+	Faketree   string
+	Perms      uint32
+	Proc       bool
+	Wait       bool
+	Propagate  bool
+	TermOnWait bool
+	Timeout    time.Duration
 
 	Uid, Gid int
 	Mount    []MountFlags
@@ -372,6 +389,10 @@ func (opts *Flags) Args() []string {
 	if !opts.Propagate {
 		args = append(args, "--propagate=false")
 	}
+	if !opts.TermOnWait {
+		args = append(args, "--wait-term=false")
+	}
+
 	if opts.Timeout != kDefaultTimeout {
 		args = append(args, "--wait-timeout", opts.Timeout.String())
 	}
@@ -464,12 +485,13 @@ const kDefaultTimeout = time.Second * 300
 
 func NewFlags() *Flags {
 	flags := &Flags{
-		Uid:       os.Getuid(),
-		Gid:       os.Getgid(),
-		Perms:     kDefaultPerms,
-		Wait:      true,
-		Propagate: true,
-		Timeout:   kDefaultTimeout,
+		Uid:        os.Getuid(),
+		Gid:        os.Getgid(),
+		Perms:      kDefaultPerms,
+		Wait:       true,
+		TermOnWait: true,
+		Propagate:  true,
+		Timeout:    kDefaultTimeout,
 	}
 
 	// Realpath may fail due to how procfs is mounted.
@@ -503,6 +525,8 @@ func (opts *Flags) Parse(argv []string) ([]string, error) {
 			"Use --proc if you instead want to mount /proc on your own with --mount, and "+
 			"specify non standard options. Do so at your own risk, as faketree may no longer work.")
 	fs.BoolVar(&opts.Wait, "wait", opts.Wait, "Wait for all direct and indirect children of this process to die before returning.")
+	fs.BoolVar(&opts.TermOnWait, "wait-term", opts.TermOnWait,
+		"If set to true, faketree will send SIGTERM to every leftover child after the main child has died.")
 	fs.BoolVar(&opts.Propagate, "propagate", opts.Propagate, "Take control of signal propagation - see help screen for more details.")
 	fs.DurationVar(&opts.Timeout, "wait-timeout", opts.Timeout,
 		"If wait is enabled, defines how long to wait at most for non-direct child processes to terminate. "+
@@ -728,7 +752,11 @@ func enterSystem() {
 		},
 	}
 
-	RunAndWait(false /* wait for ALL children */, flags.Propagate, flags.Timeout, cmd, 0)
+	RunAndWait(
+		false,           // Wait for ALL children.
+		flags.Propagate, // Make sure signals are propagated.
+		false,           // Do not send SIGTERM to children if the main command dies (would duplicate).
+		flags.Timeout, cmd, 0)
 }
 
 var kHelpScreen = `
@@ -937,15 +965,17 @@ func enterPrivileges(flags *Flags, left []string) {
 		},
 	}
 
-	RunAndWait(flags.Wait, flags.Propagate, flags.Timeout, cmd, -1)
+	RunAndWait(flags.Wait, flags.Propagate, flags.TermOnWait, flags.Timeout, cmd, -1)
 }
 
 // RunAndWait runs the specified command and waits for it.
 //
 // RunAndWait never returns, as it invokes exit() at the end.
-// It impelemnts the wait and propagate flag, as well as
-// waiting for the entire set of children, or just one.
-func RunAndWait(wait, propagate bool, timeout time.Duration, cmd *exec.Cmd, pid int) {
+//
+// It impelemnts the wait and propagate flag, configures the kill policy based
+// on the tow flag (term on wait) as well as waiting for the entire set of
+// children, or just one.
+func RunAndWait(wait, propagate, tow bool, timeout time.Duration, cmd *exec.Cmd, pid int) {
 	// Avoid race condition by setting signal handlers before any chance of SIGCHLD.
 	var c chan os.Signal
 	if propagate {
@@ -963,7 +993,7 @@ func RunAndWait(wait, propagate bool, timeout time.Duration, cmd *exec.Cmd, pid 
 
 	var err error
 	if wait {
-		err = WaitChildren(timeout, cmd.Process)
+		err = WaitChildren(timeout, cmd.Process, tow)
 	} else {
 		err = cmd.Wait()
 	}
