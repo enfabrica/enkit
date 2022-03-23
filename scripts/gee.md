@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.24
+gee version: 0.2.25
 
 gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
 tribal knowledge about how to use git the right way (for us), implementing one
@@ -413,7 +413,7 @@ View an outstanding pull request.
 
 ### pr_make
 
-Aliases: mail send make_pr mkpr prmk
+Aliases: mail send pr_create create_pr make_pr mkpr prmk
 
 Usage: `gee make_pr <gh-options>`
 
@@ -606,5 +606,5 @@ The "usage" option produces gee's manual.
 
 The "commands" option shows a summary of all available commands.
 
-The "html" option produce's gee's manual, in html format.
+The "markdown" option produce's gee's manual, in markdown format.
 

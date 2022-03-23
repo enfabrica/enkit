@@ -149,7 +149,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.24"
+readonly VERSION="0.2.25"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -3126,7 +3126,7 @@ function gee__pr_view() {
 
 _register_help "pr_make" \
   "Creates a pull request from this branch." \
-  "mail" "send" "make_pr" "mkpr" "prmk" <<'EOT'
+  "mail" "send" "pr_create" "create_pr" "make_pr" "mkpr" "prmk" <<'EOT'
 Usage: gee make_pr <gh-options>
 
 Creates a new pull request from this branch.  The user will be asked to
@@ -4405,7 +4405,7 @@ The "usage" option produces gee's manual.
 
 The "commands" option shows a summary of all available commands.
 
-The "html" option produce's gee's manual, in html format.
+The "markdown" option produce's gee's manual, in markdown format.
 EOT
 
 function _render_markdown_manual() {
