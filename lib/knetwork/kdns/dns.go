@@ -164,5 +164,10 @@ func (s *DnsServer) ParseDNS(m *dns.Msg) {
 				m.Answer = append(m.Answer, txt)
 			}
 		}
+
+	}
+
+	if len(m.Answer) <= 0 {
+		m.Rcode = dns.RcodeNameError
 	}
 }
