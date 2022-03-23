@@ -47,6 +47,8 @@ import (
 	"github.com/enfabrica/enkit/proxy/httpp"
 	"github.com/enfabrica/enkit/proxy/nasshp"
 	"github.com/enfabrica/enkit/proxy/utils"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"math/rand"
 	"net/http"
@@ -104,9 +106,10 @@ func (config *Config) Parse() (utils.PatternList, Warnings, error) {
 
 // Flags represents command line flags necessary to define a proxy.
 type Flags struct {
-	Http  *khttp.Flags
-	Oauth *oauth.RedirectorFlags
-	Nassh *nasshp.Flags
+	Http       *khttp.Flags
+	Oauth      *oauth.RedirectorFlags
+	Nassh      *nasshp.Flags
+	Prometheus *khttp.Flags
 
 	ConfigContent          []byte
 	ConfigName             string
@@ -122,6 +125,8 @@ func DefaultFlags() *Flags {
 		Http:  khttp.DefaultFlags(),
 		Oauth: oauth.DefaultRedirectorFlags(),
 		Nassh: nasshp.DefaultFlags(),
+		// A khttp server that has no ip/port and is disabled by default.
+		Prometheus: &khttp.Flags{Cache: khttp.DefaultCache},
 	}
 	return fl
 }
@@ -131,6 +136,7 @@ func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	fl.Http.Register(set, prefix)
 	fl.Oauth.Register(set, prefix)
 	fl.Nassh.Register(set, prefix)
+	fl.Prometheus.Register(set, prefix+"prometheus-")
 
 	set.ByteFileVar(&fl.ConfigContent, "config", fl.ConfigName, "Default config file location.", kflags.WithFilename(&fl.ConfigName))
 	set.BoolVar(&fl.DisabledAuthentication, "without-authentication", false, "allow tunneling even without authentication")
@@ -145,8 +151,13 @@ func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 type Starter func(log logger.Printer, handler http.Handler, domains ...string) error
 
 type Options struct {
-	log     logger.Logger
-	starter Starter
+	log logger.Logger
+
+	proxy   Starter
+	metrics Starter
+
+	gatherer prometheus.Gatherer
+	register prometheus.Registerer
 
 	config Config
 
@@ -192,7 +203,14 @@ func WithAuthenticator(auth oauth.Authenticate) Modifier {
 
 func WithHttpStarter(starter Starter) Modifier {
 	return func(op *Options) error {
-		op.starter = starter
+		op.proxy = starter
+		return nil
+	}
+}
+
+func WithMetricsStarter(starter Starter) Modifier {
+	return func(op *Options) error {
+		op.metrics = starter
 		return nil
 	}
 }
@@ -205,6 +223,27 @@ func WithHttpFlags(flags *khttp.Flags) Modifier {
 		}
 
 		return WithHttpStarter(server.Run)(op)
+	}
+}
+
+func WithMetricsFlags(flags *khttp.Flags) Modifier {
+	return func(op *Options) error {
+		if flags.HttpPort == 0 && flags.HttpsPort == 0 {
+			return nil
+		}
+		server, err := khttp.FromFlags(flags)
+		if err != nil {
+			return err
+		}
+		return WithMetricsStarter(server.Run)(op)
+	}
+}
+
+func WithPrometheus(gatherer prometheus.Gatherer, register prometheus.Registerer) Modifier {
+	return func(op *Options) error {
+		op.gatherer = gatherer
+		op.register = register
+		return nil
 	}
 }
 
@@ -270,6 +309,9 @@ func FromFlags(flags *Flags) Modifier {
 		if err := WithHttpFlags(flags.Http)(op); err != nil {
 			return err
 		}
+		if err := WithMetricsFlags(flags.Prometheus)(op); err != nil {
+			return err
+		}
 
 		return WithConfig(config)(op)
 	}
@@ -280,13 +322,18 @@ type Enproxy struct {
 
 	mux     http.Handler
 	domains []string
-	starter Starter
+
+	register prometheus.Registerer
+	gatherer prometheus.Gatherer
+
+	proxy   Starter
+	metrics Starter
 }
 
 func New(rng *rand.Rand, mods ...Modifier) (*Enproxy, error) {
 	op := &Options{
-		log:     &logger.DefaultLogger{Printer: log.Printf},
-		starter: khttp.DefaultServer().Run,
+		log:   &logger.DefaultLogger{Printer: log.Printf},
+		proxy: khttp.DefaultServer().Run,
 	}
 	if err := Modifiers(mods).Apply(op); err != nil {
 		return nil, err
@@ -301,10 +348,12 @@ func New(rng *rand.Rand, mods ...Modifier) (*Enproxy, error) {
 	mux := amuxie.New()
 
 	pmods := []httpp.Modifier{httpp.WithLogging(op.log), httpp.WithAuthenticator(op.authenticate)}
-	if _, err = httpp.New(mux, op.config.Mapping, append(pmods, op.pmods...)...); err != nil {
+	hproxy, err := httpp.New(mux, op.config.Mapping, append(pmods, op.pmods...)...)
+	if err != nil {
 		return nil, err
 	}
 
+	var nproxy *nasshp.NasshProxy
 	if op.authenticate == nil && !op.withoutNasshAuthentication {
 		op.log.Warnf("ssh gateway disabled as no authentication was configured")
 	} else {
@@ -314,23 +363,56 @@ func New(rng *rand.Rand, mods ...Modifier) (*Enproxy, error) {
 			authenticate = nil
 		}
 
-		nasshp, err := nasshp.New(rng, authenticate, append([]nasshp.Modifier{nasshp.WithFilter(wl.Allow), nasshp.WithLogging(op.log)}, op.nmods...)...)
+		nproxy, err = nasshp.New(rng, authenticate, append([]nasshp.Modifier{nasshp.WithFilter(wl.Allow), nasshp.WithLogging(op.log)}, op.nmods...)...)
 		if err != nil {
 			return nil, err
 		}
 
-		rhost := nasshp.RelayHost()
+		rhost := nproxy.RelayHost()
 		root := amux.Mux(mux)
 		if rhost != "" {
 			root = mux.Host(rhost)
 		}
 
-		nasshp.Register(root.Handle)
+		nproxy.Register(root.Handle)
 	}
 
-	return &Enproxy{log: op.log, mux: mux, domains: op.config.Domains, starter: op.starter}, nil
+	if op.metrics != nil {
+		if op.gatherer == nil || op.register == nil {
+			op.gatherer = prometheus.DefaultGatherer
+			op.register = prometheus.DefaultRegisterer
+		}
+		if nproxy != nil {
+			if err := nproxy.ExportMetrics(op.register); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return &Enproxy{
+		log:      op.log,
+		mux:      mux,
+		domains:  append(append([]string{}, op.config.Domains...), hproxy.Domains...),
+		proxy:    op.proxy,
+		metrics:  op.metrics,
+		gatherer: op.gatherer,
+		register: op.register,
+	}, nil
+}
+
+func (ep *Enproxy) RunMetrics() error {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(ep.gatherer, promhttp.HandlerOpts{}))
+	return ep.metrics(ep.log.Infof, mux)
+}
+
+func (ep *Enproxy) RunProxy() error {
+	return ep.proxy(ep.log.Infof, &khttp.Dumper{Real: ep.mux, Log: log.Printf}, ep.domains...)
 }
 
 func (ep *Enproxy) Run() error {
-	return ep.starter(ep.log.Infof, &khttp.Dumper{Real: ep.mux, Log: log.Printf}, ep.domains...)
+	if ep.metrics != nil {
+		go ep.RunMetrics()
+	}
+	return ep.RunProxy()
 }

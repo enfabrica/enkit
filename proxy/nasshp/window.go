@@ -2,6 +2,7 @@ package nasshp
 
 import (
 	"fmt"
+	"github.com/enfabrica/enkit/proxy/utils"
 	"sync"
 )
 
@@ -123,21 +124,30 @@ func (bl *blist) End() *buffer {
 
 // BufferPool is a sync.Pool of buffers, used to allocate (and free)
 // nodes used by the window implementation below.
-type BufferPool sync.Pool
+type BufferPool struct {
+	pool sync.Pool
+
+	// Count the number of get and put operations.
+	// Update using atomic.Add/Load operations.
+	gets, puts, news utils.Counter
+}
 
 func NewBufferPool(size int) *BufferPool {
-	return (*BufferPool)(&sync.Pool{
+	bp := &BufferPool{}
+	bp.pool = sync.Pool{
 		New: func() interface{} {
+			bp.news.Increment()
 			return &buffer{
 				data: make([]byte, 0, size),
 			}
 		},
-	})
+	}
+	return bp
 }
 
 func (bp *BufferPool) Get() *buffer {
-	sp := (*sync.Pool)(bp)
-	return sp.Get().(*buffer)
+	bp.gets.Increment()
+	return bp.pool.Get().(*buffer)
 }
 
 func (bp *BufferPool) Put(b *buffer) {
@@ -148,8 +158,26 @@ func (bp *BufferPool) Put(b *buffer) {
 	// This is pretty much only for defense in depth.
 	b.prev, b.next = nil, nil
 
-	sp := (*sync.Pool)(bp)
-	sp.Put(b)
+	bp.puts.Increment()
+	bp.pool.Put(b)
+}
+
+// Stats returns statistics about the pool.
+//
+// Specifically, it returns the number of times Get() was
+// called, the number of times Put() was called, and the number
+// of times a new object had to be greated.
+//
+// The delta between Get()s and Put()s indicates how many buffers
+// have been allocated but not returned to the pool.
+// This does not necessarily mean a memory leak: the garbage collector
+// is still able to free those objects if unreferenced - they just won't
+// be reused through the pool.
+//
+// Together with the number of new called, though, it can provide
+// a good signal toward the efficacy of the pool.
+func (bp *BufferPool) Stats() (uint64, uint64, uint64) {
+	return bp.gets.Get(), bp.puts.Get(), bp.news.Get()
 }
 
 type SendWindow struct {
@@ -401,7 +429,7 @@ func (w *ReceiveWindow) Fill(size int) uint64 {
 
 func (w *ReceiveWindow) ToEmpty() []byte {
 	first := w.buffer.First()
-	if w.reset != 0  && first.next == w.buffer.End() {
+	if w.reset != 0 && first.next == w.buffer.End() {
 		return nil
 	}
 

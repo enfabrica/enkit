@@ -5,8 +5,8 @@ go_library(
     srcs = [
         "blocking.go",
         "browser.go",
+        "counters.go",
         "nassh.go",
-        "types.go",
         "window.go",
     ],
     importpath = "github.com/enfabrica/enkit/proxy/nasshp",
@@ -16,7 +16,9 @@ go_library(
         "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
         "//lib/token:go_default_library",
+        "//proxy/utils:go_default_library",
         "@com_github_gorilla_websocket//:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
     ],
 )
 

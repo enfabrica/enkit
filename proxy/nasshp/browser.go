@@ -23,8 +23,8 @@ type ReplaceableBrowser struct {
 
 	notifier chan error
 
-	wc       *websocket.Conn  // Protected by lock.
-	err      error            // Protected by lock.
+	wc   *websocket.Conn // Protected by lock.
+	err  error           // Protected by lock.
 	lock sync.RWMutex
 	cond *sync.Cond
 

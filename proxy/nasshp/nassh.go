@@ -9,7 +9,9 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/token"
+	"github.com/enfabrica/enkit/proxy/utils"
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
 	"io"
 	"math/rand"
 	"net"
@@ -22,6 +24,50 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+type sessions struct {
+	// Key is a string, the SID. Value is a readWriter pointer.
+	sids sync.Map
+	SessionCounters
+}
+
+func (s *sessions) Get(sid string) *readWriter {
+	rwi, _ := s.sids.Load(sid)
+	if rwi == nil {
+		return nil
+	}
+
+	// If it happens, something is wrong in sessions.
+	rw, converted := rwi.(*readWriter)
+	if !converted {
+		s.Invalid.Increment()
+		return nil
+	}
+
+	s.Resumed.Increment()
+	return rw
+}
+
+func (s *sessions) Create(sid string, rw *readWriter) *readWriter {
+	_, loaded := s.sids.LoadOrStore(sid, rw)
+	// Should be incredibly rare. Client would need to be trying to
+	// use the same sid in parallel. Handled in the caller.
+	if loaded {
+		return nil
+	}
+
+	s.Created.Increment()
+	return rw
+}
+
+func (s *sessions) Delete(sid string) {
+	s.sids.Delete(sid)
+	s.Deleted.Increment()
+}
+
+func (s *sessions) Orphan(sid string) {
+	s.Orphaned.Increment()
+}
 
 type NasshProxy struct {
 	log           logger.Logger
@@ -39,8 +85,12 @@ type NasshProxy struct {
 	// sync.Pool of buffers to allocate and use for clients.
 	pool *BufferPool
 
-	// Key is a string, the SID. Value is a readWriter pointer.
-	connections sync.Map
+	// Set of active sessions.
+	sessions sessions
+
+	// Error counters for http related events.
+	errors   ProxyErrors
+	counters ProxyCounters
 }
 
 func (np *NasshProxy) RelayHost() string {
@@ -133,7 +183,7 @@ func WithRelayHost(relayHost string) Modifier {
 	}
 }
 
-type Filter func(proto string, hostport string, creds *oauth.CredentialsCookie) Verdict
+type Filter func(proto string, hostport string, creds *oauth.CredentialsCookie) utils.Verdict
 
 func WithFilter(filter Filter) Modifier {
 	return func(np *NasshProxy, o *options) error {
@@ -232,12 +282,20 @@ func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*N
 	return np, nil
 }
 
+func (np *NasshProxy) requestError(counter *utils.Counter, w http.ResponseWriter, format string, args ...interface{}) {
+	np.requestErrorStatus(counter, w, http.StatusBadRequest, format, args...)
+}
+func (np *NasshProxy) requestErrorStatus(counter *utils.Counter, w http.ResponseWriter, status int, format string, args ...interface{}) {
+	counter.Increment()
+	http.Error(w, fmt.Sprintf(format, args...), status)
+}
+
 func (np *NasshProxy) ServeCookie(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	ext := params.Get("ext")
 	path := params.Get("path")
 	if ext == "" || path == "" {
-		http.Error(w, fmt.Sprintf("invalid request for: %s", r.URL), http.StatusBadRequest)
+		np.requestError(&np.errors.CookieInvalidParameters, w, "invalid request for: %s", r.URL)
 		return
 	}
 
@@ -250,7 +308,7 @@ func (np *NasshProxy) ServeCookie(w http.ResponseWriter, r *http.Request) {
 	if np.authenticator != nil {
 		creds, err := np.authenticator(w, r, target)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid request for: %s - %s", r.URL, err), http.StatusBadRequest)
+			np.requestError(&np.errors.CookieInvalidAuth, w, "invalid request for: %s - %s", r.URL, err)
 			return
 		}
 		// There are no credentials, so the user has been redirected to the authentication service.
@@ -276,7 +334,7 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 	if np.authenticator != nil {
 		creds, err := np.authenticator(w, r, nil)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid request for: %s - %s", r.URL, err), http.StatusBadRequest)
+			np.requestError(&np.errors.ProxyInvalidAuth, w, "invalid request for: %s - %s", r.URL, err)
 			return
 		}
 		if creds == nil {
@@ -286,23 +344,24 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 
 	sp, err := strconv.ParseUint(port, 10, 16)
 	if err != nil || port == "" {
-		http.Error(w, fmt.Sprintf("invalid port requested: %s", port), http.StatusBadRequest)
+		np.requestError(&np.errors.ProxyInvalidPort, w, "invalid port requested: %s", port)
 		return
 	}
 	if host == "" {
-		http.Error(w, fmt.Sprintf("invalid empty host: %s", host), http.StatusBadRequest)
+		np.requestError(&np.errors.ProxyInvalidHost, w, "invalid empty host: %s", host)
 		return
 	}
 	hostport := net.JoinHostPort(host, strconv.Itoa(int(sp)))
 
-	_, allowed := np.allow(r, w, "", hostport)
+	_, allowed := np.allow(&np.errors.ProxyAllow, r, w, "", hostport)
 	if !allowed {
 		return
 	}
 
 	sid, err := np.encoder.Encode([]byte(hostport))
 	if err != nil {
-		http.Error(w, "Sorry, the world is coming to an end, there was an error generating a session id. Good Luck.", http.StatusInternalServerError)
+		np.requestErrorStatus(&np.errors.ProxyCouldNotEncrypt, w, http.StatusInternalServerError,
+			"Sorry, the world is coming to an end, there was an error generating a session id. Good Luck.")
 	}
 	fmt.Fprintln(w, string(sid))
 }
@@ -318,7 +377,7 @@ func LogId(sid string, r *http.Request, hostport string, c *oauth.CredentialsCoo
 	return fmt.Sprintf("%s[IP:%s][DEST:%s]%s", sid, r.RemoteAddr, hostport, identity)
 }
 
-func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostport string) (string, bool) {
+func (np *NasshProxy) allow(counters *AllowErrors, r *http.Request, w http.ResponseWriter, sid, hostport string) (string, bool) {
 	logid := LogId(sid, r, hostport, nil)
 
 	var creds *oauth.CredentialsCookie
@@ -327,7 +386,7 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 		creds, err := np.authenticator(w, r, nil)
 		if err != nil {
 			np.log.Warnf("%s - authentication error: %s", logid, err)
-			http.Error(w, fmt.Sprintf("invalid request for: %s - %s", r.URL, err), http.StatusBadRequest)
+			np.requestError(&counters.InvalidCookie, w, "invalid request for: %s - %s", r.URL, err)
 			return logid, false
 		}
 		if creds == nil {
@@ -339,26 +398,33 @@ func (np *NasshProxy) allow(r *http.Request, w http.ResponseWriter, sid, hostpor
 		host, port, err := net.SplitHostPort(hostport)
 		if err != nil {
 			np.log.Infof("%s - err %v splitting host and port %s", logid, err, hostport)
-			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
+			np.requestErrorStatus(
+				&counters.InvalidHostFormat, w, http.StatusUnauthorized,
+				"Go somewhere else, you are not allowed to connect here.")
 			return logid, false
 		}
 		res, err := net.LookupHost(host)
 		if err != nil {
 			np.log.Infof("%s - err %v looking up host %s", logid, err, host)
-			http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
+			np.requestErrorStatus(
+				&counters.InvalidHostName, w, http.StatusUnauthorized,
+				"Go somewhere else, you are not allowed to connect here.")
 			return logid, false
 		}
-		verdict := VerdictUnknown
+		verdict := utils.VerdictUnknown
 		for _, u := range res {
 			// TODO(adam): make verdict merging configurable from ACL list
 			// TODO(adam): return here after making authz engine
 			verdict = verdict.MergeOnlyAcceptAllow(np.filter("tcp", net.JoinHostPort(u, port), creds))
 		}
-		if verdict == VerdictAllow {
+		if verdict == utils.VerdictAllow {
 			return logid, true
 		}
+
 		np.log.Infof("%s was rejected by filter", logid)
-		http.Error(w, fmt.Sprintf("Go somewhere else, you are not allowed to connect here."), http.StatusUnauthorized)
+		np.requestErrorStatus(
+			&counters.Unauthorized, w, http.StatusUnauthorized,
+			"Go somewhere else, you are not allowed to connect here.")
 		return logid, false
 	}
 	return logid, true
@@ -372,14 +438,14 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 
 	_, hostportb, err := np.encoder.Decode(context.Background(), []byte(sid))
 	if err != nil {
-		http.Error(w, "invalid sid provided", http.StatusBadRequest)
+		np.requestError(&np.errors.ConnectInvalidSID, w, "invalid sid provided")
 		return
 	}
 	hostport := string(hostportb)
 
 	logid := LogId(sid, r, hostport, nil)
 
-	logid, allow := np.allow(r, w, sid, hostport)
+	logid, allow := np.allow(&np.errors.ConnectAllow, r, w, sid, hostport)
 	if !allow {
 		return
 	}
@@ -389,7 +455,7 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 	if ack != "" {
 		sp, err := strconv.ParseUint(ack, 10, 32)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid ack requested: %s - %s", ack, err), http.StatusBadRequest)
+			np.requestError(&np.errors.ConnectInvalidAck, w, "invalid ack requested: %s - %s", ack, err)
 			return
 		}
 		rack = uint32(sp)
@@ -399,7 +465,7 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 	if pos != "" {
 		sp, err := strconv.ParseUint(pos, 10, 32)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid pos requested: %s - %s", pos, err), http.StatusBadRequest)
+			np.requestError(&np.errors.ConnectInvalidPos, w, "invalid pos requested: %s - %s", pos, err)
 			return
 		}
 		wack = uint32(sp)
@@ -432,6 +498,8 @@ type TimeSource func() time.Time
 //   provide any mechanism to ask for missing data.
 type readWriter struct {
 	*Timeouts
+	*ReadWriterCounters
+
 	pool *BufferPool
 
 	// Browser{Read,Write}Ack are 32 bits unsigned.
@@ -454,8 +522,8 @@ type readWriter struct {
 	waiter waiter
 }
 
-func newReadWriter(log logger.Logger, pool *BufferPool, timeouts *Timeouts) *readWriter {
-	rw := &readWriter{Timeouts: timeouts, pool: pool}
+func newReadWriter(log logger.Logger, pool *BufferPool, timeouts *Timeouts, counters *ReadWriterCounters) *readWriter {
+	rw := &readWriter{ReadWriterCounters: counters, Timeouts: timeouts, pool: pool}
 	rw.browser.Init(log)
 	return rw
 }
@@ -477,8 +545,11 @@ type Timeouts struct {
 // - the only way to stop a read that is in progress is to close the browser connection.
 // - we may need to read data and well, discard it.
 func (np *readWriter) proxyFromBrowser(ssh net.Conn) (err error) {
+	np.BrowserReaderStarted.Increment()
 	defer func() {
+		np.BrowserReaderStopped.Increment()
 		if err != nil {
+			np.BrowserReaderError.Increment()
 			np.browser.log.Warnf("browser error %s", err)
 			return
 		}
@@ -598,8 +669,11 @@ func (np *readWriter) Attach(wc *websocket.Conn, wack, rack uint32) waiter {
 //       session (would happen if our buffers don't have enough data to sync back
 //       with the browser).
 func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
+	np.BrowserWriterStarted.Increment()
 	defer func() {
+		np.BrowserWriterStopped.Increment()
 		if err != nil {
+			np.BrowserWriterError.Increment()
 			np.browser.log.Warnf("connection error %s", err)
 			return
 		}
@@ -711,35 +785,38 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 }
 
 func (np *NasshProxy) ProxySsh(logid string, r *http.Request, w http.ResponseWriter, sid string, rack, wack uint32, hostport string) error {
+	np.counters.SshProxyStarted.Increment()
+	defer np.counters.SshProxyStopped.Increment()
 	np.log.Infof("%s rack %08x wack %08x - connects %s", logid, rack, wack, hostport)
 
-	rwi, found := np.connections.LoadOrStore(sid, newReadWriter(np.log, np.pool, np.timeouts))
-	rw, converted := rwi.(*readWriter)
-	if !converted {
-		np.connections.Delete(sid)
-		http.Error(w, "internal error in sid map", http.StatusInternalServerError)
-		return fmt.Errorf("something went wrong, unexpected type in map")
-	}
-
-	if !found && rack != 0 && wack != 0 {
-		np.connections.Delete(sid)
-		http.Error(w, "request to resume connection, but sid is unknown", http.StatusGone)
+	rw := np.sessions.Get(sid)
+	if rw == nil && (rack != 0 || wack != 0) {
+		np.requestErrorStatus(&np.errors.SshResumeNoSID, w, http.StatusGone, "request to resume connection, but sid is unknown")
 		return fmt.Errorf("request to resume connection, but sid is unknown")
 	}
 
+	// Watch out: after upgrade, can't change the http status anymore!
 	c, err := np.upgrader.Upgrade(w, r, nil)
 	defer c.Close()
 
 	if err != nil {
-		http.Error(w, "failed to upgrade web socket", http.StatusBadRequest)
+		np.errors.SshFailedUpgrade.Increment()
 		return fmt.Errorf("failed to upgrade web socket %w", err)
 	}
 
 	var waiter waiter
-	if !found {
+	if rw == nil {
 		sshconn, err := net.DialTimeout("tcp", hostport, np.timeouts.ResolutionTimeout)
 		if err != nil {
+			np.errors.SshDialFailed.Increment()
 			return err
+		}
+
+		rw = np.sessions.Create(sid, newReadWriter(np.log, np.pool, np.timeouts, &np.counters.ReadWriterCounters))
+		if rw == nil {
+			np.errors.SshCreateExists.Increment()
+			sshconn.Close()
+			return fmt.Errorf("request to start new session, but sid exists already")
 		}
 
 		waiter = rw.Connect(sshconn, c)
@@ -750,9 +827,10 @@ func (np *NasshProxy) ProxySsh(logid string, r *http.Request, w http.ResponseWri
 	err = waiter.Wait()
 	var te *TerminatingError
 	if errors.As(err, &te) {
-		np.connections.Delete(sid)
+		np.sessions.Delete(sid)
 		np.log.Warnf("%s terminating (forever) - rack %08x wack %08x", logid, rack, wack)
 	} else {
+		np.sessions.Orphan(sid)
 		np.log.Warnf("%s terminating (retry-possible) - rack %08x wack %08x", logid, rack, wack)
 	}
 	return err
@@ -778,4 +856,8 @@ func (np *NasshProxy) Register(add MuxHandle) {
 	add("/cookie", http.HandlerFunc(np.ServeCookie))
 	add("/proxy", http.HandlerFunc(np.ServeProxy))
 	add("/connect", http.HandlerFunc(np.ServeConnect))
+}
+
+func (np *NasshProxy) ExportMetrics(register prometheus.Registerer) error {
+	return register.Register((*nasshCollector)(np))
 }
