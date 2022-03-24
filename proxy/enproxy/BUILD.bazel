@@ -36,6 +36,7 @@ go_test(
         "//proxy/httpp:go_default_library",
         "//proxy/nasshp:go_default_library",
         "//proxy/ptunnel:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )

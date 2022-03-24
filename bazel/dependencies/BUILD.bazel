@@ -1,4 +1,4 @@
 exports_files(
     ["*.patch"],
-    visibility=["//visibility:public"],
+    visibility = ["//visibility:public"],
 )
