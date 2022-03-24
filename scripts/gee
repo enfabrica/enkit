@@ -3162,7 +3162,8 @@ function gee__pr_make() {
 
   local STATE NUMBER TITLE
   read -r STATE NUMBER TITLE < \
-    <( _get_pull_requests "${CURRENT_BRANCH}" | grep -v ^MERGED)
+    <( _get_pull_requests "${CURRENT_BRANCH}" | grep -v ^MERGED) \
+    || /bin/true  # don't fail if empty
   if [[ "${STATE}" == "OPEN" ]]; then
     _info "Open PR exists: #${NUMBER} \"${TITLE}\"" \
           "Use \"gee commit\" to update existing PR."
