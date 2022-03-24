@@ -2,6 +2,10 @@
 
 ## Releases
 
+### Release 0.2.26
+
+* Fixed exception in `pr_make` due to empty read error.
+
 ### Release 0.2.25
 
 * Added `pr_push` command.
