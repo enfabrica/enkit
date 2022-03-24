@@ -84,6 +84,7 @@ func TestParseFlags(t *testing.T) {
 		"--uid=12", "--mount", ":/tmp/proc:ro,type=proc,data=foo", "--", "no pig",
 	})
 	assert.NoError(t, err)
+	assert.Equal(t, []string{"no pig"}, left)
 
 	args = fl.Args()
 	assert.Equal(t, []string{"--uid", "12", "--gid", u.Gid, "--faketree", fl.Faketree, "--mount", ":/tmp/proc:ro,type=proc,data=foo"}, args)
@@ -100,7 +101,16 @@ func TestParseFlags(t *testing.T) {
 	fl = NewFlags()
 	left, err = fl.Parse([]string{"--wait-timeout=1h53m17s"})
 	assert.NoError(t, err)
+	assert.Equal(t, []string{}, left)
 
 	args = fl.Args()
 	assert.Equal(t, []string{"--uid", u.Uid, "--gid", u.Gid, "--faketree", fl.Faketree, "--wait-timeout", "1h53m17s"}, args)
+
+	fl = NewFlags()
+	left, err = fl.Parse([]string{"--wait-term=false"})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{}, left)
+
+	args = fl.Args()
+	assert.Equal(t, []string{"--uid", u.Uid, "--gid", u.Gid, "--faketree", fl.Faketree, "--wait-term=false"}, args)
 }
