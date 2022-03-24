@@ -1,17 +1,25 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/enfabrica/enkit/enkit/cmd"
 )
 
+var (
+	outDir = flag.String("out-dir", "", "Path to output directory to emit markdown files")
+)
+
 func main() {
+	flag.Parse()
+
 	command, err := cmd.New()
 	exitIf(err)
 
-	command.Run()
+	err = command.GenMarkdownTree(*outDir)
+	exitIf(err)
 }
 
 func exitIf(err error) {
