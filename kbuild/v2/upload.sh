@@ -46,7 +46,7 @@ upload_artifact() {
     enkit astore public del "$astore_path" > /dev/null 2>&1 || true
 
     if [ "$public" = "public" ] ; then
-        enkit astore public add "$astore_path" -a $arch
+        enkit astore public add "$astore_path" -a $arch --all
     fi
 
     echo "Upload sha256sum:"
