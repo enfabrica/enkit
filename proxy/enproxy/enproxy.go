@@ -138,8 +138,8 @@ func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	fl.Nassh.Register(set, prefix)
 	fl.Prometheus.Register(set, prefix+"prometheus-")
 
-	set.ByteFileVar(&fl.ConfigContent, "config", fl.ConfigName, "Default config file location.", kflags.WithFilename(&fl.ConfigName))
-	set.BoolVar(&fl.DisabledAuthentication, "without-authentication", false, "allow tunneling even without authentication")
+	set.ByteFileVar(&fl.ConfigContent, prefix+"config", fl.ConfigName, "Default config file location.", kflags.WithFilename(&fl.ConfigName))
+	set.BoolVar(&fl.DisabledAuthentication, prefix+"without-authentication", false, "allow tunneling even without authentication")
 
 	return fl
 }
