@@ -262,8 +262,9 @@ def main(argv, linux=None):
 
 	cli_args = parser.parse_args(argv)
 
-	if get_kernel_root_path():
-		os.chdir(get_kernel_root_path())
+	# ENF - remove as we only use this script for parsing test results
+	#if get_kernel_root_path():
+	#	os.chdir(get_kernel_root_path())
 
 	if cli_args.subcommand == 'run':
 		if not os.path.exists(cli_args.build_dir):
