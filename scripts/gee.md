@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.25
+gee version: 0.2.26
 
 gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
 tribal knowledge about how to use git the right way (for us), implementing one
