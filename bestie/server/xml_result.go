@@ -23,6 +23,7 @@ type xmlResult struct {
 // Unmarshalling structs for interpreting XML test results.
 type TestSuites struct {
 	XMLName    xml.Name    `xml:"testsuites"`
+	Realm      string      `xml:"realm,attr"`
 	TestSuites []TestSuite `xml:"testsuite"`
 }
 
@@ -36,6 +37,7 @@ type TestSuite struct {
 	Time       string     `xml:"time,attr"`
 	Timestamp  string     `xml:"timestamp,attr"`
 	Hostname   string     `xml:"hostname,attr"`
+	Realm      string     `xml:"realm,attr"`
 	TestCases  []TestCase `xml:"testcase"`
 	Properties Properties `xml:"properties"`
 	SystemOut  string     `xml:"system-out"`
@@ -111,6 +113,10 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 		return nil, nil
 	}
 
+	// Capture global realm attribute from <testsuites> tag (note: plural), if any,
+	// in case a better one is not found
+	global_realm := testSuites.Realm
+
 	// Process each of the testcases contained in the testsuite.
 	for _, ts := range testSuites.TestSuites {
 		// Check for optional BigQuery table specification within testsuite XML data.
@@ -138,6 +144,14 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 			cidExceptionXmlUnstructuredError.increment()
 			debugPrintln("Unstructured XML test results not supported (use junitxml)")
 			return nil, nil
+		}
+
+		// Capture suite realm attribute from <testsuite> tag (note: singular), if any,
+		// in case an individual testcase realm is not found
+		suite_realm := ts.Realm
+		if len(suite_realm) == 0 {
+			// Use global realm value as a fallback
+			suite_realm = global_realm
 		}
 
 		xmlResults, err := parseStructuredXml(&ts)
@@ -179,6 +193,15 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 			// Append any test case properties to result tags.
 			for k, v := range xr.tcProps {
 				m.tags[k] = v
+			}
+			// Check if a "realm" tag was found in the <testcase> properties.
+			// If not, use the realm obtained from the test suite, if any.
+			// Note: a "realm" tag is initiated by the test application,
+			// hence no underscore used in its name.
+			if _, ok := m.tags["realm"]; !ok {
+				if len(suite_realm) > 0 {
+					m.tags["realm"] = suite_realm
+				}
 			}
 			result.metrics = append(result.metrics, m)
 		}
