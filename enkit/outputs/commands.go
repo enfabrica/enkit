@@ -93,7 +93,7 @@ func NewMount(root *Root) *Mount {
 		Command: &cobra.Command{
 			Use:   "mount",
 			Short: "Mount the build outputs of a particular invocation",
-			Example: `  $ enkit outputs mount 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07
+			Example: `  $ enkit outputs mount -i 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07
 	Mounts outputs from build 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07 to the
 	default location.`,
 		},
@@ -210,7 +210,7 @@ func NewUnmount(root *Root) *Unmount {
 		Command: &cobra.Command{
 			Use:   "unmount",
 			Short: "Unmount the build outputs of a particular invocation",
-			Example: `  $ enkit outputs unmount 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07
+			Example: `  $ enkit outputs unmount -i 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07
 	Unmounts outputs from build 73d4a9f0-a0c4-4cb2-80eb-b4b4b9720d07 from the
 	default location.`,
 			Aliases: []string{"umount"},
