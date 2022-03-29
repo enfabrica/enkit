@@ -178,6 +178,8 @@ func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 		ftd = append(ftd, file)
 	}
 
+	dc.root.Log.Debugf("Files to download: %+v", ftd)
+
 	client, err := dc.root.StoreClient()
 	if err != nil {
 		return err
