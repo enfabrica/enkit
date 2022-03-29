@@ -3604,7 +3604,11 @@ function gee__pr_rollback() {
   _set_main
   _checkout_or_die "${MAIN}"
   local BR="rollback_${PR}"
-  gee__mkbr "rollback_${PR}"
+  if _local_branch_exists "${BR}"; then
+    _fatal "Branch ${BR} already exists, remove and try again?"
+  fi
+  gee__mkbr "${BR}"
+  _checkout_or_die "${BR}"
 
   local -a LOGLINES=()
   local RE='\(#'"${PR}"'\)$'
@@ -3622,7 +3626,9 @@ function gee__pr_rollback() {
   read -r COMMIT DESC <<< "${LOGLINES[0]}"
   _info "Identified commit \"${COMMIT}\": ${DESC}"
 
-  _git revert "${COMMIT}"  # creates a new commit
+  _git revert --no-edit "${COMMIT}"  # creates a new commit
+  _git push --quiet -u origin "${BR}"
+  printf >&2 "\n"
 
   local BODYFILE
   BODYFILE="$(mktemp -t prbody.XXXXXX.txt)"
@@ -3637,7 +3643,9 @@ function gee__pr_rollback() {
     git log --format=%B -n 1 "${COMMIT}"
   ) >"${BODYFILE}"
 
-  _choose_one "Which editor do you want to use?  ([V]im, [e]macs, [a]bort)  " "VvEeAa" "v"
+  _choose_one \
+    "Which editor do you want to use to edit the PR description? ([V]im, [e]macs, [a]bort)  " \
+    "VvEeAa" "v"
   case "${RESP}" in
     [vV]*) vim "${BODYFILE}"; ;;
     [eE]*) emacs "${BODYFILE}"; ;;
