@@ -2,6 +2,10 @@
 
 ## Releases
 
+### Unreleased
+
+* Add `pr_rollback` command.
+
 ### Release 0.2.26
 
 * Fixed exception in `pr_make` due to empty read error.
