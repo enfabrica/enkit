@@ -1775,7 +1775,7 @@ function _print_codeowners() {
           O="${VAL}"
         fi
       else
-        if [[ "/$F" == *"/${EXP}" ]]; then
+        if [[ "/$F" == "${EXP}" ]]; then
           O="${VAL}"
         fi
       fi
@@ -2508,11 +2508,11 @@ function gee__codeowners() {
     if [[ "${#OWNERS[@]}" -eq 0 ]]; then
       printf "This PR can be submitted with approval from any repo owner.\n\n"
     elif [[ "${#OWNERS[@]}" -eq 1 ]]; then
-      printf "This PR requires approval from at least one of these reviewers:\n\n"
-      printf "* %s\n" "${OWNERS[@]}"
+      printf "This PR requires approval from at least one of these reviewers:\n"
+      printf "  %s\n" "${OWNERS[@]}"
     else
-      printf "This PR requires approval from at least one reviewer from each line:\n\n"
-      printf "* %s\n" "${OWNERS[@]}"
+      printf "This PR requires approval from at least one reviewer from each line:\n"
+      printf "  %s\n" "${OWNERS[@]}"
     fi
     printf "\n"
   ) || /bin/true
