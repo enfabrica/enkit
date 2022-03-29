@@ -1,0 +1,205 @@
+#!/usr/bin/python3
+#
+# Usage: update_goldens <args>
+#
+# Each element of args can either be:
+#    a specific bazel diff_test (:file-diff_test),
+#    a wildcard bazel rule (bar:all or //foo/bar/...),
+#    or an expected data file (./path/to/file.expected.md)
+#
+# This script maps its arguments onto a set of diff_test rules, and efficiently
+# updates the golden files for any diff_test rules that are presently failing.
+#
+# Examples of use:
+#
+#    ./tools/update_goldens //path/to:test  # update one test
+#    ./tools/update_goldens //path/to:all   # update all tests in a directory
+#    ./tools/update_goldens //path/to/...   # update all tests in a tree
+#    ./tools/update_goldens ./path/to/file  # update one file
+
+import os
+import sys
+import subprocess
+import tempfile
+import json
+
+BAZEL = "/usr/bin/bazelisk"
+BAZEL_OPTS = ["--noshow_progress", "--noshow_loading_progress", "--logging=0", "--ui_event_filters=-info,-debug"]
+
+
+def MapFilesToTargets(files):
+    """Converts a set of files to a set of targets using one bazel query."""
+    # Best effort.
+    if not files:
+        return []
+    workspace_path = subprocess.check_output(["bazel", "info", "workspace"], stderr=subprocess.DEVNULL)
+    workspace_path = workspace_path.decode("utf-8").strip()
+
+    dirnames=set()
+    basenames=set()
+    for f in files:
+        abs_f = os.path.abspath(f)
+        dirname = os.path.dirname(abs_f)
+        # Some expected data files are in a testdata directory beneath the
+        # directory containing associated BUILD files:
+        while not os.path.exists("%s/BUILD.bazel" % dirname):
+            dirname = os.path.dirname(dirname)
+            if dirname == "/":
+                break
+        if dirname == "/":
+            raise Exception("Missing BUILD.bazel file for %r" % f)
+        dirname = dirname.replace(workspace_path, "/")
+        dirnames.add("%s:*" % dirname)
+        basenames.add(os.path.basename(abs_f))
+    regexp="|".join(basenames)
+    paths = " + ".join(dirnames)
+
+    query = "attr('expected', '{}', {})".format(regexp, paths)
+    cmd = [BAZEL, "query", query]
+    print("Running blaze query: %r" % query)
+    output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+    targets = [x.decode("utf-8") for x in output.split(b"\n") if x]
+    if not targets:
+        print("    No targets found!")
+    for t in targets:
+        print("    %s" % t)
+    return targets
+
+
+def MapRuleToTargets(pattern):
+    """Converts a rule pattern to a list of rules.
+
+    If the user supplies a file instead of a pattern, we try to find the diff_test rule
+    that compares against that file.
+    """
+    # Call blaze query, unless we already have a fully specified rule name.
+    if pattern.endswith(":all") or pattern.endswith("...") or not pattern.startswith("//"):
+        query = 'kind("diff_test rule", "%s")' % pattern
+        cmd = [BAZEL, "query", query]
+        print("Running blaze query for %r" % pattern)
+        output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+        targets = [x.decode("utf-8") for x in output.split(b"\n") if x]
+        for t in targets:
+            print("    %s" % t)
+        return targets
+    else:
+        return [pattern]
+
+
+def MapArgsToTargets(args):
+    files=[]
+    rules=[]
+    for a in args:
+        if os.path.exists(a):
+            files.append(a)
+        else:
+            rules.append(a)
+    targets=[]
+    if files:
+        targets.extend(MapFilesToTargets(files))
+    for rule in rules:
+        targets.extend(MapRuleToTargets(rule))
+    if not targets:
+        print("Error: no targets.")
+        sys.exit(1)
+    return targets
+
+
+def GetFailingTargets(targets):
+    """Runs a list of targets.
+
+    Args:
+      targets: a list of fully specificied targets.
+
+    Returns:
+      a list of targets that reported errors,
+      a list of targets that failed to build.
+    """
+    # Sadly, the BEP file only returns PASSED or FAILED for tests that built
+    # correctly.  Tests that failed to build are simply omitted from the
+    # BEP file.  Rather than parsing stdout of bazel, we just assume that
+    # any test without a reported status was caused by a build failure.
+    status_map = {x: "NO STATUS" for x in targets}
+    tmpfile = tempfile.mktemp()
+    cmd = [BAZEL, "test", "--keep_going", "--build_event_json_file", tmpfile] + targets
+    print("Checking for failing targets.")
+    subprocess.run(cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    # Sadly, the BEP file is a concatenation of json objects, not a true
+    # json file, so we can't just json.load it.  :-(  This code is roughly
+    # cribbed from bazelci.py:
+    with open(tmpfile, "r") as fd:
+        raw_data = fd.read()
+        fd.close()
+    os.unlink(tmpfile)
+    decoder = json.JSONDecoder()
+    pos = 0
+    while pos < len(raw_data):
+        obj, size = decoder.raw_decode(raw_data[pos:])
+        pos += size + 1
+        if "testSummary" in obj:
+            target = obj["id"]["testSummary"]["label"]
+            status = obj["testSummary"]["overallStatus"]
+            status_map[target] = status
+    build_failed = [x for x in targets if status_map[x] == "NO STATUS"]
+    if build_failed:
+        print("ERROR: these targets failed to build:")
+        for t in build_failed:
+            print("  %s" % t)
+    # Omit tests that failed to build in our list of failed tests:
+    failing = [x for x in targets if status_map[x] not in ["PASSED", "NO STATUS"]]
+    if failing:
+        print("These diff_test targets are reporting mismatch:")
+        for t in failing:
+            print("    %s" % t)
+    return failing, build_failed
+
+
+def UpdateGoldens(targets):
+    """Runs a list of diff_test rules with the --update_goldens flag."""
+    # First build all targets to get the cache hot:
+    cmd = [BAZEL, "build"] + targets
+    print("Building all targets.")
+    subprocess.check_call(cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+
+    # now run each test
+    # TODO(jonathan): maybe run in parallel?
+    for target in targets:
+        cmd = [BAZEL, "run", "--noremote_upload_local_results", "--bes_backend="] + BAZEL_OPTS + [target, "--", "--update_goldens"]
+        print("Regenerating goldens for %r" % target)
+        subprocess.run(cmd)
+
+
+def PrintDiffStats():
+    """Emit a final report on what we did."""
+    cmd = ["/usr/bin/git", "diff", "--stat"]
+    print("command: git diff --stat")
+    subprocess.check_call(cmd)
+
+
+def main(args):
+    if not args:
+        args = ["..."]
+    targets = MapArgsToTargets(args)
+    failures, build_failures = GetFailingTargets(targets)
+    if not failures:
+        if build_failures:
+            print("All building targets pass, but some build errors occurred.")
+            return 1
+        else:
+            print("All targets build and already pass.")
+            return 0
+    UpdateGoldens(failures)
+    still_failing, build_failures = GetFailingTargets(failures)
+    if still_failing:
+        print("ERROR: Some tests are still failing.")
+        return 1
+    if build_failures:
+        print("All updated targets now pass, but some targets failed to build.")
+        return 1
+    else:
+        print("All updated targets now build and pass.")
+        return 0
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

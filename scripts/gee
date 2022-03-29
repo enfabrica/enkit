@@ -225,15 +225,22 @@ if (( "${TESTMODE}" )); then
   REPO_DIR="${GEE_DIR}/${REPO}/"
 fi
 
+function safe_tput() {
+  if [[ -z "${TERM}" ]] || [[ "${TERM}" == "none" ]]; then
+    return
+  fi
+  tput "$@"
+}
+
 # colors library
-_COLOR_RST="$(tput sgr0)"
-_COLOR_CMD="$(tput bold; tput setaf 12; tput rev)"
-_COLOR_BANNER="$(tput bold; tput setab 21; tput setaf 15)"
-#_COLOR_CMD="$(tput bold; tput setaf 14; tput setab 16)"
-_COLOR_DBG="$(tput setaf 2)"
-_COLOR_DIE="$(tput bold; tput setaf 15; tput setab 3)"
-_COLOR_WARN="$(tput setaf 11)"
-_COLOR_INFO="$(tput setaf 1)"
+_COLOR_RST="$(safe_tput sgr0)"
+_COLOR_CMD="$(safe_tput bold; safe_tput setaf 12; safe_tput rev)"
+_COLOR_BANNER="$(safe_tput bold; safe_tput setab 21; safe_tput setaf 15)"
+#_COLOR_CMD="$(safe_tput bold; safe_tput setaf 14; safe_tput setab 16)"
+_COLOR_DBG="$(safe_tput setaf 2)"
+_COLOR_DIE="$(safe_tput bold; safe_tput setaf 15; safe_tput setab 3)"
+_COLOR_WARN="$(safe_tput setaf 11)"
+_COLOR_INFO="$(safe_tput setaf 1)"
 
 ##########################################################################
 # utility functions
@@ -856,7 +863,7 @@ function _info() {
 # "The user needs this to visually separate information."
 function _banner() {
   local COLS LEN BAR BLANK
-  COLS="$(tput cols)"
+  COLS="$(safe_tput cols)"
   COLS="$(( COLS - 1 ))"
   LEN="$( printf "%s\n" "$@" | wc -L )"
   if (( LEN > (COLS-4) )); then
@@ -903,7 +910,7 @@ function _die() {
 function _cmd() {
   # Run a command and generate associated log messages.
   local COLS ESCAPED_CMD
-  COLS="$(tput cols)"
+  COLS="$(safe_tput cols)"
   ESCAPED_CMD="$( printf " %q" "$@")"
   if [[ $DRYRUN -eq 0 ]]; then
     if [[ $VERBOSE -gt 0 ]]; then
@@ -934,7 +941,7 @@ function _read_cmd() {
   local VAR="$1"; shift
 
   local COLS ESCAPED_CMD
-  COLS="$(tput cols)"
+  COLS="$(safe_tput cols)"
   ESCAPED_CMD="$( printf " %q" "$@")"
   if [[ $DRYRUN -eq 0 ]]; then
     if [[ $VERBOSE -gt 0 ]]; then
@@ -1119,8 +1126,8 @@ function _open_rebase_shell() {
     # This is the "old" flow, and it's a bit messy.
     # TODO(jonathan): make the prompts less noisy.
     local BOLD RST
-    BOLD="$(tput bold)"
-    RST="$(tput sgr0)"
+    BOLD="$(safe_tput bold)"
+    RST="$(safe_tput sgr0)"
     export GEE_HELP=""
     GEE_HELP+="You are interactively rebasing a branch with conflicts.${NEWLINE}"
     GEE_HELP+="  To see where conflicts are: ${BOLD}git status${RST}${NEWLINE}"
@@ -4513,7 +4520,7 @@ function main() {
   cmdname="$(tr '-' '_' <<< "${cmdname}")"
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     case "${cmdname}" in
-      bash_setup|repair)
+      bash_setup|help|repair)
         # skip startup checks
         ;;
       *) _startup_checks ;;

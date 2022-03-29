@@ -1,1 +1,15 @@
+load("@//bazel/utils:diff_test.bzl", "diff_test")
+
 exports_files(["run_clang_format.template.sh"])
+
+genrule(
+    name = "foobar.txt-gen",
+    outs = ["foobar.txt"],
+    cmd_bash = "echo foo bar bum >$@",
+)
+
+diff_test(
+    name = "foobar.txt-diff_test",
+    actual = "foobar.txt",
+    expected = "testdata/expected.foobar.txt",
+)

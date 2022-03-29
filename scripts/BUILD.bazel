@@ -1,5 +1,6 @@
 load("@//bazel/astore:defs.bzl", "astore_upload")
 load("@//bazel:shellutils.bzl", "bats_test", "shellcheck_test")
+load("@//bazel/utils:diff_test.bzl", "diff_test")
 
 sh_library(
     name = "gee-lib",
@@ -31,4 +32,17 @@ astore_upload(
     visibility = [
         "//developer:__subpackages__",
     ],
+)
+
+genrule(
+    name = "gee.md-gen",
+    outs = ["actual-gee.md"],
+    srcs = ["gee"],
+    cmd_bash = "TERM=none /bin/bash $(location gee) help markdown >$@"
+)
+
+diff_test(
+    name = "gee.md-diff_test",
+    actual = "actual-gee.md",
+    expected = "gee.md",
 )
