@@ -2,7 +2,7 @@
 
 ## Releases
 
-### Unreleased
+### Release 0.2.27
 
 * Add `pr_rollback` command.
 
