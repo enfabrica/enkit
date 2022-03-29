@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.26
+gee version: 0.2.27
 
 gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
 tribal knowledge about how to use git the right way (for us), implementing one
@@ -112,6 +112,7 @@ review.
 | <a href="#pr_list">`pr_list`</a> | List outstanding PRs |
 | <a href="#pr_make">`pr_make`</a> | Creates a pull request from this branch. |
 | <a href="#pr_push">`pr_push`</a> | Push commits into another user's PR branch. |
+| <a href="#pr_rollback">`pr_rollback`</a> | Create a rollback PR for a specified PR. |
 | <a href="#pr_submit">`pr_submit`</a> | Merge the approved PR into the parent branch. |
 | <a href="#pr_view">`pr_view`</a> | View an existing pull request. |
 | <a href="#remove_branch">`remove_branch`</a> | Remove a branch. |
@@ -441,6 +442,18 @@ Aliases: merge submit_pr
 Usage: `gee submit_pr`
 
 Merges an approved pull request.
+
+### pr_rollback
+
+Usage: `gee pr_rollback <PR>`
+
+Creates a branch named `rollback_<PR>`, attempts to revert the commit
+associated with that PR, and if successful, creates a new PR that rolls
+back the specified PR.
+
+Example:
+
+    gee pr_rollback 1234
 
 ### remove_branch
 

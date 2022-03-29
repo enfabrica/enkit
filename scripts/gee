@@ -149,7 +149,7 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.26"
+readonly VERSION="0.2.27"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -3574,6 +3574,99 @@ function gee__pr_submit() {
   # Because ${CURRENT_BRANCH} still exists and contains the squash-merged
   # tree, there is no need to change the parentage of the branch tree
   # (unlike gee__remove_branch, below).
+}
+
+##########################################################################
+# pr_rollback command
+##########################################################################
+
+_register_help "pr_rollback" \
+  "Create a rollback PR for a specified PR." <<'EOT'
+Usage: gee pr_rollback <PR>
+
+Creates a branch named `rollback_<PR>`, attempts to revert the commit
+associated with that PR, and if successful, creates a new PR that rolls
+back the specified PR.
+
+Example:
+
+    gee pr_rollback 1234
+EOT
+function gee__pr_rollback() {
+  _check_cwd
+  _check_gh_auth
+
+  local PR="$1"
+  if [[ -z "${PR}" ]]; then
+    _fatal "Must specify a PR number to roll back."
+  fi
+
+  _set_main
+  _checkout_or_die "${MAIN}"
+  local BR="rollback_${PR}"
+  if _local_branch_exists "${BR}"; then
+    _fatal "Branch ${BR} already exists, remove and try again?"
+  fi
+  gee__mkbr "${BR}"
+  _checkout_or_die "${BR}"
+
+  local -a LOGLINES=()
+  local RE='\(#'"${PR}"'\)$'
+  mapfile -t LOGLINES < \
+    <( "${GIT}" log --pretty=format:"%h %s" | grep -E "${RE}" )
+  if (( "${#LOGLINES[@]}" == 0 )); then
+    _fatal "Could not find any commits labelled \"${RE}\""
+  fi
+  if (( "${#LOGLINES[@]}" > 1 )); then
+    _fatal "When searching for \"${RE}\", found multiple possible commits:" \
+      "${LOGLINES[@]}"
+  fi
+
+  local COMMIT DESC
+  read -r COMMIT DESC <<< "${LOGLINES[0]}"
+  _info "Identified commit \"${COMMIT}\": ${DESC}"
+
+  _git revert --no-edit "${COMMIT}"  # creates a new commit
+  _git push --quiet -u origin "${BR}"
+  printf >&2 "\n"
+
+  local BODYFILE
+  BODYFILE="$(mktemp -t prbody.XXXXXX.txt)"
+  (
+    printf "gee-generated rollback of PR #%s (was commit %s).\n" "${PR}" "${COMMIT}"
+    printf "\n"
+    printf "Reason for rollback:\n"
+    printf "\n"
+    printf "Original commit message:\n"
+    printf "========================\n"
+    printf "\n"
+    git log --format=%B -n 1 "${COMMIT}"
+  ) >"${BODYFILE}"
+
+  _choose_one \
+    "Which editor do you want to use to edit the PR description? ([V]im, [e]macs, [a]bort)  " \
+    "VvEeAa" "v"
+  case "${RESP}" in
+    [vV]*) vim "${BODYFILE}"; ;;
+    [eE]*) emacs "${BODYFILE}"; ;;
+    [aA]*) _fatal "Aborted."; ;;
+  esac
+
+  local TITLE
+  TITLE="Rollback of PR #${PR}"
+
+  local -a PR_ARGS
+  PR_ARGS+=(
+    --repo "${UPSTREAM}/${REPO}"
+    --title "${TITLE}"
+    -H "${GHUSER}:${BR}"
+    --body-file "${BODYFILE}"
+  )
+
+  _gh pr create "${PR_ARGS[@]}"
+  gee__codeowners --comment
+  _gh_pr_view
+  rm "${BODYFILE}"
 }
 
 ##########################################################################
