@@ -2625,6 +2625,11 @@ def go_repositories():
         importpath = "cloud.google.com/go/datastore",
         sum = "h1:/May9ojXjRkPBNVrq+oWLqmWCkr4OU5uRY29bu0mRyQ=",
         version = "v1.1.0",
+        patches = [
+            "//bazel/dependencies:datastore_query_toproto_exported.patch",
+        ],
+        patch_tool = "patch",
+        patch_args = ["-p1"],
     )
     go_repository(
         name = "com_google_cloud_go_firestore",

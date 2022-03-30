@@ -20,6 +20,17 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// datastoreClient defines the subset of methods we need to call, providing a
+// surface to mock in unit tests.
+type datastoreClient interface {
+	Delete(context.Context, *datastore.Key) error
+	Get(context.Context, *datastore.Key, interface{}) error
+	GetAll(context.Context, *datastore.Query, interface{}) ([]*datastore.Key, error)
+	Mutate(context.Context, ...*datastore.Mutation) ([]*datastore.Key, error)
+	NewTransaction(context.Context, ...datastore.TransactionOption) (*datastore.Transaction, error)
+	Run(context.Context, *datastore.Query) *datastore.Iterator
+}
+
 type Server struct {
 	ctx context.Context
 
@@ -28,7 +39,7 @@ type Server struct {
 	gcs *storage.Client
 	bkt *storage.BucketHandle
 
-	ds *datastore.Client
+	ds datastoreClient
 
 	options Options
 }

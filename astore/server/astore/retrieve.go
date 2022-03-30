@@ -1,15 +1,22 @@
 package astore
 
 import (
-	"cloud.google.com/go/datastore"
-	"cloud.google.com/go/storage"
 	"context"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"net/http"
 	"path"
 	"strings"
+
+	"github.com/enfabrica/enkit/astore/rpc/astore"
+
+	"cloud.google.com/go/datastore"
+	"cloud.google.com/go/storage"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+var (
+	// Functions mocked in unit tests
+	storageSignedURL = storage.SignedURL
 )
 
 // DownalodArtifact turns an http.Request into an astore.RetrieveRequest, executes it, and invokes the specified handler with the result.
@@ -95,7 +102,7 @@ func (s *Server) Retrieve(ctx context.Context, req *astore.RetrieveRequest) (*as
 	}
 
 	artifact := artifacts[0]
-	url, err := storage.SignedURL(s.options.bucket, objectPath(artifact.Sid), s.options.ForSigning("GET"))
+	url, err := storageSignedURL(s.options.bucket, objectPath(artifact.Sid), s.options.ForSigning("GET"))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate download URL - %s", err)
 	}
