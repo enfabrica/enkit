@@ -1,4 +1,4 @@
-load("@//bazel/utils:diff_test.bzl", "diff_test")
+load("//bazel/utils:diff_test.bzl", "diff_test")
 
 exports_files(["run_clang_format.template.sh"])
 
