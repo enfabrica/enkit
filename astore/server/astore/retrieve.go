@@ -65,6 +65,9 @@ func (s *Server) Retrieve(ctx context.Context, req *astore.RetrieveRequest) (*as
 	if req.Uid == "" && req.Path == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request - no uid and no path")
 	}
+	if req.Uid == "" && (req.Tag == nil || len(req.Tag.Tag) == 0) {
+		return nil, status.Errorf(codes.InvalidArgument, "one of [uid, tags] must be specified to choose a specific version")
+	}
 
 	reqarch := strings.TrimSpace(req.Architecture)
 
@@ -76,15 +79,14 @@ func (s *Server) Retrieve(ctx context.Context, req *astore.RetrieveRequest) (*as
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid path - %s", err)
 		}
 	} else {
-		query = datastore.NewQuery(KindArtifact).Order("-Created")
+		query = datastore.NewQuery(KindArtifact)
 	}
 	query = query.Limit(1)
 
 	if req.Uid != "" {
 		query = query.Filter("Uid = ", req.Uid)
 	}
-
-	tags := []string{"latest"}
+	var tags []string
 	if req.Tag != nil {
 		tags = req.Tag.Tag
 	}

@@ -26,14 +26,13 @@ func TestServerRetrieve(t *testing.T) {
 			req: &astore.RetrieveRequest{
 				Uid: "abcdefg",
 			},
+			// SELECT * FROM Artifact
+			// WHERE Uid = "d6umivjv2ppfteocznd33ck4t3w7uue2"
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
-				Filter: compositeAnd(
-					propertyEqualsString("Uid", "abcdefg"),
-					propertyEqualsString("Tag", "latest"),
-				),
-				Kind:  kindArtifact(),
-				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
+				Filter: propertyEqualsString("Uid", "abcdefg"),
+				Kind:   kindArtifact(),
+				Limit:  int32Val(1),
 			}),
 		},
 		{
@@ -41,16 +40,7 @@ func TestServerRetrieve(t *testing.T) {
 			req: &astore.RetrieveRequest{
 				Path: "test/package",
 			},
-			wantQuery: runQueryRequest(&dpb.Query{
-				Filter: compositeAnd(
-					propertyEqualsString("Parent", "root/test/package"),
-					propertyEqualsString("Tag", "latest"),
-					propertyHasAncestorPel("__key__", NoArch, "root", "test", "package"),
-				),
-				Kind:  kindArtifact(),
-				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
-			}),
+			wantErr: "one of [uid, tags] must be specified",
 		},
 		{
 			desc: "arch only",
@@ -74,11 +64,17 @@ func TestServerRetrieve(t *testing.T) {
 				Path: "test/package",
 				Uid:  "abcdefg",
 			},
+			// SELECT * FROM Artifact
+			// WHERE
+			//   `Parent` = "root/home/scott/test_ip.tgz" AND
+			//   Uid = "d6umivjv2ppfteocznd33ck4t3w7uue2" AND
+			//   __key__ HAS ANCESTOR key(Pel, 'root', Pel, 'home', Pel, 'scott', Pel, 'test_ip.tgz')
+			// ORDER BY Created DESC
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
 				Filter: compositeAnd(
 					propertyEqualsString("Parent", "root/test/package"),
 					propertyEqualsString("Uid", "abcdefg"),
-					propertyEqualsString("Tag", "latest"),
 					propertyHasAncestorPel("__key__", NoArch, "root", "test", "package"),
 				),
 				Kind:  kindArtifact(),
@@ -92,14 +88,14 @@ func TestServerRetrieve(t *testing.T) {
 				Uid:          "abcdefg",
 				Architecture: "all",
 			},
+			// TODO: Query does not depend on arch
+			// SELECT * FROM Artifact
+			// WHERE Uid = "d6umivjv2ppfteocznd33ck4t3w7uue2"
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
-				Filter: compositeAnd(
-					propertyEqualsString("Uid", "abcdefg"),
-					propertyEqualsString("Tag", "latest"),
-				),
-				Kind:  kindArtifact(),
-				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
+				Filter: propertyEqualsString("Uid", "abcdefg"),
+				Kind:   kindArtifact(),
+				Limit:  int32Val(1),
 			}),
 		},
 		{
@@ -110,6 +106,11 @@ func TestServerRetrieve(t *testing.T) {
 					Tag: []string{"foo"},
 				},
 			},
+			// SELECT * FROM Artifact
+			// WHERE
+			//   Uid = "d6umivjv2ppfteocznd33ck4t3w7uue2" AND
+			//   Tag = "foo"
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
 				Filter: compositeAnd(
 					propertyEqualsString("Uid", "abcdefg"),
@@ -117,7 +118,6 @@ func TestServerRetrieve(t *testing.T) {
 				),
 				Kind:  kindArtifact(),
 				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
 			}),
 		},
 		{
@@ -126,16 +126,7 @@ func TestServerRetrieve(t *testing.T) {
 				Path:         "test/package",
 				Architecture: "all",
 			},
-			wantQuery: runQueryRequest(&dpb.Query{
-				Filter: compositeAnd(
-					propertyEqualsString("Parent", "root/test/package"),
-					propertyEqualsString("Tag", "latest"),
-					propertyHasAncestorPel("__key__", "all", "root", "test", "package"),
-				),
-				Kind:  kindArtifact(),
-				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
-			}),
+			wantErr: "one of [uid, tags] must be specified",
 		},
 		{
 			desc: "path and tag",
@@ -177,7 +168,6 @@ func TestServerRetrieve(t *testing.T) {
 				Filter: compositeAnd(
 					propertyEqualsString("Parent", "root/test/package"),
 					propertyEqualsString("Uid", "abcdefg"),
-					propertyEqualsString("Tag", "latest"),
 					propertyHasAncestorPel("__key__", "all", "root", "test", "package"),
 				),
 				Kind:  kindArtifact(),
@@ -194,6 +184,13 @@ func TestServerRetrieve(t *testing.T) {
 					Tag: []string{"foo"},
 				},
 			},
+			// SELECT * FROM Artifact
+			// WHERE
+			//   `Parent` = "root/home/scott/test_ip.tgz" AND
+			//   Uid = "d6umivjv2ppfteocznd33ck4t3w7uue2" AND
+			//   __key__ HAS ANCESTOR key(Pel, 'root', Pel, 'home', Pel, 'scott', Pel, 'test_ip.tgz', Arch, 'all')
+			// ORDER BY Created DESC
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
 				Filter: compositeAnd(
 					propertyEqualsString("Parent", "root/test/package"),
@@ -215,6 +212,12 @@ func TestServerRetrieve(t *testing.T) {
 					Tag: []string{"foo"},
 				},
 			},
+			// TODO: query does not depend on arch
+			// SELECT * FROM Artifact
+			// WHERE
+			//   Uid = "d6umivjv2ppfteocznd33ck4t3w7uue2" AND
+			//   Tag = "foo"
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
 				Filter: compositeAnd(
 					propertyEqualsString("Uid", "abcdefg"),
@@ -222,7 +225,6 @@ func TestServerRetrieve(t *testing.T) {
 				),
 				Kind:  kindArtifact(),
 				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
 			}),
 		},
 		{
