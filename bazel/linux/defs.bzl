@@ -271,7 +271,7 @@ def _kernel_modules(ctx):
         use_default_shell_env = True,
     )
 
-    return [DefaultInfo(files = depset([output])), KernelModulesInfo(
+    return [DefaultInfo(files = depset(outputs)), KernelModulesInfo(
         name = ctx.attr.name,
         package = ki.package,
         modules = outputs,
