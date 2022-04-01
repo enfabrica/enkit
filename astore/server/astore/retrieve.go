@@ -76,7 +76,7 @@ func (s *Server) Retrieve(ctx context.Context, req *astore.RetrieveRequest) (*as
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid path - %s", err)
 		}
 	} else {
-		query = datastore.NewQuery(KindArtifact).Order("-Created")
+		query = datastore.NewQuery(KindArtifact)
 	}
 	query = query.Limit(1)
 
