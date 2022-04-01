@@ -108,6 +108,7 @@ go_appengine_deploy(
     name = "deploy",
     config = "deploy/app.yaml",
     entry = "github.com/enfabrica/enkit/astore/server",
+    project = "astore-284118",
     gomod = "//:go.mod",
     gosum = "//:go.sum",
     deps = [
