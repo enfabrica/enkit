@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+	apb "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/errdiff"
 	"github.com/enfabrica/enkit/lib/testutil"
 
@@ -15,17 +15,31 @@ import (
 )
 
 func TestServerRetrieve(t *testing.T) {
+	// ** IMPORTANT **
+	// If a testcase below has a corresponding query in a comment, that query can
+	// be used on the `Query by GQL` page in GCP Datastore to test the query.
+	// If the query changes, update the corresponding GQL and test manually to
+	// make sure there are no errors (sometimes well-formed queries can fail if we
+	// don't have the correct index)
+	//
+	// When changing a `wantQuery` for a testcase with no GQL comment, add a
+	// corresponding GQL query in a comment and test it first.
 	testCases := []struct {
 		desc      string
-		req       *astore.RetrieveRequest
+		req       *apb.RetrieveRequest
 		wantQuery *dpb.RunQueryRequest
 		wantErr   string
 	}{
 		{
 			desc: "uid only",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Uid: "abcdefg",
 			},
+			// SELECT * FROM Artifact
+			// WHERE
+			//   Uid = "x7azhbytpctt84dz6jk6oriatsdpozhj" AND
+			//   Tag = "rule_test"
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
 				Filter: compositeAnd(
 					propertyEqualsString("Uid", "abcdefg"),
@@ -33,12 +47,27 @@ func TestServerRetrieve(t *testing.T) {
 				),
 				Kind:  kindArtifact(),
 				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
+			}),
+		},
+		{
+			desc: "uid with empty tag set",
+			req: &apb.RetrieveRequest{
+				Uid: "abcdefg",
+				Tag: &apb.TagSet{},
+			},
+			// SELECT * FROM Artifact
+			// WHERE
+			//   Uid = "x7azhbytpctt84dz6jk6oriatsdpozhj"
+			// LIMIT 1
+			wantQuery: runQueryRequest(&dpb.Query{
+				Filter: propertyEqualsString("Uid", "abcdefg"),
+				Kind:   kindArtifact(),
+				Limit:  int32Val(1),
 			}),
 		},
 		{
 			desc: "path only",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Path: "test/package",
 			},
 			wantQuery: runQueryRequest(&dpb.Query{
@@ -53,16 +82,40 @@ func TestServerRetrieve(t *testing.T) {
 			}),
 		},
 		{
+			desc: "path and empty tags",
+			req: &apb.RetrieveRequest{
+				Path: "test/package",
+				Tag:  &apb.TagSet{},
+			},
+			wantQuery: runQueryRequest(&dpb.Query{
+				Filter: compositeAnd(
+					propertyEqualsString("Parent", "root/test/package"),
+					propertyHasAncestorPel("__key__", NoArch, "root", "test", "package"),
+				),
+				Kind:  kindArtifact(),
+				Limit: int32Val(1),
+				Order: []*dpb.PropertyOrder{descendingBy("Created")},
+			}),
+		},
+		{
 			desc: "arch only",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Architecture: "all",
 			},
 			wantErr: "no uid and no path",
 		},
 		{
+			desc: "arch and empty tags",
+			req: &apb.RetrieveRequest{
+				Architecture: "all",
+				Tag:          &apb.TagSet{},
+			},
+			wantErr: "no uid and no path",
+		},
+		{
 			desc: "tag only",
-			req: &astore.RetrieveRequest{
-				Tag: &astore.TagSet{
+			req: &apb.RetrieveRequest{
+				Tag: &apb.TagSet{
 					Tag: []string{"foo"},
 				},
 			},
@@ -70,7 +123,7 @@ func TestServerRetrieve(t *testing.T) {
 		},
 		{
 			desc: "uid and path",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Path: "test/package",
 				Uid:  "abcdefg",
 			},
@@ -87,11 +140,35 @@ func TestServerRetrieve(t *testing.T) {
 			}),
 		},
 		{
+			desc: "uid and path and empty tags",
+			req: &apb.RetrieveRequest{
+				Path: "test/package",
+				Uid:  "abcdefg",
+				Tag:  &apb.TagSet{},
+			},
+			wantQuery: runQueryRequest(&dpb.Query{
+				Filter: compositeAnd(
+					propertyEqualsString("Parent", "root/test/package"),
+					propertyEqualsString("Uid", "abcdefg"),
+					propertyHasAncestorPel("__key__", NoArch, "root", "test", "package"),
+				),
+				Kind:  kindArtifact(),
+				Limit: int32Val(1),
+				Order: []*dpb.PropertyOrder{descendingBy("Created")},
+			}),
+		},
+		{
 			desc: "uid and arch",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Uid:          "abcdefg",
 				Architecture: "all",
 			},
+			// TODO: This query doesn't depend on arch at all
+			// SELECT * FROM Artifact
+			// WHERE
+			//   Uid = "x7azhbytpctt84dz6jk6oriatsdpozhj" AND
+			//   Tag = "rule_test"
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
 				Filter: compositeAnd(
 					propertyEqualsString("Uid", "abcdefg"),
@@ -99,17 +176,34 @@ func TestServerRetrieve(t *testing.T) {
 				),
 				Kind:  kindArtifact(),
 				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
+			}),
+		},
+		{
+			desc: "uid and arch and empty tags",
+			req: &apb.RetrieveRequest{
+				Uid:          "abcdefg",
+				Architecture: "all",
+				Tag:          &apb.TagSet{},
+			},
+			wantQuery: runQueryRequest(&dpb.Query{
+				Filter: propertyEqualsString("Uid", "abcdefg"),
+				Kind:   kindArtifact(),
+				Limit:  int32Val(1),
 			}),
 		},
 		{
 			desc: "uid and tag",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Uid: "abcdefg",
-				Tag: &astore.TagSet{
+				Tag: &apb.TagSet{
 					Tag: []string{"foo"},
 				},
 			},
+			// SELECT * FROM Artifact
+			// WHERE
+			//   Uid = "x7azhbytpctt84dz6jk6oriatsdpozhj" AND
+			//   Tag = "rule_test"
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
 				Filter: compositeAnd(
 					propertyEqualsString("Uid", "abcdefg"),
@@ -117,12 +211,11 @@ func TestServerRetrieve(t *testing.T) {
 				),
 				Kind:  kindArtifact(),
 				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
 			}),
 		},
 		{
 			desc: "path and arch",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Path:         "test/package",
 				Architecture: "all",
 			},
@@ -138,10 +231,27 @@ func TestServerRetrieve(t *testing.T) {
 			}),
 		},
 		{
+			desc: "path and arch and empty tags",
+			req: &apb.RetrieveRequest{
+				Path:         "test/package",
+				Architecture: "all",
+				Tag:          &apb.TagSet{},
+			},
+			wantQuery: runQueryRequest(&dpb.Query{
+				Filter: compositeAnd(
+					propertyEqualsString("Parent", "root/test/package"),
+					propertyHasAncestorPel("__key__", "all", "root", "test", "package"),
+				),
+				Kind:  kindArtifact(),
+				Limit: int32Val(1),
+				Order: []*dpb.PropertyOrder{descendingBy("Created")},
+			}),
+		},
+		{
 			desc: "path and tag",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Path: "test/package",
-				Tag: &astore.TagSet{
+				Tag: &apb.TagSet{
 					Tag: []string{"foo"},
 				},
 			},
@@ -158,9 +268,9 @@ func TestServerRetrieve(t *testing.T) {
 		},
 		{
 			desc: "arch and tag",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Architecture: "all",
-				Tag: &astore.TagSet{
+				Tag: &apb.TagSet{
 					Tag: []string{"foo"},
 				},
 			},
@@ -168,7 +278,7 @@ func TestServerRetrieve(t *testing.T) {
 		},
 		{
 			desc: "uid, path, arch",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Uid:          "abcdefg",
 				Path:         "test/package",
 				Architecture: "all",
@@ -186,11 +296,30 @@ func TestServerRetrieve(t *testing.T) {
 			}),
 		},
 		{
+			desc: "uid, path, arch, empty tags",
+			req: &apb.RetrieveRequest{
+				Uid:          "abcdefg",
+				Path:         "test/package",
+				Architecture: "all",
+				Tag:          &apb.TagSet{},
+			},
+			wantQuery: runQueryRequest(&dpb.Query{
+				Filter: compositeAnd(
+					propertyEqualsString("Parent", "root/test/package"),
+					propertyEqualsString("Uid", "abcdefg"),
+					propertyHasAncestorPel("__key__", "all", "root", "test", "package"),
+				),
+				Kind:  kindArtifact(),
+				Limit: int32Val(1),
+				Order: []*dpb.PropertyOrder{descendingBy("Created")},
+			}),
+		},
+		{
 			desc: "uid, path, tag",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Uid:  "abcdefg",
 				Path: "test/package",
-				Tag: &astore.TagSet{
+				Tag: &apb.TagSet{
 					Tag: []string{"foo"},
 				},
 			},
@@ -208,13 +337,19 @@ func TestServerRetrieve(t *testing.T) {
 		},
 		{
 			desc: "uid, arch, tag",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Uid:          "abcdefg",
 				Architecture: "all",
-				Tag: &astore.TagSet{
+				Tag: &apb.TagSet{
 					Tag: []string{"foo"},
 				},
 			},
+			// TODO: This query doesn't depend on arch at all
+			// SELECT * FROM Artifact
+			// WHERE
+			//   Uid = "x7azhbytpctt84dz6jk6oriatsdpozhj" AND
+			//   Tag = "rule_test"
+			// LIMIT 1
 			wantQuery: runQueryRequest(&dpb.Query{
 				Filter: compositeAnd(
 					propertyEqualsString("Uid", "abcdefg"),
@@ -222,15 +357,14 @@ func TestServerRetrieve(t *testing.T) {
 				),
 				Kind:  kindArtifact(),
 				Limit: int32Val(1),
-				Order: []*dpb.PropertyOrder{descendingBy("Created")},
 			}),
 		},
 		{
 			desc: "path, arch, tag",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Path:         "test/package",
 				Architecture: "all",
-				Tag: &astore.TagSet{
+				Tag: &apb.TagSet{
 					Tag: []string{"foo"},
 				},
 			},
@@ -247,11 +381,11 @@ func TestServerRetrieve(t *testing.T) {
 		},
 		{
 			desc: "uid, path, arch, tag",
-			req: &astore.RetrieveRequest{
+			req: &apb.RetrieveRequest{
 				Uid:          "abcdefg",
 				Path:         "test/package",
 				Architecture: "all",
-				Tag: &astore.TagSet{
+				Tag: &apb.TagSet{
 					Tag: []string{"foo"},
 				},
 			},
