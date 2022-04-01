@@ -1,6 +1,7 @@
 package astore
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,13 +12,13 @@ import (
 	"regexp"
 	"strings"
 
-	"context"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+	apb "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/grpcwebclient"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/progress"
+
 	"github.com/go-git/go-git/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,11 +27,11 @@ import (
 
 type Client struct {
 	conn   grpc.ClientConnInterface
-	client astore.AstoreClient
+	client apb.AstoreClient
 }
 
 func New(conn grpc.ClientConnInterface) *Client {
-	client := astore.NewAstoreClient(conn)
+	client := apb.NewAstoreClient(conn)
 	return &Client{conn: conn, client: client}
 }
 
@@ -96,8 +97,8 @@ func GetPathType(name string, id PathType) PathType {
 	return IdPath
 }
 
-func RetrieveRequestFromPath(name string, id PathType) (*astore.RetrieveRequest, PathType) {
-	req := &astore.RetrieveRequest{}
+func RetrieveRequestFromPath(name string, id PathType) (*apb.RetrieveRequest, PathType) {
+	req := &apb.RetrieveRequest{}
 	id = GetPathType(name, id)
 	switch id {
 	case IdPath:
@@ -109,7 +110,7 @@ func RetrieveRequestFromPath(name string, id PathType) (*astore.RetrieveRequest,
 }
 
 // GetRetrieveResponse performs a Retrieve request, and returns both the generated request, and returned response.
-func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId PathType, tags *[]string) (*astore.RetrieveResponse, *astore.RetrieveRequest, PathType, error) {
+func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId PathType, tags *[]string) (*apb.RetrieveResponse, *apb.RetrieveRequest, PathType, error) {
 	req, id := RetrieveRequestFromPath(name, defaultId)
 
 	adapt := func(err error) error {
@@ -119,17 +120,20 @@ func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId Path
 		return status.Errorf(codes.NotFound, "Could not find package archs: %s - %s", archs, err)
 	}
 
-	var response *astore.RetrieveResponse
+	var response *apb.RetrieveResponse
 	var err error
 	if id == IdUid {
+		// Tags are purposedly ignored when fetching by UID.
+		// Server assumes that no tags means "latest", so we must explicitly specify
+		// an empty tag set.
+		req.Tag = &apb.TagSet{}
 		response, err = c.client.Retrieve(context.TODO(), req)
 		if err != nil {
 			return nil, nil, id, adapt(err)
 		}
 	} else {
-		// Tags are purposedly ignored when fetching by UID.
 		if tags != nil {
-			req.Tag = &astore.TagSet{Tag: *tags}
+			req.Tag = &apb.TagSet{Tag: *tags}
 		}
 
 		if len(archs) == 0 {
@@ -155,8 +159,8 @@ func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId Path
 	return response, req, id, nil
 }
 
-func (c *Client) Download(files []FileToDownload, o DownloadOptions) ([]*astore.Artifact, error) {
-	arts := []*astore.Artifact{}
+func (c *Client) Download(files []FileToDownload, o DownloadOptions) ([]*apb.Artifact, error) {
+	arts := []*apb.Artifact{}
 	for _, file := range files {
 		response, _, id, err := c.GetRetrieveResponse(file.Remote, file.Architecture, file.RemoteType, file.Tag)
 		if err != nil {
@@ -252,8 +256,8 @@ type FileToUpload struct {
 	Tag []string
 }
 
-func (c *Client) Upload(files []FileToUpload, o UploadOptions) ([]*astore.Artifact, error) {
-	artifacts := []*astore.Artifact{}
+func (c *Client) Upload(files []FileToUpload, o UploadOptions) ([]*apb.Artifact, error) {
+	artifacts := []*apb.Artifact{}
 	for _, file := range files {
 		o.Logger.Infof("uploading '%s' as '%s'", file.Local, file.Remote)
 
@@ -269,7 +273,7 @@ func (c *Client) Upload(files []FileToUpload, o UploadOptions) ([]*astore.Artifa
 		defer fd.Close()
 
 		p.Step("%s: allocating id", shortpath)
-		response, err := c.client.Store(context.TODO(), &astore.StoreRequest{})
+		response, err := c.client.Store(context.TODO(), &apb.StoreRequest{})
 		if err != nil {
 			return artifacts, client.NiceError(err, "could not initiate store request %s", err)
 		}
@@ -295,7 +299,7 @@ func (c *Client) Upload(files []FileToUpload, o UploadOptions) ([]*astore.Artifa
 		}
 		for _, arch := range archs {
 			p.Step("%s: committing %s", shortpath, arch)
-			resp, err := c.client.Commit(context.TODO(), &astore.CommitRequest{
+			resp, err := c.client.Commit(context.TODO(), &apb.CommitRequest{
 				Sid:          response.Sid,
 				Architecture: arch,
 				Path:         strings.TrimPrefix(file.Remote, "/"),
@@ -516,10 +520,10 @@ type ListOptions struct {
 	Tag []string
 }
 
-func (c *Client) List(path string, o ListOptions) ([]*astore.Artifact, []*astore.Element, error) {
-	resp, err := c.client.List(context.TODO(), &astore.ListRequest{
+func (c *Client) List(path string, o ListOptions) ([]*apb.Artifact, []*apb.Element, error) {
+	resp, err := c.client.List(context.TODO(), &apb.ListRequest{
 		Path: path,
-		Tag:  &astore.TagSet{Tag: o.Tag},
+		Tag:  &apb.TagSet{Tag: o.Tag},
 	})
 
 	if err != nil {
