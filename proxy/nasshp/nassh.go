@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +30,18 @@ type sessions struct {
 	// Key is a string, the SID. Value is a readWriter pointer.
 	sids sync.Map
 	SessionCounters
+}
+
+func (s *sessions) Iterate(oneach func(rw *readWriter) bool) {
+	s.sids.Range(func(key, value interface{}) bool {
+		rw, converted := value.(*readWriter)
+		if !converted {
+			s.Invalid.Increment()
+			return true
+		}
+
+		return oneach(rw)
+	})
 }
 
 func (s *sessions) Get(sid string) *readWriter {
@@ -78,6 +91,7 @@ type NasshProxy struct {
 
 	// Timeouts to use, must be set.
 	timeouts *Timeouts
+	epolicy  *ExpirationPolicy
 
 	// Where to redirect users after authentication to get their connections going.
 	relayHost string
@@ -91,6 +105,7 @@ type NasshProxy struct {
 	// Error counters for http related events.
 	errors   ProxyErrors
 	counters ProxyCounters
+	expires  ExpireCounters
 }
 
 func (np *NasshProxy) RelayHost() string {
@@ -103,8 +118,135 @@ type options struct {
 	rng              *rand.Rand
 }
 
+type ExpirationPolicy struct {
+	// How often to run session garbage collection.
+	Every time.Duration
+
+	// If number of orphaned sessions exceed this threshold, the oldest
+	// orphaned sessions will be terminated until fewer than this limit are
+	// left, no matter what. This is meant to be a last resort option.
+	RuthlessThreshold int
+
+	// If number of orphaned sessions exceed this threshold, the oldest
+	// sessions that have been orphaned for longer than OrphanLimit are
+	// expired until either the number of sessions goes below
+	// OrphanThreshold, or there are no orphaned sessions that have been
+	// around longer than OrphanLimit.
+	//
+	// Tl;Dr: this only expires the oldest sessions that have been orphaned
+	// for longer than OrphanLimit.
+	OrphanThreshold int
+	OrphanLimit     time.Duration
+}
+
+func DefaultExpirationPolicy() *ExpirationPolicy {
+	return &ExpirationPolicy{
+		Every:             10 * time.Minute,
+		RuthlessThreshold: 20000,
+		OrphanThreshold:   1000,
+		OrphanLimit:       3 * 24 * time.Hour * 24,
+	}
+}
+
+func (ep *ExpirationPolicy) Register(set kflags.FlagSet, prefix string) {
+	set.DurationVar(&ep.Every, prefix+"expire-run-every", ep.Every,
+		"How often to check if there are sessions to be expired. Zero disables the check.")
+	set.IntVar(&ep.RuthlessThreshold, prefix+"expire-ruthlessly-after", ep.RuthlessThreshold,
+		"If more than this number of sessions are orphaned, the oldest sessions will be "+
+			"expired until fewer than this limit sessions are left orphaned.")
+	set.IntVar(&ep.OrphanThreshold, prefix+"expire-long-after", ep.OrphanThreshold,
+		"If more than this number of sessions are orphaned, the oldest sessions that "+
+			"have been orphaned for longer than expire-long-time will be expired.")
+	set.DurationVar(&ep.OrphanLimit, prefix+"expire-long-time", ep.OrphanLimit,
+		"Sessions orphaned for less than this time will not be expired unless the "+
+			"ruthless limit is exceeded")
+}
+
+func (ep *ExpirationPolicy) Expire(ctx context.Context, clock utils.Clock, sessions *sessions, counters *ExpireCounters) {
+	var start time.Time
+	for {
+		counters.ExpireRuns.Increment()
+		if !start.IsZero() {
+			end := clock.Now()
+			counters.ExpireDuration.Add(uint64(end.Sub(start)))
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-clock.After(ep.Every):
+		}
+
+		start = clock.Now()
+
+		total := sessions.Created.Get() - sessions.Deleted.Get()
+		if total < uint64(ep.OrphanThreshold) {
+			continue
+		}
+
+		counters.ExpireAboveOrphanThresholdRuns.Increment()
+		counters.ExpireAboveOrphanThresholdTotal.Add(total)
+
+		// Save the time BEFORE we start scanning sessions (so we can
+		// exclude all sessions (un)paused after the scan), and find
+		// all sessions paused.
+		now := clock.Now().UnixNano()
+		orphaned := []*readWriter{}
+		sessions.Iterate(func(rw *readWriter) bool {
+			pausedat := rw.browser.paused.Nano()
+			if pausedat <= 0 || pausedat > now {
+				return true
+			}
+
+			orphaned = append(orphaned, rw)
+			return true
+		})
+
+		counters.ExpireAboveOrphanThresholdFound.Add(uint64(len(orphaned)))
+		if len(orphaned) < ep.OrphanThreshold {
+			continue
+		}
+
+		sort.Slice(orphaned, func(i, j int) bool {
+			return orphaned[i].browser.paused.Nano() < orphaned[j].browser.paused.Nano()
+		})
+
+		maxorphan := int64(ep.OrphanLimit * time.Nanosecond)
+		for cursor, left := 0, len(orphaned); cursor < len(orphaned) && left > ep.OrphanThreshold; cursor, left = cursor+1, left-1 {
+			rw := orphaned[cursor]
+
+			// This can happen if the session was unpaused in
+			// between scanning the map and processing the list of
+			// sessions. No matter what, there's a short race here.
+			pausedon := rw.browser.paused.Nano()
+			pausedfor := now - pausedon
+			if pausedon <= 0 || pausedfor <= 0 {
+				counters.ExpireRaced.Increment()
+				continue
+			}
+
+			if left <= ep.RuthlessThreshold {
+				if pausedfor <= maxorphan {
+					break
+				}
+				counters.ExpireOrphanClosed.Increment()
+			} else {
+				counters.ExpireRuthlessClosed.Increment()
+			}
+
+			counters.ExpireLifetimeTotal.Add(uint64(pausedfor / 1e9))
+			counters.ExpireYoungest.SetIfGreatest(uint64(pausedon))
+
+			rw.browser.Close(fmt.Errorf(
+				"session expired after %s of inactivity", time.Duration(pausedfor)*time.Nanosecond))
+		}
+	}
+}
+
 type Flags struct {
 	*Timeouts
+	*ExpirationPolicy
 
 	SymmetricKey []byte
 	BufferSize   int
@@ -119,14 +261,13 @@ func DefaultTimeouts() *Timeouts {
 		BrowserAckTimeout:   time.Second * 1,
 		ConnWriteTimeout:    time.Second * 60,
 		ResolutionTimeout:   time.Second * 30,
-
-		// TODO: add a maximum idle time.
 	}
 }
 
 func DefaultFlags() *Flags {
 	return &Flags{
-		Timeouts: DefaultTimeouts(),
+		Timeouts:         DefaultTimeouts(),
+		ExpirationPolicy: DefaultExpirationPolicy(),
 	}
 }
 
@@ -138,14 +279,16 @@ func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.StringVar(&fl.RelayHost, prefix+"host-port", "", "The hostname and port number the nassh client has to be redirected to to establish an ssh connection. "+
 		"Typically, this is the DNS name and port 80 or 443 of the host running this proxy.")
 
-	set.DurationVar(&fl.BrowserWriteTimeout, "browser-write-timeout", fl.BrowserWriteTimeout,
+	set.DurationVar(&fl.BrowserWriteTimeout, prefix+"browser-write-timeout", fl.BrowserWriteTimeout,
 		"How long to wait for a write to the browser to complete before giving up.")
-	set.DurationVar(&fl.BrowserAckTimeout, "browser-ack-timeout", fl.BrowserAckTimeout,
+	set.DurationVar(&fl.BrowserAckTimeout, prefix+"browser-ack-timeout", fl.BrowserAckTimeout,
 		"How long to wait before sending an ack back.")
-	set.DurationVar(&fl.ConnWriteTimeout, "conn-write-timeout", fl.ConnWriteTimeout,
+	set.DurationVar(&fl.ConnWriteTimeout, prefix+"conn-write-timeout", fl.ConnWriteTimeout,
 		"How long to wait for a write to the proxied connection (eg, ssh) to complete before giving up.")
-	set.DurationVar(&fl.ResolutionTimeout, "resolution-timeout", fl.ResolutionTimeout,
+	set.DurationVar(&fl.ResolutionTimeout, prefix+"resolution-timeout", fl.ResolutionTimeout,
 		"How long to wait to resolve the name of the destination of the proxied connection")
+
+	fl.ExpirationPolicy.Register(set, prefix)
 	return fl
 }
 
@@ -211,6 +354,7 @@ func FromFlags(fl *Flags) Modifier {
 			WithSymmetricOptions(token.UseSymmetricKey(fl.SymmetricKey)),
 			WithBufferSize(fl.BufferSize),
 			WithTimeouts(fl.Timeouts),
+			WithExpirationPolicy(fl.ExpirationPolicy),
 		}
 		return mods.Apply(np, o)
 	}
@@ -237,6 +381,13 @@ func WithTimeouts(timeouts *Timeouts) Modifier {
 	}
 }
 
+func WithExpirationPolicy(ep *ExpirationPolicy) Modifier {
+	return func(np *NasshProxy, o *options) error {
+		np.epolicy = ep
+		return nil
+	}
+}
+
 // New creates a new instance of a nasshp tunnel protocol.
 //
 // rng MUST be a secure random number generator, use github.com/enfabrica/lib/srand
@@ -249,6 +400,7 @@ func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*N
 	o := &options{rng: rng, bufferSize: 8192}
 	np := &NasshProxy{
 		timeouts:      DefaultTimeouts(),
+		epolicy:       DefaultExpirationPolicy(),
 		authenticator: authenticator,
 		log:           logger.Nil,
 		upgrader: websocket.Upgrader{
@@ -480,8 +632,6 @@ func (np *NasshProxy) ServeConnect(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type TimeSource func() time.Time
-
 // readWriter holds the state to read from an ssh connection and writes to the browser.
 //
 // There are a few nuisances here:
@@ -524,12 +674,12 @@ type readWriter struct {
 
 func newReadWriter(log logger.Logger, pool *BufferPool, timeouts *Timeouts, counters *ReadWriterCounters) *readWriter {
 	rw := &readWriter{ReadWriterCounters: counters, Timeouts: timeouts, pool: pool}
-	rw.browser.Init(log)
+	rw.browser.Init(log, &counters.BrowserWindowCounters)
 	return rw
 }
 
 type Timeouts struct {
-	Now TimeSource
+	Now utils.TimeSource
 
 	ResolutionTimeout time.Duration
 
@@ -781,6 +931,22 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 				continue
 			}
 		}
+	}
+}
+
+// Run starts nasshp background workers.
+//
+// It should typically be started in a goroutine of its own.
+//
+// It completes eiter when there are no workers to be run, or
+// when the supplied ctx is canceled.
+func (np *NasshProxy) Run(ctx context.Context) {
+	if np.epolicy == nil {
+		return
+	}
+
+	if np.epolicy.Every != 0 {
+		np.epolicy.Expire(ctx, &utils.SystemClock{}, &np.sessions, &np.expires)
 	}
 }
 

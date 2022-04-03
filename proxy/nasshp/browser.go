@@ -3,9 +3,11 @@ package nasshp
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/proxy/utils"
 	"github.com/gorilla/websocket"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type waiter chan error
@@ -22,6 +24,10 @@ type ReplaceableBrowser struct {
 	log logger.Logger
 
 	notifier chan error
+	counters *BrowserWindowCounters
+
+	started utils.AtomicTime // epoch when connection was started.
+	paused  utils.AtomicTime // epoch when connection was last paused.
 
 	wc   *websocket.Conn // Protected by lock.
 	err  error           // Protected by lock.
@@ -34,16 +40,22 @@ type ReplaceableBrowser struct {
 	pendingWack, pendingRack uint32
 }
 
-func NewReplaceableBrowser(log logger.Logger) *ReplaceableBrowser {
+func NewReplaceableBrowser(log logger.Logger, counters *BrowserWindowCounters) *ReplaceableBrowser {
+	if counters == nil {
+		counters = &BrowserWindowCounters{}
+	}
+
 	rb := &ReplaceableBrowser{
-		log: log,
+		log:      log,
+		counters: counters,
 	}
 	rb.cond = sync.NewCond(rb.lock.RLocker())
 	return rb
 }
 
-func (gb *ReplaceableBrowser) Init(log logger.Logger) {
+func (gb *ReplaceableBrowser) Init(log logger.Logger, counters *BrowserWindowCounters) {
 	gb.log = log
+	gb.counters = counters
 	gb.cond = sync.NewCond(gb.lock.RLocker())
 }
 
@@ -76,15 +88,27 @@ func (gb *ReplaceableBrowser) Set(wc *websocket.Conn, rack, wack uint32) waiter 
 		return gb.notifier
 	}
 	if gb.wc != nil {
+		gb.counters.BrowserWindowReplaced.Increment()
+
 		gb.notifier <- fmt.Errorf("replaced browser connection")
 		gb.wc.Close()
 	}
 	gb.wc = wc
 	if wc == nil {
+		gb.counters.BrowserWindowReset.Increment()
+
 		gb.notifier = nil
 		gb.pendingRack = 0
 		gb.pendingWack = 0
 		return nil
+	}
+
+	if rack == 0 && wack == 0 {
+		gb.counters.BrowserWindowStarted.Increment()
+		gb.started.Set(time.Now())
+	} else {
+		gb.counters.BrowserWindowResumed.Increment()
+		gb.paused.Reset()
 	}
 
 	gb.pendingRack = rack
@@ -107,10 +131,14 @@ func (gb *ReplaceableBrowser) Close(err error) {
 	defer gb.lock.Unlock()
 	gb.err = err
 	if gb.notifier != nil {
+		gb.counters.BrowserWindowStopped.Increment()
+
 		gb.notifier <- &TerminatingError{error: err}
 		gb.notifier = nil
 	}
 	if gb.wc != nil {
+		gb.counters.BrowserWindowClosed.Increment()
+
 		gb.wc.Close()
 		gb.wc = nil
 	}
@@ -125,6 +153,9 @@ func (gb *ReplaceableBrowser) Error(wc *websocket.Conn, err error) {
 	if gb.wc == nil || gb.wc != wc {
 		return
 	}
+
+	gb.paused.Set(time.Now())
+	gb.counters.BrowserWindowOrphaned.Increment()
 
 	gb.notifier <- err
 	gb.wc.Close()

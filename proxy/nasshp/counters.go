@@ -33,7 +33,19 @@ type ProxyErrors struct {
 	SshDialFailed    utils.Counter
 }
 
+type BrowserWindowCounters struct {
+	BrowserWindowReset    utils.Counter
+	BrowserWindowResumed  utils.Counter
+	BrowserWindowStarted  utils.Counter
+	BrowserWindowOrphaned utils.Counter
+	BrowserWindowStopped  utils.Counter
+	BrowserWindowReplaced utils.Counter
+	BrowserWindowClosed   utils.Counter
+}
+
 type ReadWriterCounters struct {
+	BrowserWindowCounters
+
 	BrowserWriterStarted utils.Counter
 	BrowserWriterStopped utils.Counter
 	BrowserWriterError   utils.Counter
@@ -41,6 +53,23 @@ type ReadWriterCounters struct {
 	BrowserReaderStarted utils.Counter
 	BrowserReaderStopped utils.Counter
 	BrowserReaderError   utils.Counter
+}
+
+type ExpireCounters struct {
+	ExpireRuns     utils.Counter
+	ExpireDuration utils.Counter
+
+	ExpireAboveOrphanThresholdRuns  utils.Counter
+	ExpireAboveOrphanThresholdTotal utils.Counter
+	ExpireAboveOrphanThresholdFound utils.Counter
+
+	ExpireRaced utils.Counter
+
+	ExpireOrphanClosed   utils.Counter
+	ExpireRuthlessClosed utils.Counter
+	ExpireLifetimeTotal  utils.Counter
+
+	ExpireYoungest utils.Counter
 }
 
 type ProxyCounters struct {
@@ -283,6 +312,108 @@ var (
 		helpBrowser,
 		nil, prometheus.Labels{"type": "proxy", "action": "stopped"},
 	)
+
+	descBrowserWindowReset = prometheus.NewDesc(
+		"nasshp_window_reset",
+		"Number of times a browser window rack/wack was reset to 0 (should be rare)",
+		nil, nil,
+	)
+
+	descBrowserWindowResumed = prometheus.NewDesc(
+		"nasshp_window_resume",
+		"Number of times a browser window was reused with rack/wack recovery",
+		nil, nil,
+	)
+
+	descBrowserWindowStarted = prometheus.NewDesc(
+		"nasshp_window_started",
+		"Number of times a browser window was newly started, with 0 rack/wack",
+		nil, nil,
+	)
+
+	descBrowserWindowOrphaned = prometheus.NewDesc(
+		"nasshp_window_orphaned",
+		"Number of times a browser error resulted in orphaning a window",
+		nil, nil,
+	)
+
+	descBrowserWindowStopped = prometheus.NewDesc(
+		"nasshp_window_stopped",
+		"Number of times an application asked to close the window (generally, a backend error)",
+		nil, nil,
+	)
+
+	descBrowserWindowReplaced = prometheus.NewDesc(
+		"nasshp_window_replaced",
+		"Number of times an active browser window was replaced by another (should be rare)",
+		nil, nil,
+	)
+
+	descBrowserWindowClosed = prometheus.NewDesc(
+		"nasshp_window_closed",
+		"Number of times an active browser window had to be closed (every time a stop is asked, if the window was still active)",
+		nil, nil,
+	)
+
+	descExpireRuns = prometheus.NewDesc(
+		"nasshp_expire_runs",
+		"Number of times the expiration goroutine was run",
+		nil, nil,
+	)
+
+	descExpireDuration = prometheus.NewDesc(
+		"nasshp_expire_durations",
+		"Total time spent to implement session expirations (nanoseconds)",
+		nil, nil,
+	)
+
+	descExpireAboveOrphanThresholdRuns = prometheus.NewDesc(
+		"nasshp_expire_above_orphan_threshold_runs",
+		"Number of times the expiration goroutine found sessions above the orphan threshold",
+		nil, nil,
+	)
+
+	descExpireAboveOrphanThresholdTotal = prometheus.NewDesc(
+		"nasshp_expire_above_orphan_threshold_total",
+		"Total number of sessions found across all runs when expire was run",
+		nil, nil,
+	)
+
+	descExpireAboveOrphanThresholdFound = prometheus.NewDesc(
+		"nasshp_expire_above_orphan_threshold_found",
+		"Total number of orphaned sessions found across all runs",
+		nil, nil,
+	)
+
+	descExpireRaced = prometheus.NewDesc(
+		"nasshp_expire_raced",
+		"Total number of times an orphaned session became unorphaned while expire was in progress",
+		nil, nil,
+	)
+
+	descExpireOrphanClosed = prometheus.NewDesc(
+		"nasshp_expire_orphan_closed",
+		"Number of sessions the expire goroutine gently closed",
+		nil, nil,
+	)
+
+	descExpireRuthlessClosed = prometheus.NewDesc(
+		"nasshp_expire_ruthless_closed",
+		"Number of sessions the expire goroutine had to close ruthlessly",
+		nil, nil,
+	)
+
+	descExpireLifetimeTotal = prometheus.NewDesc(
+		"nasshp_expire_lifetime_total",
+		"Total number of seconds expired sessions were orphaned for",
+		nil, nil,
+	)
+
+	descExpireYoungest = prometheus.NewDesc(
+		"nasshp_expire_youngest",
+		"Epoch in nanoseconds of the most recent session expired",
+		nil, nil,
+	)
 )
 
 type nasshCollector NasshProxy
@@ -298,6 +429,7 @@ func (nc *nasshCollector) Collect(ch chan<- prometheus.Metric) {
 	errors := &np.errors
 	counters := &np.counters
 	sessions := &np.sessions
+	expires := &np.expires
 
 	metrics := []struct {
 		desc  *prometheus.Desc
@@ -350,6 +482,29 @@ func (nc *nasshCollector) Collect(ch chan<- prometheus.Metric) {
 		{descSessionCreated, sessions.Created.Get()},
 		{descSessionOrphaned, sessions.Orphaned.Get()},
 		{descSessionDeleted, sessions.Deleted.Get()},
+
+		{descBrowserWindowReset, counters.BrowserWindowReset.Get()},
+		{descBrowserWindowResumed, counters.BrowserWindowResumed.Get()},
+		{descBrowserWindowStarted, counters.BrowserWindowStarted.Get()},
+		{descBrowserWindowOrphaned, counters.BrowserWindowOrphaned.Get()},
+		{descBrowserWindowStopped, counters.BrowserWindowStopped.Get()},
+		{descBrowserWindowReplaced, counters.BrowserWindowReplaced.Get()},
+		{descBrowserWindowClosed, counters.BrowserWindowClosed.Get()},
+
+		{descExpireRuns, expires.ExpireRuns.Get()},
+		{descExpireDuration, expires.ExpireDuration.Get()},
+
+		{descExpireAboveOrphanThresholdRuns, expires.ExpireAboveOrphanThresholdRuns.Get()},
+		{descExpireAboveOrphanThresholdTotal, expires.ExpireAboveOrphanThresholdTotal.Get()},
+		{descExpireAboveOrphanThresholdFound, expires.ExpireAboveOrphanThresholdFound.Get()},
+
+		{descExpireRaced, expires.ExpireRaced.Get()},
+
+		{descExpireOrphanClosed, expires.ExpireOrphanClosed.Get()},
+		{descExpireRuthlessClosed, expires.ExpireRuthlessClosed.Get()},
+		{descExpireLifetimeTotal, expires.ExpireLifetimeTotal.Get()},
+
+		{descExpireYoungest, expires.ExpireYoungest.Get()},
 	}
 
 	for _, metric := range metrics {

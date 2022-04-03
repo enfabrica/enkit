@@ -1,6 +1,7 @@
 package nasshp
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/khttp"
@@ -9,6 +10,7 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/lib/token"
+	"github.com/enfabrica/enkit/proxy/utils"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"log"
@@ -17,7 +19,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 type Acceptor struct {
@@ -138,4 +142,156 @@ func TestBasic(t *testing.T) {
 	//_, m, err = c.ReadMessage()
 	//assert.Equal(t, len(wisdom)-63+4, len(m), "wisdom is %d, resumed from %d", len(wisdom), 63)
 	//assert.Equal(t, uint32(0xf), binary.BigEndian.Uint32(m[:4]))
+}
+
+type FakeTime struct {
+	c     *sync.Cond
+	mu    sync.Mutex
+	now   time.Time
+	chans []chan time.Time
+}
+
+func NewFakeTime() *FakeTime {
+	// Just a fixed point in time.
+	s, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+	ft := &FakeTime{now: s}
+	ft.c = sync.NewCond(&ft.mu)
+	return ft
+}
+
+func (ft *FakeTime) Now() time.Time {
+	return ft.now
+}
+
+func (ft *FakeTime) After(time.Duration) <-chan time.Time {
+	ch := make(chan time.Time, 1)
+
+	ft.c.L.Lock()
+	defer ft.c.L.Unlock()
+	ft.chans = append(ft.chans, ch)
+	ft.c.Broadcast()
+
+	return ch
+}
+
+// Advance advances the time by the specified add amount.
+//
+// If count is != 0, Advance won't return until After() has
+// been called at least 'count' times.
+//
+// When time.After() is used in a loop, this is useful to ensure
+// that the loop has completed, and went back to sleep waiting
+// for the next time to expire.
+func (ft *FakeTime) Advance(count int, add time.Duration) {
+	ft.now = ft.now.Add(add)
+
+	ft.c.L.Lock()
+	defer ft.c.L.Unlock()
+	for len(ft.chans) < count {
+		ft.c.Wait()
+	}
+
+	for _, ch := range ft.chans {
+		// Don't block if channel is full.
+		select {
+		case ch <- ft.now:
+		default:
+		}
+	}
+}
+
+// WaitCounter waits for up to 5 seconds for a counter to reach
+// or exceed the specified value.
+//
+// Retruns false in case of timeout, true otherwise.
+func WaitCounter(c *utils.Counter, expected uint64) bool {
+	start := time.Now()
+	for {
+		value := c.Get()
+		if value >= expected {
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+		if time.Now().Sub(start) > time.Second*5 {
+			return false
+		}
+	}
+
+}
+
+func TestExpire(t *testing.T) {
+	ep := DefaultExpirationPolicy()
+	ft := NewFakeTime()
+	counters := &ExpireCounters{}
+	sessions := &sessions{}
+	wg := &sync.WaitGroup{}
+
+	// A bit contrieved, but runs the Expire() function until
+	// the returned cancel() function is invoked, while waiting
+	// for the goroutine to complete.
+	expire := func() func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			wg.Add(1)
+			ep.Expire(ctx, ft, sessions, counters)
+			wg.Done()
+		}()
+
+		return func() {
+			cancel()
+			wg.Wait()
+		}
+	}
+
+	// Just test that the test code is reasonable: nothing happened.
+	cancel := expire()
+	assert.True(t, WaitCounter(&counters.ExpireRuns, 1))
+	cancel()
+	assert.Equal(t, ExpireCounters{ExpireRuns: 1}, *counters)
+
+	// Create a bunch of sessions.
+	bc := &ReadWriterCounters{}
+	nb := func() *readWriter { return newReadWriter(logger.Nil, nil, nil, bc) }
+	s0, s1, s2, s3 := nb(), nb(), nb(), nb()
+	sessions.Create("0", s0)
+	sessions.Create("1", s1)
+	sessions.Create("2", s2)
+	sessions.Create("3", s3)
+	assert.Equal(t, uint64(4), sessions.Created.Get()-sessions.Deleted.Get())
+
+	// Run an expire loop with no orphaned sessions and see what happens.
+	cancel = expire()
+	ft.Advance(2, 15*time.Minute)
+	assert.True(t, WaitCounter(&counters.ExpireRuns, 3))
+	cancel()
+
+	// This would kill some sessions, except all sessions are active.
+	ep.OrphanThreshold = 1
+	ep.RuthlessThreshold = 2
+
+	cancel = expire()
+	ft.Advance(4, 15*time.Minute)
+	assert.True(t, WaitCounter(&counters.ExpireRuns, 5))
+	cancel()
+	// Yay! No sessions killed.
+	assert.Equal(t, ExpireCounters{ExpireRuns: 5, ExpireAboveOrphanThresholdRuns: 1, ExpireAboveOrphanThresholdTotal: 4}, *counters)
+
+	// See above: at most 1 orphan, if more than 2 we become ruthless.
+	// We create 3 orphans.
+	// - Oldest should be ruthlessly killed. Getting us to 2 orphans, and out of ruthless mode.
+	// - Second oldest session is still killed, as it has been opened > OrphanLimit.
+	// - Third oldest session is more recent than OrphanLimit, we are not in ruthless mode,
+	//   so it should be preserved.
+	pt1 := ft.Now().Add(-3 * ep.OrphanLimit)
+	s2.browser.paused.Set(pt1)
+	pt2 := ft.Now().Add(-2 * ep.OrphanLimit)
+	s0.browser.paused.Set(pt2)
+	s1.browser.paused.Set(ft.Now().Add(-60 * time.Minute))
+
+	cancel = expire()
+	ft.Advance(6, 15*time.Minute)
+	assert.True(t, WaitCounter(&counters.ExpireRuns, 7))
+	cancel()
+
+	assert.Equal(t, ExpireCounters{ExpireRuns: 7, ExpireAboveOrphanThresholdRuns: 2, ExpireAboveOrphanThresholdTotal: 8, ExpireAboveOrphanThresholdFound: 3, ExpireOrphanClosed: 1, ExpireRuthlessClosed: 1, ExpireYoungest: utils.Counter(pt2.UnixNano()), ExpireLifetimeTotal: utils.Counter(ft.Now().Sub(pt1).Seconds() + ft.Now().Sub(pt2).Seconds())}, *counters)
 }
