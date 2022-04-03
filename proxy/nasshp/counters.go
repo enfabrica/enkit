@@ -53,6 +53,12 @@ type ReadWriterCounters struct {
 	BrowserReaderStarted utils.Counter
 	BrowserReaderStopped utils.Counter
 	BrowserReaderError   utils.Counter
+
+	BrowserBytesRead  utils.Counter
+	BackendBytesWrite utils.Counter
+
+	BackendBytesRead  utils.Counter
+	BrowserBytesWrite utils.Counter
 }
 
 type ExpireCounters struct {
@@ -301,6 +307,29 @@ var (
 		nil, prometheus.Labels{"type": "reader", "action": "error"},
 	)
 
+	descBrowserBytesRead = prometheus.NewDesc(
+		"nasshp_browser_read",
+		"Total amount of bytes read from the browser (this includes rack/wack)",
+		nil, nil,
+	)
+	descBrowserBytesWrite = prometheus.NewDesc(
+		"nasshp_browser_write",
+		"Total amount of bytes written to the browser (this includes rack/wack)",
+		nil, nil,
+	)
+
+	descBackendBytesWrite = prometheus.NewDesc(
+		"nasshp_backend_write",
+		"Total amount of bytes written to the backend",
+		nil, nil,
+	)
+
+	descBackendBytesRead = prometheus.NewDesc(
+		"nasshp_backend_read",
+		"Total amount of bytes read from the backend",
+		nil, nil,
+	)
+
 	descSshProxyStarted = prometheus.NewDesc(
 		"nasshp_browser",
 		helpBrowser,
@@ -473,6 +502,12 @@ func (nc *nasshCollector) Collect(ch chan<- prometheus.Metric) {
 		{descBrowserReaderStarted, counters.BrowserReaderStarted.Get()},
 		{descBrowserReaderStopped, counters.BrowserReaderStopped.Get()},
 		{descBrowserReaderError, counters.BrowserReaderError.Get()},
+
+		{descBrowserBytesRead, counters.BrowserBytesRead.Get()},
+		{descBackendBytesWrite, counters.BackendBytesWrite.Get()},
+
+		{descBackendBytesRead, counters.BackendBytesRead.Get()},
+		{descBrowserBytesWrite, counters.BrowserBytesWrite.Get()},
 
 		{descSshProxyStarted, counters.SshProxyStarted.Get()},
 		{descSshProxyStopped, counters.SshProxyStopped.Get()},
