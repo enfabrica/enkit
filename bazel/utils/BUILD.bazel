@@ -1,5 +1,7 @@
 load("//bazel/utils:diff_test.bzl", "diff_test")
+load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
+load("//bazel/utils:files.bzl", "write_to_file")
 
 exports_files(["run_clang_format.template.sh"])
 
@@ -13,6 +15,23 @@ diff_test(
     name = "foobar.txt-diff_test",
     actual = "foobar.txt",
     expected = "testdata/expected.foobar.txt",
+)
+
+write_to_file(
+    name = "escape_and_join1",
+    content = "%s\n" % escape_and_join([
+        "foo bar",
+        "contains\"quote",
+        "contains\'singlequot",
+        "contains;semicolon",
+    ]),
+    output = "escape_and_join1.actual",
+)
+
+diff_test(
+    name = "escape_and_join1_test",
+    actual = "escape_and_join1.actual",
+    expected = "testdata/escape_and_join1.expected",
 )
 
 merge_kwargs_test_suite(

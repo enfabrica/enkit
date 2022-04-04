@@ -1,5 +1,30 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
+def _write_to_file_impl(ctx):
+    ctx.actions.write(
+        output = ctx.outputs.output,
+        content = ctx.attr.content,
+    )
+    return [DefaultInfo(files = depset([ctx.outputs.output]))]
+
+write_to_file = rule(
+    doc = """
+      Writes a string to a file.
+
+      This method is mostly used in conjunction with diff_test to test bazel
+      utility functions.
+    """,
+    implementation = _write_to_file_impl,
+    attrs = {
+        "output": attr.output(
+            doc = "The file to write to.",
+        ),
+        "content": attr.string(
+            doc = "The contents of the file.",
+        ),
+    },
+)
+
 def rebase_path(path, prefix, base):
     """Changes a path at a specified keyword to another path, appending the remaining onto it.
 
