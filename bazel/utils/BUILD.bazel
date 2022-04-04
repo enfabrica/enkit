@@ -1,4 +1,5 @@
 load("//bazel/utils:diff_test.bzl", "diff_test")
+load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
 
 exports_files(["run_clang_format.template.sh"])
 
@@ -12,4 +13,8 @@ diff_test(
     name = "foobar.txt-diff_test",
     actual = "foobar.txt",
     expected = "testdata/expected.foobar.txt",
+)
+
+merge_kwargs_test_suite(
+    name = "merge_kwargs_test_suite",
 )
