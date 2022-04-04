@@ -5,6 +5,7 @@ load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_
 load("@build_bazel_rules_nodejs//:index.bzl", "yarn_install")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@com_github_atlassian_bazel_tools//multirun:deps.bzl", "multirun_dependencies")
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 load("//bazel/ui:deps.bzl", "install_ui_deps")
 
 def enkit_init_go():
@@ -25,6 +26,7 @@ def enkit_init_ts():
     )
 
 def enkit_init_tools():
+    bazel_skylib_workspace()
     rules_pkg_dependencies()
     multirun_dependencies()
 
