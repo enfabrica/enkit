@@ -138,17 +138,18 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 
 	reqAuth, err := oauth.New(rng, oauth.WithFlags(oauthFlags), auth.FetchCredentialOpts(oAuthType))
 	if err != nil {
-		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
-	}
-	optAuth, err := oauth.New(rng, oauth.WithFlags(optAuthFlags), auth.FetchCredentialOpts("github"))
-	if err != nil {
-		return fmt.Errorf("could not initialize oauth authenticator - %s", err)
+		return fmt.Errorf("could not initialize %s authenticator - %s", oAuthType, err)
 	}
 	var authWeb oauth.IAuthenticator
 	authWeb = reqAuth
 	if useMulti {
-	 	authWeb = oauth.NewMultiOAuth(rng, reqAuth, optAuth)
-	 }
+		optAuth, err := oauth.New(rng, oauth.WithFlags(optAuthFlags), auth.FetchCredentialOpts("github"))
+		if err != nil {
+			return fmt.Errorf("could not initialize github authenticator - %s", err)
+		}
+
+		authWeb = oauth.NewMultiOAuth(rng, reqAuth, optAuth)
+	}
 	grpcs := grpc.NewServer(
 		grpc.StreamInterceptor(ogrpc.StreamInterceptor(reqAuth, "/auth.Auth/")),
 		grpc.UnaryInterceptor(ogrpc.UnaryInterceptor(reqAuth, "/auth.Auth/")),
