@@ -15,11 +15,11 @@ import json
 import signal
 import os
 
-import kunit_config
-import kunit_parser
-import kunit_kernel
-import kunit_json
-import kunit
+from bazel.linux.kunit import kunit_config
+from bazel.linux.kunit import kunit_parser
+from bazel.linux.kunit import kunit_kernel
+from bazel.linux.kunit import kunit_json
+from bazel.linux.kunit import kunit
 
 test_tmpdir = ''
 abs_test_data_dir = ''

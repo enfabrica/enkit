@@ -6,6 +6,7 @@
 # Author: Felix Guo <felixguoxiuping@gmail.com>
 # Author: Brendan Higgins <brendanhiggins@google.com>
 
+import contextlib
 import logging
 import subprocess
 import os
@@ -13,10 +14,8 @@ import shutil
 import signal
 from typing import Iterator
 
-from contextlib import ExitStack
-
-import kunit_config
-import kunit_parser
+from bazel.linux.kunit import kunit_config
+from bazel.linux.kunit import kunit_parser
 
 KCONFIG_PATH = '.config'
 KUNITCONFIG_PATH = '.kunitconfig'
@@ -76,7 +75,7 @@ class LinuxSourceTreeOperations(object):
 		process.wait()
 		kunit_parser.print_with_timestamp(
 			'Disabling broken configs to run KUnit tests...')
-		with ExitStack() as es:
+		with contextlib.ExitStack() as es:
 			config = open(get_kconfig_path(build_dir), 'a')
 			disable = open(BROKEN_ALLCONFIG_PATH, 'r').read()
 			config.write(disable)
