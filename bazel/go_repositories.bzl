@@ -1497,8 +1497,8 @@ def go_repositories():
     go_repository(
         name = "com_github_klauspost_compress",
         importpath = "github.com/klauspost/compress",
-        sum = "h1:P76CopJELS0TiO2mebmnzgWaajssP/EszplttgQxcgc=",
-        version = "v1.13.6",
+        sum = "h1:y9FcTHGyrebwfP0ZZqFiaxTaiDnUrGkJkI+f583BL1A=",
+        version = "v1.15.1",
     )
     go_repository(
         name = "com_github_klauspost_cpuid",
@@ -2558,6 +2558,12 @@ def go_repositories():
         importpath = "github.com/xanzy/ssh-agent",
         sum = "h1:TCbipTQL2JiiCprBWx9frJ2eJlCYT00NmctrHxVAr70=",
         version = "v0.2.1",
+    )
+    go_repository(
+        name = "com_github_xenking_zipstream",
+        importpath = "github.com/xenking/zipstream",
+        sum = "h1:6LfcpXfxO9kAGi0a+2N5C0ZZ6jyG4XULPiogOM7gJBU=",
+        version = "v1.0.1",
     )
 
     go_repository(
