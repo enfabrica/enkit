@@ -15,10 +15,9 @@ import time
 from collections import namedtuple
 from enum import Enum, auto
 
-import kunit_config
-import kunit_json
-import kunit_kernel
-import kunit_parser
+from bazel.linux.kunit import kunit_json
+from bazel.linux.kunit import kunit_kernel
+from bazel.linux.kunit import kunit_parser
 
 KunitResult = namedtuple('KunitResult', ['status','result','elapsed_time'])
 

@@ -11,7 +11,7 @@ import os
 
 import kunit_parser
 
-from kunit_parser import TestStatus
+from bazel.linux.kunit.kunit_parser import TestStatus
 
 def get_json_result(test_result, def_config, build_dir, json_path) -> str:
 	sub_groups = []

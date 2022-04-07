@@ -22,4 +22,4 @@ if egrep -q '^1..0' $TMPOUTPUT ; then
     sed -i -e "s/^1..0/1..$N_TESTS/" $TMPOUTPUT
 fi
 
-{parser} parse < $TMPOUTPUT
+python3 {parser} parse < $TMPOUTPUT

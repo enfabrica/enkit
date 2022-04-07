@@ -152,7 +152,7 @@ def _import_kernel_bundle_dep(name, ki, d, inputs, extra_symbols):
       inputs: list of File objects, updated with additional inputs
          required by this dependency.
       extra_symbols: list of File objects, updated with additional
-         Module.symvers files. 
+         Module.symvers files.
 
     Returns:
       Updates inputs and extra_symbols, returns None.
@@ -169,15 +169,16 @@ Module '{module}' is being built for kernel '{kernel}'.
 PROBLEM: it has a dependency on module '{dependency}', but this target is NOT built for the same kernel!
 Probably, you need to change module '{dependency}' so that it is also built for this same kernel.
 """.format(
-  module = name,
-  kernel = ki.package,
-  dependency = d.label.name))
+            module = name,
+            kernel = ki.package,
+            dependency = d.label.name,
+        ))
 
 def _import_kernel_modules_dep(name, ki, d, inputs, extra_symbols):
     """Extract information neessary to import a single kernel dep.
 
     Just like _import_kernel_bundle_dep, but works on a single module.
-    
+
     Returns:
       True, if the module was compiled for the same kernel, and should
       be imported. False otherwise.
@@ -191,7 +192,7 @@ def _import_kernel_modules_dep(name, ki, d, inputs, extra_symbols):
 
     inputs.extend(d.files.to_list())
     return True
- 
+
 def _kernel_modules(ctx):
     modules = ctx.attr.modules
     inputs = ctx.files.srcs + ctx.files.kernel
@@ -206,7 +207,7 @@ def _kernel_modules(ctx):
 
         if KernelModulesInfo in d:
             _import_kernel_modules_dep(ctx.attr.name, ki, d, inputs, extra_symbols)
-   
+
         if CcInfo in d:
             inputs += d[CcInfo].compilation_context.headers.to_list()
         inputs += d.files.to_list()
@@ -255,7 +256,8 @@ def _kernel_modules(ctx):
     make_args = ctx.attr.make_format_str.format(
         src_dir = srcdir,
         kernel_build_dir = kernel_build_dir,
-        modules = " ".join(modules))
+        modules = " ".join(modules),
+    )
 
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
@@ -356,7 +358,7 @@ KernelBundleInfo = provider(
 )
 
 def _kernel_modules_bundle(ctx):
-    return [DefaultInfo(files=depset(ctx.files.modules)), KernelBundleInfo(modules = ctx.attr.modules)]
+    return [DefaultInfo(files = depset(ctx.files.modules)), KernelBundleInfo(modules = ctx.attr.modules)]
 
 kernel_modules_bundle = rule(
     doc = """Creates a bundle of kernel modules.
@@ -390,7 +392,7 @@ For example:
     attrs = {
         "modules": attr.label_list(
             mandatory = True,
-            providers = [KernelModulesInfo], 
+            providers = [KernelModulesInfo],
             doc = "List of kernel modules part of this bundle",
         ),
     },
@@ -506,7 +508,7 @@ def nv_driver(*args, **kwargs):
         kwargs["srcs"] = native.glob(include = include, exclude = BUILD_LEFTOVERS, allow_empty = False)
 
     if "make_format_str" not in kwargs:
-        kwargs["make_format_str"] = "-C $PWD/{src_dir} SYSSRC=$PWD/{kernel_build_dir} SYSOUT=$PWD/{kernel_build_dir} -j modules" 
+        kwargs["make_format_str"] = "-C $PWD/{src_dir} SYSSRC=$PWD/{kernel_build_dir} SYSOUT=$PWD/{kernel_build_dir} -j modules"
 
     return _kernel_module_targets(*args, **kwargs)
 
@@ -865,7 +867,7 @@ The test will run locally inside a user-mode linux process.
             doc = "The template to generate the bash script used to run the tests.",
         ),
         "_parser": attr.label(
-            default = Label("//bazel/linux/kunit:kunit"),
+            default = Label("//bazel/linux/kunit:kunit_zip"),
             doc = "KUnit TAP output parser.",
         ),
     },
