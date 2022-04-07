@@ -35,20 +35,19 @@ py_library(
     srcs = ["kunit_config.py"],
 )
 
-# TODO: This test requires testdata that is not checked in. Check in testdata,
-# fix the test, uncomment this target.
-#py_test(
-#    name = "kunit_test",
-#    srcs = ["kunit_tool_test.py"],
-#    main = "kunit_tool_test.py",
-#    deps = [
-#        ":kunit_config",
-#        ":kunit_parser",
-#        ":kunit_kernel",
-#        ":kunit_json",
-#        ":kunit",
-#    ],
-#)
+py_test(
+    name = "kunit_test",
+    srcs = ["kunit_tool_test.py"],
+    data = glob(["test_data/*"]),
+    main = "kunit_tool_test.py",
+    deps = [
+        ":kunit_config",
+        ":kunit_parser",
+        ":kunit_kernel",
+        ":kunit_json",
+        ":kunit",
+    ],
+)
 
 filegroup(
     name = "kunit_zip",

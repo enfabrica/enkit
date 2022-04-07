@@ -27,7 +27,7 @@ abs_test_data_dir = ''
 def setUpModule():
 	global test_tmpdir, abs_test_data_dir
 	test_tmpdir = tempfile.mkdtemp()
-	abs_test_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'test_data'))
+	abs_test_data_dir = os.path.join(os.getenv("RUNFILES_DIR"), "enkit/bazel/linux/kunit/test_data")
 
 def tearDownModule():
 	shutil.rmtree(test_tmpdir)
