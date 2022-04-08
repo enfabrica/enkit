@@ -39,4 +39,11 @@ message Build {
   // Google group email (create a group for the relevant dev team, if it does
   // not exist) to record failures as well as any follow-up more publicly.
   repeated string notification_emails = 7;
+
+  // Timeout in seconds, terminated by `s`.
+  // Example: "60s"
+  // If possible, this timeout will be applied to the build + test portion of
+  // the build (as opposed to any warmup steps that need to take place); if this
+  // is not possible, it will be applied to the entire build.
+  string timeout = 8;
 }
