@@ -1,0 +1,15 @@
+py_binary(
+    name = "merge",
+    srcs = [
+        "merge.py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "index",
+    srcs = [
+        "index.py",
+    ],
+    visibility = ["//visibility:public"],
+)

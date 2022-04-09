@@ -1,0 +1,8 @@
+py_binary(
+    name = "copier",
+    srcs = ["copier.py"],
+    # Only use through a website_packaged_rule.
+    # Has to be public: visibility is checked against where the
+    # rule is used, not where the rule is defined.
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,71 @@
+load("//bazel/website:defs.bzl", "website_path", "website_tree")
+load("//bazel/appengine:config.bzl", "appengine_config_index", "appengine_config_merge")
+load("//bazel/appengine:pywebsite.bzl", "appengine_website", "appengine_website_run")
+load("@enkit//bazel/utils:macro.bzl", "mconfig")
+
+genrule(
+    name = "subfile",
+    srcs = [],
+    outs = ["static/file.png"],
+    cmd = "mkdir -p $$(dirname \"$@\"); echo 'this is a file' > \"$@\"",
+)
+
+genrule(
+    name = "plainfile",
+    srcs = [],
+    outs = ["test.png"],
+    cmd = "echo 'this is a plain file' > \"$@\"",
+)
+
+website_tree(
+    name = "root",
+    paths = [
+        website_path(
+            path = "/",
+            targets = ["index.html"],
+        ),
+        website_path(
+            paths = {
+                "*.html": "/static/",
+                "*.png": "/static/images/",
+            },
+            strip = [
+                "static",
+            ],
+            targets = [
+                ":subfile",
+                ":plainfile",
+            ],
+        ),
+    ],
+    show = [
+        "dest",
+        "source",
+        "copy",
+        "config",
+    ],
+)
+
+appengine_config_index(
+    name = "config-index",
+    root = ":root",
+)
+
+appengine_config_merge(
+    name = "config",
+    merge = [":config-index"],
+)
+
+appengine_website_run(
+    name = "run",
+    config = ":config",
+    root = ":root",
+)
+
+appengine_website(
+    name = "testsite",
+    push = mconfig(
+        project = "enfabrica-documentation",
+    ),
+    root = ":root",
+)
