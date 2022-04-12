@@ -407,7 +407,7 @@ func TestBandwidth(t *testing.T) {
 	rng := rand.New(rand.NewSource(1))
 
 	accumulator := logger.NewAccumulator()
-	ep, err := New(rng, WithHttpStarter(Server(&fe)), WithConfig(config),
+	ep, err := New(rng, WithHttpStarter(Server(&sync.WaitGroup{}, &fe)), WithConfig(config),
 		WithLogging(accumulator), WithAuthenticator(Allow(cookie)),
 		WithNasshpMods(nasshp.WithSymmetricOptions(token.WithGeneratedSymmetricKey(0))))
 	assert.NoError(t, err)
