@@ -28,6 +28,15 @@ message Build {
   // include_patterns.
   repeated string exclude_patterns = 5;
 
+  // Tags to include in the build.
+  // If specified, targets will only be built if they contain at least one of
+  // the specified tags.
+  //
+  // exclude_tags (below) takes precedence: targets with tags that match any of
+  // exclude_tags (if specified) will still not be built, even if they are
+  // included via this mechanism.
+  repeated string include_tags = 9;
+
   // Tags to exclude from the build; build will not build targets that:
   // * are tagged with at least one of the specified tags
   // * depend on a target tagged with at least one of the specified tags
@@ -39,4 +48,19 @@ message Build {
   // Google group email (create a group for the relevant dev team, if it does
   // not exist) to record failures as well as any follow-up more publicly.
   repeated string notification_emails = 7;
+
+  // Timeout in seconds, terminated by `s`.
+  // Example: "60s"
+  // If possible, this timeout will be applied to the build + test portion of
+  // the build (as opposed to any warmup steps that need to take place); if this
+  // is not possible, it will be applied to the entire build.
+  string timeout = 8;
+
+  // List of bazel arguments that are passed directly to the `bazel test`
+  // commandline.
+  //
+  // This field serves as an escape hatch for custom bazel behavior not covered
+  // by the above fields; popular bazel options may be replaced by an applicable
+  // field in the future.
+  repeated string bazel_args = 10;
 }

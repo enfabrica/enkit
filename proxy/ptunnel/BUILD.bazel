@@ -21,6 +21,12 @@ go_test(
     name = "go_default_test",
     srcs = ["tunnel_test.go"],
     embed = [":go_default_library"],
+    # Running this test in Cloud Build causes unexpected 401 errors when trying
+    # to resolve URLs like
+    # `http://127.0.0.1:44527/proxy?host=google.com&port=55`
+    tags = [
+        "no-cloudbuild",
+    ],
     deps = [
         "//lib/errdiff:go_default_library",
         "//lib/khttp:go_default_library",

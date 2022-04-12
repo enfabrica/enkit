@@ -1,12 +1,33 @@
 py_binary(
     name = "kunit",
     srcs = ["kunit.py"],
-    visibility = ["//visibility:public"],
     deps = [
-        ":kunit_config",
+        ":kunit_json",
         ":kunit_kernel",
         ":kunit_parser",
     ],
+)
+
+py_library(
+    name = "kunit_json",
+    srcs = ["kunit_json.py"],
+    deps = [
+        ":kunit_parser",
+    ],
+)
+
+py_library(
+    name = "kunit_kernel",
+    srcs = ["kunit_kernel.py"],
+    deps = [
+        ":kunit_config",
+        ":kunit_parser",
+    ],
+)
+
+py_library(
+    name = "kunit_parser",
+    srcs = ["kunit_parser.py"],
 )
 
 py_library(
@@ -14,12 +35,23 @@ py_library(
     srcs = ["kunit_config.py"],
 )
 
-py_library(
-    name = "kunit_kernel",
-    srcs = ["kunit_kernel.py"],
+py_test(
+    name = "kunit_test",
+    srcs = ["kunit_tool_test.py"],
+    data = glob(["test_data/*"]),
+    main = "kunit_tool_test.py",
+    deps = [
+        ":kunit_config",
+        ":kunit_parser",
+        ":kunit_kernel",
+        ":kunit_json",
+        ":kunit",
+    ],
 )
 
-py_library(
-    name = "kunit_parser",
-    srcs = ["kunit_parser.py"],
+filegroup(
+    name = "kunit_zip",
+    srcs = [":kunit"],
+    output_group = "python_zip_file",
+    visibility = ["//visibility:public"],
 )

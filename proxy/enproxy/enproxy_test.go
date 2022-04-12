@@ -2,6 +2,7 @@ package enproxy
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/enfabrica/enkit/lib/khttp/krequest"
 	"github.com/enfabrica/enkit/lib/khttp/ktest"
 	"github.com/enfabrica/enkit/lib/khttp/protocol"
@@ -21,6 +22,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Deny returns an authenticator that either denies a request, or returns a constant cookie.
@@ -44,6 +46,12 @@ func Deny(cookie *oauth.CredentialsCookie, urls []string, log *[]string) oauth.A
 			}
 		}
 
+		return cookie, nil
+	}
+}
+
+func Allow(cookie *oauth.CredentialsCookie) oauth.Authenticate {
+	return func(w http.ResponseWriter, r *http.Request, rurl *url.URL) (*oauth.CredentialsCookie, error) {
 		return cookie, nil
 	}
 }
@@ -369,4 +377,126 @@ func TestPedanticMetrics(t *testing.T) {
 	assert.True(t, len(lines) > 10)
 	// Check that all metrics are expected...
 	assert.Regexp(t, "(?m)^(#|nasshp_)", body, "%s", body)
+}
+
+func TestBandwidth(t *testing.T) {
+	config := Config{
+		Mapping: []httpp.Mapping{
+			httpp.Mapping{
+				From: httpp.HostPath{
+					Host: "",
+					Path: "/",
+				},
+				Auth: httpp.MappingPublic,
+			},
+		},
+
+		// Allow any tunnel.
+		Tunnels: []string{"*"},
+	}
+
+	cookie := &oauth.CredentialsCookie{
+		Identity: oauth.Identity{
+			Id:           "id",
+			Username:     "username",
+			Organization: "organization",
+		},
+	}
+
+	var fe string
+	rng := rand.New(rand.NewSource(1))
+
+	accumulator := logger.NewAccumulator()
+	ep, err := New(rng, WithHttpStarter(Server(&fe)), WithConfig(config),
+		WithLogging(accumulator), WithAuthenticator(Allow(cookie)),
+		WithNasshpMods(nasshp.WithSymmetricOptions(token.WithGeneratedSymmetricKey(0))))
+	assert.NoError(t, err)
+	assert.NotNil(t, ep)
+
+	ep.Run()
+
+	// Start an echo server to use as a tunnel backend.
+	e, err := echo.New("127.0.0.1:0")
+	assert.NoError(t, err)
+	assert.NotNil(t, e)
+
+	echoaddress, err := e.Address()
+	assert.NoError(t, err)
+
+	defer e.Close()
+	go e.Run()
+
+	proxy, err := url.Parse(fe)
+	assert.NoError(t, err)
+
+	// Try a tunnel connection.
+	pool := nasshp.NewBufferPool(8192)
+	tlog := logger.NewAccumulator()
+	tunnel, err := ptunnel.NewTunnel(pool, ptunnel.WithLogger(tlog))
+	assert.NoError(t, err)
+	assert.NotNil(t, tunnel)
+
+	defer tunnel.Close()
+	go tunnel.KeepConnected(proxy, echoaddress.IP.String(), uint16(echoaddress.Port))
+
+	send, write := io.Pipe()
+	go func() {
+		tunnel.Send(send)
+		tunnel.Close()
+		send.Close()
+	}()
+
+	read, receive := io.Pipe()
+	go func() {
+		tunnel.Receive(receive)
+		tunnel.Close()
+		receive.Close()
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	const kTotalBytes = 10 * 1048576
+	quote := "You never change things by fighting the existing reality. To change something, build a new model that makes the existing model obsolete.\n"
+
+	start := time.Now()
+	go func() {
+		defer wg.Done()
+
+		transferred := 0
+		for count := 0; transferred < kTotalBytes; count++ {
+			l, err := write.Write([]byte(fmt.Sprintf("%05d %s", count, quote)))
+			assert.NoError(t, err)
+			assert.Equal(t, len(quote)+6, l)
+			transferred += l
+		}
+		write.Close()
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		reader := bufio.NewReader(read)
+		transferred := 0
+		for count := 0; transferred < kTotalBytes; count++ {
+			rback, err := reader.ReadString('\n')
+			if err == io.EOF {
+				break
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, fmt.Sprintf("%05d %s", count, quote), rback, "incorrect at offset %d - count %d", transferred, count)
+			transferred += len(rback)
+		}
+		read.Close()
+	}()
+	wg.Wait()
+
+	done := time.Now()
+	logs := tlog.Retrieve()
+	// Should only log the fact that the library quit.
+	assert.True(t, len(logs) <= 0, "more than one log entry: %v", logs)
+
+	delta := done.Sub(start)
+	rate := (kTotalBytes / delta.Seconds()) / 1024
+	assert.True(t, rate >= 10, "total run time: %s - rate %f KBps", delta, rate)
 }

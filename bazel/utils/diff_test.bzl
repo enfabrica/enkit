@@ -1,17 +1,72 @@
-"""A set of rules to compare generated output against an expected data file.
+"""A set of rules to compare generated output against an expected data file."""
 
-Example of use:
+def _zipdiff_test_impl(ctx):
+    # Note: in python format strings, {{ and }} render as { and }.
+    script = """
+        err=0
+        act="{actual}"
+        exp="{expected}"
+        if [[ ! -e "${{act}}" ]]; then echo "Missing file: ${{act}}"; exit 1; fi
+        if [[ ! -e "${{exp}}" ]]; then echo "Missing file: ${{exp}}"; exit 1; fi
+        actdir="$(mktemp -d -p ${{TEST_TMPDIR}})"
+        unzip "${{act}}" -d "${{actdir}}"
+        expdir="$(mktemp -d -p ${{TEST_TMPDIR}})"
+        unzip "${{exp}}" -d "${{expdir}}"
+        diff -r -u "${{actdir}}" "${{expdir}}"; RC=$?
+        while [ "${{1:-}}" != "" ]; do
+          if [[ ${{RC}} -ne 0 ]] && [[ "$1" == "--update_goldens" ]]; then
+            b="$(readlink -f "${{exp}}")"
+            echo "Updating ${{b}}"
+            cp -vf "${{act}}" "${{b}}"
+          fi
+          shift
+        done
+        exit ${{RC}}
+        """.format(
+        actual = ctx.files.actual[0].short_path,
+        expected = ctx.files.expected[0].short_path,
+    )
+    ctx.actions.write(
+        output = ctx.outputs.executable,
+        content = script,
+    )
+    runfiles = ctx.runfiles(files = ctx.files.actual + ctx.files.expected)
+    return [DefaultInfo(runfiles = runfiles)]
 
-  genrule(
-     name = "foobar.txt-gen",
+zipdiff_test = rule(
+    doc = """
+      A test that compares the contents of two zip files to ensure the contents
+      are identical.
 
+      Typically, this would be used to compare the contents of a generated file
+      against an expected data file.
 
-"""
+      A quick way to update expected data files:
+
+          blaze run :some_diff_test -- --update_goldens
+
+    """,
+    implementation = _zipdiff_test_impl,
+    attrs = {
+        "expected": attr.label(
+            doc = "A label indicating the file containing the expected data.",
+            allow_files = True,
+        ),
+        "actual": attr.label(
+            doc = "A label indicating the file containing the actual data to check.",
+            allow_files = True,
+        ),
+    },
+    test = True,
+)
 
 def _diff_test_impl(ctx):
-    if len(ctx.files.actual) > 1:
-        fail("`actual` must specify a single file.")
-    actual = ctx.files.actual[0].short_path
+    if ctx.attr.output_within_actual:
+        actual = ctx.attr.output_within_actual
+    else:
+        if len(ctx.files.actual) > 1:
+            fail("`output_within_actual` must be specified when `actual` target has multiple outputs")
+        actual = ctx.files.actual[0].short_path
 
     # Note: in python format strings, {{ and }} render as { and }.
     script = """
@@ -84,9 +139,10 @@ diff_test = rule(
         "actual": attr.label(
             doc = "A label indicating the file containing the actual data to check.",
             allow_files = True,
-            mandatory = True,
+        ),
+        "output_within_actual": attr.string(
+            doc = "If actual is a target with multiple implicit outputs, the path to a specific output to test",
         ),
     },
     test = True,
 )
-

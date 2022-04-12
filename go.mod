@@ -47,6 +47,7 @@ require (
 	github.com/improbable-eng/grpc-web v0.13.0
 	github.com/kataras/muxie v1.1.1
 	github.com/kirsle/configdir v0.0.0-20170128060238-e45d2f54772f
+	github.com/klauspost/compress v1.15.1 // indirect
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.2
@@ -69,6 +70,7 @@ require (
 	github.com/ugorji/go v1.1.4 // indirect
 	github.com/ulikunitz/xz v0.5.8
 	github.com/valyala/quicktemplate v1.7.0 // indirect
+	github.com/xenking/zipstream v1.0.1 // indirect
 	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
 	go.uber.org/zap v1.19.1

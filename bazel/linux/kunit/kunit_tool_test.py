@@ -15,11 +15,11 @@ import json
 import signal
 import os
 
-import kunit_config
-import kunit_parser
-import kunit_kernel
-import kunit_json
-import kunit
+from bazel.linux.kunit import kunit_config
+from bazel.linux.kunit import kunit_parser
+from bazel.linux.kunit import kunit_kernel
+from bazel.linux.kunit import kunit_json
+from bazel.linux.kunit import kunit
 
 test_tmpdir = ''
 abs_test_data_dir = ''
@@ -27,7 +27,7 @@ abs_test_data_dir = ''
 def setUpModule():
 	global test_tmpdir, abs_test_data_dir
 	test_tmpdir = tempfile.mkdtemp()
-	abs_test_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'test_data'))
+	abs_test_data_dir = os.path.join(os.getenv("RUNFILES_DIR"), "enkit/bazel/linux/kunit/test_data")
 
 def tearDownModule():
 	shutil.rmtree(test_tmpdir)

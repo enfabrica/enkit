@@ -8,7 +8,7 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 # create a new library or binary.
 #
 # To update the list of dependencies downloaded by bazel, run:
-#     bazelisk run //:gazelle -- update-repos -from_file=go.mod -to_macro=bazel/go_repositories.bzl%go_repositories
+#     bazelisk run //:gazelle_update_repos
 #
 # This will read the go.mod file, and based on that, add statements
 # to download the correct dependency for bazel to download. The dependency
@@ -21,6 +21,16 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 gazelle(
     name = "gazelle",
     prefix = "github.com/enfabrica/enkit",
+)
+
+gazelle(
+    name = "gazelle_update_repos",
+    args = [
+        "-from_file=go.mod",
+        "-to_macro=bazel/go_repositories.bzl%go_repositories",
+        "-prune",
+    ],
+    command = "update-repos",
 )
 
 # Custom gazelle resolve mappings
