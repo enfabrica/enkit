@@ -69,6 +69,7 @@ require (
 	github.com/tchap/zapext v1.0.0
 	github.com/ugorji/go v1.1.4 // indirect
 	github.com/ulikunitz/xz v0.5.8
+	github.com/valyala/quicktemplate v1.7.0 // indirect
 	github.com/xenking/zipstream v1.0.1 // indirect
 	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
