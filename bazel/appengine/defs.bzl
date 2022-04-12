@@ -21,8 +21,10 @@ def _go_appengine_deploy_path_impl(ctx):
     if ctx.attr.gosum:
         args.append("-gosum=" + ctx.file.gosum.path)
         inputs.append(ctx.file.gosum)
+    extra = "--project={project}".format(project = ctx.attr.project)
     if ctx.attr.extra:
-        args.append("-extra='" + " ".join([s.replace("'", "'\\''") for s in ctx.attr.extra]) + "'")
+        extra = extra + " " + " ".join([s.replace("'", "'\\''") for s in ctx.attr.extra])
+    args.append("-extra='" + extra + "'")
 
     gcloud = ctx.actions.declare_file("gcloud.sh")
     ctx.actions.expand_template(
@@ -58,6 +60,10 @@ go_appengine_deploy_path = rule(
         "entry": attr.string(
             mandatory = True,
             doc = "The entry point where your application is located (eg, github.com/ccontavalli/myapp)",
+        ),
+        "project": attr.string(
+            mandatory = True,
+            doc = "GCP project to push to",
         ),
         "gcloud": attr.string(
             mandatory = False,
