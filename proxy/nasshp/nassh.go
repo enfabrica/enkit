@@ -235,11 +235,11 @@ func (ep *ExpirationPolicy) Expire(ctx context.Context, clock utils.Clock, sessi
 				counters.ExpireRuthlessClosed.Increment()
 			}
 
-			counters.ExpireLifetimeTotal.Add(uint64(pausedfor / 1e9))
+			counters.ExpireLifetimeTotal.Add(uint64(pausedfor) / uint64(time.Second))
 			counters.ExpireYoungest.SetIfGreatest(uint64(pausedon))
 
 			rw.browser.Close(fmt.Errorf(
-				"session expired after %s of inactivity", time.Duration(pausedfor)*time.Nanosecond))
+				"session expired after %s of inactivity", time.Duration(pausedfor)))
 		}
 	}
 }
