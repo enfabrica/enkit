@@ -7,8 +7,10 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/kirsle/configdir"
 	"golang.org/x/crypto/acme/autocert"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 type FuncHandler func(w http.ResponseWriter, r *http.Request)
@@ -24,23 +26,24 @@ type Flags struct {
 }
 
 const DefaultPort = 9999
+
 var DefaultCache = configdir.LocalCache("enkit-certs")
 
 func DefaultFlags() *Flags {
 	return &Flags{
 		HttpPort: DefaultPort,
-		Cache: DefaultCache,
+		Cache:    DefaultCache,
 	}
 }
 
 func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
-	set.IntVar(&f.HttpPort, "http-port", f.HttpPort, "Port number on which the proxy will be listening for HTTP connections.")
-	set.StringVar(&f.HttpAddress, "http-address", f.HttpAddress, "Port number on which the proxy will be listening for HTTP connections.")
+	set.IntVar(&f.HttpPort, prefix+"http-port", f.HttpPort, "Default port number to listen on for HTTP connections - only used if the address does not include a port.")
+	set.StringVar(&f.HttpAddress, prefix+"http-address", f.HttpAddress, "Address to bind on to wait for HTTP connections. 0.0.0.0 is assumed if not specified.")
 
-	set.IntVar(&f.HttpsPort, "https-port", f.HttpsPort, "Port number on which the proxy will be listening for HTTPs connections.")
-	set.StringVar(&f.HttpsAddress, "https-address", f.HttpsAddress, "Port number on which the proxy will be listening for HTTP connections.")
+	set.IntVar(&f.HttpsPort, prefix+"https-port", f.HttpsPort, "Default port number to listen on for HTTP connections - only used if the address does not include a port.")
+	set.StringVar(&f.HttpsAddress, prefix+"https-address", f.HttpsAddress, "Address to bind on to wait for HTTP connections. 0.0.0.0 is assumed if not specified.")
 
-	set.StringVar(&f.Cache, "cert-cache", f.Cache, "Location where certificates are cached.")
+	set.StringVar(&f.Cache, prefix+"cert-cache", f.Cache, "Location where certificates are cached.")
 	return f
 }
 
@@ -57,20 +60,38 @@ func DefaultServer() *Server {
 	}
 }
 
+func addDefaultPort(address string, port int) (string, error) {
+	var err error
+	var shost, sport string
+
+	if address != "" {
+		shost, sport, err = SplitHostPort(address)
+		if err != nil {
+			return "", err
+		}
+
+		if sport != "" {
+			return address, nil
+		}
+	}
+
+	if port <= 0 || port > 65535 {
+		return "", fmt.Errorf("invalid default port - %d", port)
+	}
+	return net.JoinHostPort(shost, strconv.Itoa(port)), nil
+}
+
 func FromFlags(flags *Flags) (*Server, error) {
 	server := &Server{}
 
-	server.HttpAddress = flags.HttpAddress
-	if flags.HttpAddress == "" {
-		if flags.HttpPort <= 0 {
-			return nil, kflags.NewUsageErrorf("no http port specified - use --http-address or --http-port")
-		}
-		server.HttpAddress = fmt.Sprintf(":%d", flags.HttpPort)
+	var err error
+	server.HttpAddress, err = addDefaultPort(flags.HttpAddress, flags.HttpPort)
+	if err != nil {
+		return nil, kflags.NewUsageErrorf("invalid or no http address - check --http-address or --http-port - %w", err)
 	}
-
-	server.HttpsAddress = flags.HttpsAddress
-	if flags.HttpsAddress == "" && flags.HttpsPort > 0 {
-		server.HttpsAddress = fmt.Sprintf(":%d", flags.HttpsPort)
+	server.HttpsAddress, err = addDefaultPort(flags.HttpsAddress, flags.HttpsPort)
+	if err != nil {
+		return nil, kflags.NewUsageErrorf("invalid or no https address - check --https-address or --https-port - %w", err)
 	}
 
 	if flags.Cache != "" {
