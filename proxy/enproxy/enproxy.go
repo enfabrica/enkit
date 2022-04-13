@@ -37,6 +37,7 @@
 package enproxy
 
 import (
+	"context"
 	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/khttp"
@@ -323,6 +324,7 @@ type Enproxy struct {
 	mux     http.Handler
 	domains []string
 
+	nproxy   *nasshp.NasshProxy
 	register prometheus.Registerer
 	gatherer prometheus.Gatherer
 
@@ -394,6 +396,7 @@ func New(rng *rand.Rand, mods ...Modifier) (*Enproxy, error) {
 		mux:      mux,
 		domains:  append(append([]string{}, op.config.Domains...), hproxy.Domains...),
 		proxy:    op.proxy,
+		nproxy:   nproxy,
 		metrics:  op.metrics,
 		gatherer: op.gatherer,
 		register: op.register,
@@ -413,6 +416,11 @@ func (ep *Enproxy) RunProxy() error {
 func (ep *Enproxy) Run() error {
 	if ep.metrics != nil {
 		go ep.RunMetrics()
+	}
+	if ep.nproxy != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go ep.nproxy.Run(ctx)
 	}
 	return ep.RunProxy()
 }

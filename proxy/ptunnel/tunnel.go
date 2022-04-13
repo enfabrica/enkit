@@ -377,7 +377,7 @@ func NewTunnel(pool *nasshp.BufferPool, mods ...Modifier) (*Tunnel, error) {
 
 		SendWin:    nasshp.NewBlockingSendWindow(pool, uint64(options.MaxSendWindow)),
 		ReceiveWin: nasshp.NewBlockingReceiveWindow(pool, uint64(options.MaxReceiveWindow)),
-		browser:    nasshp.NewReplaceableBrowser(options.Logger)}
+		browser:    nasshp.NewReplaceableBrowser(options.Logger, nil)}
 
 	go tl.BrowserReceive()
 	go tl.BrowserSend()
