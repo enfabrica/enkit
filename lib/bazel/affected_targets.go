@@ -120,6 +120,7 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, l
 			// change affects since the build graph was broken in one stage.
 			//
 			// Pass here but emit a warning.
+			log.Warnf("Got error at start point:\n%v\n", startQueryErr)
 			log.Warnf("Broken build graph detected at start point; this change fixes the build graph, but no targets will be tested. This change must be tested manually.")
 			return nil, nil, nil // No changed targets and no error
 		}
