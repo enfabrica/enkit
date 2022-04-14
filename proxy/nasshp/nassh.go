@@ -742,6 +742,7 @@ retry:
 				}
 				continue retry
 			}
+			np.BrowserBytesRead.Add(uint64(read))
 			ackread += read
 		}
 
@@ -761,6 +762,7 @@ retry:
 				}
 				break
 			}
+			np.BrowserBytesRead.Add(uint64(read))
 			wrecv.Fill(read)
 			buffer = buffer[:read]
 
@@ -777,6 +779,7 @@ retry:
 					np.browser.Close(err)
 					return err
 				}
+				np.BackendBytesWrite.Add(uint64(w))
 				wrecv.Empty(w)
 				atomic.StoreUint32(&np.browserReadAck, uint32(wrecv.Emptied)&0xffffff)
 			}
@@ -859,6 +862,7 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 			}
 		}
 		wsend.Fill(read)
+		np.BackendBytesRead.Add(uint64(read))
 
 		currentAck := atomic.LoadUint32(&np.browserReadAck)
 		if currentAck != lastWriteAck {
@@ -914,6 +918,7 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 				np.browser.Error(wc, err)
 				continue
 			}
+			np.BrowserBytesWrite.Add(uint64(written))
 			if written != 4 {
 				np.browser.Error(wc, fmt.Errorf("short write"))
 				continue
@@ -924,6 +929,8 @@ func (np *readWriter) proxyToBrowser(ssh net.Conn) (err error) {
 				np.browser.Error(wc, err)
 				continue
 			}
+
+			np.BrowserBytesWrite.Add(uint64(written))
 			wsend.Empty(written)
 
 			if err := writer.Close(); err != nil {
