@@ -85,13 +85,20 @@ func FromFlags(flags *Flags) (*Server, error) {
 	server := &Server{}
 
 	var err error
-	server.HttpAddress, err = addDefaultPort(flags.HttpAddress, flags.HttpPort)
-	if err != nil {
-		return nil, kflags.NewUsageErrorf("invalid or no http address - check --http-address or --http-port - %w", err)
+	if flags.HttpAddress != "" || flags.HttpPort > 0 {
+		server.HttpAddress, err = addDefaultPort(flags.HttpAddress, flags.HttpPort)
+		if err != nil {
+			return nil, kflags.NewUsageErrorf("invalid or no http address - check --http-address or --http-port - %w", err)
+		}
 	}
-	server.HttpsAddress, err = addDefaultPort(flags.HttpsAddress, flags.HttpsPort)
-	if err != nil {
-		return nil, kflags.NewUsageErrorf("invalid or no https address - check --https-address or --https-port - %w", err)
+	if flags.HttpsAddress != "" || flags.HttpsPort > 0 {
+		server.HttpsAddress, err = addDefaultPort(flags.HttpsAddress, flags.HttpsPort)
+		if err != nil {
+			return nil, kflags.NewUsageErrorf("invalid or no https address - check --https-address or --https-port - %w", err)
+		}
+	}
+	if server.HttpAddress == "" && server.HttpsAddress == "" {
+		return nil, kflags.NewUsageErrorf("neither an http or https address were specified - use --http(s)-address or --http(s)-port")
 	}
 
 	if flags.Cache != "" {
