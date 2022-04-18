@@ -1,1 +1,26 @@
 exports_files(["gcloud.sh"])
+
+load("//bazel/appengine:config.bzl", "DEFAULT_BASE", "DEFAULT_HANDLERS", "appengine_config")
+
+# This rule provides an appengine configuration file with
+# global default parameters - all that you would expect before
+# the "handlers" statement in a python app.
+#
+# In an appengine_merge rule, this rule provides what should
+# normally be prepended to the file.
+appengine_config(
+    name = "config-base",
+    config = DEFAULT_BASE,
+    visibility = ["//visibility:public"],
+)
+
+# This rule provides an appengine configuration file that
+# defines an "handler" statement  to serve the entire generated tree.
+#
+# In an appengine_merge rule, this rule provides what should
+# normally be appended to the file.
+appengine_config(
+    name = "config-handlers",
+    config = DEFAULT_HANDLERS,
+    visibility = ["//visibility:public"],
+)
