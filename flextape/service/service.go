@@ -80,20 +80,34 @@ func licensesFromConfig(config *fpb.Config) map[string]*license {
 	return licenses
 }
 
-func New(config *fpb.Config) *Service {
+func defaultUint32(v, d uint32) uint32 {
+	if v == 0 {
+		return d
+	}
+	return v
+}
+
+func New(config *fpb.Config) (*Service, error) {
+	if config.GetServer() == nil {
+		return nil, fmt.Errorf("missing `server` section in config")
+	}
+	queueRefreshSeconds := defaultUint32(config.GetServer().GetQueueRefreshDurationSeconds(), 15)
+	allocationRefreshSeconds := defaultUint32(config.GetServer().GetAllocationRefreshDurationSeconds(), 30)
+	janitorIntervalSeconds := defaultUint32(config.GetServer().GetJanitorIntervalSeconds(), 1)
+	adoptionDurationSeconds := defaultUint32(config.GetServer().GetAdoptionDurationSeconds(), 45)
+
 	licenses := licensesFromConfig(config)
 
 	service := &Service{
-		currentState: stateStarting,
-		licenses:     licenses,
-		// TODO: Read this from flags
-		queueRefreshDuration:      5 * time.Second,
-		allocationRefreshDuration: 5 * time.Second,
+		currentState:              stateStarting,
+		licenses:                  licenses,
+		queueRefreshDuration:      time.Duration(queueRefreshSeconds) * time.Second,
+		allocationRefreshDuration: time.Duration(allocationRefreshSeconds) * time.Second,
 	}
 
 	go func(s *Service) {
 		// TODO: Read this from flags
-		t := time.NewTicker(1 * time.Second)
+		t := time.NewTicker(time.Duration(janitorIntervalSeconds) * time.Second)
 		defer t.Stop()
 		for {
 			<-t.C
@@ -103,13 +117,13 @@ func New(config *fpb.Config) *Service {
 
 	go func(s *Service) {
 		// TODO: Read this from flags
-		<-time.After(10 * time.Second)
+		<-time.After(time.Duration(adoptionDurationSeconds) * time.Second)
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.currentState = stateRunning
 	}(service)
 
-	return service
+	return service, nil
 }
 
 // QueueID is a monotonically increasing number representing the absolute
