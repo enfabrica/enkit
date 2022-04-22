@@ -259,6 +259,16 @@ def _kernel_modules(ctx):
         modules = " ".join(modules),
     )
 
+    compilation_mode = ctx.var["COMPILATION_MODE"]
+    if compilation_mode == "fastbuild":
+        cflags = ""
+    elif compilation_mode == "opt":
+        cflags = ""
+    elif compilation_mode == "dbg":
+        cflags = "-O1 -fno-inline-functions-called-once"
+
+    extra += " BAZEL_CFLAGS+='%s'" % cflags
+
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
         progress_message = message,
