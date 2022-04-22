@@ -64,7 +64,6 @@ def _appengine_config_merge(ctx):
 DEFAULT_BASE = struct(
     runtime = "python27",
     api_version = 1,
-    app_engine_apis = True,
     threadsafe = True,
 )
 
