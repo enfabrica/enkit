@@ -261,13 +261,17 @@ def _kernel_modules(ctx):
 
     compilation_mode = ctx.var["COMPILATION_MODE"]
     if compilation_mode == "fastbuild":
-        cflags = ""
+        cflags = "-g"
     elif compilation_mode == "opt":
         cflags = ""
     elif compilation_mode == "dbg":
-        cflags = "-O1 -fno-inline-functions-called-once"
+        cflags = "-g -O1 -fno-inline-functions-called-once"
+    else:
+        fail("compilation mode '{compilation_mode}' not supported".format(
+            compilation_mode=compilation_mode,
+        ))
 
-    extra += " BAZEL_CFLAGS+='%s'" % cflags
+    extra += " EXTRA_CFLAGS='%s'" % cflags
 
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
