@@ -113,7 +113,7 @@ func (c *LicenseClient) acquire(ctx context.Context) error {
 			req.GetInvocation().Id = r.Queued.GetInvocationId()
 			reqID.Store(req.GetInvocation().GetId())
 			atomic.StoreUint32(&queuePos, r.Queued.GetQueuePosition())
-			sleepTime := min(time.Until(r.Queued.GetNextPollTime().AsTime())*4/5, time.Second)
+			sleepTime := min(time.Until(r.Queued.GetNextPollTime().AsTime())*3/5, 5*time.Second)
 			time.Sleep(sleepTime)
 			continue
 		default:
@@ -151,7 +151,7 @@ func (c *LicenseClient) refresh(ctx context.Context) {
 			c.licenseErr <- fmt.Errorf("Refresh() failure: %w", err)
 		}
 
-		sleepTime := min(time.Until(res.GetLicenseRefreshDeadline().AsTime())*4/5, time.Second)
+		sleepTime := min(time.Until(res.GetLicenseRefreshDeadline().AsTime())*3/5, 5*time.Second)
 
 		select {
 		case <-time.After(sleepTime):

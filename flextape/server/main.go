@@ -64,7 +64,8 @@ func main() {
 	exitIf(err)
 
 	grpcs := grpc.NewServer()
-	s := service.New(config)
+	s, err := service.New(config)
+	exitIf(err)
 	fpb.RegisterFlextapeServer(grpcs, s)
 
 	fe := frontend.New(template, s)
