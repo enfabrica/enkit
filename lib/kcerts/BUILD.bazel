@@ -30,6 +30,10 @@ go_test(
         "signer_test.go",
         "ssh_test.go",
     ],
+    tags = [
+        # TODO(INFRA-927): Fix this test so it runs in Cloud Build
+        "no-cloudbuild",
+    ],
     deps = [
         ":go_default_library",
         "//lib/cache:go_default_library",

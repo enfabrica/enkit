@@ -12,5 +12,9 @@ go_test(
     name = "go_default_test",
     srcs = ["homedir_test.go"],
     embed = [":go_default_library"],
+    tags = [
+        # TODO(INFRA-927): Fix this test so it runs in Cloud Build
+        "no-cloudbuild",
+    ],
     deps = ["@com_github_stretchr_testify//assert:go_default_library"],
 )

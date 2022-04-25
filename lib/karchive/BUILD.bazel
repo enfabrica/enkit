@@ -22,6 +22,10 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    tags = [
+        # TODO(INFRA-927): Fix this test so it runs in Cloud Build
+        "no-cloudbuild",
+    ],
     deps = [
         "//lib/errdiff:go_default_library",
         "//lib/testutil:go_default_library",
