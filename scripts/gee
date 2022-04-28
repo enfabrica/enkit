@@ -1884,7 +1884,7 @@ function gee__init() {
   # --depth=3, and provides a big enough window that a user who is
   # restoring a deleted gee repository is unlikely to have issues.
   local OLDEST_COMMIT
-  OLDEST_COMMIT="$(date --date="-${CLONE_DEPTH_MONTHS} months" +"%Y-%M-%d")"
+  OLDEST_COMMIT="$(date --date="-${CLONE_DEPTH_MONTHS} months" +"%Y-%m-%d")"
   _info "Fetching all commits since ${OLDEST_COMMIT}"
   _git clone \
     --shallow-since "${OLDEST_COMMIT}" \
