@@ -31,7 +31,7 @@ def _create_test_data():
     d3 = {
         "alpha": 300,
         "beta": [9],
-        "gamma": {"g3": 7}
+        "gamma": {"g3": 7},
     }
     merged1 = merge_kwargs(d1, d2)
     merged2 = merge_kwargs(d1, d3)

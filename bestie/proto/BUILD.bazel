@@ -15,8 +15,8 @@ proto_library(
 
 cc_proto_library(
     name = "bestie_cc_proto",
-    deps = [":test_metrics_proto"],
     visibility = ["//visibility:public"],
+    deps = [":test_metrics_proto"],
 )
 
 go_proto_library(
@@ -31,7 +31,7 @@ go_proto_library(
 go_library(
     name = "go_default_library",
     embed = [
-        ":bestie_go_proto"
+        ":bestie_go_proto",
     ],
     importpath = "github.com/enfabrica/enkit/bestie/proto",
     visibility = ["//visibility:public"],
