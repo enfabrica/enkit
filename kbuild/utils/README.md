@@ -51,6 +51,18 @@ In the directory, you can find:
    * `make`
 5. The image can be found in `output/images`
 
+## Editing or tweaking the image
+
+To make simple changes to the image:
+
+1. `enkit astore get $uid` or `enkit astore get $path` to download the image.
+2. `apt-get install fuse2fs` if not already installed on your machine.
+3. `fuse2fs ./rootfs.img /mnt/tmp`
+4. Edit edit edit 
+5. `sync` and `umount /mnt/tmp` or `fusermount -u /mnt/tmp` (IMPORTANT, otherwise you corrupt the image)
+6. And then push as a new image to astore. If you do so, make sure to use:
+   `enkit astore annotate $uid "message message message"` to annotate the image with a message.
+
 # Releasing a tagged kernel release to astore
 
 The Enfabrica kernel artifacts in astore are used by multiple developers and

@@ -4,27 +4,38 @@
 # all the kernel modules made available.
 
 start() {
-	echo "Running KUnit tests by loading exposing kernel modules."
+	trap "poweroff -f" EXIT
+
+	echo "Running KUnit tests by loading kernel modules."
 	echo "... mounting what has been exposed through hostfs to /media."
-	# Mount on top of /media which we know exists, since sometimes the
-	# image fails to mount the rootfs as rw ==> we cannot create new
-	# dirs. TODO: understand why the rootfs is being mounted as
-	# read-only.
+	# Using /media that is guaranteed to exist in the rootfs.
 	mount none /media -t hostfs
 	echo "... entering /host."
-	cd /media
+	cd /media || {
+		echo "... FAILED TO cd /media"
+		exit 20
+        }
+	test -x /media/init.sh && {
+		echo "... found init.sh, execing it"
+		exec /media/init.sh
+	}
+
 	echo "... searching available kernel modules."
 	for KMOD in *.ko; do
+		test -e "$KMOD" || {
+			echo "... NO MODULES FOUND!"
+			exit 10
+		}
+
 		echo "... loading $KMOD."
-		insmod $KMOD
+		insmod "$KMOD"
 	done
 	echo "... done, shutting down."
-	poweroff
 }
 
 case "$1" in
 	start)
-		$1;;
+		start;;
 	*)
 		echo "... $1 is not supported."
 esac
