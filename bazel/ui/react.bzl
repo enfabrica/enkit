@@ -8,6 +8,7 @@ load("//bazel/utils:binary.bzl", "declare_binary")
 load("@npm//poi:index.bzl", "poi")
 load("@npm//webpack:index.bzl", "webpack")
 load("@npm//jest:index.bzl", "jest")
+
 """Creates a react project after running create-react-app.
 
 Args:

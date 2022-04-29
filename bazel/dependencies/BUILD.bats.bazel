@@ -3,17 +3,20 @@
 
 sh_library(
     name = "bats_lib",
-    srcs = glob(["lib/**", "libexec/**"]),
+    srcs = glob([
+        "lib/**",
+        "libexec/**",
+    ]),
 )
 
 sh_binary(
     name = "bats",
     srcs = ["bin/bats"],
+    visibility = ["//visibility:public"],
     deps = [
         ":bats_lib",
         "@bats_assert//:bats_assert_lib",
-        "@bats_support//:bats_support_lib",
         "@bats_file//:bats_file_lib",
+        "@bats_support//:bats_support_lib",
     ],
-    visibility = ["//visibility:public"],
 )
