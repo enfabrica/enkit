@@ -1,4 +1,5 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 
 def _write_to_file_impl(ctx):
     ctx.actions.write(
@@ -110,3 +111,56 @@ rebase_and_copy_files = rule(
         ),
     },
 )
+
+def files_to_dir(ctx, dirname, paths, post = ""):
+    """Copies all the paths to a new directory tree removing symlinks.
+
+    This macro is useful when you need to turn a list of depndency files,
+    which bazel typically provides as symlinks, into a single directory
+    output containing a copy of all those files.
+
+    For example, you'd want to use this macro to package all files nicely
+    in a directory tree without symlinks to allow the use of a 'mount --bind',
+    a 'chroot', or the creation of a rootfs for kvm/qemu/uml.
+
+    Args:
+      dirname: string, the name to give to the directory.
+      paths: list of File() objects representing the files to copy here.
+      post: string, commands to run at the end of the copy. This is useful
+          to perform post processing without having to create a separate
+          script. The string is subject to {} .format() expansion, with
+          keys "base" (bazel directory root of the build), "inputs" (list
+          of input files as a shell array), and "dest" (destination
+          directory).
+
+    Returns:
+      File() object representing the output directory.
+    """
+    d = ctx.actions.declare_directory(dirname)
+    base = d.path[:-len(d.short_path)]
+
+    exps = dict(
+        base = shell.quote(base),
+        inputs = shell.array_literal([f.short_path for f in paths]),
+        dest = shell.quote(d.short_path),
+    )
+
+    copy_command = """#!/bin/bash -e
+cd {base}
+inputs={inputs}
+dest={dest}
+cp -fLR --parents -t"$dest" "${{inputs[@]}}"
+{post}
+""".format(
+        post = post.format(**exps),
+        **exps
+    )
+    script = ctx.actions.declare_file(dirname + "-copier.sh")
+    ctx.actions.write(script, copy_command, is_executable = True)
+    ctx.actions.run(
+        outputs = [d],
+        inputs = paths,
+        executable = script,
+        progress_message = "Writing files in a single directory %s..." % (dirname),
+    )
+    return d

@@ -1,3 +1,8 @@
+load("//bazel/utils:messaging.bzl", "location", "package")
+load("//bazel/utils:files.bzl", "files_to_dir")
+load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
+load("@bazel_skylib//lib:shell.bzl", "shell")
+
 def _kernel_tree_version(ctx):
     distro, version = ctx.attr.package.split("-", 1)
 
@@ -129,169 +134,189 @@ a kernel_tree on its own is not expected to be hermetic.
 KernelModulesInfo = provider(
     doc = """Maintains the information necessary to represent compiled kernel modules.""",
     fields = {
-        "name": "Name of the rule that defined this kernel module.",
+        "label": "The Label() defining this kernel module.",
         "package": "A string indicating which package this kernel module has been built against. For example, 'centos-kernel-5.3.0-1'.",
-        "modules": "A list of files representing the compiled kernel modules (.ko).",
+        "arch": "A string describing the architecture this module was built against.",
+        "files": "A list of files representing the compiled .ko files part of this module.",
+        "kdeps": "A list of other KernelModulesInfo Target() objects needed at run time to load this module.",
+        "setup": "A list of strings, each string a shell command needed to prepare the system to load this module.",
     },
 )
 
-def _import_kernel_bundle_dep(name, ki, d, inputs, extra_symbols):
-    """Extracts information necessary to import a kernel bundle.
+def is_module(dep):
+    """Returns True if this dependency is considered a kernel module."""
+    return KernelModulesInfo in dep or KernelBundleInfo in dep
 
-    A kernel bundle represents a single kernel module compiled for
-    multiple kernels. Given a bundle d, a rule named name, trying
-    to compile a module for kernel ki, updates inputs and extra_symbols
-    with the correct list of dependencies.
+def is_compatible(arch, pkg, dep):
+    """Checks if the supplied KernelModulesInfo matches the parameters."""
+    if dep.package == pkg and dep.arch == arch:
+        return [dep]
+    return []
+
+def get_compatible(ctx, arch, pkg, dep):
+    """Extracts the set of compatible dependencies from a single dependency.
+
+    The same kernel module can be built against multiple kernel trees and
+    architectures. When that happens, it is packed in a KernelBundleInfo.
+
+    When a build has a dependency on a KernelBundleInfo or even a plain
+    kernel module through KernelModulesInfo, the build requires finding the
+    specific .ko .symvers files for linking - the ones matching the same kernel
+    and arch being built with the current target.
+
+    Given a dependency dep, either a KernelBundleInfo or a KernelModuleInfo,
+    this macro returns the set of KernelModuleInfo to build against, or
+    an error.
 
     Args:
-      name: string, name of the target.
-      ki: KernelTreeInfo provider, describing the target kernel this
-          module is being built for.
-      d: a Target object, obtained from a label or label_list attribute,
-         representing a dependency to link with this module.
-      inputs: list of File objects, updated with additional inputs
-         required by this dependency.
-      extra_symbols: list of File objects, updated with additional
-         Module.symvers files.
+      ctx: a bazel rule ctx, for error printing.
+      arch: string, desired architecture.
+      pkg: string, desired kernel package.
+      dep: a KernelModuleInfo or KernelBundleInfo to check.
 
     Returns:
-      Updates inputs and extra_symbols, returns None.
+      List of KernelModuleInfo to link against.
     """
+    mods = []
+    builtfor = []
+    if KernelModulesInfo in dep:
+        di = dep[KernelModulesInfo]
+        mods.extend(is_compatible(arch, pkg, di))
+        builtfor.append((di.package, di.arch))
 
-    matched = 0
-    for sub in d[KernelBundleInfo].modules:
-        matched += int(_import_kernel_modules_dep(name, ki, sub, inputs, extra_symbols))
+    if KernelBundleInfo in dep:
+        for module in dep[KernelBundleInfo].modules:
+            mods.extend(is_compatible(arch, pkg, module))
+            builtfor.append((module.package, module.arch))
 
-    if matched <= 0:
-        fail("""
-Module '{module}' is being built for kernel '{kernel}'.
-
-PROBLEM: it has a dependency on module '{dependency}', but this target is NOT built for the same kernel!
-Probably, you need to change module '{dependency}' so that it is also built for this same kernel.
-""".format(
-            module = name,
-            kernel = ki.package,
-            dependency = d.label.name,
+    # Confirm that the kernel test module is compatible with the precompiled linux kernel executable image.
+    if not mods:
+        fail("\n\nERROR: " + location(ctx) + "requires {module} to be built for\n  kernel:{kernel} arch:{arch}\nBut it is only configured for:\n  {built}".format(
+            arch = arch,
+            kernel = pkg,
+            module = package(dep.label),
+            built = "\n  ".join(["kernel:{pkg} arch:{arch}".format(pkg = pkg, arch = arch) for pkg, arch in builtfor]),
         ))
 
-def _import_kernel_modules_dep(name, ki, d, inputs, extra_symbols):
-    """Extract information neessary to import a single kernel dep.
-
-    Just like _import_kernel_bundle_dep, but works on a single module.
-
-    Returns:
-      True, if the module was compiled for the same kernel, and should
-      be imported. False otherwise.
-    """
-    if d[KernelModulesInfo].package != ki.package:
-        return False
-
-    for f in d.files.to_list():
-        if f.extension == "symvers":
-            extra_symbols.append(f)
-
-    inputs.extend(d.files.to_list())
-    return True
+    return mods
 
 def _kernel_modules(ctx):
     modules = ctx.attr.modules
-    inputs = ctx.files.srcs + ctx.files.kernel
     srcdir = ctx.file.makefile.dirname
-    extra_symbols = []
+
+    if not ctx.attr.archs:
+        fail(location(ctx) + "rule must specify one or more architectures in 'arch'")
 
     ki = ctx.attr.kernel[KernelTreeInfo]
+    bundled = []
+    for arch in ctx.attr.archs:
+        inputs = ctx.files.srcs + ctx.files.kernel
+        extra_symbols = []
+        kdeps = []
 
-    for d in ctx.attr.deps:
-        if KernelBundleInfo in d:
-            _import_kernel_bundle_dep(ctx.attr.name, ki, d, inputs, extra_symbols)
+        for d in ctx.attr.deps:
+            inputs.extend(d.files.to_list())
 
-        if KernelModulesInfo in d:
-            _import_kernel_modules_dep(ctx.attr.name, ki, d, inputs, extra_symbols)
+            if not is_module(d):
+                if CcInfo in d:
+                    inputs += d[CcInfo].compilation_context.headers.to_list()
+            else:
+                mods = get_compatible(ctx, arch, ki.package, d)
 
-        if CcInfo in d:
-            inputs += d[CcInfo].compilation_context.headers.to_list()
-        inputs += d.files.to_list()
+                kdeps.extend(mods)
+                for mod in mods:
+                    extra_symbols.extend([f for f in mod.files if f.extension == "symvers"])
 
-    outputs = []
-    message = ""
-    copy_command = ""
-    for m in modules:
-        message += "kernel building: compiling module %s for %s" % (m, ki.package)
+        outputs = []
+        message = ""
+        copy_command = ""
+        for m in modules:
+            message += "kernel: compiling %s for arch:%s kernel:%s" % (m, arch, ki.package)
 
-        rename = m
-        if ctx.attr.rename:
-            rename = ctx.attr.rename + m
-        output = ctx.actions.declare_file(rename)
-        outputs += [output]
-        copy_command += "cp {src_dir}/{module} {output_long} && ".format(
+            outfile = "{kernel}/{arch}/{name}".format(
+                kernel = ki.name,
+                arch = arch,
+                name = m,
+            )
+
+            output = ctx.actions.declare_file(outfile)
+            outputs += [output]
+            copy_command += "cp {src_dir}/{module} {output_long} && ".format(
+                src_dir = srcdir,
+                module = m,
+                output_long = output.path,
+            )
+
+            output = ctx.actions.declare_file(outfile + ".symvers")
+            outputs += [output]
+            copy_command += "cp {src_dir}/Module.symvers {output_long} && ".format(
+                src_dir = srcdir,
+                output_long = output.path,
+            )
+        copy_command += "true"
+
+        kernel_build_dir = "{kr}/{kb}".format(kr = ki.root, kb = ki.build)
+
+        extra = []
+        if arch != "host":
+            extra.append("ARCH=" + arch)
+        if ctx.attr.extra:
+            extra += ctx.attr.extra
+
+        extra_symbols = " ".join(["$PWD/" + e.path for e in extra_symbols])
+
+        if extra_symbols:
+            extra.append("KBUILD_EXTRA_SYMBOLS=\"%s\"" % (extra_symbols))
+
+        if ctx.attr.silent:
+            silent = "-s"
+        else:
+            silent = ""
+
+        make_args = ctx.attr.make_format_str.format(
             src_dir = srcdir,
-            module = m,
-            output_long = output.path,
+            kernel_build_dir = kernel_build_dir,
+            modules = " ".join(modules),
         )
 
-        output = ctx.actions.declare_file(ctx.attr.rename + m + ".symvers")
-        outputs += [output]
-        copy_command += "cp {src_dir}/Module.symvers {output_long} && ".format(
-            src_dir = srcdir,
-            output_long = output.path,
+        compilation_mode = ctx.var["COMPILATION_MODE"]
+        if compilation_mode == "fastbuild":
+            cflags = "-g"
+        elif compilation_mode == "opt":
+            cflags = ""
+        elif compilation_mode == "dbg":
+            cflags = "-g -O1 -fno-inline"
+        else:
+            fail("compilation mode '{compilation_mode}' not supported".format(
+                compilation_mode = compilation_mode,
+            ))
+
+        extra.append("EXTRA_CFLAGS='%s'" % cflags)
+
+        ctx.actions.run_shell(
+            mnemonic = "KernelBuild",
+            progress_message = message,
+            command = "make {silent} {make_args} {extra_args} && {copy_command}".format(
+                silent = silent,
+                make_args = make_args,
+                extra_args = " ".join(extra),
+                copy_command = copy_command,
+            ),
+            outputs = outputs,
+            inputs = inputs,
+            use_default_shell_env = True,
         )
-    copy_command += "true"
 
-    kernel_build_dir = "{kr}/{kb}".format(kr = ki.root, kb = ki.build)
-
-    extra = ""
-    if ctx.attr.extra:
-        extra = " ".join(ctx.attr.extra)
-
-    extra_symbols = " ".join(["$PWD/" + e.path for e in extra_symbols])
-
-    if extra_symbols:
-        extra += " KBUILD_EXTRA_SYMBOLS=\"%s\"" % (extra_symbols)
-
-    if ctx.attr.silent:
-        silent = "-s"
-    else:
-        silent = ""
-
-    make_args = ctx.attr.make_format_str.format(
-        src_dir = srcdir,
-        kernel_build_dir = kernel_build_dir,
-        modules = " ".join(modules),
-    )
-
-    compilation_mode = ctx.var["COMPILATION_MODE"]
-    if compilation_mode == "fastbuild":
-        cflags = "-g"
-    elif compilation_mode == "opt":
-        cflags = ""
-    elif compilation_mode == "dbg":
-        cflags = "-g -O1 -fno-inline"
-    else:
-        fail("compilation mode '{compilation_mode}' not supported".format(
-            compilation_mode=compilation_mode,
+        bundled.append(KernelModulesInfo(
+            label = ctx.label,
+            arch = arch,
+            package = ki.package,
+            files = outputs,
+            kdeps = kdeps,
+            setup = ctx.attr.setup,
         ))
 
-    extra += " EXTRA_CFLAGS='%s'" % cflags
-
-    ctx.actions.run_shell(
-        mnemonic = "KernelBuild",
-        progress_message = message,
-        command = "make {silent} {make_args} {extra_args} && {copy_command}".format(
-            silent = silent,
-            make_args = make_args,
-            extra_args = extra,
-            copy_command = copy_command,
-        ),
-        outputs = outputs,
-        inputs = inputs,
-        use_default_shell_env = True,
-    )
-
-    return [DefaultInfo(files = depset(outputs)), KernelModulesInfo(
-        name = ctx.attr.name,
-        package = ki.package,
-        modules = outputs,
-    )]
+    return [DefaultInfo(files = depset(outputs)), KernelBundleInfo(modules = bundled)]
 
 kernel_modules_rule = rule(
     doc = """Builds kernel modules.
@@ -315,6 +340,10 @@ whatever you do when not debugging flaky builds.
             providers = [DefaultInfo, KernelTreeInfo],
             doc = "The kernel to build this module against. A string like @carlo-s-favourite-kernel, referencing a kernel_tree_version(name = 'carlo-s-favourite-kernel', ...",
         ),
+        "archs": attr.string_list(
+            default = ["host"],
+            doc = "The set of architectures supported by this module. Only the architectures needed will be built",
+        ),
         "makefile": attr.label(
             mandatory = True,
             allow_single_file = True,
@@ -335,9 +364,6 @@ Available format values are:
 
 """,
         ),
-        "rename": attr.string(
-            doc = "Prefix to apply to the module names at the end of the build. If not specified, the output files are not renamed.",
-        ),
         "silent": attr.bool(
             default = True,
             doc = "If set to False, the standard kernel 'make' output will be let free to clobber your console.",
@@ -347,6 +373,9 @@ Available format values are:
         ),
         "extra": attr.string_list(
             doc = "Anything more you'd like to pass to 'make'. All arguments specified here are just appended at the end of the build.",
+        ),
+        "setup": attr.string_list(
+            doc = "Some kernel modules require extra commands in order to be loaded. This attribute allows to define those shell commands.",
         ),
         "srcs": attr.label_list(
             mandatory = True,
@@ -365,21 +394,28 @@ def _normalize_kernel(kernel):
     return kernel
 
 KernelBundleInfo = provider(
-    doc = "Represents a set of the same module compiled for different kernels.",
+    doc = "Represents a set of the same module compiled for different kernels or arch.",
     fields = {
-        "modules": "List of module targets part of this bundle.",
+        "modules": "List of targets part of this bundle. Those targets provide a KernelModulesInfo.",
     },
 )
 
 def _kernel_modules_bundle(ctx):
-    return [DefaultInfo(files = depset(ctx.files.modules)), KernelBundleInfo(modules = ctx.attr.modules)]
+    modules = []
+    for module in ctx.attr.modules:
+        if KernelModulesInfo in module:
+            modules.append(module)
+        elif KernelBundleInfo in module:
+            modules.extend(module[KernelBundleInfo].modules)
+
+    return [DefaultInfo(files = depset(ctx.files.modules)), KernelBundleInfo(modules = modules)]
 
 kernel_modules_bundle = rule(
     doc = """Creates a bundle of kernel modules.
 
 A bundle of kernel modules is a set of kernel modules which are ALL CONSIDERED
-TO BE THE SAME KERNEL MODULE, but built for different kernel versions
-or architecture.
+TO BE THE SAME KERNEL MODULE, but built for different kernel versions or
+architecture.
 
 You can then use a kernel_modules_bundle target to either build ALL the
 kernel modules in the bundle, or as a dependency for building yet another
@@ -387,7 +423,7 @@ kernel module.
 
 When used as a dependency, the logic in this file will cause the building
 and linking step to pull in only the modules within the bundle that are
-built for the same kernel (in the future: same architecture).
+necessary for the specific build, based on kernel and architecture.
 
 This is used for managing dependency chains of kernel modules more easily.
 
@@ -406,8 +442,13 @@ For example:
     attrs = {
         "modules": attr.label_list(
             mandatory = True,
-            providers = [KernelModulesInfo],
-            doc = "List of kernel modules part of this bundle",
+            providers = [[KernelModulesInfo], [KernelBundleInfo]],
+            doc = """\
+List of kernel modules or bundles to be included in this bundle.
+
+A bundle, however, is not allowed to contain another bundle. So
+if one bundle is specified as a depencdency, it is transparently 
+expanded in its list of modules.""",
         ),
     },
 )
@@ -436,13 +477,11 @@ def _kernel_module_targets(*args, **kwargs):
     original = kwargs["name"]
     for kernel in kernels:
         kernel = _normalize_kernel(kernel)
-        rename = kernel[1:] + "/"
         name = kernel[1:] + "-" + original
         targets.append(":" + name)
 
         kwargs["name"] = name
         kwargs["kernel"] = kernel
-        kwargs["rename"] = rename
         kernel_modules_rule(*args, **kwargs)
 
     # This creates a target with the name chosen by the user that
@@ -581,6 +620,10 @@ Example:
 
 RootfsImageInfo = provider(
     doc = """Maintains the information necessary to represent a rootfs image.
+
+A rootfs is a file loadable by kvm/qemu/uml as a root file system. This root
+file system is expected to be able to run a bash script as the init command,
+and have basic tools available necessary for its users.
 """,
     fields = {
         "name": "Name of the rule that defined this rootfs image. For example, 'stefano-s-favourite-rootfs'.",
@@ -694,6 +737,7 @@ KernelImageInfo = provider(
     fields = {
         "name": "Name of the rule that defined this kernel executable image. For example, 'stefano-s-favourite-kernel-image'.",
         "package": "A string indicating which package this kernel executable image is coming from. For example, 'custom-5.9.0-um'.",
+        "arch": "Architecture this linux kernel image was built for.",
         "image": "Path of the kernel executable image.",
     },
 )
@@ -703,6 +747,7 @@ def _kernel_image(ctx):
         name = ctx.attr.name,
         package = ctx.attr.package,
         image = ctx.file.image,
+        arch = ctx.attr.arch,
     )]
 
 kernel_image = rule(
@@ -725,6 +770,8 @@ Example:
         name = "stefano-s-favourite-kernel-image",
         # This kernel image file.
         image = "custom-5.9.0-um",
+        # Architecture of this image file.
+        arch = "um",
     )
 """,
     implementation = _kernel_image,
@@ -732,6 +779,10 @@ Example:
         "package": attr.string(
             mandatory = True,
             doc = "A string indicating which package this kernel executable image is coming from.",
+        ),
+        "arch": attr.string(
+            doc = "Architecture this image was built for. Will only accept moudules for this arch.",
+            default = "host",
         ),
         "image": attr.label(
             mandatory = True,
@@ -757,6 +808,7 @@ def _kernel_image_version(ctx):
         substitutions = {
             "{name}": ctx.name,
             "{package}": ctx.attr.package,
+            "{arch}": ctx.attr.arch,
             "{image}": ctx.attr.package,
             "{utils}": str(ctx.attr._utils),
         },
@@ -792,6 +844,10 @@ To create an image suitable for this rule, you can compile a linux source tree u
             doc = "The name of the downloaded image. Usually the format is 'distribution-kernel_version-arch', like custom-5.9.0-um.",
             mandatory = True,
         ),
+        "arch": attr.string(
+            doc = "The architecture this image was built for. 'host' means the architecture of the current machine.",
+            default = "host",
+        ),
         "url": attr.string(
             doc = "The url to download the kernel executable image from.",
             mandatory = True,
@@ -813,38 +869,122 @@ To create an image suitable for this rule, you can compile a linux source tree u
     },
 )
 
-def _kernel_test(ctx):
+def _expand_deps(mods, depth):
+    """Recursively expands the dependencies of a module."""
+    alldeps = list(mods)
+    current = list(mods)
+    for _ in range(depth):
+        pending = []
+        for mi in current:
+            for kdep in mi.kdeps:
+                pending.append(kdep)
+
+        alldeps.extend(pending)
+        current = pending
+    return alldeps
+
+RuntimePackageInfo = provider(
+    fields = {
+        "init": "string, script to ask init to run - relative to root",
+        "root": "string, directory that should be mounted on the test system",
+        "deps": "list of File objects, set of dependencies necessary for the runtime",
+    },
+)
+
+def _kernel_test_dir(ctx):
+    ki = ctx.attr.image[KernelImageInfo]
+    mods = get_compatible(ctx, ki.arch, ki.package, ctx.attr.module)
+    alldeps = _expand_deps(mods, ctx.attr.depth)
+
+    commands = []
+    inputs = []
+    for kmod in reversed(alldeps):
+        commands += ["", "# module " + package(kmod.label)]
+        if kmod.setup:
+            commands += kmod.setup
+
+        for mod in kmod.files:
+            if mod.extension != "ko":
+                continue
+            commands.append("load " + mod.short_path)
+            inputs.append(mod)
+
+    executable = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
+    ctx.actions.expand_template(
+        template = ctx.file._template,
+        output = executable,
+        substitutions = {
+            "{relpath}": executable.short_path,
+            "{commands}": "\n".join(commands),
+        },
+        is_executable = True,
+    )
+
+    d = files_to_dir(
+        ctx,
+        ctx.attr.name + "-root",
+        inputs + [executable],
+        post = "cd {dest}; cp -L %s ./init.sh" % (shell.quote(executable.short_path)),
+    )
+    return [
+        DefaultInfo(files = depset([executable, d])),
+        RuntimePackageInfo(init = executable.short_path, root = d.short_path, deps = [d]),
+    ]
+
+kernel_test_dir = rule(
+    doc = """\
+Generates a directory containing the kernel module, all its dependencies,
+and an init script to run them as a kunit test.""",
+    implementation = _kernel_test_dir,
+    attrs = {
+        "module": attr.label(
+            mandatory = True,
+            providers = [KernelBundleInfo],
+            doc = "The label of the KUnit linux kernel module to be used for testing. It must define a kunit_test_suite so that when loaded, KUnit will start executing its tests.",
+        ),
+        "image": attr.label(
+            mandatory = True,
+            providers = [KernelImageInfo],
+            doc = "The label of a kernel image this test will run against. Important to select the correct architecture and package module.",
+        ),
+        "depth": attr.int(
+            default = 5,
+            doc = "Maximum recursive depth when expanding a list of kernel module dependencies.",
+        ),
+        "_template": attr.label(
+            allow_single_file = True,
+            default = Label("//bazel/linux:init.template.sh"),
+            doc = "The template to generate the bash script used to run the tests.",
+        ),
+    },
+)
+
+def _kernel_uml_test(ctx):
     ki = ctx.attr.kernel_image[KernelImageInfo]
-    ri = ctx.attr.rootfs_image[RootfsImageInfo]
-    mi = ctx.attr.module[KernelModulesInfo]
 
-    # Kernel tests assume only one kernel module
-    module = mi.modules[0]
-
-    # Confirm that the kernel test module is compatible with the precompiled linux kernel executable image.
-    if ki.package != mi.package:
-        fail(
-            "kernel_test expects a test kernel module built against the kernel tree package used to obtain the kernel executable image. " +
-            "Instead it was given kernel_test.module.kernel.package='{}' and kernel_test.kernel_image.package='{}'.".format(mi.package, ki.package),
-        )
-
-    parser = ctx.attr._parser.files_to_run.executable
-    inputs = [ki.image, ri.image, module, parser]
-    inputs = depset(inputs, transitive = [
+    inputs = depset(transitive = [
         ctx.attr.kernel_image.files,
-        ctx.attr.rootfs_image.files,
-        ctx.attr.module.files,
+        ctx.attr.runtime.files,
         ctx.attr._parser.files,
     ])
-    executable = ctx.actions.declare_file("script.sh")
+
+    rootfs = ""
+    if ctx.attr.rootfs_image:
+        rootfs = ctx.attr.rootfs_image[RootfsImageInfo].image.short_path
+        inputs = depset(transitive = [inputs, ctx.attr.rootfs_image.files])
+
+    runtime = ctx.attr.runtime[RuntimePackageInfo]
+    executable = ctx.actions.declare_file(ctx.attr.name + "-start.sh")
     ctx.actions.expand_template(
         template = ctx.file._template,
         output = executable,
         substitutions = {
             "{kernel}": ki.image.short_path,
-            "{rootfs}": ri.image.short_path,
-            "{module}": module.short_path,
-            "{parser}": parser.short_path,
+            "{rootfs}": rootfs,
+            "{parser}": ctx.executable._parser.short_path,
+            "{init}": runtime.init,
+            "{runtime}": runtime.root,
+            "{files}": shell.array_literal([d.short_path for d in runtime.deps]),
         },
         is_executable = True,
     )
@@ -852,13 +992,13 @@ def _kernel_test(ctx):
     runfiles = runfiles.merge(ctx.attr._parser.default_runfiles)
     return [DefaultInfo(runfiles = runfiles, executable = executable)]
 
-kernel_test = rule(
-    doc = """Test a linux kernel module using the KUnit framework.
+kernel_uml_test = rule(
+    doc = """Runs a test using the kunit framework.
 
 kernel_test will retrieve the elements needed to setup a linux kernel test environment, and then execute the test.
 The test will run locally inside a user-mode linux process.
 """,
-    implementation = _kernel_test,
+    implementation = _kernel_uml_test,
     attrs = {
         "kernel_image": attr.label(
             mandatory = True,
@@ -866,24 +1006,46 @@ The test will run locally inside a user-mode linux process.
             doc = "The kernel image that will be used to execute this test. A string like @stefano-s-favourite-kernel-image, referencing a kernel_image(name = 'stefano-s-favourite-kernel-image', ...",
         ),
         "rootfs_image": attr.label(
-            mandatory = True,
-            providers = [DefaultInfo, RootfsImageInfo],
-            doc = "The rootfs image that will be used to execute this test. A string like @stefano-s-favourite-rootfs-image, referencing a rootfs_image(name = 'stefano-s-favourite-rootfs-image', ...",
+            mandatory = False,
+            providers = [RootfsImageInfo],
+            doc = """\
+The rootfs image that will be used to execute this test.
+
+A string like @stefano-s-favourite-rootfs-image, referencing a rootfs_image(name = 'stefano-s-favourite-rootfs-image', ...).
+If not specified, the current root of the filesystem will be used as rootfs.
+""",
         ),
-        "module": attr.label(
+        "runtime": attr.label(
             mandatory = True,
-            providers = [DefaultInfo, KernelModulesInfo],
-            doc = "The label of the KUnit linux kernel module to be used for testing. It must define a kunit_test_suite so that when loaded, KUnit will start executing its tests.",
+            providers = [RuntimePackageInfo],
+            doc = "A target returning a RuntimePackageInfo, with tests to run in uml",
         ),
         "_template": attr.label(
             allow_single_file = True,
-            default = Label("//bazel/linux:run_um_kunit_tests.template"),
+            default = Label("//bazel/linux:run_um_kunit_tests.template.sh"),
             doc = "The template to generate the bash script used to run the tests.",
         ),
         "_parser": attr.label(
             default = Label("//bazel/linux/kunit:kunit_zip"),
             doc = "KUnit TAP output parser.",
+            executable = True,
+            cfg = "host",
         ),
     },
     test = True,
 )
+
+def kernel_test(name, kernel_image, module, rootfs_image = None, test_dir_cfg = {}, runner_cfg = {}, runner = kernel_uml_test, **kwargs):
+    runtime = mcreate_rule(
+        name,
+        kernel_test_dir,
+        "runtime",
+        test_dir_cfg,
+        kwargs,
+        mconfig(module = module, image = kernel_image),
+    )
+
+    cfg = mconfig(runtime = runtime, kernel_image = kernel_image)
+    if rootfs_image:
+        cfg = mconfig(cfg, rootfs_image = rootfs_image)
+    name_runner = mcreate_rule(name, runner, "", runner_cfg, kwargs, cfg)

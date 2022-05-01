@@ -41,11 +41,11 @@ py_test(
     data = glob(["test_data/*"]),
     main = "kunit_tool_test.py",
     deps = [
-        ":kunit_config",
-        ":kunit_parser",
-        ":kunit_kernel",
-        ":kunit_json",
         ":kunit",
+        ":kunit_config",
+        ":kunit_json",
+        ":kunit_kernel",
+        ":kunit_parser",
     ],
 )
 
