@@ -1,0 +1,43 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("//bazel/utils:diff_test.bzl", "diff_test")
+load("//mdfmt:mdfmt.bzl", "mdfmt_filter")
+load("@python_dependencies//:requirements.bzl", "requirement")
+
+bzl_library(
+    name = "mdfmt_bzl",
+)
+
+py_binary(
+    name = "mdfmt",
+    srcs = ["mdfmt.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("absl-py"),
+        requirement("attrs"),
+        requirement("importlib-metadata"),
+        requirement("linkify-it-py"),
+        requirement("markdown-it-py"),
+        requirement("mdformat"),
+        requirement("mdformat-gfm"),
+        requirement("mdformat-tables"),
+        requirement("mdit-py-plugins"),
+        requirement("mdurl"),
+        requirement("tomli"),
+        requirement("uc-micro-py"),
+        requirement("zipp"),
+    ],
+)
+
+mdfmt_filter(
+    name = "foo.md-filter",
+    src = "testdata/foo.md.unformatted",
+    out = "foo.md",
+)
+
+diff_test(
+    name = "foo.md-diff_test",
+    actual = "foo.md",
+    expected = "testdata/expected.foo.md",
+)
