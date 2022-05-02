@@ -143,6 +143,13 @@ KernelModulesInfo = provider(
     },
 )
 
+KernelBundleInfo = provider(
+    doc = "Represents a set of the same module compiled for different kernels or arch.",
+    fields = {
+        "modules": "List of targets part of this bundle. Those targets provide a KernelModulesInfo.",
+    },
+)
+
 def is_module(dep):
     """Returns True if this dependency is considered a kernel module."""
     return KernelModulesInfo in dep or KernelBundleInfo in dep
@@ -212,7 +219,10 @@ def _kernel_modules(ctx):
     for arch in ctx.attr.archs:
         inputs = ctx.files.srcs + ctx.files.kernel
         extra_symbols = []
+
         kdeps = []
+        for d in ctx.attr.kdeps:
+            kdeps.extend(get_compatible(ctx, arch, ki.package, d))
 
         for d in ctx.attr.deps:
             inputs.extend(d.files.to_list())
@@ -374,6 +384,10 @@ Available format values are:
         "extra": attr.string_list(
             doc = "Anything more you'd like to pass to 'make'. All arguments specified here are just appended at the end of the build.",
         ),
+        "kdeps": attr.label_list(
+            doc = "Additional dependencies needed at *run time* to load this module. Modules listed in dep are automatically added.",
+            providers = [[KernelModulesInfo], [KernelBundleInfo]],
+        ),
         "setup": attr.string_list(
             doc = "Some kernel modules require extra commands in order to be loaded. This attribute allows to define those shell commands.",
         ),
@@ -392,13 +406,6 @@ def _normalize_kernel(kernel):
         kernel = "@" + kernel
 
     return kernel
-
-KernelBundleInfo = provider(
-    doc = "Represents a set of the same module compiled for different kernels or arch.",
-    fields = {
-        "modules": "List of targets part of this bundle. Those targets provide a KernelModulesInfo.",
-    },
-)
 
 def _kernel_modules_bundle(ctx):
     modules = []
@@ -869,11 +876,34 @@ To create an image suitable for this rule, you can compile a linux source tree u
     },
 )
 
-def _expand_deps(mods, depth):
-    """Recursively expands the dependencies of a module."""
+def _expand_deps(ctx, mods, depth):
+    """Recursively expands the dependencies of a module.
+
+    Args:
+      ctx: a Bazel ctx object, used to print useful error messages.
+      mods: list of KernelModulesInfo, modules to compute the dependencies of.
+      depth: int, how deep to go in recursively expanding the list of modules.
+
+    Returns:
+      List of KernelModulesInfo de-duplicated, in an order where insmod
+      as a chance to successfully resolve the dependencies.
+    """
+    error = """ERROR:
+
+While recurisvely expanding the chain of 'kdeps' for the module,
+at {depth} iterations there were still dependencies to expand.
+Loop? Or adjust the 'depth = ' attribute setting the max.
+
+The modules computed to load so far are:
+  {expanded}
+
+The modules still to expand are:
+  {current}
+"""
     alldeps = list(mods)
     current = list(mods)
-    for _ in range(depth):
+
+    for it in range(depth):
         pending = []
         for mi in current:
             for kdep in mi.kdeps:
@@ -881,7 +911,32 @@ def _expand_deps(mods, depth):
 
         alldeps.extend(pending)
         current = pending
-    return alldeps
+
+        # Error out if we still have not expanded the full set of
+        # dependencies at the last iteration.
+        if current and it >= depth - 1:
+            fail(location(ctx) + error.format(
+                depth = depth,
+                expanded = [package(d.label) for d in alldeps],
+                current = [package(d.label) for d in current],
+            ))
+
+    # alldeps here lists all the recurisve dependencies of the supplied
+    # mods starting from the module themselves.
+    #
+    # But... kernel module loading requires having the dependencies loaded
+    # first. insmod may also fail if a module is loaded twice.
+    #
+    # So: reverse the list, remove duplicates.
+    dups = {}
+    result = []
+    for mod in reversed(alldeps):
+        key = package(mod.label)
+        if key in dups:
+            continue
+        result.append(mod)
+
+    return result
 
 RuntimePackageInfo = provider(
     fields = {
@@ -894,11 +949,11 @@ RuntimePackageInfo = provider(
 def _kernel_test_dir(ctx):
     ki = ctx.attr.image[KernelImageInfo]
     mods = get_compatible(ctx, ki.arch, ki.package, ctx.attr.module)
-    alldeps = _expand_deps(mods, ctx.attr.depth)
+    alldeps = _expand_deps(ctx, mods, ctx.attr.depth)
 
     commands = []
     inputs = []
-    for kmod in reversed(alldeps):
+    for kmod in alldeps:
         commands += ["", "# module " + package(kmod.label)]
         if kmod.setup:
             commands += kmod.setup
