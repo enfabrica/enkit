@@ -1823,6 +1823,38 @@ function _print_codeowners() {
   done | sort -u
 }
 
+# Returns true iff this is the latest available version of gee.
+function _check_gee_version_is_current() {
+  local GEE_PATH CUR_MD5 NEW_MD5
+  GEE_PATH="$(readlink -f "$0")"
+  CUR_MD5="$(md5sum "${GEE_PATH}" | awk '{print $1}')"
+  NEW_MD5=""
+  local -a ASTORE_OUTPUT=()
+  if _read_cmd ASTORE_OUTPUT "${ENKIT}" astore list "${GEE_ON_ASTORE}"; then
+    local -a FIELDS
+    read -r -a FIELDS <<< "${ASTORE_OUTPUT[2]}"
+    if [[ "${#FIELDS[@]}" -eq 10 ]]; then
+      NEW_MD5="${FIELDS[5]}"
+    else
+      _warn "Unexpected output from astore:" "${ASTORE_OUTPUT[2]}"
+    fi
+  else
+    _warn "Could not access astore, perhaps you need to run \"enkit auth\"?"
+  fi
+
+  if [[ -z "${NEW_MD5}" ]]; then
+    _warn "Could not check for a newer version of gee."
+    return
+  fi
+
+  if [[ "${CUR_MD5}" == "${NEW_MD5}" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+
 ##########################################################################
 # init command
 ##########################################################################
@@ -4501,29 +4533,11 @@ Usage: gee upgrade [--check]
 EOT
 
 function gee__upgrade() {
-  local GEE_PATH CUR_MD5 NEW_MD5
+  local GEE_PATH
   GEE_PATH="$(readlink -f "$0")"
-  CUR_MD5="$(md5sum "${GEE_PATH}" | awk '{print $1}')"
-  NEW_MD5=""
-  local -a ASTORE_OUTPUT=()
-  if _read_cmd ASTORE_OUTPUT "${ENKIT}" astore list "${GEE_ON_ASTORE}"; then
-    local -a FIELDS
-    read -r -a FIELDS <<< "${ASTORE_OUTPUT[2]}"
-    if [[ "${#FIELDS[@]}" -eq 10 ]]; then
-      NEW_MD5="${FIELDS[5]}"
-    else
-      _warn "Unexpected output from astore:" "${ASTORE_OUTPUT[2]}"
-    fi
+  if _check_gee_version_is_current; then
+    _info "${GEE_PATH} is already up-to-date."
   else
-    _warn "Could not access astore, perhaps you need to run \"enkit auth\"?"
-  fi
-
-  if [[ -z "${NEW_MD5}" ]]; then
-    _warn "Could not check for a newer version of gee."
-    return
-  fi
-
-  if [[ "${CUR_MD5}" != "${NEW_MD5}" ]]; then
     if _confirm_default_yes "A new version of gee is available.  Install? (Y/n)  "; then
       # make a backup
       mv -f "${GEE_PATH}"{,.backup}
@@ -4542,8 +4556,6 @@ function gee__upgrade() {
       fi
       _info "${GEE_PATH} has been upgraded."
     fi
-  else
-    _info "${GEE_PATH} is already up-to-date."
   fi
 }
 
@@ -4569,6 +4581,9 @@ function gee__version() {
   done
   if (( TOOL_ERROR )); then
     _info "Run \"gee repair\" to fix."
+  fi
+  if ! _check_gee_version_is_current; then
+    _warn "A newer version of gee is available.  Run \"gee upgrade\" to install."
   fi
 }
 
