@@ -8,10 +8,8 @@
 #   lists are appended to each other.
 #   scalars override the previous value.
 #
-# Currently, we are using jinja2 version 2.11.3, which is documented here:
-#  https://jinja.palletsprojects.com/en/2.11.x/
-#
-# TODO(jonathan): upgrade to jinja2 3.0.x once other jinja2 users are identified.
+# Currently, we are using jinja2 version 3.1.1, which is documented here:
+#  https://jinja.palletsprojects.com/en/3.1.x/
 
 # standard libraries
 import json
