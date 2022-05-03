@@ -1,0 +1,86 @@
+rules:
+  codegen:
+    name: rule
+    args: []
+    kwargs:
+      doc: 'Runs codegen to combine templates and data files to an artifact.
+
+        '
+      implementation: _codegen_impl
+      output_to_genfiles: true
+      attrs:
+        data:
+          name: attr.label_list
+          args: []
+          kwargs:
+            allow_files:
+            - .json
+            - .yaml
+            doc: An ordered list of data files to load.
+        outs:
+          name: attr.output_list
+          args: []
+          kwargs:
+            allow_empty: false
+            doc: Artifacts to generate.
+        srcs:
+          name: attr.label_list
+          args: []
+          kwargs:
+            allow_files:
+            - .jinja2
+            - .jinja
+            - .template
+            doc: A list of jinja2 template files to import.
+        schema:
+          name: attr.label
+          args: []
+          kwargs:
+            allow_files:
+            - .schema
+            - schema.yaml
+            doc: A jsonschema file to check the imported data against.
+        overrides:
+          name: attr.string_list
+          args: []
+          kwargs:
+            doc: A pair of key=value pairs to override context data.
+        template_name:
+          name: attr.string
+          args: []
+          kwargs:
+            doc: The specific jinja2 template to render (optional).
+        multigen_mode:
+          name: attr.bool
+          args: []
+          kwargs:
+            doc: Enable multigen mode.
+        codegen_tool:
+          name: attr.label
+          args: []
+          kwargs:
+            executable: true
+            cfg: exec
+            allow_files: true
+            default:
+              name: Label
+              args:
+              - //tools/codegen:codegen
+              kwargs: {}
+            doc: The path to the codegen tool itself.
+macros:
+  codegen_test:
+    name: codegen_test
+    args:
+    - name
+    - expected
+filename: codegen.bzl
+short_path: tools/bzldoc/testdata/codegen.bzl
+label: //tools/bzldoc/testdata:codegen.bzl
+doc: 'Test bzl file for bzldoc.
+
+
+  This is a phoney baloney bzl file for testing bzldoc.
+
+
+  It is a fork of codegen.bzl.'

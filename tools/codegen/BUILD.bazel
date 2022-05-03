@@ -1,0 +1,59 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@python_dependencies//:requirements.bzl", "requirement")
+
+bzl_library(
+    name = "codegen_bzl",
+    srcs = ["codegen.bzl"],
+    deps = [
+        "//bazel/utils:diff_test_bzl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "data_loader",
+    srcs = ["data_loader.py"],
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("absl-py"),
+        requirement("pyyaml"),
+        requirement("jsonschema"),
+    ],
+)
+
+py_test(
+    name = "data_loader_test",
+    srcs = ["data_loader_test.py"],
+    deps = [
+        ":data_loader",
+    ],
+)
+
+py_binary(
+    name = "codegen",
+    srcs = ["codegen.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":data_loader",
+        requirement("absl-py"),
+        requirement("jinja2"),
+        requirement("jsonschema"),
+        requirement("markupsafe"),
+        requirement("pyyaml"),
+    ],
+)
+
+py_binary(
+    name = "jinjafmt",
+    srcs = ["jinjafmt.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("absl-py"),
+    ],
+)
+
