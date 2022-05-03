@@ -1,6 +1,6 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("//bazel/utils:diff_test.bzl", "diff_test")
-load("//mdfmt:mdfmt.bzl", "mdfmt_filter")
+load("//tools/mdfmt:mdfmt.bzl", "mdfmt_filter")
 load("@python_dependencies//:requirements.bzl", "requirement")
 
 bzl_library(

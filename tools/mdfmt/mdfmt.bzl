@@ -36,7 +36,7 @@ mdfmt_filter = rule(
             executable = True,
             cfg = "exec",
             allow_files = True,
-            default = Label("//mdfmt:mdfmt"),
+            default = Label("//tools/mdfmt:mdfmt"),
             doc = "The path to the mdfmt tool itself.",
         ),
     },

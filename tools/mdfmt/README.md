@@ -1,4 +1,4 @@
-# mdfmt A
+# mdfmt
 
 An opinionated reformatter for markdown.
 
