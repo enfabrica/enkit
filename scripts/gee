@@ -1,5 +1,7 @@
 #!/bin/bash
 
+readonly VERSION="0.2.28"
+
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
  / _` |/ _ \/ _ \  git
@@ -149,7 +151,6 @@ function _fix_pwd() {
 _fix_pwd
 
 # Globals:
-readonly VERSION="0.2.27"
 declare -a HELP=()
 declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
@@ -1884,7 +1885,7 @@ function gee__init() {
   # --depth=3, and provides a big enough window that a user who is
   # restoring a deleted gee repository is unlikely to have issues.
   local OLDEST_COMMIT
-  OLDEST_COMMIT="$(date --date="-${CLONE_DEPTH_MONTHS} months" +"%Y-%M-%d")"
+  OLDEST_COMMIT="$(date --date="-${CLONE_DEPTH_MONTHS} months" +"%Y-%m-%d")"
   _info "Fetching all commits since ${OLDEST_COMMIT}"
   _git clone \
     --shallow-since "${OLDEST_COMMIT}" \
@@ -4151,7 +4152,7 @@ function gee__restore_all_branches() {
   _gee_fix_remote_origin_fetch_config
 
   local OLDEST_COMMIT
-  OLDEST_COMMIT="$(date --date="-${CLONE_DEPTH_MONTHS} months" +"%Y-%M-%d")"
+  OLDEST_COMMIT="$(date --date="-${CLONE_DEPTH_MONTHS} months" +"%Y-%m-%d")"
   _info "Fetching all commits in origin since ${OLDEST_COMMIT}"
   _git fetch origin --shallow-since "${OLDEST_COMMIT}"
 

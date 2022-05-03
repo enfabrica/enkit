@@ -2,6 +2,10 @@
 
 ## Releases
 
+### Release 0.2.28
+
+* Fix formatting of date when creating a shallow clone of the git repo.
+
 ### Release 0.2.27
 
 * Add `pr_rollback` command.
