@@ -2645,6 +2645,10 @@ function gee__cleanup() {
     if [[ "${br}" != "${MAIN}" ]]; then
       local parent
       parent="$(_get_parent_branch "${br}")"
+      if [[ "${parent}" == upstream/* ]]; then
+        _git fetch upstream "${parent#upstream/}"
+        parent="FETCH_HEAD"
+      fi
       local -a  counts=()
       read -r -a counts < <("${GIT}" rev-list --left-right --count "${parent}...${br}")
       _checkout_or_die "${br}"
