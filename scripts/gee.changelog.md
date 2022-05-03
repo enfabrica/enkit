@@ -5,6 +5,7 @@
 ### Release 0.2.28
 
 * Fix formatting of date when creating a shallow clone of the git repo.
+* Fix `gee cleanup`: fix diff'ing of `pr_checkout` branches
 
 ### Release 0.2.27
 
