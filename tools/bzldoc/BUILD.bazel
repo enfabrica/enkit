@@ -6,7 +6,7 @@ load(
     "diff_test",
 )
 load(
-    "//bzldoc:bzldoc.bzl",
+    "//tools/bzldoc:bzldoc.bzl",
     "bzldoc",
 )
 
