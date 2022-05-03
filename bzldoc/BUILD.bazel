@@ -1,0 +1,47 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+load("@python_dependencies//:requirements.bzl", "requirement")
+load(
+    "//bazel/utils:diff_test.bzl",
+    "diff_test",
+)
+load(
+    "//bzldoc:bzldoc.bzl",
+    "bzldoc",
+)
+
+bzl_library(
+    name = "bzldoc_bzl",
+    deps = [
+        # "//codegen:codegen_bzl",
+    ],
+)
+
+py_binary(
+    name = "bzl2yaml",
+    srcs = ["bzl2yaml.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("absl-py"),
+        requirement("pyyaml"),
+    ],
+)
+
+bzldoc(
+    name = "codegen",
+    src = "testdata/codegen.bzl",
+)
+
+diff_test(
+    name = "codegen.yaml-diff_test",
+    actual = "codegen.yaml",
+    expected = "testdata/codegen.yaml",
+)
+
+diff_test(
+    name = "codegen.md-diff_test",
+    actual = "codegen.md",
+    expected = "testdata/codegen.md",
+)

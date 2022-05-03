@@ -1,0 +1,73 @@
+# `{{ filename }}` Documentation
+
+<!-- TODO(jonathan): make this template better. -->
+
+## Overview
+
+{{ doc }}
+
+Usage:
+
+```
+load("{{label}}", <rule names...>)
+```
+
+Source code: https://github.com/enfabrica/internal/{{ short_path }}
+
+## Rules
+
+{%- for k, v in rules|dictsort %}
+
+### `{{ k }}` Rule
+
+{%-   if "doc" in v.kwargs %}
+
+{{ v.kwargs.doc }}
+{%-   endif %}
+
+<table><thead><tr>
+<th> Attribute </th><th> Type </th><th> Description </th>
+</tr></thead><tbody>
+{%-   for ak, av in v.kwargs.attrs.items() %}
+{%-     set attrparts = av.name.split(".") %}
+{%-     set attrlib = attrparts[0] %}
+{%-     set attrtype = attrparts[1] %}
+<tr><td>
+
+{{ ak }}
+
+</td><td>
+
+[{{ attrtype }}](https://docs.bazel.build/versions/main/skylark/lib/{{ attrlib }}.html#{{ attrtype }})
+
+</td><td>
+
+{{ av.kwargs.doc }}
+
+</td></tr>
+{%-   endfor %}
+</tbody></table>
+{# blank line #}
+
+{%- endfor %}{# k, v #}
+
+## Macros
+
+{%- for k, v in macros|dictsort %}
+
+### `{{ k }}` Macro
+
+Usage: `{{ k }}({{ v.args|join(", ") }})`
+
+{%-   if "doc" in v %}
+
+{{ v.doc }}
+{%-   else %}
+
+Missing documentation.
+{%-   endif %}
+{%- endfor %}
+
+----
+
+_Documentation generated with bzldoc._

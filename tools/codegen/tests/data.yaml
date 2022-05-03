@@ -1,0 +1,9 @@
+foo: bar
+bum:
+  - a
+  - b
+  - c
+bop:
+  a: alpha
+  b: bravo
+  c: charlie
