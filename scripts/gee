@@ -1273,7 +1273,7 @@ function _interactive_conflict_resolution() {
             _warn "\"Pick\" will abort and restart your rebase merge from the beginning."
             if _confirm_default_no "Are you sure you want to restart? (y/N)  "; then
               _git rebase --abort
-              local -a GITCMD=( rebase --autostash -i )
+              local -a GITCMD=( rebase --no-autostash -i )
               if [[ -n "${ONTO}" ]]; then
                 GITCMD+=( --onto "${ONTO}" )
               fi
@@ -1390,6 +1390,16 @@ function _safer_rebase() {
   # operation.  This will allow multi-homed gee to work better.
 
   _checkout_or_die "${CHILD}"
+
+  # Check if we're rebasing onto a branch with uncommitted changes:
+  local -a UNCOMMITTED
+  mapfile -t UNCOMMITTED < <( "${GIT}" status --short -uall )
+  if (( "${#UNCOMMITTED[@]}" )); then
+    _warn "Branch ${CHILD} contains ${#UNCOMMITTED[@]} uncommitted changes:" \
+      "${UNCOMMITTED[@]}"
+    _fatal "Commit all changes and try again."
+  fi
+
   _silent_cmd "${GIT}" tag -f "${CHILD}.REBASE_BACKUP"
   local CHILD_DIR
   CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
@@ -1415,9 +1425,9 @@ function _safer_rebase() {
       # fatal: invalid upstream 'upstream/pull/1234/head'
       _die "git pull --rebase does not support --onto"
     fi
-    GITCMD+=( pull --rebase --autostash upstream "${PARENT#upstream/}" )
+    GITCMD+=( pull --rebase --no-autostash upstream "${PARENT#upstream/}" )
   else
-    GITCMD+=( rebase --autostash )
+    GITCMD+=( rebase --no-autostash )
     if [[ -n "${ONTO}" ]]; then
       GITCMD+=(--onto "${ONTO}")
     fi
@@ -1534,7 +1544,7 @@ function _update_from_upstream() {
   local LOCAL_BRANCH="$1"
   local UPSTREAM_BRANCH="$2"
   _checkout_or_die "${LOCAL_BRANCH}"
-  if ! _git pull --rebase --autostash upstream "${UPSTREAM_BRANCH}"; then
+  if ! _git pull --rebase --no-autostash upstream "${UPSTREAM_BRANCH}"; then
     _warn "Git pull operation failed."
     if ! _is_rebase_in_progress; then
       _fatal "Rebase not in progress, no idea what went wrong."
@@ -2346,7 +2356,7 @@ function gee__update() {
         _info "Pulling in changes from origin/${CURRENT_BRANCH}"
         HEAD="$("${GIT}" rev-parse HEAD)"
         _info "Old head commit before rebase: ${HEAD}"
-        _git rebase --autostash "origin/${CURRENT_BRANCH}"
+        _git rebase --no-autostash "origin/${CURRENT_BRANCH}"
       else
         _info "You may need to \"git push -u origin --force\" to fix your origin remote."
       fi
@@ -2433,11 +2443,10 @@ function gee__rupdate() {
       local -a UNCOMMITTED
       mapfile -t UNCOMMITTED < <( "${GIT}" status --short -uall )
       if (( "${#UNCOMMITTED[@]}" )); then
-        _warn "Branch ${B} contains ${#UNCOMMITTED[@]} uncommitted changes:" \
+        _fatal "Branch ${B} contains ${#UNCOMMITTED[@]} uncommitted changes:" \
           "${UNCOMMITTED[@]}" \
-          "Child branches won't get uncommitted changes."
+          "Commit branch ${B} and try again."
       fi
-      # rebase always uses --autostash, so we'll proceed.
     fi
 
     # Rebase from PREVIOUS_B onto B
@@ -2495,15 +2504,13 @@ function gee__update_all() {
     _checkout_or_die "${B}"
 
     # Check if we're rebasing onto a branch with uncommitted changes:
-    if [[ "${B}" != "${CURRENT_BRANCH}" ]]; then
-      local -a UNCOMMITTED
-      mapfile -t UNCOMMITTED < <( "${GIT}" status --short -uall )
-      if (( "${#UNCOMMITTED[@]}" )); then
-        _warn "Branch ${B} contains ${#UNCOMMITTED[@]} uncommitted changes:" \
-          "${UNCOMMITTED[@]}" \
-          "Child branches won't get uncommitted changes."
-      fi
-      # rebase always uses --autostash, so we'll proceed.
+    local -a UNCOMMITTED
+    mapfile -t UNCOMMITTED < <( "${GIT}" status --short -uall )
+    if (( "${#UNCOMMITTED[@]}" )); then
+      _warn "Branch ${B} contains ${#UNCOMMITTED[@]} uncommitted changes:" \
+        "${UNCOMMITTED[@]}" \
+        "This branch will not be updated."
+      continue
     fi
 
     # Rebase from PREVIOUS_B onto B
