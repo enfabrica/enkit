@@ -110,9 +110,9 @@ def enkit_deps():
     if "com_google_absl" not in excludes:
         http_archive(
             name = "com_google_absl",
-            urls = ["https://github.com/abseil/abseil-cpp/archive/98eb410c93ad059f9bba1bf43f5bb916fc92a5ea.zip"],
-            strip_prefix = "abseil-cpp-98eb410c93ad059f9bba1bf43f5bb916fc92a5ea",
-            sha256 = "aabf6c57e3834f8dc3873a927f37eaf69975d4b28117fc7427dfb1c661542a87",
+            urls = ["https://github.com/abseil/abseil-cpp/archive/d3f0c70673ed71ba1581702bbbd0aa8865a575d1.zip"],
+            strip_prefix = "abseil-cpp-d3f0c70673ed71ba1581702bbbd0aa8865a575d1",
+            sha256 = "9183422bb73f4f26cf10742053f10ca7e0bbed5d95490a9ff4e4aeb3a56c6761",
         )
 
     if "bazel_skylib" not in excludes:
