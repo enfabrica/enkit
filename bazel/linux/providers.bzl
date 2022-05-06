@@ -56,9 +56,11 @@ and have basic tools available necessary for its users.
 )
 
 RuntimePackageInfo = provider(
+    doc = """Represents something to run in an isolated environment.""",
     fields = {
-        "init": "string, script to ask init to run - relative to root",
+        "init": "string, path relative to root, script to run in the environment once it is ready, typically as an init=",
         "root": "string, directory that should be mounted on the test system",
         "deps": "list of File objects, set of dependencies necessary for the runtime",
+        "check": "struct(binary = File(), runtime = ctx.runfiles()), executable (and its runfiles) to run to check if the package run was successful",
     },
 )
