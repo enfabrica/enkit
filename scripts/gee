@@ -3379,9 +3379,10 @@ EndOfPrTemplate
   # Parse metadata from PR description.
   local TITLE
   TITLE="$(head -1 "${BODYFILE}")"
+  # We remove the title from the body file to avoid "stuttering" the
+  # title when we eventually submit the PR:
+  sed -i '1{d};2{/^$/d}' "${BODYFILE}"
 
-  # Note: we must label origin as the upstream branch for "gh pr create" to
-  # automatically pick the branch to use for the PR request.
   _push_to_origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
   #  -R specifies the repo that we are pushing changes into.
