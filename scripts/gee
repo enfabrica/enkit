@@ -3557,9 +3557,6 @@ function gee__pr_submit() {
     _fatal "Will not submit PR."
   fi
 
-  _info "Commit message will be:"
-  cat "${BODYFILE}"
-
   # Presubmit check: Are presubmit checks passing?
   if ! gee__pr_check; then
     if ! _confirm_default_no \
@@ -3588,6 +3585,9 @@ function gee__pr_submit() {
   echo "" >> "${BODYFILE}"
   sed -n '/^--/,$p' "${TEMPFILE}" | tail +2 >> "${BODYFILE}"
   rm "${TEMPFILE}"
+
+  _info "Commit message will be:"
+  cat "${BODYFILE}"
 
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
