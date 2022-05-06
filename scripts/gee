@@ -3628,14 +3628,19 @@ function gee__pr_submit() {
   rm "${BODYFILE}"
   _update_main
 
-  # Confirm that the merge was successful:
-  mapfile -t DIFFS < <( "${GIT}" diff --name-only \
-      "upstream/${MAIN}..${CURRENT_BRANCH}" -- "${FILES[@]}" )
-  if (( "${#DIFFS[@]}" != 0 )); then
-    # TODO(jonathan): should this be a warning?
-    _fatal "Uh oh!  Even after merge, these files have local changes:" \
-      "  ${DIFFS[*]}"
-  fi
+  # This check is of low value (gr pr merge is reliable), and occasionally
+  # reports false negatives (ie. if two PRs changed the same file, but
+  # gh pr merge was able to merge the changes without requiring the user
+  # to update the source branch first).  This check is disabled for now:
+  #
+  # # Confirm that the merge was successful:
+  # mapfile -t DIFFS < <( "${GIT}" diff --name-only \
+  #     "upstream/${MAIN}..${CURRENT_BRANCH}" -- "${FILES[@]}" )
+  # if (( "${#DIFFS[@]}" != 0 )); then
+  #   # TODO(jonathan): should this be a warning?
+  #   _fatal "Uh oh!  Even after merge, these files have local changes:" \
+  #     "  ${DIFFS[*]}"
+  # fi
 
   # Reset this branch to now contain the squash-merged commit:
   _checkout_or_die "${CURRENT_BRANCH}"  # make sure we're in the right branch.
