@@ -3292,6 +3292,8 @@ function gee__pr_make() {
     fi
   fi
 
+  echo "bar"
+
   local UNCOMMITTED
   UNCOMMITTED="$("${GIT}" status --short -uall | wc -l)"
   if [[ "${UNCOMMITTED}" -gt 0 ]]; then
@@ -3301,11 +3303,15 @@ function gee__pr_make() {
     _fatal Aborted.
   fi
 
+  echo "foo"
+
   NUM_COMMITS="$("${GIT}" log --oneline "${DEST_BRANCH}..${CURRENT_BRANCH}" | wc -l)"
   if [[ "${NUM_COMMITS}" -eq 0 ]]; then
     _debug "command: ${GIT} log --oneline ${DEST_BRANCH}..${CURRENT_BRANCH}"
     _fatal "No changes in this branch."
   fi
+
+  echo "bum"
 
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
