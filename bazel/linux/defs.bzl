@@ -106,7 +106,7 @@ To create a .tar.gz suitable for this rule, you can use the kbuild tool, availab
             doc = "A path prefix to remove after unpackaging the file, passed to the download_and_extract context rule as is.",
         ),
         "_template": attr.label(
-            default = Label("//bazel/linux:kernel_tree.BUILD.bzl"),
+            default = Label("//bazel/linux:templates/kernel_tree.BUILD.bzl"),
             allow_single_file = True,
         ),
         "_utils": attr.label(
@@ -729,7 +729,7 @@ and use it as the "test-latest-rootfs" from the repository.
             doc = "An auth dict as documented for the download_and_extract context rule as is.",
         ),
         "_template": attr.label(
-            default = Label("//bazel/linux:rootfs.BUILD.bzl"),
+            default = Label("//bazel/linux:templates/rootfs.BUILD.bzl"),
             allow_single_file = True,
         ),
         "_utils": attr.label(
@@ -866,7 +866,7 @@ To create an image suitable for this rule, you can compile a linux source tree u
             doc = "An auth dict as documented for the download_and_extract context rule as is.",
         ),
         "_template": attr.label(
-            default = Label("//bazel/linux:kernel_image.BUILD.bzl"),
+            default = Label("//bazel/linux:templates/kernel_image.BUILD.bzl"),
             allow_single_file = True,
         ),
         "_utils": attr.label(
@@ -1008,7 +1008,7 @@ and an init script to run them as a kunit test.""",
         ),
         "_template": attr.label(
             allow_single_file = True,
-            default = Label("//bazel/linux:init.template.sh"),
+            default = Label("//bazel/linux:templates/init.template.sh"),
             doc = "The template to generate the bash script used to run the tests.",
         ),
     },
@@ -1077,7 +1077,7 @@ If not specified, the current root of the filesystem will be used as rootfs.
         ),
         "_template": attr.label(
             allow_single_file = True,
-            default = Label("//bazel/linux:run_um_kunit_tests.template.sh"),
+            default = Label("//bazel/linux:templates/run_um_kunit_tests.template.sh"),
             doc = "The template to generate the bash script used to run the tests.",
         ),
         "_parser": attr.label(
