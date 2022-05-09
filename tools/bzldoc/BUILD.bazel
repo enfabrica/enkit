@@ -1,5 +1,4 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-
 load("@python_dependencies//:requirements.bzl", "requirement")
 load(
     "//bazel/utils:diff_test.bzl",

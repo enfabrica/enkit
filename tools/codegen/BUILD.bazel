@@ -4,10 +4,10 @@ load("@python_dependencies//:requirements.bzl", "requirement")
 bzl_library(
     name = "codegen_bzl",
     srcs = ["codegen.bzl"],
+    visibility = ["//visibility:public"],
     deps = [
         "//bazel/utils:diff_test_bzl",
     ],
-    visibility = ["//visibility:public"],
 )
 
 py_library(
@@ -56,4 +56,3 @@ py_binary(
         requirement("absl-py"),
     ],
 )
-
