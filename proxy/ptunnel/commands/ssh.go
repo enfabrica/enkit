@@ -12,6 +12,11 @@ import (
 	"strings"
 )
 
+type proxyMapping struct {
+	substring string
+	proxy     string
+}
+
 type SSH struct {
 	*cobra.Command
 	*client.BaseFlags
@@ -22,7 +27,7 @@ type SSH struct {
 
 	Proxy            string
 	proxyList        []string
-	ProxyMap         map[string]string
+	ProxyMap         []proxyMapping
 	BufferSize       int
 	SSH              string
 	UseInternalAgent bool
@@ -49,13 +54,12 @@ func IsValid(filename string) error {
 
 // parseFlags performs
 func (r *SSH) parseFlags(cmd *cobra.Command, args []string) error {
-	r.ProxyMap = map[string]string{}
 	for _, s := range r.proxyList {
 		pair := strings.SplitN(s, "=", 2)
 		if len(pair) != 2 {
 			return fmt.Errorf("%q is not a valid proxy mapping; expected key=value", s)
 		}
-		r.ProxyMap[pair[0]] = pair[1]
+		r.ProxyMap = append(r.ProxyMap, proxyMapping{substring: pair[0], proxy: pair[1]})
 	}
 	return nil
 }
@@ -70,10 +74,10 @@ func proxyFlag(proxy string) string {
 // in args, or the empty string if no proxy is to be explicitly set.
 func (r *SSH) chooseProxy(args []string) string {
 	for _, arg := range args {
-		for addr, proxy := range r.ProxyMap {
-			if strings.Contains(arg, addr) {
-				r.Log.Infof("Selected proxy %q for host %q", proxy, arg)
-				return proxyFlag(proxy)
+		for _, entry := range r.ProxyMap {
+			if strings.Contains(arg, entry.substring) {
+				r.Log.Infof("Selected proxy %q for host %q", entry.proxy, arg)
+				return proxyFlag(entry.proxy)
 			}
 		}
 	}

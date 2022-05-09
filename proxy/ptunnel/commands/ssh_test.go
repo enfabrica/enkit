@@ -14,25 +14,27 @@ func TestSSHParseFlags(t *testing.T) {
 	testCases := []struct {
 		desc         string
 		proxyList    []string
-		wantProxyMap map[string]string
+		wantProxyMap []proxyMapping
 		wantErr      string
 	}{
 		{
 			desc:         "no entries",
 			proxyList:    nil,
-			wantProxyMap: map[string]string{},
+			wantProxyMap: nil,
 		},
 		{
-			desc:         "one entry",
-			proxyList:    []string{".foo=https://foo.example.com./"},
-			wantProxyMap: map[string]string{".foo": "https://foo.example.com./"},
+			desc:      "one entry",
+			proxyList: []string{".foo=https://foo.example.com./"},
+			wantProxyMap: []proxyMapping{
+				proxyMapping{substring: ".foo", proxy: "https://foo.example.com./"},
+			},
 		},
 		{
 			desc:      "multiple entries",
 			proxyList: []string{".foo=https://foo.example.com./", ".bar=https://bar.example.com./"},
-			wantProxyMap: map[string]string{
-				".foo": "https://foo.example.com./",
-				".bar": "https://bar.example.com./",
+			wantProxyMap: []proxyMapping{
+				proxyMapping{substring: ".foo", proxy: "https://foo.example.com./"},
+				proxyMapping{substring: ".bar", proxy: "https://bar.example.com./"},
 			},
 		},
 		{
@@ -58,17 +60,17 @@ func TestSSHParseFlags(t *testing.T) {
 	}
 }
 
-var exampleProxyMap = map[string]string{
-	".foo": "https://foo.example.com./",
-	".bar": "https://bar.example.com./",
-	".baz": "https://baz.example.com./",
+var exampleProxyMap = []proxyMapping{
+	proxyMapping{substring: ".foo", proxy: "https://foo.example.com./"},
+	proxyMapping{substring: ".bar", proxy: "https://bar.example.com./"},
+	proxyMapping{substring: ".baz", proxy: "https://baz.example.com./"},
 }
 
 func TestSSHChooseProxy(t *testing.T) {
 	testCases := []struct {
 		desc      string
 		proxy     string
-		proxyMap  map[string]string
+		proxyMap  []proxyMapping
 		sshArgs   []string // One of these is expected to be the target ($USER@$MACHINE)
 		wantProxy string   // Flag in the form ` --proxy=$PROXY_URL`
 	}{
