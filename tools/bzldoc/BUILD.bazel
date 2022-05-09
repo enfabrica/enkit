@@ -35,6 +35,11 @@ bzldoc(
     src = "testdata/codegen.bzl",
 )
 
+exports_files(
+    ["md.template"],
+    visibility = ["//visibility:public"],
+)
+
 diff_test(
     name = "codegen.yaml-diff_test",
     actual = "codegen.yaml",
