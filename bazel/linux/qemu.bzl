@@ -76,10 +76,11 @@ fi
     })
 
 kernel_qemu_test = rule(
-    doc = """Runs a test using the kunit framework.
+    doc = """Runs code in a qemu instance.
 
-kernel_test will retrieve the elements needed to setup a linux kernel test environment, and then execute the test.
-The test will run locally inside a user-mode linux process.
+The code to run is specified by using the "runner" attribute, which
+pretty much provides a self contained directory with an init script.
+See the RuntimePackageInfo provider for details.
 """,
     implementation = _kernel_qemu_test,
     test = True,

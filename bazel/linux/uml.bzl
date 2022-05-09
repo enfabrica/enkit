@@ -27,10 +27,11 @@ fi
     return create_runner(ctx, ["um"], code)
 
 kernel_uml_test = rule(
-    doc = """Runs a test using the kunit framework.
+    doc = """Runs code in an uml instance.
 
-kernel_test will retrieve the elements needed to setup a linux kernel test environment, and then execute the test.
-The test will run locally inside a user-mode linux process.
+The code to run is specified by using the "runner" attribute, which
+pretty much provides a self contained directory with an init script.
+See the RuntimePackageInfo provider for details.
 """,
     implementation = _kernel_uml_test,
     attrs = CREATE_RUNNER_ATTRS,
