@@ -2,8 +2,11 @@ load("//tools/codegen:codegen.bzl", "codegen_test")
 
 codegen_test(
     name = "gen-test",
-    expected = "gen-test.expected",
-    data = ["data.yaml"],
     srcs = ["test.template"],
-    overrides = ["over=rides", "zoo=zebra"],
+    data = ["data.yaml"],
+    expected = "gen-test.expected",
+    overrides = [
+        "over=rides",
+        "zoo=zebra",
+    ],
 )
