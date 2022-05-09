@@ -21,6 +21,8 @@ type SSH struct {
 	Subcommand string
 
 	Proxy            string
+	proxyList        []string
+	ProxyMap         map[string]string
 	BufferSize       int
 	SSH              string
 	UseInternalAgent bool
@@ -45,6 +47,44 @@ func IsValid(filename string) error {
 	return nil
 }
 
+// parseFlags performs
+func (r *SSH) parseFlags(cmd *cobra.Command, args []string) error {
+	r.ProxyMap = map[string]string{}
+	for _, s := range r.proxyList {
+		pair := strings.SplitN(s, "=", 2)
+		if len(pair) != 2 {
+			return fmt.Errorf("%q is not a valid proxy mapping; expected key=value", s)
+		}
+		r.ProxyMap[pair[0]] = pair[1]
+	}
+	return nil
+}
+
+// proxyFlag returns a formatted tunnel proxy flag that can be appended to an
+// existing commandline.
+func proxyFlag(proxy string) string {
+	return " --proxy=" + proxy
+}
+
+// chooseProxy returns an appropriate proxy flag for a target passed somewhere
+// in args, or the empty string if no proxy is to be explicitly set.
+func (r *SSH) chooseProxy(args []string) string {
+	for _, arg := range args {
+		for addr, proxy := range r.ProxyMap {
+			if strings.Contains(arg, addr) {
+				r.Log.Infof("Selected proxy %q for host %q", proxy, arg)
+				return proxyFlag(proxy)
+			}
+		}
+	}
+	if r.Proxy != "" {
+		r.Log.Infof("Selected default proxy %q for host in %v", r.Proxy, args)
+		return proxyFlag(r.Proxy)
+	}
+	r.Log.Warnf("No proxy found for host in %v and no default proxy set; omitting --proxy flag", args)
+	return ""
+}
+
 func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 	if err := IsValid(r.Tunnel); err != nil {
 		return kflags.NewUsageErrorf("Tunnel binary specified with --tunnel cannot be run: %w", err)
@@ -67,9 +107,7 @@ func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 	if r.Subcommand != "" {
 		params += " " + r.Subcommand
 	}
-	if r.Proxy != "" {
-		params += " --proxy=" + r.Proxy
-	}
+	params += r.chooseProxy(args)
 	if r.BufferSize != 0 {
 		params += fmt.Sprintf(" --buffer-size=%d", r.BufferSize)
 	}
@@ -94,12 +132,11 @@ func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 		ecmd.Env = append(os.Environ(), agent.GetEnv()...)
 	}
 
-
 	if err := ecmd.Start(); err != nil {
 		return fmt.Errorf("failed to start command %s: %w", ecmd, err)
 	}
 
-	r.Log.Infof("user %s pid %d started - %s", r.Username(), ecmd.Process.Pid, cmd)
+	r.Log.Infof("user %s pid %d started - %s", r.Username(), ecmd.Process.Pid, ecmd)
 	err = ecmd.Wait()
 
 	if err != nil {
@@ -135,6 +172,11 @@ func NewSSH(base *client.BaseFlags) *SSH {
   $ ... ssh --proxy=https://gw.corp.enfabrica.net -- -p2222 user@10.10.0.12
 	Use a non default proxy to connect to your corp host.
 
+	$ ... ssh --proxy-map=.mtv=https://gw.corp.enfabrica.net,.foo=https://example.com -- p2222 user@machine-name.foo
+	Select from a few proxies based on string matching in the target address.
+	In this case https://example.com will be selected as the proxy, as the
+	target contains the string '.foo'.
+
   $ ... ssh --tunnel-extra="--browser-write-timeout=10s" -e "/bin/openssh" -- -p2222 user@10.10.0.12
 	Pass some extra flags to the tunnel command, use a different ssh than the one that can
 	be found in your path.
@@ -142,11 +184,17 @@ func NewSSH(base *client.BaseFlags) *SSH {
 		},
 		BaseFlags: base,
 	}
+	root.PreRunE = root.parseFlags
 	root.RunE = root.Run
 
 	root.Command.Flags().IntVar(&root.BufferSize, "buffer-size", 0, "Default read and write buffer size for window management. If 0, leave the default used by the tunnel")
 	root.Command.Flags().StringVarP(&root.Proxy, "proxy", "p", "", "Full url of the proxy to connect to, must be specified")
-
+	root.Command.Flags().StringSliceVar(
+		&root.proxyList,
+		"proxy-map",
+		nil,
+		"Map of suffix=gateway pairs to use for choosing proxy. Overrides --proxy when an entry matches any of the targets. If set, --proxy is used as the default fallback when no entries match. Entries should be non-overlapping/able to be applied in any order.",
+	)
 	root.Command.Flags().StringVarP(&root.SSH, "ssh", "e", "", "Path to the SSH binary to use. If empty, one will be found for you")
 
 	exec, _ := os.Executable()
