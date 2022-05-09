@@ -52,7 +52,8 @@ func IsValid(filename string) error {
 	return nil
 }
 
-// parseFlags performs
+// parseFlags performs extra processing/validation on command-line flags as a
+// pre-run step.
 func (r *SSH) parseFlags(cmd *cobra.Command, args []string) error {
 	for _, s := range r.proxyList {
 		pair := strings.SplitN(s, "=", 2)
@@ -197,7 +198,7 @@ func NewSSH(base *client.BaseFlags) *SSH {
 		&root.proxyList,
 		"proxy-map",
 		nil,
-		"Map of suffix=gateway pairs to use for choosing proxy. Overrides --proxy when an entry matches any of the targets. If set, --proxy is used as the default fallback when no entries match. Entries should be non-overlapping/able to be applied in any order.",
+		"Map of suffix=gateway pairs to use for choosing proxy. Overrides --proxy when an entry matches any of the targets. If set, --proxy is used as the default fallback when no entries match.",
 	)
 	root.Command.Flags().StringVarP(&root.SSH, "ssh", "e", "", "Path to the SSH binary to use. If empty, one will be found for you")
 
