@@ -28,12 +28,17 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["agent_test.go"],
+    srcs = [
+        "agent_test.go",
+        "ssh_test.go",
+    ],
+    embed = [":go_default_library"],
     deps = [
-        ":go_default_library",
         "//lib/client:go_default_library",
+        "//lib/errdiff:go_default_library",
         "//lib/kcerts:go_default_library",
         "//lib/kflags:go_default_library",
+        "//lib/logger:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
