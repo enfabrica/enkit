@@ -3,8 +3,12 @@
 # Script used to release a custom kernel to Enfabrica's artifact store.
 #
 # Takes a branch name and sha1/tag pertaining to the enfabrica/linux repository
-# on Github as input, builds the base kernel, a VM kernel, and User-Mode Linux
-# (used for testing), and uploads the archives to astore.
+# on Github as input, builds a User-Mode Linux image used for testing, and
+# uploads the archives to astore.
+#
+# Note: The scripts under kbuild/v2/ supersedes this one for the minimal and
+# generic flavor builds. This script be removed from the repository in the
+# future.
 #
 
 set -e
@@ -111,22 +115,6 @@ fi
 ASTORE_PATH=${ASTORE_PATH:-"kernel/${RELEASE_BRANCH}"}
 
 prep_linux_source
-
-# Base kernel with all goodies. Config is a union of the Ubuntu generic flavour
-# and common configs from the Ubuntu tree.
-cp ${LINUX_SOURCE}/debian.master/config/config.common.ubuntu ${LINUX_BASE_BUILD}/config
-cat ${LINUX_SOURCE}/debian.master/config/amd64/config.common.amd64 >> ${LINUX_BASE_BUILD}/config
-cat ${LINUX_SOURCE}/debian.master/config/amd64/config.flavour.generic >> ${LINUX_BASE_BUILD}/config
-build_kernel "${LINUX_BASE_BUILD}/config"
-push_astore_kernel "${ASTORE_PATH}" "amd64"
-
-# A stripped down kernel for just a devel VM. Config is a union of our minimal
-# flavour and common configs from the Ubuntu tree.
-cp ${LINUX_SOURCE}/debian.master/config/config.common.ubuntu ${LINUX_BASE_BUILD}/config-vm
-cat ${LINUX_SOURCE}/debian.master/config/amd64/config.common.amd64 >> ${LINUX_BASE_BUILD}/config-vm
-cat ${LINUX_SOURCE}/debian.master/config/amd64/config.flavour.minimal >> ${LINUX_BASE_BUILD}/config-vm
-build_kernel "${LINUX_BASE_BUILD}/config-vm"
-push_astore_kernel "${ASTORE_PATH}/vm" "amd64"
 
 # UML kernel used by Bazel builds.
 build_kernel "${LINUX_SOURCE}/enfabrica/config-um" "ARCH=um"
