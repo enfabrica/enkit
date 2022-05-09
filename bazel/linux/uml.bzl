@@ -7,7 +7,6 @@ def _kernel_uml_test(ctx):
     inputs = depset(transitive = [
         ctx.attr.kernel_image.files,
         ctx.attr.runtime.files,
-        ctx.attr._parser.files,
     ])
 
     rootfs = ""
@@ -16,22 +15,26 @@ def _kernel_uml_test(ctx):
         inputs = depset(transitive = [inputs, ctx.attr.rootfs_image.files])
 
     runtime = ctx.attr.runtime[RuntimePackageInfo]
+    subs = {
+        "{kernel}": ki.image.short_path,
+        "{rootfs}": rootfs,
+        "{init}": runtime.init,
+        "{runtime}": runtime.root,
+        "{files}": shell.array_literal([d.short_path for d in runtime.deps]),
+    }
+    runfiles = ctx.runfiles(files = inputs.to_list())
+    if runtime.check:
+        subs["{checker}"] = runtime.check.binary.short_path
+        runfiles = runfiles.merge(ctx.runfiles(files = [runtime.check.binary]))
+        runfiles = runfiles.merge(runtime.check.runfiles)
+
     executable = ctx.actions.declare_file(ctx.attr.name + "-start.sh")
     ctx.actions.expand_template(
         template = ctx.file._template,
         output = executable,
-        substitutions = {
-            "{kernel}": ki.image.short_path,
-            "{rootfs}": rootfs,
-            "{parser}": ctx.executable._parser.short_path,
-            "{init}": runtime.init,
-            "{runtime}": runtime.root,
-            "{files}": shell.array_literal([d.short_path for d in runtime.deps]),
-        },
+        substitutions = subs,
         is_executable = True,
     )
-    runfiles = ctx.runfiles(files = inputs.to_list())
-    runfiles = runfiles.merge(ctx.attr._parser.default_runfiles)
     return [DefaultInfo(runfiles = runfiles, executable = executable)]
 
 kernel_uml_test = rule(
@@ -64,14 +67,8 @@ If not specified, the current root of the filesystem will be used as rootfs.
         ),
         "_template": attr.label(
             allow_single_file = True,
-            default = Label("//bazel/linux:templates/run_um_kunit_tests.template.sh"),
+            default = Label("//bazel/linux:templates/run_uml.template.sh"),
             doc = "The template to generate the bash script used to run the tests.",
-        ),
-        "_parser": attr.label(
-            default = Label("//bazel/linux/kunit:kunit_zip"),
-            doc = "KUnit TAP output parser.",
-            executable = True,
-            cfg = "host",
         ),
     },
     test = True,

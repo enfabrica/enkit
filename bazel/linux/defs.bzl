@@ -901,26 +901,41 @@ def _kernel_test_dir(ctx):
             commands.append("load " + mod.short_path)
             inputs.append(mod)
 
-    executable = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
+    init = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
     ctx.actions.expand_template(
-        template = ctx.file._template,
-        output = executable,
+        template = ctx.file._template_init,
+        output = init,
         substitutions = {
-            "{relpath}": executable.short_path,
+            "{relpath}": init.short_path,
             "{commands}": "\n".join(commands),
         },
         is_executable = True,
     )
 
+    check = ctx.actions.declare_file(ctx.attr.name + "-check.sh")
+    ctx.actions.expand_template(
+        template = ctx.file._template_check,
+        output = check,
+        substitutions = {
+            "{parser}": ctx.executable._parser.short_path,
+        },
+        is_executable = True,
+    )
+    runfiles = ctx.runfiles(files = ctx.attr._parser.files.to_list())
+    runfiles = runfiles.merge(ctx.attr._parser.default_runfiles)
+
     d = files_to_dir(
         ctx,
         ctx.attr.name + "-root",
-        inputs + [executable],
-        post = "cd {dest}; cp -L %s ./init.sh" % (shell.quote(executable.short_path)),
+        inputs + [init],
+        post = "cd {dest}; cp -L %s ./init.sh" % (shell.quote(init.short_path)),
     )
     return [
-        DefaultInfo(files = depset([executable, d])),
-        RuntimePackageInfo(init = executable.short_path, root = d.short_path, deps = [d]),
+        DefaultInfo(files = depset([init, d, check]), runfiles = runfiles),
+        RuntimePackageInfo(init = init.short_path, root = d.short_path, deps = [d], check = struct(
+            binary = check,
+            runfiles = runfiles,
+        )),
     ]
 
 kernel_test_dir = rule(
@@ -943,10 +958,21 @@ and an init script to run them as a kunit test.""",
             default = 5,
             doc = "Maximum recursive depth when expanding a list of kernel module dependencies.",
         ),
-        "_template": attr.label(
+        "_template_init": attr.label(
             allow_single_file = True,
             default = Label("//bazel/linux:templates/init.template.sh"),
             doc = "The template to generate the bash script used to run the tests.",
+        ),
+        "_template_check": attr.label(
+            allow_single_file = True,
+            default = Label("//bazel/linux:templates/check_kunit.template.sh"),
+            doc = "The template to generate the bash script used to run the tests.",
+        ),
+        "_parser": attr.label(
+            default = Label("//bazel/linux/kunit:kunit_zip"),
+            doc = "KUnit TAP output parser.",
+            executable = True,
+            cfg = "host",
         ),
     },
 )
