@@ -11,6 +11,7 @@ load(
 
 bzl_library(
     name = "bzldoc_bzl",
+    srcs = ["bzldoc.bzl"],
     deps = [
         # "//codegen:codegen_bzl",
     ],
