@@ -15,6 +15,7 @@ bzl_library(
     deps = [
         # "//codegen:codegen_bzl",
     ],
+    visibility = ["//visibility:public"],
 )
 
 py_binary(
