@@ -88,13 +88,6 @@ push_astore_kernel() {
 	# hook this up to Cloudbuild/Github actions.
 	mv ${LINUX_BASE_BUILD}/*.tar.gz ${LINUX_BASE_BUILD}/${ASTORE_BASE_KERNEL_TREE}
 	enkit astore upload -d $1 "${LINUX_BASE_BUILD}/${ASTORE_BASE_KERNEL_TREE}" -a $2 -t ${RELEASE_TAG}
-
-	# astore publish commands are not idempotent, so the script can not
-	# add an object each time it is updated. The explicit `del` has to be
-	# removed once astore can support directory publishing, which will allow
-	# a one-time publish rule config for ${ASTORE_PATH}.
-	enkit astore public del "$1/${ASTORE_BASE_KERNEL_TREE}"
-	enkit astore public add "$1/${ASTORE_BASE_KERNEL_TREE}" -a $2
 }
 
 # Argument parsing
@@ -141,5 +134,3 @@ push_astore_kernel "${ASTORE_PATH}/test" "um"
 
 # Upload the UML `linux` image too, which is used by the tests.
 enkit astore upload "${LINUX_SOURCE}/linux"@"${ASTORE_PATH}/test/${ASTORE_TEST_KERNEL_IMG}" -a um -t ${RELEASE_TAG}
-enkit astore public del "${ASTORE_PATH}/test/${ASTORE_TEST_KERNEL_IMG}"
-enkit astore public add "${ASTORE_PATH}/test/${ASTORE_TEST_KERNEL_IMG}" -a um
