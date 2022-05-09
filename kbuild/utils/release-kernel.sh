@@ -3,8 +3,12 @@
 # Script used to release a custom kernel to Enfabrica's artifact store.
 #
 # Takes a branch name and sha1/tag pertaining to the enfabrica/linux repository
-# on Github as input, builds the base kernel, a VM kernel, and User-Mode Linux
-# (used for testing), and uploads the archives to astore.
+# on Github as input, builds a User-Mode Linux image used for testing, and
+# uploads the archives to astore.
+#
+# Note: The scripts under kbuild/v2/ supersedes this one for the minimal and
+# generic flavor builds. This script be removed from the repository in the
+# future.
 #
 
 set -e
@@ -88,13 +92,6 @@ push_astore_kernel() {
 	# hook this up to Cloudbuild/Github actions.
 	mv ${LINUX_BASE_BUILD}/*.tar.gz ${LINUX_BASE_BUILD}/${ASTORE_BASE_KERNEL_TREE}
 	enkit astore upload -d $1 "${LINUX_BASE_BUILD}/${ASTORE_BASE_KERNEL_TREE}" -a $2 -t ${RELEASE_TAG}
-
-	# astore publish commands are not idempotent, so the script can not
-	# add an object each time it is updated. The explicit `del` has to be
-	# removed once astore can support directory publishing, which will allow
-	# a one-time publish rule config for ${ASTORE_PATH}.
-	enkit astore public del "$1/${ASTORE_BASE_KERNEL_TREE}"
-	enkit astore public add "$1/${ASTORE_BASE_KERNEL_TREE}" -a $2
 }
 
 # Argument parsing
@@ -119,27 +116,9 @@ ASTORE_PATH=${ASTORE_PATH:-"kernel/${RELEASE_BRANCH}"}
 
 prep_linux_source
 
-# Base kernel with all goodies. Config is a union of the Ubuntu generic flavour
-# and common configs from the Ubuntu tree.
-cp ${LINUX_SOURCE}/debian.master/config/config.common.ubuntu ${LINUX_BASE_BUILD}/config
-cat ${LINUX_SOURCE}/debian.master/config/amd64/config.common.amd64 >> ${LINUX_BASE_BUILD}/config
-cat ${LINUX_SOURCE}/debian.master/config/amd64/config.flavour.generic >> ${LINUX_BASE_BUILD}/config
-build_kernel "${LINUX_BASE_BUILD}/config"
-push_astore_kernel "${ASTORE_PATH}" "amd64"
-
-# A stripped down kernel for just a devel VM. Config is a union of our minimal
-# flavour and common configs from the Ubuntu tree.
-cp ${LINUX_SOURCE}/debian.master/config/config.common.ubuntu ${LINUX_BASE_BUILD}/config-vm
-cat ${LINUX_SOURCE}/debian.master/config/amd64/config.common.amd64 >> ${LINUX_BASE_BUILD}/config-vm
-cat ${LINUX_SOURCE}/debian.master/config/amd64/config.flavour.minimal >> ${LINUX_BASE_BUILD}/config-vm
-build_kernel "${LINUX_BASE_BUILD}/config-vm"
-push_astore_kernel "${ASTORE_PATH}/vm" "amd64"
-
 # UML kernel used by Bazel builds.
 build_kernel "${LINUX_SOURCE}/enfabrica/config-um" "ARCH=um"
 push_astore_kernel "${ASTORE_PATH}/test" "um"
 
 # Upload the UML `linux` image too, which is used by the tests.
 enkit astore upload "${LINUX_SOURCE}/linux"@"${ASTORE_PATH}/test/${ASTORE_TEST_KERNEL_IMG}" -a um -t ${RELEASE_TAG}
-enkit astore public del "${ASTORE_PATH}/test/${ASTORE_TEST_KERNEL_IMG}"
-enkit astore public add "${ASTORE_PATH}/test/${ASTORE_TEST_KERNEL_IMG}" -a um
