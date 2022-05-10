@@ -7,6 +7,11 @@ It is a fork of codegen.bzl.
 
 load("//bazel/utils:diff_test.bzl", "diff_test")
 
+missingattrs = rule(
+    doc = """
+      Here is a rule that is missing any attributes, for testing purposes.
+    """,
+)
 
 def _codegen_impl(ctx):
     args = ctx.actions.args()
