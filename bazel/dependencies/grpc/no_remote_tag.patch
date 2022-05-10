@@ -1,20 +1,8 @@
-diff --git a/bazel/cython_library.bzl b/bazel/cython_library.bzl
-index 8e003c2246..8439e7723b 100644
---- a/bazel/cython_library.bzl
-+++ b/bazel/cython_library.bzl
-@@ -73,6 +73,7 @@ def pyx_library(name, deps = [], py_deps = [], srcs = [], **kwargs):
-             srcs = [stem + ".cpp"],
-             deps = deps + ["@local_config_python//:python_headers"],
-             linkshared = 1,
-+            tags = ["no-remote"],
-         )
-         shared_objects.append(shared_object_name)
- 
 diff --git a/third_party/py/python_configure.bzl b/third_party/py/python_configure.bzl
-index d06fa2b558..bc4ec126e1 100644
+index 7ec4459d61..c5d5869c37 100644
 --- a/third_party/py/python_configure.bzl
 +++ b/third_party/py/python_configure.bzl
-@@ -93,14 +93,21 @@ def _read_dir(repository_ctx, src_dir):
+@@ -91,14 +91,21 @@ def _read_dir(repository_ctx, src_dir):
          )
          return find_result.stdout
  
@@ -40,7 +28,7 @@ index d06fa2b558..bc4ec126e1 100644
  
  def _normalize_path(path):
      """Returns a path with '/' and remove the trailing slash."""
-@@ -150,6 +157,7 @@ def _symlink_genrule_for_dir(
+@@ -148,6 +155,7 @@ def _symlink_genrule_for_dir(
          genrule_name,
          " && ".join(command),
          "\n".join(outs),
@@ -48,40 +36,3 @@ index d06fa2b558..bc4ec126e1 100644
      )
  
  def _get_python_bin(repository_ctx, bin_path_key, default_bin_path, allow_absent):
-@@ -293,11 +301,13 @@ def _create_single_version_package(
- 
-     python_bin = _get_python_bin(repository_ctx, bin_path_key, default_bin_path, allow_absent)
-     if (python_bin == None or
--        _check_python_bin(repository_ctx,
--                          python_bin,
--                          bin_path_key,
--                          allow_absent) == None) and allow_absent:
--            python_include_rule = empty_include_rule
-+        _check_python_bin(
-+            repository_ctx,
-+            python_bin,
-+            bin_path_key,
-+            allow_absent,
-+        ) == None) and allow_absent:
-+        python_include_rule = empty_include_rule
-     else:
-         python_lib = _get_python_lib(repository_ctx, python_bin, lib_path_key)
-         _check_python_lib(repository_ctx, python_lib)
-@@ -350,7 +360,7 @@ def _python_autoconf_impl(repository_ctx):
-         _PYTHON2_BIN_PATH,
-         "python2",
-         _PYTHON2_LIB_PATH,
--        True
-+        True,
-     )
-     _create_single_version_package(
-         repository_ctx,
-@@ -358,7 +368,7 @@ def _python_autoconf_impl(repository_ctx):
-         _PYTHON3_BIN_PATH,
-         "python3",
-         _PYTHON3_LIB_PATH,
--        False
-+        False,
-     )
-     _tpl(repository_ctx, "BUILD")
- 
