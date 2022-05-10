@@ -59,4 +59,5 @@ def bzldoc(name, src):
         name = "%s-md-gen" % name,
         out = name + ".md",
         src = name + ".md.unformatted",
+        visibility = ["//visibility:public"],
     )
