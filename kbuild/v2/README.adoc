@@ -5,6 +5,25 @@ This directory contains one main driver script, `kpub-astore`, and a
 set of helper scripts for building and publishing kernel artifacts to
 astore.
 
+== TL;DR -- Building For Production
+
+To publish the kernel artifacts to production, run `kpub-astore` like
+this:
+
+```
+  $ kpub-astore -b <kernel_branch> -a kernel
+```
+
+For example, to build and release the `enf/impish-19.19` branch do
+this:
+
+```
+  $ kpub-astore -b enf/impish-19.19 -a kernel
+```
+
+The "kernel" path in astore is the root of all the published kernel
+artifacts.  See `kpub-astore -h` for more options to control the build.
+
 == The Inputs
 
 The inputs to `kpub-astore` are:
@@ -64,18 +83,6 @@ following arguments:
 
 The script also publishes a UML kernel image to astore.  Bazel uses
 the UML kernel image to run UML kunit tests.
-
-== Building For Production
-
-To publish the kernel artifacts to production, run `kpub-astore` like
-this:
-
-```
-  $ kpub-astore -a kernel
-```
-
-The "kernel" path in astore is the root of all the published kernel
-artifacts.
 
 == Install Kernel Packages via APT
 
