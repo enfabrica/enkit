@@ -11,6 +11,7 @@ load(
 
 bzl_library(
     name = "bzldoc_bzl",
+    srcs = ["bzldoc.bzl"],
     deps = [
         # "//codegen:codegen_bzl",
     ],
@@ -32,6 +33,11 @@ py_binary(
 bzldoc(
     name = "codegen",
     src = "testdata/codegen.bzl",
+)
+
+exports_files(
+    ["md.template"],
+    visibility = ["//visibility:public"],
 )
 
 diff_test(

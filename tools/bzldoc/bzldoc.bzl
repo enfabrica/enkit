@@ -51,7 +51,7 @@ def bzldoc(name, src):
     codegen(
         name = "%s-md-unformatted-gen" % name,
         outs = [name + ".md.unformatted"],
-        srcs = ["//tools/bzldoc:md.template"],
+        srcs = ["@enkit//tools/bzldoc:md.template"],
         data = ["%s.yaml" % name],
         visibility = ["//visibility:public"],
     )
@@ -59,4 +59,5 @@ def bzldoc(name, src):
         name = "%s-md-gen" % name,
         out = name + ".md",
         src = name + ".md.unformatted",
+        visibility = ["//visibility:public"],
     )
