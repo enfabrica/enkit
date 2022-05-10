@@ -18,7 +18,7 @@ if [ ! -r "$uml_image_src" ] ; then
     echo "ERROR: unable to read UML kernel image: $uml_image"
     exit 1
 fi
-uml_image_astore_dest="${ASTORE_ROOT}/test/enf-uml-img"
+uml_image_astore_dest="${ASTORE_ROOT}/test/vmlinuz"
 
 archive_src="${OUTPUT_UML_BAZEL_ARCHIVE_DIR}/build-headers.tar.gz"
 if [ ! -r "$archive_src" ] ; then
