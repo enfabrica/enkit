@@ -157,7 +157,7 @@ def stage_1():
         repo_rule = http_archive,
         patch_args = ["-p1"],
         patches = [
-            "//bazel/dependencies/grpc:no_remote_tag.patch",
+            "@enkit//bazel/dependencies/grpc:no_remote_tag.patch",
         ],
         sha256 = "e18b16f7976aab9a36c14c38180f042bb0fd196b75c9fd6a20a2b5f934876ad6",
         strip_prefix = "grpc-1.45.2",
@@ -196,4 +196,12 @@ def stage_1():
         urls = ["https://github.com/googleapis/googleapis/archive/10c88bb5c489c8ad1edb0e7f6a17cdd07147966e.zip"],
         strip_prefix = "googleapis-10c88bb5c489c8ad1edb0e7f6a17cdd07147966e",
         sha256 = "e8b434794608a9af0c0721cfaeedebe37d3676a4ee9dbeed868e5e2982b5abcc",
+    )
+
+    maybe(
+        name = "com_google_protobuf",
+        repo_rule = http_archive,
+        sha256 = "8b28fdd45bab62d15db232ec404248901842e5340299a57765e48abe8a80d930",
+        strip_prefix = "protobuf-3.20.1",
+        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.1.tar.gz"],
     )
