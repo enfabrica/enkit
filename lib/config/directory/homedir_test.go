@@ -1,15 +1,26 @@
 package directory
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOpenHomeDir(t *testing.T) {
+	hasAcceptablePrefixes := func(path string, s ...string) bool {
+		for _, ss := range s {
+			if strings.HasPrefix(path, ss) {
+				return true
+			}
+		}
+
+		return false
+	}
+
 	os.Clearenv()
 	os.Setenv("HOME", "/home/test")
 	Refresh()
@@ -20,7 +31,7 @@ func TestOpenHomeDir(t *testing.T) {
 	Refresh()
 	dir, err = OpenHomeDir("app", "identity")
 	assert.Nil(t, err, "%v", err)
-	assert.True(t, strings.HasPrefix(dir.path, "/home"), "path %s", dir.path)
+	assert.True(t, hasAcceptablePrefixes(dir.path, "/home", "/root"), "path %s", dir.path)
 }
 
 func TestOpenDir(t *testing.T) {

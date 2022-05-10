@@ -3,11 +3,6 @@ package kcerts
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/cache"
-	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/mitchellh/go-homedir"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 	"io/ioutil"
 	"net"
 	"os"
@@ -17,6 +12,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/enfabrica/enkit/lib/cache"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/mitchellh/go-homedir"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 const (

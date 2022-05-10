@@ -1,31 +1,38 @@
 package kcerts_test
 
 import (
+	"io/ioutil"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
-	"io/ioutil"
-	"os"
-	"testing"
-	"time"
 )
 
 // TODO(adam): improve this test, including files writes and other edges cases
 func TestAddSSHCAToClient(t *testing.T) {
+	hdir, _ := os.UserHomeDir()
+	os.Setenv("HOME", "/tmp")
+	defer func() {
+		os.Setenv("HOME", hdir)
+	}()
+
 	opts, err := kcerts.NewOptions()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	_, _, privateKey, err := kcerts.GenerateNewCARoot(opts)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	sshpub, err := ssh.NewPublicKey(&privateKey.PublicKey)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	_, err = kcerts.FindSSHDir()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	tmpHome, err := ioutil.TempDir("", "en")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = kcerts.AddSSHCAToClient(sshpub, []string{"*.localhost", "localhost"}, tmpHome)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 // TODO(adam): test cache failures and edge cases
