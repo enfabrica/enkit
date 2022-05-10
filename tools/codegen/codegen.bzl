@@ -33,7 +33,7 @@ codegen = rule(
     output_to_genfiles = True,  # so that header files can be found.
     attrs = {
         "data": attr.label_list(
-            allow_files = [".json", ".yaml"],
+            allow_files = [".json", ".yaml", ".pkgdef"],
             doc = "An ordered list of data files to load.",
         ),
         "outs": attr.output_list(
