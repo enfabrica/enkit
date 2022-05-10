@@ -1,9 +1,10 @@
 #!/bin/sh
 
+echo ========= VM KUNIT INIT STARTED ==========
 trap "poweroff -f" EXIT
 
 function load {
-	echo "... loading $KMOD."
+	echo "... loading $@."
 	insmod "$@"
 }
 

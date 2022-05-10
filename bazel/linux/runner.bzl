@@ -1,5 +1,5 @@
 load("//bazel/linux:providers.bzl", "KernelImageInfo", "RootfsImageInfo", "RuntimePackageInfo")
-load("//bazel/utils:messaging.bzl", "location")
+load("//bazel/utils:messaging.bzl", "location", "package")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
 CREATE_RUNNER_ATTRS = {
@@ -54,6 +54,7 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
 
     runtime = ctx.attr.runtime[RuntimePackageInfo]
     subs = dict({
+        "target": package(ctx.label),
         "kernel": ki.image.short_path,
         "rootfs": rootfs,
         "init": runtime.init,

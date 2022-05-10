@@ -1,8 +1,9 @@
-load("//bazel/linux:uml.bzl", "kernel_uml_test")
+load("//bazel/linux:uml.bzl", "kernel_uml_run")
 load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "KernelModulesInfo", "KernelTreeInfo", "RootfsImageInfo", "RuntimePackageInfo")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("//bazel/utils:files.bzl", "files_to_dir")
 load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
+load("//bazel/utils:exec_test.bzl", "exec_test")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
 def _kernel_tree_version(ctx):
@@ -977,7 +978,7 @@ and an init script to run them as a kunit test.""",
     },
 )
 
-def kernel_test(name, kernel_image, module, rootfs_image = None, test_dir_cfg = {}, runner_cfg = {}, runner = kernel_uml_test, **kwargs):
+def kernel_test(name, kernel_image, module, rootfs_image = None, test_dir_cfg = {}, runner_cfg = {}, runner = kernel_uml_run, **kwargs):
     runtime = mcreate_rule(
         name,
         kernel_test_dir,
@@ -990,4 +991,5 @@ def kernel_test(name, kernel_image, module, rootfs_image = None, test_dir_cfg = 
     cfg = mconfig(runtime = runtime, kernel_image = kernel_image)
     if rootfs_image:
         cfg = mconfig(cfg, rootfs_image = rootfs_image)
-    name_runner = mcreate_rule(name, runner, "", runner_cfg, kwargs, cfg)
+    name_runner = mcreate_rule(name, runner, "emulator", runner_cfg, kwargs, cfg)
+    exec_test(name = name, dep = name_runner)

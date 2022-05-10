@@ -25,7 +25,7 @@ DEFAULT_KERNEL_FLAGS = [
     "panic=-1",  # reboot (exit qemu) immediately on panic.
 ]
 
-def _kernel_qemu_test(ctx):
+def _kernel_qemu_run(ctx):
     code = """
 QEMU_FLAGS={qemu_flags}
 QEMU_SEARCH={qemu_search}
@@ -51,11 +51,12 @@ fi
 test -z "$KERNEL" || QEMU_FLAGS+=("-kernel" "$KERNEL")
 test -z "$INTERACTIVE" || KERNEL_FLAGS+=("init=/bin/sh")
 
-QEMU_FLAGS+=("-append" "${{KERNEL_FLAGS[*]}}")
+QEMU_FLAGS+=("-append" "${{KERNEL_FLAGS[*]}} ${{KERNEL_OPTS[*]}}")
+QEMU_FLAGS+=("${{EMULATOR_OPTS[@]}}")
 
 echo Running qemu: "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"
 if [ -z "$INTERACTIVE" ]; then
-    "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" | tee "$OUTPUTFILE"
+    "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" | tee "$OUTPUT_FILE"
 else
     "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"
 fi
@@ -75,15 +76,15 @@ fi
         "kernel_flags": shell.array_literal(kernel_flags),
     })
 
-kernel_qemu_test = rule(
+kernel_qemu_run = rule(
     doc = """Runs code in a qemu instance.
 
 The code to run is specified by using the "runner" attribute, which
 pretty much provides a self contained directory with an init script.
 See the RuntimePackageInfo provider for details.
 """,
-    implementation = _kernel_qemu_test,
-    test = True,
+    implementation = _kernel_qemu_run,
+    executable = True,
     attrs = dict(
         CREATE_RUNNER_ATTRS,
         **{
