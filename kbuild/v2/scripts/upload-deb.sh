@@ -28,6 +28,20 @@ if [ -z "$KERNEL_BASE" ] ; then
     exit 1
 fi
 
+DEB_VERSION=$(get_deb_version $INPUT_DEB_ROOT)
+if [ -z "$DEB_VERSION" ] ; then
+    echo "ERROR: unable to discover debian version string"
+    exit 1
+fi
+
+DEB_TMPDIR=$(mktemp -d)
+clean_up()
+{
+    rm -rf $DEB_TMPDIR
+}
+trap clean_up EXIT
+
+
 upload_artifact() {
     local archive="$1"
     local astore_path="$2"
@@ -73,7 +87,31 @@ upload_deb_archive() {
     upload_artifact "$archive" "$astore_path" "$ARCH" "private"
 }
 
+upload_kernel_image() {
+    local flavour=$1
+    local arch=$2
+    local kernel_version="${KERNEL_BASE}-${flavour}"
+    local kernel_deb="${INPUT_DEB_ROOT}/linux-image-${kernel_version}_${DEB_VERSION}_${ARCH}.deb"
+    local tmpdir=$(mktemp -d -p "$DEB_TMPDIR")
+    local vmlinuz="${tmpdir}/boot/vmlinuz-${KERNEL_BASE}-${flavour}"
+    local astore_path="${ASTORE_ROOT}/${flavour}/vmlinuz"
+
+    if [ ! -r "$kernel_deb" ] ; then
+        echo "ERROR: Unable to find kernel .deb package: $kernel_deb"
+        exit 1
+    fi
+    dpkg-deb -x "$kernel_deb" "$tmpdir"
+
+    if [ ! -r "$vmlinuz" ] ; then
+        echo "ERROR: Unable to find kernel vmlinuz in deb package: $vmlinuz"
+        exit 1
+    fi
+
+    upload_artifact "$vmlinuz" "$astore_path" "$ARCH" "public"
+}
+
 for f in $KERNEL_FLAVOURS ; do
     upload_bazel_archive $f
     upload_deb_archive $f
+    upload_kernel_image $f
 done
