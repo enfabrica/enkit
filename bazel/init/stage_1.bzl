@@ -205,3 +205,11 @@ def stage_1():
         strip_prefix = "protobuf-3.20.1",
         urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.1.tar.gz"],
     )
+
+    maybe(
+        name = "terraform_cli_amd64",
+        repo_rule = http_archive,
+        build_file_content = 'exports_files(["terraform"], visibility = ["//visibility:public"])',
+        sha256 = "fbd37c1ec3d163f493075aa0fa85147e7e3f88dd98760ee7af7499783454f4c5",
+        urls = ["https://releases.hashicorp.com/terraform/1.1.8/terraform_1.1.8_linux_amd64.zip"],
+    )

@@ -1,4 +1,5 @@
 load("@bazel_gazelle//:def.bzl", "gazelle")
+load("//bazel:terraform.bzl", "terraform_apply", "terraform_library")
 
 # To update and generate the BUILD.bazel files, run:
 #     bazelisk run //:gazelle
@@ -54,4 +55,22 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 #     bazelisk run //:buildifier
 buildifier(
     name = "buildifier",
+)
+
+terraform_library(
+    name = "cloudbuild",
+    srcs = [
+        "cloudbuild.tf",
+    ],
+    data = [
+        "cloudbuild.sh"
+    ],
+)
+
+terraform_apply(
+    name = "deploy-cloudbuild",
+    configs = [
+        ":cloudbuild",
+    ],
+    terraform_lock = ".terraform.lock.hcl",
 )
