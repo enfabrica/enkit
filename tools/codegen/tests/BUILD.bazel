@@ -10,3 +10,14 @@ codegen_test(
         "zoo=zebra",
     ],
 )
+
+codegen_test(
+    name = "d2-test",
+    srcs = ["test.template"],
+    data = ["d2.pkgdef"],
+    expected = "d2-test.expected",
+    overrides = [
+        "over=rides",
+        "zoo=zebra",
+    ],
+)

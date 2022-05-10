@@ -1,0 +1,9 @@
+foo: bar
+bum:
+  - x
+  - y
+  - z
+bop:
+  a: aleph
+  b: boxcar
+  c: kappa
