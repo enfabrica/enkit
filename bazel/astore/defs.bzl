@@ -113,8 +113,81 @@ astore_download = rule(
             cfg = "host",
         ),
     },
-    doc = """Downloads artifacts from artifact store - astore. 
+    doc = """Downloads artifacts from artifact store - astore.
 
-With this rule, you can easily download 
+With this rule, you can easily download
 files from an artifact store.""",
+)
+
+def astore_download_and_extract(ctx, digest, stripPrefix):
+    """Fetch and extract a package from astore.
+
+    This method downloads a package stored as an archive in astore, verifies
+    the sha256 digest provided by calling rules, and strips out any archive path
+    components provided by the caller. This function is only meant to be used by
+    Bazel repository rules and they do not maintain a dependency graph and the
+    ctx object is different than the ones used with regular rules.
+    """
+    f = ctx.path(ctx.attr.path.split("/")[-1])
+
+    # Download archive
+    enkit_args = [
+        "enkit",
+        "astore",
+        "download",
+        "--force-uid",
+        ctx.attr.uid,
+        "--output",
+        f,
+        "--overwrite",
+    ]
+    res = ctx.execute(enkit_args, timeout = 60)
+    if res.return_code:
+        fail("Astore download failed\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
+            enkit_args,
+            res.stdout,
+            res.stderr,
+        ))
+
+    # Check digest of archive
+    checksum_args = ["sha256sum", f]
+    res = ctx.execute(checksum_args, timeout = 10)
+    if res.return_code:
+        fail("Failed to calculate checksum\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
+            checksum_args,
+            res.stdout,
+            res.stderr,
+        ))
+
+    got_digest = res.stdout.strip().split(" ")[0]
+    if got_digest != digest:
+        fail("WORKSPACE repository {}: Got digest {}; expected digest {}".format(
+            ctx.attr.name,
+            got_digest,
+            digest,
+        ))
+
+    ctx.extract(
+        archive = f,
+        output = ".",
+        stripPrefix = "",
+    )
+    ctx.delete(f)
+
+astore_package = repository_rule(
+    implementation = astore_download_and_extract,
+    attrs = {
+        "path": attr.string(
+            doc = "Path to the object in astore.",
+            mandatory = True,
+        ),
+        "uid": attr.string(
+            doc = "Astore UID of the desired version of the object.",
+            mandatory = True,
+        ),
+        "digest": attr.string(
+            doc = "SHA256 digest of the object",
+            mandatory = True,
+        ),
+    },
 )
