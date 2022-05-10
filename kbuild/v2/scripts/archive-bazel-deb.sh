@@ -16,7 +16,7 @@ INPUT_DEB_ROOT="$(realpath $1)"
 KERNEL_FLAVOURS="$2"
 OUTPUT_ARCHIVE_ROOT="$(realpath $3)"
 
-INSTALL_TEMPLATE="$(dirname $(realpath $0))/template/install-bazel.sh"
+INSTALL_TEMPLATE="$(dirname $(realpath $0))/../template/install-bazel.sh"
 if [ ! -r "$INSTALL_TEMPLATE" ] ; then
     echo "ERROR: unable to find bazel install script template: $INSTALL_TEMPLATE"
     exit 1

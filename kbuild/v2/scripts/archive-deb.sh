@@ -18,7 +18,7 @@ INPUT_REPO_ROOT="$(realpath $2)"
 KERNEL_FLAVOURS="$3"
 OUTPUT_ARCHIVE_ROOT="$(realpath $4)"
 
-INSTALL_TEMPLATE="$(dirname $(realpath $0))/template/install-deb.sh"
+INSTALL_TEMPLATE="$(dirname $(realpath $0))/../template/install-deb.sh"
 if [ ! -r "$INSTALL_TEMPLATE" ] ; then
     echo "ERROR: unable to find install script template: $INSTALL_TEMPLATE"
     exit 1

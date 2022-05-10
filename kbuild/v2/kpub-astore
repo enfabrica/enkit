@@ -1,0 +1,209 @@
+#!/bin/sh
+
+# This script builds kernel artifacts and publishes them to astore.
+
+set -e
+
+TOOL_PATH="$(dirname $(realpath $0))"
+SCRIPT_PATH="${TOOL_PATH}/scripts"
+
+# KERNEL_REPO: enf-linux kernel repo
+DEFAULT_KERNEL_REPO="git@github.com:enfabrica/linux.git"
+
+# KERNEL_BRANCH: enf-linux kernel branch to build
+DEFAULT_KERNEL_BRANCH="enf/impish-19.19"
+
+# KERNEL_FLAVOURS: space separated list of kernel flavours to build
+DEFAULT_KERNEL_FLAVOURS="minimal generic"
+
+# BUILD_ROOT -- scratch space to perform the build
+DEFAULT_BUILD_ROOT="${HOME}/scratch/kernel-builder"
+
+# ASTORE_ROOT -- root directory in astore to store outputs
+DEFAULT_ASTORE_ROOT="home/${USER}/scratch/kernel"
+
+# CLEAN_BUILD -- whether to wipe the build directory first Set
+# CLEAN_BUILD to "no" to skip some lengthy steps during development.
+# For production this variable should be left at the default of "yes".
+DEFAULT_CLEAN_BUILD="yes"
+
+# VERBOSE -- turn on extra debug output
+DEFAULT_VERBOSE="no"
+
+# The following ENF_ variables provide an external API and can be set
+# before running this script:
+
+RT_KERNEL_REPO="${ENF_KERNEL_REPO:-${DEFAULT_KERNEL_REPO}}"
+RT_KERNEL_BRANCH="${ENF_KERNEL_BRANCH:-${DEFAULT_KERNEL_BRANCH}}"
+RT_KERNEL_FLAVOURS="${ENF_KERNEL_FLAVOURS:-${DEFAULT_KERNEL_FLAVOURS}}"
+RT_BUILD_ROOT="${ENF_BUILD_ROOT:-${DEFAULT_BUILD_ROOT}}"
+RT_ASTORE_ROOT="${ENF_ASTORE_ROOT:-${DEFAULT_ASTORE_ROOT}}"
+RT_CLEAN_BUILD="${ENF_CLEAN_BUILD:-${DEFAULT_CLEAN_BUILD}}"
+RT_VERBOSE="${ENF_VERBOSE:-${DEFAULT_VERBOSE}}"
+
+usage() {
+    cat <<EOF
+USAGE:
+    ${0##*/} [OPTIONS]
+
+OPTIONS:
+    -r kernel_repo
+
+		Kernel repository to clone.
+
+		The default is "$DEFAULT_KERNEL_REPO".
+
+    -b kernel_branch
+
+		Kernel git branch to check out and build.
+
+		The default is "$DEFAULT_KERNEL_BRANCH".
+
+    -f flavours
+
+		A space separated list of kernel flavours
+		(configurations) to build.  See
+		debian.master/rules.d/amd64.mk in the kernel
+		repo for a list of available flavours.
+
+		The default is "$DEFAULT_KERNEL_FLAVOURS".
+
+    -o output build directory
+
+		The scratch space root directory to use for building.
+
+		By default, the output directory is first removed and
+		then created.  To preserve and reuse an existing
+		output directory see the "-p" option below.
+
+		The default is "$DEFAULT_BUILD_ROOT".
+
+    -a astore root directory
+
+		The root directory within astore to publish artifacts.
+
+		The default is "$DEFAULT_ASTORE_ROOT".
+
+    -p
+
+		WARNING: FOR DEVELOPMENT ONLY
+
+		Preserve and reuse the existing output directory.
+
+		This can save some time when maintaining these
+		scripts, but generally should not be used for
+		production.
+
+    -v
+
+		Enable verbose output.
+
+ENVIRONMENT VARIABLES
+
+The above options can also be set via environment variables:
+
+ENF_KERNEL_REPO:      (current_value: ${ENF_KERNEL_REPO:-unset})
+ENF_KERNEL_BRANCH:    (current_value: ${ENF_KERNEL_BRANCH:-unset})
+ENF_KERNEL_FLAVOURS:  (current_value: ${ENF_KERNEL_FLAVOURS:-unset})
+ENF_BUILD_ROOT:	      (current_value: ${ENF_BUILD_ROOT:-unset})
+ENF_ASTORE_ROOT:      (current_value: ${ENF_ASTORE_ROOT:-unset})
+
+In all cases, the command line arguments take precedence.
+
+EOF
+}
+
+# Command line argument override any environment variables
+while getopts hvpr:b:f:o:a: opt ; do
+    case $opt in
+        r)
+            RT_KERNEL_REPO=$OPTARG
+            ;;
+        b)
+            RT_KERNEL_BRANCH=$OPTARG
+            ;;
+        f)
+            RT_KERNEL_FLAVOURS=$OPTARG
+            ;;
+        o)
+            RT_BUILD_ROOT=$OPTARG
+            ;;
+        a)
+            RT_ASTORE_ROOT=$OPTARG
+            ;;
+        p)
+            RT_CLEAN_BUILD="no"
+            ;;
+        v)
+            RT_VERBOSE="yes"
+            ;;
+        h)
+            usage
+            exit 0
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+echo "Using configuration:"
+for var in RT_KERNEL_REPO RT_KERNEL_BRANCH RT_KERNEL_FLAVOURS RT_BUILD_ROOT RT_ASTORE_ROOT RT_CLEAN_BUILD RT_VERBOSE; do
+    printf "%-20s:   %s\n" "$var" "$(eval echo -n \$$var)"
+done
+
+if [ "$RT_VERBOSE" = "yes" ] ; then
+    set -x
+    RUN="/bin/sh -x"
+fi
+
+ASTORE_BASE="${RT_ASTORE_ROOT}/${RT_KERNEL_BRANCH}"
+
+export RT_CLEAN_BUILD
+if [ "$RT_CLEAN_BUILD" = "yes" ] ; then
+    rm -rf "$RT_BUILD_ROOT"
+fi
+
+# These directories and files are intermediate build artifacts used by
+# the scripts.
+KBUILD_DIR="$RT_BUILD_ROOT/build"
+KERNEL_DIR="${KBUILD_DIR}/enf-linux"
+KERNEL_VERSION="${RT_BUILD_ROOT}/kernel-version.txt"
+OUTPUT_DEB_DIR="$RT_BUILD_ROOT/deb"
+OUTPUT_REPO_DIR="$RT_BUILD_ROOT/repo"
+OUTPUT_BAZEL_ARCHIVE_DIR="$RT_BUILD_ROOT/bazel-archive"
+OUTPUT_APT_ARCHIVE_DIR="$RT_BUILD_ROOT/deb-archive"
+
+OUTPUT_UML_DIR="$RT_BUILD_ROOT/uml"
+OUTPUT_UML_BAZEL_ARCHIVE_DIR="$RT_BUILD_ROOT/uml/bazel"
+
+mkdir -p "$KERNEL_DIR"
+
+# Initialize the build area and clone the kernel repo
+$RUN ${SCRIPT_PATH}/init-build.sh "$KERNEL_DIR" "$RT_KERNEL_REPO" "$RT_KERNEL_BRANCH" "$KERNEL_VERSION"
+
+# Builds the .deb kernel packages for all flavours
+$RUN ${SCRIPT_PATH}/build-debs.sh "$KERNEL_DIR" "$KERNEL_VERSION" "$RT_KERNEL_FLAVOURS" "$OUTPUT_DEB_DIR"
+
+# Creates a portable Debian APT repository for each flavour
+$RUN ${SCRIPT_PATH}/repo-deb.sh "$OUTPUT_DEB_DIR" "$RT_KERNEL_FLAVOURS" "$OUTPUT_REPO_DIR"
+
+# Creates a bazel ready tarball for building kernel modules
+$RUN ${SCRIPT_PATH}/archive-bazel-deb.sh "$OUTPUT_DEB_DIR" "$RT_KERNEL_FLAVOURS" "$OUTPUT_BAZEL_ARCHIVE_DIR"
+
+# Creates a tarball of a Debian APT repository for each flavour
+$RUN ${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$RT_KERNEL_FLAVOURS" "$OUTPUT_APT_ARCHIVE_DIR"
+
+# Uploads the bazel ready tarball for each flavour
+$RUN ${SCRIPT_PATH}/upload-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_BAZEL_ARCHIVE_DIR" "$OUTPUT_APT_ARCHIVE_DIR" "$RT_KERNEL_FLAVOURS" "$ASTORE_BASE"
+
+# Builds the UML kernel
+$RUN ${SCRIPT_PATH}/build-uml.sh "$KERNEL_DIR" "$KERNEL_VERSION" "$OUTPUT_UML_DIR"
+
+# For UML, creates a bazel ready tarball for building kernel modules
+$RUN ${SCRIPT_PATH}/archive-bazel-uml.sh "$KERNEL_DIR" "$OUTPUT_UML_DIR" "$OUTPUT_UML_BAZEL_ARCHIVE_DIR"
+
+# For UML, uploads the bazel ready tarball and kernel image
+$RUN ${SCRIPT_PATH}/upload-uml.sh "$OUTPUT_UML_DIR" "$OUTPUT_UML_BAZEL_ARCHIVE_DIR" "$ASTORE_BASE"

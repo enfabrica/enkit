@@ -42,11 +42,11 @@ upload_artifact() {
     # upload archive to astore
     enkit astore upload "${archive}@${astore_path}" -a $arch
 
-    # make archive private by default
-    enkit astore public del "$astore_path" > /dev/null 2>&1 || true
-
-    if [ "$public" = "public" ] ; then
-        enkit astore public add "$astore_path" -a $arch --all
+    if [ "$public" = "private" ] ; then
+        enkit astore public del "$astore_path" > /dev/null 2>&1 || true
+    else
+        # make all versions public
+        enkit astore public add "$astore_path" -a $arch --all > /dev/null 2>&1 || true
     fi
 
     echo "Upload sha256sum:"
