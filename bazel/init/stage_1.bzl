@@ -46,27 +46,27 @@ def stage_1():
 
     maybe(
         name = "rules_proto",
-        sha256 = "66bfdf8782796239d3875d37e7de19b1d94301e8972b3cbd2446b332429b4df1",
         repo_rule = http_archive,
-        strip_prefix = "rules_proto-4.0.0",
+        sha256 = "e017528fd1c91c5a33f15493e3a398181a9e821a804eb7ff5acdd1d2d6c2b18d",
+        strip_prefix = "rules_proto-4.0.0-3.20.0",
         urls = [
-            "https://github.com/bazelbuild/rules_proto/archive/refs/tags/4.0.0.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/refs/tags/4.0.0-3.20.0.tar.gz",
         ],
     )
 
     maybe(
         name = "bats_support",
+        repo_rule = http_archive,
         url = "https://github.com/bats-core/bats-support/archive/refs/tags/v0.3.0.tar.gz",
         strip_prefix = "bats-support-0.3.0",
-        repo_rule = http_archive,
         build_file = "@enkit//bazel/dependencies:BUILD.bats_support.bazel",
         sha256 = "7815237aafeb42ddcc1b8c698fc5808026d33317d8701d5ec2396e9634e2918f",
     )
 
     maybe(
         name = "bats_assert",
-        url = "https://github.com/bats-core/bats-assert/archive/refs/tags/v2.0.0.tar.gz",
         repo_rule = http_archive,
+        url = "https://github.com/bats-core/bats-assert/archive/refs/tags/v2.0.0.tar.gz",
         strip_prefix = "bats-assert-2.0.0",
         build_file = "@enkit//bazel/dependencies:BUILD.bats_assert.bazel",
         sha256 = "15dbf1abb98db785323b9327c86ee2b3114541fe5aa150c410a1632ec06d9903",
@@ -74,8 +74,8 @@ def stage_1():
 
     maybe(
         name = "bats_file",
-        url = "https://github.com/bats-core/bats-file/archive/refs/tags/v0.2.0.tar.gz",
         repo_rule = http_archive,
+        url = "https://github.com/bats-core/bats-file/archive/refs/tags/v0.2.0.tar.gz",
         strip_prefix = "bats-file-0.2.0",
         build_file = "@enkit//bazel/dependencies:BUILD.bats_file.bazel",
         sha256 = "1fa26407a68f4517cf9150d4763779ee66946a68eded33fa182ddf6a795c5062",
@@ -83,8 +83,8 @@ def stage_1():
 
     maybe(
         name = "bats_core",
-        url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.5.0.tar.gz",
         repo_rule = http_archive,
+        url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.5.0.tar.gz",
         strip_prefix = "bats-core-1.5.0",
         sha256 = "36a3fd4413899c0763158ae194329af8f48bb1ff0d1338090b80b3416d5793af",
         patch_args = ["-p1"],
@@ -126,9 +126,9 @@ def stage_1():
     maybe(
         name = "com_google_absl",
         repo_rule = http_archive,
-        urls = ["https://github.com/abseil/abseil-cpp/archive/98eb410c93ad059f9bba1bf43f5bb916fc92a5ea.zip"],
-        strip_prefix = "abseil-cpp-98eb410c93ad059f9bba1bf43f5bb916fc92a5ea",
-        sha256 = "aabf6c57e3834f8dc3873a927f37eaf69975d4b28117fc7427dfb1c661542a87",
+        sha256 = "a4567ff02faca671b95e31d315bab18b42b6c6f1a60e91c6ea84e5a2142112c2",
+        strip_prefix = "abseil-cpp-20211102.0",
+        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.zip"],
     )
 
     maybe(
@@ -154,39 +154,39 @@ def stage_1():
 
     maybe(
         name = "com_github_grpc_grpc",
+        repo_rule = http_archive,
         patch_args = ["-p1"],
         patches = [
             "//bazel/dependencies/grpc:no_remote_tag.patch",
         ],
-        repo_rule = http_archive,
-        sha256 = "12a4a6f8c06b96e38f8576ded76d0b79bce13efd7560ed22134c2f433bc496ad",
-        strip_prefix = "grpc-1.41.1",
+        sha256 = "e18b16f7976aab9a36c14c38180f042bb0fd196b75c9fd6a20a2b5f934876ad6",
+        strip_prefix = "grpc-1.45.2",
         urls = [
-            "https://github.com/grpc/grpc/archive/refs/tags/v1.41.1.tar.gz",
+            "https://github.com/grpc/grpc/archive/refs/tags/v1.45.2.tar.gz",
         ],
     )
 
     maybe(
         name = "com_github_bazelbuild_buildtools",
-        strip_prefix = "buildtools-5.1.0",
         repo_rule = http_archive,
+        strip_prefix = "buildtools-5.1.0",
         url = "https://github.com/bazelbuild/buildtools/archive/refs/tags/5.1.0.tar.gz",
         sha256 = "e3bb0dc8b0274ea1aca75f1f8c0c835adbe589708ea89bf698069d0790701ea3",
     )
 
     maybe(
         name = "io_bazel_rules_docker",
+        repo_rule = http_archive,
         sha256 = "85ffff62a4c22a74dbd98d05da6cf40f497344b3dbf1e1ab0a37ab2a1a6ca014",
         strip_prefix = "rules_docker-0.23.0",
-        repo_rule = http_archive,
         urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.23.0/rules_docker-v0.23.0.tar.gz"],
     )
 
     maybe(
         name = "rules_proto_grpc",
+        repo_rule = http_archive,
         sha256 = "28724736b7ff49a48cb4b2b8cfa373f89edfcb9e8e492a8d5ab60aa3459314c8",
         strip_prefix = "rules_proto_grpc-4.0.1",
-        repo_rule = http_archive,
         urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.0.1.tar.gz"],
     )
 
