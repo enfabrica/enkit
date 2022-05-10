@@ -3529,11 +3529,28 @@ function gee__pr_submit() {
   _check_cwd
   _check_gh_auth
 
+  # Check the status of the PR.
+  local -a pr_vars=()
+  mapfile -t pr_vars < \
+    <("${GH}" pr view --json number,state,isDraft --jq '.number, .state, .isDraft')
+  local pr_number="${pr_vars[0]}"
+  local pr_state="${pr_vars[1]}"
+  local pr_is_draft="${pr_vars[2]}"
+  if [[ "${pr_state}" == "MERGED" ]]; then
+    _fatal "Associated PR #${pr_number} has already been merged."
+  fi
+  if [[ "${pr_state}" != "OPEN" ]]; then
+    _gh pr view
+    _fatal "An open PR was not found."
+  fi
+  if [[ "${pr_is_draft}" == "true" ]]; then
+    _fatal "Open PR #${pr_number} is still a draft."
+  fi
   # Presubmit check: does remote branch exist?
   local CURRENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
   if ! _remote_branch_exists origin "${CURRENT_BRANCH}"; then
-    _die "Remote branch ${CURRENT_BRANCH} does not exist."
+    _fatal "Remote branch ${CURRENT_BRANCH} does not exist."
   fi
   # Presubmit check: Are there uncommitted local changes?
   local DIFFS
