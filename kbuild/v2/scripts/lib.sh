@@ -33,3 +33,23 @@ get_deb_version() {
     deb_version=${deb_version##*_}
     echo -n $deb_version
 }
+
+upload_artifact() {
+    local archive="$1"
+    local astore_path="$2"
+    local arch="$3"
+    local tag="$4"
+
+    if [ ! -r "$archive" ] ; then
+        echo "ERROR: unable to find archive: $archive"
+        exit 1
+    fi
+
+    # upload archive to astore
+    # TODO: add '-t "$tag"' after INFRA-1047 is fixed.
+    enkit astore upload "${archive}@${astore_path}" -a $arch
+
+    echo "Upload sha256sum:"
+    sha256sum "$archive"
+
+}
