@@ -65,7 +65,7 @@ make_archive() {
 
     # create tarball
     echo -n "${flavour}: Generating Debian APT archive file... "
-    tar -C "$flavour_repo" --create --gzip --file "$archive" .
+    tar -C "$flavour_repo" --owner root --group root --create --gzip --file "$archive" .
     echo "Done."
 }
 

@@ -9,6 +9,9 @@
 
 set -e
 
+LIB_SH="$(dirname $(realpath $0))/lib.sh"
+. $LIB_SH
+
 OUTPUT_UML_DIR="$(realpath $1)"
 OUTPUT_UML_BAZEL_ARCHIVE_DIR="$(realpath $2)"
 ASTORE_ROOT="$3"
@@ -27,26 +30,12 @@ if [ ! -r "$archive_src" ] ; then
 fi
 archive_astore_dest="${ASTORE_ROOT}/test/build-headers.tar.gz"
 
-upload_artifact() {
-    local archive="$1"
-    local astore_path="$2"
-    local arch="$3"
+modules_tar="${OUTPUT_UML_DIR}/modules.tar.gz"
+modules_astore_dest="${ASTORE_ROOT}/test/modules.tar.gz"
 
-    if [ ! -r "$archive" ] ; then
-        echo "ERROR: unable to find archive: $archive"
-        exit 1
-    fi
+kernel_version="$(cat ${OUTPUT_UML_DIR}/include/config/kernel.release)"
+tag="kernel=$kernel_version"
 
-    # upload archive to astore
-    enkit astore upload "${archive}@${astore_path}" -a $arch
-
-    # make all versions public
-    enkit astore public add "$astore_path" -a $arch --all > /dev/null 2>&1 || true
-
-    echo "Upload sha256sum:"
-    sha256sum "$archive"
-
-}
-
-upload_artifact "$uml_image_src" "$uml_image_astore_dest" "um"
-upload_artifact "$archive_src"   "$archive_astore_dest"   "um"
+upload_artifact "$uml_image_src" "$uml_image_astore_dest" "um" "$tag" "public"
+upload_artifact "$archive_src"   "$archive_astore_dest"   "um" "$tag" "public"
+upload_artifact "$modules_tar"   "$modules_astore_dest"   "um" "$tag" "public"

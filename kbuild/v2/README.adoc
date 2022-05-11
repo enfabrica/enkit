@@ -24,6 +24,33 @@ this:
 The "kernel" path in astore is the root of all the published kernel
 artifacts.  See `kpub-astore -h` for more options to control the build.
 
+== Build Time Dependencies
+
+Building all the kernel Debian packages requires a number of
+development packages to be installed on the build host.  The following
+needs to be installed:
+
+```
+  $ sudo apt install \
+            build-essential  \
+            kernel-wedge     \
+            grep-dctrl       \
+            flex             \
+            bison            \
+            libudev-dev      \
+            libusb-dev       \
+            fakeroot         \
+            libpci-dev       \
+            libssl-dev       \
+            libelf-dev       \
+            libiberty-dev    \
+            libcap-dev       \
+            python3-docutils \
+            asciidoc         \
+            zstd
+
+```
+
 == The Inputs
 
 The inputs to `kpub-astore` are:

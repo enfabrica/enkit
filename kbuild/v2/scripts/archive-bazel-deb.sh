@@ -78,7 +78,7 @@ make_bazel_archive() {
 
     # create tarball
     echo -n "${flavour}: Generating bazel build archive file... "
-    tar -C "$tmp_dir" --create --gzip --file "$archive" .
+    tar -C "$tmp_dir" --owner root --group root --create --gzip --file "$archive" .
     rm -rf "$tmp_dir"
 
     echo "Done."
