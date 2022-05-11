@@ -170,12 +170,19 @@ def astore_download_and_extract(ctx, digest, stripPrefix):
     ctx.extract(
         archive = f,
         output = ".",
-        stripPrefix = "",
+        stripPrefix = stripPrefix,
     )
     ctx.delete(f)
 
+# This wrapper is in place to allow a rolling upgrade across Enkit and the
+# external repositories which consume the kernel_tree_version rule defined in
+# //enkit/linux/defs.bzl, which uses "sha256" as the attribute name instead of
+# "digest".
+def _astore_download_and_extract_impl(ctx):
+    astore_download_and_extract(ctx, ctx.attr.digest, ctx.attr.strip_prefix)
+
 astore_package = repository_rule(
-    implementation = astore_download_and_extract,
+    implementation = _astore_download_and_extract_impl,
     attrs = {
         "path": attr.string(
             doc = "Path to the object in astore.",
@@ -186,8 +193,11 @@ astore_package = repository_rule(
             mandatory = True,
         ),
         "digest": attr.string(
-            doc = "SHA256 digest of the object",
+            doc = "SHA256 digest of the object.",
             mandatory = True,
+        ),
+        "strip_prefix": attr.string(
+            doc = "Optional path prefix to strip out of the archive.",
         ),
     },
 )
