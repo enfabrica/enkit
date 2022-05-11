@@ -5,11 +5,19 @@ load("//bazel/utils:files.bzl", "files_to_dir")
 load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
 load("//bazel/utils:exec_test.bzl", "exec_test")
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("//bazel/astore:defs.bzl", "astore_download_and_extract")
 
 def _kernel_tree_version(ctx):
     distro, version = ctx.attr.package.split("-", 1)
 
-    ctx.download_and_extract(ctx.attr.url, output = ".", sha256 = ctx.attr.sha256, auth = ctx.attr.auth, stripPrefix = ctx.attr.strip_prefix)
+    if ctx.attr.url and not (ctx.attr.path or ctx.attr.uid):
+        ctx.download_and_extract(ctx.attr.url, output = ".", sha256 = ctx.attr.sha256, auth = ctx.attr.auth, stripPrefix = ctx.attr.strip_prefix)
+    elif (ctx.attr.path and ctx.attr.uid) and not ctx.attr.url:
+        astore_download_and_extract(ctx, digest = ctx.attr.sha256, stripPrefix = ctx.attr.strip_prefix)
+
+    else:
+        fail("WORKSPACE repository {}: Provide either a URL, OR an astore path and UID".format(ctx.attr.name))
+
 
     install_script = "install-" + version + ".sh"
     install_script_path = ctx.path(install_script)
@@ -96,8 +104,13 @@ To create a .tar.gz suitable for this rule, you can use the kbuild tool, availab
             mandatory = True,
         ),
         "url": attr.string(
-            doc = "The url to download the package from.",
-            mandatory = True,
+            doc = "The URL to download the package from. This is mutually exclusive with the astore path/uid arguments.",
+        ),
+        "path": attr.string(
+            doc = "The astore path to download the package from.",
+        ),
+        "uid": attr.string(
+            doc = "The astore UID for this package.",
         ),
         "sha256": attr.string(
             doc = "The sha256 of the downloaded package file.",
@@ -423,7 +436,7 @@ For example:
 List of kernel modules or bundles to be included in this bundle.
 
 A bundle, however, is not allowed to contain another bundle. So
-if one bundle is specified as a depencdency, it is transparently 
+if one bundle is specified as a depencdency, it is transparently
 expanded in its list of modules.""",
         ),
     },
