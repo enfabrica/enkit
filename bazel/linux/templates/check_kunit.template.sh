@@ -2,7 +2,7 @@
 
 test -n "$1" || {
     echo 1>&2 "The first argument to $0 must be the directory containing the"
-    echo 1>&2 "console.log file with the output of qemu/uml/..."
+    echo 1>&2 "console.log file with the output of qemu/uml/... \$1 was empty!"
     exit 1
 }
 

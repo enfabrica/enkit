@@ -1,6 +1,6 @@
 load("//bazel/linux:runner.bzl", "CREATE_RUNNER_ATTRS", "create_runner")
 
-def _kernel_uml_test(ctx):
+def _kernel_uml_run(ctx):
     code = """
 # The Bazel TEST_TMPDIR path tends to get long depending on the project
 # structure and the current working directory at the time of test invocation.
@@ -10,7 +10,7 @@ def _kernel_uml_test(ctx):
 UML_DIR=$(mktemp -u)
 ln -sf "$TMPDIR" "$UML_DIR"
 
-OPTIONS=()
+OPTIONS=("uml_dir=$UML_DIR")
 if [ -n "$ROOTFS" ]; then
   OPTIONS+=("ubd0=$ROOTFS" "hostfs=$RUNTIME")
 else
@@ -18,22 +18,32 @@ else
 fi
 
 # If debugging is enabled, throw the user in a shell.
-if [ -n "$INTERACTIVE" ]; then
-  "$KERNEL" con=pty con0=fd:0,fd:1 uml_dir="$UML_DIR" "${{OPTIONS[@]}}" init=/bin/sh "$@" </dev/tty >/dev/tty || true
+if [ -z "$INTERACTIVE" ]; then
+  OPTIONS=("con0=null,fd:1" "con1=null,fd:1" "${{OPTIONS[@]}}")
 else
-  "$KERNEL" con0=null,fd:1 con1=null,fd:1 uml_dir="$UML_DIR" "${{OPTIONS[@]}}" "$@" | tee "$OUTPUTFILE"
+  OPTIONS=("con0=fd:0,fd:1" "${{OPTIONS[@]}}" "init=/bin/sh")
+fi
+OPTIONS+=("${{EMULATOR_OPTS[@]}}")
+OPTIONS+=("${{KERNEL_OPTS[@]}}")
+
+echo Running uml: "$KERNEL" "${{OPTIONS[@]}}"
+if [ -z "$INTERACTIVE" ]; then
+  "$KERNEL" "${{OPTIONS[@]}}" | tee "$OUTPUT_FILE"
+else
+  "$KERNEL" "${{OPTIONS[@]}}"
+  stty sane
 fi
 """
     return create_runner(ctx, ["um"], code)
 
-kernel_uml_test = rule(
+kernel_uml_run = rule(
     doc = """Runs code in an uml instance.
 
 The code to run is specified by using the "runner" attribute, which
 pretty much provides a self contained directory with an init script.
 See the RuntimePackageInfo provider for details.
 """,
-    implementation = _kernel_uml_test,
+    implementation = _kernel_uml_run,
     attrs = CREATE_RUNNER_ATTRS,
-    test = True,
+    executable = True,
 )
