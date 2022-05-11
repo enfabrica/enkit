@@ -56,7 +56,7 @@ QEMU_FLAGS+=("${{EMULATOR_OPTS[@]}}")
 
 echo Running qemu: "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"
 if [ -z "$INTERACTIVE" ]; then
-    "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" | tee "$OUTPUT_FILE"
+    "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" </dev/null | tee "$OUTPUT_FILE"
 else
     "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"
 fi

@@ -3,7 +3,7 @@ load("@bazel_skylib//lib:shell.bzl", "shell")
 def _exec_test(ctx):
     # A test rule must return an executable file, cannot reuse
     # the executable returned by another rule.
-    template = """#!/bin/sh
+    template = """#!/bin/bash
 ARGS={argv}; ARGS+=("$@")
 exec {script} "$ARGS[@]"
 """
@@ -15,14 +15,15 @@ exec {script} "$ARGS[@]"
 exec_test = rule(
     doc = """Turns an executable target into a test target.
 
-This is so that any executable target can be used as a test, including
+This is so that any executable target can be used as a test, including in
 test_suite(), with a specific set of parameters. But also so that test targets
-can be broken out of being marked as a test rule.
+can be broken out into separate executable and test phases.
 
 This is convenient as when a target is marked as 'test = True', it must be
 named _test, and is always run under a different environment (wrapped in a
-test-setup.sh, which changes the terminal behavior, backgrounds tasks, and
-affects the --run_under flag).
+test-setup.sh), which changes the terminal behavior, backgrounds tasks, and
+affects the --run_under flag - which can make some targets very hard to
+work with for debugging purposes.
 
 Example:
 
