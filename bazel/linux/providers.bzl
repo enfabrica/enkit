@@ -55,7 +55,7 @@ and have basic tools available necessary for its users.
     },
 )
 
-RuntimePackageInfo = provider(
+RuntimeBundleInfo = provider(
     doc = """Represents something to run in an isolated environment.""",
     fields = {
         "init": "string, path relative to root, script to run in the environment once it is ready, typically as an init=",

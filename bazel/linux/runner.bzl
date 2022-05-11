@@ -1,4 +1,4 @@
-load("//bazel/linux:providers.bzl", "KernelImageInfo", "RootfsImageInfo", "RuntimePackageInfo")
+load("//bazel/linux:providers.bzl", "KernelImageInfo", "RootfsImageInfo", "RuntimeBundleInfo")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
@@ -20,8 +20,8 @@ If not specified, the current root of the filesystem will be used as rootfs.
     ),
     "runtime": attr.label(
         mandatory = True,
-        providers = [RuntimePackageInfo],
-        doc = "A target returning a RuntimePackageInfo, with commands to run in the emulator.",
+        providers = [RuntimeBundleInfo],
+        doc = "A target returning a RuntimeBundleInfo, with commands to run in the emulator.",
     ),
     "_template": attr.label(
         allow_single_file = True,
@@ -52,7 +52,7 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
         rootfs = ctx.attr.rootfs_image[RootfsImageInfo].image.short_path
         inputs = depset(transitive = [inputs, ctx.attr.rootfs_image.files])
 
-    runtime = ctx.attr.runtime[RuntimePackageInfo]
+    runtime = ctx.attr.runtime[RuntimeBundleInfo]
     subs = dict({
         "target": package(ctx.label),
         "kernel": ki.image.short_path,
