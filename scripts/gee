@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly VERSION="0.2.28"
+readonly VERSION="0.2.29"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -3322,31 +3322,14 @@ function gee__pr_make() {
   BODYFILE="$(mktemp -t prbody.XXXXXX.txt)"
   (
     cat <<'EndOfPrTemplate'
-# Pull request template
-#
-# This template is designed to help you write a good PR description.  This
-# description will be used as the first comment for your pull request, and will
-# ultimately become the squash-merge commit message for your change when you
-# run "gee pr_submit".  Note that all lines that start with a "#" will be
-# deleted.
-#
-# The first line if your PR description should be the PR title.  This
-# description should describe what is being affected, and what the change does.
+# The first line should be the PR title.
 # For example: "scripts/gee: Add new PR template."
 
-
 # In this section, explain why the PR is necessary and what the PR desires to
-# achieve.
-
+# achieve.  List any relevant Jira tickets.
 
 # In this section, describe what testing was done to validate your change.
 Tested:
-
-
-# In this section, list any relevant Jira tickets or other metadata tags.
-#
-# For example:
-# Jira: PROJ-1234,PROJ-5678
 
 # Having second thoughts?  Uncomment one of these two lines:
 # DRAFT   # To mark this PR as a "draft"
@@ -3360,7 +3343,7 @@ EndOfPrTemplate
       printf "      easier to read.\n\n"
     fi
     printf "\n# The following files were modified in this PR:\n"
-    "${GIT}" diff --name_only "${PARENT}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
+    "${GIT}" diff --name-only "${PARENT}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
     printf "#\n# Here is your commit log:\n"
     "${GIT}" log --reverse "${PARENT}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
 
@@ -3368,15 +3351,18 @@ EndOfPrTemplate
     #                 PR description.
   ) >"${BODYFILE}"
 
-  _info "PR message body follows:"
-  cat "${BODYFILE}" >&2
-  declare -g RESP=""
-  _choose_one "Do you want to edit this message? ([V]im, [e]macs, [n]o, [a]bort)  " "vVeEnNaA" "v"
-  case "${RESP}" in
-    [vV]*) vim "${BODYFILE}"; ;;
-    [eE]*) emacs "${BODYFILE}"; ;;
-    [aA]*) _fatal "Aborted."; ;;
-  esac
+  if [[ -n "${EDITOR}" ]]; then
+    "${EDITOR}" "${BODYFILE}"
+  else
+    declare -g RESP=""
+    _choose_one "How do you want to edit the PR description?? ([V]im, [e]macs, or [a]bort)  " \
+        "vVeEaA" "v"
+    case "${RESP}" in
+      [vV]*) vim "${BODYFILE}"; ;;
+      [eE]*) emacs "${BODYFILE}"; ;;
+      [aA]*) _fatal "Aborted."; ;;
+    esac
+  fi
 
   # Remove all comments from the description and squeeze multiple blank
   # lines into single blank lines:
@@ -3393,9 +3379,10 @@ EndOfPrTemplate
   # Parse metadata from PR description.
   local TITLE
   TITLE="$(head -1 "${BODYFILE}")"
+  # We remove the title from the body file to avoid "stuttering" the
+  # title when we eventually submit the PR:
+  sed -i '1{d};2{/^$/d}' "${BODYFILE}"
 
-  # Note: we must label origin as the upstream branch for "gh pr create" to
-  # automatically pick the branch to use for the PR request.
   _push_to_origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
   #  -R specifies the repo that we are pushing changes into.
@@ -3490,15 +3477,15 @@ function gee__pr_check() {
         if (( WAIT == 0 )); then
           declare -g RESP=""
           _choose_one "Some checks are still pending.  [W]ait, [r]etry, [a]bort, or [c]ontinue without waiting?  " \
-            "rwac" "w"
-          if [[ "${RESP}" == "a" ]]; then
-            _fatal "Aborted."
-          elif [[ "${RESP}" == "c" ]]; then
-            return 1
-          elif [[ "${RESP}" == "w" ]]; then
-            _info "Waiting until all pending tests are complete."
-            WAIT=1
-          fi
+            "rRwWaAcC" "w"
+          case "${RESP}" in
+            [aA]*) _fatal "Aborted."; ;;
+            [cC]*) return 1; ;;
+            [wW]*)
+              _info "Waiting until all pending tests are complete."
+              WAIT=1
+              ;;
+          esac
         fi
         sleep 10
       fi
@@ -3600,17 +3587,8 @@ function gee__pr_submit() {
   sed -n '/^--/,$p' "${TEMPFILE}" | tail +2 >> "${BODYFILE}"
   rm "${TEMPFILE}"
 
-  declare -g RESP=""
-  while /bin/true; do
-    _info "Commit message will be:"
-    cat "${BODYFILE}"
-    _choose_one "About to merge.  Confirm? [y]es,[e]dit,[N]o  " "yeN" "n"
-    case "${RESP}" in
-      [eE]*) "${EDITOR:-vim}" "${BODYFILE}"; ;;
-      [nN]*) _fatal  "Aborted."; ;;
-      [yY]*) break; ;;
-    esac
-  done
+  _info "Commit message will be:"
+  cat "${BODYFILE}"
 
   local FROM_BRANCH="${GHUSER}:${CURRENT_BRANCH}"
   if [[ "${UPSTREAM}" == "${GHUSER}" ]]; then
