@@ -41,7 +41,7 @@ kernel_uml_run = rule(
 
 The code to run is specified by using the "runner" attribute, which
 pretty much provides a self contained directory with an init script.
-See the RuntimePackageInfo provider for details.
+See the RuntimeBundleInfo provider for details.
 """,
     implementation = _kernel_uml_run,
     attrs = CREATE_RUNNER_ATTRS,
