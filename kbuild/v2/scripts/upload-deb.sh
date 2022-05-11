@@ -63,8 +63,7 @@ upload_bazel_archive() {
     local astore_path="${ASTORE_ROOT}/${flavour}/build-headers.tar.gz"
     local tag="$(kernel_tag $flavour)"
 
-    # these need to be made public for bazel
-    upload_artifact "$archive" "$astore_path" "$ARCH" "$tag" "public"
+    upload_artifact "$archive" "$astore_path" "$ARCH" "$tag"
 }
 
 upload_deb_archive() {
@@ -74,7 +73,7 @@ upload_deb_archive() {
     local astore_path="${ASTORE_ROOT}/${flavour}/deb-artifacts.tar.gz"
     local tag="$(kernel_tag $flavour)"
 
-    upload_artifact "$archive" "$astore_path" "$ARCH" "$tag" "private"
+    upload_artifact "$archive" "$astore_path" "$ARCH" "$tag"
 }
 
 upload_kernel_image() {
@@ -97,7 +96,7 @@ upload_kernel_image() {
         exit 1
     fi
 
-    upload_artifact "$vmlinuz" "$astore_path" "$ARCH" "$tag" "public"
+    upload_artifact "$vmlinuz" "$astore_path" "$ARCH" "$tag"
 }
 
 upload_kernel_modules() {
@@ -117,7 +116,7 @@ upload_kernel_modules() {
 
     tar -C "$tmpdir" --owner root --group root --create --gzip --file "$modules_tar" .
 
-    upload_artifact "$modules_tar" "$astore_path" "$ARCH" "$tag" "public"
+    upload_artifact "$modules_tar" "$astore_path" "$ARCH" "$tag"
 }
 
 for f in $KERNEL_FLAVOURS ; do
