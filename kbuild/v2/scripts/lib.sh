@@ -46,8 +46,7 @@ upload_artifact() {
     fi
 
     # upload archive to astore
-    # TODO: add '-t "$tag"' after INFRA-1047 is fixed.
-    enkit astore upload "${archive}@${astore_path}" -a $arch
+    enkit astore upload "${archive}@${astore_path}" -a $arch -t "$tag"
 
     echo "Upload sha256sum:"
     sha256sum "$archive"
