@@ -991,3 +991,31 @@ def kernel_test(name, kernel_image, module, rootfs_image = None, test_dir_cfg = 
     if rootfs_image:
         cfg = mconfig(cfg, rootfs_image = rootfs_image)
     name_runner = mcreate_rule(name, runner, "", runner_cfg, kwargs, cfg)
+
+def _bundle(ctx):
+    out = []
+
+    for dep in ctx.attr.deps:
+        for f in dep.default_runfiles.files.to_list():
+            out.append(f)
+
+    d = files_to_dir(
+        ctx,
+        ctx.attr.name + "-root",
+        out,
+    )
+
+    return [
+        DefaultInfo(files = depset([d]))
+    ]
+
+bundle = rule(
+    implementation = _bundle,
+    attrs = {
+        "deps": attr.label_list(
+            mandatory = True,
+            providers = [],
+            doc = "",
+        ),
+    },
+)
