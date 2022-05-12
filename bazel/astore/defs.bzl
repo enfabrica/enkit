@@ -174,6 +174,9 @@ def astore_download_and_extract(ctx, digest, stripPrefix):
     )
     ctx.delete(f)
 
+    if ctx.attr.build:
+        ctx.template("BUILD.bazel", ctx.attr.build)
+
 # This wrapper is in place to allow a rolling upgrade across Enkit and the
 # external repositories which consume the kernel_tree_version rule defined in
 # //enkit/linux/defs.bzl, which uses "sha256" as the attribute name instead of
@@ -184,6 +187,10 @@ def _astore_download_and_extract_impl(ctx):
 astore_package = repository_rule(
     implementation = _astore_download_and_extract_impl,
     attrs = {
+        "build": attr.label(
+            doc = "An optional BUILD file to copy in the unpacked tree.",
+            allow_single_file = True,
+        ),
         "path": attr.string(
             doc = "Path to the object in astore.",
             mandatory = True,
