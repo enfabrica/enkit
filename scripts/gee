@@ -3822,6 +3822,16 @@ function gee__remove_branch() {
   local SHA
   SHA="$("${GIT}" reflog | head -n 1 | awk '{print $1}' )"
 
+  # delete the bazel cache associated with this worktree
+  if [[ -h ./bazel-out ]]; then
+    local BAZELCACHE
+    BAZELCACHE="$(readlink -f ./bazel-out)"
+    BAZELCACHE="${BAZELCACHE%/execroot/*/bazel-out}"
+    _info "Removing linked bazel cache directory \"${BAZELCACHE}\""
+    chmod -R u+w "${BAZELCACHE}"
+    rm -rf "${BAZELCACHE}"
+  fi
+
   _checkout_or_die "${MAIN}"
   # --force is required for git v2.17.1, or the remove operation will always fail.
   _git worktree remove --force "${BR}"
