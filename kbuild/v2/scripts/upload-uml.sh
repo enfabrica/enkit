@@ -30,12 +30,8 @@ if [ ! -r "$archive_src" ] ; then
 fi
 archive_astore_dest="${ASTORE_ROOT}/test/build-headers.tar.gz"
 
-modules_tar="${OUTPUT_UML_DIR}/modules.tar.gz"
-modules_astore_dest="${ASTORE_ROOT}/test/modules.tar.gz"
-
 kernel_version="$(cat ${OUTPUT_UML_DIR}/include/config/kernel.release)"
 tag="kernel=$kernel_version"
 
 upload_artifact "$uml_image_src" "$uml_image_astore_dest" "um" "$tag"
 upload_artifact "$archive_src"   "$archive_astore_dest"   "um" "$tag"
-upload_artifact "$modules_tar"   "$modules_astore_dest"   "um" "$tag"

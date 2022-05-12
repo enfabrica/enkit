@@ -76,52 +76,43 @@ upload_deb_archive() {
     upload_artifact "$archive" "$astore_path" "$ARCH" "$tag"
 }
 
-upload_kernel_image() {
+upload_kernel_image_modules() {
     local flavour=$1
     local kernel_version="$(kernel_version $flavour)"
     local kernel_deb="${INPUT_DEB_ROOT}/linux-image-${kernel_version}_${DEB_VERSION}_${ARCH}.deb"
+    local modules_deb="${INPUT_DEB_ROOT}/linux-modules-${kernel_version}_${DEB_VERSION}_${ARCH}.deb"
     local tmpdir=$(mktemp -d -p "$DEB_TMPDIR")
     local vmlinuz="${tmpdir}/boot/vmlinuz-${KERNEL_BASE}-${flavour}"
-    local astore_path="${ASTORE_ROOT}/${flavour}/vmlinuz"
+    local tarball="${DEB_TMPDIR}/vmlinuz-modules.tar.gz"
+    local astore_path="${ASTORE_ROOT}/${flavour}/vmlinuz-modules.tar.gz"
     local tag="$(kernel_tag $flavour)"
 
     if [ ! -r "$kernel_deb" ] ; then
         echo "ERROR: Unable to find kernel .deb package: $kernel_deb"
         exit 1
     fi
-    dpkg-deb -x "$kernel_deb" "$tmpdir"
-
-    if [ ! -r "$vmlinuz" ] ; then
-        echo "ERROR: Unable to find kernel vmlinuz in deb package: $vmlinuz"
-        exit 1
-    fi
-
-    upload_artifact "$vmlinuz" "$astore_path" "$ARCH" "$tag"
-}
-
-upload_kernel_modules() {
-    local flavour=$1
-    local kernel_version="$(kernel_version $flavour)"
-    local modules_deb="${INPUT_DEB_ROOT}/linux-modules-${kernel_version}_${DEB_VERSION}_${ARCH}.deb"
-    local tmpdir=$(mktemp -d -p "$DEB_TMPDIR")
-    local modules_tar="${DEB_TMPDIR}/modules.tar.gz"
-    local astore_path="${ASTORE_ROOT}/${flavour}/modules.tar.gz"
-    local tag="$(kernel_tag $flavour)"
 
     if [ ! -r "$modules_deb" ] ; then
         echo "ERROR: Unable to find kernel modules .deb package: $modules_deb"
         exit 1
     fi
+
+    dpkg-deb -x "$kernel_deb" "$tmpdir"
+    if [ ! -r "$vmlinuz" ] ; then
+        echo "ERROR: Unable to find kernel vmlinuz in deb package: $vmlinuz"
+        exit 1
+    fi
+
     dpkg-deb -x "$modules_deb" "$tmpdir"
 
-    tar -C "$tmpdir" --owner root --group root --create --gzip --file "$modules_tar" .
+    # Include the /boot and /lib directories
+    tar -C "$tmpdir" --owner root --group root --create --gzip --file "$tarball" boot lib
 
-    upload_artifact "$modules_tar" "$astore_path" "$ARCH" "$tag"
+    upload_artifact "$tarball" "$astore_path" "$ARCH" "$tag"
 }
 
 for f in $KERNEL_FLAVOURS ; do
     upload_bazel_archive $f
     upload_deb_archive $f
-    upload_kernel_image $f
-    upload_kernel_modules $f
+    upload_kernel_image_modules $f
 done

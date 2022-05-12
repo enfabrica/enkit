@@ -55,13 +55,3 @@ make ARCH=um O="$OUTPUT_UML_DIR" olddefconfig
 
 # Build the kernel with our LOCAL version
 make -j ARCH=um O="$OUTPUT_UML_DIR" LOCALVERSION="$kernel_version" all
-
-# Install the modules
-make ARCH=um O="$OUTPUT_UML_DIR" LOCALVERSION="$kernel_version" \
-     INSTALL_MOD_PATH="$MOD_INSTALL" modules_install
-
-rm -f "${MOD_INSTALL}/source" "${MOD_INSTALL}/build"
-
-# Create modules.tar.gz
-modules_tar="${OUTPUT_UML_DIR}/modules.tar.gz"
-tar -C "$MOD_INSTALL" --owner root --group root --create --gzip --file "$modules_tar" .
