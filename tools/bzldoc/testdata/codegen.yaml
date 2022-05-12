@@ -1,4 +1,11 @@
 rules:
+  missingattrs:
+    name: rule
+    args: []
+    kwargs:
+      doc: 'Here is a rule that is missing any attributes, for testing purposes.
+
+        '
   codegen:
     name: rule
     args: []

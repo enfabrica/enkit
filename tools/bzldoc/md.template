@@ -25,13 +25,18 @@ Source code: https://github.com/enfabrica/internal/{{ short_path }}
 {{ v.kwargs.doc }}
 {%-   endif %}
 
+{%-   if "attrs" not in v.kwargs or not v.kwargs.attrs %}
+
+(This rule has no attributes.)
+{%-   else %}{# check for attrs #}
+{# blank line #}
 <table><thead><tr>
 <th> Attribute </th><th> Type </th><th> Description </th>
 </tr></thead><tbody>
-{%-   for ak, av in v.kwargs.attrs.items() %}
-{%-     set attrparts = av.name.split(".") %}
-{%-     set attrlib = attrparts[0] %}
-{%-     set attrtype = attrparts[1] %}
+{%-     for ak, av in v.kwargs.attrs.items() %}
+{%-       set attrparts = av.name.split(".") %}
+{%-       set attrlib = attrparts[0] %}
+{%-       set attrtype = attrparts[1] %}
 <tr><td>
 
 {{ ak }}
@@ -45,9 +50,10 @@ Source code: https://github.com/enfabrica/internal/{{ short_path }}
 {{ av.kwargs.doc }}
 
 </td></tr>
-{%-   endfor %}
+{%-     endfor %}{# ak, av #}
 </tbody></table>
 {# blank line #}
+{%-   endif %}{# check for attrs #}
 
 {%- endfor %}{# k, v #}
 

@@ -134,6 +134,12 @@ The path to the codegen tool itself.
 </td></tr>
 </tbody></table>
 
+### `missingattrs` Rule
+
+Here is a rule that is missing any attributes, for testing purposes.
+
+(This rule has no attributes.)
+
 ## Macros
 
 ### `codegen_test` Macro
