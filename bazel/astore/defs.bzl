@@ -174,7 +174,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix):
     )
     ctx.delete(f)
 
-    if ctx.attr.build:
+    if hasattr(ctx.attr, "build") and ctx.attr.build:
         ctx.template("BUILD.bazel", ctx.attr.build)
 
 # This wrapper is in place to allow a rolling upgrade across Enkit and the
