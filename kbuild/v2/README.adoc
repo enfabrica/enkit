@@ -106,6 +106,12 @@ following arguments:
     -a   Install APT sources.list.d config
 ```
 
+=== Tarball of Kernel Image and Modules
+
+This is a tarball of the kernel vmlinuz image and all the modules from
+`lib/modules/<kernel-version>`.  This tarball is used by bazel to run
+tests using QEMU.
+
 === UML Kernel Image
 
 The script also publishes a UML kernel image to astore.  Bazel uses
