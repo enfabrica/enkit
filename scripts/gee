@@ -4065,18 +4065,17 @@ function gee__share() {
 }
 
 ##########################################################################
-# gc command
+# bazelgc command
 ##########################################################################
 
-_register_help "gc" "Garbage collect your bazel cache." <<'EOT'
-Usage: gee gc
+_register_help "bazelgc" "Garbage collect your bazel cache." <<'EOT'
+Usage: gee bazelgc
 
-Examines all worktrees under gee and marks all bazel cache directories
-still in use by existing branches, and offers to delete the unowned
-cache directories.
+Identifies a set of bazel cache directories that are no longer associated with
+any worktree (branch) that gee knows about, and offers to delete them.
 EOT
 
-function gee__gc() {
+function gee__bazelgc() {
   # Get a list of all unowned bazel directories
   mapfile -t EXPIRED < \
      <( (
@@ -4217,7 +4216,7 @@ function gee__repair() {
     _write_parents_file
   fi
 
-  gee__gc
+  gee__bazelgc
 
   _info "Done."
 }
