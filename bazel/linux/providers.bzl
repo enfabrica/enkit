@@ -55,12 +55,20 @@ and have basic tools available necessary for its users.
     },
 )
 
-RuntimeBundleInfo = provider(
-    doc = """Represents something to run in an isolated environment.""",
+RuntimeInfo = provider(
+    doc = """Represents a binary to run""",
     fields = {
-        "init": "string, path relative to root, script to run in the environment once it is ready, typically as an init=",
-        "root": "string, directory that should be mounted on the test system",
-        "deps": "list of File objects, set of dependencies necessary for the runtime",
-        "check": "struct(binary = File(), runtime = ctx.runfiles()), executable (and its runfiles) to run to check if the package run was successful",
+        "binary": "File object, executable, binary to run",
+        "runfiles": "runfiles() object, representing the files needed by the binary at run time",
+        "argv": "array of strings, optional arguments to pass to the binary",
+    },
+)
+
+RuntimeBundleInfo = provider(
+    doc = """Represents something to run in a VM environment.""",
+    fields = {
+        "prepare": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM BEFORE the RUN to prepare the environment",
+        "run": "RuntimeInfo, executable (and its runfiles) to run INSIDE the VM",
+        "check": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN to check if the run was successful",
     },
 )

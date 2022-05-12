@@ -1,4 +1,4 @@
-load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "RuntimeBundleInfo")
+load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "RuntimeBundleInfo", "RuntimeInfo")
 load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("//bazel/utils:files.bzl", "files_to_dir")
@@ -27,6 +27,8 @@ def _kunit_bundle(ctx):
         template = ctx.file._template_init,
         output = init,
         substitutions = {
+            "{target}": package(ctx.label),
+            "{message}": "KUNIT TESTS",
             "{relpath}": init.short_path,
             "{commands}": "\n".join(commands),
         },
@@ -38,25 +40,21 @@ def _kunit_bundle(ctx):
         template = ctx.file._template_check,
         output = check,
         substitutions = {
+            "{target}": package(ctx.label),
             "{parser}": ctx.executable._parser.short_path,
         },
         is_executable = True,
     )
-    runfiles = ctx.runfiles(files = ctx.attr._parser.files.to_list())
-    runfiles = runfiles.merge(ctx.attr._parser.default_runfiles)
+    outside_runfiles = ctx.runfiles(files = ctx.attr._parser.files.to_list())
+    outside_runfiles = outside_runfiles.merge(ctx.attr._parser.default_runfiles)
+    inside_runfiles = ctx.runfiles(inputs)
 
-    d = files_to_dir(
-        ctx,
-        ctx.attr.name + "-root",
-        inputs + [init],
-        post = "cd {dest}; cp -L %s ./init.sh" % (shell.quote(init.short_path)),
-    )
     return [
-        DefaultInfo(files = depset([init, d, check]), runfiles = runfiles),
-        RuntimeBundleInfo(init = init.short_path, root = d.short_path, deps = [d], check = struct(
-            binary = check,
-            runfiles = runfiles,
-        )),
+        DefaultInfo(files = depset([init, check]), runfiles = inside_runfiles.merge(outside_runfiles)),
+        RuntimeBundleInfo(
+            run = RuntimeInfo(binary = init, runfiles = inside_runfiles),
+            check = RuntimeInfo(binary = check, runfiles = outside_runfiles),
+        ),
     ]
 
 kunit_bundle = rule(

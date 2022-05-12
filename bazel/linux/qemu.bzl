@@ -54,7 +54,7 @@ test -z "$INTERACTIVE" || KERNEL_FLAGS+=("init=/bin/sh")
 QEMU_FLAGS+=("-append" "${{KERNEL_FLAGS[*]}} ${{KERNEL_OPTS[*]}}")
 QEMU_FLAGS+=("${{EMULATOR_OPTS[@]}}")
 
-echo Running qemu: "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"
+echo 1>&2 '$' "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"
 if [ -z "$INTERACTIVE" ]; then
     "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" </dev/null | tee "$OUTPUT_FILE"
 else

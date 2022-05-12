@@ -1,5 +1,6 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("@enkit//bazel/utils:types.bzl", "escape_and_join")
 
 def _write_to_file_impl(ctx):
     ctx.actions.write(
@@ -137,19 +138,43 @@ def files_to_dir(ctx, dirname, paths, post = ""):
       File() object representing the output directory.
     """
     d = ctx.actions.declare_directory(dirname)
-    base = d.path[:-len(d.short_path)]
+    dest = shell.quote(d.path)
 
+    roots = {}
+    for f in paths:
+      root = f.path
+      if f.owner and f.owner.workspace_root:
+          root = f.owner.workspace_root
+      else:
+        if root.endswith(f.short_path):
+            root = root[:-(len(f.short_path)+1)]
+
+      if root not in roots:
+          roots[root] = []
+
+      if not root:
+        roots[root].append(f.path)
+        continue
+
+      roots[root].append(f.path[len(root)+1:])
+
+    pack = []
+    for k, v in roots.items():
+        pack.append("tar -C {root} -hc {files} |tar -x -C {dest}".format(
+            root = shell.quote(k or "."),
+            files = escape_and_join(v),
+            dest = dest,
+        ))
+
+    base = d.path[:-len(d.short_path)]
     exps = dict(
         base = shell.quote(base),
-        inputs = shell.array_literal([f.short_path for f in paths]),
-        dest = shell.quote(d.short_path),
+        pack = "\n".join(list(reversed(pack))),
+        dest = dest,
     )
 
     copy_command = """#!/bin/bash -e
-cd {base}
-inputs={inputs}
-dest={dest}
-cp -fLR --parents -t"$dest" "${{inputs[@]}}"
+{pack}
 {post}
 """.format(
         post = post.format(**exps),
