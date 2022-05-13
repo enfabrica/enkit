@@ -109,6 +109,9 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     cchecks, outside_runfiles = _commands_and_runtime(ctx, "check", checks, outside_runfiles)
     cruns, inside_runfiles = _commands_and_runtime(ctx, "run", runs, ctx.runfiles())
 
+    # The last command powers off the VM
+    cruns.append("poweroff -f")
+
     init = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
     ctx.actions.expand_template(
         template = ctx.file.template_init,

@@ -143,7 +143,9 @@ def files_to_dir(ctx, dirname, paths, post = ""):
     roots = {}
     for f in paths:
       root = f.path
-      if f.owner and f.owner.workspace_root:
+      # Check for external/ prefix because there are files that belong to
+      # external repositories but are stored in bazel-out.
+      if f.owner and f.owner.workspace_root and root.startswith('external/'):
           root = f.owner.workspace_root
       else:
         if root.endswith(f.short_path):

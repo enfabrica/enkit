@@ -1,7 +1,8 @@
 #!/bin/sh
 
 echo ========= {message} - {target} ==========
-trap "poweroff -f" EXIT
+# Power off the VM in case of ERR; prevent the next script from running.
+trap "poweroff -f" ERR
 
 function load {
 	echo "... loading $@."
