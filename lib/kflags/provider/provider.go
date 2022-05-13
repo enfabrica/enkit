@@ -8,7 +8,6 @@ import (
 	"github.com/enfabrica/enkit/lib/logger"
 
 	"github.com/enfabrica/enkit/lib/cache"
-	"github.com/enfabrica/enkit/lib/config"
 	"net/http"
 )
 
@@ -33,14 +32,14 @@ type Options struct {
 	Domain      string
 }
 
-func SetFlagDefaults(fallback config.Store, populator kflags.Populator, flags *ProviderFlags, options *Options) error {
+func SetFlagDefaults(populator kflags.Populator, flags *ProviderFlags, options *Options) error {
 	mods := []kconfig.Modifier{kconfig.WithLogger(options.Log)}
 	if options.Cookie != nil {
 		mods = append(mods, kconfig.WithGetOptions(downloader.WithRequestOptions(krequest.WithCookie(options.Cookie))))
 	}
 	mods = append(mods, kconfig.FromFlags((*kconfig.Flags)(flags)))
 
-	resolver, err := kconfig.NewConfigAugmenterFromDNS(fallback, options.Cache, options.Domain, options.CommandName, mods...)
+	resolver, err := kconfig.NewConfigAugmenterFromDNS(options.Cache, options.Domain, options.CommandName, mods...)
 	if err != nil {
 		return err
 	}

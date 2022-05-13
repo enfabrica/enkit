@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/config"
+	"github.com/enfabrica/enkit/lib/config/directory"
 	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/config/remote"
 	"github.com/enfabrica/enkit/lib/kflags"
@@ -282,9 +283,30 @@ func FromFlags(fl *Flags) Modifier {
 	}
 }
 
-func NewConfigAugmenterFromDNS(fallback config.Store, cs cache.Store, domain string, binary string, mods ...Modifier) (*ConfigAugmenter, error) {
+func FallbackConfig(cs cache.Store) (config.Store, error) {
+	dir, _, err := cs.Get("enkit-config-discovery://")
+	if err != nil {
+		return nil, err
+	}
+	dir, err = cs.Commit(dir)
+	if err != nil {
+		return nil, err
+	}
+	store, err := directory.OpenDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	return config.NewMulti(store), nil
+}
+
+func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mods ...Modifier) (*ConfigAugmenter, error) {
 	options := DefaultOptions()
 	Modifiers(mods).Apply(options)
+
+	fallback, err := FallbackConfig(cs)
+	if err != nil {
+		return nil, err
+	}
 
 	if domain == "" {
 		return nil, fmt.Errorf("cannot look up empty domain name")
