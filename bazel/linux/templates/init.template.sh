@@ -1,7 +1,8 @@
 #!/bin/sh
 
 echo ========= {message} - {target} ==========
-trap "poweroff -f" EXIT
+# NOTE: ERR instead of EXIT, otherwise it will not execute the next script
+trap "poweroff -f" ERR
 
 function load {
 	echo "... loading $@."

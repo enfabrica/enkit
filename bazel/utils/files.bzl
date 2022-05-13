@@ -143,7 +143,10 @@ def files_to_dir(ctx, dirname, paths, post = ""):
     roots = {}
     for f in paths:
       root = f.path
-      if f.owner and f.owner.workspace_root:
+      # NOTE: check for external prefix to avoid "tar: external/...: Cannot open: No such file or directory"
+      # NOTE: there are files that belong to external repositories but have been compiled and available in
+      # NOTE: bazel-out and not in external
+      if f.owner and f.owner.workspace_root and root.startswith('external/'):
           root = f.owner.workspace_root
       else:
         if root.endswith(f.short_path):
