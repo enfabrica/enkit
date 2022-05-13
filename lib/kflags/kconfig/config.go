@@ -21,8 +21,6 @@ import (
 	"time"
 )
 
-const endpoint_key = "endpoint"
-
 type resolver struct {
 	cond     *sync.Cond
 	err      error
@@ -297,7 +295,7 @@ func NewConfigAugmenterFromDNS(fallback config.Store, cs cache.Store, domain str
 	if len(eps) <= 0 {
 		// try fallback endpoint
 		var ep remote.Endpoint
-		_, err := fallback.Unmarshal(endpoint_key, &ep)
+		_, err := fallback.Unmarshal(domain, &ep)
 		if err != nil {
 			return nil, multierror.NewOr(errs, fmt.Errorf("no endpoints for domain '%s' could be detected - configure TXT records for %s? No connectivity?", domain, dns.Name()))
 		}
@@ -360,7 +358,7 @@ func NewConfigAugmenterFromDNS(fallback config.Store, cs cache.Store, domain str
 		cfg.Path = path.Join(cfg.Path, binary+dnsoptions.Extension)
 		resolver, err := NewConfigAugmenterFromURL(cs, cfg.String(), WithOptions(options))
 		if err == nil {
-			fallback.Marshal(endpoint_key, ep)
+			fallback.Marshal(domain, ep)
 			return resolver, nil
 		}
 		errs = append(errs, err)
