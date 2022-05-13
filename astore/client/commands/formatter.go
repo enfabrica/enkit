@@ -2,10 +2,13 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/dustin/go-humanize"
+	castore "github.com/enfabrica/enkit/astore/client/astore"
 	"github.com/enfabrica/enkit/astore/rpc/astore"
+	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/fatih/color"
 )
 
@@ -102,4 +105,111 @@ func (ff *TableFormatter) Element(el *astore.Element) {
 func (ff *TableFormatter) Flush() {
 	ff.afHeaderPrinted = false
 	ff.elHeaderPrinted = false
+}
+
+// A FormatterList contains a squence of astore.Formatter objects
+//
+// The FormatterList also implements the astore.Formatter interface,
+// allowing one to apply multiple formatters to an input stream.
+type FormatterList struct {
+	// Sequence of astore.Formatter
+	formatters []castore.Formatter
+}
+
+// Creates an empty FormatterList
+func NewFormatterList() *FormatterList {
+	return &FormatterList {}
+}
+
+// Appends a astore.Formatter to a FormatterList
+func (fl *FormatterList) Append(formatter castore.Formatter) {
+	fl.formatters = append(fl.formatters, formatter)
+}
+
+// Implements the astore.Formatter.Artifact() method for FormatterList.
+//
+// Calls astore.Artifact() on each formatter in the formatters
+// sequence, passing in the input astore.Artifact.
+func (fl *FormatterList) Artifact(af *astore.Artifact) {
+	for _, formatter := range fl.formatters {
+		formatter.Artifact(af)
+	}
+}
+
+// Implements the astore.Formatter.Element() method for FormatterList.
+//
+// Calls astore.Element() on each formatter in the formatters
+// sequence, passing in the input astore.Artifact.
+func (fl *FormatterList) Element(el *astore.Element) {
+	for _, formatter := range fl.formatters {
+		formatter.Element(el)
+	}
+}
+
+// Implements the astore.Formatter.Flush() method for FormatterList.
+//
+// Calls astore.Flush() on each formatter in the formatters sequence.
+func (fl *FormatterList) Flush() {
+	for _, formatter := range fl.formatters {
+		formatter.Flush()
+	}
+}
+
+// MarshalData is the collection of Artifacts and Elements from an
+// astore operation.
+type MarshalData struct {
+	Artifacts []astore.Artifact
+	Elements []astore.Element
+}
+
+// MarshalFormatter formats the astore meta based on the outputFile
+// extension.
+//
+// See also marshal.MarshalFile()
+type MarshalFormatter struct {
+	outputFile string
+	artifacts []astore.Artifact
+	elements []astore.Element
+}
+
+// Creates an empty MarshalFormatter
+func NewMarshalFormatter(outputFile string) *MarshalFormatter {
+	mf := &MarshalFormatter{
+		outputFile: outputFile,
+	}
+
+	return mf
+}
+
+// Implements the astore.Formatter.Artifact() method for MarshalFormat.
+//
+// Stores the input artifact into an internal artifact sequence.
+func (mf *MarshalFormatter) Artifact(af *astore.Artifact) {
+	mf.artifacts = append(mf.artifacts, *af)
+}
+
+// Implements the astore.Formatter.Element() method for MarshalFormat.
+//
+// Stores the input element into an internal element sequence.
+func (mf *MarshalFormatter) Element(el *astore.Element) {
+	mf.elements = append(mf.elements, *el)
+}
+
+// Implements the astore.Formatter.Flush() method for MarshalFormat.
+//
+// Outputs the artifact and element data to an output file using
+// marshal.MarshalFile(), which marshals the data based on the file
+// extension of the output file.
+func (mf *MarshalFormatter) Flush() {
+	data := MarshalData {
+		Artifacts: mf.artifacts,
+		Elements: mf.elements,
+	}
+	err := marshal.MarshalFile(mf.outputFile, data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: problems marshaling data to output file: %s - %v", mf.outputFile, err)
+	}
+
+	mf.artifacts = nil
+	mf.elements = nil
 }
