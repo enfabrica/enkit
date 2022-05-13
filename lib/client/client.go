@@ -236,7 +236,11 @@ func (bf *BaseFlags) UpdateFlagDefaults(populator kflags.Populator, domain strin
 	}
 
 	// Load the new flags, and re-initialize the internal objects.
-	if err := provider.SetFlagDefaults(populator, bf.ProviderFlags, options); err != nil {
+	fallback, err := bf.ConfigOpener(bf.ConfigName, "fallback")
+	if err != nil {
+		return err
+	}
+	if err := provider.SetFlagDefaults(fallback, populator, bf.ProviderFlags, options); err != nil {
 		bf.Log.Infof("could not retrieve remote defaults - continuing without (error: %s)", err)
 	}
 	bf.Init()

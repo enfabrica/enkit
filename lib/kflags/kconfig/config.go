@@ -3,6 +3,7 @@ package kconfig
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/lib/cache"
+	"github.com/enfabrica/enkit/lib/config"
 	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/config/remote"
 	"github.com/enfabrica/enkit/lib/kflags"
@@ -19,6 +20,8 @@ import (
 	"sync"
 	"time"
 )
+
+const endpoint_key = "endpoint"
 
 type resolver struct {
 	cond     *sync.Cond
@@ -281,7 +284,7 @@ func FromFlags(fl *Flags) Modifier {
 	}
 }
 
-func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mods ...Modifier) (*ConfigAugmenter, error) {
+func NewConfigAugmenterFromDNS(fallback config.Store, cs cache.Store, domain string, binary string, mods ...Modifier) (*ConfigAugmenter, error) {
 	options := DefaultOptions()
 	Modifiers(mods).Apply(options)
 
@@ -292,7 +295,13 @@ func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mod
 	dns := remote.NewDNS(domain, append([]remote.DNSModifier{remote.WithLogger(options.log)}, options.dnso...)...)
 	eps, errs := dns.GetEndpoints()
 	if len(eps) <= 0 {
-		return nil, multierror.NewOr(errs, fmt.Errorf("no endpoints for domain '%s' could be detected - configure TXT records for %s? No connectivity?", domain, dns.Name()))
+		// try fallback endpoint
+		var ep remote.Endpoint
+		_, err := fallback.Unmarshal(endpoint_key, &ep)
+		if err != nil {
+			return nil, multierror.NewOr(errs, fmt.Errorf("no endpoints for domain '%s' could be detected - configure TXT records for %s? No connectivity?", domain, dns.Name()))
+		}
+		eps = []remote.Endpoint { ep };
 	}
 
 	type Options struct {
@@ -347,9 +356,11 @@ func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mod
 			}
 			addoptions(downloader.WithRetryOptions(ropts...))
 		}
-		ep.URL.Path = path.Join(ep.URL.Path, binary+dnsoptions.Extension)
-		resolver, err := NewConfigAugmenterFromURL(cs, ep.URL.String(), WithOptions(options))
+		cfg := *ep.URL
+		cfg.Path = path.Join(cfg.Path, binary+dnsoptions.Extension)
+		resolver, err := NewConfigAugmenterFromURL(cs, cfg.String(), WithOptions(options))
 		if err == nil {
+			fallback.Marshal(endpoint_key, ep)
 			return resolver, nil
 		}
 		errs = append(errs, err)
