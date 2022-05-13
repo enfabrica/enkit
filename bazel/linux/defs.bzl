@@ -3,7 +3,6 @@ load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "Kern
 load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible", "is_module")
 load("//bazel/linux:bundles.bzl", "kunit_bundle")
 load("//bazel/utils:messaging.bzl", "location", "package")
-load("//bazel/utils:files.bzl", "files_to_dir")
 load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
 load("//bazel/utils:exec_test.bzl", "exec_test")
 load("@bazel_skylib//lib:shell.bzl", "shell")
@@ -789,7 +788,7 @@ def kernel_test(name, kernel_image, module, rootfs_image = None, kunit_bundle_cf
         mconfig(module = module, image = kernel_image),
     )
 
-    cfg = mconfig(runtime = runtime, kernel_image = kernel_image)
+    cfg = mconfig(run = [runtime], kernel_image = kernel_image)
     if rootfs_image:
         cfg = mconfig(cfg, rootfs_image = rootfs_image)
     name_runner = mcreate_rule(name, runner, "emulator", runner_cfg, kwargs, cfg)

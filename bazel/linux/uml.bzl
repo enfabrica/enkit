@@ -26,7 +26,7 @@ fi
 OPTIONS+=("${{EMULATOR_OPTS[@]}}")
 OPTIONS+=("${{KERNEL_OPTS[@]}}")
 
-echo Running uml: "$KERNEL" "${{OPTIONS[@]}}"
+echo 1>&2 '$' "$KERNEL" "${{OPTIONS[@]}}"
 if [ -z "$INTERACTIVE" ]; then
   "$KERNEL" "${{OPTIONS[@]}}" | tee "$OUTPUT_FILE"
 else

@@ -55,6 +55,22 @@ Accepted options:
 END
 }
 
+function onexit {
+    status="$?"
+    test "$status" != 0 || exit 0
+
+    echo 1>&2 "====================================="
+    echo 1>&2 "Use:"
+    echo 1>&2 "   bazel run ${TARGET} -- -h"
+    echo 1>&2
+    echo 1>&2 "... to learn how to manually run this target for debugging, and"
+    echo 1>&2 -e "override targets. Once in the VM, the test is started by $RUNINIT"
+    echo 1>&2
+    echo 1>&2 "use 'bazel run ${TARGET} -- -x' to see the full paths of scripts, so"
+    echo 1>&2 "you can run them manually to debug."
+    exit "$status"
+}
+
 function showstate {
     echo 1>&2 "CWD: $(realpath "$PWD")"
     echo 1>&2 "Script: $(realpath "$0")"
@@ -62,12 +78,6 @@ function showstate {
     echo 1>&2 "Rootfs: $ROOTFS"
     echo 1>&2 "Runtime: $RUNTIME"
     echo 1>&2 "Init: $INIT"
-
-    if [ -n "$CHECKER" ]; then
-        echo 1>&2 "Checker: $(realpath $CHECKER)"
-    else
-        echo 1>&2 "Checker: <no checker configured>"
-    fi
 }
 
 declare -a KERNEL_OPTS
@@ -102,12 +112,13 @@ shift $((OPTIND - 1))
 showstate
 
 echo 1>&2 "======================================"
-
 if [ -n "$ROOTFS" ]; then
   RUNINIT="something in init or systemd running\n\t    $RELINIT\nwherever that is mounted."
 else
   RUNINIT="running\n\t    $RELRUNTIME/$RELINIT"
 fi
+
+trap onexit EXIT
 
 # Contract with the included code:
 # - It is run with 'set -e', any non-zero status causes exit with an error.
@@ -126,22 +137,25 @@ fi
 # - Additionally, they should check for:
 #   - KERNEL_OPTS - array, may have additional kernel arguments.
 #   - EMULATOR_OPTS - array, may have additional arguments for the emulator.
+for var in TARGET KERNEL INIT ROOTFS RUNTIME TMPDIR INTERACTIVE OUTPUT_FILE OUTPUT_DIR KERNEL_OPTS EMULATOR_OPTS; do
+    export "$var"
+done
+
+echo 1>&2 "======================================"
+echo 1>&2 "Running preparations..."
+{prepares}
+
+
+echo 1>&2 "======================================"
+echo 1>&2 "Running emulator..."
 {code}
 
-test -z "$INTERACTIVE" || exit
-
-test -z "$CHECKER" || {
-  echo 1>&2 "===== emulator exited successfully - checking the results with $(realpath $CHECKER) ===="
-  "$CHECKER" "$OUTPUT_DIR" || {
-    status="$?"
-    echo 1>&2 "====================================="
-    echo 1>&2 "Use:"
-    echo 1>&2 "   bazel run ${TARGET} -- -h"
-    echo 1>&2
-    echo 1>&2 "... to learn how to manually run this target for debugging, and"
-    echo 1>&2 -e "override targets. Once in the VM, the test is started by $RUNINIT"
-    echo 1>&2 "use 'bazel run ${TARGET} -- -x' to see the full paths of scripts, so"
-    echo 1>&2 "you can run them manually to debug."
-    exit "$status"
-  }
+estatus="$?"
+test "$estatus" == 0 || {
+    echo 1>&2 "===== emulator exited with non zero status - check logs above ===="
+    exit "$estatus"
 }
+test -z "$INTERACTIVE" || exit "$estatus"
+
+echo 1>&2 "===== emulator exited - now running checkers (if any) ===="
+{checks}

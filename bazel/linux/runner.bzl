@@ -1,5 +1,7 @@
-load("//bazel/linux:providers.bzl", "KernelImageInfo", "RootfsImageInfo", "RuntimeBundleInfo")
+load("//bazel/linux:providers.bzl", "KernelImageInfo", "RootfsImageInfo", "RuntimeBundleInfo", "RuntimeInfo")
 load("//bazel/utils:messaging.bzl", "location", "package")
+load("//bazel/utils:types.bzl", "escape_and_join")
+load("//bazel/utils:files.bzl", "files_to_dir")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
 CREATE_RUNNER_ATTRS = {
@@ -18,17 +20,51 @@ A string like @stefano-s-favourite-rootfs-image, referencing a rootfs_image(name
 If not specified, the current root of the filesystem will be used as rootfs.
 """,
     ),
-    "runtime": attr.label(
+    "run": attr.label_list(
         mandatory = True,
-        providers = [RuntimeBundleInfo],
-        doc = "A target returning a RuntimeBundleInfo, with commands to run in the emulator.",
+        doc = "List of executable targets to run in the emulator.",
     ),
-    "_template": attr.label(
+    "template_init": attr.label(
+        allow_single_file = True,
+        default = Label("//bazel/linux:templates/init.template.sh"),
+        doc = "The template to generate the init script running in the VM.",
+    ),
+    "template_start": attr.label(
         allow_single_file = True,
         default = Label("//bazel/linux:templates/runner.template.sh"),
-        doc = "The template to generate the bash script used to run the tests.",
+        doc = "The template to generate the bash script to run the emulator.",
     ),
 }
+
+def _commands_and_runtime(ctx, msg, runs, runfiles):
+    """Computes commands and runfiles from a list of RuntimeInfo"""
+    commands = []
+    for r, rbi in runs:
+        if not hasattr(rbi, "binary") or not rbi.binary:
+            fail(location(ctx) + (" the run target {target} must be executable, " +
+                                  "and have a binary defined".format(target = package(r.label))))
+
+        binary = rbi.binary
+        argv = ""
+        if hasattr(rbi, "argv") and rbi.argv:
+            argv = escape_and_join(rbi.argv)
+
+        commands.append("echo '==== {msg}: {target} as \"{path} {argv}\"...'".format(
+            msg = msg,
+            target = package(r.label),
+            path = rbi.binary.short_path,
+            argv = argv,
+        ))
+        commands.append("{binary} {argv}".format(
+            binary = shell.quote(binary.short_path),
+            argv = argv,
+        ))
+
+        runfiles = runfiles.merge(ctx.runfiles([binary]))
+        if hasattr(rbi, "runfiles") and rbi.runfiles:
+            runfiles = runfiles.merge(rbi.runfiles)
+
+    return commands, runfiles
 
 def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     ki = ctx.attr.kernel_image[KernelImageInfo]
@@ -42,38 +78,79 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
             ),
         )
 
-    inputs = depset(transitive = [
-        ctx.attr.kernel_image.files,
-        ctx.attr.runtime.files,
-    ])
+    prepares = []
+    runs = []
+    checks = []
+    for r in ctx.attr.run:
+        if RuntimeBundleInfo in r:
+            rbi = r[RuntimeBundleInfo]
+            if hasattr(rbi, "prepare") and rbi.prepare:
+                prepares.append((r, rbi.prepare))
+            if hasattr(rbi, "run") and rbi.run:
+                runs.append((r, rbi.run))
+            if hasattr(rbi, "check") and rbi.check:
+                checks.append((r, rbi.check))
+            continue
+
+        di = r[DefaultInfo]
+        if not di.files_to_run or not di.files_to_run.executable:
+            fail(location(ctx) + (" run= attribute asks to run target {target}, but " +
+                                  "it is not executable! It does not generate a binary. Fix BUILD.bazel file?".format(
+                                      target = package(r.label),
+                                  )))
+
+        runs.append((r, RuntimeInfo(
+            binary = di.files_to_run.executable,
+            runfiles = di.default_runfiles,
+        )))
+
+    outside_runfiles = ctx.runfiles()
+    cprepares, outside_runfiles = _commands_and_runtime(ctx, "prepare", prepares, outside_runfiles)
+    cchecks, outside_runfiles = _commands_and_runtime(ctx, "check", checks, outside_runfiles)
+    cruns, inside_runfiles = _commands_and_runtime(ctx, "run", runs, ctx.runfiles())
+
+    init = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
+    ctx.actions.expand_template(
+        template = ctx.file.template_init,
+        output = init,
+        substitutions = {
+            "{message}": "INIT STARTED",
+            "{target}": package(ctx.label),
+            "{relpath}": init.short_path,
+            "{commands}": "\n".join(cruns),
+        },
+        is_executable = True,
+    )
+
+    runtime_root = files_to_dir(
+        ctx,
+        ctx.attr.name + "-root",
+        inside_runfiles.files.to_list() + [init],
+        post = "cd {dest}; cp -L %s ./init.sh" % (shell.quote(init.short_path)),
+    )
+    outside_runfiles = outside_runfiles.merge(ctx.runfiles([runtime_root, ki.image]))
 
     rootfs = ""
     if ctx.attr.rootfs_image:
         rootfs = ctx.attr.rootfs_image[RootfsImageInfo].image.short_path
         inputs = depset(transitive = [inputs, ctx.attr.rootfs_image.files])
 
-    runtime = ctx.attr.runtime[RuntimeBundleInfo]
     subs = dict({
         "target": package(ctx.label),
+        "prepares": "\n".join(cprepares),
+        "checks": "\n".join(cchecks),
         "kernel": ki.image.short_path,
         "rootfs": rootfs,
-        "init": runtime.init,
-        "runtime": runtime.root,
-        "files": shell.array_literal([d.short_path for d in runtime.deps]),
+        "init": init.short_path,
+        "runtime": runtime_root.short_path,
     }, **extra)
 
-    runfiles = ctx.runfiles(files = inputs.to_list())
-    if runtime.check:
-        subs["checker"] = runtime.check.binary.short_path
-        runfiles = runfiles.merge(ctx.runfiles(files = [runtime.check.binary]))
-        runfiles = runfiles.merge(runtime.check.runfiles)
-
     subs["code"] = code.format(**subs)
-    executable = ctx.actions.declare_file(ctx.attr.name + "-start.sh")
+    start = ctx.actions.declare_file(ctx.attr.name + "-start.sh")
     ctx.actions.expand_template(
-        template = ctx.file._template,
-        output = executable,
+        template = ctx.file.template_start,
+        output = start,
         substitutions = dict([("{%s}" % (k), v) for k, v in subs.items()]),
         is_executable = True,
     )
-    return [DefaultInfo(runfiles = runfiles, executable = executable)]
+    return [DefaultInfo(runfiles = outside_runfiles, executable = start)]

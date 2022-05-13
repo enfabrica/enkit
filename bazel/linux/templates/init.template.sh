@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo ========= VM KUNIT INIT STARTED ==========
+echo ========= {message} - {target} ==========
 trap "poweroff -f" EXIT
 
 function load {
