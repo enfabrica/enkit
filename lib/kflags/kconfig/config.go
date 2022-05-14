@@ -14,6 +14,7 @@ import (
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/retry"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -290,7 +291,7 @@ func FallbackFile(cs cache.Store, domain string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return dir + "/" + domain + ".toml", nil
+	return dir + string(os.PathSeparator) + domain + ".toml", nil
 }
 
 func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mods ...Modifier) (*ConfigAugmenter, error) {
