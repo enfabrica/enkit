@@ -13,8 +13,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//lib/cache:go_default_library",
-        "//lib/config:go_default_library",
-        "//lib/config/directory:go_default_library",
         "//lib/config/marshal:go_default_library",
         "//lib/config/remote:go_default_library",
         "//lib/karchive:go_default_library",
