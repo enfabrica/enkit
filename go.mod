@@ -3,7 +3,7 @@ module github.com/enfabrica/enkit
 go 1.16
 
 require (
-	bazil.org/fuse v0.0.0-20200524192727-fb710f7dfd05 // indirect
+	bazil.org/fuse v0.0.0-20200524192727-fb710f7dfd05
 	cloud.google.com/go/bigquery v1.28.0 // indirect
 	cloud.google.com/go/compute v1.5.0 // indirect
 	cloud.google.com/go/datastore v1.1.0
@@ -14,6 +14,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6 // indirect
 	github.com/bazelbuild/buildtools v0.0.0-20211007154642-8dd79e56e98e
+	github.com/bazelbuild/rules_go v0.32.0
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -40,6 +41,7 @@ require (
 	github.com/golangci/gosec v0.0.0-20190211064107-66fb7fc33547 // indirect
 	github.com/golangci/ineffassign v0.0.0-20190609212857-42439a7714cc // indirect
 	github.com/golangci/prealloc v0.0.0-20180630174525-215b22d4de21 // indirect
+	github.com/google/go-cmp v0.5.7
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/uuid v1.3.0
@@ -50,15 +52,16 @@ require (
 	github.com/klauspost/compress v1.15.1 // indirect
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/mitchellh/go-ps v1.0.0
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/pelletier/go-toml v1.8.1
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/pquerna/cachecontrol v0.0.0-20200921180117-858c6e7e6b7e // indirect
-	github.com/prashantv/gostub v1.0.0 // indirect
+	github.com/prashantv/gostub v1.0.0
 	github.com/prometheus/client_golang v1.12.1
-	github.com/psanford/memfs v0.0.0-20210214183328-a001468d78ef // indirect
+	github.com/psanford/memfs v0.0.0-20210214183328-a001468d78ef
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/shirou/gopsutil v0.0.0-20180427012116-c95755e4bcd7 // indirect
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect

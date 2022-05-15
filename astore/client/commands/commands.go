@@ -7,6 +7,7 @@ import (
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config"
 	"github.com/enfabrica/enkit/lib/config/defcon"
+	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/spf13/cobra"
@@ -21,6 +22,7 @@ type Root struct {
 	*client.BaseFlags
 
 	store *client.ServerFlags
+	outputFile string
 }
 
 func New(base *client.BaseFlags) *Root {
@@ -64,10 +66,29 @@ func NewRoot(base *client.BaseFlags) *Root {
 	}
 
 	rc.store.Register(&kcobra.FlagSet{FlagSet: rc.PersistentFlags()}, "")
+	rc.Command.PersistentFlags().StringVarP(&rc.outputFile, "meta-file", "m", "",
+		fmt.Sprintf("Meta-data output file. Supported formats: %s", marshal.Formats()))
+
 	return rc
 }
 
 func (rc *Root) StoreClient() (*astore.Client, error) {
+	if rc.outputFile != "" {
+		// check output file type is supported
+		marshaller := marshal.ByExtension(rc.outputFile)
+		if marshaller == nil {
+			return nil, fmt.Errorf("Output file extension not supported `%s`.  Supported formats: %s",
+				rc.outputFile, marshal.Formats())
+		}
+
+		// check that the destination is writable
+		file, err := os.Create(rc.outputFile)
+		if err != nil {
+			return nil, fmt.Errorf("Problems creating output file `%s` - %w", rc.outputFile, err)
+		}
+		file.Close()
+	}
+
 	_, cookie, err := rc.IdentityCookie()
 	if err != nil {
 		return nil, err
@@ -82,8 +103,19 @@ func (rc *Root) StoreClient() (*astore.Client, error) {
 }
 
 func (rc *Root) Formatter(mods ...Modifier) astore.Formatter {
-	return NewTableFormatter(mods...)
+	formatterList := NewFormatterList()
+
+	// Always include the stdout table formatter
+	formatterList.Append(NewTableFormatter(mods...))
+
+	if rc.outputFile != "" {
+		// add a marshal-aware formatter
+		formatterList.Append(NewMarshalFormatter(rc.outputFile))
+	}
+
+	return formatterList
 }
+
 func (rc *Root) OutputArtifacts(arts []*arpc.Artifact) {
 	formatter := rc.Formatter(WithNoNesting)
 	for _, art := range arts {
