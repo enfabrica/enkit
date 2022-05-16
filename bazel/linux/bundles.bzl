@@ -28,7 +28,7 @@ def _kunit_bundle(ctx):
 
     init = ctx.actions.declare_file(ctx.attr.name + "-kunit.sh")
     ctx.actions.expand_template(
-        template = ctx.file._template_kunit,
+        template = ctx.file.template_kunit,
         output = init,
         substitutions = {
             "{target}": package(ctx.label),
@@ -40,7 +40,7 @@ def _kunit_bundle(ctx):
 
     check = ctx.actions.declare_file(ctx.attr.name + "-check.sh")
     ctx.actions.expand_template(
-        template = ctx.file._template_check,
+        template = ctx.file.template_check,
         output = check,
         substitutions = {
             "{target}": package(ctx.label),
@@ -80,12 +80,12 @@ and an init script to run them as a kunit test.""",
             default = 5,
             doc = "Maximum recursive depth when expanding a list of kernel module dependencies.",
         ),
-        "_template_kunit": attr.label(
+        "template_kunit": attr.label(
             allow_single_file = True,
             default = Label("//bazel/linux:templates/kunit.template.sh"),
             doc = "The template to generate the bash script used to run the tests.",
         ),
-        "_template_check": attr.label(
+        "template_check": attr.label(
             allow_single_file = True,
             default = Label("//bazel/linux:templates/check_kunit.template.sh"),
             doc = "The template to generate the bash script used to run the tests.",
