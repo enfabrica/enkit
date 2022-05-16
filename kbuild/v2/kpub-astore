@@ -19,8 +19,14 @@ DEFAULT_KERNEL_FLAVOURS="minimal generic"
 # BUILD_ROOT -- scratch space to perform the build
 DEFAULT_BUILD_ROOT="${HOME}/scratch/kernel-builder"
 
+# ENKIT -- enkit binary to use
+DEFAULT_ENKIT="enkit"
+
 # ASTORE_ROOT -- root directory in astore to store outputs
 DEFAULT_ASTORE_ROOT="home/${USER}/scratch/kernel"
+
+# KERNEL_LABEL: label to use for creating BAZEL variable names
+DEFAULT_KERNEL_LABEL="ENF_UBUNTU_IMPISH"
 
 # CLEAN_BUILD -- whether to wipe the build directory first Set
 # CLEAN_BUILD to "no" to skip some lengthy steps during development.
@@ -37,7 +43,9 @@ RT_KERNEL_REPO="${ENF_KERNEL_REPO:-${DEFAULT_KERNEL_REPO}}"
 RT_KERNEL_BRANCH="${ENF_KERNEL_BRANCH:-${DEFAULT_KERNEL_BRANCH}}"
 RT_KERNEL_FLAVOURS="${ENF_KERNEL_FLAVOURS:-${DEFAULT_KERNEL_FLAVOURS}}"
 RT_BUILD_ROOT="${ENF_BUILD_ROOT:-${DEFAULT_BUILD_ROOT}}"
+RT_ENKIT="${ENF_ENKIT:-${DEFAULT_ENKIT}}"
 RT_ASTORE_ROOT="${ENF_ASTORE_ROOT:-${DEFAULT_ASTORE_ROOT}}"
+RT_KERNEL_LABEL="${ENF_KERNEL_LABEL:-${DEFAULT_KERNEL_LABEL}}"
 RT_CLEAN_BUILD="${ENF_CLEAN_BUILD:-${DEFAULT_CLEAN_BUILD}}"
 RT_VERBOSE="${ENF_VERBOSE:-${DEFAULT_VERBOSE}}"
 
@@ -78,11 +86,24 @@ OPTIONS:
 
 		The default is "$DEFAULT_BUILD_ROOT".
 
+    -e enkit binary to use
+
+		The path to the enkit binary to use.
+
+		The default is "$DEFAULT_ENKIT".
+
     -a astore root directory
 
 		The root directory within astore to publish artifacts.
 
 		The default is "$DEFAULT_ASTORE_ROOT".
+
+    -l kernel label
+
+		A label used to create BAZEL variables, e.g.
+		KERNEL_TREE_<label>_<flavour> and KERNEL_IMAGE_<label>_<flavour>.
+
+		The default is "$DEFAULT_KERNEL_LABEL".
 
     -p
 
@@ -105,7 +126,9 @@ The above options can also be set via environment variables:
 ENF_KERNEL_REPO:      (current_value: ${ENF_KERNEL_REPO:-unset})
 ENF_KERNEL_BRANCH:    (current_value: ${ENF_KERNEL_BRANCH:-unset})
 ENF_KERNEL_FLAVOURS:  (current_value: ${ENF_KERNEL_FLAVOURS:-unset})
+ENF_KERNEL_LABEL:     (current_value: ${ENF_KERNEL_LABEL:-unset})
 ENF_BUILD_ROOT:	      (current_value: ${ENF_BUILD_ROOT:-unset})
+ENF_ENKIT:            (current_value: ${ENF_ENKIT:-unset})
 ENF_ASTORE_ROOT:      (current_value: ${ENF_ASTORE_ROOT:-unset})
 
 In all cases, the command line arguments take precedence.
@@ -114,7 +137,7 @@ EOF
 }
 
 # Command line argument override any environment variables
-while getopts hvpr:b:f:o:a: opt ; do
+while getopts hvpr:b:f:o:e:a:l: opt ; do
     case $opt in
         r)
             RT_KERNEL_REPO=$OPTARG
@@ -128,8 +151,14 @@ while getopts hvpr:b:f:o:a: opt ; do
         o)
             RT_BUILD_ROOT=$OPTARG
             ;;
+        e)
+            RT_ENKIT=$OPTARG
+            ;;
         a)
             RT_ASTORE_ROOT=$OPTARG
+            ;;
+        l)
+            RT_KERNEL_LABEL=$OPTARG
             ;;
         p)
             RT_CLEAN_BUILD="no"
@@ -150,7 +179,8 @@ done
 shift `expr $OPTIND - 1`
 
 echo "Using configuration:"
-for var in RT_KERNEL_REPO RT_KERNEL_BRANCH RT_KERNEL_FLAVOURS RT_BUILD_ROOT RT_ASTORE_ROOT RT_CLEAN_BUILD RT_VERBOSE; do
+for var in RT_KERNEL_REPO RT_KERNEL_BRANCH RT_KERNEL_FLAVOURS RT_KERNEL_LABEL \
+       RT_BUILD_ROOT RT_ENKIT RT_ASTORE_ROOT RT_CLEAN_BUILD RT_VERBOSE; do
     printf "%-20s:   %s\n" "$var" "$(eval echo -n \$$var)"
 done
 
@@ -158,6 +188,12 @@ if [ "$RT_VERBOSE" = "yes" ] ; then
     set -x
     RUN="/bin/sh -x"
 fi
+
+if ! which "$RT_ENKIT" > /dev/null 2>&1 ; then
+    echo "ERROR: unable to find enkit binary: $RT_ENKIT"
+    exit 1
+fi
+export RT_ENKIT
 
 ASTORE_BASE="${RT_ASTORE_ROOT}/${RT_KERNEL_BRANCH}"
 
@@ -175,11 +211,12 @@ OUTPUT_DEB_DIR="$RT_BUILD_ROOT/deb"
 OUTPUT_REPO_DIR="$RT_BUILD_ROOT/repo"
 OUTPUT_BAZEL_ARCHIVE_DIR="$RT_BUILD_ROOT/bazel-archive"
 OUTPUT_APT_ARCHIVE_DIR="$RT_BUILD_ROOT/deb-archive"
+OUTPUT_ASTORE_META_DIR="$RT_BUILD_ROOT/astore-meta"
 
 OUTPUT_UML_DIR="$RT_BUILD_ROOT/uml"
 OUTPUT_UML_BAZEL_ARCHIVE_DIR="$RT_BUILD_ROOT/uml/bazel"
 
-mkdir -p "$KERNEL_DIR"
+mkdir -p "$KERNEL_DIR" "$OUTPUT_ASTORE_META_DIR"
 
 # Initialize the build area and clone the kernel repo
 $RUN ${SCRIPT_PATH}/init-build.sh "$KERNEL_DIR" "$RT_KERNEL_REPO" "$RT_KERNEL_BRANCH" "$KERNEL_VERSION"
@@ -197,7 +234,13 @@ $RUN ${SCRIPT_PATH}/archive-bazel-deb.sh "$OUTPUT_DEB_DIR" "$RT_KERNEL_FLAVOURS"
 $RUN ${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$RT_KERNEL_FLAVOURS" "$OUTPUT_APT_ARCHIVE_DIR"
 
 # Uploads the bazel ready tarball for each flavour
-$RUN ${SCRIPT_PATH}/upload-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_BAZEL_ARCHIVE_DIR" "$OUTPUT_APT_ARCHIVE_DIR" "$RT_KERNEL_FLAVOURS" "$ASTORE_BASE"
+$RUN ${SCRIPT_PATH}/upload-deb.sh \
+     "$OUTPUT_DEB_DIR"            \
+     "$OUTPUT_BAZEL_ARCHIVE_DIR"  \
+     "$OUTPUT_APT_ARCHIVE_DIR"    \
+     "$RT_KERNEL_FLAVOURS"        \
+     "$ASTORE_BASE"               \
+     "$OUTPUT_ASTORE_META_DIR"
 
 # Builds the UML kernel
 $RUN ${SCRIPT_PATH}/build-uml.sh "$KERNEL_DIR" "$KERNEL_VERSION" "$OUTPUT_UML_DIR"
@@ -206,4 +249,22 @@ $RUN ${SCRIPT_PATH}/build-uml.sh "$KERNEL_DIR" "$KERNEL_VERSION" "$OUTPUT_UML_DI
 $RUN ${SCRIPT_PATH}/archive-bazel-uml.sh "$KERNEL_DIR" "$OUTPUT_UML_DIR" "$OUTPUT_UML_BAZEL_ARCHIVE_DIR"
 
 # For UML, uploads the bazel ready tarball and kernel image
-$RUN ${SCRIPT_PATH}/upload-uml.sh "$OUTPUT_UML_DIR" "$OUTPUT_UML_BAZEL_ARCHIVE_DIR" "$ASTORE_BASE"
+$RUN ${SCRIPT_PATH}/upload-uml.sh    \
+     "$OUTPUT_UML_DIR"               \
+     "$OUTPUT_UML_BAZEL_ARCHIVE_DIR" \
+     "$ASTORE_BASE"                  \
+     "$OUTPUT_ASTORE_META_DIR"
+
+# Generate Bazel include file from upload meta-data files
+$RUN ${SCRIPT_PATH}/gen-bazel-meta.sh    \
+     "$OUTPUT_DEB_DIR"                   \
+     "$RT_KERNEL_FLAVOURS"               \
+     "$OUTPUT_UML_DIR"                   \
+     "$ASTORE_BASE"                      \
+     "$OUTPUT_ASTORE_META_DIR"           \
+     "$RT_KERNEL_LABEL"
+
+echo
+echo "SUCCESS: All Done."
+echo "Copy the following file to the internal repo,  in internal-repo/bazel/kernel.version.bzl"
+echo "${OUTPUT_ASTORE_META_DIR}/kernel.version.bzl"
