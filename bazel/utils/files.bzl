@@ -143,11 +143,10 @@ def files_to_dir(ctx, dirname, paths, post = ""):
     roots = {}
     for f in paths:
       root = f.path
-      if f.owner and f.owner.workspace_root:
+      if root.endswith(f.short_path):
+          root = root[:-(len(f.short_path)+1)]
+      elif f.owner and f.owner.workspace_root:
           root = f.owner.workspace_root
-      else:
-        if root.endswith(f.short_path):
-            root = root[:-(len(f.short_path)+1)]
 
       if root not in roots:
           roots[root] = []
