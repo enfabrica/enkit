@@ -26,14 +26,13 @@ def _kunit_bundle(ctx):
             commands.append("load " + mod.short_path)
             inputs.append(mod)
 
-    init = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
+    init = ctx.actions.declare_file(ctx.attr.name + "-kunit.sh")
     ctx.actions.expand_template(
-        template = ctx.file._template_init,
+        template = ctx.file._template_kunit,
         output = init,
         substitutions = {
             "{target}": package(ctx.label),
             "{message}": "KUNIT TESTS",
-            "{relpath}": init.short_path,
             "{commands}": "\n".join(commands),
         },
         is_executable = True,
@@ -81,9 +80,9 @@ and an init script to run them as a kunit test.""",
             default = 5,
             doc = "Maximum recursive depth when expanding a list of kernel module dependencies.",
         ),
-        "_template_init": attr.label(
+        "_template_kunit": attr.label(
             allow_single_file = True,
-            default = Label("//bazel/linux:templates/init.template.sh"),
+            default = Label("//bazel/linux:templates/kunit.template.sh"),
             doc = "The template to generate the bash script used to run the tests.",
         ),
         "_template_check": attr.label(
