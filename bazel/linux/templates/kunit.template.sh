@@ -1,7 +1,11 @@
 #!/bin/sh
 
 echo ========= {message} - {target} ==========
-trap "poweroff -f" EXIT
+
+function load {
+	echo "... loading $@."
+	insmod "$@"
+}
 
 # Find the "root" where the package was mounted.
 path="$0"
