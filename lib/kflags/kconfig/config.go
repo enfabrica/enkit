@@ -14,6 +14,7 @@ import (
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/retry"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -281,6 +282,18 @@ func FromFlags(fl *Flags) Modifier {
 	}
 }
 
+func FallbackFile(cs cache.Store, domain string) (string, error) {
+	dir, _, err := cs.Get("enkit-config-discovery://")
+	if err != nil {
+		return "", err
+	}
+	dir, err = cs.Commit(dir)
+	if err != nil {
+		return "", err
+	}
+	return dir + string(os.PathSeparator) + domain + ".toml", nil
+}
+
 func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mods ...Modifier) (*ConfigAugmenter, error) {
 	options := DefaultOptions()
 	Modifiers(mods).Apply(options)
@@ -289,10 +302,21 @@ func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mod
 		return nil, fmt.Errorf("cannot look up empty domain name")
 	}
 
+	fallback, err := FallbackFile(cs, domain)
+	if err != nil {
+		return nil, err
+	}
+
 	dns := remote.NewDNS(domain, append([]remote.DNSModifier{remote.WithLogger(options.log)}, options.dnso...)...)
 	eps, errs := dns.GetEndpoints()
 	if len(eps) <= 0 {
-		return nil, multierror.NewOr(errs, fmt.Errorf("no endpoints for domain '%s' could be detected - configure TXT records for %s? No connectivity?", domain, dns.Name()))
+		// try fallback endpoint
+		var ep remote.Endpoint
+		err := marshal.UnmarshalFile(fallback, &ep)
+		if err != nil {
+			return nil, multierror.NewOr(errs, fmt.Errorf("no endpoints for domain '%s' could be detected - configure TXT records for %s? No connectivity?", domain, dns.Name()))
+		}
+		eps = []remote.Endpoint { ep };
 	}
 
 	type Options struct {
@@ -347,9 +371,11 @@ func NewConfigAugmenterFromDNS(cs cache.Store, domain string, binary string, mod
 			}
 			addoptions(downloader.WithRetryOptions(ropts...))
 		}
-		ep.URL.Path = path.Join(ep.URL.Path, binary+dnsoptions.Extension)
-		resolver, err := NewConfigAugmenterFromURL(cs, ep.URL.String(), WithOptions(options))
+		cfg := *ep.URL
+		cfg.Path = path.Join(cfg.Path, binary+dnsoptions.Extension)
+		resolver, err := NewConfigAugmenterFromURL(cs, cfg.String(), WithOptions(options))
 		if err == nil {
+			marshal.MarshalFile(fallback, ep)
 			return resolver, nil
 		}
 		errs = append(errs, err)
