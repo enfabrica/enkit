@@ -7,22 +7,35 @@ astore.
 
 == TL;DR -- Building For Production
 
-To publish the kernel artifacts to production, run `kpub-astore` like
-this:
+Current as of 05/16/2022:
+
+To publish the kernel artifacts, run `kpub-astore` like this:
 
 ```
-  $ kpub-astore -b <kernel_branch> -a kernel
+  $ kpub-astore -b enf/impish-19.19 -l ENF_UBUNTU_IMPISH -a kernel
 ```
 
-For example, to build and release the `enf/impish-19.19` branch do
-this:
+The `-b` option specifies the git branch in the kernel tree. Here we
+are using `enf/impish-19.19`.
+
+The `-l` option specifies the Bazel kernel label, which is used to
+form various Bazel variables.  Here we are using `ENF_UBUNTU_IMPISH`.
+
+The `-a` option specifies the root path in astore.  For a kernel
+flavour, the artifacts are published to
+`<astore_root>/<git-branch>/<flavour>`.  Here we are using the
+production path `kernel`, which will publish artifacts to the
+following paths:
 
 ```
-  $ kpub-astore -b enf/impish-19.19 -a kernel
-```
+- kernel/enf/impish-19.19/generic  (Ubuntu generic)
+- kernel/enf/impish-19.19/minimal  (Ubuntu minimal)
+- kernel/enf/impish-19.19/test     (UML)
 
-The "kernel" path in astore is the root of all the published kernel
-artifacts.  See `kpub-astore -h` for more options to control the build.
+The build outputs a Bazel file, suitable for checking into the
+internal repo in `bazel/kernel.version.bzl`.
+
+See `kpub-astore -h` for more options to control the build.
 
 == Build Time Dependencies
 

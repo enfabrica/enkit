@@ -9,6 +9,9 @@
 
 set -e
 
+LIB_SH="$(dirname $(realpath $0))/lib.sh"
+. $LIB_SH
+
 KERNEL_DIR="$(realpath $1)"
 OUTPUT_UML_DIR="$(realpath $2)"
 OUTPUT_UML_BAZEL_ARCHIVE_DIR="$(realpath $3)"
@@ -29,7 +32,7 @@ if [ ! -r "$INSTALL_TEMPLATE" ] ; then
     exit 1
 fi
 
-KERNEL_VERSION=$(cat "${OUTPUT_UML_DIR}/include/config/kernel.release")
+KERNEL_VERSION="$(uml_get_kernel_version $OUTPUT_UML_DIR)"
 
 # clean output UML bazel archive dir
 rm -rf "$OUTPUT_UML_BAZEL_ARCHIVE_DIR"

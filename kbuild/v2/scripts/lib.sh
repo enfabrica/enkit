@@ -34,11 +34,34 @@ get_deb_version() {
     echo -n $deb_version
 }
 
+deb_get_kernel_version() {
+    local deb_dir="$1"
+    local flavour="$2"
+    local kernel_base=$(get_kernel_base $deb_dir)
+
+    if [ -z "$kernel_base" ] ; then
+        echo "ERROR: unable to discover kernel base string"
+        exit 1
+    fi
+
+    local kernel_version="${kernel_base}-${flavour}"
+
+    echo -n "$kernel_version"
+}
+
+uml_get_kernel_version() {
+    local uml_dir="$1"
+
+    kernel_version="$(cat ${uml_dir}/include/config/kernel.release)-uml"
+    echo -n "$kernel_version"
+}
+
 upload_artifact() {
     local archive="$1"
     local astore_path="$2"
     local arch="$3"
     local tag="$4"
+    local archive_json="$5"
 
     if [ ! -r "$archive" ] ; then
         echo "ERROR: unable to find archive: $archive"
@@ -46,9 +69,11 @@ upload_artifact() {
     fi
 
     # upload archive to astore
-    enkit astore upload "${archive}@${astore_path}" -a $arch -t "$tag"
+    "$RT_ENKIT" astore upload "${archive}@${astore_path}" -a $arch -t "$tag" -m "${archive_json}"
 
-    echo "Upload sha256sum:"
-    sha256sum "$archive"
+    # add the sha256sum to the resulting artifact meta-data
+    local sha256=$(sha256sum "$archive" | awk '{ print $1 }')
 
+    cat "${archive_json}" | jq '.Artifacts[0] + { "sha256": "'"$sha256"'" }' > "${archive_json}.tmp"
+    mv -f "${archive_json}.tmp" "$archive_json"
 }
