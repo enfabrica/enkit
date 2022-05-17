@@ -60,7 +60,8 @@ RuntimeInfo = provider(
     fields = {
         "binary": "File object, executable, binary to run",
         "runfiles": "runfiles() object, representing the files needed by the binary at run time",
-        "argv": "array of strings, optional arguments to pass to the binary",
+        "args": "string, optional arguments to pass to the binary. args is NOT ESCAPED " +
+                "by the bazel rule, to allow it to reference variable names.",
     },
 )
 

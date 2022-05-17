@@ -45,19 +45,19 @@ def _commands_and_runtime(ctx, msg, runs, runfiles):
                                   "and have a binary defined".format(target = package(r.label))))
 
         binary = rbi.binary
-        argv = ""
-        if hasattr(rbi, "argv") and rbi.argv:
-            argv = escape_and_join(rbi.argv)
+        args = ""
+        if hasattr(rbi, "args"):
+            args = rbi.args
 
-        commands.append("echo '==== {msg}: {target} as \"{path} {argv}\"...'".format(
+        commands.append("echo '==== {msg}: {target} as \"{path} {args}\"...'".format(
             msg = msg,
             target = package(r.label),
             path = rbi.binary.short_path,
-            argv = argv,
+            args = args,
         ))
-        commands.append("{binary} {argv}".format(
+        commands.append("{binary} {args}".format(
             binary = shell.quote(binary.short_path),
-            argv = argv,
+            args = args,
         ))
 
         runfiles = runfiles.merge(ctx.runfiles([binary]))
