@@ -2,6 +2,10 @@
 
 ## Releases
 
+### Unreleased
+
+* #594: `gee rmbr` now also removes bazel cache directory.
+
 ### Release 0.2.29
 
 * Streamling PR submission, and make the PR description template more terse.
