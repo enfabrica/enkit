@@ -4065,6 +4065,41 @@ function gee__share() {
 }
 
 ##########################################################################
+# bazelgc command
+##########################################################################
+
+_register_help "bazelgc" "Garbage collect your bazel cache." <<'EOT'
+Usage: gee bazelgc
+
+Identifies a set of bazel cache directories that are no longer associated with
+any worktree (branch) that gee knows about, and offers to delete them.
+EOT
+
+function gee__bazelgc() {
+  # Get a list of all unowned bazel directories
+  mapfile -t EXPIRED < \
+     <( (
+       # Emit a list of all existing cache directories:
+       readlink -f ~/.cache/bazel/*/????????????????????????????????;
+       # Emit a list of all actively used cache directories:
+       readlink -f "${GEE_DIR}"/*/*/*/bazel-out \
+         | sed 's/\/execroot\/.*\?\/bazel-out//';
+                ) | sort | uniq -c | awk '$1 == "1" {print $2}' )
+  _info "About to delete the following directories:" "${EXPIRED[@]}"
+  if _confirm_default_no "Proceed? (y/N)  "; then
+    local USED1
+    USED1="$(df -k --output=used ~/.cache | tail -1)"
+    _cmd chmod -R u+w "${EXPIRED[@]}"
+    _cmd rm -rf "${EXPIRED[@]}"
+    USED2="$(df -k --output=used ~/.cache | tail -1)"
+    MBFREED="$(( (USED1 - USED2) / 1024 ))"
+    _info "Approximately ${MBFREED}MiB freed."
+  else
+    _info "Garbage collection aborted, nothing was deleted."
+  fi
+}
+
+##########################################################################
 # repair command
 ##########################################################################
 
@@ -4180,6 +4215,8 @@ function gee__repair() {
   if (( DIRTY )); then
     _write_parents_file
   fi
+
+  gee__bazelgc
 
   _info "Done."
 }

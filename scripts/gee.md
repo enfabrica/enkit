@@ -90,6 +90,7 @@ review.
 | Command | Summary |
 | ------- | ------- |
 | <a href="#bash_setup">`bash_setup`</a> | Configure the bash environment for gee. |
+| <a href="#bazelgc">`bazelgc`</a> | Garbage collect your bazel cache. |
 | <a href="#cleanup">`cleanup`</a> | Automatically remove branches without local changes. |
 | <a href="#codeowners">`codeowners`</a> | Provide detailed information about required approvals for this PR. |
 | <a href="#commit">`commit`</a> | Commit all changes in this branch |
@@ -539,6 +540,13 @@ Usage: `gee share`
 
 Displays URLs that you can paste into emails to share the contents of
 your branch with other users (in advance of sending out a PR).
+
+### bazelgc
+
+Usage: `gee bazelgc`
+
+Identifies a set of bazel cache directories that are no longer associated with
+any worktree (branch) that gee knows about, and offers to delete them.
 
 ### repair
 
