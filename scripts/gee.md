@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.29
+gee version: 0.2.30
 
 gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
 tribal knowledge about how to use git the right way (for us), implementing one
@@ -96,6 +96,7 @@ review.
 | <a href="#commit">`commit`</a> | Commit all changes in this branch |
 | <a href="#config">`config`</a> | Set various configuration options. |
 | <a href="#create_ssh_key">`create_ssh_key`</a> | Create and enroll an ssh key. |
+| <a href="#diagnose">`diagnose`</a> | Capture diagnostics about your repository. |
 | <a href="#diff">`diff`</a> | Differences in this branch. |
 | <a href="#fix">`fix`</a> | Run automatic code formatters over changed files only. |
 | <a href="#gcd">`gcd`</a> | Change directory to another branch. |
@@ -548,6 +549,14 @@ Usage: `gee bazelgc`
 Identifies a set of bazel cache directories that are no longer associated with
 any worktree (branch) that gee knows about, and offers to delete them.
 
+### diagnose
+
+Usage: `gee diagnose`
+
+This command produces a `~/gee.diagnostics.txt` file that might
+be useful to share with the tool maintainers if something has gone
+wrong with your gee repository.
+
 ### repair
 
 Usage: `gee repair <command>`
@@ -556,6 +565,9 @@ Gee tries to control some metadata and attempts to file away some of the
 sharp edges from git.  Sometimes, bypassing gee to use git directly can
 cause some of gee's metadata to become stale.  This command fixes up
 any missing or incorrect metadata.
+
+Additionally, "gee repair" automatically invokes "gee diagnose," which
+produces a diagnostics file in `~/gee.diagnostics.txt`.
 
 ### restore_all_branches
 
