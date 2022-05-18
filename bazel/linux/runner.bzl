@@ -39,28 +39,38 @@ If not specified, the current root of the filesystem will be used as rootfs.
 def _commands_and_runtime(ctx, msg, runs, runfiles):
     """Computes commands and runfiles from a list of RuntimeInfo"""
     commands = []
+    runfiles = ctx.runfiles()
     for r, rbi in runs:
-        if not hasattr(rbi, "binary") or not rbi.binary:
-            fail(location(ctx) + (" the run target {target} must be executable, " +
-                                  "and have a binary defined".format(target = package(r.label))))
+        if not hasattr(rbi, "commands") and (not hasattr(rbi, "binary") or not rbi.binary):
+            fail(location(ctx) + (" the '{msg}' step in {target} must be executable, " +
+                                  "and have a binary defined, or provide commands to run").format(msg = msg, target = package(r.label)))
 
-        binary = rbi.binary
-        args = ""
-        if hasattr(rbi, "args"):
-            args = rbi.args
+        if hasattr(rbi, "commands") and rbi.commands:
+            commands.append("echo '==== {msg}: {target} -- inline commands'".format(
+                msg = msg,
+                target = package(r.label),
+            ))
+            commands.extend(rbi.commands)
 
-        commands.append("echo '==== {msg}: {target} as \"{path} {args}\"...'".format(
-            msg = msg,
-            target = package(r.label),
-            path = rbi.binary.short_path,
-            args = args,
-        ))
-        commands.append("{binary} {args}".format(
-            binary = shell.quote(binary.short_path),
-            args = args,
-        ))
+        if hasattr(rbi, "binary") and rbi.binary:
+            binary = rbi.binary
+            args = ""
+            if hasattr(rbi, "args"):
+                args = rbi.args
 
-        runfiles = runfiles.merge(ctx.runfiles([binary]))
+            commands.append("echo '==== {msg}: {target} as \"{path} {args}\"...'".format(
+                msg = msg,
+                target = package(r.label),
+                path = rbi.binary.short_path,
+                args = args,
+            ))
+            commands.append("{binary} {args}".format(
+                binary = shell.quote(binary.short_path),
+                args = args,
+            ))
+
+            runfiles = runfiles.merge(ctx.runfiles([binary]))
+
         if hasattr(rbi, "runfiles") and rbi.runfiles:
             runfiles = runfiles.merge(rbi.runfiles)
 

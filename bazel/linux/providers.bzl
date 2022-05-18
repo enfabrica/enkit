@@ -58,6 +58,7 @@ and have basic tools available necessary for its users.
 RuntimeInfo = provider(
     doc = """Represents a binary to run""",
     fields = {
+        "commands": "list of string, shell commands to embed in the script before running the binary",
         "binary": "File object, executable, binary to run",
         "runfiles": "runfiles() object, representing the files needed by the binary at run time",
         "args": "string, optional arguments to pass to the binary. args is NOT ESCAPED " +
