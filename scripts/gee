@@ -4842,8 +4842,8 @@ function main() {
     printf "\n"
   ) | _to_gee_log
   local cmdname="$1"; shift
-  cmdname="$(tr '-' '_' <<< "${cmdname}")"
   # Let's make pr-submit and pr_submit equivalent:
+  cmdname="$(tr '-' '_' <<< "${cmdname}")"
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     "gee__${cmdname}" "$@"
     ABNORMAL=0
