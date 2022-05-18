@@ -2,9 +2,10 @@
 
 ## Releases
 
-### Unreleased
+### 0.2.30
 
-* #496: Added `gee bazelgc` command removes old bazel cache directories.
+* #614: Added logging and `gee diagnose` commands.
+* #596: Added `gee bazelgc` command removes old bazel cache directories.
 * #594: `gee rmbr` now also removes bazel cache directory.
 
 ### Release 0.2.29
