@@ -123,7 +123,7 @@ def _kunit_bundle(ctx):
 
     commands = [
         # modprobe does not work correctly without /sys
-        "mount -t sysfs sysfs /sys",
+        "mount -t sysfs sysfs /sys || echo 1>&2 'Could not mount sys - modprobe may not work properly'",
     ]
 
     inputs = []
