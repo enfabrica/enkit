@@ -92,10 +92,10 @@ You can set up the bundle like this:
             doc = "Optional parameters to pass to the prepare_bin. Can use shell expansion.",
         ),
         "run_cmds": attr.string_list(
-            doc = "Shell commands to run OUTSIDE THE VM to run the environment (before run_bin - optional)",
+            doc = "Shell commands to run INSIDE THE VM to run the environment (before run_bin - optional)",
         ),
         "run_bin": attr.label(
-            doc = "Binary to run OUTSIDE THE VM to run the environment (optional)",
+            doc = "Binary to run INSIDE THE VM to run the environment (optional)",
             executable = True,
             cfg = "exec",
         ),
