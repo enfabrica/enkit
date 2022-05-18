@@ -156,6 +156,7 @@ declare -A LONGHELP
 declare -A PARENTS     # initialized by _load_parents_file
 declare -A MERGEBASES  # initialized by _load_parents_file
 declare -A BRANCH_TO_WORKTREE=()
+readonly GEE_LOG_FILE="${HOME}/gee.log"
 readonly TRUE=0
 readonly FALSE=1
 readonly GEE_ON_ASTORE="test/gee"
@@ -248,6 +249,24 @@ _COLOR_INFO="$(safe_tput setaf 1)"
 #
 # (the good stuff, the commands, are in the next section below.)
 ##########################################################################
+
+function _to_gee_log() {
+  # fail functional for r/o filesystems.
+  ( cat - >>"${GEE_LOG_FILE}" || /bin/true) 2>/dev/null
+}
+
+function _rotate_gee_log() {
+  if [[ -f "${GEE_LOG_FILE}" ]]; then
+    local size
+    size="$(stat -c%s "${GEE_LOG_FILE}")"
+    if (( size > 65536 )); then
+      savelog -n -c 9 -C -p "${GEE_LOG_FILE}" || /bin/true
+    fi
+  fi
+  if [[ ! -f "${GEE_LOG_FILE}" ]]; then
+    date | _to_gee_log
+  fi
+}
 
 function _parse_options() {
   # _parse_options <optstring> <args...>
@@ -868,12 +887,16 @@ function _confirm_or_exit() {
 # "The developer wants to read this."
 function _debug() {
   if (( "${DEBUG:-0}" > 0 )); then
+    printf "  dbg: %s\n" "$@" | _to_gee_log
     printf >&2 "${_COLOR_DBG}DBG: %s${_COLOR_RST}\n" "$@"
   fi
 }
 
 # "The user wants to read this."
 function _info() {
+  if (( "${DEBUG:-0}" > 0 )); then
+    printf "  info: %s\n" "$@" | _to_gee_log
+  fi
   printf >&2 "${_COLOR_INFO}%s${_COLOR_RST}\n" "$@"
 }
 
@@ -897,12 +920,14 @@ function _banner() {
 
 # Warn the user.  "The user should know this."
 function _warn() {
+  printf "  warn: %s\n" "$@" | _to_gee_log
   printf >&2 "${_COLOR_WARN}WARNING: %s${_COLOR_RST}\n" "$@"
 }
 
 # Use _fatal for user errors that don't require a stack dump.
 # "The user is going to be sad when they see this."
 function _fatal() {
+  printf "  fatal: %s\n" "$@" | _to_gee_log
   printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}\n" "$@"
   ABNORMAL=0  # we died intentionally.
   exit 1
@@ -911,6 +936,7 @@ function _fatal() {
 # Use _die to report internal errors that require a stack dump.
 # "The user is going to be mad when they see this."
 function _die() {
+  printf "  die: %s\n" "$@" | _to_gee_log
   printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}\n" "$@"
   if [[ -z "${NOSTACK}" ]]; then
     echo >&2 "Stack trace:"
@@ -929,6 +955,7 @@ function _cmd() {
   local COLS ESCAPED_CMD
   COLS="$(safe_tput cols)"
   ESCAPED_CMD="$( printf " %q" "$@")"
+  echo "  cmd: ${ESCAPED_CMD}" | _to_gee_log
   if [[ $DRYRUN -eq 0 ]]; then
     if [[ $VERBOSE -gt 0 ]]; then
       local C
@@ -4100,6 +4127,57 @@ function gee__bazelgc() {
 }
 
 ##########################################################################
+# diagnose command
+##########################################################################
+
+_register_help "diagnose" "Capture diagnostics about your repository." <<'EOT'
+Usage: gee diagnose
+
+This command produces a `~/gee.diagnostics.txt` file that might
+be useful to share with the tool maintainers if something has gone
+wrong with your gee repository.
+EOT
+
+function gee__diagnose() {
+  # Save up to the last 9 non-empty diagnostics files:
+  savelog -n -c 9 -C -p ~/gee.diagnostics.txt
+  # Create a new diagnostic file:
+  (
+    set -x
+    set +e
+    echo "$(readlink -f $0) version ${VERSION}"
+    "${GIT}" --version
+    "${GH}" --version
+    "${JQ}" --version
+    echo "--------"
+    "${GH}" auth status
+    "${GIT}" ls-remote | head -10
+    echo "--------"
+    find ~/gee -maxdepth 2 -ls
+    echo "--------"
+    for t in ~/gee/*/.gee/*; do echo ""; echo "file: $t"; cat "$t"; done
+    echo "--------"
+    for b in ~/gee/*/{main,master}; do
+      echo "b=$b"
+      cd "$b"
+      git remote -v
+      git worktree list --porcelain
+    done
+    echo "--------"
+    for b in ~/gee/*/*; do
+      echo "b=$b"
+      cd "$b"
+      git branch --show-current
+      git status -uall
+      git log --graph --pretty=format:'%h %d %s %cr %an' --abbrev-commit -n 10
+    done
+    echo "------"
+    tail -100 ~/gee.log
+  ) > ~/gee.diagnostics.txt 2>&1
+  _info "Diagnostics saved to ~/gee.diagnostics.txt"
+}
+
+##########################################################################
 # repair command
 ##########################################################################
 
@@ -4110,6 +4188,9 @@ Gee tries to control some metadata and attempts to file away some of the
 sharp edges from git.  Sometimes, bypassing gee to use git directly can
 cause some of gee's metadata to become stale.  This command fixes up
 any missing or incorrect metadata.
+
+Additionally, "gee repair" automatically invokes "gee diagnose," which
+produces a diagnostics file in `~/gee.diagnostics.txt`.
 EOT
 
 function _gee_fix_remote_origin_fetch_config() {
@@ -4754,12 +4835,19 @@ function main() {
     gee__help usage
     exit 0
   fi
+  _rotate_gee_log
+  (
+    printf "%s" "$(readlink -f $0)"
+    printf " %q" "$@"
+    printf "\n"
+  ) | _to_gee_log
   local cmdname="$1"; shift
-  # Let's make pr-submit and pr_submit equivalent:
   cmdname="$(tr '-' '_' <<< "${cmdname}")"
+  # Let's make pr-submit and pr_submit equivalent:
   if type "gee__${cmdname}" >/dev/null 2>&1; then
     "gee__${cmdname}" "$@"
     ABNORMAL=0
+    echo "  exit rc=0" | _to_gee_log
   else
     echo "Unknown command ${cmdname}"
     echo ""
