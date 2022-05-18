@@ -31,6 +31,10 @@ or:
 
 Accepted options:
 
+  -s           Configures /bin/sh as init, drops you in a shell.
+               Hint: you can then use the paths shown with -x to manually
+               start the init script used.
+
   -k [value]   Adds one or more command line options to the kernel.
 
      For example: "-k ro -k root=/dev/sda -k console=ttyS0"
