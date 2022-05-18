@@ -4145,7 +4145,7 @@ function gee__diagnose() {
   (
     set -x
     set +e
-    echo "$(readlink -f $0) version ${VERSION}"
+    echo "$(readlink -f "$0") version ${VERSION}"
     "${GIT}" --version
     "${GH}" --version
     "${JQ}" --version
@@ -4837,7 +4837,7 @@ function main() {
   fi
   _rotate_gee_log
   (
-    printf "%s" "$(readlink -f $0)"
+    printf "%s" "$(readlink -f "$0")"
     printf " %q" "$@"
     printf "\n"
   ) | _to_gee_log
