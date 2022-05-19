@@ -65,8 +65,8 @@ fi
     runfiles = None
     if ctx.attr.qemu_binary:
         di = ctx.attr.qemu_binary[DefaultInfo]
-        qemu_search = [di.executable]
-        runfiles = di.runfiles
+        qemu_search = [di.files_to_run.executable.short_path]
+        runfiles = di.default_runfiles
     qemu_flags = ctx.attr.qemu_defaults + ctx.attr.qemu_flags
 
     kernel_flags = ctx.attr.kernel_defaults + ctx.attr.kernel_flags
@@ -102,7 +102,6 @@ See the RuntimeBundleInfo provider for details.
             "qemu_binary": attr.label(
                 doc = "A target defining the qemu binary to run. If unspecified, it will use a search path",
                 executable = True,
-                allow_single_file = True,
                 cfg = "host",
             ),
             "qemu_search": attr.string_list(
