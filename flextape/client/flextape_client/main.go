@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	timeout = flag.Duration("timeout", 7200*time.Second, "Max time waiting in license queue")
+	timeout = flag.Duration("timeout", 7*24*60*60*time.Second, "Max time waiting in license queue")
 )
 
 func main() {
