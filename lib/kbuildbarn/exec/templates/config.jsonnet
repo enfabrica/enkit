@@ -125,15 +125,17 @@ local blobstoreConfig = {
   // The FUSE file system through which data stored in the Content
   // Addressable Storage can be loaded lazily. This file system relies
   // on credentials captured through gRPC.
-  fuse: {
+  mount: {
     mountPath: '{{.MountDir}}',
-    directoryEntryValidity: '300s',
-    inodeAttributeValidity: '300s',
-    // Enabling this option may be necessary if you want to permit
-    // super-user access to the FUSE file system. It is strongly
-    // recommended that the permissions on the parent directory of the
-    // FUSE file system are locked down before enabling this option.
-    // allowOther: true,
+    fuse: {
+      directoryEntryValidity: '300s',
+      inodeAttributeValidity: '300s',
+      // Enabling this option may be necessary if you want to permit
+      // super-user access to the FUSE file system. It is strongly
+      // recommended that the permissions on the parent directory of the
+      // FUSE file system are locked down before enabling this option.
+      // allowOther: true,
+    },
   },
 
   // The location where locally created files in the "scratch" and
