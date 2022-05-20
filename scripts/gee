@@ -176,6 +176,10 @@ readonly ENKIT=/opt/enfabrica/bin/enkit
 readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
 readonly CLONE_DEPTH_MONTHS=3  # months of history to fetch
+# PR_LIST_MAX_FETCH: "gh pr list" fetches N records, and then filters, so this
+# window needs to cover the horizon of all possibly active PRs.  Hilariously,
+# the default is 30.
+readonly PR_LIST_MAX_FETCH=300
 readonly YESYESYES="${YESYESYES:-0}"  # for testing: disables all interactivity.
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
@@ -3155,9 +3159,27 @@ function gee__pr_list() {
   _info "Open PRs authored by ${WHO_3RD_PERSON}:"
   ( printf "PR\tbranch\treview\ttitle\n" ; \
     printf "==\t======\t======\t=====\n" ; \
-   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list --author "${WHO}" --state open \
+   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
+    -L "${PR_LIST_MAX_FETCH}" \
+    --author "${WHO}" \
+    --state open \
     --json number,reviewDecision,headRefName,title \
     --jq '.[] | "#\(.number)\t\(.headRefName)\t\(.reviewDecision)\t\(.title)"' \
+    ) | column -t -s $'\t'
+  echo ""
+
+  _info "PRs assigned to ${WHO_3RD_PERSON}:"
+  local -a JQSCRIPT=(
+    '.[]'
+    ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
+  )
+  ( printf "PR\tauthor\tcreated\ttitle\n" ; \
+    printf "==\t======\t=======\t=====\n" ; \
+   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
+    -L "${PR_LIST_MAX_FETCH}" \
+    --assignee "@me" \
+    --json number,author,headRefName,createdAt,state,title,reviewDecision,reviewRequests \
+    --jq "${JQSCRIPT[*]}" \
     ) | column -t -s $'\t'
   echo ""
 
@@ -3172,6 +3194,7 @@ function gee__pr_list() {
   ( printf "PR\tauthor\tcreated\ttitle\n" ; \
     printf "==\t======\t=======\t=====\n" ; \
    "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
+    -L "${PR_LIST_MAX_FETCH}" \
     --json number,author,headRefName,createdAt,state,title,reviewDecision,reviewRequests \
     --jq "${JQSCRIPT[*]}" \
     ) | column -t -s $'\t'
