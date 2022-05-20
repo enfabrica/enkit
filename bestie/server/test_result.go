@@ -57,6 +57,20 @@ func identifyStream(bazelBuildEvent bes.BuildEvent, streamId *build.StreamId) *b
 	return &stream
 }
 
+// Get the file size.
+func isValidFileSize(fileName string) error {
+	f, err := os.Stat(fileName)
+	if err != nil {
+		return fmt.Errorf("Cannot obtain file size: %w", err)
+	}
+	fileSize := int(f.Size())
+	debugPrintf("Output file %q size is %d (max %d)", filepath.Base(fileName), fileSize, maxFileSize)
+	if fileSize > maxFileSize {
+		return fmt.Errorf("File size %d exceeds maximum allowed (%d)", fileSize, maxFileSize)
+	}
+	return nil
+}
+
 // Open an output file for reading.
 func openOutputFile(fileName, fileUri string) (io.ReadCloser, error) {
 	u, err := url.Parse(fileUri)
@@ -79,7 +93,7 @@ func openOutputFile(fileName, fileUri string) (io.ReadCloser, error) {
 	}
 	if readErr != nil {
 		// Attempt to read the zip file failed.
-		return nil, fmt.Errorf("Error reading %q file: %w", fileName, readErr)
+		return nil, fmt.Errorf("Error reading file %q: %w", fileName, readErr)
 	}
 	debugPrintf("Opened output file %q for processing\n", fileName)
 	return fileCloser, nil
@@ -97,6 +111,12 @@ func openBytestreamFile(fileName, bytestreamUri string) (io.ReadCloser, error) {
 	}
 	fileUrl := kbuildbarn.Url(deploymentBaseUrl, hash, size, kbuildbarn.WithFileName(fileName))
 
+	// Check the file size before reading. Reject if too big.
+	if err := isValidFileSize(fileUrl); err != nil {
+		cidOutputFileTooBigTotal.increment()
+		return nil, err
+	}
+
 	client := http.DefaultClient
 	resp, err := client.Get(fileUrl)
 	if err != nil {
@@ -111,6 +131,12 @@ func openBytestreamFile(fileName, bytestreamUri string) (io.ReadCloser, error) {
 
 // Open a local file.
 func openLocalFile(file string) (io.ReadCloser, error) {
+	// Check the file size before reading. Reject if too big.
+	if err := isValidFileSize(file); err != nil {
+		cidOutputFileTooBigTotal.increment()
+		return nil, err
+	}
+
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, fmt.Errorf("Error opening %s: %w", file, err)
@@ -168,7 +194,10 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 		}
 	}
 	if len(errs) > 0 {
-		return multierror.New(errs)
+		// Display any errors that occurred, but don't fail the event processing
+		for _, err := range errs {
+			debugPrintln(err)
+		}
 	}
 	return nil
 }

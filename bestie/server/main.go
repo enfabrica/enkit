@@ -25,6 +25,7 @@ import (
 var (
 	logger      = log.New(os.Stdout, "bestie: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC|log.Lshortfile|log.Lmsgprefix)
 	isDebugMode bool // Set this to true to enable certain debug behaviors (e.g. special log messages).
+	maxFileSize int  = (20 * 1024 * 1024)
 )
 
 func debugPrintf(format string, str ...interface{}) {
@@ -100,10 +101,11 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 
 // Command line arguments.
 var (
-	argBaseUrl   = flag.String("base_url", "", "Base URL for accessing output artifacts in the build cluster (required)")
-	argDataset   = flag.String("dataset", "", "BigQuery dataset name (required) -- staging, production")
-	argDebug     = flag.Bool("debug", false, "Enable debug mode within the server")
-	argTableName = flag.String("table_name", "testmetrics", "BigQuery table name")
+	argBaseUrl     = flag.String("base_url", "", "Base URL for accessing output artifacts in the build cluster (required)")
+	argDataset     = flag.String("dataset", "", "BigQuery dataset name (required) -- staging, production")
+	argDebug       = flag.Bool("debug", false, "Enable debug mode within the server")
+	argMaxFileSize = flag.Int("max_file_size", maxFileSize, "Maximum output file size allowed for processing")
+	argTableName   = flag.String("table_name", "testmetrics", "BigQuery table name")
 )
 
 func checkCommandArgs() error {
@@ -124,6 +126,7 @@ func checkCommandArgs() error {
 	// Set/override the default values.
 	deploymentBaseUrl = *argBaseUrl
 	isDebugMode = *argDebug
+	maxFileSize = *argMaxFileSize
 	bigQueryTableDefault.dataset = *argDataset
 	bigQueryTableDefault.tableName = *argTableName
 
