@@ -39,7 +39,7 @@ If not specified, the current root of the filesystem will be used as rootfs.
 def _commands_and_runtime(ctx, msg, runs, runfiles):
     """Computes commands and runfiles from a list of RuntimeInfo"""
     commands = []
-    runfiles = ctx.runfiles()
+    runfiles = ctx.runfiles().merge(runfiles)
     for r, rbi in runs:
         if not hasattr(rbi, "commands") and (not hasattr(rbi, "binary") or not rbi.binary):
             fail(location(ctx) + (" the '{msg}' step in {target} must be executable, " +
@@ -115,6 +115,8 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
         )))
 
     outside_runfiles = ctx.runfiles()
+    if runfiles:
+        outside_runfiles = outside_runfiles.merge(runfiles)
     cprepares, outside_runfiles = _commands_and_runtime(ctx, "prepare", prepares, outside_runfiles)
     cchecks, outside_runfiles = _commands_and_runtime(ctx, "check", checks, outside_runfiles)
     cruns, inside_runfiles = _commands_and_runtime(ctx, "run", runs, ctx.runfiles())
