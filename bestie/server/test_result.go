@@ -57,18 +57,42 @@ func identifyStream(bazelBuildEvent bes.BuildEvent, streamId *build.StreamId) *b
 	return &stream
 }
 
-// Get the file size.
-func isValidFileSize(fileName string) error {
-	f, err := os.Stat(fileName)
-	if err != nil {
-		return fmt.Errorf("Cannot obtain file size: %w", err)
+func readFileWithLimit(fileReader io.Reader) ([]byte, error) {
+	// Attempt to read the file contents all at once. If an
+	// EOF is encountered, then the file fit within the max
+	// size buffer, so it is eligible for processing. Otherwise,
+	// return an error indicating the file is too big.
+	// Adding 1 to the limit to know if the file size went over it.
+	var limit int = maxFileSize
+	buf := make([]byte, limit+1)
+	n, err := fileReader.Read(buf)
+	if err != nil && err != io.EOF {
+		return nil, fmt.Errorf("File read error: %w", err)
 	}
-	fileSize := int(f.Size())
-	debugPrintf("Output file %q size is %d (max %d)", filepath.Base(fileName), fileSize, maxFileSize)
-	if fileSize > maxFileSize {
-		return fmt.Errorf("File size %d exceeds maximum allowed (%d)", fileSize, maxFileSize)
+	if n == 0 {
+		return nil, fmt.Errorf("Cannot read file data")
 	}
-	return nil
+	// Per the golang doc, an EOF error may be presented with
+	// the n > 0 case, or in a subsequent read that returns
+	// (0, io.EOF). We need to know if the current n value
+	// represents all of the file data or not.
+	if err != io.EOF {
+		temp := make([]byte, 10)
+		k, err2 := fileReader.Read(temp)
+		if k == 0 && err2 == io.EOF {
+			err = io.EOF
+		}
+	}
+	// Reaching EOF with n <= limit means the file is within
+	// the supported size limit. Otherwise, assume the file
+	// is too big.
+	if err != io.EOF || n > limit {
+		cidOutputFileTooBigTotal.increment()
+		return nil, fmt.Errorf("File too big (limit %d bytes)", limit)
+	}
+	// Return a slice based on the actual bytes read so that it
+	// does not confuse callers when they process the file data.
+	return buf[:n], nil
 }
 
 // Open an output file for reading.
@@ -111,12 +135,6 @@ func openBytestreamFile(fileName, bytestreamUri string) (io.ReadCloser, error) {
 	}
 	fileUrl := kbuildbarn.Url(deploymentBaseUrl, hash, size, kbuildbarn.WithFileName(fileName))
 
-	// Check the file size before reading. Reject if too big.
-	if err := isValidFileSize(fileUrl); err != nil {
-		cidOutputFileTooBigTotal.increment()
-		return nil, err
-	}
-
 	client := http.DefaultClient
 	resp, err := client.Get(fileUrl)
 	if err != nil {
@@ -131,12 +149,6 @@ func openBytestreamFile(fileName, bytestreamUri string) (io.ReadCloser, error) {
 
 // Open a local file.
 func openLocalFile(file string) (io.ReadCloser, error) {
-	// Check the file size before reading. Reject if too big.
-	if err := isValidFileSize(file); err != nil {
-		cidOutputFileTooBigTotal.increment()
-		return nil, err
-	}
-
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, fmt.Errorf("Error opening %s: %w", file, err)
@@ -182,7 +194,7 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 				break
 			}
 			defer fileCloser.Close()
-			err = processXmlMetrics(stream, fileCloser)
+			err = processXmlMetrics(stream, fileCloser, fileName)
 		default:
 			continue
 		}
@@ -237,9 +249,9 @@ func processZipMetrics(stream *bazelStream, fileReader io.Reader) error {
 		// to be read in chunks. Protobuf does work with large message sizes so there
 		// is no attempt to split it, which would require a "custom" framing technique
 		// (e.g. 4-byte length prefixing) by both the sender and receiver.
-		fileData, err := ioutil.ReadAll(zr)
+		fileData, err := readFileWithLimit(zr)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("Error reading output file %q: %w", fileName, err))
+			errs = append(errs, fmt.Errorf("Error reading file %q: %w", fileName, err))
 			continue
 		}
 		debugPrintf("Read output file to process: %s\n", fileName)
