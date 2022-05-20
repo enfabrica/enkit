@@ -49,7 +49,6 @@ else
     KERNEL_FLAGS+=("rootflags=trans=virtio,version=9p2000.L,msize=5000000,cache=mmap,posixacl")
 fi
 test -z "$KERNEL" || QEMU_FLAGS+=("-kernel" "$KERNEL")
-test -z "$INTERACTIVE" || KERNEL_FLAGS+=("init=/bin/sh")
 
 QEMU_FLAGS+=("-append" "${{KERNEL_FLAGS[*]}} ${{KERNEL_OPTS[*]}}")
 QEMU_FLAGS+=("${{EMULATOR_OPTS[@]}}")

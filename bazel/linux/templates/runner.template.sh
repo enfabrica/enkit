@@ -31,9 +31,10 @@ or:
 
 Accepted options:
 
-  -s           Configures /bin/sh as init, drops you in a shell.
+  -s           Starts the VM in interactive mode. It is expected that the
+               init script executes a shell.
                Hint: you can then use the paths shown with -x to manually
-               start the init script used.
+               start any target.
 
   -k [value]   Adds one or more command line options to the kernel.
 
