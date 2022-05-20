@@ -54,10 +54,12 @@ def _kernel_modules(ctx):
         for m in modules:
             message += "kernel: compiling %s for arch:%s kernel:%s" % (m, arch, ki.package)
 
-            outfile = "{kernel}/{arch}/{name}".format(
+            # ctx.attr.name is $kernel-$original_bazel_rule_name
+            outfile = "{kernel}/{name}/{arch}/{module}".format(
                 kernel = ki.name,
+                name = ctx.attr.name.removeprefix(ki.name + "-"),
                 arch = arch,
-                name = m,
+                module = m,
             )
 
             output = ctx.actions.declare_file(outfile)
