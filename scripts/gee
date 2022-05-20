@@ -2143,9 +2143,9 @@ _register_help "diff" \
   "Differences in this branch." <<'EOT'
 Usage: gee diff [<files...>]
 
-Diffs the current branch against its parent branch.
+Shows all local changes this since branch diverged from its parent branch.
 
-If <files...> are omited, defaults to all files.
+If <files...> are omited, shows changes to all files.
 EOT
 
 function gee__diff() {
@@ -2161,9 +2161,9 @@ function gee__diff() {
     PARENT_BRANCH="FETCH_HEAD"
   fi
   if (( "$#" )); then
-    _git_can_fail diff "${PARENT_BRANCH}"..HEAD -- "$@"
+    _git_can_fail diff "${PARENT_BRANCH}"...HEAD -- "$@"
   else
-    _git_can_fail diff "${PARENT_BRANCH}"..HEAD
+    _git_can_fail diff "${PARENT_BRANCH}"...HEAD
   fi
   if _branch_has_unstaged_changes; then
     _info "Note: This branch contains uncommitted changes."
