@@ -167,3 +167,9 @@ func TestGetBuildEvents(t *testing.T) {
 		})
 	}
 }
+
+func TestTrivial(t *testing.T) {
+	if 1 != 1 {
+		t.Error("WTF")
+	}
+}
