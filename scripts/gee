@@ -3184,7 +3184,6 @@ function gee__pr_list() {
   echo ""
 
   _info "PRs pending ${YOUR} review:"
-  # TODO(jonathan): ugh why doesn't this work?
   local -a JQSCRIPT=(
     '.[]'
     ' | select( .reviewDecision == "REVIEW_REQUIRED" )'
