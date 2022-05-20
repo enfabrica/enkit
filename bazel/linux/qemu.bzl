@@ -49,13 +49,13 @@ else
     KERNEL_FLAGS+=("rootflags=trans=virtio,version=9p2000.L,msize=5000000,cache=mmap,posixacl")
 fi
 test -z "$KERNEL" || QEMU_FLAGS+=("-kernel" "$KERNEL")
-test -z "$INTERACTIVE" || KERNEL_FLAGS+=("init=/bin/sh")
+test -z "$SINGLE" || KERNEL_FLAGS+=("init=/bin/sh")
 
 QEMU_FLAGS+=("-append" "${{KERNEL_FLAGS[*]}} ${{KERNEL_OPTS[*]}}")
 QEMU_FLAGS+=("${{EMULATOR_OPTS[@]}}")
 
 echo 1>&2 '$' "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"
-if [ -z "$INTERACTIVE" ]; then
+if [ -z "$INTERACTIVE" -a -z "$SINGLE" ]; then
     "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" </dev/null | tee "$OUTPUT_FILE"
 else
     "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"

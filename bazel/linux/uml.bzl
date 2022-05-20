@@ -18,16 +18,19 @@ else
 fi
 
 # If debugging is enabled, throw the user in a shell.
-if [ -z "$INTERACTIVE" ]; then
+if [ -z "$INTERACTIVE" -a -z "$SINGLE" ]; then
   OPTIONS=("con0=null,fd:1" "con1=null,fd:1" "${{OPTIONS[@]}}")
 else
-  OPTIONS=("con0=fd:0,fd:1" "${{OPTIONS[@]}}" "init=/bin/sh")
+  OPTIONS=("con0=fd:0,fd:1" "${{OPTIONS[@]}}")
 fi
+
+test -z "$SINGLE" || OPTIONS+=("init=/bin/sh")
+
 OPTIONS+=("${{EMULATOR_OPTS[@]}}")
 OPTIONS+=("${{KERNEL_OPTS[@]}}")
 
 echo 1>&2 '$' "$KERNEL" "${{OPTIONS[@]}}"
-if [ -z "$INTERACTIVE" ]; then
+if [ -z "$INTERACTIVE" -a -z "$SINGLE" ]; then
   "$KERNEL" "${{OPTIONS[@]}}" | tee "$OUTPUT_FILE"
 else
   "$KERNEL" "${{OPTIONS[@]}}"
