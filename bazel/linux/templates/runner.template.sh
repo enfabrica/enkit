@@ -87,6 +87,7 @@ function showstate {
 declare -a KERNEL_OPTS
 declare -a EMULATOR_OPTS
 INTERACTIVE=""
+SINGLE=""
 
 # Make sure the log file is saved by BES protocol, store it in the
 # UNDECLARED_OUTPUTS_DIR.
@@ -105,7 +106,7 @@ while getopts "k:e:r:hsx" opt; do
     h) help; exit 0;;
     k) KERNEL_OPTS+=("$OPTARG");;
     e) EMULATOR_OPTS+=("$OPTARG");;
-    s) INTERACTIVE=True;;
+    s) SINGLE=True;;
     r) ROOTFS=("$OPTARG");;
     x) showstate; exit 0;;
     ?|*) help 1>&2; exit 1;;
@@ -134,6 +135,7 @@ trap onexit EXIT
 #   - RUNTIME - path to the top level directory that needs to be exposed.
 #   - TMPDIR - path to a temporary directory.
 #   - INTERACTIVE - if non-empty value, run the VM in interactive mode (shell).
+#   - SINGLE - if non-empty value, run the VM in single-user mode (init=/bin/sh).
 #   - OUTPUT_FILE - console output must be stored in this file
 #                   (kernel boot log, and any shell output).
 #   - OUTPUT_DIR - directory where to store any other output file.
@@ -141,7 +143,7 @@ trap onexit EXIT
 # - Additionally, they should check for:
 #   - KERNEL_OPTS - array, may have additional kernel arguments.
 #   - EMULATOR_OPTS - array, may have additional arguments for the emulator.
-for var in TARGET KERNEL INIT ROOTFS RUNTIME TMPDIR INTERACTIVE OUTPUT_FILE OUTPUT_DIR KERNEL_OPTS EMULATOR_OPTS; do
+for var in TARGET KERNEL INIT ROOTFS RUNTIME TMPDIR INTERACTIVE SINGLE OUTPUT_FILE OUTPUT_DIR KERNEL_OPTS EMULATOR_OPTS; do
     export "$var"
 done
 
@@ -159,7 +161,7 @@ test "$estatus" == 0 || {
     echo 1>&2 "===== emulator exited with non zero status - check logs above ===="
     exit "$estatus"
 }
-test -z "$INTERACTIVE" || exit "$estatus"
+test -z "$INTERACTIVE" -a -z "$SINGLE" || exit "$estatus"
 
 echo 1>&2 "===== emulator exited - now running checkers (if any) ===="
 {checks}
