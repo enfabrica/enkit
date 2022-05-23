@@ -58,13 +58,15 @@ const (
 	cidInsertTimeout                                  // 12
 	cidMetricDiscard                                  // 13
 	cidMetricUpload                                   // 14
+	cidOutputFileTooBigTotal                          // 15
 )
 
 // Service statistics.
 type serviceStats struct {
 	// General Build Event Stream stats.
-	buildsTotal prometheus.Counter
-	eventsTotal *prometheus.CounterVec
+	buildsTotal           prometheus.Counter
+	eventsTotal           *prometheus.CounterVec
+	outputFileTooBigTotal prometheus.Counter
 
 	// BigQuery interaction stats.
 	bigQueryExceptionsTotal *prometheus.CounterVec
@@ -89,6 +91,12 @@ var ServiceStats serviceStats = serviceStats{
 		},
 		[]string{"id"},
 	),
+	outputFileTooBigTotal: prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "output_file_too_big_total",
+			Help:      "Total output files not processed due to excessive size",
+		}),
 	bigQueryExceptionsTotal: prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "bestie",
@@ -127,6 +135,7 @@ var ServiceStats serviceStats = serviceStats{
 func (s *serviceStats) registerPrometheusMetrics() {
 	prometheus.MustRegister(s.buildsTotal)
 	prometheus.MustRegister(s.eventsTotal)
+	prometheus.MustRegister(s.outputFileTooBigTotal)
 	prometheus.MustRegister(s.bigQueryExceptionsTotal)
 	prometheus.MustRegister(s.bigQueryInsertDelay)
 	prometheus.MustRegister(s.bigQueryInsertsTotal)
@@ -205,5 +214,7 @@ func updatePrometheusCounter(cid counterId, label string, n float64) {
 		s.bigQueryMetricsTotal.WithLabelValues("discard").Add(float64(n))
 	case cidMetricUpload:
 		s.bigQueryMetricsTotal.WithLabelValues("upload").Add(float64(n))
+	case cidOutputFileTooBigTotal:
+		s.outputFileTooBigTotal.Add(n)
 	}
 }

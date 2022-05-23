@@ -2,9 +2,10 @@ package main
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -74,11 +75,14 @@ type SkippedMsg struct {
 }
 
 // Read test result info from a test.xml file and create result metrics.
-func processXmlMetrics(stream *bazelStream, fileReader io.Reader) error {
+func processXmlMetrics(stream *bazelStream, fileReader io.Reader, fileName string) error {
 	// Read entire file into a byte slice.
-	fileData, err := ioutil.ReadAll(fileReader)
+	fileData, err := readFileWithLimit(fileReader, maxFileSize)
 	if err != nil {
-		return fmt.Errorf("Error reading file: %w", err)
+		if errors.Is(err, fileTooBigErr) {
+			cidOutputFileTooBigTotal.increment()
+		}
+		return fmt.Errorf("Error reading file %q: %w", filepath.Base(fileName), err)
 	}
 
 	// Extract all metrics from the XML file contents.

@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -57,6 +58,29 @@ func identifyStream(bazelBuildEvent bes.BuildEvent, streamId *build.StreamId) *b
 	return &stream
 }
 
+func readFileWithLimit(fileReader io.Reader, limit int) ([]byte, error) {
+	// Attempt to read the file contents all at once, bounded by
+	// the specified limit. This uses a LimitReader to restrict the number
+	// of bytes read by ReadAll, producing an EOF when the limit is reached.
+	// Note that ReadAll treats EOF as a normal condition and does not
+	// report it as an error. Adding 1 to the limit to detect if the file size
+	// went over it using a single read.
+	limitReader := io.LimitReader(fileReader, int64(limit+1))
+	data, err := io.ReadAll(limitReader)
+	if err != nil {
+		return nil, fmt.Errorf("File read error: %w", err)
+	}
+	// A successful ReadAll here means either EOF occurred due
+	// to the file being within the limit, or the LimitReader kicked in.
+	// Since an extra byte was added to the limit above, check
+	// if the data length exceeds the limit (it will be by one byte
+	// in this case).
+	if len(data) > limit {
+		return nil, fileTooBigErr
+	}
+	return data, nil
+}
+
 // Open an output file for reading.
 func openOutputFile(fileName, fileUri string) (io.ReadCloser, error) {
 	u, err := url.Parse(fileUri)
@@ -79,7 +103,7 @@ func openOutputFile(fileName, fileUri string) (io.ReadCloser, error) {
 	}
 	if readErr != nil {
 		// Attempt to read the zip file failed.
-		return nil, fmt.Errorf("Error reading %q file: %w", fileName, readErr)
+		return nil, fmt.Errorf("Error reading file %q: %w", fileName, readErr)
 	}
 	debugPrintf("Opened output file %q for processing\n", fileName)
 	return fileCloser, nil
@@ -156,7 +180,7 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 				break
 			}
 			defer fileCloser.Close()
-			err = processXmlMetrics(stream, fileCloser)
+			err = processXmlMetrics(stream, fileCloser, fileName)
 		default:
 			continue
 		}
@@ -168,7 +192,10 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 		}
 	}
 	if len(errs) > 0 {
-		return multierror.New(errs)
+		// Display any errors that occurred, but don't fail the event processing
+		for _, err := range errs {
+			debugPrintln(err)
+		}
 	}
 	return nil
 }
@@ -208,9 +235,12 @@ func processZipMetrics(stream *bazelStream, fileReader io.Reader) error {
 		// to be read in chunks. Protobuf does work with large message sizes so there
 		// is no attempt to split it, which would require a "custom" framing technique
 		// (e.g. 4-byte length prefixing) by both the sender and receiver.
-		fileData, err := ioutil.ReadAll(zr)
+		fileData, err := readFileWithLimit(zr, maxFileSize)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("Error reading output file %q: %w", fileName, err))
+			if errors.Is(err, fileTooBigErr) {
+				cidOutputFileTooBigTotal.increment()
+			}
+			errs = append(errs, fmt.Errorf("Error reading file %q: %w", fileName, err))
 			continue
 		}
 		debugPrintf("Read output file to process: %s\n", fileName)
