@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -57,42 +58,27 @@ func identifyStream(bazelBuildEvent bes.BuildEvent, streamId *build.StreamId) *b
 	return &stream
 }
 
-func readFileWithLimit(fileReader io.Reader) ([]byte, error) {
-	// Attempt to read the file contents all at once. If an
-	// EOF is encountered, then the file fit within the max
-	// size buffer, so it is eligible for processing. Otherwise,
-	// return an error indicating the file is too big.
-	// Adding 1 to the limit to know if the file size went over it.
-	var limit int = maxFileSize
-	buf := make([]byte, limit+1)
-	n, err := fileReader.Read(buf)
-	if err != nil && err != io.EOF {
+func readFileWithLimit(fileReader io.Reader, limit int) ([]byte, error) {
+	// Attempt to read the file contents all at once, bounded by
+	// the specified limit. This uses a LimitReader to restrict the number
+	// of bytes read by ReadAll, producing an EOF when the limit is reached.
+	// Note that ReadAll treats EOF as a normal condition and does not
+	// report it as an error. Adding 1 to the limit to detect if the file size
+	// went over it using a single read.
+	limitReader := io.LimitReader(fileReader, int64(limit+1))
+	data, err := io.ReadAll(limitReader)
+	if err != nil {
 		return nil, fmt.Errorf("File read error: %w", err)
 	}
-	if n == 0 {
-		return nil, fmt.Errorf("Cannot read file data")
+	// A successful ReadAll here means either EOF occurred due
+	// to the file being within the limit, or the LimitReader kicked in.
+	// Since an extra byte was added to the limit above, check
+	// if the data length exceeds the limit (it will be by one byte
+	// in this case).
+	if len(data) > limit {
+		return nil, fileTooBigErr
 	}
-	// Per the golang doc, an EOF error may be presented with
-	// the n > 0 case, or in a subsequent read that returns
-	// (0, io.EOF). We need to know if the current n value
-	// represents all of the file data or not.
-	if err != io.EOF {
-		temp := make([]byte, 10)
-		k, err2 := fileReader.Read(temp)
-		if k == 0 && err2 == io.EOF {
-			err = io.EOF
-		}
-	}
-	// Reaching EOF with n <= limit means the file is within
-	// the supported size limit. Otherwise, assume the file
-	// is too big.
-	if err != io.EOF || n > limit {
-		cidOutputFileTooBigTotal.increment()
-		return nil, fmt.Errorf("File too big (limit %d bytes)", limit)
-	}
-	// Return a slice based on the actual bytes read so that it
-	// does not confuse callers when they process the file data.
-	return buf[:n], nil
+	return data, nil
 }
 
 // Open an output file for reading.
@@ -249,8 +235,11 @@ func processZipMetrics(stream *bazelStream, fileReader io.Reader) error {
 		// to be read in chunks. Protobuf does work with large message sizes so there
 		// is no attempt to split it, which would require a "custom" framing technique
 		// (e.g. 4-byte length prefixing) by both the sender and receiver.
-		fileData, err := readFileWithLimit(zr)
+		fileData, err := readFileWithLimit(zr, maxFileSize)
 		if err != nil {
+			if errors.Is(err, fileTooBigErr) {
+				cidOutputFileTooBigTotal.increment()
+			}
 			errs = append(errs, fmt.Errorf("Error reading file %q: %w", fileName, err))
 			continue
 		}

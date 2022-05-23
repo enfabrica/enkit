@@ -23,9 +23,10 @@ import (
 )
 
 var (
-	logger      = log.New(os.Stdout, "bestie: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC|log.Lshortfile|log.Lmsgprefix)
-	isDebugMode bool // Set this to true to enable certain debug behaviors (e.g. special log messages).
-	maxFileSize int  = (5 * 1024 * 1024)
+	fileTooBigErr      = errors.New("File exceeds maximum size allowed")
+	isDebugMode   bool = false // Set this to true to enable certain debug behaviors (e.g. special log messages).
+	logger             = log.New(os.Stdout, "bestie: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC|log.Lshortfile|log.Lmsgprefix)
+	maxFileSize   int  = (5 * 1024 * 1024)
 )
 
 func debugPrintf(format string, str ...interface{}) {

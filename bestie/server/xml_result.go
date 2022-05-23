@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -76,8 +77,11 @@ type SkippedMsg struct {
 // Read test result info from a test.xml file and create result metrics.
 func processXmlMetrics(stream *bazelStream, fileReader io.Reader, fileName string) error {
 	// Read entire file into a byte slice.
-	fileData, err := readFileWithLimit(fileReader)
+	fileData, err := readFileWithLimit(fileReader, maxFileSize)
 	if err != nil {
+		if errors.Is(err, fileTooBigErr) {
+			cidOutputFileTooBigTotal.increment()
+		}
 		return fmt.Errorf("Error reading file %q: %w", filepath.Base(fileName), err)
 	}
 
