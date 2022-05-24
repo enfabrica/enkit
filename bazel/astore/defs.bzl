@@ -119,7 +119,7 @@ With this rule, you can easily download
 files from an artifact store.""",
 )
 
-def astore_download_and_extract(ctx, digest, stripPrefix):
+def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None):
     """Fetch and extract a package from astore.
 
     This method downloads a package stored as an archive in astore, verifies
@@ -128,7 +128,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix):
     Bazel repository rules and they do not maintain a dependency graph and the
     ctx object is different than the ones used with regular rules.
     """
-    f = ctx.path(ctx.attr.path.split("/")[-1])
+    f = ctx.path((path or ctx.attr.path).split("/")[-1])
 
     # Download archive
     enkit_args = [
@@ -136,7 +136,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix):
         "astore",
         "download",
         "--force-uid",
-        ctx.attr.uid,
+        uid or ctx.attr.uid,
         "--output",
         f,
         "--overwrite",
