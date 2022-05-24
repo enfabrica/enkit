@@ -4,7 +4,7 @@ kernel_image(
     name = "{name}",
     package = "{package}",
     arch = "{arch}",
-    image = "{image}",
+    image = "{image_path}",
     visibility = [
         "//visibility:public",
     ],
