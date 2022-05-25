@@ -60,6 +60,7 @@ needs to be installed:
             libcap-dev       \
             python3-docutils \
             asciidoc         \
+            jq               \
             zstd
 
 ```

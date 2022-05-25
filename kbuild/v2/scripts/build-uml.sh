@@ -24,7 +24,9 @@ if [ ! -r "$KERNEL_VERSION" ] ; then
     echo "ERROR: unable to read kernel version file: $KERNEL_VERSION"
     exit 1
 fi
-kernel_version="$(cat $KERNEL_VERSION)"
+
+flavour="test"
+kernel_version="$(cat $KERNEL_VERSION)-${flavour}"
 
 # clean output UML dir
 if [ "$RT_CLEAN_BUILD" = "yes" ] ; then
@@ -55,3 +57,7 @@ make ARCH=um O="$OUTPUT_UML_DIR" olddefconfig
 
 # Build the kernel with our LOCAL version
 make -j ARCH=um O="$OUTPUT_UML_DIR" LOCALVERSION="$kernel_version" all
+
+# Build and install the kernel modules
+make -j ARCH=um O="$OUTPUT_UML_DIR" LOCALVERSION="$kernel_version" \
+     INSTALL_MOD_PATH="${OUTPUT_UML_DIR}/modules-install" modules_install
