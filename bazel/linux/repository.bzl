@@ -125,6 +125,8 @@ def _install_kernel_image(ctx, candidate, required):
     if not versioned_path.exists:
         path = candidate
 
+    # vmlinuz file may need to be executed (for uml, mark it as such).
+    ctx.execute(["chmod", "0755", path])
     return ("image", ctx.attr.template_image, {
         "image_path": path,
     })
@@ -146,7 +148,7 @@ def _kernel_package(ctx):
             stripPrefix = ctx.attr.strip_prefix,
         )
     else:
-        fail("WORKSPACE repository {}: Provide either a URL, OR an astore path and UID (extract must be True)".format(name = ctx.attr.name))
+        fail("WORKSPACE repository {name}: Either provide an 'url' attribute for HTTP download, OR an astore path and uid (only if extract = True)".format(name = ctx.attr.name))
 
     fragments = []
     if "tree" in ctx.attr.allowed:
