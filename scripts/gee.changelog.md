@@ -2,10 +2,12 @@
 
 ## Releases
 
-### unreleased
+### 0.2.31
 
+* `gee rmbr`: fails functional if the directory bazel-out links to has already
+  been removed. (#630)
 * `gee pr_make`: Make parsing of PR description more robust by parsing comments
-  like blank lines.
+  like blank lines. (#629)
 * `gee diff`: show only new changes in this branch since branches diverged (#628)
 * `gee lspr`: fix incomplete reviews list (#627)
 *
