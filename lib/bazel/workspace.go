@@ -70,6 +70,7 @@ func (w *Workspace) bazelCommand(subCmd subcommand) (Command, error) {
 	args = append(args, subCmd.Args()...)
 	cmd := exec.Command("bazel", args...)
 	cmd.Dir = w.root
+	cmd.Env = os.Environ()
 	bazelCmd, err := NewCommand(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct bazel command: %w", err)
