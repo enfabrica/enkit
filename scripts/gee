@@ -3415,7 +3415,7 @@ EndOfPrTemplate
 
   # Remove all comments from the description and squeeze multiple blank
   # lines into single blank lines:
-  sed -i '/^#/d;/\S/,/^\s*$/!d' "${BODYFILE}"
+  sed -i 's/^ *#.*//;/\S/,/^\s*$/!d' "${BODYFILE}"
 
   if grep --quiet -E "^\s*ABORT" "${BODYFILE}"; then
     _fatal "Aborting creation of new PR, as requested."
