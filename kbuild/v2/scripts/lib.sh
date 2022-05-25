@@ -52,7 +52,7 @@ deb_get_kernel_version() {
 uml_get_kernel_version() {
     local uml_dir="$1"
 
-    kernel_version="$(cat ${uml_dir}/include/config/kernel.release)-uml"
+    kernel_version="$(cat ${uml_dir}/include/config/kernel.release)"
     echo -n "$kernel_version"
 }
 

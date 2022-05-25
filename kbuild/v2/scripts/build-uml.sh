@@ -24,7 +24,9 @@ if [ ! -r "$KERNEL_VERSION" ] ; then
     echo "ERROR: unable to read kernel version file: $KERNEL_VERSION"
     exit 1
 fi
-kernel_version="$(cat $KERNEL_VERSION)"
+
+flavour="test"
+kernel_version="$(cat $KERNEL_VERSION)-${flavour}"
 
 # clean output UML dir
 if [ "$RT_CLEAN_BUILD" = "yes" ] ; then
