@@ -81,8 +81,8 @@ upload_uml_kernel_image_modules() {
 
     # copy vmlinuz into tarball directory and make it executable
     mkdir -p "${tmpdir}/boot"
-    /bin/cp "$uml_image" "${tmpdir}/boot/vmlinuz-${kernel_version}"
-    chmod a+x "${tmpdir}/boot/vmlinuz-${kernel_version}"
+    /bin/cp "$uml_image" "$vmlinuz"
+    chmod a+x "$vmlinuz"
 
     # copy modules into tarball directory
     /bin/cp -r "${uml_modules_dir}/lib" "$tmpdir"
