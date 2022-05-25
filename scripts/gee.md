@@ -180,9 +180,9 @@ Usage: `gee log`
 
 Usage: `gee diff [<files...>]`
 
-Diffs the current branch against its parent branch.
+Shows all local changes this since branch diverged from its parent branch.
 
-If <files...> are omited, defaults to all files.
+If <files...> are omited, shows changes to all files.
 
 ### pack
 
