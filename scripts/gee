@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly VERSION="0.2.30"
+readonly VERSION="0.2.31"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -3872,7 +3872,7 @@ function gee__remove_branch() {
   SHA="$("${GIT}" reflog | head -n 1 | awk '{print $1}' )"
 
   # delete the bazel cache associated with this worktree
-  if [[ -h ./bazel-out ]]; then
+  if [[ -h ./bazel-out ]] && readlink -qf ./bazel-out; then
     local BAZELCACHE
     BAZELCACHE="$(readlink -f ./bazel-out)"
     BAZELCACHE="${BAZELCACHE%/execroot/*/bazel-out}"
