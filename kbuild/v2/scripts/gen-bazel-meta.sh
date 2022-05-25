@@ -56,7 +56,7 @@ gen_artifact_desc() {
     local astore_path="/${ASTORE_ROOT}/${flavour}/${astore_file}"
     local astore_meta="${ASTORE_META_DIR}/${astore_file}-${kernel_version}.json"
     if [ ! -r "$astore_meta" ] ; then
-        echo "ERROR: Unable to read build-headers.tar.gz astore meta file: $astore_meta"
+        echo "ERROR: Unable to read astore meta file: $astore_meta"
         exit 1
     fi
 
@@ -88,7 +88,7 @@ gen_deb_flavours() {
 
         ## vmlinuz-modules.tar.gz
         local astore_file="vmlinuz-modules.tar.gz"
-        gen_artifact_desc "KERNEL_MODULES" $kernel_version $f $astore_file
+        gen_artifact_desc "KERNEL_BIN" $kernel_version $f $astore_file
 
     done
 }
