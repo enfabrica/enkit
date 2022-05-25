@@ -2,6 +2,13 @@
 
 ## Releases
 
+### unreleased
+
+* `gee pr_make`: Make parsing of PR description more robust by parsing comments
+  like blank lines.
+* `gee diff`: show only new changes in this branch since branches diverged (#628)
+* `gee lspr`: fix incomplete reviews list (#627)
+*
 ### 0.2.30
 
 * #614: Added logging and `gee diagnose` commands.
