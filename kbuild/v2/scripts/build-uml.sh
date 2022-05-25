@@ -57,3 +57,7 @@ make ARCH=um O="$OUTPUT_UML_DIR" olddefconfig
 
 # Build the kernel with our LOCAL version
 make -j ARCH=um O="$OUTPUT_UML_DIR" LOCALVERSION="$kernel_version" all
+
+# Build and install the kernel modules
+make -j ARCH=um O="$OUTPUT_UML_DIR" LOCALVERSION="$kernel_version" \
+     INSTALL_MOD_PATH="${OUTPUT_UML_DIR}/modules-install" modules_install

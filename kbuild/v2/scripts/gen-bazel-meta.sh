@@ -96,14 +96,15 @@ gen_deb_flavours() {
 gen_uml() {
     local kernel_version="$(uml_get_kernel_version $OUTPUT_UML_DIR)"
 
+    local flavour="test"
+
     ## build-headers.tar.gz
     local astore_file="build-headers.tar.gz"
-    gen_artifact_desc "KERNEL_TREE" $kernel_version test $astore_file
+    gen_artifact_desc "KERNEL_TREE" $kernel_version "$flavour" $astore_file
 
-    ## kernel image
-    local astore_file="vmlinuz"
-    gen_artifact_desc "KERNEL_IMAGE" $kernel_version test $astore_file
-
+    ## vmlinuz-modules.tar.gz
+    local astore_file="vmlinuz-modules.tar.gz"
+    gen_artifact_desc "KERNEL_BIN" $kernel_version "$flavour" $astore_file
 }
 
 gen_deb_flavours

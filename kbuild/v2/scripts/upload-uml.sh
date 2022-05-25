@@ -18,33 +18,80 @@ OUTPUT_UML_BAZEL_ARCHIVE_DIR="$(realpath $2)"
 ASTORE_ROOT="$3"
 ASTORE_META_DIR="$4"
 
-uml_image_src="${OUTPUT_UML_DIR}/linux"
-if [ ! -r "$uml_image_src" ] ; then
-    echo "ERROR: unable to read UML kernel image: $uml_image"
-    exit 1
-fi
+uml_image="${OUTPUT_UML_DIR}/linux"
+uml_modules_dir="${OUTPUT_UML_DIR}/modules-install"
 
 archive_src="${OUTPUT_UML_BAZEL_ARCHIVE_DIR}/build-headers.tar.gz"
-if [ ! -r "$archive_src" ] ; then
-    echo "ERROR: unable to read UML kernel archive: $archive_src"
-    exit 1
-fi
 
 if [ ! -d "$ASTORE_META_DIR" ] ; then
     echo "ERROR: unable to find astore meta-data directory: $ASTORE_META_DIR"
     exit 1
 fi
 
+flavour="test"
 kernel_version="$(uml_get_kernel_version $OUTPUT_UML_DIR)"
 tag="kernel=$kernel_version"
 
-uml_image_astore_file="vmlinuz"
-uml_image_astore_path="${ASTORE_ROOT}/test/${uml_image_astore_file}"
-uml_image_astore_meta="${ASTORE_META_DIR}/${uml_image_astore_file}-${kernel_version}.json"
+TAR_TMPDIR=$(mktemp -d)
+clean_up()
+{
+    rm -rf $TAR_TMPDIR
+}
+trap clean_up EXIT
 
-archive_astore_file="build-headers.tar.gz"
-archive_astore_path="${ASTORE_ROOT}/test/$archive_astore_file"
-archive_astore_meta="${ASTORE_META_DIR}/${archive_astore_file}-${kernel_version}.json"
+upload_uml_bazel_archive() {
+    local flavour=$1
+    local kernel_version="$2"
+    local tag="$3"
+    local archive="$4"
+    local astore_file="build-headers.tar.gz"
+    local astore_path="${ASTORE_ROOT}/${flavour}/${astore_file}"
+    local astore_meta="${ASTORE_META_DIR}/${astore_file}-${kernel_version}.json"
 
-upload_artifact "$uml_image_src" "$uml_image_astore_path" "um" "$tag" "$uml_image_astore_meta"
-upload_artifact "$archive_src"   "$archive_astore_path"   "um" "$tag" "$archive_astore_meta"
+    if [ ! -r "$archive" ] ; then
+        echo "ERROR: unable to read UML kernel archive: $archive"
+        exit 1
+    fi
+
+    upload_artifact "$archive" "$astore_path" "um" "$tag" "$astore_meta"
+}
+
+upload_uml_kernel_image_modules() {
+    local flavour=$1
+    local kernel_version="$2"
+    local tag="$3"
+    local uml_image="$4"
+    local uml_modules_dir="$5"
+    local tmpdir=$(mktemp -d -p "$TAR_TMPDIR")
+    local vmlinuz="${tmpdir}/boot/vmlinuz-${kernel_version}"
+    local tarball="${TAR_TMPDIR}/vmlinuz-modules.tar.gz"
+    local astore_file="vmlinuz-modules.tar.gz"
+    local astore_path="${ASTORE_ROOT}/${flavour}/${astore_file}"
+    local astore_meta="${ASTORE_META_DIR}/${astore_file}-${kernel_version}.json"
+
+    if [ ! -r "$uml_image" ] ; then
+        echo "ERROR: unable to read UML kernel image: $uml_image"
+        exit 1
+    fi
+
+    if [ ! -d "${uml_modules_dir}/lib" ] ; then
+        echo "ERROR: unable to read UML kernel module install directory: ${uml_modules_dir}/lib"
+        exit 1
+    fi
+
+    # copy vmlinuz into tarball directory and make it executable
+    mkdir -p "${tmpdir}/boot"
+    /bin/cp "$uml_image" "${tmpdir}/boot/vmlinuz-${kernel_version}"
+    chmod a+x "${tmpdir}/boot/vmlinuz-${kernel_version}"
+
+    # copy modules into tarball directory
+    /bin/cp -r "${uml_modules_dir}/lib" "$tmpdir"
+
+    # Include the /boot and /lib directories
+    tar -C "$tmpdir" --owner root --group root --create --gzip --file "$tarball" boot lib
+
+    upload_artifact "$tarball" "$astore_path" "um" "$tag" "$astore_meta"
+}
+
+upload_uml_bazel_archive        "$flavour" "$kernel_version" "$tag" "$archive_src"
+upload_uml_kernel_image_modules "$flavour" "$kernel_version" "$tag" "$uml_image" "$uml_modules_dir"
