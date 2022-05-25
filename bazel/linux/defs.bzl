@@ -1,4 +1,3 @@
-load("//bazel/linux:repository.bzl", _kernel_image_version = "kernel_image_version", _kernel_tree_version = "kernel_tree_version", _rootfs_version = "rootfs_version")
 load("//bazel/linux:uml.bzl", "kernel_uml_run")
 load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "KernelModulesInfo", "KernelTreeInfo", "RootfsImageInfo", "RuntimeBundleInfo")
 load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible", "is_module")
@@ -7,16 +6,6 @@ load("//bazel/utils:messaging.bzl", "location", "package")
 load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
 load("//bazel/utils:exec_test.bzl", "exec_test")
 load("@bazel_skylib//lib:shell.bzl", "shell")
-
-# Symbols loaded from an external library are private by default.
-# Reassign those symbols to private variables so that old code using:
-#
-#   load("bazel/linux/defs.bzl", "kernel_tree_version")
-#
-# still works.
-kernel_tree_version = _kernel_tree_version
-kernel_image_version = _kernel_image_version
-rootfs_version = _rootfs_version
 
 def _kernel_modules(ctx):
     modules = ctx.attr.modules
