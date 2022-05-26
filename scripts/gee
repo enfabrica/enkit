@@ -4160,6 +4160,9 @@ be useful to share with the tool maintainers if something has gone
 wrong with your gee repository.
 EOT
 
+function print_env_var() {
+  local var
+
 function gee__diagnose() {
   # Save up to the last 9 non-empty diagnostics files:
   savelog -n -c 9 -C -p ~/gee.diagnostics.txt
@@ -4167,25 +4170,33 @@ function gee__diagnose() {
   (
     set -x
     set +e
+    echo "-------- version information --------"
     echo "$(readlink -f "$0") version ${VERSION}"
     "${GIT}" --version
     "${GH}" --version
     "${JQ}" --version
-    echo "--------"
+    echo "-------- ssh configuration --------"
+    cat ~/.ssh/config
+    printf "PATH=%q\n" "${PATH}"
+    printf "SSH_AUTH_SOCK=%q\n" "${SSH_AUTH_SOCK}"
+    printf "SSH_AGENT_PID=%q\n" "${SSH_AGENT_PID}"
+    ssh-add -l
+    ssh -vvv -T "${GIT_AT_GITHUB}"
+    echo "-------- gh connectivity --------"
     "${GH}" auth status
     "${GIT}" ls-remote | head -10
-    echo "--------"
+    echo "-------- gee branches --------"
     find ~/gee -maxdepth 2 -ls
-    echo "--------"
+    echo "-------- gee branch configs --------"
     for t in ~/gee/*/.gee/*; do echo ""; echo "file: $t"; cat "$t"; done
-    echo "--------"
+    echo "-------- repo config --------"
     for b in ~/gee/*/{main,master}; do
       echo "b=$b"
       cd "$b"
       git remote -v
       git worktree list --porcelain
     done
-    echo "--------"
+    echo "-------- status of each branch --------"
     for b in ~/gee/*/*; do
       echo "b=$b"
       cd "$b"
@@ -4193,7 +4204,7 @@ function gee__diagnose() {
       git status -uall
       git log --graph --pretty=format:'%h %d %s %cr %an' --abbrev-commit -n 10
     done
-    echo "------"
+    echo "------ tail of gee.log --------"
     tail -100 ~/gee.log
   ) > ~/gee.diagnostics.txt 2>&1
   _info "Diagnostics saved to ~/gee.diagnostics.txt"
@@ -4234,6 +4245,9 @@ function gee__repair() {
   _install_tools
 
   _gee_fix_remote_origin_fetch_config
+
+  # check that we can connect to github via ssh
+  _check_ssh
 
   if ! _gh auth status; then
     _warn "Looks like you were not able to authenticate to the github REST API."
