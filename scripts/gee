@@ -4160,9 +4160,6 @@ be useful to share with the tool maintainers if something has gone
 wrong with your gee repository.
 EOT
 
-function print_env_var() {
-  local var
-
 function gee__diagnose() {
   # Save up to the last 9 non-empty diagnostics files:
   savelog -n -c 9 -C -p ~/gee.diagnostics.txt
@@ -4175,13 +4172,15 @@ function gee__diagnose() {
     "${GIT}" --version
     "${GH}" --version
     "${JQ}" --version
+    echo "-------- env --------"
+    printf "%q\n" "${USER}"
+    printf "%q\n" "${PATH}"
+    printf "%q\n" "${SSH_AUTH_SOCK}"
+    printf "%q\n" "${SSH_AGENT_PID}"
     echo "-------- ssh configuration --------"
     cat ~/.ssh/config
-    printf "PATH=%q\n" "${PATH}"
-    printf "SSH_AUTH_SOCK=%q\n" "${SSH_AUTH_SOCK}"
-    printf "SSH_AGENT_PID=%q\n" "${SSH_AGENT_PID}"
     ssh-add -l
-    ssh -vvv -T "${GIT_AT_GITHUB}"
+    ssh -v -T "${GIT_AT_GITHUB}"
     echo "-------- gh connectivity --------"
     "${GH}" auth status
     "${GIT}" ls-remote | head -10
