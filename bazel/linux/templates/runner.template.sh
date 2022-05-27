@@ -161,6 +161,11 @@ test "$estatus" == 0 || {
     echo 1>&2 "===== emulator exited with non zero status - check logs above ===="
     exit "$estatus"
 }
+test -f "$OUTPUT_DIR/exit_status_file" && estatus=$(< "$OUTPUT_DIR/exit_status_file")
+test "$estatus" == 0 || {
+    echo 1>&2 "===== a program in the emulator exited with non zero status - check logs above ===="
+    exit "$estatus"
+}
 test -z "$INTERACTIVE" -a -z "$SINGLE" || exit "$estatus"
 
 echo 1>&2 "===== emulator exited - now running checkers (if any) ===="
