@@ -94,6 +94,9 @@ SINGLE=""
 TMPDIR="${TEST_TMPDIR:-$(mktemp -d)}"
 OUTPUT_DIR=${TEST_UNDECLARED_OUTPUTS_DIR:-$(mktemp -d)}
 
+# Pass $TMPDIR to the program in the emulator.
+KERNEL_OPTS+=("TMPDIR=$TMPDIR")
+
 # Variables provided by bazel will point to a directory that only contains the
 # deps for this targets as symlinks. But symlinks don't work if we only mount
 # a subdirectory. This finds the original/underlying location.
