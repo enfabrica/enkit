@@ -4,6 +4,7 @@ See README.md for more information.
 """
 
 load("//bazel:go_repositories.bzl", "go_repositories")
+load("//bazel/meson:meson.bzl", "meson_register_toolchains")
 load("//bazel/ui:deps.bzl", "install_ui_deps")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
@@ -15,6 +16,7 @@ load("@io_bazel_rules_docker//go:image.bzl", rules_docker_go_dependencies = "rep
 load("@io_bazel_rules_docker//repositories:deps.bzl", rules_docker_container_dependencies = "deps")
 load("@io_bazel_rules_docker//repositories:repositories.bzl", rules_docker_dependencies = "repositories")
 load("@io_bazel_rules_go//extras:embed_data_deps.bzl", "go_embed_data_dependencies")
+load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
@@ -96,3 +98,6 @@ def stage_2():
     grpc_web_plugin_linux()
     grpc_web_plugin_darwin()
     grpc_web_plugin_windows()
+
+    rules_foreign_cc_dependencies()
+    meson_register_toolchains()

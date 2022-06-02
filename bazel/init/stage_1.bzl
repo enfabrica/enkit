@@ -205,3 +205,20 @@ def stage_1():
         strip_prefix = "protobuf-3.20.1",
         urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.1.tar.gz"],
     )
+
+    maybe(
+        name = "rules_foreign_cc",
+        repo_rule = http_archive,
+        sha256 = "bcd0c5f46a49b85b384906daae41d277b3dc0ff27c7c752cc51e43048a58ec83",
+        strip_prefix = "rules_foreign_cc-0.7.1",
+        url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.7.1.tar.gz",
+    )
+
+    maybe(
+        name = "meson",
+        repo_rule = http_archive,
+        build_file = "@enkit//bazel/meson:meson.BUILD.bazel",
+        sha256 = "a0f5caa1e70da12d5e63aa6a9504273759b891af36c8d87de381a4ed1380e845",
+        urls = ["https://github.com/mesonbuild/meson/releases/download/0.62.1/meson-0.62.1.tar.gz"],
+        strip_prefix = "meson-0.62.1",
+    )

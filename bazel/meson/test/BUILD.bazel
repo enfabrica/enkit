@@ -1,0 +1,14 @@
+load("@enkit//bazel/meson:meson.bzl", "meson")
+
+filegroup(
+    name = "src",
+    srcs = glob(["**"]),
+)
+
+meson(
+    name = "hello",
+    lib_source = ":src",
+    out_binaries = [
+        "hello",
+    ],
+)
