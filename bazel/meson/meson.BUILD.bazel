@@ -1,0 +1,24 @@
+load("@rules_foreign_cc//toolchains/native_tools:native_tools_toolchain.bzl", "native_tool_toolchain")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "meson_bin",
+    srcs = ["meson.py"],
+)
+
+native_tool_toolchain(
+    name = "meson_tool",
+    path = "$(execpath :meson_bin)",
+    target = ":meson_bin",
+)
+
+toolchain(
+    name = "meson_toolchain",
+    toolchain = ":meson_tool",
+    toolchain_type = ":meson_toolchain_type",
+)
+
+toolchain_type(
+    name = "meson_toolchain_type",
+)
