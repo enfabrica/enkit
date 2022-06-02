@@ -97,6 +97,7 @@ meson(
     output_to_genfiles = True,
     implementation = _meson_impl,
     toolchains = [
+        "@bazel_tools//tools/cpp:toolchain_type",
         "@meson//:meson_toolchain_type",
         "@rules_foreign_cc//foreign_cc/private/framework:shell_toolchain",
     ],
