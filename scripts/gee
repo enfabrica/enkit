@@ -11,10 +11,12 @@ if read -r -d '' USAGE <<'EOT'
 
 gee version: {{VERSION}}
 
-gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
-tribal knowledge about how to use git the right way (for us), implementing one
-standard and well-supported workflow.  "gee" is also an instructional tool: by
-showing each command as it executes, gee helps users learn git.
+gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
+tools  gee is an opinionated tool that implements a specific, simple, powerful
+workflow.
+
+"gee" is also an instructional tool: by showing each command as it executes,
+gee helps users learn git.
 
 ## Features:
 
@@ -3901,24 +3903,13 @@ function gee__pr_rollback() {
 ##########################################################################
 
 _register_help "remove_branch" "Remove a branch." "rmbr" <<'EOT'
-Usage: gee remove_branch <branch-name>
+Usage: gee remove_branch <branch-names...>
 
 Removes a branch and it's associated directory.
 EOT
 
-function gee__rmbr() { gee__remove_branch "$@"; }
-function gee__remove_branch() {
-  _startup_checks
-
-  local BR="$1";
-  if [[ -z "${BR}" ]]; then
-    BR="$(_get_current_branch)"
-    if [[ -z "${BR}" ]]; then
-      _fatal "Must specify a branch name to remove."
-    fi
-  else
-    shift
-  fi
+function _remove_a_branch() {
+  local BR="$1"
 
   _banner "Deleting ${BR}"
   _checkout_or_die "${BR}"
@@ -3976,6 +3967,22 @@ function gee__remove_branch() {
   _info "Deleted ${BR}.  To undo: gee make_branch ${BR} ${SHA}"
 }
 
+function gee__rmbr() { gee__remove_branch "$@"; }
+function gee__remove_branch() {
+  _startup_checks
+
+  local -a BRANCHES=( "$@" )
+
+  if (( ${#BRANCHES[@]} == 0 )); then
+    _fatal "Must specify at least one branch name to remove."
+  fi
+
+  local BR
+  for BR in "${BRANCHES[@]}"; do
+    _remove_a_branch "${BR}"
+  done
+}
+
 ##########################################################################
 # fix command
 ##########################################################################
@@ -4019,18 +4026,25 @@ function gee__fix() {
 # TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 
 _register_help "gcd" "Change directory to another branch." <<'EOT'
-Usage: gcd [-b] <branch>[/<path>]
+Usage: gcd [-b] [-m] <branch>[/<path>]
 
-The "gee gcd" command is not meant to be used directly, but is instead designed
-to be called from the "gcd" bash function, which can be imported into your
-environment with gee's "bash_setup" command, like this:
+Print the path to an equivalent directory in another worktree (branch).
+This command is meant to be invoked from the "gcd" bash function, which
+invokes this command and then chdir's into that directory.
+
+The "gcd" bash function can be imported into your shell with gee's "bash_setup"
+command, like this:
 
     eval "$(gee bash_setup)"
 
 (This command should be added to your .bashrc file.)
 
-Once imported, the "gcd" function can be used to change directory between
-branches.
+Options:
+
+* "-b" causes gee to create a new branch if the specified branch doesn't
+  exist.  The new branch is a child of the current branch.
+* "-m" causes gee to create a new branch if the specified branch doesn't
+  exist.  The new branch is a child of the master (or main) branch.
 
 If only "<branch>" is specified, "gcd" will change directory to the same
 relative directory in another branch.  If "<branch>/<path>" is specified,
@@ -4045,8 +4059,12 @@ For example:
     # now in ~/gee/enkit/branch2/foo/bar
     gcd branch3/foo
     # now in ~/gee/enkit/branch3/foo
+    gcd -b branch4
+    # now in branch4/foo, a child branch of branch3.
+    gcd -m new_feature
+    # now in new_feature/foo, a child branch of master.
 
-gcd also updates the following environment variables:
+The "gcd" function also updates the following environment variables:
 
 * BROOT always contains the path to the root directory of the current branch.
 * BRBIN always contains the path to the bazel-bin directory beneath root.
@@ -4056,10 +4074,21 @@ EOT
 function gee__gcd() {
   local TARGET BRANCH REL_PATH OPT_B
   OPT_B=0
-  if [[ "$1" == "-b" ]]; then
-    OPT_B=1
-    shift
-  fi
+  OPT_M=0
+  while [[ "$1" == "-"* ]]; do
+    if [[ "$1" == "-b" ]]; then
+      OPT_B=1
+      shift
+    elif [[ "$1" == "-m" ]]; then
+      OPT_M=1
+      shift
+    elif [[ "$1" == "--" ]]; then
+      shift
+      break
+    else
+      _fatal "gee gcd: unknown option \"${$1}\""
+    fi
+  done
   TARGET="$1"
   _set_main
   if [[ -z "${TARGET}" ]]; then
@@ -4086,6 +4115,11 @@ function gee__gcd() {
 
   # check whether BRANCH exists:
   if ! _local_branch_exists "${BRANCH}"; then
+    if (( OPT_M == 1 )); then
+      # branch from the main branch
+      cd "${GEE_DIR}/${REPO}/${MAIN}"
+      OPT_B=1
+    fi
     if (( OPT_B == 1 )); then
       gee__mkbr "${BRANCH}" >&2
       if ! _local_branch_exists "${BRANCH}"; then
