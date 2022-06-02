@@ -102,7 +102,7 @@ See the RuntimeBundleInfo provider for details.
             "qemu_binary": attr.label(
                 doc = "A target defining the qemu binary to run. If unspecified, it will use a search path",
                 executable = True,
-                cfg = "host",
+                cfg = "target",
             ),
             "qemu_search": attr.string_list(
                 doc = "Qemu binaries to try to run, in turn, until one is found. Ignored if qemu_binary is specified.",
