@@ -3,14 +3,19 @@ load("@rules_foreign_cc//toolchains/native_tools:native_tools_toolchain.bzl", "n
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
-    name = "meson_bin",
-    srcs = ["meson.py"],
+    name = "meson_dir",
+    srcs = glob(
+        include = ["**"],
+        # Workaround for bug in replace_in_files of rules_foreign_cc in the
+        # presence of files with spaces.
+        exclude = ["test cases/**"],
+    ),
 )
 
 native_tool_toolchain(
     name = "meson_tool",
-    path = "$(execpath :meson_bin)",
-    target = ":meson_bin",
+    path = "meson.py",
+    target = ":meson_dir",
 )
 
 toolchain(
