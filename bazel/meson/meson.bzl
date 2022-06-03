@@ -14,6 +14,7 @@ load(
 
 def _create_meson_script(configureParameters):
     ctx = configureParameters.ctx
+    attrs = configureParameters.attrs
     inputs = configureParameters.inputs
 
     tools = get_tools_info(ctx)
@@ -25,14 +26,16 @@ def _create_meson_script(configureParameters):
 
     script = pkgconfig_script(ext_build_dirs)
 
-    script.append("{env_vars} meson.py setup --prefix {prefix} {builddir} {sourcedir}".format(
+    script.append("{env_vars} {meson} setup --prefix {prefix} {builddir} {sourcedir}".format(
+        meson = attrs.meson_path,
         env_vars = get_make_env_vars(ctx.workspace_name, tools, flags, user_env, ctx.attr.deps, inputs),
         prefix = "$$INSTALLDIR$$",
         builddir = "$$BUILD_TMPDIR$$",
         sourcedir = "$$EXT_BUILD_ROOT$$/" + detect_root(ctx.attr.lib_source),
     ))
 
-    script.append("meson.py install -C {dir}".format(
+    script.append("{meson} install -C {dir}".format(
+        meson = attrs.meson_path,
         dir = "$$BUILD_TMPDIR$$",
     ))
 
@@ -58,15 +61,16 @@ def get_meson_data(ctx):
     return _access_and_expect_label_copied(Label("@meson//:meson_toolchain_type"), ctx)
 
 def _meson_impl(ctx):
-    cmake_data = get_meson_data(ctx)
+    meson_data = get_meson_data(ctx)
 
-    tools_deps = cmake_data.deps
+    tools_deps = meson_data.deps
 
     attrs = create_attrs(
         ctx.attr,
         configure_name = "Meson",
         create_configure_script = _create_meson_script,
         tools_deps = tools_deps,
+        meson_path = meson_data.path,
     )
     return cc_external_rule_impl(ctx, attrs)
 
