@@ -1,0 +1,4 @@
+@tom
+per-file *.cc=@goo
+include team.metadata
+@jerry

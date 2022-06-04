@@ -1,0 +1,22 @@
+action: {
+  review: {
+    parent: true
+    pattern: "*.cc"
+    user: {
+      identifier: "@ccontavalli"
+    }
+    user: {
+      identifier: "@goliath"
+    }
+  }
+}
+
+action: {
+  notify: {
+    parent: true
+    pattern: "*.h"
+    user: {
+      identifier: "carlo@enfabrica.net"
+    }
+  }
+}

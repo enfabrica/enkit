@@ -1,0 +1,12 @@
+action: {
+  review: {
+    parent: true
+    pattern: "*.cc"
+    user: {
+      identifier: "@minnie"
+    }
+    user: {
+      identifier: "@goofy"
+    }
+  }
+}
