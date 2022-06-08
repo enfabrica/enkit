@@ -151,7 +151,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
 
     # Check digest of archive
     checksum_args = ["sha256sum", f]
-    res = ctx.execute(checksum_args, timeout = 10)
+    res = ctx.execute(checksum_args, timeout = 60)
     if res.return_code:
         fail("Failed to calculate checksum\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
             checksum_args,
