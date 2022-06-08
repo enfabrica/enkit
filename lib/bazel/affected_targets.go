@@ -115,14 +115,11 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, l
 	if errs != nil {
 		if startQueryErr != nil && endQueryErr == nil {
 			// We are calculating targets over a change that fixes the build graph
-			// (broken before, working after). In a presubmit context, we want this
-			// step to succeed, but there is no sensible list of targets that the
-			// change affects since the build graph was broken in one stage.
-			//
-			// Pass here but emit a warning.
+			// (broken before, working after).  Since we cannot calculate the affected
+      // targets, we fail the presubmit and inform the user that they must both
+      // test their change manually, and submit by overriding the presubmit test.
 			log.Warnf("Got error at start point:\n%v\n", startQueryErr)
-			log.Warnf("Broken build graph detected at start point; this change fixes the build graph, but no targets will be tested. This change must be tested manually.")
-			return nil, nil, nil // No changed targets and no error
+      log.Warnf("If this PR is fixing a known broken build graph, it must be manually tested and then override the presubmit check to submit.")
 		}
 		return nil, nil, errs
 	}
