@@ -2,6 +2,7 @@ package ptunnel
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -125,6 +126,31 @@ func GetSID(proxy *url.URL, host string, port uint16, mods ...GetModifier) (stri
 		return err
 	})
 	return sid, err
+}
+
+func GetSRVPort(proxy *url.URL, host string) (uint16, error) {
+	curl := *proxy
+
+	params := proxy.Query()
+	params.Add("host", host)
+	curl.RawQuery = params.Encode()
+	curl.Path = path.Join(curl.Path, "/get_srv_port")
+
+	var body string
+	// TODO: retries?
+	// TODO: options?
+
+	err := protocol.Get(curl.String(), protocol.Read(protocol.String(&body)))
+	var httpErr *protocol.HTTPError
+	if errors.As(err, &httpErr) {
+		return 0, fmt.Errorf("failed to query enproxy for port for %q: %v", host, err)
+	}
+
+	var res nasshp.GetSRVPortResponse
+	if err := json.Unmarshal([]byte(body), &res); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal response %q: %v", body, err)
+	}
+	return res.Port, nil
 }
 
 func Connect(proxy *url.URL, host string, port uint16, pos, ack uint32, mods ...GetModifier) (*websocket.Conn, error) {

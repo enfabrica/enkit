@@ -89,9 +89,9 @@ func (s *sessions) Orphan(sid string) {
 	s.Orphaned.Increment()
 }
 
-// getSRVPortResponse is marshalled to JSON and returned by the /get_srv_port
+// GetSRVPortResponse is marshalled to JSON and returned by the /get_srv_port
 // handler.
-type getSRVPortResponse struct {
+type GetSRVPortResponse struct {
 	// Port for the queried hostname
 	Port uint16 `json:"port"`
 }
@@ -538,7 +538,7 @@ func (np *NasshProxy) GetSRVPort(w http.ResponseWriter, r *http.Request) {
 		np.requestError(&np.errors.SrvLookupFailed, w, "no SRV records for %q", host, err)
 		return
 	}
-	res := getSRVPortResponse{
+	res := GetSRVPortResponse{
 		Port: srvs[0].Port,
 	}
 	if err := json.NewEncoder(w).Encode(res); err != nil {

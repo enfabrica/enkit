@@ -3,6 +3,17 @@ package commands
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"os/exec"
+	"os/user"
+	"strconv"
+	"strings"
+	"syscall"
+
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/kflags"
@@ -14,17 +25,8 @@ import (
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/enfabrica/enkit/proxy/nasshp"
 	"github.com/enfabrica/enkit/proxy/ptunnel"
+
 	"github.com/spf13/cobra"
-	"io"
-	"net"
-	"net/http"
-	"net/url"
-	"os"
-	"os/exec"
-	"os/user"
-	"strconv"
-	"strings"
-	"syscall"
 )
 
 type Tunnel struct {
@@ -38,6 +40,7 @@ type Tunnel struct {
 	Listen      string
 	Background  bool
 	CheckAccess bool
+	UseSRVPort  bool
 }
 
 func (r *Tunnel) Username() string {
@@ -95,17 +98,26 @@ func (r *Tunnel) Run(cmd *cobra.Command, args []string) (err error) {
 	switch {
 	case len(args) < 1:
 		return kflags.NewUsageErrorf("Must specify the target host, the host you finally want to reach")
-	case len(args) > 2:
-		return kflags.NewUsageErrorf("Too many arguments supplied - run '... tunnel <host> [port]', at most 2 arguments")
+	case len(args) == 1:
+		host = args[0]
 	case len(args) == 2:
 		lport, err := strconv.ParseUint(args[1], 10, 16)
 		if err != nil || lport <= 0 || lport > 65535 {
 			return kflags.NewUsageErrorf("Come on! A port number is an integer between 1 and 65535 - %s leads to %w", args[1], err)
 		}
-		port = uint16(lport)
-		fallthrough
-	case len(args) == 1:
 		host = args[0]
+		port = uint16(lport)
+	case len(args) > 2:
+		return kflags.NewUsageErrorf("Too many arguments supplied - run '... tunnel <host> [port]', at most 2 arguments")
+	}
+
+	if r.UseSRVPort {
+		r.Log.Debugf("SRV port discovery requested for %q", host)
+		port, err = ptunnel.GetSRVPort(purl, host)
+		if err != nil {
+			return kflags.NewUsageErrorf("use-srv-port was requested, but port could not be discovered: %v", err)
+		}
+		r.Log.Debugf("Found port %d for host %q", port, host)
 	}
 
 	if r.Listen != "" {
@@ -354,6 +366,7 @@ was installed in your system, it may require running 'enkit tunnel ...' instead.
 	root.Command.Flags().StringVarP(&root.Listen, "listen", "L", "", "Local address or port to listen on")
 	root.Command.Flags().BoolVarP(&root.Background, "background", "b", false, "When listening with -L - run the tunnel in the background")
 	root.Command.Flags().BoolVarP(&root.CheckAccess, "check-access", "c", true, "When listening with -L - check credentials before opening the socket")
+	root.Command.Flags().BoolVar(&root.UseSRVPort, "use-srv-port", false, "When set, find port number via DNS SRV record behind the proxy")
 
 	root.TunnelFlags = ptunnel.DefaultFlags().Register(&kcobra.FlagSet{FlagSet: root.Command.Flags()}, "")
 	return root
