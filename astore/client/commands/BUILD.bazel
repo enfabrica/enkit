@@ -34,9 +34,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = [
-        "formatter_test.go",
-    ],
+    srcs = ["formatter_test.go"],
     embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    deps = [
+        "//astore/rpc:astore-go",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
 )

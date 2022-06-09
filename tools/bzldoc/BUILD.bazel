@@ -12,10 +12,10 @@ load(
 bzl_library(
     name = "bzldoc_bzl",
     srcs = ["bzldoc.bzl"],
+    visibility = ["//visibility:public"],
     deps = [
         # "//codegen:codegen_bzl",
     ],
-    visibility = ["//visibility:public"],
 )
 
 py_binary(
