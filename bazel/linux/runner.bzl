@@ -36,21 +36,26 @@ If not specified, the current root of the filesystem will be used as rootfs.
     ),
 }
 
-def _commands_and_runtime(ctx, msg, runs, runfiles):
+def commands_and_runtime(ctx, msg, runs, runfiles, verbose=True):
     """Computes commands and runfiles from a list of RuntimeInfo"""
     commands = []
     runfiles = ctx.runfiles().merge(runfiles)
+    labels = []
     for r, rbi in runs:
         if not hasattr(rbi, "commands") and (not hasattr(rbi, "binary") or not rbi.binary):
             fail(location(ctx) + (" the '{msg}' step in {target} must be executable, " +
                                   "and have a binary defined, or provide commands to run").format(msg = msg, target = package(r.label)))
 
         if hasattr(rbi, "commands") and rbi.commands:
-            commands.append("echo '==== {msg}: {target} -- inline commands'".format(
-                msg = msg,
-                target = package(r.label),
-            ))
+            if verbose:
+                commands.append("echo '==== {msg}: {target} -- inline commands'".format(
+                    msg = msg,
+                    target = package(r.label),
+                ))
+                labels.append(str(r.label))
             commands.extend(rbi.commands)
+            for command in rbi.commands:
+                labels.append("{label}:{cmd}".format(label = r.label, cmd = command))
 
         if hasattr(rbi, "binary") and rbi.binary:
             binary = rbi.binary
@@ -58,23 +63,33 @@ def _commands_and_runtime(ctx, msg, runs, runfiles):
             if hasattr(rbi, "args"):
                 args = rbi.args
 
-            commands.append("echo '==== {msg}: {target} as \"{path} {args}\"...'".format(
-                msg = msg,
-                target = package(r.label),
-                path = rbi.binary.short_path,
-                args = args,
-            ))
+            if verbose:
+                commands.append("echo '==== {msg}: {target} as \"{path} {args}\"...'".format(
+                    msg = msg,
+                    target = package(r.label),
+                    path = rbi.binary.short_path,
+                    args = args,
+                ))
+                labels.append(str(r.label))
             commands.append("{binary} {args}".format(
                 binary = shell.quote(binary.short_path),
                 args = args,
             ))
+            labels.append(str(r.label))
 
             runfiles = runfiles.merge(ctx.runfiles([binary]))
 
         if hasattr(rbi, "runfiles") and rbi.runfiles:
             runfiles = runfiles.merge(rbi.runfiles)
 
-    return commands, runfiles
+    if len(labels) != len(commands):
+        fail(location(ctx) +
+            "enkit error: count mismatch between labels ({len_lab}) and commands ({len_cmd})".format(
+                len_lab = len(labels),
+                len_cmd = len(commands),
+            ))
+
+    return commands, runfiles, labels
 
 def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     ki = ctx.attr.kernel_image[KernelImageInfo]
@@ -117,9 +132,9 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     outside_runfiles = ctx.runfiles()
     if runfiles:
         outside_runfiles = outside_runfiles.merge(runfiles)
-    cprepares, outside_runfiles = _commands_and_runtime(ctx, "prepare", prepares, outside_runfiles)
-    cchecks, outside_runfiles = _commands_and_runtime(ctx, "check", checks, outside_runfiles)
-    cruns, inside_runfiles = _commands_and_runtime(ctx, "run", runs, ctx.runfiles())
+    cprepares, outside_runfiles, _ = commands_and_runtime(ctx, "prepare", prepares, outside_runfiles)
+    cchecks, outside_runfiles, _ = commands_and_runtime(ctx, "check", checks, outside_runfiles)
+    cruns, inside_runfiles, _ = commands_and_runtime(ctx, "run", runs, ctx.runfiles())
 
     init = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
     ctx.actions.expand_template(
