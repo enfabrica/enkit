@@ -17,8 +17,7 @@ type ProxyErrors struct {
 	CookieInvalidAuth       utils.Counter
 
 	ProxyInvalidAuth     utils.Counter
-	ProxyInvalidPort     utils.Counter
-	ProxyInvalidHost     utils.Counter
+	ProxyInvalidHostPort utils.Counter
 	ProxyCouldNotEncrypt utils.Counter
 	ProxyAllow           AllowErrors
 
@@ -161,16 +160,10 @@ var (
 		nil, prometheus.Labels{"url": "/proxy", "error": "invalid auth", "type": "unauthorized"},
 	)
 
-	descProxyInvalidPort = prometheus.NewDesc(
+	descProxyInvalidHostPort = prometheus.NewDesc(
 		"nasshp_url_errors",
 		helpError,
-		nil, prometheus.Labels{"url": "/proxy", "error": "invalid port", "type": "bad client"},
-	)
-
-	descProxyInvalidHost = prometheus.NewDesc(
-		"nasshp_url_errors",
-		helpError,
-		nil, prometheus.Labels{"url": "/proxy", "error": "invalid host", "type": "bad client"},
+		nil, prometheus.Labels{"url": "/proxy", "error": "invalid host/port", "type": "bad client"},
 	)
 
 	descProxyCouldNotEncrypt = prometheus.NewDesc(
@@ -472,8 +465,7 @@ func (nc *nasshCollector) Collect(ch chan<- prometheus.Metric) {
 		{descCookieInvalidParameters, errors.CookieInvalidParameters.Get()},
 		{descCookieInvalidAuth, errors.CookieInvalidAuth.Get()},
 		{descProxyInvalidAuth, errors.ProxyInvalidAuth.Get()},
-		{descProxyInvalidPort, errors.ProxyInvalidPort.Get()},
-		{descProxyInvalidHost, errors.ProxyInvalidHost.Get()},
+		{descProxyInvalidHostPort, errors.ProxyInvalidHostPort.Get()},
 		{descProxyCouldNotEncrypt, errors.ProxyCouldNotEncrypt.Get()},
 
 		{descProxyInvalidCookie, errors.ProxyAllow.InvalidCookie.Get()},

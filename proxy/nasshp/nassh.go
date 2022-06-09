@@ -88,6 +88,7 @@ type NasshProxy struct {
 	authenticator oauth.Authenticate
 	encoder       token.BinaryEncoder
 	filter        Filter
+	resolver      Resolver
 
 	// Timeouts to use, must be set.
 	timeouts *Timeouts
@@ -388,6 +389,13 @@ func WithExpirationPolicy(ep *ExpirationPolicy) Modifier {
 	}
 }
 
+func WithResolver(r Resolver) Modifier {
+	return func(np *NasshProxy, o *options) error {
+		np.resolver = r
+		return nil
+	}
+}
+
 // New creates a new instance of a nasshp tunnel protocol.
 //
 // rng MUST be a secure random number generator, use github.com/enfabrica/lib/srand
@@ -412,6 +420,11 @@ func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*N
 				return strings.HasPrefix(origin, "chrome-extension://") || strings.HasPrefix(origin, "chrome://")
 			},
 		},
+		resolver: MultiResolver([]Resolver{
+			&FailEmptyHost{},
+			&SRVResolver{},
+			&FailEmptyPort{},
+		}),
 	}
 
 	if err := Modifiers(mods).Apply(np, o); err != nil {
@@ -493,17 +506,13 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	resolvedHost, resolvedPort, err := np.resolver.Resolve(host, port)
+	if err != nil {
+		np.requestError(&np.errors.ProxyInvalidHostPort, w, "invalid host/port: %q/%q", host, port)
+		return
+	}
 
-	sp, err := strconv.ParseUint(port, 10, 16)
-	if err != nil || port == "" {
-		np.requestError(&np.errors.ProxyInvalidPort, w, "invalid port requested: %s", port)
-		return
-	}
-	if host == "" {
-		np.requestError(&np.errors.ProxyInvalidHost, w, "invalid empty host: %s", host)
-		return
-	}
-	hostport := net.JoinHostPort(host, strconv.Itoa(int(sp)))
+	hostport := net.JoinHostPort(resolvedHost, resolvedPort)
 
 	_, allowed := np.allow(&np.errors.ProxyAllow, r, w, "", hostport)
 	if !allowed {

@@ -4,6 +4,17 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log"
+	"math/rand"
+	"net"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/ktest"
 	"github.com/enfabrica/enkit/lib/khttp/protocol"
@@ -11,17 +22,10 @@ import (
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/enfabrica/enkit/lib/token"
 	"github.com/enfabrica/enkit/proxy/utils"
+
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
-	"log"
-	"math/rand"
-	"net"
-	"net/http"
-	"net/url"
-	"strings"
-	"sync"
-	"testing"
-	"time"
+	"github.com/stretchr/testify/require"
 )
 
 type Acceptor struct {
@@ -57,13 +61,25 @@ func Listener() (int, *Acceptor, error) {
 	return port, mc, err
 }
 
+type fakeSRVResolver struct {
+	port string
+}
+
+func (r *fakeSRVResolver) Resolve(host, port string) (string, string, error) {
+	return host, r.port, nil
+}
+
 var wisdom = "Nowadays, anyone who wishes to combat lies and ignorance and to write the truth must overcome at least five difficulties. He must have the courage to write the truth when truth is everywhere opposed; the keenness to recognize it, although it is everywhere concealed; the skill to manipulate it as a weapon; the judgment to select those in whose hands it will be effective; and the running to spread the truth among such persons."
 
 func TestBasic(t *testing.T) {
 	rng := rand.New(srand.Source)
-	nassh, err := New(rng, nil, WithLogging(&logger.DefaultLogger{Printer: t.Logf}),
+	nassh, err := New(
+		rng,
+		nil,
+		WithLogging(&logger.DefaultLogger{Printer: t.Logf}),
 		WithSymmetricOptions(token.WithGeneratedSymmetricKey(0)),
-		WithOriginChecker(func(r *http.Request) bool { return true }))
+		WithOriginChecker(func(r *http.Request) bool { return true }),
+	)
 	assert.Nil(t, err)
 
 	mux := http.NewServeMux()
@@ -88,8 +104,8 @@ func TestBasic(t *testing.T) {
 	// Try again with the correct parameters.
 	u.RawQuery = url.Values{"host": {"127.0.0.1"}, "port": {fmt.Sprintf("%d", port)}}.Encode()
 	err = protocol.Get(u.String(), protocol.Read(protocol.String(&sid)))
-	assert.Nil(t, err, "%s", err)
-	assert.NotEqual(t, "", sid)
+	require.Nil(t, err, "%s", err)
+	require.NotEqual(t, "", sid)
 
 	// Open the web socket.
 	u.Scheme = "ws"
@@ -143,6 +159,77 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, uint64(436), nassh.counters.BrowserBytesWrite.Get())
 	assert.Equal(t, uint64(856), nassh.counters.BackendBytesWrite.Get())
 	assert.Equal(t, uint64(428), nassh.counters.BackendBytesRead.Get())
+}
+
+func TestInjectResolver(t *testing.T) {
+	rng := rand.New(srand.Source)
+	srvResolver := &fakeSRVResolver{}
+	nassh, err := New(
+		rng,
+		nil,
+		WithLogging(&logger.DefaultLogger{Printer: t.Logf}),
+		WithSymmetricOptions(token.WithGeneratedSymmetricKey(0)),
+		WithOriginChecker(func(r *http.Request) bool { return true }),
+		WithResolver(MultiResolver([]Resolver{
+			&FailEmptyHost{},
+			srvResolver, // Inject a fake resolver to translate the port
+			&FailEmptyPort{},
+		})),
+	)
+	assert.Nil(t, err)
+
+	mux := http.NewServeMux()
+	nassh.Register(mux.Handle)
+
+	tu, err := ktest.Start(&khttp.Dumper{Log: t.Logf, Real: mux})
+	assert.Nil(t, err)
+	u, err := url.Parse(tu)
+	assert.Nil(t, err)
+
+	// Get authenticated session id first.
+	u.Path = "/proxy"
+
+	port, a, err := Listener()
+	assert.Nil(t, err)
+	srvResolver.port = strconv.Itoa(port)
+
+	port = port
+
+	// Omitting the port won't cause a failure since the port is overridden by the
+	// injected resolver
+	sid := ""
+	u.RawQuery = url.Values{"host": {"127.0.0.1"}}.Encode()
+	err = protocol.Get(u.String(), protocol.Read(protocol.String(&sid)))
+	require.Nil(t, err, "%s", err)
+	require.NotEqual(t, "", sid)
+
+	// Open the web socket.
+	u.Scheme = "ws"
+	u.Path = "/connect"
+	u.RawQuery = url.Values{"sid": {strings.TrimSpace(sid)}}.Encode()
+
+	c, r, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	assert.Nil(t, err)
+	assert.NotNil(t, c)
+	assert.NotNil(t, r)
+	tcp := a.Get()
+
+	err = c.WriteMessage(websocket.BinaryMessage, []byte("\x00\x00\x00\x00"+wisdom))
+	assert.Nil(t, err)
+
+	buffer := [8192]byte{}
+	data := buffer[:]
+	amount, err := tcp.Read(data)
+	data = data[:amount]
+	assert.Nil(t, err)
+	assert.Equal(t, wisdom, string(data))
+	amount, err = tcp.Write(data)
+	assert.Nil(t, err)
+	assert.Equal(t, len(wisdom), amount)
+
+	_, m, err := c.ReadMessage()
+	assert.Equal(t, uint32(len(wisdom)), binary.BigEndian.Uint32(m[:4]))
+	assert.Equal(t, string(wisdom), string(m[4:]))
 }
 
 type FakeTime struct {

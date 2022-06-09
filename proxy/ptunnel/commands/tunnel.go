@@ -89,8 +89,10 @@ func (r *Tunnel) Run(cmd *cobra.Command, args []string) (err error) {
 		return kflags.NewUsageErrorf("Invalid proxy %s specified with --proxy - %w", proxy, err)
 	}
 
+	// Zero port (default) means the server should try to discover the
+	// appropriate port based on the host field.
 	host := ""
-	port := uint16(22)
+	port := uint16(0)
 
 	switch {
 	case len(args) < 1:
@@ -99,6 +101,8 @@ func (r *Tunnel) Run(cmd *cobra.Command, args []string) (err error) {
 		return kflags.NewUsageErrorf("Too many arguments supplied - run '... tunnel <host> [port]', at most 2 arguments")
 	case len(args) == 2:
 		lport, err := strconv.ParseUint(args[1], 10, 16)
+		// The default port is zero, but if the user supplies a port number it
+		// should be a valid port.
 		if err != nil || lport <= 0 || lport > 65535 {
 			return kflags.NewUsageErrorf("Come on! A port number is an integer between 1 and 65535 - %s leads to %w", args[1], err)
 		}
