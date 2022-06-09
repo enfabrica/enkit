@@ -4,15 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/khttp"
-	"github.com/enfabrica/enkit/lib/khttp/ktest"
-	"github.com/enfabrica/enkit/lib/khttp/protocol"
-	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/enfabrica/enkit/lib/token"
-	"github.com/enfabrica/enkit/proxy/utils"
-	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"math/rand"
 	"net"
@@ -22,6 +13,19 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/enfabrica/enkit/lib/errdiff"
+	"github.com/enfabrica/enkit/lib/khttp"
+	"github.com/enfabrica/enkit/lib/khttp/ktest"
+	"github.com/enfabrica/enkit/lib/khttp/protocol"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/srand"
+	"github.com/enfabrica/enkit/lib/token"
+	"github.com/enfabrica/enkit/proxy/utils"
+
+	"github.com/gorilla/websocket"
+	"github.com/prashantv/gostub"
+	"github.com/stretchr/testify/assert"
 )
 
 type Acceptor struct {
@@ -295,4 +299,71 @@ func TestExpire(t *testing.T) {
 	cancel()
 
 	assert.Equal(t, ExpireCounters{ExpireRuns: 7, ExpireAboveOrphanThresholdRuns: 2, ExpireAboveOrphanThresholdTotal: 8, ExpireAboveOrphanThresholdFound: 3, ExpireOrphanClosed: 1, ExpireRuthlessClosed: 1, ExpireYoungest: utils.Counter(pt2.UnixNano()), ExpireLifetimeTotal: utils.Counter(ft.Now().Sub(pt1).Seconds() + ft.Now().Sub(pt2).Seconds())}, *counters)
+}
+
+func TestLookupSRV(t *testing.T) {
+	srvs := map[string]*net.SRV{
+		"svc1.service.datacenter.consul": &net.SRV{
+			Target:   "192.168.1.100",
+			Port:     12345,
+			Priority: 0,
+			Weight:   0,
+		},
+	}
+	testCases := []struct {
+		desc         string
+		host         string
+		wantResponse string
+		wantErr      string
+	}{
+		{
+			desc:         "known service",
+			host:         "svc1.service.datacenter.consul",
+			wantResponse: `{"port":12345}` + "\n",
+		},
+		{
+			desc:    "unknown service",
+			host:    "unknown-svc1.service.datacenter.consul",
+			wantErr: "400 Bad Request",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			stubs := gostub.Stub(&netLookupSRV, func(service, proto, name string) (string, []*net.SRV, error) {
+				srv, ok := srvs[tc.host]
+				if !ok {
+					return "", nil, fmt.Errorf("no SRV record for host: %q", tc.host)
+				}
+				return "", []*net.SRV{srv}, nil
+			})
+			defer stubs.Reset()
+
+			rng := rand.New(srand.Source)
+			nassh, err := New(rng, nil, WithLogging(&logger.DefaultLogger{Printer: t.Logf}),
+				WithSymmetricOptions(token.WithGeneratedSymmetricKey(0)),
+				WithOriginChecker(func(r *http.Request) bool { return true }))
+			assert.Nil(t, err)
+
+			mux := http.NewServeMux()
+			nassh.Register(mux.Handle)
+
+			tu, err := ktest.Start(&khttp.Dumper{Log: t.Logf, Real: mux})
+			assert.Nil(t, err)
+			u, err := url.Parse(tu)
+			assert.Nil(t, err)
+
+			u.Path = "/get_srv_port"
+			u.RawQuery = url.Values{"host": {tc.host}}.Encode()
+			var res string
+			gotErr := protocol.Get(u.String(), protocol.Read(protocol.String(&res)))
+
+			errdiff.Check(t, gotErr, tc.wantErr)
+
+			if err != nil {
+				return
+			}
+
+			assert.Equal(t, tc.wantResponse, res)
+		})
+	}
 }

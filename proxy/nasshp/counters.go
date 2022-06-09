@@ -31,6 +31,9 @@ type ProxyErrors struct {
 	SshResumeNoSID   utils.Counter
 	SshCreateExists  utils.Counter
 	SshDialFailed    utils.Counter
+
+	SrvLookupFailed      utils.Counter
+	SrvLookupInvalidAuth utils.Counter
 }
 
 type BrowserWindowCounters struct {

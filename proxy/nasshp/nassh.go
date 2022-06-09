@@ -3,15 +3,9 @@ package nasshp
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/kflags"
-	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/enfabrica/enkit/lib/token"
-	"github.com/enfabrica/enkit/proxy/utils"
-	"github.com/gorilla/websocket"
-	"github.com/prometheus/client_golang/prometheus"
 	"io"
 	"math/rand"
 	"net"
@@ -24,6 +18,19 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/token"
+	"github.com/enfabrica/enkit/proxy/utils"
+
+	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+var (
+	netLookupSRV = net.LookupSRV
 )
 
 type sessions struct {
@@ -80,6 +87,13 @@ func (s *sessions) Delete(sid string) {
 
 func (s *sessions) Orphan(sid string) {
 	s.Orphaned.Increment()
+}
+
+// getSRVPortResponse is marshalled to JSON and returned by the /get_srv_port
+// handler.
+type getSRVPortResponse struct {
+	// Port for the queried hostname
+	Port uint16 `json:"port"`
 }
 
 type NasshProxy struct {
@@ -437,6 +451,7 @@ func New(rng *rand.Rand, authenticator oauth.Authenticate, mods ...Modifier) (*N
 func (np *NasshProxy) requestError(counter *utils.Counter, w http.ResponseWriter, format string, args ...interface{}) {
 	np.requestErrorStatus(counter, w, http.StatusBadRequest, format, args...)
 }
+
 func (np *NasshProxy) requestErrorStatus(counter *utils.Counter, w http.ResponseWriter, status int, format string, args ...interface{}) {
 	counter.Increment()
 	http.Error(w, fmt.Sprintf(format, args...), status)
@@ -457,16 +472,8 @@ func (np *NasshProxy) ServeCookie(w http.ResponseWriter, r *http.Request) {
 		Fragment: "nasshp-enkit@" + np.relayHost,
 	}
 
-	if np.authenticator != nil {
-		creds, err := np.authenticator(w, r, target)
-		if err != nil {
-			np.requestError(&np.errors.CookieInvalidAuth, w, "invalid request for: %s - %s", r.URL, err)
-			return
-		}
-		// There are no credentials, so the user has been redirected to the authentication service.
-		if creds == nil {
-			return
-		}
+	if !np.authenticate(w, r, &np.errors.CookieInvalidAuth) {
+		return
 	}
 	http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
 }
@@ -483,15 +490,8 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Credentials", "true")
 		w.Header().Add("Access-Control-Allow-Origin", origin)
 	}
-	if np.authenticator != nil {
-		creds, err := np.authenticator(w, r, nil)
-		if err != nil {
-			np.requestError(&np.errors.ProxyInvalidAuth, w, "invalid request for: %s - %s", r.URL, err)
-			return
-		}
-		if creds == nil {
-			return
-		}
+	if !np.authenticate(w, r, &np.errors.ProxyInvalidAuth) {
+		return
 	}
 
 	sp, err := strconv.ParseUint(port, 10, 16)
@@ -516,6 +516,53 @@ func (np *NasshProxy) ServeProxy(w http.ResponseWriter, r *http.Request) {
 			"Sorry, the world is coming to an end, there was an error generating a session id. Good Luck.")
 	}
 	fmt.Fprintln(w, string(sid))
+}
+
+// GetSRVPort looks up an SRV DNS record for the specified host and returns the
+// first record's port number, or an error if no SRV records exist for that
+// host.
+func (np *NasshProxy) GetSRVPort(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	host := params.Get("host")
+
+	if !np.authenticate(w, r, &np.errors.SrvLookupInvalidAuth) {
+		return
+	}
+
+	_, srvs, err := netLookupSRV("", "", host)
+	if err != nil {
+		np.requestError(&np.errors.SrvLookupFailed, w, "failed to lookup SRV records for %q: %v", host, err)
+		return
+	}
+	if len(srvs) < 1 {
+		np.requestError(&np.errors.SrvLookupFailed, w, "no SRV records for %q", host, err)
+		return
+	}
+	res := getSRVPortResponse{
+		Port: srvs[0].Port,
+	}
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		np.log.Errorf("Failed to marshal %T %+v to JSON: %v", res, res, err)
+		return
+	}
+	return
+}
+
+func (np *NasshProxy) authenticate(w http.ResponseWriter, r *http.Request, errCounter *utils.Counter) bool {
+	if np.authenticator == nil {
+		return true
+	}
+	creds, err := np.authenticator(w, r, nil)
+	if err != nil {
+		np.requestError(errCounter, w, "invalid request for: %s - %s", r.URL, err)
+		return false
+	}
+	if creds == nil {
+		// There are no credentials, so the user has been redirected to the
+		// authentication service.
+		return false
+	}
+	return true
 }
 
 func LogId(sid string, r *http.Request, hostport string, c *oauth.CredentialsCookie) string {
@@ -1029,6 +1076,7 @@ func (np *NasshProxy) Register(add MuxHandle) {
 	add("/cookie", http.HandlerFunc(np.ServeCookie))
 	add("/proxy", http.HandlerFunc(np.ServeProxy))
 	add("/connect", http.HandlerFunc(np.ServeConnect))
+	add("/get_srv_port", http.HandlerFunc(np.GetSRVPort))
 }
 
 func (np *NasshProxy) ExportMetrics(register prometheus.Registerer) error {

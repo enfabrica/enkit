@@ -31,6 +31,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//lib/errdiff:go_default_library",
         "//lib/khttp:go_default_library",
         "//lib/khttp/ktest:go_default_library",
         "//lib/khttp/protocol:go_default_library",
@@ -39,6 +40,7 @@ go_test(
         "//lib/token:go_default_library",
         "//proxy/utils:go_default_library",
         "@com_github_gorilla_websocket//:go_default_library",
+        "@com_github_prashantv_gostub//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
