@@ -4,37 +4,38 @@ load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:files.bzl", "files_to_dir")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
-CREATE_RUNNER_ATTRS = {
-    "kernel_image": attr.label(
-        mandatory = True,
-        providers = [DefaultInfo, KernelImageInfo],
-        doc = "The kernel image that will be used to execute this test. A string like @stefano-s-favourite-kernel-image, referencing a kernel_image(name = 'stefano-s-favourite-kernel-image', ...",
-    ),
-    "rootfs_image": attr.label(
-        mandatory = False,
-        providers = [RootfsImageInfo],
-        doc = """\
+def create_runner_attrs(template_init_default):
+    return {
+        "kernel_image": attr.label(
+            mandatory = True,
+            providers = [DefaultInfo, KernelImageInfo],
+            doc = "The kernel image that will be used to execute this test. A string like @stefano-s-favourite-kernel-image, referencing a kernel_image(name = 'stefano-s-favourite-kernel-image', ...",
+        ),
+        "rootfs_image": attr.label(
+            mandatory = False,
+            providers = [RootfsImageInfo],
+            doc = """\
 The rootfs image that will be used to execute this test.
 
 A string like @stefano-s-favourite-rootfs-image, referencing a rootfs_image(name = 'stefano-s-favourite-rootfs-image', ...).
 If not specified, the current root of the filesystem will be used as rootfs.
 """,
-    ),
-    "run": attr.label_list(
-        mandatory = True,
-        doc = "List of executable targets to run in the emulator.",
-    ),
-    "template_init": attr.label(
-        allow_single_file = True,
-        default = Label("//bazel/linux:templates/init.template.sh"),
-        doc = "The template to generate the init script running in the VM.",
-    ),
-    "template_start": attr.label(
-        allow_single_file = True,
-        default = Label("//bazel/linux:templates/runner.template.sh"),
-        doc = "The template to generate the bash script to run the emulator.",
-    ),
-}
+        ),
+        "run": attr.label_list(
+            mandatory = True,
+            doc = "List of executable targets to run in the emulator.",
+        ),
+        "template_init": attr.label(
+            allow_single_file = True,
+            default = template_init_default,
+            doc = "The template to generate the init script running in the VM.",
+        ),
+        "template_start": attr.label(
+            allow_single_file = True,
+            default = Label("//bazel/linux:templates/runner.template.sh"),
+            doc = "The template to generate the bash script to run the emulator.",
+        ),
+    }
 
 def _commands_and_runtime(ctx, msg, runs, runfiles):
     """Computes commands and runfiles from a list of RuntimeInfo"""

@@ -1,4 +1,4 @@
-load("//bazel/linux:runner.bzl", "CREATE_RUNNER_ATTRS", "create_runner")
+load("//bazel/linux:runner.bzl", "create_runner_attrs", "create_runner")
 
 def _kernel_uml_run(ctx):
     code = """
@@ -47,6 +47,8 @@ pretty much provides a self contained directory with an init script.
 See the RuntimeBundleInfo provider for details.
 """,
     implementation = _kernel_uml_run,
-    attrs = CREATE_RUNNER_ATTRS,
+    attrs = create_runner_attrs(
+      template_init_default = Label("//bazel/linux:templates/init-uml.template.sh"),
+    ),
     executable = True,
 )

@@ -1,4 +1,4 @@
-load("//bazel/linux:runner.bzl", "CREATE_RUNNER_ATTRS", "create_runner")
+load("//bazel/linux:runner.bzl", "create_runner_attrs", "create_runner")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
 DEFAULT_QEMU_FLAGS = [
@@ -86,7 +86,9 @@ See the RuntimeBundleInfo provider for details.
     implementation = _kernel_qemu_run,
     executable = True,
     attrs = dict(
-        CREATE_RUNNER_ATTRS,
+        create_runner_attrs(
+            template_init_default = Label("//bazel/linux:templates/init-qemu.template.sh"),
+        ),
         **{
             "archs": attr.string_list(
                 default = ["host", "x86_64"],
