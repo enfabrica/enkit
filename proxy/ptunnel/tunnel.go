@@ -93,7 +93,9 @@ func GetSID(proxy *url.URL, host string, port uint16, mods ...GetModifier) (stri
 
 	params := proxy.Query()
 	params.Add("host", host)
-	params.Add("port", fmt.Sprintf("%d", port))
+	if port > 0 {
+		params.Add("port", fmt.Sprintf("%d", port))
+	}
 	curl.RawQuery = params.Encode()
 	curl.Path = path.Join(curl.Path, "/proxy")
 
