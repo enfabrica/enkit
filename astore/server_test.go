@@ -3,16 +3,18 @@ package astore_test
 import (
 	"context"
 	"fmt"
-	"github.com/enfabrica/enkit/astore/atesting"
-	rpcAstore "github.com/enfabrica/enkit/astore/rpc/astore"
-	"github.com/enfabrica/enkit/astore/server/astore"
-	"github.com/enfabrica/enkit/lib/srand"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 	"io/ioutil"
 	"math/rand"
 	"net"
 	"os"
+
+	"github.com/enfabrica/enkit/astore/atesting"
+	apb "github.com/enfabrica/enkit/astore/rpc/astore"
+	"github.com/enfabrica/enkit/astore/server/astore"
+	"github.com/enfabrica/enkit/lib/srand"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 type AStoreDescriptor struct {
@@ -53,7 +55,7 @@ func RunAStoreServer() (*AStoreDescriptor, atesting.KillAbleProcess, error) {
 	if err != nil {
 		return nil, killFunctions, err
 	}
-	rpcAstore.RegisterAstoreServer(grpcServer, server)
+	apb.RegisterAstoreServer(grpcServer, server)
 	if err := grpcServer.Serve(buffListener); err != nil {
 		return nil, killFunctions, err
 	}

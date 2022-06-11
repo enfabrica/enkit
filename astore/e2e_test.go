@@ -3,14 +3,16 @@ package astore_test
 import (
 	"context"
 	"fmt"
+	"log"
+	"testing"
+
 	"github.com/enfabrica/enkit/astore/client/astore"
-	rpcAstore "github.com/enfabrica/enkit/astore/rpc/astore"
+	apb "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/progress"
+
 	"github.com/stretchr/testify/assert"
-	"log"
-	"testing"
 )
 
 // TODO(aaahrens): fix client so that its signed urls can depend on an interface for actual e2e testing.
@@ -40,12 +42,12 @@ func TestServer(t *testing.T) {
 	assert.Nil(t, err, "client upload failed with %s", err)
 
 	fmt.Printf("upload is +%v \n", u)
-	storeResponse, err := astoreDescriptor.Server.Store(context.Background(), &rpcAstore.StoreRequest{})
+	storeResponse, err := astoreDescriptor.Server.Store(context.Background(), &apb.StoreRequest{})
 	assert.Nil(t, err)
 	assert.NotEqual(t, "", storeResponse.GetSid())
 	assert.NotEqual(t, "", storeResponse.GetUrl())
 
-	resp, err := astoreDescriptor.Server.Commit(context.Background(), &rpcAstore.CommitRequest{
+	resp, err := astoreDescriptor.Server.Commit(context.Background(), &apb.CommitRequest{
 		Sid:          storeResponse.GetSid(),
 		Architecture: "dwarvenx99",
 		Path:         "127.0.0.1:9000/hello/work/example.yaml",
