@@ -91,22 +91,11 @@ def commands_and_runtime(ctx, msg, runs, runfiles, verbose=True):
 
     return commands, runfiles, labels
 
-def create_runner(ctx, archs, code, runfiles = None, extra = {}):
-    ki = ctx.attr.kernel_image[KernelImageInfo]
-    if archs and ki.arch not in archs:
-        fail(
-            location(ctx) + ("the kernel image '{name}' of architecture '{arch}' " +
-                             "does not support the required architectures {archs}. Check 'arch = ...'").format(
-                name = ki.name,
-                arch = ki.arch,
-                archs = archs,
-            ),
-        )
-
+def get_prepare_run_check(ctx, run):
     prepares = []
     runs = []
     checks = []
-    for r in ctx.attr.run:
+    for r in run:
         if RuntimeBundleInfo in r:
             rbi = r[RuntimeBundleInfo]
             if hasattr(rbi, "prepare") and rbi.prepare:
@@ -128,6 +117,21 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
             binary = di.files_to_run.executable,
             runfiles = di.default_runfiles,
         )))
+    return prepares, runs, checks
+
+def create_runner(ctx, archs, code, runfiles = None, extra = {}):
+    ki = ctx.attr.kernel_image[KernelImageInfo]
+    if archs and ki.arch not in archs:
+        fail(
+            location(ctx) + ("the kernel image '{name}' of architecture '{arch}' " +
+                             "does not support the required architectures {archs}. Check 'arch = ...'").format(
+                name = ki.name,
+                arch = ki.arch,
+                archs = archs,
+            ),
+        )
+
+    prepares, runs, checks = get_prepare_run_check(ctx, ctx.attr.run)
 
     outside_runfiles = ctx.runfiles()
     if runfiles:
