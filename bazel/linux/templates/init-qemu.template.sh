@@ -1,7 +1,11 @@
 #!/bin/sh
 
 echo ========= {message} - {target} ==========
-trap "poweroff -f" EXIT
+on_exit() {
+    echo $? > "/tmp/output_dir/exit_status_file" || true
+    poweroff -f
+}
+trap on_exit EXIT
 
 # Find the "root" where the package was mounted.
 path="$0"
