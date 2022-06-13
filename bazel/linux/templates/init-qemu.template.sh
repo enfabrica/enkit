@@ -10,4 +10,17 @@ dir="${path%%$relpath}"
 test "$dir" == "$path" || cd "$dir"
 
 set -e
+
+# Remount / with the nosuid flag. Otherwise the following mount fails with:
+# mount: only root can use "--options" option (effective UID is 65534)
+python -c 'import ctypes; exit(ctypes.cdll.LoadLibrary("libc.so.6").mount("", "/", "", 2|32, 0))'
+
+mount --types tmpfs tmpfs /tmp
+
+# Mount the output directory. This directory is shared with the host.
+mkdir /tmp/output_dir
+mount --types 9p \
+    --options trans=virtio,version=9p2000.L,msize=5000000,cache=mmap,posixacl \
+    /dev/output_dir /tmp/output_dir
+
 {commands}

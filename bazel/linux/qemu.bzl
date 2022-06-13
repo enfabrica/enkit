@@ -48,6 +48,10 @@ else
     KERNEL_FLAGS+=("root=/dev/root" "rootfstype=9p" "init=$INIT")
     KERNEL_FLAGS+=("rootflags=trans=virtio,version=9p2000.L,msize=5000000,cache=mmap,posixacl")
 fi
+
+QEMU_FLAGS+=("-fsdev" "local,security_model=none,multidevs=remap,id=fsdev-fsOutputDir,path=$OUTPUT_DIR")
+QEMU_FLAGS+=("-device" "virtio-9p-pci,fsdev=fsdev-fsOutputDir,mount_tag=/dev/output_dir")
+
 test -z "$KERNEL" || QEMU_FLAGS+=("-kernel" "$KERNEL")
 test -z "$SINGLE" || KERNEL_FLAGS+=("init=/bin/sh")
 
