@@ -161,11 +161,19 @@ test "$estatus" == 0 || {
     echo 1>&2 "===== emulator exited with non zero status - check logs above ===="
     exit "$estatus"
 }
+
+# If XML_OUTPUT_FILE is defined and the program in the emulator created a
+# junit.xml, move it to the expected location.
+test "${XML_OUTPUT_FILE}" -a -f "$OUTPUT_DIR/junit.xml" && {
+  mv "$OUTPUT_DIR/junit.xml" $XML_OUTPUT_FILE
+}
+
 test -f "$OUTPUT_DIR/exit_status_file" && estatus=$(< "$OUTPUT_DIR/exit_status_file")
 test "$estatus" == 0 || {
     echo 1>&2 "===== a program in the emulator exited with non zero status - check logs above ===="
     exit "$estatus"
 }
+
 test -z "$INTERACTIVE" -a -z "$SINGLE" || exit "$estatus"
 
 echo 1>&2 "===== emulator exited - now running checkers (if any) ===="
