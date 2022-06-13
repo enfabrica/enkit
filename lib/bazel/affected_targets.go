@@ -116,10 +116,14 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, l
 		if startQueryErr != nil && endQueryErr == nil {
 			// We are calculating targets over a change that fixes the build graph
 			// (broken before, working after).  Since we cannot calculate the affected
-      // targets, we fail the presubmit and inform the user that they must both
-      // test their change manually, and submit by overriding the presubmit test.
-			log.Warnf("Got error at start point:\n%v\n", startQueryErr)
-      log.Warnf("If this PR is fixing a known broken build graph, it must be manually tested and then override the presubmit check to submit.")
+			// targets, we fail the presubmit and inform the user that they must both
+			// test their change manually, and submit by overriding the presubmit test.
+			log.Warnf("Got error at start point:\n%v\n"+
+				"\n"+
+				"It is impossible to determine the set of affected tests.\n"+
+				"If this PR is fixing a known broken build graph, it must be\n"+
+				"manually tested and force-submitted (overriding this presubmit\n"+
+				"check) to submit.\n", startQueryErr)
 		}
 		return nil, nil, errs
 	}
