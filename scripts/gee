@@ -4134,7 +4134,11 @@ function gee__bazelgc() {
        readlink -f "${GEE_DIR}"/*/*/*/bazel-out \
          | sed 's/\/execroot\/.*\?\/bazel-out//';
                 ) | sort | uniq -c | awk '$1 == "1" {print $2}' )
-  _info "About to delete the following directories:" "${EXPIRED[@]}"
+  if [[ "${#EXPIRED[@]}" == 0 ]]; then
+    _info "No ~/.cache/bazel directories to delete."
+    return 0
+  fi
+  _info "About to delete the following ~/.cache/bazel directories:" "${EXPIRED[@]}"
   if _confirm_default_no "Proceed? (y/N)  "; then
     local USED1
     USED1="$(df -k --output=used ~/.cache | tail -1)"
