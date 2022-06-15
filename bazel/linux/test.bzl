@@ -176,5 +176,5 @@ def kunit_test(name, kernel_image, module, rootfs_image = None,
     cfg = mconfig(run = [runtime], kernel_image = kernel_image)
     if rootfs_image:
         cfg = mconfig(cfg, rootfs_image = rootfs_image)
-    name_runner = mcreate_rule(name, runner, "emulator", runner_cfg, kwargs, cfg)
+    name_runner = mcreate_rule(name, runner, "emulator", cfg, kwargs, runner_cfg)
     exec_test(name = name, dep = name_runner, **kwargs)
