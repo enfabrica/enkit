@@ -177,7 +177,8 @@ def files_to_dir(ctx, dirname, paths, post = ""):
         dest = dest,
     )
 
-    copy_command = """#!/bin/bash -e
+    copy_command = """#!/bin/bash
+set -euo pipefail
 {pack}
 {post}
 """.format(

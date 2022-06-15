@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -o pipefail
 
 echo "===== Running target: {target}"
 echo "===== Path: $(realpath $0)"
