@@ -207,9 +207,24 @@ Usage: `gee update`
 
 "gee update" attempts to rebase this branch atop its parent branch.
 
-If a merge conflict occurs, "gee" drops the user into a sub-shell where the
-user can either resolve the conflicts and continue, or abort the entire
-operation.
+gee implements an interactive flow to resolve merge conflicts.  At each
+conflict, you will be given the option of choosing:
+
+* (M) for "mergetool", to invoke a mergetool (by default, vimdiff) to resolve
+  the merge.
+* (G) for "gui", to invoke a GUI mergetool (by default, meld).
+* (O) for "old", to discard your changes and preserve the upstream change.
+* (N) for "new", to discard the upstram change and use your change instead.
+* (A) for "abort", to abort the rebase operation and return to your initial
+      state.
+
+gee always creates a <branch-name>.REBASE_BACKUP tag before updating your
+branch.  If something went wrong with the merge and want to get back to where
+you started, you can always run:
+
+    git reset --hard your_branch.REBASE_BACKUP
+
+to undo the last rebase operation.
 
 ### rupdate
 
@@ -219,10 +234,24 @@ Usage: `gee rupdate`
 
 "gee rupdate" recursively rebases each branch onto it's parent.
 
-If a merge conflict occurs, "gee" drops the user into a sub-shell where the
-user can either resolve the conflicts and continue, or abort the entire
-operation.  Note that the merge conflict can be in a parent of the current
-branch.
+gee implements an interactive flow to resolve merge conflicts.  At each
+conflict, you will be given the option of choosing:
+
+* (M) for "mergetool", to invoke a mergetool (by default, vimdiff) to resolve
+  the merge.
+* (G) for "gui", to invoke a GUI mergetool (by default, meld).
+* (O) for "old", to discard your changes and preserve the upstream change.
+* (N) for "new", to discard the upstram change and use your change instead.
+* (A) for "abort", to abort the rebase operation and return to your initial
+      state.
+
+gee always creates a <branch-name>.REBASE_BACKUP tag before updating your
+branch.  If something went wrong with the merge and want to get back to where
+you started, you can always run:
+
+    git reset --hard your_branch.REBASE_BACKUP
+
+to undo the last rebase operation.
 
 ### update_all
 
@@ -233,10 +262,24 @@ Usage: `gee update_all`
 "gee update_all" updates all local branches (in the correct order),
 by rebasing child branches onto parent branches.
 
-If a merge conflict occurs, "gee" drops the user into a sub-shell where the
-user can either resolve the conflicts and continue, or abort the entire
-operation.  Note that the merge conflict can be in a parent of the current
-branch.
+gee implements an interactive flow to resolve merge conflicts.  At each
+conflict, you will be given the option of choosing:
+
+* (M) for "mergetool", to invoke a mergetool (by default, vimdiff) to resolve
+  the merge.
+* (G) for "gui", to invoke a GUI mergetool (by default, meld).
+* (O) for "old", to discard your changes and preserve the upstream change.
+* (N) for "new", to discard the upstram change and use your change instead.
+* (A) for "abort", to abort the rebase operation and return to your initial
+      state.
+
+gee always creates a <branch-name>.REBASE_BACKUP tag before updating your
+branch.  If something went wrong with the merge and want to get back to where
+you started, you can always run:
+
+    git reset --hard your_branch.REBASE_BACKUP
+
+to undo the last rebase operation.
 
 ### whatsout
 
