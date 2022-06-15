@@ -3,10 +3,8 @@ load("@bazel_skylib//lib:shell.bzl", "shell")
 
 DEFAULT_QEMU_FLAGS = [
     "-enable-kvm",
-    "-cpu",
-    "host",
     "-machine",
-    "pc,accel=kvm,usb=off,dump-guest-core=off",
+    "pc,accel=kvm:tcg,usb=off,dump-guest-core=off",
     "-m",
     "2048",
     "-smp",
