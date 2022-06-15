@@ -218,7 +218,7 @@ conflict, you will be given the option of choosing:
 * (A) for "abort", to abort the rebase operation and return to your initial
       state.
 
-gee always creates a <branch-name>.REBASE_BACKUP tag before updating your
+gee always creates a `<branch-name>.REBASE_BACKUP` tag before updating your
 branch.  If something went wrong with the merge and want to get back to where
 you started, you can always run:
 
@@ -245,7 +245,7 @@ conflict, you will be given the option of choosing:
 * (A) for "abort", to abort the rebase operation and return to your initial
       state.
 
-gee always creates a <branch-name>.REBASE_BACKUP tag before updating your
+gee always creates a `<branch-name>.REBASE_BACKUP` tag before updating your
 branch.  If something went wrong with the merge and want to get back to where
 you started, you can always run:
 
@@ -273,7 +273,7 @@ conflict, you will be given the option of choosing:
 * (A) for "abort", to abort the rebase operation and return to your initial
       state.
 
-gee always creates a <branch-name>.REBASE_BACKUP tag before updating your
+gee always creates a `<branch-name>.REBASE_BACKUP` tag before updating your
 branch.  If something went wrong with the merge and want to get back to where
 you started, you can always run:
 
