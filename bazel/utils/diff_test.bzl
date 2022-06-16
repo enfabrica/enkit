@@ -18,6 +18,7 @@ def _zipdiff_test_impl(ctx):
             b="$(readlink -f "${{exp}}")"
             echo "Updating ${{b}}"
             cp -vf "${{act}}" "${{b}}"
+            RC=0  # clear the error if we updated goldens
           fi
           shift
         done
