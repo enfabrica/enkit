@@ -13,7 +13,10 @@ install_bazel_build() {
 
     build="${KERNEL_VERSION}/build"
     if [ -d "$build" ] ; then
-        echo "$KERNEL_VERSION"
+        # The bazel consumer of this script will only export the
+        # following directories: ["lib", "usr", "install"]
+        mv "$KERNEL_VERSION" install
+        echo "install"
         exit 0
     fi
 
