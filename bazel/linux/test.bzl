@@ -173,13 +173,14 @@ def kunit_test(name, kernel_image, module, rootfs_image = None,
         mconfig(module = module, image = kernel_image),
     )
 
-    cfg = mconfig(
-        run = [runtime],
-        kernel_image = kernel_image,
-        kernel_flags = [
-            "printk.time=0", # printk timestamps breaks kunit result parsing
-        ])
+    cfg = mconfig(run = [runtime], kernel_image = kernel_image)
+
     if rootfs_image:
         cfg = mconfig(cfg, rootfs_image = rootfs_image)
+
+    if runner == kernel_qemu_run:
+        # printk timestamps breaks kunit result parsing in the QEMU runner
+        cfg = mconfig(cfg, kernel_flags = [ "printk.time=0" ])
+
     name_runner = mcreate_rule(name, runner, "emulator", cfg, kwargs, runner_cfg)
     exec_test(name = name, dep = name_runner, **kwargs)

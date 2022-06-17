@@ -1,6 +1,7 @@
 load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "KernelModulesInfo", "KernelTreeInfo", "RootfsImageInfo", "RuntimeBundleInfo")
 load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible", "is_module")
 load("//bazel/linux:test.bzl", "kunit_test")
+load("//bazel/linux:uml.bzl", "kernel_uml_run")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
@@ -516,5 +517,34 @@ Example:
     },
 )
 
-# Remove once all uses of kernel_test are removed.
-kernel_test = kunit_test
+# Existing kernel_test() rule consumers assume the runner is UML.
+#
+# This defines kernel_test() in terms of kunit_test(), which uses the
+# QEMU runner by default.
+#
+# Remove this once all kernel_test() consumers are converted to use
+# kunit_test() directly.
+
+def kernel_test(name, kernel_image, module, **kwargs):
+    """[Deprecated] Defines a UML based kunit test.
+
+    Args:
+      name: test name
+      kernel_image: label, something like @type-of-kernel//:image,
+          a kernel image to use.
+      module: label, a module representing a kunit test to run.
+      kwargs: options common to all instantiated rules.
+
+    Example:
+
+      kernel_test(
+          name = "a_uml_kunit_test",
+          kernel_image = "@testing-latest-kernel//:image",
+          module = ":uml_kunit_test",
+      )
+
+    [Deprecated]: New tests should use the kunit_test() rule instead.
+    """
+
+    # Use the UML runner for the legacy tests
+    kunit_test(name, kernel_image, module, runner = kernel_uml_run, **kwargs)
