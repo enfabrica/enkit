@@ -11,9 +11,7 @@ Current as of 05/16/2022:
 
 To publish the kernel artifacts, run `kpub-astore` like this:
 
-```
   $ kpub-astore -b enf/impish-19.19 -l ENF_UBUNTU_IMPISH -a kernel
-```
 
 The `-b` option specifies the git branch in the kernel tree. Here we
 are using `enf/impish-19.19`.
@@ -27,10 +25,9 @@ flavour, the artifacts are published to
 production path `kernel`, which will publish artifacts to the
 following paths:
 
-```
-- kernel/enf/impish-19.19/generic  (Ubuntu generic)
-- kernel/enf/impish-19.19/minimal  (Ubuntu minimal)
-- kernel/enf/impish-19.19/test     (UML)
+  kernel/enf/impish-19.19/generic  (Ubuntu generic)
+  kernel/enf/impish-19.19/minimal  (Ubuntu minimal)
+  kernel/enf/impish-19.19/test     (UML)
 
 The build outputs a Bazel file, suitable for checking into the
 internal repo in `bazel/kernel.version.bzl`.
@@ -43,7 +40,6 @@ Building all the kernel Debian packages requires a number of
 development packages to be installed on the build host.  The following
 needs to be installed:
 
-```
   $ sudo apt install \
             build-essential  \
             kernel-wedge     \
@@ -62,8 +58,6 @@ needs to be installed:
             asciidoc         \
             jq               \
             zstd
-
-```
 
 == The Inputs
 
@@ -114,11 +108,9 @@ To install the APT repo on a machine, unpack the tarball and run the
 install script inside.  The install script requires one of the
 following arguments:
 
-```
     -c   Output APT sources.list.d config, but do not install
 
     -a   Install APT sources.list.d config
-```
 
 === Tarball of Kernel Image and Modules
 
@@ -141,16 +133,14 @@ install kernel packages via apt.  To setup the apt repo on a host
 - untar the archive where you want the repo to live (maybe /usr/local/share/enf/kernel-repo)
 - using `sudo` run the install script with the `-a` option
 
-```
-$ cd /tmp
-$ enkit astore get -a amd64 -u 4w7kpbga283xqeyzqei4rjg4rsgg2jnq kernel/enf/impish-19.19/minimal/deb-artifacts.tar.gz
-$ sudo mkdir /usr/share/enf/kernel-minimal-repo
-$ cd /usr/share/enf/kernel-minimal-repo
-$ sudo tar xf /tmp/deb-artifacts.tar.gz
-$ sudo ./install-5.13.0-19-1-1651796444-gffc1f1c68bba-minimal.sh -a
-$ sudo apt update
-$ sudo apt install linux-image-5.13.0-19-1-1651796444-gffc1f1c68bba-minimal
-```
+  $ cd /tmp
+  $ enkit astore get -a amd64 -u 4w7kpbga283xqeyzqei4rjg4rsgg2jnq kernel/enf/impish-19.19/minimal/deb-artifacts.tar.gz
+  $ sudo mkdir /usr/share/enf/kernel-minimal-repo
+  $ cd /usr/share/enf/kernel-minimal-repo
+  $ sudo tar xf /tmp/deb-artifacts.tar.gz
+  $ sudo ./install-5.13.0-19-1-1651796444-gffc1f1c68bba-minimal.sh -a
+  $ sudo apt update
+  $ sudo apt install linux-image-5.13.0-19-1-1651796444-gffc1f1c68bba-minimal
 
 == Script Details
 
@@ -196,11 +186,10 @@ kernel .deb packages for each flavour.  This repo can be used to
 provision real hardware machines or virtual machines.
 
 The install script requires one of the following arguments:
-```
+
     -c   Output APT sources.list.d config, but do not install
 
     -a   Install APT sources.list.d config
-```
 
 === `upload-deb.sh`
 
