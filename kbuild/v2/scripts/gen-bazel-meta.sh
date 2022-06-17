@@ -90,6 +90,10 @@ gen_deb_flavours() {
         local astore_file="vmlinuz-modules.tar.gz"
         gen_artifact_desc "KERNEL_BIN" $kernel_version $f $astore_file
 
+        ## deb-artifacts.tar.gz
+        local astore_file="deb-artifacts.tar.gz"
+        gen_artifact_desc "KERNEL_DEB" $kernel_version $f $astore_file
+
     done
 }
 
