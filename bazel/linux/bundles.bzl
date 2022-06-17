@@ -121,11 +121,7 @@ def _kunit_bundle(ctx):
     mods = get_compatible(ctx, ki.arch, ki.package, ctx.attr.module)
     alldeps = expand_deps(ctx, mods, ctx.attr.depth)
 
-    commands = [
-        # modprobe does not work correctly without /sys
-        "mount -t sysfs sysfs /sys || echo 1>&2 'Could not mount sys - modprobe may not work properly'",
-    ]
-
+    commands = []
     inputs = []
     for kmod in alldeps:
         commands += ["", "# module " + package(kmod.label)]
