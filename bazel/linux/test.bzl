@@ -142,7 +142,7 @@ def qemu_test(name, kernel_image, setup, run, qemu_binary = None,
 
 def kunit_test(name, kernel_image, module, rootfs_image = None,
                kunit_bundle_cfg = {}, runner_cfg = {},
-               runner = kernel_uml_run, **kwargs):
+               runner = kernel_qemu_run, **kwargs):
     """Instantiates all the rules necessary to create a kunit test.
 
     Creates 3 rules:
@@ -173,7 +173,12 @@ def kunit_test(name, kernel_image, module, rootfs_image = None,
         mconfig(module = module, image = kernel_image),
     )
 
-    cfg = mconfig(run = [runtime], kernel_image = kernel_image)
+    cfg = mconfig(
+        run = [runtime],
+        kernel_image = kernel_image,
+        kernel_flags = [
+            "printk.time=0", # printk timestamps breaks kunit result parsing
+        ])
     if rootfs_image:
         cfg = mconfig(cfg, rootfs_image = rootfs_image)
     name_runner = mcreate_rule(name, runner, "emulator", cfg, kwargs, runner_cfg)
