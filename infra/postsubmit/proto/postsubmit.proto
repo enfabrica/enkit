@@ -19,6 +19,9 @@ message Build {
     // stable value based on the name of this build, which allows builds to not
     // all hammer infrastructure by starting e.g. every hour on the hour.
     string cron = 3;
+
+    // If set, the build is created but never run.
+    bool disabled = 11;
   }
 
   // Bazel target patterns to include in the build.
