@@ -66,4 +66,9 @@ message Build {
   // by the above fields; popular bazel options may be replaced by an applicable
   // field in the future.
   repeated string bazel_args = 10;
+
+  // RBE instance to use to run build. Defaults to the currently-supported
+  // buildbarn instance, but can be changed in order to target a non-prod
+  // instance.
+  string rbe_instance = 12;
 }
