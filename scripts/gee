@@ -460,14 +460,15 @@ function _check_ssh() {
   # First check if we have an ssh-agent running:
   _check_ssh_agent
 
-  # Check that the enkit certification is available
+  # Check that the enkit certificate is available
   _check_enkit_cert
 
   # Check if we can connect via ssh to github.
   # Takes 0.7 seconds.  Use only as-needed.
   local OUTPUT
   set +e
-  OUTPUT="$(ssh -T "${GIT_AT_GITHUB}" 2>&1)"
+  # </dev/null disable's ssh's ability to prompt for a passphrase:
+  OUTPUT="$(ssh -T "${GIT_AT_GITHUB}" </dev/null 2>&1)"
   set -e
   if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
     GHUSER="${BASH_REMATCH[1]}"
@@ -482,7 +483,8 @@ function _check_ssh() {
     _cmd ssh-add "${SSHKEYFILE}"
     _info "Trying again..."
     set +e
-    OUTPUT="$(ssh -T ${GIT_AT_GITHUB} 2>&1)"
+    # Still don't allow a passphrase prompt
+    OUTPUT="$(ssh -T ${GIT_AT_GITHUB} </dev/null 2>&1)"
     set -e
     if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
       GHUSER="${BASH_REMATCH[1]}"
@@ -492,6 +494,29 @@ function _check_ssh() {
     _info "ssh -T ${GIT_AT_GITHUB} got:"
     _info "  ${OUTPUT}"
   fi
+
+  # Backstory: a gee user ran into trouble because someone told them to
+  # run "ssh-keygen", which replaced their gee-generated ssh identity
+  # with a new one that now required a passphrase to unlock.  They didn't
+  # realize they needed to enroll their identity using ssh-add.  This
+  # extra code is added to try to diagnose this scenario and provide
+  # a useful help message, if this ever arises again.
+  _info "Perhaps you need to enter a passphrase?  Trying again..."
+  set +e
+  # This time, allow ssh to prompt for a passphrase:
+  OUTPUT="$(ssh -T "${GIT_AT_GITHUB}" 2>&1)"
+  set -e
+  if [[ "${OUTPUT}" =~ ^Hi\ ([a-zA-Z0-9_-]+) ]]; then
+    _info "Success!  It appears you needed to unlock your ssh keyfile with "
+    _info "a passphrase.  Congratulations on better security practices!"
+    _info "However, you will need to occasionally run \"ssh-add\" to"
+    _info "unlock your keyfile and enroll it with the ssh-agent, otherwise"
+    _info "gee will prompt you for your passphrase every time it runs."
+    GHUSER="${BASH_REMATCH[1]}"
+    return 0
+  fi
+
+  _warn "After repeated attempts, could not connect to github using ssh."
   return 1
 }
 
