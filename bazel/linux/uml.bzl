@@ -1,4 +1,4 @@
-load("//bazel/linux:runner.bzl", "create_runner_attrs", "create_runner")
+load("//bazel/linux:runner.bzl", "create_runner", "create_runner_attrs")
 
 def _kernel_uml_run(ctx):
     code = """
@@ -48,7 +48,7 @@ See the RuntimeBundleInfo provider for details.
 """,
     implementation = _kernel_uml_run,
     attrs = create_runner_attrs(
-      template_init_default = Label("//bazel/linux:templates/init-uml.template.sh"),
+        template_init_default = Label("//bazel/linux:templates/init-uml.template.sh"),
     ),
     executable = True,
 )

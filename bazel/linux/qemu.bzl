@@ -1,4 +1,4 @@
-load("//bazel/linux:runner.bzl", "create_runner_attrs", "create_runner")
+load("//bazel/linux:runner.bzl", "create_runner", "create_runner_attrs")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
 DEFAULT_QEMU_FLAGS = [
