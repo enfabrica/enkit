@@ -3,6 +3,7 @@ load("//bazel/utils:diff_test.bzl", "diff_test")
 load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
 load("//bazel/utils:files.bzl", "write_to_file")
+load("//bazel/utils:exec_test.bzl", "exec_test")
 
 bzl_library(
     name = "diff_test_bzl",
@@ -43,4 +44,30 @@ diff_test(
 
 merge_kwargs_test_suite(
     name = "merge_kwargs_test_suite",
+)
+
+sh_binary(
+    name = "echo-argv",
+    srcs = ["echo-argv_test.sh"],
+)
+
+# This is not really a test: it should always succeed.
+# The target is here so it generates a shell script that
+# the real test, echo-argv-run_test, can then invoke to
+# verify that exec_test works as expected.
+exec_test(
+    name = "echo-argv_test",
+    argv = [
+        "arg1",
+        "arg2 with space",
+        "arg3 with $NASTY `characters`",
+    ],
+    dep = ":echo-argv",
+)
+
+# Checks that the exec_test rule works as expected.
+sh_test(
+    name = "exec_test_test",
+    srcs = ["echo-argv_test_check.sh"],
+    data = [":echo-argv_test"],
 )
