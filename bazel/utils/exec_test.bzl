@@ -5,7 +5,7 @@ def _exec_test(ctx):
     # the executable returned by another rule.
     template = """#!/bin/bash
 ARGS={argv}; ARGS+=("$@")
-exec {script} "$ARGS[@]"
+exec {script} "${{ARGS[@]}}"
 """
     script = ctx.actions.declare_file("{}_test.sh".format(ctx.attr.name))
     ctx.actions.write(script, template.format(argv = shell.array_literal(ctx.attr.argv), script = ctx.executable.dep.short_path))
