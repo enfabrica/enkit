@@ -4086,7 +4086,7 @@ function gee__gcd() {
       shift
       break
     else
-      _fatal "gee gcd: unknown option \"${$1}\""
+      _fatal "gee gcd: unknown option \"${1}\""
     fi
   done
   TARGET="$1"
