@@ -6,12 +6,14 @@
  |___/
 ```
 
-gee version: 0.2.31
+gee version: 0.2.32
 
-gee is a wrapper around the "git" and "gh-cli" tools.  "gee" captures all
-tribal knowledge about how to use git the right way (for us), implementing one
-standard and well-supported workflow.  "gee" is also an instructional tool: by
-showing each command as it executes, gee helps users learn git.
+gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
+tools  gee is an opinionated tool that implements a specific, simple, powerful
+workflow.
+
+"gee" is also an instructional tool: by showing each command as it executes,
+gee helps users learn git.
 
 ## Features:
 
@@ -504,7 +506,7 @@ Example:
 
 Aliases: rmbr
 
-Usage: `gee remove_branch <branch-name>`
+Usage: `gee remove_branch <branch-names...>`
 
 Removes a branch and it's associated directory.
 
@@ -527,18 +529,25 @@ out as formatting rules are highly project specific.
 
 ### gcd
 
-Usage: `gcd [-b] <branch>[/<path>]`
+Usage: `gcd [-b] [-m] <branch>[/<path>]`
 
-The "gee gcd" command is not meant to be used directly, but is instead designed
-to be called from the "gcd" bash function, which can be imported into your
-environment with gee's "bash_setup" command, like this:
+Print the path to an equivalent directory in another worktree (branch).
+This command is meant to be invoked from the "gcd" bash function, which
+invokes this command and then chdir's into that directory.
+
+The "gcd" bash function can be imported into your shell with gee's "bash_setup"
+command, like this:
 
     eval "$(gee bash_setup)"
 
 (This command should be added to your .bashrc file.)
 
-Once imported, the "gcd" function can be used to change directory between
-branches.
+Options:
+
+* "-b" causes gee to create a new branch if the specified branch doesn't
+  exist.  The new branch is a child of the current branch.
+* "-m" causes gee to create a new branch if the specified branch doesn't
+  exist.  The new branch is a child of the master (or main) branch.
 
 If only "<branch>" is specified, "gcd" will change directory to the same
 relative directory in another branch.  If "<branch>/<path>" is specified,
@@ -553,8 +562,12 @@ For example:
     # now in ~/gee/enkit/branch2/foo/bar
     gcd branch3/foo
     # now in ~/gee/enkit/branch3/foo
+    gcd -b branch4
+    # now in branch4/foo, a child branch of branch3.
+    gcd -m new_feature
+    # now in new_feature/foo, a child branch of master.
 
-gcd also updates the following environment variables:
+The "gcd" function also updates the following environment variables:
 
 * BROOT always contains the path to the root directory of the current branch.
 * BRBIN always contains the path to the bazel-bin directory beneath root.
