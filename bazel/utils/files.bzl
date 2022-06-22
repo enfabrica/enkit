@@ -142,25 +142,25 @@ def files_to_dir(ctx, dirname, paths, post = ""):
 
     roots = {}
     for f in paths:
-      root = f.path
-      if f.is_source and f.owner and f.owner.workspace_root:
-          # The root of foreign source files is their workspace root.
-          root = f.owner.workspace_root
-      else:
-          # Remove the ../ from short_path, if it exists.
-          short_path = f.short_path
-          if short_path.startswith('../'):
-            short_path = short_path[3:]
-          root = root[:-(len(short_path)+1)]
+        root = f.path
+        if f.is_source and f.owner and f.owner.workspace_root:
+            # The root of foreign source files is their workspace root.
+            root = f.owner.workspace_root
+        else:
+            # Remove the ../ from short_path, if it exists.
+            short_path = f.short_path
+            if short_path.startswith("../"):
+                short_path = short_path[3:]
+            root = root[:-(len(short_path) + 1)]
 
-      if root not in roots:
-          roots[root] = []
+        if root not in roots:
+            roots[root] = []
 
-      if not root:
-        roots[root].append(f.path)
-        continue
+        if not root:
+            roots[root].append(f.path)
+            continue
 
-      roots[root].append(f.path[len(root)+1:])
+        roots[root].append(f.path[len(root) + 1:])
 
     pack = []
     for k, v in roots.items():

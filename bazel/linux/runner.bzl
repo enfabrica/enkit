@@ -37,7 +37,7 @@ If not specified, the current root of the filesystem will be used as rootfs.
         ),
     }
 
-def commands_and_runtime(ctx, msg, runs, runfiles, verbose=True):
+def commands_and_runtime(ctx, msg, runs, runfiles, verbose = True):
     """Computes commands and runfiles from a list of RuntimeInfo"""
     commands = []
     runfiles = ctx.runfiles().merge(runfiles)
@@ -85,10 +85,10 @@ def commands_and_runtime(ctx, msg, runs, runfiles, verbose=True):
 
     if len(labels) != len(commands):
         fail(location(ctx) +
-            "enkit error: count mismatch between labels ({len_lab}) and commands ({len_cmd})".format(
-                len_lab = len(labels),
-                len_cmd = len(commands),
-            ))
+             "enkit error: count mismatch between labels ({len_lab}) and commands ({len_cmd})".format(
+                 len_lab = len(labels),
+                 len_cmd = len(commands),
+             ))
 
     return commands, runfiles, labels
 

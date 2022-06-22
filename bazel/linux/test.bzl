@@ -92,9 +92,9 @@ exit $failures
     script = ctx.actions.declare_file("{}_test_runner.sh".format(ctx.attr.name))
     ctx.actions.write(script, script_begin + "\n".join(tests) + script_end)
     return [RuntimeBundleInfo(
-        prepare=RuntimeInfo(commands = cprepares, runfiles = outside_runfiles),
-        run=RuntimeInfo(binary = script, runfiles = inside_runfiles),
-        check=RuntimeInfo(commands = cchecks, runfiles = outside_runfiles),
+        prepare = RuntimeInfo(commands = cprepares, runfiles = outside_runfiles),
+        run = RuntimeInfo(binary = script, runfiles = inside_runfiles),
+        check = RuntimeInfo(commands = cchecks, runfiles = outside_runfiles),
     )]
 
 test_runner = rule(
@@ -108,8 +108,14 @@ test_runner = rule(
     },
 )
 
-def qemu_test(name, kernel_image, setup, run, qemu_binary = None,
-              config = {}, **kwargs):
+def qemu_test(
+        name,
+        kernel_image,
+        setup,
+        run,
+        qemu_binary = None,
+        config = {},
+        **kwargs):
     """Instantiates all the rules necessary to create a qemu based test.
 
     Specifically:
@@ -127,22 +133,38 @@ def qemu_test(name, kernel_image, setup, run, qemu_binary = None,
             kernel_qemu_run rule, generally created with mconfig().
     """
 
-    runner_script = mcreate_rule(name, test_runner, "test-runner", [],
-        kwargs, mconfig(tests = run),
+    runner_script = mcreate_rule(
+        name,
+        test_runner,
+        "test-runner",
+        [],
+        kwargs,
+        mconfig(tests = run),
     )
     runner = mcreate_rule(
-        name, kernel_qemu_run, "run", config, kwargs,
-        kwargs, mconfig(
+        name,
+        kernel_qemu_run,
+        "run",
+        config,
+        kwargs,
+        kwargs,
+        mconfig(
             kernel_image = kernel_image,
             run = setup + [runner_script],
-            qemu_binary = qemu_binary
+            qemu_binary = qemu_binary,
         ),
     )
     exec_test(name = name, dep = runner, **kwargs)
 
-def kunit_test(name, kernel_image, module, rootfs_image = None,
-               kunit_bundle_cfg = {}, runner_cfg = {},
-               runner = kernel_qemu_run, **kwargs):
+def kunit_test(
+        name,
+        kernel_image,
+        module,
+        rootfs_image = None,
+        kunit_bundle_cfg = {},
+        runner_cfg = {},
+        runner = kernel_qemu_run,
+        **kwargs):
     """Instantiates all the rules necessary to create a kunit test.
 
     Creates 3 rules:
@@ -163,7 +185,7 @@ def kunit_test(name, kernel_image, module, rootfs_image = None,
       runner: a rule function, will be invoked to create the runner using
           the generated kunit bundle.
       kwargs: options common to all instantiated rules.
-    """ 
+    """
     runtime = mcreate_rule(
         name,
         kunit_bundle,
@@ -180,7 +202,7 @@ def kunit_test(name, kernel_image, module, rootfs_image = None,
 
     if runner == kernel_qemu_run:
         # printk timestamps breaks kunit result parsing in the QEMU runner
-        cfg = mconfig(cfg, kernel_flags = [ "printk.time=0" ])
+        cfg = mconfig(cfg, kernel_flags = ["printk.time=0"])
 
     name_runner = mcreate_rule(name, runner, "emulator", cfg, kwargs, runner_cfg)
     exec_test(name = name, dep = name_runner, **kwargs)
