@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly VERSION="0.2.31"
+readonly VERSION="0.2.32"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
