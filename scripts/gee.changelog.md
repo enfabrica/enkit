@@ -2,6 +2,15 @@
 
 ## Releases
 
+### 0.2.32
+
+* `gee gcd`: enable `gcd -m` to quickly create a branch of master.
+* `gee rmbr`: remove multiple branches at a go.
+* `gee.md`: improve documentation around rebase operations (#664)
+* `gee hello`: check for ssh keyfile conditions (#672)
+* `gee bazelgc`: handle no dirs to delete case (#663)
+* `gee diagnose`: add ssh diagnostics (#636)
+
 ### 0.2.31
 
 * `gee rmbr`: fails functional if the directory bazel-out links to has already
