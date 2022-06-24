@@ -741,7 +741,7 @@ EOT
     read -rp "Paste your github authentication token here: " TOKEN
     _info "Trying to authenticate using your token..."
     if ! _gh auth login -p ssh -h github.com --with-token <<< "${TOKEN}"; then
-      _warn "gh auth token failed with exit code $?" ""
+      _warn "\"gh auth login\" failed with exit code $?" ""
     fi
   done
 
