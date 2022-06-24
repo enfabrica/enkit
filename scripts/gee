@@ -710,7 +710,7 @@ function _ssh_enroll() {
   if [[ "${SSHKEYFILE}" != "${SSHKEYFILES[0]}" ]]; then
     cat <<EOT >> ~/.ssh/config
 # gee: block start
-Host *.github.com
+Host *.github.com github.com
   IdentityFile ${SSHKEYFILE}
 # gee: block stop
 EOT
@@ -719,18 +719,31 @@ EOT
   _cmd ssh-add "${SSHKEYFILE}"
   _gh config set git_protocol ssh
 
-  _info "Checking your github access..."
-  if ! _gh auth status; then
-    _info "Let's try authenticating with the gh tool:"
-    # Override BROWSER because xdg-open opens links2 on some systems, and
-    # links2 doesn't support github.
-    BROWSER="bash -c \"echo Open this URL: \$*\" --" \
-      _gh auth login
-    # The user might have to open their web browser at this point:
-    if (( ! YESYESYES )); then
-      read -n1 -rsp $'Press any key to continue, or Control-C to exit.\n'
+  _info "Checking your access to github using the \"gh\" tool:"
+  while ! _gh auth status; do
+    _info \
+      "You are not currently authenticated to github.  We need to create a github" \
+      "authentication token for you before we can proceed." \
+      "" \
+      "To create a github authentication token:" \
+      "" \
+      "1. Open in a web browser: https://github.com/settings/tokens/new" \
+      "2. Log in to github, if you aren't already." \
+      "3. Fill in the \"Note\" field with something descriptive." \
+      "4. Select a reasonable Expiration duration (90 days is recommended)." \
+      "5. Click to enable the following permissions:" \
+      "   * \"repo\" (enables the whole sub-tree of permissions)" \
+      "   * \"read:org\" (below the \"admin:org\" permission tree)" \
+      "   * \"admin:public_key\" (enables the whole sub-tree of permissions)" \
+      "6. Finally, click \"Generate token\" at the bottom of the form." \
+      ""
+    local TOKEN=""
+    read -rp "Paste your github authentication token here: " TOKEN
+    _info "Trying to authenticate using your token..."
+    if ! _gh auth login -p ssh -h github.com --with-token <<< "${TOKEN}"; then
+      _warn "gh auth token failed with exit code $?" ""
     fi
-  fi
+  done
 
   if ! _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"; then
     _warn "Could not add your key to github (maybe it's already there?)."
