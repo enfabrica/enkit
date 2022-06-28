@@ -70,7 +70,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
 '"${junit}"'
 </testsuites>
-' > "/tmp/output_dir/junit.xml"
+' > "$OUTPUT_DIR/junit.xml"
 
 exit $failures
 """
