@@ -45,7 +45,8 @@ for machine in "${MACHINES[@]}"; do
   printrun "$RSYNC_BIN" --files-from="$include" "${RSYNC_OPTS[@]}" .. "$machine:$destpath/"
 done
 
-command="cd $destpath/$workspace; ./$executable ${TARGET_OPTS[*]}"
+# TODO(cccontavalli): better escaping, will fix it once we have more tests.
+command="cd $destpath/$workspace; MACHINES='${MACHINES[*]}' ./$executable ${TARGET_OPTS[*]}"
 [ "$ONLY_COPY" != "true" ] || {
   echo "Copy only mode was requesting - not running any command"
   echo "Would have run:"
