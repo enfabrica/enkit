@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//astore/client/commands:go_default_library",
         "//enkit/outputs:go_default_library",
+        "//enkit/version:go_default_library",
         "//lib/bazel/commands:go_default_library",
         "//lib/client:go_default_library",
         "//lib/client/commands:go_default_library",
