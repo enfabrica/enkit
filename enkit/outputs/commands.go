@@ -38,6 +38,7 @@ type Root struct {
 	BuildBuddyUrl         string
 	BuildbarnHost         string
 	BuildbarnTunnelTarget string
+	GatewayProxy          string
 }
 
 func New(base *client.BaseFlags) (*Root, error) {
@@ -77,6 +78,7 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
+	rc.PersistentFlags().StringVar(&rc.GatewayProxy, "gateway-proxy", "", "If a tunnel is used, gateway proxy to tunnel through")
 	return rc, nil
 }
 
@@ -110,7 +112,7 @@ func NewMount(root *Root) *Mount {
 // targeting that host/port if necessary. It returns a host and port that
 // clients should connect to, which could either be the original host/port if no
 // tunnel was necessary, or a modified host/port if a tunnel was necessary.
-func maybeSetupTunnel(hostPort string, tunnelTarget string) (string, int, error) {
+func maybeSetupTunnel(hostPort string, tunnelTarget string, gatewayProxy string) (string, int, error) {
 	host, port, err := net.SplitHostPort(hostPort)
 	if err != nil {
 		return "", 0, fmt.Errorf("can't split %q into host+port: %w", hostPort, err)
@@ -124,7 +126,7 @@ func maybeSetupTunnel(hostPort string, tunnelTarget string) (string, int, error)
 		return "", 0, fmt.Errorf("failed to determine if tunnel is required for %q: %w", host, err)
 	}
 	if shouldTunnel {
-		if err := tunnelexec.NewBackgroundTunnel(tunnelTarget, int(parsedPort), localTunnelPort); err != nil {
+		if err := tunnelexec.NewBackgroundTunnel(tunnelTarget, int(parsedPort), localTunnelPort, gatewayProxy); err != nil {
 			return "", 0, fmt.Errorf("failed to start tunnel to %q: %w", hostPort, err)
 		}
 		return host, localTunnelPort, nil
@@ -133,7 +135,7 @@ func maybeSetupTunnel(hostPort string, tunnelTarget string) (string, int, error)
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	host, port, err := maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget)
+	host, port, err := maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget, c.root.GatewayProxy)
 	if err != nil {
 		return err
 	}

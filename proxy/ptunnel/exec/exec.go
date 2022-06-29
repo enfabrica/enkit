@@ -10,14 +10,18 @@ import (
 // NewBackgroundTunnel starts and detaches a tunnel listening on `hostPort` that
 // tunnels to `target:targetPort`. There is no way to stop a backgrounded
 // tunnel, other than to kill it manually via the OS.
-func NewBackgroundTunnel(target string, targetPort int, hostPort int) error {
-	cmd := osexec.Command(
-		"enkit",
-		"tunnel",
+func NewBackgroundTunnel(target string, targetPort int, hostPort int, gatewayProxy string) error {
+	args := []string{"tunnel"}
+	if gatewayProxy != "" {
+		args = append(args, "--proxy", gatewayProxy)
+	}
+	args = append(args,
 		"--background",
 		"-L", strconv.FormatInt(int64(hostPort), 10),
-		target, strconv.FormatInt(int64(targetPort), 10),
+		target,
+		strconv.FormatInt(int64(targetPort), 10),
 	)
+	cmd := osexec.Command("enkit", args...)
 	output, err := cmd.CombinedOutput()
 	var exitErr *osexec.ExitError
 	if err != nil {
