@@ -2,7 +2,7 @@
 
 echo ========= {message} - {target} ==========
 on_exit() {
-    echo $? > "/tmp/output_dir/exit_status_file" || true
+    echo $? > "$OUTPUT_DIR/exit_status_file" || true
     poweroff -f
 }
 trap on_exit EXIT
@@ -22,9 +22,10 @@ python -c 'import ctypes; exit(ctypes.cdll.LoadLibrary("libc.so.6").mount("", "/
 mount --types tmpfs tmpfs /tmp
 
 # Mount the output directory. This directory is shared with the host.
-mkdir /tmp/output_dir
+export OUTPUT_DIR=/tmp/output_dir
+mkdir "$OUTPUT_DIR"
 mount --types 9p \
     --options trans=virtio,version=9p2000.L,msize=5000000,cache=mmap,posixacl \
-    /dev/output_dir /tmp/output_dir
+    /dev/output_dir "$OUTPUT_DIR"
 
 {commands}
