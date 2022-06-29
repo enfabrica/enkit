@@ -154,9 +154,9 @@ _common_attrs = {
         default = "@enkit//bazel/utils/remote:noop",
         doc = "If this target is used as wrapper or as a target, it is consider a noop operation. Useful when target or wrapper as specified via label_flag()",
     ),
-    "rsync_bin": attr.string(
+    "rsync_cmd": attr.string(
         default = "rsync",
-        doc = "Path to a binary to run as rsync - assumed to be installed on the system",
+        doc = "Command to run in order to execute rsync - can refer to system binaries (non-hermetic) or binaries brought in via the 'tools' attribute",
     ),
     "rsync_opts": attr.string_list(default = [
         "--delete",
@@ -168,9 +168,9 @@ _common_attrs = {
         default = "~",
         doc = "Destination directory where to copy data into",
     ),
-    "ssh_bin": attr.string(
+    "ssh_cmd": attr.string(
         default = "ssh",
-        doc = "Path to a binary to run as ssh - assumed to be installed on the system",
+        doc = "Command to run in order to execute ssh - can refer to system binaries (non-hermetic) or binaries brought in via the 'tools' attribute",
     ),
     "ssh_opts": attr.string_list(default = [
     ], doc = "Additional flags to pass to the ssh binary"),
@@ -239,9 +239,9 @@ def _remote_run_impl(ctx):
         executable = shell.quote(target_exec.short_path),
         workspace = shell.quote(ctx.workspace_name),
         rsync_opts = shell.array_literal(attrs.rsync_opts),
-        rsync_bin = shell.quote(attrs.rsync_bin),
+        rsync_cmd = shell.quote(attrs.rsync_cmd),
         ssh_opts = shell.array_literal(attrs.ssh_opts),
-        ssh_bin = shell.quote(attrs.ssh_bin),
+        ssh_cmd = shell.quote(attrs.rsync_cmd),
         machines = shell.array_literal(attrs.machines),
         only_copy = (attrs.only_copy and "true") or "",
     )
@@ -259,8 +259,8 @@ def _remote_run_impl(ctx):
     for tool in attrs.tools:
         di = tool[DefaultInfo]
         runfiles = runfiles.merge(ctx.runfiles(files = di.files.to_list()))
-        if di.runfiles:
-            runfiles = runfiles.merge(di.runfiles)
+        if di.default_runfiles:
+            runfiles = runfiles.merge(di.default_runfiles)
 
     return DefaultInfo(files = depset([runner, include]), executable = runner, runfiles = runfiles)
 
@@ -297,4 +297,4 @@ remote_wrapper = rule(
 )
 
 def remote_run(name, **kwargs):
-    remote_run_rule(name = name, script = name + "-copy-and-run.sh", include = name + ".files_to_copy")
+    remote_run_rule(name = name, script = name + "-copy-and-run.sh", include = name + ".files_to_copy", **kwargs)
