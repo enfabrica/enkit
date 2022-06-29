@@ -1,0 +1,2 @@
+--files-from=bazel/utils/testdata/remote/with-opts.files_to_copy -rsync1=foo -rsync2 .. non-existant-machine-1.corp:~/__bazel_utils_testdata_remote_hello-world/
+--files-from=bazel/utils/testdata/remote/with-opts.files_to_copy -rsync1=foo -rsync2 .. non-existant-machine-2.corp:~/__bazel_utils_testdata_remote_hello-world/

@@ -1,0 +1,1 @@
+non-existant-machine-1.corp -- cd hw-dev-$USER/home/$USER/__bazel_utils_testdata_remote_hello-world/enkit; MACHINES='non-existant-machine-1.corp non-existant-machine-2.corp' ./bazel/utils/testdata/remote/wrapper --wrapper_opt1=foo -- bazel/utils/testdata/remote/hello-world --target_opt1=foo
