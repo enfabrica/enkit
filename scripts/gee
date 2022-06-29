@@ -4369,6 +4369,8 @@ function gee__repair() {
     _fatal "Not in a gee repo directory, aborting further repairs."
   fi
 
+  _git worktree prune
+
   _info "Checking each directory in ${REPO_DIR}..."
   local DIR BRANCH OBRANCH
   for DIR in "${REPO_DIR}"/*; do
