@@ -5,6 +5,7 @@ import (
 
 	acommands "github.com/enfabrica/enkit/astore/client/commands"
 	ocommands "github.com/enfabrica/enkit/enkit/outputs"
+	vcommands "github.com/enfabrica/enkit/enkit/version"
 	bazelcmds "github.com/enfabrica/enkit/lib/bazel/commands"
 	"github.com/enfabrica/enkit/lib/client"
 	bcommands "github.com/enfabrica/enkit/lib/client/commands"
@@ -58,6 +59,9 @@ func New() (*EnkitCommand, error) {
 
 	bazel := bazelcmds.New(base)
 	root.AddCommand(bazel.Command)
+
+	versionCmd := vcommands.New(base)
+	root.AddCommand(versionCmd.Command)
 
 	outputs, err := ocommands.New(base)
 	if err != nil {
