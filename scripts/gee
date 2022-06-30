@@ -4561,12 +4561,12 @@ function gee__restore_all_branches() {
         --backtitle "gee ${VERSION}"
         --title "gee restore_all_branches"
         --checklist
-        "Unselect any branches you don't want to restore."
+        "Select which branches you want to restore:"
         0 0 0
       )
       local B
       for B in "${BRANCHES[@]}"; do
-        DIALOG_OPTS+=( "${B}" "" "on" )
+        DIALOG_OPTS+=( "${B}" "" "off" )
       done
 
       local RESULT EXITCODE
@@ -4580,6 +4580,7 @@ function gee__restore_all_branches() {
         _warn "User cancelled operation."
         return
       fi
+      read -r -a BRANCHES <<< "${RESULT}"
     fi
   fi
 
