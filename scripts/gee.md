@@ -110,8 +110,8 @@ review.
 | <a href="#lsbranches">`lsbranches`</a> | List information about each branch. |
 | <a href="#make_branch">`make_branch`</a> | Create a new child branch based on the current branch. |
 | <a href="#pack">`pack`</a> | Exports all unsubmitted changes in this branch as a pack file. |
-| <a href="#pr_check">`pr_check`</a> | Checks whether presubmit tests for a PR. |
 | <a href="#pr_checkout">`pr_checkout`</a> | Create a client containing someone's pull request. |
+| <a href="#pr_check">`pr_check`</a> | Checks whether presubmit tests for a PR. |
 | <a href="#pr_edit">`pr_edit`</a> | Edit an existing pull request. |
 | <a href="#pr_list">`pr_list`</a> | List outstanding PRs |
 | <a href="#pr_make">`pr_make`</a> | Creates a pull request from this branch. |
@@ -127,8 +127,8 @@ review.
 | <a href="#set_parent">`set_parent`</a> | Set another branch as parent of this branch. |
 | <a href="#share">`share`</a> | Share your branch. |
 | <a href="#unpack">`unpack`</a> | Patch the local branch from a pack file. |
-| <a href="#update">`update`</a> | integrate changes from parent into this branch. |
 | <a href="#update_all">`update_all`</a> | Update all branches. |
+| <a href="#update">`update`</a> | integrate changes from parent into this branch. |
 | <a href="#upgrade">`upgrade`</a> | Upgrade the gee tool. |
 | <a href="#version">`version`</a> | Print tool version information. |
 | <a href="#whatsout">`whatsout`</a> | List locally changed files in this branch. |
@@ -631,6 +631,13 @@ Usage: `gee restore_all_branches`
 
 Gee looks up all branches on the origin remote, and makes sure an equivalent
 branch is checked out and updated locally.
+
+If you have the `dialog` utility installed, gee will let you interactively
+select which branches you want to restore.
+
+Alternately, if the user supplies a list of branches on the command line (for
+instance, "origin/test1 origin/test2"), restore_all_branches will only attempt
+to restore those branches.
 
 Note that gee isn't able to restore parentage metadata in this way.  Be
 sure to invoke `gee set_parent` in branches that benefit from this.

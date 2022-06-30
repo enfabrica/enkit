@@ -4532,8 +4532,12 @@ Usage: gee restore_all_branches
 Gee looks up all branches on the origin remote, and makes sure an equivalent
 branch is checked out and updated locally.
 
-Alternately, if the user supplies a list of branches on the command line,
-restore_all_branches will only attempt to restore those branches.
+If you have the `dialog` utility installed, gee will let you interactively
+select which branches you want to restore.
+
+Alternately, if the user supplies a list of branches on the command line (for
+instance, "origin/test1 origin/test2"), restore_all_branches will only attempt
+to restore those branches.
 
 Note that gee isn't able to restore parentage metadata in this way.  Be
 sure to invoke `gee set_parent` in branches that benefit from this.
