@@ -51,6 +51,11 @@ sh_binary(
     srcs = ["echo-argv_test.sh"],
 )
 
+sh_binary(
+    name = "failing-script",
+    srcs = ["failing-script_test.sh"],
+)
+
 # This is not really a test: it should always succeed.
 # The target is here so it generates a shell script that
 # the real test, echo-argv-run_test, can then invoke to
@@ -63,6 +68,12 @@ exec_test(
         "arg3 with $NASTY `characters`",
     ],
     dep = ":echo-argv",
+)
+
+exec_test(
+    name = "failing_test",
+    dep = ":failing-script",
+    must_fail = True,
 )
 
 # Checks that the exec_test rule works as expected.

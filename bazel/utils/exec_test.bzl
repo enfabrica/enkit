@@ -5,10 +5,10 @@ def _exec_test(ctx):
     # the executable returned by another rule.
     template = """#!/bin/bash
 ARGS={argv}; ARGS+=("$@")
-exec {script} "${{ARGS[@]}}"
+{exec} {script} "${{ARGS[@]}}"
 """
     script = ctx.actions.declare_file("{}_test.sh".format(ctx.attr.name))
-    ctx.actions.write(script, template.format(argv = shell.array_literal(ctx.attr.argv), script = ctx.executable.dep.short_path))
+    ctx.actions.write(script, template.format(exec = (ctx.attr.must_fail and "!") or "exec", argv = shell.array_literal(ctx.attr.argv), script = ctx.executable.dep.short_path))
     runfiles = ctx.runfiles(ctx.files.dep).merge(ctx.attr.dep[DefaultInfo].default_runfiles)
     return [DefaultInfo(files = depset(ctx.files.dep), runfiles = runfiles, executable = script)]
 
@@ -30,7 +30,7 @@ Example:
 1) Let's say you have a rule like:
 
     sh_binary(
-        name = "compute-valid.sh",
+        name = "compute-valid",
         srcs = [ ... ],
     )
 
@@ -38,6 +38,7 @@ Example:
 
     exec_test(
         name = "compute-valid-delta",
+        dep = [":compute-valid"],
         args = ["-delta", "1799"],
     )
 
@@ -55,6 +56,10 @@ if "compute-valid.sh -delta 1799" exits with status 0.
         ),
         "argv": attr.string_list(
             doc = "Additional arguments to pass to the executable target",
+        ),
+        "must_fail": attr.bool(
+            default = False,
+            doc = "Set to true if a non zero status should be interpreted as success",
         ),
     },
 )
