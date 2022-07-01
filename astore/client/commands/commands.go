@@ -47,16 +47,16 @@ func NewRoot(base *client.BaseFlags) *Root {
 			SilenceErrors: true,
 			Example: `  $ astore login carlo@enfabrica.net
         To obtain credentials to store/retrieve artifacts.
-  
+
   $ astore upload build.out
         To upload a file in the artifact repository.
-  
+
   $ astore upload build.out@experiments/builds/
         Same as above, stores the file in experiments/build.
-  
+
   $ astore download experiments/builds/build.out
         Downloads the latest version of build.out.
-  
+
   $ astore --help
         To have a nice help screen.`,
 			Long: `astore - uploads and downloads artifacts`,
@@ -307,7 +307,7 @@ func (sf *SuggestFlags) Register(flagset *pflag.FlagSet) {
 	flagset.BoolVarP(&sf.DisableGit, "disable-git", "G", false, "Don't use the git repository to name the remote file")
 	flagset.BoolVarP(&sf.DisableAt, "disable-at", "A", false, "Don't use the @ convention to name the remote file")
 	flagset.BoolVarP(&sf.AllowAbsolute, "allow-absolute", "b", false, "Allow absolute local paths to name remote paths")
-	flagset.BoolVarP(&sf.AllowSingleElement, "allow-single", "l", false, "Allow a asingle element path to be used as remote")
+	flagset.BoolVarP(&sf.AllowSingleElement, "allow-single", "l", false, "Allow a single element path to be used as remote")
 }
 
 func (sf *SuggestFlags) Options() *astore.SuggestOptions {
