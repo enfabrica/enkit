@@ -1,4 +1,42 @@
+load("//bazel/astore:defs.bzl", "astore_download")
+
 exports_files([
     "astore_upload_file.sh",
     "astore_upload_dir.sh",
 ])
+
+astore_download(
+  name = "download_a_big_file",
+  arch = "amd64",
+  download_src = "kernel/ubuntu/5.8.0-1003-oracle-amd64.tar.gz",
+)
+
+sh_test(
+  name = "checksum_checksum_test.sh_test",
+  size = "small",
+  srcs = ["checksum_test.sh"],
+  data = ["checksum_test.sh"],
+  args = (
+    "$(location :checksum_test.sh)",
+    "35074",
+  ),
+)
+
+sh_test(
+  name = "download_a_big_file_checksum_test",
+  size = "small",
+  srcs = ["checksum_test.sh"],
+  data = [":download_a_big_file"],  # this doens't work?
+  args = (
+    "$(location :download_a_big_file)",  # gets filename right, but file not present.
+    "1234",
+  ),
+  # this doesn't work either:
+  #data = [":5.8.0-1003-oracle-amd64.tar.gz"],
+  #args = (
+  #  "$(location :5.8.0-1003-oracle-amd64.tar.gz)",
+  #  "1234",
+  #),
+)
+
+
