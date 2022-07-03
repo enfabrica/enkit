@@ -56,11 +56,15 @@ test -z "$SINGLE" || KERNEL_FLAGS+=("init=/bin/sh")
 QEMU_FLAGS+=("-append" "${{KERNEL_FLAGS[*]}} ${{KERNEL_OPTS[*]}}")
 QEMU_FLAGS+=("${{EMULATOR_OPTS[@]}}")
 
-echo 1>&2 '$' "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"
+if [ ${{#WRAPPER_OPTS[@]}} -ne 0 ]; then
+    WRAPPER_OPTS=('--' "${{WRAPPER_OPTS[@]}}")
+fi
+
+echo 1>&2 '$' "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" "${{WRAPPER_OPTS[@]}}"
 if [ -z "$INTERACTIVE" -a -z "$SINGLE" ]; then
-    "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" </dev/null | tee "$OUTPUT_FILE"
+    "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" "${{WRAPPER_OPTS[@]}}" </dev/null | tee "$OUTPUT_FILE"
 else
-    "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}"
+    "$QEMU_BINARY" "${{QEMU_FLAGS[@]}}" "${{WRAPPER_OPTS[@]}}"
 fi
 """
     qemu_search = ctx.attr.qemu_search
