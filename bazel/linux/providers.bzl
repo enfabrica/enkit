@@ -71,6 +71,7 @@ RuntimeBundleInfo = provider(
     fields = {
         "prepare": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM BEFORE the RUN to prepare the environment",
         "run": "RuntimeInfo, executable (and its runfiles) to run INSIDE the VM",
+        "cleanup": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN (in reverse order) to clean up the environment",
         "check": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN to check if the run was successful",
     },
 )

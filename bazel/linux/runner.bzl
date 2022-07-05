@@ -95,6 +95,7 @@ def commands_and_runtime(ctx, msg, runs, runfiles, verbose = True):
 def get_prepare_run_check(ctx, run):
     prepares = []
     runs = []
+    cleanups = []
     checks = []
     for r in run:
         if RuntimeBundleInfo in r:
@@ -103,6 +104,8 @@ def get_prepare_run_check(ctx, run):
                 prepares.append((r, rbi.prepare))
             if hasattr(rbi, "run") and rbi.run:
                 runs.append((r, rbi.run))
+            if hasattr(rbi, "cleanup") and rbi.cleanup:
+                cleanups.append((r, rbi.cleanup))
             if hasattr(rbi, "check") and rbi.check:
                 checks.append((r, rbi.check))
             continue
@@ -118,7 +121,8 @@ def get_prepare_run_check(ctx, run):
             binary = di.files_to_run.executable,
             runfiles = di.default_runfiles,
         )))
-    return prepares, runs, checks
+    cleanups = list(reversed(cleanups))
+    return prepares, runs, cleanups, checks
 
 def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     ki = ctx.attr.kernel_image[KernelImageInfo]
@@ -132,13 +136,14 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
             ),
         )
 
-    prepares, runs, checks = get_prepare_run_check(ctx, ctx.attr.run)
+    prepares, runs, cleanups, checks = get_prepare_run_check(ctx, ctx.attr.run)
 
     outside_runfiles = ctx.runfiles()
     if runfiles:
         outside_runfiles = outside_runfiles.merge(runfiles)
     cprepares, outside_runfiles, _ = commands_and_runtime(ctx, "prepare", prepares, outside_runfiles)
     cchecks, outside_runfiles, _ = commands_and_runtime(ctx, "check", checks, outside_runfiles)
+    ccleanups, outside_runfiles, _ = commands_and_runtime(ctx, "cleanup", cleanups, outside_runfiles)
     cruns, inside_runfiles, _ = commands_and_runtime(ctx, "run", runs, ctx.runfiles())
 
     init = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
@@ -170,6 +175,7 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     subs = dict({
         "target": package(ctx.label),
         "prepares": "\n".join(cprepares),
+        "cleanups": "\n".join(ccleanups),
         "checks": "\n".join(cchecks),
         "kernel": ki.image.short_path,
         "rootfs": rootfs,

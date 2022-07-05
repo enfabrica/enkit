@@ -158,6 +158,10 @@ echo 1>&2 "Running emulator..."
 {code}
 
 estatus="$?"
+
+echo 1>&2 "===== emulator exited - now running cleanups (if any) ===="
+{cleanups}
+
 test "$estatus" == 0 || {
     echo 1>&2 "===== emulator exited with non zero status - check logs above ===="
     exit "$estatus"

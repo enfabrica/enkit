@@ -25,6 +25,7 @@ def _vm_bundle(ctx):
     bundle = {}
     _add_attr_bundle(ctx, bundle, "prepare")
     _add_attr_bundle(ctx, bundle, "run")
+    _add_attr_bundle(ctx, bundle, "cleanup")
     _add_attr_bundle(ctx, bundle, "check")
 
     return RuntimeBundleInfo(**bundle)
@@ -38,8 +39,12 @@ supply a script to prepare the environment to run the VM, or to clean
 up afterward.
 
 As an example, let's say you need to create an "internal-test" bundle that 1)
-runs some setup commands outside the VM, 2) runs a test binary in the VM, and
-3) checks the result of the test at the end of the run.
+runs some setup commands outside the VM, 2) runs a test binary in the VM,
+3) runs some cleanup commands outside the VM, and 4) checks the result of the
+test at the end of the run.
+
+Note that cleanup commands are executed always while checks are executed only
+if the VM exits successfully and only in non-interactive mode.
 
 You can set up the bundle like this:
 
@@ -71,6 +76,10 @@ You can set up the bundle like this:
 
         run_bin = ":test-binary-inside-vm",
         
+        cleanup_cmds = [
+            "# cleanup goes here",
+        ]
+
         check_cmds = [
             "jq $OUTPUT_DIR > $OUTPUT_DIR/file.json",
         ],
@@ -101,6 +110,17 @@ You can set up the bundle like this:
         ),
         "run_args": attr.string(
             doc = "Optional parameters to pass to the run_bin. Can use shell expansion.",
+        ),
+        "cleanup_cmds": attr.string_list(
+            doc = "Shell commands to run OUTSIDE the VM AFTER the RUN (in reverse order) to clean up the environment (before cleanup_bin - optional)",
+        ),
+        "cleanup_bin": attr.label(
+            doc = "Binary to run OUTSIDE the VM AFTER the RUN (in reverse order) to clean up the environment (optional)",
+            executable = True,
+            cfg = "exec",
+        ),
+        "cleanup_args": attr.string(
+            doc = "Optional parameters to pass to the cleanup_bin. Can use shell expansion.",
         ),
         "check_cmds": attr.string_list(
             doc = "Shell commands to check OUTSIDE THE VM to check the environment (before check_bin - optional)",
