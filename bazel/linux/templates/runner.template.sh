@@ -115,6 +115,8 @@ while getopts "k:e:r:hsx" opt; do
 done
 shift $((OPTIND - 1))
 
+WRAPPER_OPTS=("$@")
+
 showstate
 
 echo 1>&2 "======================================"
@@ -140,11 +142,12 @@ trap onexit EXIT
 #   - OUTPUT_FILE - console output must be stored in this file
 #                   (kernel boot log, and any shell output).
 #   - OUTPUT_DIR - directory where to store any other output file.
+#   - WRAPPER_OPTS - extra command line arguments to emulator wrapper script.
 #
 # - Additionally, they should check for:
 #   - KERNEL_OPTS - array, may have additional kernel arguments.
 #   - EMULATOR_OPTS - array, may have additional arguments for the emulator.
-for var in TARGET KERNEL INIT ROOTFS RUNTIME TMPDIR INTERACTIVE SINGLE OUTPUT_FILE OUTPUT_DIR KERNEL_OPTS EMULATOR_OPTS; do
+for var in TARGET KERNEL INIT ROOTFS RUNTIME TMPDIR INTERACTIVE SINGLE OUTPUT_FILE OUTPUT_DIR KERNEL_OPTS EMULATOR_OPTS WRAPPER_OPTS; do
     export "$var"
 done
 
