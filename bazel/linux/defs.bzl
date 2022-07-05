@@ -126,7 +126,15 @@ def _kernel_modules(ctx):
             setup = ctx.attr.setup,
         ))
 
-    return [DefaultInfo(files = depset(outputs)), KernelBundleInfo(modules = bundled)]
+    return [
+        DefaultInfo(
+            files = depset(outputs),
+            runfiles = ctx.runfiles(files = outputs),
+        ),
+        KernelBundleInfo(
+            modules = bundled,
+        ),
+    ]
 
 kernel_modules_rule = rule(
     doc = """Builds kernel modules.
@@ -209,13 +217,23 @@ def _normalize_kernel(kernel):
 
 def _kernel_modules_bundle(ctx):
     modules = []
+    runfiles = ctx.runfiles()
     for module in ctx.attr.modules:
+        runfiles = runfiles.merge(module[DefaultInfo].default_runfiles)
         if KernelModulesInfo in module:
             modules.append(module)
         elif KernelBundleInfo in module:
             modules.extend(module[KernelBundleInfo].modules)
 
-    return [DefaultInfo(files = depset(ctx.files.modules)), KernelBundleInfo(modules = modules)]
+    return [
+        DefaultInfo(
+            files = depset(ctx.files.modules),
+            runfiles = runfiles,
+        ),
+        KernelBundleInfo(
+            modules = modules,
+        ),
+    ]
 
 kernel_modules_bundle = rule(
     doc = """Creates a bundle of kernel modules.
