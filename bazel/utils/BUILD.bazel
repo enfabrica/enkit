@@ -82,3 +82,156 @@ sh_test(
     srcs = ["echo-argv_test_check.sh"],
     data = [":echo-argv_test"],
 )
+
+load("//bazel/utils:remote.bzl", "remote_run", "remote_wrapper")
+load("//bazel/utils:exec_test.bzl", "exec_test")
+load("//bazel/utils:diff_test.bzl", "diff_test")
+load("//bazel/utils:remote_test.bzl", "remote_run_test")
+
+#### Support targets
+filegroup(
+    name = "remote-deps",
+    srcs = [
+        "//tools/codegen/tests:gen-test-actual-gen",  # Generated file by a tool.
+    ],
+)
+
+genrule(
+    name = "quote01",
+    srcs = [],
+    outs = ["quote01.txt"],
+    cmd = """
+echo "Success is not final, failure is not fatal: it is the courage to continue that counts." > "$@"
+""",
+)
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["testdata/remote/hello-world.cc"],
+    data = [
+        "testdata/remote/quote00.txt",  # Static file.
+        ":quote01.txt",  # genrule file.
+        ":remote-deps",  # filegroup.
+        "@com_google_absl//:AUTHORS",  # static file from external repo.
+        "@com_google_googletest//:gtest",  # generated files from external repo.
+    ],
+)
+
+#### Actual tests
+remote_run(
+    name = "test-no-machines",
+    rsync_cmd = "./bazel/utils/save-argv test1.rsync",
+    rsync_opts = [
+        "--test_rsync_opt",
+    ],
+    ssh_cmd = "./bazel/utils/testdata/remote/save-argv test1.ssh",
+    ssh_opts = [
+        "--test_ssh_opt",
+    ],
+    target = ":hello-world",
+    tools = [":save-argv"],
+)
+
+# No machines are specified for a remote run - the command should fail!
+exec_test(
+    name = "test-no-machine-fails_test",
+    dep = ":test-no-machines",
+    must_fail = True,
+)
+
+sh_binary(
+    name = "save-argv",
+    srcs = ["testdata/remote/save-argv.sh"],
+)
+
+sh_binary(
+    name = "wrapper",
+    srcs = ["testdata/remote/save-argv.sh"],
+    # Only to show that a dependency of a wrapper is moved correctly.
+    data = ["testdata/remote/quote02.txt"],
+)
+
+remote_wrapper(
+    name = "decorated-wrapper",
+    rsync_opts = ["--smile"],
+    target_opts = ["--wrapper-opt3"],
+    wrapper = ":wrapper",
+    wrapper_opts = ["--wrapper-opt2"],
+    destdir = "santa-coming",
+)
+
+remote_run_test(
+    name = "simple",
+    machines = [
+        "non-existant-machine-1.corp",
+        "non-existant-machine-2.corp",
+    ],
+    target = ":hello-world",
+)
+
+remote_run_test(
+    name = "with-opts",
+    machines = [
+        "non-existant-machine-1.corp",
+        "non-existant-machine-2.corp",
+    ],
+    rsync_opts = [
+        "-rsync1=foo",
+        "-rsync2",
+    ],
+    ssh_opts = [
+        "-ssh1=foo",
+        "-ssh2",
+    ],
+    target = ":hello-world",
+    target_opts = [
+        "-taget1=foo",
+        "-target2",
+    ],
+)
+
+remote_run_test(
+    name = "only-copy",
+    machines = [
+        "non-existant-machine-1.corp",
+        "non-existant-machine-2.corp",
+    ],
+    only_copy = True,
+    target = ":hello-world",
+)
+
+remote_run_test(
+    name = "with-destdir",
+    machines = [
+        "non-existant-machine-1.corp",
+        "non-existant-machine-2.corp",
+    ],
+    target = ":hello-world",
+    destdir = "hw-dev-$USER/home/$USER",
+)
+
+remote_run_test(
+    name = "with-wrapper",
+    machines = [
+        "non-existant-machine-1.corp",
+        "non-existant-machine-2.corp",
+    ],
+    target = ":hello-world",
+    target_opts = ["--target_opt1=foo"],
+    wrapper = ":wrapper",
+    wrapper_opts = ["--wrapper_opt1=foo"],
+    destdir = "hw-dev-$USER/home/$USER",
+)
+
+remote_run_test(
+    name = "with-decorated-wrapper",
+    machines = [
+        "non-existant-machine-1.corp",
+        "non-existant-machine-2.corp",
+    ],
+    target = ":hello-world",
+    target_opts = ["--target_opt1=foo"],
+    wrapper = ":decorated-wrapper",
+    wrapper_opts = ["--wrapper_opt1=foo"],
+    destdir = "hw-dev-$USER/home/$USER",
+)
