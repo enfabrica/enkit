@@ -4749,9 +4749,11 @@ function __gee_prompt_set_colors() {
 
 function __gee_prompt_set_window_title() {
   local title="$1"
+
   local ESC=$'\033'
   local SLASH=$'\134'
-  printf "${ESC}k${ESC}${SLASH}${ESC}k%s${ESC}${SLASH}" "$1"
+  # printf "${ESC}k${ESC}${SLASH}${ESC}k%s${ESC}${SLASH}" "$1"
+  printf "\\[\033k%s\033\\\\]" "$1"
 }
 
 function gee_prompt_test_colors() {
@@ -4772,7 +4774,7 @@ function gee_prompt_print() {
   gee_prompt_update_git_info
   local p="${GEE_PROMPT}"
   if [[ -z "${p}" ]]; then
-    p=" [\\!] \\w\033[0K\033[0m\n$ "
+    p=" [\!] \w\[\e[0K\e[0m\]\n$ "
   fi
 
   local bg="${GEE_PROMPT_BG_COLOR:-1}"
@@ -4783,11 +4785,11 @@ function gee_prompt_print() {
 
   printf "%s" \
     "$(__gee_prompt_set_window_title "${GEE_PROMPT_BRANCH:-bash}")" \
-    "$(__gee_prompt_set_colors "${fg1}" "${bg}" "${bold1}" )" \
+    "\\[$(__gee_prompt_set_colors "${fg1}" "${bg}" "${bold1}" )\\]" \
     "${GEE_PROMPT_INFO}" \
-    "$(__gee_prompt_set_colors "${fg2}" "${bg}" "${bold2}" )" \
+    "\\[$(__gee_prompt_set_colors "${fg2}" "${bg}" "${bold2}" )\\]" \
     "${p}" \
-    $'\033[0m'
+    "\[\e[0m\]"
 }
 
 function gee_prompt_set_ps1() {
