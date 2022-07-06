@@ -26,7 +26,10 @@ go_test(
     name = "test",
     srcs = ["regression_test.go"],
     data = glob(["testdata/**"]),
-    tags = ["manual"],
+    tags = [
+        "manual",
+        "no-cloudbuild",
+    ],
     deps = [
         "//astore/client/astore:go_default_library",
         "//astore/server/astore:go_default_library",
