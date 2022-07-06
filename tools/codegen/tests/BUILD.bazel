@@ -12,7 +12,7 @@ codegen_test(
     visibility = [
         # Used by another unit test to show that codegen stuff
         # is handled correctly.
-        "//bazel/utils/testdata/remote:__pkg__",
+        "//bazel/utils:__pkg__",
     ],
 )
 

@@ -8,9 +8,9 @@ def remote_run_test(**remote_run_opts):
     sshfile = name + ".ssh"
 
     remote_run(**merge_kwargs(remote_run_opts, dict(
-        rsync_cmd = "./bazel/utils/testdata/remote/save-argv.sh " + rsyncfile,
-        ssh_cmd = "./bazel/utils/testdata/remote/save-argv.sh " + sshfile,
-        tools = ["//bazel/utils/testdata/remote:save-argv"],
+        rsync_cmd = "./bazel/utils/save-argv " + rsyncfile,
+        ssh_cmd = "./bazel/utils/save-argv " + sshfile,
+        tools = ["//bazel/utils:save-argv"],
     )))
 
     native.genrule(
@@ -35,17 +35,17 @@ def remote_run_test(**remote_run_opts):
     diff_test(
         name = name + "_argv_rsync_test",
         actual = ":" + rsyncfile,
-        expected = rsyncfile + ".expected",
+        expected = "testdata/remote/" + rsyncfile + ".expected",
     )
 
     diff_test(
         name = name + "_argv_ssh_test",
         actual = ":" + sshfile,
-        expected = sshfile + ".expected",
+        expected = "testdata/remote/" + sshfile + ".expected",
     )
 
     diff_test(
         name = name + "_filelist_test",
         actual = ":" + name + ".files_to_copy",
-        expected = name + ".files_to_copy.expected",
+        expected = "testdata/remote/" + name + ".files_to_copy.expected",
     )

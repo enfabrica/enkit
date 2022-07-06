@@ -1,2 +1,2 @@
---files-from=bazel/utils/testdata/remote/with-decorated-wrapper.files_to_copy --delete -avrz --progress --copy-unsafe-links --smile .. non-existant-machine-1.corp:santa-coming/__bazel_utils_testdata_remote_hello-world/
---files-from=bazel/utils/testdata/remote/with-decorated-wrapper.files_to_copy --delete -avrz --progress --copy-unsafe-links --smile .. non-existant-machine-2.corp:santa-coming/__bazel_utils_testdata_remote_hello-world/
+--files-from=bazel/utils/with-decorated-wrapper.files_to_copy --delete -avrz --progress --copy-unsafe-links --smile .. non-existant-machine-1.corp:santa-coming/__bazel_utils_hello-world/
+--files-from=bazel/utils/with-decorated-wrapper.files_to_copy --delete -avrz --progress --copy-unsafe-links --smile .. non-existant-machine-2.corp:santa-coming/__bazel_utils_hello-world/
