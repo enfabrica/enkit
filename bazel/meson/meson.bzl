@@ -26,10 +26,14 @@ def _create_meson_script(configureParameters):
 
     script = pkgconfig_script(ext_build_dirs)
 
+    script.append("export INSTALL_PREFIX=\"{install_prefix}\"".format(
+        install_prefix=ctx.attr.name,
+    ))
+
     script.append("{env_vars} {meson} setup --prefix {prefix} {builddir} {sourcedir}".format(
         meson = attrs.meson_path,
         env_vars = get_make_env_vars(ctx.workspace_name, tools, flags, user_env, ctx.attr.deps, inputs),
-        prefix = "$$INSTALLDIR$$",
+        prefix = "$$BUILD_TMPDIR$$/$$INSTALL_PREFIX$$",
         builddir = "$$BUILD_TMPDIR$$",
         sourcedir = "$$EXT_BUILD_ROOT$$/" + detect_root(ctx.attr.lib_source),
     ))
@@ -38,6 +42,8 @@ def _create_meson_script(configureParameters):
         meson = attrs.meson_path,
         dir = "$$BUILD_TMPDIR$$",
     ))
+
+    script.append("##copy_dir_contents_to_dir## $$BUILD_TMPDIR$$/$$INSTALL_PREFIX$$ $$INSTALLDIR$$")
 
     return script
 

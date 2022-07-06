@@ -1,2 +1,2 @@
 project('hello', 'c')
-executable('hello', 'hello.c', install : true)
+executable('hello_bin', 'hello.c', install : true)
