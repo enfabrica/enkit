@@ -1,0 +1,2 @@
+--files-from=bazel/utils/with-remote-dir-inverted.files_to_copy --delete -avrz --progress --copy-unsafe-links .. non-existant-machine-2.corp:my-specific-dir/test/
+--files-from=bazel/utils/with-remote-dir-inverted.files_to_copy --delete -avrz --progress --copy-unsafe-links .. non-existant-machine-1.corp:hw-dev-$USER/home/$USER/__bazel_utils_hello-world/

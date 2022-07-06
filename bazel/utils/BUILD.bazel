@@ -119,7 +119,7 @@ cc_binary(
 
 #### Actual tests
 remote_run(
-    name = "test-no-machines",
+    name = "test-no-dests",
     rsync_cmd = "./bazel/utils/save-argv test1.rsync",
     rsync_opts = [
         "--test_rsync_opt",
@@ -132,10 +132,10 @@ remote_run(
     tools = [":save-argv"],
 )
 
-# No machines are specified for a remote run - the command should fail!
+# No dests are specified for a remote run - the command should fail!
 exec_test(
     name = "test-no-machine-fails_test",
-    dep = ":test-no-machines",
+    dep = ":test-no-dests",
     must_fail = True,
 )
 
@@ -162,7 +162,7 @@ remote_wrapper(
 
 remote_run_test(
     name = "simple",
-    machines = [
+    dests = [
         "non-existant-machine-1.corp",
         "non-existant-machine-2.corp",
     ],
@@ -171,7 +171,7 @@ remote_run_test(
 
 remote_run_test(
     name = "with-opts",
-    machines = [
+    dests = [
         "non-existant-machine-1.corp",
         "non-existant-machine-2.corp",
     ],
@@ -192,7 +192,7 @@ remote_run_test(
 
 remote_run_test(
     name = "only-copy",
-    machines = [
+    dests = [
         "non-existant-machine-1.corp",
         "non-existant-machine-2.corp",
     ],
@@ -202,7 +202,7 @@ remote_run_test(
 
 remote_run_test(
     name = "with-destdir",
-    machines = [
+    dests = [
         "non-existant-machine-1.corp",
         "non-existant-machine-2.corp",
     ],
@@ -212,7 +212,7 @@ remote_run_test(
 
 remote_run_test(
     name = "with-wrapper",
-    machines = [
+    dests = [
         "non-existant-machine-1.corp",
         "non-existant-machine-2.corp",
     ],
@@ -225,7 +225,7 @@ remote_run_test(
 
 remote_run_test(
     name = "with-decorated-wrapper",
-    machines = [
+    dests = [
         "non-existant-machine-1.corp",
         "non-existant-machine-2.corp",
     ],
@@ -234,4 +234,46 @@ remote_run_test(
     wrapper = ":decorated-wrapper",
     wrapper_opts = ["--wrapper_opt1=foo"],
     destdir = "hw-dev-$USER/home/$USER",
+)
+
+remote_run_test(
+    name = "with-remote-dir",
+    dests = [
+        "non-existant-machine-1.corp",
+        "non-existant-machine-2.corp:my-specific-dir/test/",
+    ],
+    target = ":hello-world",
+    target_opts = ["--target_opt1=foo"],
+    destdir = "hw-dev-$USER/home/$USER",
+)
+
+remote_run_test(
+    # The ssh command should have the correct path.
+    name = "with-remote-dir-inverted",
+    dests = [
+        "non-existant-machine-2.corp:my-specific-dir/test/",
+        "non-existant-machine-1.corp",
+    ],
+    target = ":hello-world",
+    target_opts = ["--target_opt1=foo"],
+    destdir = "hw-dev-$USER/home/$USER",
+)
+
+remote_run_test(
+    name = "with-local-dir",
+    dests = [
+        "non-existant-machine-1.corp",
+        "/tmp/testdir/",
+    ],
+    target = ":hello-world",
+    target_opts = ["--target_opt1=foo"],
+    destdir = "hw-dev-$USER/home/$USER",
+)
+
+remote_run_test(
+    name = "with-non-run-target",
+    dests = [
+        "/tmp/testdir/",
+    ],
+    target = ":quote01",
 )

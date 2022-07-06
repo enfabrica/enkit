@@ -1,5 +1,8 @@
 """
-Simple rules to allow running targets on remote machines using rsync + ssh.
+Simple rules to export targets and their inputs to a local or remote
+directory, and to allow running targets on remote machines.
+
+Defaults to using rsync + ssh.
 
 Basic usage is trivial. For example, by defining:
 
@@ -11,7 +14,7 @@ Basic usage is trivial. For example, by defining:
     remote_run(
         name = "test-on-remote-machine",
         target = ":my_test",
-        machines = ["test-machine-00.corp"],
+        dests = ["test-machine-00.corp"],
     )
 
 You can then run `bazel run :test-on-remote-machine` which will result in:
@@ -168,8 +171,21 @@ _known_attributes = [
     )),
     ("ssh_opts", attr.string_list, dict(default = [
     ], doc = "Additional flags to pass to the ssh binary")),
-    ("machines", attr.string_list, dict(default = [
-    ], doc = "List of machines to copy the output to, target is run on the first machine listed. If not supplied, it must be supplied at run time when invoking the target.")),
+    ("dests", attr.string_list, dict(default = [
+    ], doc = """\
+List of destinations to copy the output to.
+
+When the target is executable, the target is run from the first destination supplied.
+If no destination is supplied, at least one destination MUST be supplied manually
+when invoking the target (use `bazel run //name/of:target -- -h` to see the options available).
+
+The destination can be any string accepsted by the rsync_cmd. If it's a string
+containing no ':' and no '/', it is assumed to be a machine name, and data is copied
+to `machine:{destdir}/{targetname with invalid characters replaced with _}`, where
+`destdir` is a parameter to this rule, and defaults to the user home directory.
+
+Any other string is interpreted as a literal path. If interpreted as literal path,
+no ssh command is invoked - if the target is executable, it is run directly.""")),
     ("only_copy", attr.bool, dict(default = False, doc = "If true, does not execute any target on the remote machine.")),
     ("template", attr.label, dict(
         default = "@enkit//bazel/utils/remote:runner.template.sh",
@@ -225,7 +241,7 @@ def _common_attrs_to_dict(ctx, default = True):
 
     return attrs
 
-def _remote_run_impl(ctx):
+def _export_and_run_impl(ctx):
     has_wrapper = ctx.attr.wrapper and not package(ctx.attr.wrapper.label) == package(ctx.attr.noop.label)
 
     attrs = _common_attrs_to_dict(ctx)
@@ -236,21 +252,29 @@ def _remote_run_impl(ctx):
     if package(ctx.attr.target.label) == package(attrs.noop.label):
         fail(location(ctx) + "A target must be supplied via flags - read the file '//" + ctx.build_file_path + "' for details")
 
-    target_exec = ctx.attr.target[DefaultInfo].files_to_run.executable
-    target_runfiles = ctx.attr.target[DefaultInfo].default_runfiles
+    tdi = ctx.attr.target[DefaultInfo]
+    runfiles = ctx.runfiles()
     target_opts = attrs.target_opts
+    target_exec = ""
+    if getattr(tdi, "files_to_run") and getattr(tdi.files_to_run, "executable") and tdi.files_to_run.executable:
+      no_execute = False
+      target_exec = tdi.files_to_run.executable.short_path
+      target_runfiles = tdi.default_runfiles
 
-    runfiles = ctx.runfiles(files = [target_exec])
-    runfiles = runfiles.merge(target_runfiles)
+      runfiles = runfiles.merge(ctx.runfiles(files = [tdi.files_to_run.executable]))
+      runfiles = runfiles.merge(target_runfiles)
 
-    if has_wrapper:
-        wrapper_exec = ctx.attr.wrapper[DefaultInfo].files_to_run.executable
-        wrapper_runfiles = ctx.attr.wrapper[DefaultInfo].default_runfiles
-        runfiles = runfiles.merge(wrapper_runfiles)
-        runfiles = runfiles.merge(ctx.runfiles(files = [wrapper_exec]))
+      if has_wrapper:
+          wrapper_exec = ctx.attr.wrapper[DefaultInfo].files_to_run.executable
+          wrapper_runfiles = ctx.attr.wrapper[DefaultInfo].default_runfiles
+          runfiles = runfiles.merge(wrapper_runfiles)
+          runfiles = runfiles.merge(ctx.runfiles(files = [wrapper_exec]))
 
-        target_opts = attrs.wrapper_opts + ["--", target_exec.short_path] + target_opts
-        target_exec = wrapper_exec
+          target_opts = attrs.wrapper_opts + ["--", target_exec] + target_opts
+          target_exec = wrapper_exec.short_path
+    else:
+      no_execute = True
+      runfiles = runfiles.merge(ctx.runfiles(files = tdi.files.to_list()))
 
     include = ctx.outputs.include
     ctx.actions.write(include, "\n".join([ctx.workspace_name + "/" + f.short_path for f in runfiles.files.to_list()]))
@@ -260,13 +284,14 @@ def _remote_run_impl(ctx):
         destdir = shell.quote(attrs.destdir),
         target = shell.quote(package(ctx.attr.target.label)),
         target_opts = shell.array_literal(target_opts),
-        executable = shell.quote(target_exec.short_path),
+        executable = shell.quote(target_exec),
+        no_execute = (no_execute and "true") or "",
         workspace = shell.quote(ctx.workspace_name),
         rsync_opts = shell.array_literal(attrs.rsync_opts),
         rsync_cmd = shell.quote(attrs.rsync_cmd),
         ssh_opts = shell.array_literal(attrs.ssh_opts),
         ssh_cmd = shell.quote(attrs.ssh_cmd),
-        machines = shell.array_literal(attrs.machines),
+        dests = shell.array_literal(attrs.dests),
         only_copy = (attrs.only_copy and "true") or "",
     )
 
@@ -288,12 +313,11 @@ def _remote_run_impl(ctx):
 
     return DefaultInfo(files = depset([runner, include]), executable = runner, runfiles = runfiles)
 
-remote_run_rule = rule(
-    implementation = _remote_run_impl,
+export_and_run_rule = rule(
+    implementation = _export_and_run_impl,
     executable = True,
     attrs = dict(_common_attrs(), **{
         "target": attr.label(
-            executable = True,
             cfg = "host",
             mandatory = True,
             doc = "Target to execute on the remote machine",
@@ -347,4 +371,9 @@ def remote_wrapper(name, **kwargs):
     remote_wrapper_rule(name = name, script = name + "-wrapper", **kwargs)
 
 def remote_run(name, **kwargs):
-    remote_run_rule(name = name, script = name + "-copy-and-run.sh", include = name + ".files_to_copy", **kwargs)
+    """Defines a target to run a specific target on a remote machine."""
+    export_and_run_rule(name = name, script = name + "-copy-and-run.sh", include = name + ".files_to_copy", **kwargs)
+
+def export(name, **kwargs):
+    """Defines a target to export files by a target in a specified directory."""
+    export_and_run_rule(name = name, script = name + "-export.sh", include = name + ".files_to_copy", only_copy = True, **kwargs)
