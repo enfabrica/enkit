@@ -9,6 +9,8 @@ def _cc_filter(ctx):
         libraries = []
 
         for src_lib in src_linker_input.libraries:
+            if not src_lib.dynamic_library:
+                continue
             for out_shared_lib in ctx.attr.out_shared_libs:
                 lib_name = "/".join(out_shared_lib.name.split("/")[1:])
                 if src_lib.dynamic_library.path.endswith(lib_name):
@@ -83,6 +85,9 @@ def cc_filter(name, src, out_shared_libs, **kwargs):
 
     The first binary (`binary1`) will link against all 3 libraries. The other binary (`binary2`)
     will link against 2 of them.
+
+    The rule will only filter dynamic libraries. In a future revision, we will add support for
+    static libraries as well.
     """
 
     out_shared_libs = ["/".join([name, out_shared_lib]) for out_shared_lib in out_shared_libs]
