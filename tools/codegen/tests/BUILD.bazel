@@ -9,6 +9,11 @@ codegen_test(
         "over=rides",
         "zoo=zebra",
     ],
+    visibility = [
+        # Used by another unit test to show that codegen stuff
+        # is handled correctly.
+        "//bazel/utils/testdata/remote:__pkg__",
+    ],
 )
 
 codegen_test(

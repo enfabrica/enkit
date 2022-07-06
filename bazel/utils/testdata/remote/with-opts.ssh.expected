@@ -1,0 +1,1 @@
+-ssh1=foo -ssh2 non-existant-machine-1.corp -- cd ~/__bazel_utils_testdata_remote_hello-world/enkit; MACHINES='non-existant-machine-1.corp non-existant-machine-2.corp' ./bazel/utils/testdata/remote/hello-world -taget1=foo -target2
