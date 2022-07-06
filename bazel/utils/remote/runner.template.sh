@@ -124,17 +124,17 @@ for dest in "${DESTS[@]}"; do
   fi
 done
 
-# TODO(cccontavalli): better escaping, will fix it once we have more tests.
-command="cd $destrun; MACHINES='${DESTS[*]}' ./$executable ${TARGET_OPTS[*]}"
-[ "$ONLY_COPY" != "true" ] || {
-  echo "Copy only mode was requesting - not running any command"
-  echo "Would have run:"
-  echo "    $command" 
+[ "$NO_EXECUTE" != "true" ] || {
+  [ "$ONLY_COPY" == "true" ] || echo "Target $target is not executable - only copied"
   exit 0
 }
 
-[ "$NO_EXECUTE" != "true" ] || {
-  echo "Target $target is not executable - only copied"
+# TODO(cccontavalli): better escaping, will fix it once we have more tests.
+command="cd $destrun; MACHINES='${DESTS[*]}' ./$executable ${TARGET_OPTS[*]}"
+[ "$ONLY_COPY" != "true" ] || {
+  echo "Copy only mode was requested - not running any command"
+  echo "Would have run:"
+  echo "    $command" 
   exit 0
 }
 

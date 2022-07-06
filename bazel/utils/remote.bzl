@@ -274,7 +274,6 @@ def _export_and_run_impl(ctx):
           target_exec = wrapper_exec.short_path
     else:
       no_execute = True
-      print("FILES", tdi.files.to_list())
       runfiles = runfiles.merge(ctx.runfiles(files = tdi.files.to_list()))
 
     include = ctx.outputs.include
