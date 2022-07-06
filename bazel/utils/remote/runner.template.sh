@@ -116,10 +116,10 @@ for dest in "${DESTS[@]}"; do
   # Machine already specifies a path, or it's a local directory.
   # Don't mess with the path supplied by the user.
   if is_fullpath "$dest"; then
-    printrun $RSYNC_CMD --files-from="$include" "${RSYNC_OPTS[@]}" .. "$dest"
+    printrun $RSYNC_CMD "${RSYNC_OPTS[@]}" .. "$dest"
     test -n "$destrun" || destrun="$dest/$workspace"
   else
-    printrun $RSYNC_CMD --files-from="$include" "${RSYNC_OPTS[@]}" .. "$dest:$destpath/"
+    printrun $RSYNC_CMD "${RSYNC_OPTS[@]}" .. "$dest:$destpath/"
     test -n "$destrun" || destrun="$destpath/$workspace"
   fi
 done

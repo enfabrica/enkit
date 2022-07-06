@@ -1,2 +1,2 @@
---files-from=bazel/utils/with-local-dir.files_to_copy --delete -avrz --progress --copy-unsafe-links .. non-existant-machine-1.corp:hw-dev-$USER/home/$USER/__bazel_utils_hello-world/
---files-from=bazel/utils/with-local-dir.files_to_copy --delete -avrz --progress --copy-unsafe-links .. /tmp/testdir/
+--files-from='bazel/utils/with-local-dir.files_to_copy' -avrz --progress --copy-unsafe-links .. non-existant-machine-1.corp:hw-dev-$USER/home/$USER/__bazel_utils_hello-world/
+--files-from='bazel/utils/with-local-dir.files_to_copy' -avrz --progress --copy-unsafe-links .. /tmp/testdir/

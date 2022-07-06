@@ -8,7 +8,7 @@ def remote_run_test(**remote_run_opts):
     sshfile = name + ".ssh"
 
     remote_run(**merge_kwargs(remote_run_opts, dict(
-        rsync_cmd = "./bazel/utils/save-argv " + rsyncfile,
+        rsync_cmd = "./bazel/utils/save-argv " + rsyncfile + " --files-from={filelist}",
         ssh_cmd = "./bazel/utils/save-argv " + sshfile,
         tools = ["//bazel/utils:save-argv"],
     )))
