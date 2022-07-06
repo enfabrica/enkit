@@ -9,6 +9,7 @@ load(
     "CC_EXTERNAL_RULE_FRAGMENTS",
     "cc_external_rule_impl",
     "create_attrs",
+    "expand_locations",
     "expand_locations_and_make_variables",
 )
 
@@ -30,8 +31,14 @@ def _create_meson_script(configureParameters):
         install_prefix=ctx.attr.name,
     ))
 
-    script.append("{env_vars} {meson} setup --prefix {prefix} {builddir} {sourcedir}".format(
+    setup_args = " ".join([
+        expand_locations(ctx, arg, data)
+        for arg in ctx.attr.setup_args
+    ])
+
+    script.append("{env_vars} {meson} setup --prefix {prefix} {setup_args} {builddir} {sourcedir}".format(
         meson = attrs.meson_path,
+        setup_args = setup_args,
         env_vars = get_make_env_vars(ctx.workspace_name, tools, flags, user_env, ctx.attr.deps, inputs),
         prefix = "$$BUILD_TMPDIR$$/$$INSTALL_PREFIX$$",
         builddir = "$$BUILD_TMPDIR$$",
@@ -80,6 +87,16 @@ def _meson_impl(ctx):
     )
     return cc_external_rule_impl(ctx, attrs)
 
+def _attrs():
+    attrs = dict(CC_EXTERNAL_RULE_ATTRIBUTES)
+    attrs.update({
+        "setup_args": attr.string_list(
+            doc = "Arguments for the meson setup command",
+            mandatory = False,
+        ),
+    })
+    return attrs
+
 meson = rule(
     doc = """Rule for building external library with Meson.
 
@@ -102,7 +119,7 @@ meson(
 )
 ```
 """,
-    attrs = dict(CC_EXTERNAL_RULE_ATTRIBUTES),
+    attrs = _attrs(),
     fragments = CC_EXTERNAL_RULE_FRAGMENTS,
     output_to_genfiles = True,
     implementation = _meson_impl,
