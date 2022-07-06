@@ -9,6 +9,9 @@ meson(
     name = "hello",
     lib_source = ":src",
     out_binaries = [
-        "hello",
+        # It looks like a limitation of rules_foreign_cc where you cannot have
+        # a generated file with the same name as the rule because it creates a
+        # directory named as the rule in the build directory.
+        "hello_bin",
     ],
 )
