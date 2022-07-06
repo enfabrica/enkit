@@ -1,0 +1,1 @@
+non-existant-machine-2.corp:my-specific-dir/test/ -- cd non-existant-machine-2.corp:my-specific-dir/test//enkit; MACHINES='non-existant-machine-2.corp:my-specific-dir/test/ non-existant-machine-1.corp' ./bazel/utils/hello-world --target_opt1=foo
