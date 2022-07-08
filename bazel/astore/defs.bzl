@@ -92,7 +92,7 @@ def _astore_download(ctx):
             "no-remote": "Don't run remotely or cache remotely",
             "requires-network": "Downloads from astore",
             "no-cache": "Not hermetic, since it doesn't refer to packages by hash",
-            "timeout": "1200",  # 20m: better to be slow than to fail.
+            "timeout": "600",  # 20m: better to be slow than to fail.
         },
     )
     return [DefaultInfo(
@@ -145,7 +145,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
         f,
         "--overwrite",
     ]
-    res = ctx.execute(enkit_args, timeout = 60)
+    res = ctx.execute(enkit_args, timeout = 600)  # better to be slow than to fail
     if res.return_code:
         fail("Astore download failed\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
             enkit_args,
