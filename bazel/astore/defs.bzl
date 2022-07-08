@@ -92,7 +92,7 @@ def _astore_download(ctx):
             "no-remote": "Don't run remotely or cache remotely",
             "requires-network": "Downloads from astore",
             "no-cache": "Not hermetic, since it doesn't refer to packages by hash",
-            "timeout": "600",  # 20m: better to be slow than to fail.
+            "timeout": "600",  # 10m: better to be slow than to fail.
         },
     )
     return [DefaultInfo(
