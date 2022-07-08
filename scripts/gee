@@ -563,17 +563,35 @@ function _startup_checks() {
   # Ensure that (most) gee commands are run from within the gee repository,
   # otherwise strange things might happen (if the user's home directory is a
   # git repository, for instance).
-  local GITDIR
-  GITDIR="$(readlink -f "$("${GIT}" rev-parse --git-common-dir)")"
-  if [[ "${GITDIR}" != "${GEE_DIR}"/*/.git ]]; then
-    _warn "Error: refusing to run this gee command outside of the gee" \
-          "repository."
-    if [[ -d "${GEE_DIR}" ]]; then
-      _info "Use \"gcd\" to switch to a gee branch and try again."
-    else
-      _info "No gee repository found, run \"gee init\" to create one."
-    fi
+
+  # 1. Ensure that a gee repository exists.
+  if [[ ! -d "${GEE_DIR}/${REPO}" ]]; then
+    _info "Directory ${GEE_DIR}/${REPO} not found, run \"gee init\" to create."
     exit 1
+  fi
+  _set_main
+  if [[ ! -d "${GEE_DIR}/${REPO}/${MAIN}" ]]; then
+    _die "Directory ${GEE_DIR}/${REPO}/${MAIN} not found." \
+      "Somehow your ${MAIN} branch got removed?"
+    exit 1
+  fi
+
+  # 2. Ensure that we are in a gee-controlled git repo.  If not,
+  #    switch to the main branch of one.
+  local GITDIR
+  if ! GITDIR="$("${GIT}" rev-parse --git-common-dir 2>/dev/null )"; then
+    # not in a git directory
+    _set_main
+    _info "Switching to ${GEE_DIR}/${REPO}/${MAIN}"
+    cd "${GEE_DIR}/${REPO}/${MAIN}"
+    if ! GITDIR="$("${GIT}" rev-parse --git-common-dir 2>/dev/null )"; then
+      _die "Somehow, ${GEE_DIR}/${REPO}/${MAIN} is not a git repository."
+    fi
+  fi
+  GITDIR="$(readlink -f "${GITDIR}")"
+  if [[ "${GITDIR}" != "${GEE_DIR}"/*/.git ]]; then
+    _info "Switching to ${GEE_DIR}/${REPO}/${MAIN}"
+    cd "${GEE_DIR}/${REPO}/${MAIN}"
   fi
 
   # Troubleshoot our environment before running (most) commands.
