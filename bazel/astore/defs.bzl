@@ -95,7 +95,10 @@ def _astore_download(ctx):
             "timeout": "1200",  # 20m: better to be slow than to fail.
         },
     )
-    return [DefaultInfo(files = depset([output]))]
+    return [DefaultInfo(
+       files = depset([output]),
+       runfiles = ctx.runfiles([output]),
+    )]
 
 astore_download = rule(
     implementation = _astore_download,

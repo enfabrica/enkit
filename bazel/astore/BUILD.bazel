@@ -11,32 +11,31 @@ astore_download(
   download_src = "kernel/ubuntu/5.8.0-1003-oracle-amd64.tar.gz",
 )
 
-sh_test(
-  name = "checksum_checksum_test.sh_test",
+# This has to be a python test, not a shell test, because
+# of https://github.com/bazelbuild/bazel/issues/15043
+py_test(
+  name = "checksum_self_test",
   size = "small",
-  srcs = ["checksum_test.sh"],
-  data = ["checksum_test.sh"],
+  python_version = "PY3",
+  srcs = ["checksum_test.py"],
+  main = "checksum_test.py",
+  data = ["checksum_test.py"],
   args = (
-    "$(location :checksum_test.sh)",
-    "35074",
+    "$(location :checksum_test.py)",
+    "48680",
   ),
 )
 
-sh_test(
-  name = "download_a_big_file_checksum_test",
+py_test(
+  name = "checksum_astore_test",
   size = "small",
-  srcs = ["checksum_test.sh"],
-  data = [":download_a_big_file"],  # this doens't work?
+  python_version = "PY3",
+  srcs = ["checksum_test.py"],
+  main = "checksum_test.py",
+  data = [":download_a_big_file"],
   args = (
-    "$(location :download_a_big_file)",  # gets filename right, but file not present.
-    "1234",
+    "$(location :download_a_big_file)",
+    "51368",
   ),
-  # this doesn't work either:
-  #data = [":5.8.0-1003-oracle-amd64.tar.gz"],
-  #args = (
-  #  "$(location :5.8.0-1003-oracle-amd64.tar.gz)",
-  #  "1234",
-  #),
 )
-
 
