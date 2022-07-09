@@ -367,6 +367,12 @@ def go_repositories():
         sum = "h1:JYCuMrWaVNophQTOrMMoSwudOVEfcegoZZrleKc1xwE=",
         version = "v20.10.17+incompatible",
     )
+    go_repository(
+        name = "com_github_docker_go_units",
+        importpath = "github.com/docker/go-units",
+        sum = "h1:Xk8S3Xj5sLGlG5g67hJmYMmUgXv5N4PhkjJHHqrwnTk=",
+        version = "v0.3.3",
+    )
 
     go_repository(
         name = "com_github_dustin_go_humanize",
@@ -791,6 +797,13 @@ def go_repositories():
         version = "v0.3.0",
     )
     go_repository(
+        name = "com_github_hashicorp_cronexpr",
+        importpath = "github.com/hashicorp/cronexpr",
+        sum = "h1:NJZDd87hGXjoZBdvyCF9mX4DCq5Wy7+A/w+A7q0wn6c=",
+        version = "v1.1.1",
+    )
+
+    go_repository(
         name = "com_github_hashicorp_errwrap",
         importpath = "github.com/hashicorp/errwrap",
         sum = "h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=",
@@ -799,8 +812,8 @@ def go_repositories():
     go_repository(
         name = "com_github_hashicorp_go_cleanhttp",
         importpath = "github.com/hashicorp/go-cleanhttp",
-        sum = "h1:dH3aiDG9Jvb5r5+bYHsikaOUIpcM0xvgMXVoDkXMzJM=",
-        version = "v0.5.1",
+        sum = "h1:035FKYIWjmULyFRBKPs8TBQoi0x6d9G4xc9neXJWAZQ=",
+        version = "v0.5.2",
     )
 
     go_repository(
@@ -831,8 +844,8 @@ def go_repositories():
     go_repository(
         name = "com_github_hashicorp_go_rootcerts",
         importpath = "github.com/hashicorp/go-rootcerts",
-        sum = "h1:Rqb66Oo1X/eSV1x66xbDccZjhJigjg0+e82kpwzSwCI=",
-        version = "v1.0.0",
+        sum = "h1:jzhAVGtqPKbwpyCPELlgNWhE1znq+qwJtW5Oi2viEzc=",
+        version = "v1.0.2",
     )
     go_repository(
         name = "com_github_hashicorp_go_sockaddr",
@@ -890,6 +903,13 @@ def go_repositories():
         sum = "h1:EmmoJme1matNzb+hMpDuR/0sbJSUisxyqBGG676r31M=",
         version = "v0.1.3",
     )
+    go_repository(
+        name = "com_github_hashicorp_nomad_api",
+        importpath = "github.com/hashicorp/nomad/api",
+        sum = "h1:9hJfpa1koQVEUDwj36Sun7r3gUiGqsQvuGN9zDMbQd0=",
+        version = "v0.0.0-20220708145235-264d2dd37528",
+    )
+
     go_repository(
         name = "com_github_hashicorp_serf",
         importpath = "github.com/hashicorp/serf",
@@ -1070,8 +1090,8 @@ def go_repositories():
     go_repository(
         name = "com_github_kr_pretty",
         importpath = "github.com/kr/pretty",
-        sum = "h1:Fmg33tUaq4/8ym9TJN1x7sLJnHVwhP33CNkpYV/7rwI=",
-        version = "v0.2.1",
+        sum = "h1:WgNl7dwNpEZ6jJ9k1snq4pZsg7DOEN8hP9Xw0Tsjwk0=",
+        version = "v0.3.0",
     )
     go_repository(
         name = "com_github_kr_pty",
@@ -1187,8 +1207,8 @@ def go_repositories():
     go_repository(
         name = "com_github_mitchellh_go_testing_interface",
         importpath = "github.com/mitchellh/go-testing-interface",
-        sum = "h1:fzU/JVNcaqHQEcVFAKeR41fkiLdIPrefOvVG1VZ96U0=",
-        version = "v1.0.0",
+        sum = "h1:jrgshOhYAUVNMAJiKbEu7EqAwgJJ2JqpQmpLJOu07cU=",
+        version = "v1.14.1",
     )
     go_repository(
         name = "com_github_mitchellh_gox",
@@ -1504,8 +1524,8 @@ def go_repositories():
     go_repository(
         name = "com_github_rogpeppe_go_internal",
         importpath = "github.com/rogpeppe/go-internal",
-        sum = "h1:RR9dF3JtopPvtkroDZuVD7qquD0bnHlKSqaQhgwt8yk=",
-        version = "v1.3.0",
+        sum = "h1:/FiVV8dS/e+YqF2JvO3yXRFbBLTIuSDkuC7aBOAvL+k=",
+        version = "v1.6.1",
     )
     go_repository(
         name = "com_github_rs_cors",
@@ -1829,14 +1849,14 @@ def go_repositories():
 
     go_repository(
         name = "com_google_cloud_go_datastore",
+        build_directives = [
+            "gazelle:resolve go google.golang.org/genproto/googleapis/datastore/v1 @go_googleapis//google/datastore/v1:datastore_go_proto",
+        ],
         importpath = "cloud.google.com/go/datastore",
         patch_args = ["-p1"],
         patch_tool = "patch",
         patches = [
             "//bazel/dependencies:datastore_query_toproto_exported.patch",
-        ],
-        build_directives = [
-            "gazelle:resolve go google.golang.org/genproto/googleapis/datastore/v1 @go_googleapis//google/datastore/v1:datastore_go_proto",
         ],
         sum = "h1:2qo2G7hABSeqswa+5Ga3+QB8/ZwKOJmDsCISM9scmsU=",
         version = "v1.8.0",
