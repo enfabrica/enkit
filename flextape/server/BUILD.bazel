@@ -30,6 +30,5 @@ astore_upload(
     targets = [
         ":flextape",
     ],
-    visibility = ["//:__pkg__"]
+    visibility = ["//:__pkg__"],
 )
-

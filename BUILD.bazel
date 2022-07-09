@@ -2,7 +2,6 @@ load("//bazel/enkit:defs.bzl", "multirun")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 
-
 # To update and generate the BUILD.bazel files, run:
 #     bazelisk run //:gazelle
 #

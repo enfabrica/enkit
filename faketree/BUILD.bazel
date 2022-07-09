@@ -42,5 +42,5 @@ astore_upload(
     targets = [
         ":faketree",
     ],
-    visibility = ["//:__pkg__"]
+    visibility = ["//:__pkg__"],
 )

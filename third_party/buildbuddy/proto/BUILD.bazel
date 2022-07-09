@@ -1,6 +1,10 @@
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
+# Keep gazelle from generating a go_library that includes the dummy source
+# (empty.go)
+# gazelle:ignore
+
 package(default_visibility = ["//visibility:public"])
 
 proto_library(
