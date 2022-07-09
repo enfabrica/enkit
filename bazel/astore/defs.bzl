@@ -92,7 +92,7 @@ def _astore_download(ctx):
             "no-remote": "Don't run remotely or cache remotely",
             "requires-network": "Downloads from astore",
             "no-cache": "Not hermetic, since it doesn't refer to packages by hash",
-            "timeout": "600",  # 10m: better to be slow than to fail.
+            "timeout": "%d" % ctx.attr.timeout,
         },
     )
     return [DefaultInfo(
@@ -109,6 +109,10 @@ astore_download = rule(
         ),
         "arch": attr.string(
             doc = "Architecture to download the file for.",
+        ),
+        "timeout": attr.int(
+            doc = "Timeout for astore download operation, in seconds.",
+            default = 10*60,
         ),
         "_astore_client": attr.label(
             default = Label("//astore/client:astore"),
@@ -145,7 +149,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
         f,
         "--overwrite",
     ]
-    res = ctx.execute(enkit_args, timeout = 600)  # better to be slow than to fail
+    res = ctx.execute(enkit_args, timeout = ctx.attr.timeout)
     if res.return_code:
         fail("Astore download failed\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
             enkit_args,
@@ -209,6 +213,10 @@ astore_package = repository_rule(
         ),
         "strip_prefix": attr.string(
             doc = "Optional path prefix to strip out of the archive.",
+        ),
+        "timeout": attr.int(
+            doc = "Timeout for astore fetch operation, in seconds.",
+            default = 10 * 60,
         ),
     },
 )

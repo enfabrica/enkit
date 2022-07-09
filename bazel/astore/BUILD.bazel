@@ -33,6 +33,7 @@ py_test(
   srcs = ["checksum_test.py"],
   main = "checksum_test.py",
   data = [":download_a_big_file"],
+  tags = ["no-presubmit"],
   args = (
     "$(location :download_a_big_file)",
     "51368",
