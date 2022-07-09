@@ -12,7 +12,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         ":machinist_assets",
-        "//astore/rpc:auth-go",
+        "//astore/rpc/auth:go_default_library",
         "//lib/client:go_default_library",
         "//lib/goroutine:go_default_library",
         "//lib/kcerts:go_default_library",
