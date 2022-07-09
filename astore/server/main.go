@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/enfabrica/enkit/astore/common"
-	rpc_astore "github.com/enfabrica/enkit/astore/rpc/astore"
+	rpc_astore "github.com/enfabrica/enkit/astore/proto"
 	rpc_auth "github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/astore/server/assets"
 	"github.com/enfabrica/enkit/astore/server/astore"

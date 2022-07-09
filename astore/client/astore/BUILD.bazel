@@ -14,7 +14,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/astore/client/astore",
     visibility = ["//visibility:public"],
     deps = [
-        "//astore/rpc:astore-go",
+        "//astore/proto:astore-go",
         "//lib/client:go_default_library",
         "//lib/client/ccontext:go_default_library",
         "//lib/grpcwebclient:go_default_library",

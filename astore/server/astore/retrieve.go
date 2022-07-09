@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+	apb "github.com/enfabrica/enkit/astore/proto"
 
 	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/storage"
@@ -19,7 +19,7 @@ var (
 	storageSignedURL = storage.SignedURL
 )
 
-// DownalodArtifact turns an http.Request into an astore.RetrieveRequest, executes it, and invokes the specified handler with the result.
+// DownalodArtifact turns an http.Request into an apb.RetrieveRequest, executes it, and invokes the specified handler with the result.
 func (s *Server) DownloadArtifact(prefix string, ehandler DownloadHandler, w http.ResponseWriter, r *http.Request) {
 	upath := path.Clean(r.URL.Path)
 	if !strings.HasPrefix(upath, prefix) {
@@ -41,13 +41,13 @@ func (s *Server) DownloadArtifact(prefix string, ehandler DownloadHandler, w htt
 		tag = parms["tag"]
 	}
 
-	req := &astore.RetrieveRequest{}
+	req := &apb.RetrieveRequest{}
 	req.Path = strings.TrimPrefix(upath, prefix)
 	req.Uid = uid
 	req.Architecture = arch
 
 	if len(tag) > 0 {
-		req.Tag = &astore.TagSet{}
+		req.Tag = &apb.TagSet{}
 		for _, t := range tag {
 			t = strings.TrimSpace(t)
 			if t == "" {
@@ -61,7 +61,7 @@ func (s *Server) DownloadArtifact(prefix string, ehandler DownloadHandler, w htt
 	ehandler(upath, retr, err, w, r)
 }
 
-func (s *Server) Retrieve(ctx context.Context, req *astore.RetrieveRequest) (*astore.RetrieveResponse, error) {
+func (s *Server) Retrieve(ctx context.Context, req *apb.RetrieveRequest) (*apb.RetrieveResponse, error) {
 	if req.Uid == "" && req.Path == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request - no uid and no path")
 	}
@@ -107,7 +107,7 @@ func (s *Server) Retrieve(ctx context.Context, req *astore.RetrieveRequest) (*as
 		return nil, status.Errorf(codes.Internal, "could not generate download URL - %s", err)
 	}
 
-	resp := &astore.RetrieveResponse{
+	resp := &apb.RetrieveResponse{
 		Path:     keyToPath(keys[0]),
 		Artifact: artifact.ToProto(keyToArchitecture(keys[0])),
 		Url:      url,

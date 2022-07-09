@@ -2,9 +2,10 @@ package astore
 
 import (
 	"context"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
 )
 
-func (c *Client) Delete(ctx context.Context, request *astore.DeleteRequest) {
+func (c *Client) Delete(ctx context.Context, request *apb.DeleteRequest) {
 	//TODO
 }

@@ -6,7 +6,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/client/commands",
     visibility = ["//visibility:public"],
     deps = [
-        "//astore/rpc:auth-go",
+        "//astore/proto:auth-go",
         "//lib/client:go_default_library",
         "//lib/config/identity:go_default_library",
         "//lib/kauth:go_default_library",

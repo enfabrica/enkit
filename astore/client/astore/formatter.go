@@ -2,14 +2,15 @@ package astore
 
 import (
 	"fmt"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
 	"os"
 	"time"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
 )
 
 type Formatter interface {
-	Artifact(*astore.Artifact)
-	Element(*astore.Element)
+	Artifact(*apb.Artifact)
+	Element(*apb.Element)
 	Flush()
 }
 
@@ -26,11 +27,11 @@ func (uf *UglyFormatter) File() *os.File {
 	return (*os.File)(uf)
 }
 
-func (uf *UglyFormatter) Artifact(art *astore.Artifact) {
+func (uf *UglyFormatter) Artifact(art *apb.Artifact) {
 	fmt.Fprintf(uf.File(), "%s\t%s\t%s\t%x\t%s\t%s\t%s\n", time.Unix(0, art.Created), art.Creator, art.Architecture, art.MD5, art.Uid, art.Tag, art.Note)
 }
 
-func (uf *UglyFormatter) Element(el *astore.Element) {
+func (uf *UglyFormatter) Element(el *apb.Element) {
 	fmt.Fprintf(uf.File(), "%s\t%s\t%s\n", time.Unix(0, el.Created), el.Creator, el.Name)
 }
 

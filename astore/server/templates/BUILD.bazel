@@ -10,7 +10,7 @@ qtpl_go_library(
     importpath = "github.com/enfabrica/enkit/astore/server/templates",
     visibility = ["//visibility:public"],
     deps = [
-        "//astore/rpc:astore-go",
+        "//astore/proto:astore-go",
         "@com_github_dustin_go_humanize//:go_default_library",
     ],
 )

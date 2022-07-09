@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/astore/client/astore"
-	arpc "github.com/enfabrica/enkit/astore/rpc/astore"
+	arpc "github.com/enfabrica/enkit/astore/proto"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config"
 	"github.com/enfabrica/enkit/lib/config/defcon"

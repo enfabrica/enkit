@@ -5,6 +5,8 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 # create new ones with names I don't like. So here you go, gazelle!
 # gazelle:proto disable
 
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
 proto_library(
     name = "astore_proto",
     srcs = ["astore.proto"],
@@ -24,7 +26,7 @@ proto_library(
 go_proto_library(
     name = "astore-proto-lib",
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
-    importpath = "github.com/enfabrica/enkit/astore/rpc/astore",
+    importpath = "github.com/enfabrica/enkit/astore/proto",
     proto = ":astore_proto",
     visibility = ["//visibility:public"],
 )
@@ -37,12 +39,10 @@ go_proto_library(
     visibility = ["//visibility:public"],
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
 go_library(
     name = "astore-go",
     embed = [":astore-proto-lib"],
-    importpath = "github.com/enfabrica/enkit/astore/rpc/astore",
+    importpath = "github.com/enfabrica/enkit/astore/proto",
     visibility = ["//visibility:public"],
 )
 

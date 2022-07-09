@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+	apb "github.com/enfabrica/enkit/astore/proto"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMarshalFormat(t *testing.T) {
-	artifact := astore.Artifact {
+	artifact := apb.Artifact {
 		Created: 1234,
 		Creator: "Friedrich Nietzsche",
 		Architecture: "amd64",
@@ -22,7 +22,7 @@ func TestMarshalFormat(t *testing.T) {
 		Note: "note1",
 	}
 
-	element := astore.Element {
+	element := apb.Element {
 		Created: 1234,
 		Creator: "Friedrich Nietzsche",
 		Name: "foo-element",

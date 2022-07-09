@@ -2,6 +2,7 @@ package astore
 
 import (
 	"context"
+	"encoding/base32"
 	"fmt"
 	"math/rand"
 	"path"
@@ -9,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/datastore"
-	"cloud.google.com/go/storage"
-	"encoding/base32"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+	apb "github.com/enfabrica/enkit/astore/proto"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/retry"
+
+	"cloud.google.com/go/datastore"
+	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -72,7 +73,7 @@ func GenerateUid(rng *rand.Rand) (string, error) {
 	return idEncoder.EncodeToString(uid), nil
 }
 
-func (s *Server) Store(ctx context.Context, req *astore.StoreRequest) (*astore.StoreResponse, error) {
+func (s *Server) Store(ctx context.Context, req *apb.StoreRequest) (*apb.StoreResponse, error) {
 	sid, err := GenerateSid(s.rng)
 	if err != nil {
 		return nil, fmt.Errorf("problems with secure prng - %w", err)
@@ -83,7 +84,7 @@ func (s *Server) Store(ctx context.Context, req *astore.StoreRequest) (*astore.S
 		return nil, fmt.Errorf("could not sign the url - %w", err)
 	}
 
-	return &astore.StoreResponse{Sid: sid, Url: url}, nil
+	return &apb.StoreResponse{Sid: sid, Url: url}, nil
 }
 
 func parentPath(p string) string {
@@ -99,7 +100,7 @@ func queryForPath(kind, path, arch string) (*datastore.Query, error) {
 	return datastore.NewQuery(kind).Filter("Parent = ", path).Order("-Created").Ancestor(akey), nil
 }
 
-func (s *Server) List(ctx context.Context, req *astore.ListRequest) (*astore.ListResponse, error) {
+func (s *Server) List(ctx context.Context, req *apb.ListRequest) (*apb.ListResponse, error) {
 	// Two queries are necessary:
 	//   1) To retrieve artifacts.
 	//   2) To retrieve sub-paths.
@@ -136,18 +137,18 @@ func (s *Server) List(ctx context.Context, req *astore.ListRequest) (*astore.Lis
 		return nil, err
 	}
 
-	dirs := []*astore.Element{}
+	dirs := []*apb.Element{}
 	for ix, file := range childFiles {
 		k := kf[ix]
-		dirs = append(dirs, &astore.Element{Name: k.Name, Created: file.Created.UnixNano(), Creator: file.Creator})
+		dirs = append(dirs, &apb.Element{Name: k.Name, Created: file.Created.UnixNano(), Creator: file.Creator})
 	}
 
-	arts := []*astore.Artifact{}
+	arts := []*apb.Artifact{}
 	for ix, art := range childArtifacts {
 		arts = append(arts, art.ToProto(keyToArchitecture(ka[ix])))
 	}
 
-	response := astore.ListResponse{
+	response := apb.ListResponse{
 		Element:  dirs,
 		Artifact: arts,
 	}
@@ -173,12 +174,12 @@ func Commit(t **datastore.Transaction) error {
 	return err
 }
 
-func (s *Server) Tag(ctx context.Context, req *astore.TagRequest) (*astore.TagResponse, error) {
+func (s *Server) Tag(ctx context.Context, req *apb.TagRequest) (*apb.TagResponse, error) {
 	if req.Uid == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request - no sid and no path")
 	}
 
-	arts := []*astore.Artifact{}
+	arts := []*apb.Artifact{}
 	err := retry.New(retry.WithDescription("tag transaction"), retry.WithLogger(s.options.logger)).Run(func() error {
 		t, err := s.ds.NewTransaction(s.ctx)
 		if err != nil {
@@ -235,7 +236,7 @@ func (s *Server) Tag(ctx context.Context, req *astore.TagRequest) (*astore.TagRe
 		return nil
 	})
 
-	return &astore.TagResponse{Artifact: arts}, err
+	return &apb.TagResponse{Artifact: arts}, err
 }
 
 func keyToArchitecture(key *datastore.Key) string {
@@ -464,7 +465,7 @@ func (s *Server) deleteTagsMutation(t *datastore.Transaction, key *datastore.Key
 	return muts, nil
 }
 
-func (s *Server) Commit(ctx context.Context, req *astore.CommitRequest) (*astore.CommitResponse, error) {
+func (s *Server) Commit(ctx context.Context, req *apb.CommitRequest) (*apb.CommitResponse, error) {
 	creds := oauth.GetCredentials(ctx)
 	if req.Sid == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "Must supply an sid")
@@ -549,5 +550,5 @@ func (s *Server) Commit(ctx context.Context, req *astore.CommitRequest) (*astore
 		}
 		return nil
 	})
-	return &astore.CommitResponse{Artifact: artifact.ToProto(architecture)}, err
+	return &apb.CommitResponse{Artifact: artifact.ToProto(architecture)}, err
 }

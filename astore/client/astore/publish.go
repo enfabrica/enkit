@@ -2,11 +2,12 @@ package astore
 
 import (
 	"context"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+	"log"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
 	"github.com/enfabrica/enkit/lib/client"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log"
 )
 
 type ToPublish struct {
@@ -24,14 +25,14 @@ type ToPublish struct {
 	NonExistentOK bool
 }
 
-func (c *Client) Publish(el ToPublish) (string, *astore.ListResponse, error) {
-	req := &astore.ListRequest{
+func (c *Client) Publish(el ToPublish) (string, *apb.ListResponse, error) {
+	req := &apb.ListRequest{
 		Path:         el.Path,
 		Uid:          el.Uid,
 		Architecture: el.Architecture,
 	}
 	if el.Tag != nil {
-		req.Tag = &astore.TagSet{Tag: *el.Tag}
+		req.Tag = &apb.TagSet{Tag: *el.Tag}
 	}
 
 	meta, err := c.client.List(context.TODO(), req)
@@ -42,7 +43,7 @@ func (c *Client) Publish(el ToPublish) (string, *astore.ListResponse, error) {
 		log.Printf("ignoring not-found error, as NonExistentOK was passed")
 	}
 
-	pub := &astore.PublishRequest{Path: el.Public, Select: req}
+	pub := &apb.PublishRequest{Path: el.Public, Select: req}
 	resp, err := c.client.Publish(context.TODO(), pub)
 	if err != nil {
 		return "", nil, err
@@ -51,7 +52,7 @@ func (c *Client) Publish(el ToPublish) (string, *astore.ListResponse, error) {
 }
 
 func (c *Client) Unpublish(el string) error {
-	ur := &astore.UnpublishRequest{Path: el}
+	ur := &apb.UnpublishRequest{Path: el}
 	_, err := c.client.Unpublish(context.TODO(), ur)
 	if err != nil {
 		return client.NiceError(err, "Public mapping for %s was not removed.\nFor debugging: %s", ur.Path, err)

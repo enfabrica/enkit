@@ -1,8 +1,9 @@
 package astore
 
 import (
-	"github.com/enfabrica/enkit/astore/rpc/astore"
 	"time"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
 )
 
 const KindArtifact = "Artifact"
@@ -21,8 +22,8 @@ type Artifact struct {
 	Note    string `datastore:",noindex"`
 }
 
-func (af *Artifact) ToProto(arch string) *astore.Artifact {
-	return &astore.Artifact{
+func (af *Artifact) ToProto(arch string) *apb.Artifact {
+	return &apb.Artifact{
 		Uid:          af.Uid,
 		Sid:          af.Sid,
 		Architecture: arch,
@@ -74,7 +75,7 @@ type Published struct {
 	Tag     []string
 }
 
-func FromListRequest(req *astore.ListRequest, pub *Published) *Published {
+func FromListRequest(req *apb.ListRequest, pub *Published) *Published {
 	pub.Uid = req.Uid
 	pub.Path = req.Path
 	pub.Architecture = req.Architecture
@@ -86,7 +87,7 @@ func FromListRequest(req *astore.ListRequest, pub *Published) *Published {
 	return pub
 }
 
-func FromRetrieveRequest(req *astore.RetrieveRequest, pub *Published) *Published {
+func FromRetrieveRequest(req *apb.RetrieveRequest, pub *Published) *Published {
 	pub.Uid = req.Uid
 	pub.Path = req.Path
 	pub.Architecture = req.Architecture
@@ -98,25 +99,25 @@ func FromRetrieveRequest(req *astore.RetrieveRequest, pub *Published) *Published
 	return pub
 }
 
-func (pub *Published) ToRetrieveRequest() *astore.RetrieveRequest {
-	req := &astore.RetrieveRequest{}
+func (pub *Published) ToRetrieveRequest() *apb.RetrieveRequest {
+	req := &apb.RetrieveRequest{}
 	req.Uid = pub.Uid
 	req.Path = pub.Path
 	req.Architecture = pub.Architecture
 	if pub.HasTags {
-		req.Tag = &astore.TagSet{Tag: pub.Tag}
+		req.Tag = &apb.TagSet{Tag: pub.Tag}
 	}
 
 	return req
 }
 
-func (pub *Published) ToListRequest() *astore.ListRequest {
-	req := &astore.ListRequest{}
+func (pub *Published) ToListRequest() *apb.ListRequest {
+	req := &apb.ListRequest{}
 	req.Uid = pub.Uid
 	req.Path = pub.Path
 	req.Architecture = pub.Architecture
 	if pub.HasTags {
-		req.Tag = &astore.TagSet{Tag: pub.Tag}
+		req.Tag = &apb.TagSet{Tag: pub.Tag}
 	}
 
 	return req

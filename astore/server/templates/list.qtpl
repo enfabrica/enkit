@@ -1,8 +1,9 @@
 {% import (
-	"github.com/enfabrica/enkit/astore/rpc/astore"
-	"github.com/dustin/go-humanize"
 	"time"
 	"fmt"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
+	"github.com/dustin/go-humanize"
 ) %}
 {% code
 type ListPage struct {
@@ -14,11 +15,11 @@ type ListPage struct {
 	Base string
 
 	// The response from the RPC server.
-	List *astore.ListResponse
+	List *apb.ListResponse
 }
 %}
 {% code 
-func (lp *ListPage) DownloadURL(art *astore.Artifact) string {
+func (lp *ListPage) DownloadURL(art *apb.Artifact) string {
 	return fmt.Sprintf("%s%s?u=%s", lp.Base, lp.Path, art.Uid)
 }
 %}

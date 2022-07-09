@@ -2,9 +2,10 @@ package astore
 
 import (
 	"context"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
 )
 
-func (s *Server) Delete(ctx context.Context, request *astore.DeleteRequest) (*astore.DeleteResponse, error) {
+func (s *Server) Delete(ctx context.Context, request *apb.DeleteRequest) (*apb.DeleteResponse, error) {
 	panic("implement me")
 }

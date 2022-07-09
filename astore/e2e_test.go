@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/enfabrica/enkit/astore/client/astore"
-	apb "github.com/enfabrica/enkit/astore/rpc/astore"
+	apb "github.com/enfabrica/enkit/astore/proto"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/progress"

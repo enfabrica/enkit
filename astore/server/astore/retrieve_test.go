@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	apb "github.com/enfabrica/enkit/astore/rpc/astore"
+	apb "github.com/enfabrica/enkit/astore/proto"
 	"github.com/enfabrica/enkit/lib/errdiff"
 	"github.com/enfabrica/enkit/lib/testutil"
 

@@ -1,18 +1,20 @@
 package astore
 
 import (
-	"cloud.google.com/go/datastore"
 	"context"
 	"fmt"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
-	"github.com/enfabrica/enkit/lib/oauth"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"net/http"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
+	"github.com/enfabrica/enkit/lib/oauth"
+
+	"cloud.google.com/go/datastore"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func publishKeyFromPath(orig string) (string, string, *datastore.Key, error) {
@@ -38,7 +40,7 @@ func keyForPublished(key *datastore.Key) *datastore.Key {
 	return datastore.NameKey(KindPublished, "published", key)
 }
 
-type DownloadHandler func(string, *astore.RetrieveResponse, error, http.ResponseWriter, *http.Request)
+type DownloadHandler func(string, *apb.RetrieveResponse, error, http.ResponseWriter, *http.Request)
 
 func (s *Server) getPublished(prefix string, w http.ResponseWriter, r *http.Request) (string, *Published, error) {
 	upath := path.Clean(r.URL.Path)
@@ -93,7 +95,7 @@ func (s *Server) DownloadPublished(prefix string, ehandler DownloadHandler, w ht
 	ehandler(upath, retr, err, w, r)
 }
 
-type ListHandler func(string, *astore.ListResponse, error, http.ResponseWriter, *http.Request)
+type ListHandler func(string, *apb.ListResponse, error, http.ResponseWriter, *http.Request)
 
 func (s *Server) ListPublished(prefix string, ehandler ListHandler, w http.ResponseWriter, r *http.Request) {
 	upath, pub, err := s.getPublished(prefix, w, r)
@@ -107,7 +109,7 @@ func (s *Server) ListPublished(prefix string, ehandler ListHandler, w http.Respo
 	ehandler(upath, retr, err, w, r)
 }
 
-func (s *Server) Publish(ctx context.Context, req *astore.PublishRequest) (*astore.PublishResponse, error) {
+func (s *Server) Publish(ctx context.Context, req *apb.PublishRequest) (*apb.PublishResponse, error) {
 	creator := oauth.GetCredentials(ctx).Identity.GlobalName()
 
 	if s.options.publishBaseURL == "" {
@@ -136,10 +138,10 @@ func (s *Server) Publish(ctx context.Context, req *astore.PublishRequest) (*asto
 		return nil, err
 	}
 
-	return &astore.PublishResponse{Url: s.options.publishBaseURL + cleaned}, nil
+	return &apb.PublishResponse{Url: s.options.publishBaseURL + cleaned}, nil
 }
 
-func (s *Server) Unpublish(ctx context.Context, req *astore.UnpublishRequest) (*astore.UnpublishResponse, error) {
+func (s *Server) Unpublish(ctx context.Context, req *apb.UnpublishRequest) (*apb.UnpublishResponse, error) {
 	_, _, pkey, err := publishKeyFromPath(req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "path %s is invalid - results in empty path after cleanups", req.Path)
@@ -150,5 +152,5 @@ func (s *Server) Unpublish(ctx context.Context, req *astore.UnpublishRequest) (*
 		return nil, err
 	}
 
-	return &astore.UnpublishResponse{}, nil
+	return &apb.UnpublishResponse{}, nil
 }

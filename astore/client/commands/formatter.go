@@ -7,8 +7,9 @@ import (
 
 	"github.com/dustin/go-humanize"
 	castore "github.com/enfabrica/enkit/astore/client/astore"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+	apb "github.com/enfabrica/enkit/astore/proto"
 	"github.com/enfabrica/enkit/lib/config/marshal"
+
 	"github.com/fatih/color"
 )
 
@@ -50,7 +51,7 @@ func NewTableFormatter(mods ...Modifier) *TableFormatter {
 	return t
 }
 
-func (ff *TableFormatter) Artifact(af *astore.Artifact) {
+func (ff *TableFormatter) Artifact(af *apb.Artifact) {
 	prefix := " "
 	if ff.disableNesting {
 		prefix = ""
@@ -79,7 +80,7 @@ func (ff *TableFormatter) Artifact(af *astore.Artifact) {
 	}
 }
 
-func (ff *TableFormatter) Element(el *astore.Element) {
+func (ff *TableFormatter) Element(el *apb.Element) {
 	prefix := " "
 	if ff.disableNesting {
 		prefix = ""
@@ -130,7 +131,7 @@ func (fl *FormatterList) Append(formatter castore.Formatter) {
 //
 // Calls astore.Artifact() on each formatter in the formatters
 // sequence, passing in the input astore.Artifact.
-func (fl *FormatterList) Artifact(af *astore.Artifact) {
+func (fl *FormatterList) Artifact(af *apb.Artifact) {
 	for _, formatter := range fl.formatters {
 		formatter.Artifact(af)
 	}
@@ -138,9 +139,9 @@ func (fl *FormatterList) Artifact(af *astore.Artifact) {
 
 // Implements the astore.Formatter.Element() method for FormatterList.
 //
-// Calls astore.Element() on each formatter in the formatters
-// sequence, passing in the input astore.Artifact.
-func (fl *FormatterList) Element(el *astore.Element) {
+// Calls apb.Element() on each formatter in the formatters
+// sequence, passing in the input apb.Artifact.
+func (fl *FormatterList) Element(el *apb.Element) {
 	for _, formatter := range fl.formatters {
 		formatter.Element(el)
 	}
@@ -158,8 +159,8 @@ func (fl *FormatterList) Flush() {
 // MarshalData is the collection of Artifacts and Elements from an
 // astore operation.
 type MarshalData struct {
-	Artifacts []astore.Artifact
-	Elements []astore.Element
+	Artifacts []apb.Artifact
+	Elements []apb.Element
 }
 
 // MarshalFormatter formats the astore meta based on the outputFile
@@ -168,8 +169,8 @@ type MarshalData struct {
 // See also marshal.MarshalFile()
 type MarshalFormatter struct {
 	outputFile string
-	artifacts []astore.Artifact
-	elements []astore.Element
+	artifacts []apb.Artifact
+	elements []apb.Element
 }
 
 // Creates an empty MarshalFormatter
@@ -184,14 +185,14 @@ func NewMarshalFormatter(outputFile string) *MarshalFormatter {
 // Implements the astore.Formatter.Artifact() method for MarshalFormat.
 //
 // Stores the input artifact into an internal artifact sequence.
-func (mf *MarshalFormatter) Artifact(af *astore.Artifact) {
+func (mf *MarshalFormatter) Artifact(af *apb.Artifact) {
 	mf.artifacts = append(mf.artifacts, *af)
 }
 
 // Implements the astore.Formatter.Element() method for MarshalFormat.
 //
 // Stores the input element into an internal element sequence.
-func (mf *MarshalFormatter) Element(el *astore.Element) {
+func (mf *MarshalFormatter) Element(el *apb.Element) {
 	mf.elements = append(mf.elements, *el)
 }
 

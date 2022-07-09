@@ -11,7 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//astore/common:go_default_library",
-        "//astore/rpc:auth-go",
+        "//astore/proto:auth-go",
         "//lib/kcerts:go_default_library",
         "//lib/kflags:go_default_library",
         "//lib/logger:go_default_library",
@@ -32,7 +32,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//astore/common:go_default_library",
-        "//astore/rpc:auth-go",
+        "//astore/proto:auth-go",
         "//lib/cache:go_default_library",
         "//lib/kcerts:go_default_library",
         "//lib/logger:go_default_library",

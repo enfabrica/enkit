@@ -2,12 +2,13 @@ package astore
 
 import (
 	"context"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
 	"github.com/enfabrica/enkit/lib/client"
 )
 
-func (c *Client) Note(uid string, note string) ([]*astore.Artifact, error) {
-	req := &astore.NoteRequest{Uid: uid, Note: note}
+func (c *Client) Note(uid string, note string) ([]*apb.Artifact, error) {
+	req := &apb.NoteRequest{Uid: uid, Note: note}
 
 	resp, err := c.client.Note(context.TODO(), req)
 	if err != nil {

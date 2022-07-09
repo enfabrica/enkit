@@ -1,20 +1,22 @@
 package astore
 
 import (
-	"cloud.google.com/go/datastore"
 	"context"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
 	"github.com/enfabrica/enkit/lib/retry"
+
+	"cloud.google.com/go/datastore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func (s *Server) Note(ctx context.Context, req *astore.NoteRequest) (*astore.NoteResponse, error) {
+func (s *Server) Note(ctx context.Context, req *apb.NoteRequest) (*apb.NoteResponse, error) {
 	if req.Uid == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request - no sid and no path")
 	}
 
-	arts := []*astore.Artifact{}
+	arts := []*apb.Artifact{}
 	err := retry.New(retry.WithDescription("note transaction"), retry.WithLogger(s.options.logger)).Run(func() error {
 		t, err := s.ds.NewTransaction(s.ctx)
 		if err != nil {
@@ -55,5 +57,5 @@ func (s *Server) Note(ctx context.Context, req *astore.NoteRequest) (*astore.Not
 		return nil
 	})
 
-	return &astore.NoteResponse{Artifact: arts}, err
+	return &apb.NoteResponse{Artifact: arts}, err
 }

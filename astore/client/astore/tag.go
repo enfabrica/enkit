@@ -2,32 +2,33 @@ package astore
 
 import (
 	"context"
-	"github.com/enfabrica/enkit/astore/rpc/astore"
+
+	apb "github.com/enfabrica/enkit/astore/proto"
 	"github.com/enfabrica/enkit/lib/client"
 )
 
-type TagModifier func(*astore.TagRequest)
+type TagModifier func(*apb.TagRequest)
 
 func TagSet(set []string) TagModifier {
-	return func(tr *astore.TagRequest) {
-		tr.Set = &astore.TagSet{Tag: set}
+	return func(tr *apb.TagRequest) {
+		tr.Set = &apb.TagSet{Tag: set}
 	}
 }
 
 func TagAdd(set []string) TagModifier {
-	return func(tr *astore.TagRequest) {
-		tr.Add = &astore.TagSet{Tag: set}
+	return func(tr *apb.TagRequest) {
+		tr.Add = &apb.TagSet{Tag: set}
 	}
 }
 
 func TagDel(set []string) TagModifier {
-	return func(tr *astore.TagRequest) {
-		tr.Del = &astore.TagSet{Tag: set}
+	return func(tr *apb.TagRequest) {
+		tr.Del = &apb.TagSet{Tag: set}
 	}
 }
 
-func (c *Client) Tag(uid string, mods ...TagModifier) ([]*astore.Artifact, error) {
-	req := &astore.TagRequest{Uid: uid}
+func (c *Client) Tag(uid string, mods ...TagModifier) ([]*apb.Artifact, error) {
+	req := &apb.TagRequest{Uid: uid}
 
 	for _, m := range mods {
 		m(req)
