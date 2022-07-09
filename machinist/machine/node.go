@@ -5,6 +5,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"os"
+	"path/filepath"
+	"strconv"
+
 	"github.com/enfabrica/enkit/astore/rpc/auth"
 	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/kcerts"
@@ -13,18 +19,14 @@ import (
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/enfabrica/enkit/machinist/config"
 	"github.com/enfabrica/enkit/machinist/polling"
-	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
+	mpb "github.com/enfabrica/enkit/machinist/rpc"
+
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
-	"io/ioutil"
-	"net"
-	"os"
-	"path/filepath"
-	"strconv"
 )
 
 type Machine struct {
-	MachinistClient machinist_rpc.ControllerClient
+	MachinistClient mpb.ControllerClient
 	AuthClient      auth.AuthClient
 	Repeater        *retry.Options
 	Log             logger.Logger
@@ -45,7 +47,7 @@ func (n *Machine) Init() error {
 		if err != nil {
 			return err
 		}
-		n.MachinistClient = machinist_rpc.NewControllerClient(conn)
+		n.MachinistClient = mpb.NewControllerClient(conn)
 		return nil
 	}
 	h := n.ControlPlaneHost
@@ -54,7 +56,7 @@ func (n *Machine) Init() error {
 	if err != nil {
 		return err
 	}
-	n.MachinistClient = machinist_rpc.NewControllerClient(conn)
+	n.MachinistClient = mpb.NewControllerClient(conn)
 	return nil
 }
 

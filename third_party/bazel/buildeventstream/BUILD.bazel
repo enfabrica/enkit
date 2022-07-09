@@ -1,0 +1,5 @@
+# Package buildeventstream is actually satisfied by generated code from
+# //third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto;
+# there is no code to build here.
+
+# gazelle:ignore

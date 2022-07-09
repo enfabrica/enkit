@@ -18,6 +18,7 @@ go_proto_library(
 
 go_library(
     name = "go_default_library",
+    srcs = ["empty.go"],
     embed = [":enfuse_go_proto"],
     importpath = "github.com/enfabrica/enkit/proxy/enfuse/rpc",
     visibility = ["//visibility:public"],

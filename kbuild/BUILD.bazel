@@ -6,7 +6,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/kbuild",
     visibility = ["//visibility:private"],
     deps = [
-        ":assets",
+        "//kbuild/assets:go_default_library",
         "//kbuild/common:go_default_library",
         "//kbuild/kapt:go_default_library",
         "//lib/config/marshal:go_default_library",
@@ -17,23 +17,6 @@ go_library(
         "//lib/retry:go_default_library",
         "@com_github_xor_gate_ar//:go_default_library",
     ],
-)
-
-load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
-
-go_embed_data(
-    name = "embedded-assets",
-    srcs = glob(["assets/**"]),
-    flatten = True,
-    package = "assets",
-    visibility = ["//visibility:public"],
-)
-
-go_library(
-    name = "assets",
-    srcs = [":embedded-assets"],
-    importpath = "github.com/enfabrica/kbuild/assets",
-    visibility = ["//visibility:public"],
 )
 
 go_binary(

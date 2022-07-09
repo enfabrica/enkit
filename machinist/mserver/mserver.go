@@ -2,7 +2,8 @@ package mserver
 
 import (
 	"github.com/enfabrica/enkit/machinist/config"
-	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
+	mpb "github.com/enfabrica/enkit/machinist/rpc"
+
 	"google.golang.org/grpc"
 )
 
@@ -43,7 +44,7 @@ func (s *ControlPlane) MachinistCommon() *config.Common {
 
 func (s *ControlPlane) Run() error {
 	grpcs := grpc.NewServer()
-	machinist_rpc.RegisterControllerServer(grpcs, s.Controller)
+	mpb.RegisterControllerServer(grpcs, s.Controller)
 	s.runningServer = grpcs
 	go func() {
 		s.killChannel <- s.Controller.dnsServer.Run()

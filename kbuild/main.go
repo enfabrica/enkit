@@ -14,7 +14,7 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/scheduler"
 	"github.com/enfabrica/enkit/lib/khttp/workpool"
 	"github.com/enfabrica/enkit/lib/retry"
-	"github.com/enfabrica/kbuild/assets"
+	"github.com/enfabrica/enkit/kbuild/assets"
 	"github.com/xor-gate/ar"
 	"io"
 	"io/ioutil"
