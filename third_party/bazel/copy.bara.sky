@@ -21,6 +21,7 @@ core.workflow(
         exclude = [
             "third_party/bazel/README.md",
             "third_party/bazel/**/BUILD.bazel",
+            "third_party/bazel/buildeventstream/**",
         ],
     ),
     authoring = authoring.overwrite(default = "Copybara <noreply@enfabrica.net>"),
