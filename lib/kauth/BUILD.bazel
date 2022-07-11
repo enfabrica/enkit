@@ -10,7 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//astore/common:go_default_library",
-        "//astore/rpc:auth-go",
+        "//astore/rpc/auth:go_default_library",
         "//lib/cache:go_default_library",
         "//lib/kcerts:go_default_library",
         "//lib/logger:go_default_library",
