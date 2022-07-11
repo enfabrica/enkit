@@ -1,42 +1,6 @@
-load("//bazel/astore:defs.bzl", "astore_download")
-
 exports_files([
     "astore_upload_file.sh",
     "astore_upload_dir.sh",
 ])
 
-astore_download(
-  name = "download_a_big_file",
-  arch = "amd64",
-  download_src = "kernel/ubuntu/5.8.0-1003-oracle-amd64.tar.gz",
-)
-
-# This has to be a python test, not a shell test, because
-# of https://github.com/bazelbuild/bazel/issues/15043
-py_test(
-  name = "checksum_self_test",
-  size = "small",
-  python_version = "PY3",
-  srcs = ["checksum_test.py"],
-  main = "checksum_test.py",
-  data = ["checksum_test.py"],
-  args = (
-    "$(location :checksum_test.py)",
-    "48680",
-  ),
-)
-
-py_test(
-  name = "checksum_astore_test",
-  size = "small",
-  python_version = "PY3",
-  srcs = ["checksum_test.py"],
-  main = "checksum_test.py",
-  data = [":download_a_big_file"],
-  tags = ["no-presubmit"],
-  args = (
-    "$(location :download_a_big_file)",
-    "51368",
-  ),
-)
 
