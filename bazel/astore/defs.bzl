@@ -149,8 +149,8 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
         f,
         "--overwrite",
     ]
-    if "timeout" in ctx.attr:
-      timeout = ctx.attr.timeout
+    if hasattr(ctx.attr, "timeout"):
+        timeout = ctx.attr.timeout
     res = ctx.execute(enkit_args, timeout = timeout)
     if res.return_code:
         fail("Astore download failed\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
