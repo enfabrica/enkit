@@ -224,6 +224,10 @@ kernel_package = repository_rule(
         "uid": attr.string(
             doc = "Astore UID of the desired version of the object.",
         ),
+        "timeout": attr.int(
+            doc = "Timeout to apply when downloading from astore, in seconds.",
+            default = 10 * 60,
+        ),
         "required": attr.string_list(
             doc = """\
 Sets of components that must be provided in the package.
