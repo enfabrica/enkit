@@ -127,7 +127,7 @@ With this rule, you can easily download
 files from an artifact store.""",
 )
 
-def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None):
+def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None, timeout = 10 * 60):
     """Fetch and extract a package from astore.
 
     This method downloads a package stored as an archive in astore, verifies
@@ -149,7 +149,9 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
         f,
         "--overwrite",
     ]
-    res = ctx.execute(enkit_args, timeout = ctx.attr.timeout)
+    if hasattr(ctx.attr, "timeout"):
+        timeout = ctx.attr.timeout
+    res = ctx.execute(enkit_args, timeout = timeout)
     if res.return_code:
         fail("Astore download failed\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
             enkit_args,
