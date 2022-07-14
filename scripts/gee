@@ -1127,6 +1127,20 @@ function _git_can_fail() {
   NOFAIL=1 _git "$@"
 }
 
+function _git_rev_list_counts() {
+  local B="$1"
+  local P="$2"
+  if [[ "${P}" == upstream/refs/pull/*/head ]]; then
+    "${GIT}" fetch upstream "${P#upstream/refs/}" >/dev/null 2>/dev/null
+    P=FETCH_HEAD
+  fi
+  if [[ "${P}" == upstream/* ]]; then
+    "${GIT}" fetch upstream "${P#upstream}" >/dev/null 2>/dev/null
+    P=FETCH_HEAD
+  fi
+  "${GIT}" rev-list --left-right --count "${B}...${P}" || /bin/true
+}
+
 function _install_tools() {
   # Checks for and installs any missing tools.
 
@@ -1183,7 +1197,7 @@ function _branch_ahead_behind() {
     obr="$(_get_parent_branch "${branch}")"
   fi
   local -a counts
-  read -r -a counts < <("${GIT}" rev-list --left-right --count "${branch}...${obr}") || /bin/true
+  read -r -a counts < <(_git_rev_list_counts "${branch}" "${obr}") || /bin/true
   if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
     printf "%-20s: same as %s" "${branch}" "${obr}"
   else
