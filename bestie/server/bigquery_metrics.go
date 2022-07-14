@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/glog"
 	"cloud.google.com/go/bigquery"
 )
 
@@ -73,25 +74,6 @@ func (i *bigQueryMetric) Save() (map[string]bigquery.Value, string, error) {
 	return ret, bigquery.NoDedupeID, nil
 }
 
-// Keep track of dataset and table names that were requested,
-// but do not exist. Display a log message the first time
-// each is encountered and every "rate" occurrence thereafter.
-var missingResource = make(map[string]int)
-var missingResourceMsgRate = 10
-
-// Report a missing dataset or table.
-func reportMissingResource(id, resourceType string) error {
-	if _, ok := missingResource[id]; !ok {
-		missingResource[id] = 0
-	}
-	missingResource[id]++
-	errMsg := fmt.Sprintf("The BigQuery %s %q does not exist", resourceType, id)
-	if (missingResource[id] % missingResourceMsgRate) == 1 {
-		logger.Printf("%s. Please create it and try again.", errMsg)
-	}
-	return fmt.Errorf("%s", errMsg)
-}
-
 // UnixMicro returns the local Time corresponding to the given Unix time,
 // usec microseconds since January 1, 1970 UTC.
 // NOTE: This function is copied from src/time/time.go in the Go library (version 1.17.6).
@@ -155,7 +137,7 @@ func translateMetric(stream *bazelStream, m *testMetric) (*bigQueryMetric, error
 		delete(dat, "created")
 		ts, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
-			debugPrintf("Error converting 'created' timestamp %q to int64: %q (value ignored)\n", val, err)
+			glog.Errorf("Error converting 'created' timestamp %q to int64: %q (value ignored)", val, err)
 		} else {
 			timestamp = ts
 		}
@@ -222,7 +204,7 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 	// Normalize the BigQuery table identifier based on whether one was specified
 	// in the protobuf message.
 	r.table.normalizeTableRef()
-	debugPrintf("Normalized table ref: %q\n", r.table.formatTableId())
+	glog.V(2).Infof("Normalized table ref: %q", r.table.formatTableId())
 
 	// Get client context for this BigQuery operation.
 	ctx := context.Background()
@@ -237,11 +219,11 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 	// either one. An administrator is expected to create these ahead of time.
 	if exist := r.table.isDatasetExist(ctx, client); !exist {
 		cidExceptionDatasetNotFound.increment()
-		return reportMissingResource(r.table.formatDatasetId(), "dataset")
+	  return fmt.Errorf("the BigQuery dataset %q does not exist", r.table.formatDatasetId())
 	}
 	if exist := r.table.isTableExist(ctx, client); !exist {
 		cidExceptionTableNotFound.increment()
-		return reportMissingResource(r.table.formatTableId(), "table")
+	  return fmt.Errorf("the BigQuery table %q does not exist", r.table.formatTableId())
 	}
 
 	// Prepare the metric rows for uploading to BigQuery.
@@ -254,20 +236,23 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 		pMetric, err := translateMetric(stream, &m)
 		if err != nil {
 			cidMetricDiscard.increment()
-			logger.Printf("Discarding metric %s due to error: %s\n\n", m, err)
+			glog.Errorf("Discarding metric %s due to error: %s", m, err)
 			continue
 		}
 		bqMetrics = append(bqMetrics, *pMetric)
 		rows = append(rows, &bqMetrics[idx])
 		idx++
 	}
-	var sbuf strings.Builder
-	sbuf.WriteString("\nTranslated metrics for BigQuery upload:\n")
-	for _, bqMetric := range bqMetrics {
-		sbuf.WriteString(fmt.Sprintf("  %v\n", bqMetric))
+
+	if glog.V(2) {
+		var sbuf strings.Builder
+		sbuf.WriteString("\nTranslated metrics for BigQuery upload:\n")
+		for _, bqMetric := range bqMetrics {
+			sbuf.WriteString(fmt.Sprintf("  %v\n", bqMetric))
+		}
+		sbuf.WriteString("\n")
+		glog.Info(sbuf.String())
 	}
-	sbuf.WriteString("\n")
-	debugPrintln(sbuf.String())
 
 	// Attempt to upload the metrics, assuming the dataset and table
 	// both exist. If a "not found" error occurs, sleep for a while
@@ -279,7 +264,7 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 	insertionDelay := 0
 	sleepTime := 10
 	inserter := client.Dataset(r.table.dataset).Table(r.table.tableName).Inserter()
-	debugPrintf("Waiting for table insertion...\n")
+	glog.V(2).Info("Waiting for table insertion...")
 	for i := 0; i < 12; i++ {
 		if err := inserter.Put(ctx, rows); err != nil {
 			// Treat anything other than a "not found" error as a failure.
@@ -301,6 +286,6 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 	cidInsertOK.increment()
 	cidInsertDelay.update(insertionDelay)
 	cidMetricUpload.update(len(rows))
-	debugPrintf("Successfully inserted %d rows (delay=%d)\n\n", len(rows), insertionDelay)
+	glog.V(2).Infof("Successfully inserted %d rows (delay=%d)", len(rows), insertionDelay)
 	return nil
 }

@@ -111,8 +111,7 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 	var testSuites TestSuites
 	if err := xml.Unmarshal(pbmsg, &testSuites); err != nil {
 		cidExceptionXmlParseError.increment()
-		debugPrintf("Error extracting metric data from XML file: %s", err)
-		return nil, nil
+		return nil, fmt.Errorf("Error extracting metric data from XML file: %s", err)
 	}
 
 	// Process each of the testcases contained in the testsuite.
@@ -140,15 +139,13 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 		// (i.e. it requires the test applications to use junitxml style of output).
 		if len(ts.SystemOut) > 0 {
 			cidExceptionXmlUnstructuredError.increment()
-			debugPrintln("Unstructured XML test results not supported (use junitxml)")
-			return nil, nil
+			return nil, fmt.Errorf("Unstructured XML test results not supported (use junitxml)")
 		}
 
 		xmlResults, err := parseStructuredXml(&ts)
 		if err != nil {
 			cidExceptionXmlStructuredError.increment()
-			debugPrintf("Error parsing structured XML test results: %s", err)
-			return nil, nil
+			return nil, fmt.Errorf("Error parsing structured XML test results: %s", err)
 		}
 
 		metricName := "testresult"

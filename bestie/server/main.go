@@ -6,14 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"os"
 
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/server"
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
 
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	bpb "google.golang.org/genproto/googleapis/devtools/build/v1"
@@ -24,28 +23,14 @@ import (
 
 var (
 	fileTooBigErr      = errors.New("File exceeds maximum size allowed")
-	isDebugMode   bool = false // Set this to true to enable certain debug behaviors (e.g. special log messages).
-	logger             = log.New(os.Stdout, "bestie: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC|log.Lshortfile|log.Lmsgprefix)
 	maxFileSize   int  = (5 * 1024 * 1024)
 )
-
-func debugPrintf(format string, str ...interface{}) {
-	if isDebugMode {
-		logger.Printf(format, str...)
-	}
-}
-
-func debugPrintln(str ...interface{}) {
-	if isDebugMode {
-		logger.Println(str...)
-	}
-}
 
 type BuildEventService struct {
 }
 
 func (s *BuildEventService) PublishLifecycleEvent(ctx context.Context, req *bpb.PublishLifecycleEventRequest) (*emptypb.Empty, error) {
-	logger.Printf("# BEP LifecycleEvent message:\n%s\n\n", prototext.Format(req))
+	glog.V(2).Infof("# BEP LifecycleEvent message:\n%s", prototext.Format(req))
 	return &emptypb.Empty{}, nil
 }
 
@@ -59,7 +44,7 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 			return err
 		}
 
-		logger.Printf("# BEP BuildToolEvent message:\n%s\n\n", prototext.Format(req))
+		glog.V(2).Infof("# BEP BuildToolEvent message:\n%s", prototext.Format(req))
 
 		// Access protobuf message sections of interest.
 		obe := req.GetOrderedBuildEvent()
@@ -81,12 +66,12 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 			cidEventsTotal.updateWithLabel(getEventLabel(bazelEventId.Id), 1)
 			if m := bazelBuildEvent.GetTestResult(); m != nil {
 				if err := handleTestResultEvent(bazelBuildEvent, streamId); err != nil {
-					logger.Printf("Error handling Bazel event %T: %s\n\n", bazelEventId.Id, err)
+					glog.Errorf("Error handling Bazel event %T: %s", bazelEventId.Id, err)
 					return err
 				}
 			}
 		default:
-			debugPrintf("Ignoring Bazel event type %T\n\n", buildEvent)
+			glog.V(2).Infof("Ignoring Bazel event type %T", buildEvent)
 		}
 
 		res := &bpb.PublishBuildToolEventStreamResponse{
@@ -104,7 +89,6 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 var (
 	argBaseUrl     = flag.String("base_url", "", "Base URL for accessing output artifacts in the build cluster (required)")
 	argDataset     = flag.String("dataset", "", "BigQuery dataset name (required) -- staging, production")
-	argDebug       = flag.Bool("debug", false, "Enable debug mode within the server")
 	argMaxFileSize = flag.Int("max_file_size", maxFileSize, "Maximum output file size allowed for processing")
 	argTableName   = flag.String("table_name", "testmetrics", "BigQuery table name")
 )
@@ -126,7 +110,6 @@ func checkCommandArgs() error {
 
 	// Set/override the default values.
 	deploymentBaseUrl = *argBaseUrl
-	isDebugMode = *argDebug
 	maxFileSize = *argMaxFileSize
 	bigQueryTableDefault.dataset = *argDataset
 	bigQueryTableDefault.tableName = *argTableName
@@ -139,7 +122,7 @@ func main() {
 
 	flag.Parse()
 	if err := checkCommandArgs(); err != nil {
-		log.Fatalf("Invalid command: %s", err)
+		glog.Exitf("Invalid command: %s", err)
 	}
 
 	grpcs := grpc.NewServer()
