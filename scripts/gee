@@ -1131,11 +1131,10 @@ function _git_rev_list_counts() {
   local B="$1"
   local P="$2"
   if [[ "${P}" == upstream/refs/pull/*/head ]]; then
-    "${GIT}" fetch upstream "${P#upstream/refs/}" >/dev/null 2>/dev/null
+    "${GIT}" fetch upstream "${P#upstream/refs/}" >/dev/null 2>&1
     P=FETCH_HEAD
-  fi
-  if [[ "${P}" == upstream/* ]]; then
-    "${GIT}" fetch upstream "${P#upstream}" >/dev/null 2>/dev/null
+  elif [[ "${P}" == upstream/* ]]; then
+    "${GIT}" fetch upstream "${P#upstream}" >/dev/null 2>&1
     P=FETCH_HEAD
   fi
   "${GIT}" rev-list --left-right --count "${B}...${P}" || /bin/true
