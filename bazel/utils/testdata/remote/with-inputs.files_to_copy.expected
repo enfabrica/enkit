@@ -1,0 +1,10 @@
+enkit/../local_config_cc/builtin_include_directory_paths
+enkit/../bazel_tools/tools/def_parser/no_op.bat
+enkit/../bazel_tools/tools/cpp/grep-includes.sh
+enkit/bazel/utils/testdata/remote/quote00.txt
+enkit/bazel/utils/quote01.txt
+enkit/tools/codegen/tests/gen-test.actual
+enkit/../com_google_absl/AUTHORS
+enkit/../com_google_googletest/libgtest.a
+enkit/../com_google_googletest/libgtest.so
+enkit/bazel/utils/testdata/remote/hello-world.cc

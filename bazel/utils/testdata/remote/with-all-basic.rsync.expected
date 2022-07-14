@@ -1,0 +1,1 @@
+--files-from=bazel/utils/with-all-basic.files_to_copy --delete -avrz --progress --copy-unsafe-links .. non-existant-machine-1.corp:~/__bazel_utils_wrapper/
