@@ -835,8 +835,10 @@ function _update_branch_to_worktree() {
   #   HEAD b144e5c34ff7bd8f24717337bde4bfd03fc649d0
   #   detached
   #
-  # For "detached" branches, we're stuck just using the directory
-  # name to infer the branch.
+  # For "detached" branches, we need to directly query .git meta
+  # data directories to determine the branch name.  This is a bit
+  # hacky, so I fall back on using the basename of the directory
+  # as the branch name if all else fails.
   BRANCH_TO_WORKTREE=()  # global
   local LINE WT BR
   _set_main
