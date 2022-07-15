@@ -823,7 +823,7 @@ function _update_branch_to_worktree() {
   # Initialize the global BRANCH_TO_WORKTREE associative array with
   # a mapping of branch names onto worktree paths.
   #
-  # Unfortunatelym, the output of git worktree list isn't exactly what
+  # Unfortunately, the output of git worktree list isn't exactly what
   # we need.  For branches that are in a detached state, git only
   # tells us that the branch is "detached".  For example:
   #
