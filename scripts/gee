@@ -822,6 +822,21 @@ function _gee_get_all_children_of() {
 function _update_branch_to_worktree() {
   # Initialize the global BRANCH_TO_WORKTREE associative array with
   # a mapping of branch names onto worktree paths.
+  #
+  # Unfortunatelym, the output of git worktree list isn't exactly what
+  # we need.  For branches that are in a detached state, git only
+  # tells us that the branch is "detached".  For example:
+  #
+  #   worktree /home/hanu/gee/internal/master
+  #   HEAD b144e5c34ff7bd8f24717337bde4bfd03fc649d0
+  #   branch refs/heads/master
+  #
+  #   worktree /home/hanu/gee/internal/cmn_reg
+  #   HEAD b144e5c34ff7bd8f24717337bde4bfd03fc649d0
+  #   detached
+  #
+  # For "detached" branches, we're stuck just using the directory
+  # name to infer the branch.
   BRANCH_TO_WORKTREE=()  # global
   local LINE WT BR
   _set_main
@@ -830,10 +845,26 @@ function _update_branch_to_worktree() {
       WT="${BASH_REMATCH[1]}"
     elif [[ "${LINE}" =~ ^branch\ refs/heads/(.+) ]]; then
       BR="${BASH_REMATCH[1]}"
-    elif [[ "${LINE}" == "" ]]; then
-      if [[ -n "${BR}" ]]; then
-        BRANCH_TO_WORKTREE["${BR}"]="${WT}"
+      BRANCH_TO_WORKTREE["${BR}"]="${WT}"
+    elif [[ "${LINE}" =~ ^detached ]]; then
+      BR="$(
+        cd "${WT}";
+        for loc in rebase-merge rebase-apply; do
+          GDIR=$("${GIT}" rev-parse --git-path "${loc}");
+          if [[ -d "${GDIR}" ]]; then
+            HEADNAME=$(<${GDIR}/head-name)
+            echo "${HEADNAME##refs/heads/}"
+            break
+          fi
+        done
+      )"
+      if [[ -z "${BR}" ]]; then
+        BR="$(basename "${WT}")"
       fi
+      BRANCH_TO_WORKTREE["${BR}"]="${WT}"
+    elif [[ "${LINE}" == "" ]]; then
+      WT=""
+      BR=""
     fi
   done < <(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list --porcelain ) \
     || /bin/true
