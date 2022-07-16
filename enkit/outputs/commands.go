@@ -25,10 +25,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	localTunnelPort = 8822
-)
-
 type Root struct {
 	*cobra.Command
 	*client.BaseFlags
@@ -38,6 +34,7 @@ type Root struct {
 	BuildBuddyUrl         string
 	BuildbarnHost         string
 	BuildbarnTunnelTarget string
+	TunnelListenPort      int
 	GatewayProxy          string
 }
 
@@ -78,6 +75,7 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
+	rc.PersistentFlags().IntVar(&rc.TunnelListenPort, "tunnel-listen-port", 8822, "If a tunnel is required, this is the local port the tunnel listens on for connections")
 	rc.PersistentFlags().StringVar(&rc.GatewayProxy, "gateway-proxy", "", "If a tunnel is used, gateway proxy to tunnel through")
 	return rc, nil
 }
@@ -109,10 +107,18 @@ func NewMount(root *Root) *Mount {
 }
 
 // maybeSetupTunnel takes a "host:port" string and starts a background tunnel
-// targeting that host/port if necessary. It returns a host and port that
+// if necessary. It returns a host and port that
 // clients should connect to, which could either be the original host/port if no
 // tunnel was necessary, or a modified host/port if a tunnel was necessary.
-func maybeSetupTunnel(hostPort string, tunnelTarget string, gatewayProxy string) (string, int, error) {
+//
+// More specifically, if a tunnel is not necessary, this returns the original
+// host:port (but split into host and port).
+// If a tunnel was necessary, this:
+// * creates the tunnel to tunnelTarget listening on tunnelPort on localhost
+// * returns the original host but changes the port to the tunnelPort
+// It is expected that the supplied host resolve to localhost, so that the
+// connection for the returned host and port combo jumps through the tunnel.
+func maybeSetupTunnel(hostPort string, tunnelTarget string, tunnelPort int, gatewayProxy string) (string, int, error) {
 	host, port, err := net.SplitHostPort(hostPort)
 	if err != nil {
 		return "", 0, fmt.Errorf("can't split %q into host+port: %w", hostPort, err)
@@ -126,16 +132,16 @@ func maybeSetupTunnel(hostPort string, tunnelTarget string, gatewayProxy string)
 		return "", 0, fmt.Errorf("failed to determine if tunnel is required for %q: %w", host, err)
 	}
 	if shouldTunnel {
-		if err := tunnelexec.NewBackgroundTunnel(tunnelTarget, int(parsedPort), localTunnelPort, gatewayProxy); err != nil {
+		if err := tunnelexec.NewBackgroundTunnel(tunnelTarget, int(parsedPort), tunnelPort, gatewayProxy); err != nil {
 			return "", 0, fmt.Errorf("failed to start tunnel to %q: %w", hostPort, err)
 		}
-		return host, localTunnelPort, nil
+		return host, tunnelPort, nil
 	}
 	return host, int(parsedPort), nil
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	host, port, err := maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget, c.root.GatewayProxy)
+	host, port, err := maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget, c.root.TunnelListenPort, c.root.GatewayProxy)
 	if err != nil {
 		return err
 	}
