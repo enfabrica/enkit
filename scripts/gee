@@ -854,7 +854,7 @@ function _update_branch_to_worktree() {
         for loc in rebase-merge rebase-apply; do
           GDIR=$("${GIT}" rev-parse --git-path "${loc}");
           if [[ -d "${GDIR}" ]]; then
-            HEADNAME=$(<${GDIR}/head-name)
+            HEADNAME="$(<"${GDIR}/head-name")"
             echo "${HEADNAME##refs/heads/}"
             break
           fi
