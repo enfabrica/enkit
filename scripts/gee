@@ -1316,7 +1316,7 @@ function _interactive_conflict_resolution() {
         "   Y = Yours: discard their changes to a file, keeps yours."
         "   T = Theirs: discard your changes to a file, keeps theirs."
         "   M = Merge: invokes the merge resolution tool ($("${GIT}" config --get merge.tool))."
-        "   G = Guimerge: invokes the gui merge tool ($("{GIT}" config --get merge.guitool))."
+        "   G = Guimerge: invokes the gui merge tool ($("${GIT}" config --get merge.guitool))."
         "   V = View: view the conflict."
         "   A = Abort: abort this rebase operation."
         "   H = Help: this text."
@@ -1334,7 +1334,7 @@ function _interactive_conflict_resolution() {
           RESP="Y";
         else
           read -r -n1 -p \
-            "keep (Y)ours, keep (T)heirs, (M)erge, (G)ui-Merge, (V)iew, (A)bort, or (H)elp? "
+            "keep (Y)ours, keep (T)heirs, (M)erge, (G)ui-Merge, (V)iew, (A)bort, or (H)elp? " \
             RESP
           printf "\n"
         fi
