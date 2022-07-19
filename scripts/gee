@@ -1310,15 +1310,31 @@ function _interactive_conflict_resolution() {
       fi
       _info "${FILE}: ${ST}=${DECODED_ST}"
 
+      local -a MERGE_HELP
+      MERGE_HELP=(
+        "Help:"
+        "   Y = Yours: discard their changes to a file, keeps yours."
+        "   T = Theirs: discard your changes to a file, keeps theirs."
+        "   M = Merge: invokes the merge resolution tool ($("${GIT}" config --get merge.tool))."
+        "   G = Guimerge: invokes the gui merge tool ($("{GIT}" config --get merge.guitool))."
+        "   V = View: view the conflict."
+        "   A = Abort: abort this rebase operation."
+        "   H = Help: this text."
+        ""
+        "Psst!  Secret menu for advanced users:"
+        "   P = Pick: abort this merge, and instead try \"git rebase -i\"."
+        "   S = Shell: drop into interactive shell."
+        "   K = sKip: discard your entire conflicting commit."
+      )
       DONE=0
       while (( DONE == 0 )); do
         local M RESP
         if (( YESYESYES )); then
-          _warn "YESYESYES is enabled: taking newer version automatically."
-          RESP="N";
+          _warn "YESYESYES is enabled: taking your version automatically."
+          RESP="Y";
         else
           read -r -n1 -p \
-            "Keep (O)ld, (N)ew, (M)erge, (G)ui, (P)ick, (V)iew, s(K)ip, or (A)bort? " \
+            "keep (Y)ours, keep (T)heirs, (M)erge, (G)ui-Merge, (V)iew, (A)bort, or (H)elp? "
             RESP
           printf "\n"
         fi
@@ -1327,14 +1343,17 @@ function _interactive_conflict_resolution() {
         # "Ours" = branch being merged into = older version of file.
         # "Theirs" = branch being merged from = newer version of file.
         case "${RESP}" in
-          [Nn])
-            _info "Keeping newer ${FILE} from ${FROM_DESC}"
-            "${GIT}" checkout --theirs "${FILE}"
+          [Yy])
+            _info "${FILE}: Keeping your version from ${FROM_DESC}"
+            _info "${FILE}: Discarding their version from ${ONTO_DESC}"
+            "${GIT}" checkout --theirs "${FILE}"  # during rebase, "theirs" is actually ours.
             DONE=1
             ;;
-          [Oo])
+          [Tt])
+            _info "${FILE}: Discarding your version from ${FROM_DESC}"
+            _info "${FILE}: Keeping their version from ${ONTO_DESC}"
             _info "Keeping older ${FILE} from ${ONTO_DESC}"
-            "${GIT}" checkout --ours "${FILE}"
+            "${GIT}" checkout --ours "${FILE}"  # during rebase, "ours" is actually theirs.
             DONE=1
             ;;
           [Mm])
@@ -1388,7 +1407,8 @@ function _interactive_conflict_resolution() {
             DONE=1
             ;;
           [Vv])
-            _git show --color --pretty=format:%b "${FROM_COMMIT}" | less -R
+            # TODO(jonathan): create a better, colorized viewer for merge conflicts.
+            ( git status; echo ""; echo "${FILE}" ; cat "${FILE}" )  | less -R
             ;;
           [Kk])
             _info "Skipping commit: ${FROM_DESC}"
@@ -1400,19 +1420,12 @@ function _interactive_conflict_resolution() {
             DONE=1
             ABORT=1
             ;;
+          [Hh])
+            _info "${MERGE_HELP[@]}"
+            ;;
           *)
             _warn "Invalid choice: ${RESP}"
-            _info \
-              "Options are:" \
-              "  n: Keep (N)ewer file (from the patch being applied)." \
-              "  o: Keep (O)lder file (from the version being patched)." \
-              "  m: (M)erge: Runs \"git mergetool\" on this file." \
-              "  g: (G)UI Merge: Runs \"git mergetool --gui\" on this file." \
-              "  p: (P)ick: Aborts rebase and re-runs \"git rebase -i\"." \
-              "  s: (S)hell: Opens a bash sub-shell for expert use." \
-              "  v: (V)iew: Show the patch being applied." \
-              "  k: s(K)ip: Skips a whole commit (all files)." \
-              "  a: (A)bort: Aborts and returns branch to original state."
+            _info "${MERGE_HELP[@]}"
             ;;
         esac
       done  # DONE
