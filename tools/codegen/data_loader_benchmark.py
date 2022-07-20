@@ -17,7 +17,7 @@ class BenchDataLoader(unittest.TestCase):
 
     def test_time_loader(self):
         big_yaml = []
-        n = 6  # 15
+        n = 7  # 15
         for i0 in range(n):
             big_yaml.append(f"foo{i0}:")
             for i1 in range(n):
