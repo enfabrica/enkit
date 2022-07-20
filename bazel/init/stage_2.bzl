@@ -13,6 +13,7 @@ load("@com_github_atlassian_bazel_tools//multirun:deps.bzl", "multirun_dependenc
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
 load("@io_bazel_rules_docker//go:image.bzl", rules_docker_go_dependencies = "repositories")
+load("@io_bazel_rules_docker//python:image.bzl", rules_docker_python_dependencies = "repositories")
 load("@io_bazel_rules_docker//repositories:deps.bzl", rules_docker_container_dependencies = "deps")
 load("@io_bazel_rules_docker//repositories:repositories.bzl", rules_docker_dependencies = "repositories")
 load("@io_bazel_rules_go//extras:embed_data_deps.bzl", "go_embed_data_dependencies")
@@ -78,6 +79,7 @@ def stage_2():
 
     rules_docker_dependencies()
     rules_docker_go_dependencies()
+    rules_docker_python_dependencies()
     rules_docker_container_dependencies()
 
     container_pull(
