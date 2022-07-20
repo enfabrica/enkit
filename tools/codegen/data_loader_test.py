@@ -38,7 +38,6 @@ class TestDataLoader(unittest.TestCase):
         benchmark("yaml.CSafeLoader", lambda: yaml.load(big_text, Loader=yaml.CSafeLoader))
         d = data_loader.DataLoader()
         benchmark("data_loader", lambda: d.ParseYaml(big_text))
-        self.assertAlmostEqual(bm["data_loader"], bm["yaml.CSafeLoader"], delta=0.1)
 
     def test_parse_yaml(self):
         d = data_loader.DataLoader()
