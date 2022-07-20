@@ -30,6 +30,15 @@ py_test(
     ],
 )
 
+py_test(
+    name = "data_loader_benchmark",
+    srcs = ["data_loader_benchmark.py"],
+    deps = [
+        ":data_loader",
+    ],
+    tags = ["no-presubmit"],
+)
+
 py_binary(
     name = "codegen",
     srcs = ["codegen.py"],
