@@ -3,6 +3,7 @@
 # standard libraries
 import textwrap
 import unittest
+import yaml
 
 # third party libraries
 from absl import app

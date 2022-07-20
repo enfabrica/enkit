@@ -42,7 +42,7 @@ def _merge(a: MERGEABLE, b: MERGEABLE, path: str = None) -> MERGEABLE:
 
 
 # https://stackoverflow.com/questions/44904290/getting-duplicate-keys-in-yaml-using-python
-class _MergingLoader(yaml.loader.SafeLoader):
+class _MergingLoader(yaml.CSafeLoader):
     pass
 
 
