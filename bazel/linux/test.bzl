@@ -34,7 +34,11 @@ run_test() {
     printf "%-73s" "${title}"
     start_time_ns=$(($(date +%s%N)))
 
-    output=$("${script}" "${args[@]}" 2>&1) && failed=0
+    # Print stdout and stderr to the terminal and capture it into a variable.
+    # That way, bazel run shows the output in real time and bazel test can show
+    # the output of only the failed commands at the end of the test.
+    exec 5>&1
+    output=$("${script}" "${args[@]}" 2>&1 | tee /dev/fd/5; exit ${PIPESTATUS[0]}) && failed=0
 
     tests=$[tests + 1]
     if [ $failed -eq 0 ]; then
