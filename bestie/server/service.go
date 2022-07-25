@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/golang/glog"
 )
 
 // List of event ID names defined by build_event_stream.proto.
@@ -156,7 +157,7 @@ func getEventLabel(bevid interface{}) string {
 		label = promId
 	} else {
 		// Make note of this condition. Probably means .proto file definition was updated.
-		logger.Printf("Detected unknown event id: %s\n\n", id)
+		glog.Warningf("Detected unknown event id: %s", id)
 	}
 	return label
 }

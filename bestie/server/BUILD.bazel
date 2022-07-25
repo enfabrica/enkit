@@ -19,6 +19,7 @@ go_library(
         "//lib/multierror:go_default_library",
         "//lib/server:go_default_library",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",

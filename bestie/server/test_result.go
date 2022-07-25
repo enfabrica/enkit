@@ -18,6 +18,8 @@ import (
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	"github.com/enfabrica/enkit/lib/multierror"
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
+
+	"github.com/golang/glog"
 	"github.com/xenking/zipstream"
 	"google.golang.org/genproto/googleapis/devtools/build/v1"
 	"google.golang.org/protobuf/proto"
@@ -105,7 +107,7 @@ func openOutputFile(fileName, fileUri string) (io.ReadCloser, error) {
 		// Attempt to read the zip file failed.
 		return nil, fmt.Errorf("Error reading file %q: %w", fileName, readErr)
 	}
-	debugPrintf("Opened output file %q for processing\n", fileName)
+	glog.Infof("Opened output file %q for processing", fileName)
 	return fileCloser, nil
 }
 
@@ -150,13 +152,15 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 		return fmt.Errorf("Error extracting TestResult data from event message")
 	}
 
-	var sbuf strings.Builder
-	sbuf.WriteString(fmt.Sprintf("\nTestResult for %s: %s\n", stream.testTarget, m.GetStatus()))
-	sbuf.WriteString(fmt.Sprintf("\trun: %s\n", stream.run))
-	sbuf.WriteString(fmt.Sprintf("\tbuildId: %s\n", stream.buildId))
-	sbuf.WriteString(fmt.Sprintf("\tinvocationId: %s\n", stream.invocationId))
-	sbuf.WriteString(fmt.Sprintf("\tinvocationSha: %s\n", stream.invocationSha))
-	debugPrintln(sbuf.String())
+	if glog.V(2) {
+		var sbuf strings.Builder
+		sbuf.WriteString(fmt.Sprintf("\nTestResult for %s: %s\n", stream.testTarget, m.GetStatus()))
+		sbuf.WriteString(fmt.Sprintf("\trun: %s\n", stream.run))
+		sbuf.WriteString(fmt.Sprintf("\tbuildId: %s\n", stream.buildId))
+		sbuf.WriteString(fmt.Sprintf("\tinvocationId: %s\n", stream.invocationId))
+		sbuf.WriteString(fmt.Sprintf("\tinvocationSha: %s\n", stream.invocationSha))
+		glog.Info(sbuf.String())
+	}
 
 	var errs []error
 	var fileName, fileUri string
@@ -187,14 +191,14 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 
 		// Check for file open or processing error.
 		if err != nil {
-			errs = append(errs, fmt.Errorf("%w", err))
+			errs = append(errs, err)
 			continue
 		}
 	}
 	if len(errs) > 0 {
 		// Display any errors that occurred, but don't fail the event processing
 		for _, err := range errs {
-			debugPrintln(err)
+			glog.Error(err)
 		}
 	}
 	return nil
@@ -243,7 +247,7 @@ func processZipMetrics(stream *bazelStream, fileReader io.Reader) error {
 			errs = append(errs, fmt.Errorf("Error reading file %q: %w", fileName, err))
 			continue
 		}
-		debugPrintf("Read output file to process: %s\n", fileName)
+		glog.Infof("Read output file to process: %s", fileName)
 
 		// Extract all metrics from the protobuf file contents.
 		pResult, err := getTestMetricsFromProtobufData(fileData)
@@ -319,7 +323,7 @@ func processMetrics(stream *bazelStream, pResult *metricTestResult) error {
 // Print the test metric data using a starting indentation offset.
 func displayTestMetrics(res *metricTestResult, offset int) {
 	// Nothing to do when debug mode is disabled.
-	if !isDebugMode {
+	if !glog.V(2) {
 		return
 	}
 	tableId := "<using default>"
@@ -333,5 +337,5 @@ func displayTestMetrics(res *metricTestResult, offset int) {
 			offset*2, "", m.metricName, m.value, m.timestamp, m.tags))
 	}
 	sbuf.WriteString("\n")
-	debugPrintln(sbuf.String())
+	glog.Info(sbuf.String())
 }
