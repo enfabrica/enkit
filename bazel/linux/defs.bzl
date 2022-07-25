@@ -83,6 +83,11 @@ def _kernel_modules(ctx):
         else:
             silent = ""
 
+        if ctx.attr.jobs == -1:
+            jobs = "-j$(nproc)"
+        else:
+            jobs = "-j%d" % ctx.attr.jobs
+
         make_args = ctx.attr.make_format_str.format(
             src_dir = srcdir,
             kernel_build_dir = kernel_build_dir,
@@ -106,8 +111,9 @@ def _kernel_modules(ctx):
         ctx.actions.run_shell(
             mnemonic = "KernelBuild",
             progress_message = message,
-            command = "make {silent} {make_args} {extra_args} && {copy_command}".format(
+            command = "make {silent} {jobs} {make_args} {extra_args} && {copy_command}".format(
                 silent = silent,
+                jobs = jobs,
                 make_args = make_args,
                 extra_args = " ".join(extra),
                 copy_command = copy_command,
@@ -185,6 +191,10 @@ Available format values are:
         "silent": attr.bool(
             default = True,
             doc = "If set to False, the standard kernel 'make' output will be let free to clobber your console.",
+        ),
+        "jobs": attr.int(
+            default = -1,
+            doc = "Sets the number of jobs to run simultaneously. The default is -1 which translates to the number of processing units available (nproc).",
         ),
         "deps": attr.label_list(
             doc = "List of additional dependencies necessary to build this module.",
