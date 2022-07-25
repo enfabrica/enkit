@@ -139,12 +139,17 @@ def qemu_test(
             kernel_qemu_run rule, generally created with mconfig().
     """
 
+    # Do not pass test specific attributes to the created rules
+    kwargs_copy = dict(kwargs)
+    kwargs_copy.pop("size", None)
+    kwargs_copy.pop("timeout", None)
+
     runner_script = mcreate_rule(
         name,
         test_runner,
         "test-runner",
         [],
-        kwargs,
+        kwargs_copy,
         mconfig(tests = run),
     )
     runner = mcreate_rule(
@@ -152,8 +157,8 @@ def qemu_test(
         kernel_qemu_run,
         "run",
         config,
-        kwargs,
-        kwargs,
+        kwargs_copy,
+        kwargs_copy,
         mconfig(
             kernel_image = kernel_image,
             run = setup + [runner_script],
