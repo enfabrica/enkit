@@ -2,7 +2,7 @@
 
 ## Releases
 
-### 0.2.33 (unreleased)
+### 0.2.33
 
 * `gee update`: improve merge conflict resolution flow (#715)
 * `gee repair`: auto-fix misconfigured gh-resolved attribute. (#719)
