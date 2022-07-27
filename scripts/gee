@@ -416,8 +416,8 @@ function _set_ghuser() {
 
 function _check_ssh_agent() {
   # Check that the ssh-agent is loaded and reachable.
-  if [[ -z "${SSH_AGENT_PID}" ]]; then
-    _warn "SSH_AGENT_PID is not set."
+  if [[ -z "${SSH_AUTH_SOCK}" ]]; then
+    _warn "SSH_AUTH_SOCK is not set."
     _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
     if _confirm_default_no \
       "Would you like gee to append this line to your .bashrc file now? (y/N)  "
@@ -425,7 +425,7 @@ function _check_ssh_agent() {
       printf "eval \`enkit agent print\`\n" >> ~/.bashrc
     fi
     eval "$(enkit agent print)"
-    if [[ -z "${SSH_AGENT_PID}" ]]; then
+    if [[ -z "${SSH_AUTH_SOCK}" ]]; then
       _fatal "Something is wrong with enkit's ssh agent."
     fi
   fi
@@ -4378,11 +4378,29 @@ function _gee_fix_remote_origin_fetch_config() {
   fi
 }
 
+function _gee_fix_gh_resolved_base() {
+  # Somehow, some users end up with a gh using "origin" as the gh-resolved base
+  # instead of "upstream".  I still need to figure out how this is happening,
+  # but in the meantime I'm adding this fix to our gee__repair flow.
+  local X
+  X="$(git config --local --get remote.origin.gh-resolved || /bin/true)"
+  if [[ -n "${X}" ]]; then
+    _warn "gh-resolved is pointing at origin, fixing:"
+    _git config --local --unset "remote.origin.gh-resolved"
+  fi
+  X="$(git config --local --get remote.upstream.gh-resolved || /bin/true)"
+  if [[ "$X" != "base" ]]; then
+    _warn "gh-resolved isn't pointing at upstream, fixing:"
+    _git config --local "remote.upstream.gh-resolved" base
+  fi
+}
+
 function gee__repair() {
   # Make sure all tools are available
   _install_tools
 
   _gee_fix_remote_origin_fetch_config
+  _gee_fix_gh_resolved_base
 
   # check that we can connect to github via ssh
   _check_ssh
