@@ -2,10 +2,18 @@
 
 ## Releases
 
+### 0.2.33
+
+* `gee update`: improve merge conflict resolution flow (#715)
+* `gee repair`: auto-fix misconfigured gh-resolved attribute. (#719)
+* `gcd`: fix bug in parsing of `git worktree list --porcelain` output (#713)
+* `gee bash_setup`: fix labeling on non-printing prompt characters (#696)
+* `gee repair`: perform `git worktree prune` as a repair step (#678)
+
 ### 0.2.32
 
-* `gee gcd`: enable `gcd -m` to quickly create a branch of master.
-* `gee rmbr`: remove multiple branches at a go.
+* `gee gcd`: enable `gcd -m` to quickly create a branch of master (#645)
+* `gee rmbr`: remove multiple branches at a go. (#645)
 * `gee.md`: improve documentation around rebase operations (#664)
 * `gee hello`: check for ssh keyfile conditions (#672)
 * `gee bazelgc`: handle no dirs to delete case (#663)
