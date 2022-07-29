@@ -117,10 +117,11 @@ func (r *QueryResult) addChecksumsAttributeToExternals() error {
 		// corresponds to the checksum(s) used when downloading the repo in which it
 		// resides. Therefore, this target's hash will change iff one or more
 		// downloads for its repo has a checksum change.
+		nameCopy := targetName
 		*target.Target = bpb.Target{
 			Type: bpb.Target_RULE.Enum(),
 			Rule: &bpb.Rule{
-				Name:      &targetName,
+				Name:      &nameCopy,
 				RuleInput: deps,
 				Attribute: []*bpb.Attribute{
 					&bpb.Attribute{
