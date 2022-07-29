@@ -87,9 +87,9 @@ type SSHAgent struct {
 }
 
 func (a SSHAgent) Kill() error {
-	if a.PID == 0 {
-		return nil
-	}
+  if a.PID == 0 {
+    return nil
+  }
 	p, err := os.FindProcess(a.PID)
 	if err != nil {
 		return err
@@ -258,13 +258,13 @@ func FindSSHAgentFromEnv() *SSHAgent {
 		return nil
 	}
 	pid := 0
-	if envSSHPID != "" {
-		var err error
-		pid, err = strconv.Atoi(envSSHPID)
-		if err != nil {
-			return nil
-		}
-	}
+  if envSSHPID != "" {
+    var err error
+    pid, err = strconv.Atoi(envSSHPID)
+    if err != nil {
+      return nil
+    }
+  }
 	return &SSHAgent{PID: pid, Socket: envSSHSock, Close: func() {}}
 }
 
