@@ -103,7 +103,10 @@ func NewPrintCommand(parent *cobra.Command, bf *client.BaseFlags) *cobra.Command
 				return err
 			}
 			defer agent.Close()
-			fmt.Printf(PrintSSHTemplate, agent.Socket, agent.PID, agent.PID)
+      fmt.Printf("SSH_AUTH_SOCK=%s; export SSH_AUTH_SOCK;\n", agent.Socket)
+      if agent.PID != 0 {
+        fmt.Printf("SSH_AGENT_PID=%d; export SSH_AGENT_PID;\necho Agent pid %d;\n", agent.PID, agent.PID)
+      }
 			return nil
 		},
 	}

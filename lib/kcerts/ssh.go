@@ -166,7 +166,11 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 }
 
 func (a SSHAgent) GetEnv() []string {
-	return []string{fmt.Sprintf("SSH_AUTH_SOCK=%s", a.Socket), fmt.Sprintf("SSH_AGENT_PID=%d", a.PID)}
+  env := []string{fmt.Sprintf("SSH_AUTH_SOCK=%s", a.Socket)}
+  if a.PID != 0 {
+    env = append(env, fmt.Sprintf("SSH_AGENT_PID=%d", a.PID))
+  }
+  return env
 }
 
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
