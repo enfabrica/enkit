@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+  "os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -29,6 +30,7 @@ const (
 var (
 	sockR = regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
 	pidR  = regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
+  UserCurrent = user.Current  // to enable mocking
 )
 
 // FindSSHDir will find the users ssh directory based on $HOME. If $HOME/.ssh does not exist
@@ -101,6 +103,51 @@ func (a SSHAgent) Valid() bool {
 	}
 	defer conn.Close()
 	return err == nil
+}
+
+func (a SSHAgent) UseStandardPaths() error {
+  user, err := UserCurrent()
+  if err != nil {
+    return err
+  }
+
+  // Make sure /tmp/ssh-${USER} exists with the right permissions
+  path := fmt.Sprintf("/tmp/ssh-%s", user.Username)
+  socket := filepath.Join(path, "agent")
+
+  if a.Socket == socket {
+    // no standardization needed.
+    return nil
+  }
+
+  // Securely make sure path exists and is permission 0700
+  // TODO(jonathan): Would it be safer to destroy and remake this directory?
+  if err := os.Mkdir(path, 0700); err != nil && !os.IsExist(err) {
+    return err
+  }
+  if err := os.Chmod(path, 0700); err != nil {
+    return err
+  }
+
+  // Securely rename socket:
+  _, err = os.Stat(socket)
+  if err == nil {
+    err := os.Remove(socket)
+    if err != nil {
+      return err
+    }
+  } else if !errors.Is(err, os.ErrNotExist) {
+    return err
+  }
+  if err := os.Chmod(a.Socket, 0700); err != nil {
+    return err
+  }
+  if err := os.Rename(a.Socket, socket); err != nil {
+    return err
+  }
+  a.Socket = socket
+
+  return nil
 }
 
 type AgentCert struct {
@@ -178,6 +225,10 @@ func (a SSHAgent) GetEnv() []string {
 func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
 	agent := FindSSHAgentFromEnv()
 	if agent != nil && agent.Valid() {
+    err := agent.UseStandardPaths();
+    if err != nil {
+      return nil, err
+    }
 		return agent, nil
 	}
 	agent, err := FetchSSHAgentFromCache(store)
@@ -219,7 +270,26 @@ func FindSSHAgentFromEnv() *SSHAgent {
 // CreateNewSSHAgent creates a new ssh agent. Its env variables have not been added to the shell. It does not maintain
 // its own connection.
 func CreateNewSSHAgent() (*SSHAgent, error) {
-	cmd := exec.Command("ssh-agent", "-s")
+  user, err := UserCurrent()
+  if err != nil {
+    return nil, err
+  }
+  path := fmt.Sprintf("/tmp/ssh-%s", user.Username)
+  socket := filepath.Join(path, "agent")
+  // Securely make sure path exists and is permission 0700
+  // TODO(jonathan): Would it be safer to destroy and remake this directory?
+  if err := os.Mkdir(path, 0700); err != nil && !os.IsExist(err) {
+    return nil, err
+  }
+  if err := os.Chmod(path, 0700); err != nil {
+    return nil, err
+  }
+  if err := os.Remove(socket); err != nil && !os.IsExist(err) {
+    return nil, err
+  }
+
+  // TODO(jonathan): is it necessary or safer to delete /tmp/ssh-$USER first?
+	cmd := exec.Command("ssh-agent", "-s", "-a", socket)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
