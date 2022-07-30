@@ -3,7 +3,7 @@ package kcerts_test
 import (
 	"io/ioutil"
 	"os"
-  "os/user"
+	"os/user"
 	"testing"
 	"time"
 
@@ -38,14 +38,14 @@ func TestAddSSHCAToClient(t *testing.T) {
 
 // TODO(adam): test cache failures and edge cases
 func TestStartSSHAgent(t *testing.T) {
-  old := kcerts.UserCurrent
-  defer func() { kcerts.UserCurrent = old }()
-  kcerts.UserCurrent = func() (*user.User, error) {
-    u := &user.User{
-      Username: "testuser",
-    }
-    return u, nil
-  }
+	old := kcerts.UserCurrent
+	defer func() { kcerts.UserCurrent = old }()
+	kcerts.UserCurrent = func() (*user.User, error) {
+		u := &user.User{
+			Username: "testuser",
+		}
+		return u, nil
+	}
 	assert.Nil(t, os.Unsetenv("SSH_AUTH_SOCK"))
 	assert.Nil(t, os.Unsetenv("SSH_AGENT_PID"))
 
@@ -81,7 +81,7 @@ func TestStartSSHAgent(t *testing.T) {
 	//// Testing cache expiration
 	agentAfterCacheDelete, err := kcerts.FindSSHAgent(localCache, l)
 	assert.Nil(t, err)
-  // no longer valid: assert.NotEqual(t, newAgent.Socket, agentAfterCacheDelete.Socket)
+	// no longer valid: assert.NotEqual(t, newAgent.Socket, agentAfterCacheDelete.Socket)
 	assert.NotEqual(t, newAgent.PID, agentAfterCacheDelete.PID)
 	assert.True(t, agentAfterCacheDelete.Valid())
 
