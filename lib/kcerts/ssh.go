@@ -87,9 +87,9 @@ type SSHAgent struct {
 }
 
 func (a SSHAgent) Kill() error {
-  if a.PID == 0 {
-    return nil
-  }
+	if a.PID == 0 {
+		return nil
+	}
 	p, err := os.FindProcess(a.PID)
 	if err != nil {
 		return err
