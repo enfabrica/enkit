@@ -2,6 +2,7 @@ package kcerts
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -142,7 +143,7 @@ func (a SSHAgent) UseStandardPaths() error {
 	if err := os.Chmod(a.Socket, 0700); err != nil {
 		return err
 	}
-	if err := os.Rename(a.Socket, socket); err != nil {
+	if err := os.Link(a.Socket, socket); err != nil {
 		return err
 	}
 	a.Socket = socket
