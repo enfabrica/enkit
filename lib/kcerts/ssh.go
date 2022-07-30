@@ -106,7 +106,7 @@ func (a SSHAgent) Valid() bool {
 	return err == nil
 }
 
-func (a SSHAgent) UseStandardPaths() error {
+func (a *SSHAgent) UseStandardPaths() error {
 	user, err := UserCurrent()
 	if err != nil {
 		return err
