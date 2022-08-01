@@ -106,6 +106,9 @@ def _kernel_modules(ctx):
                 compilation_mode = compilation_mode,
             ))
 
+        # Force GCC to produce colored output
+        cflags += " -fdiagnostics-color=always"
+
         extra.append("EXTRA_CFLAGS='%s'" % cflags)
 
         ctx.actions.run_shell(
