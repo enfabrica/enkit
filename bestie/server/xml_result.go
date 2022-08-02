@@ -221,7 +221,7 @@ func parseStructuredXml(ts *TestSuite) ([]*xmlResult, error) {
 		// Use the testcase time attribute as its duration.
 		xr.duration = tc.Time
 		// Derive the metric result string
-		// Note: The absence of a 'failure' or 'skipped' section means the test passed.
+		// Note: The absence of a 'failure', 'skipped', or 'error' section means the test passed.
 		if len(tc.Failure.Message) > 0 {
 			xr.result = "fail"
 		} else if len(tc.Skipped.Message) > 0 {
