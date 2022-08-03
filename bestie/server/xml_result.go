@@ -49,6 +49,7 @@ type TestCase struct {
 	Time       string     `xml:"time,attr"`
 	Properties Properties `xml:"properties"`
 	Failure    FailureMsg `xml:"failure"`
+	Error      ErrorMsg   `xml:"error"`
 	Skipped    SkippedMsg `xml:"skipped"`
 }
 
@@ -65,6 +66,11 @@ type Property struct {
 
 type FailureMsg struct {
 	XMLName xml.Name `xml:"failure"`
+	Message string   `xml:"message,attr"`
+}
+
+type ErrorMsg struct {
+	XMLName xml.Name `xml:"error"`
 	Message string   `xml:"message,attr"`
 }
 
@@ -215,11 +221,13 @@ func parseStructuredXml(ts *TestSuite) ([]*xmlResult, error) {
 		// Use the testcase time attribute as its duration.
 		xr.duration = tc.Time
 		// Derive the metric result string
-		// Note: The absence of a 'failure' or 'skipped' section means the test passed.
+		// Note: The absence of a 'failure', 'skipped', or 'error' section means the test passed.
 		if len(tc.Failure.Message) > 0 {
 			xr.result = "fail"
 		} else if len(tc.Skipped.Message) > 0 {
 			xr.result = "skip"
+		} else if len(tc.Error.Message) > 0 {
+			xr.result = "error"
 		} else {
 			xr.result = "pass"
 		}
