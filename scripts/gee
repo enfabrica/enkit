@@ -576,6 +576,9 @@ function _startup_checks() {
     exit 1
   fi
 
+  # 1.5. Make sure we're not in one of bazel's weird symlink directories.
+  while [[ "$(pwd -P)" != "$(pwd -L)"  ]]; do cd ..; done
+
   # 2. Ensure that we are in a gee-controlled git repo.  If not,
   #    switch to the main branch of one.
   local GITDIR
