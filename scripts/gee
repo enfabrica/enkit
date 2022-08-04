@@ -266,7 +266,7 @@ function _rotate_gee_log() {
     local size
     size="$(stat -c%s "${GEE_LOG_FILE}")"
     if (( size > 65536 )); then
-      savelog -n -c 9 -C -p "${GEE_LOG_FILE}" || /bin/true
+      savelog -n -c 9 -C -p "${GEE_LOG_FILE}" 1>&2 || /bin/true
     fi
   fi
   if [[ ! -f "${GEE_LOG_FILE}" ]]; then
