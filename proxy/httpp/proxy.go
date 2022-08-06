@@ -23,6 +23,8 @@ type AuthenticatedProxy struct {
 	Proxy         http.Handler
 	Authenticator oauth.Authenticate
 	AuthURL       *url.URL
+
+	log logger.Logger
 }
 
 func (as *AuthenticatedProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +37,10 @@ func (as *AuthenticatedProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	as.Proxy.ServeHTTP(w, r.WithContext(oauth.SetCredentials(r.Context(), creds)))
+	as.Proxy.ServeHTTP(
+		w,
+		r.WithContext(logger.SetCtx(oauth.SetCredentials(r.Context(), creds), as.log)),
+	)
 }
 
 func (p *Proxy) CreateServer(mapping *Mapping) (http.Handler, error) {
@@ -60,7 +65,12 @@ func (p *Proxy) CreateServer(mapping *Mapping) (http.Handler, error) {
 		return nil, fmt.Errorf("proxy for mapping %v requires authentication - but no authentication configured", *mapping)
 	}
 
-	return &AuthenticatedProxy{AuthURL: p.authURL, Proxy: proxy, Authenticator: p.authenticator}, nil
+	return &AuthenticatedProxy{
+		AuthURL:       p.authURL,
+		Proxy:         proxy,
+		Authenticator: p.authenticator,
+		log:           p.log,
+	}, nil
 }
 
 type Modifier func(*Proxy) error

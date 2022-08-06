@@ -1,11 +1,14 @@
 package httpp
 
 import (
-	"github.com/enfabrica/enkit/lib/khttp"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/khttp"
+	"github.com/enfabrica/enkit/lib/oauth"
 )
 
 type HostPath struct {
@@ -34,9 +37,22 @@ const (
 	// Default behavior: ignore X-Forwarded-For from the client, but provide one to the backend.
 	XForwardedForSet XForwardedForTreatment = "set"
 	// X-Forwarded-For header is forwarded to the backend, with the ip of the client added.
-	XForwardedForAdd = "add"
+	XForwardedForAdd XForwardedForTreatment = "add"
 	// No X-Forwarded-For supplied to the backend. If there is one, it is stripped.
-	XForwardedForNone = "none"
+	XForwardedForNone XForwardedForTreatment = "none"
+)
+
+type XWebauthTreatment string
+
+const (
+	// Default behavior: set no additional headers on the forwarded request.
+	XWebauthNone XWebauthTreatment = "none"
+	// Sets:
+	//   * X-Webauth-Userid to the user's unique ID
+	//   * X-Webauth-Username to the user's username
+	//   * X-Webauth-Organization to the user's organization
+	//   * X-Webauth-Globalname to the user's "global name" (see oauth.(*Identity).GlobalName)
+	XWebauthSet XWebauthTreatment = "set"
 )
 
 type Transform struct {
@@ -50,6 +66,9 @@ type Transform struct {
 
 	// Defines what to do with the X-Forwarded-For header, and the IP of the client.
 	XForwardedFor XForwardedForTreatment
+	// Defines whether to set additional headers signaling the user's identity on
+	// the request to the backend.
+	XWebauth XWebauthTreatment
 	// List of regular expressions defining which cookies to strip in requests to the backend.
 	StripCookie []string
 	// By default, requests to the backend are forwarded with the Host field set to the
@@ -120,6 +139,24 @@ func (t *Transform) Apply(req *http.Request) bool {
 		req.Header["X-Forwarded-For"] = nil
 	case XForwardedForAdd:
 	}
+
+	switch t.XWebauth {
+	case "":
+		fallthrough
+	case XWebauthNone:
+		// No extra headers set
+	case XWebauthSet:
+		creds := oauth.GetCredentials(req.Context())
+		if creds == nil {
+			logger.GetCtx(req.Context()).Errorf("Missing credentials on request; can't set X-Webauth-* headers")
+			break
+		}
+		req.Header.Set("X-Webauth-Userid", creds.Identity.Id)
+		req.Header.Set("X-Webauth-Username", creds.Identity.Username)
+		req.Header.Set("X-Webauth-Organization", creds.Identity.Organization)
+		req.Header.Set("X-Webauth-Globalname", creds.Identity.GlobalName())
+	}
+
 	return t.Maintain
 }
 

@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"strings"
 )
@@ -180,4 +181,16 @@ func IndentAndQuoteLines(buffer, indent string) string {
 		}
 	}
 	return string(result)
+}
+
+func SetCtx(ctx context.Context, l Logger) context.Context {
+	return context.WithValue(ctx, "logger", l)
+} 
+
+func GetCtx(ctx context.Context) Logger {
+	l, ok := ctx.Value("logger").(Logger)
+	if !ok {
+		return Nil
+	}
+	return l
 }
