@@ -592,20 +592,21 @@ function _startup_checks() {
   if ! GITDIR="$("${GIT}" rev-parse --git-common-dir 2>/dev/null )"; then
     # not in a git directory
     _set_main
-    _info "Switching to ${GEE_DIR}/${REPO}/${MAIN}"
+    if [[ "${SAFE_COMMANDS}" != *" ${COMMAND} "* ]]; then
+      _fatal "${COMMAND} must be run from within a gee branch."
+    fi
     cd "${GEE_DIR}/${REPO}/${MAIN}"
     if ! GITDIR="$("${GIT}" rev-parse --git-common-dir 2>/dev/null )"; then
-      _die "Somehow, ${GEE_DIR}/${REPO}/${MAIN} is not a git repository."
+      _fatal "Somehow, ${GEE_DIR}/${REPO}/${MAIN} is not a git repository."
     fi
   fi
   GITDIR="$(readlink -f "${GITDIR}")"
   if [[ "${GITDIR}" != "${GEE_DIR}"/*/.git ]]; then
-    if [[ "${SAFE_COMMANDS}" == *" ${COMMAND} "* ]]; then
-      _info "Switching to ${GEE_DIR}/${REPO}/${MAIN}"
-      cd "${GEE_DIR}/${REPO}/${MAIN}"
-    else
-      _die "${COMMAND} must be run from within a gee branch."
+    if [[ "${SAFE_COMMANDS}" != *" ${COMMAND} "* ]]; then
+      _fatal "${COMMAND} must be run from within a gee branch."
     fi
+    _info "Switching to ${GEE_DIR}/${REPO}/${MAIN}"
+    cd "${GEE_DIR}/${REPO}/${MAIN}"
   fi
 
   # Troubleshoot our environment before running (most) commands.
