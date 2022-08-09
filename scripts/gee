@@ -692,7 +692,7 @@ function _gh_authenticate() {
   local TRIES="${1:-3}"
 
   while ! _gh auth status; do
-    if [[ "$TRIES" == 0 ]]; then
+    if [[ "$TRIES" -eq 0 ]]; then
       _warn "Failed to authenticate to github.  Ask an administrator for help?"
       return
     fi
