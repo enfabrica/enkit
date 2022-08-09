@@ -5028,7 +5028,7 @@ function _render_markdown_manual() {
   for h in "${HELP[@]}"; do
     IFS=": " read -r h_cmd h_desc <<< "${h}"
     echo "| <a href=\"#${h_cmd}\">${BT}${h_cmd}${BT}</a> | ${h_desc} |"
-  done | sort
+  done | sort --dictionary-order
   echo ""
   echo "## Commands"
   echo ""
