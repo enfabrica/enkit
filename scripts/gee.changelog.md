@@ -2,6 +2,13 @@
 
 ## Releases
 
+### 0.2.34
+
+* `gee gcd`: fix bug where savelog output would break gcd (#728)
+* `gee lsbr`: fix bug where upstream branches would break lsbr (#710)
+* `gee restore_all_branches`: interactively pick which branches to restore (#682)
+* `gee init`: improve `gh auth login` flow, use right options instead of asking (#676)
+
 ### 0.2.33
 
 * `gee update`: improve merge conflict resolution flow (#715)
