@@ -563,17 +563,50 @@ function _startup_checks() {
   # Ensure that (most) gee commands are run from within the gee repository,
   # otherwise strange things might happen (if the user's home directory is a
   # git repository, for instance).
-  local GITDIR
-  GITDIR="$(readlink -f "$("${GIT}" rev-parse --git-common-dir)")"
-  if [[ "${GITDIR}" != "${GEE_DIR}"/*/.git ]]; then
-    _warn "Error: refusing to run this gee command outside of the gee" \
-          "repository."
-    if [[ -d "${GEE_DIR}" ]]; then
-      _info "Use \"gcd\" to switch to a gee branch and try again."
-    else
-      _info "No gee repository found, run \"gee init\" to create one."
-    fi
+  local COMMAND="$1"
+
+  # 1. Ensure that a gee repository exists.
+  if [[ ! -d "${GEE_DIR}/${REPO}" ]]; then
+    _info "Directory ${GEE_DIR}/${REPO} not found, run \"gee init\" to create."
     exit 1
+  fi
+  _set_main
+  if [[ ! -d "${GEE_DIR}/${REPO}/${MAIN}" ]]; then
+    _die "Directory ${GEE_DIR}/${REPO}/${MAIN} not found." \
+      "Somehow your ${MAIN} branch got removed?"
+    exit 1
+  fi
+
+  # 1.5. Make sure we're not in one of bazel's weird symlink directories.
+  while [[ "$(pwd -P)" != "$(pwd -L)"  ]]; do cd ..; done
+
+  # 2. Ensure that we are in a gee-controlled git repo.  If not,
+  #    switch to the main branch of the git repo, if we are running
+  #    a command on the "safe" list.
+  local SAFE_COMMANDS=" bash_setup bazelgc cleanup codeowners config create_ssh_key diagnose"
+  SAFE_COMMANDS+=" diff gcd get_parent hello help log lsbranches make_branch pack pr_check"
+  SAFE_COMMANDS+=" pr_checkout pr_edit pr_list pr_make pr_push pr_rollback pr_submit pr_view"
+  SAFE_COMMANDS+=" remove_branch repair restore_all_branches rupdate share update update_all"
+  SAFE_COMMANDS+=" upgrade version whatsout "
+  local GITDIR
+  if ! GITDIR="$("${GIT}" rev-parse --git-common-dir 2>/dev/null )"; then
+    # not in a git directory
+    _set_main
+    if [[ "${SAFE_COMMANDS}" != *" ${COMMAND} "* ]]; then
+      _fatal "${COMMAND} must be run from within a gee branch."
+    fi
+    cd "${GEE_DIR}/${REPO}/${MAIN}"
+    if ! GITDIR="$("${GIT}" rev-parse --git-common-dir 2>/dev/null )"; then
+      _fatal "Somehow, ${GEE_DIR}/${REPO}/${MAIN} is not a git repository."
+    fi
+  fi
+  GITDIR="$(readlink -f "${GITDIR}")"
+  if [[ "${GITDIR}" != "${GEE_DIR}"/*/.git ]]; then
+    if [[ "${SAFE_COMMANDS}" != *" ${COMMAND} "* ]]; then
+      _fatal "${COMMAND} must be run from within a gee branch."
+    fi
+    _info "Switching to ${GEE_DIR}/${REPO}/${MAIN}"
+    cd "${GEE_DIR}/${REPO}/${MAIN}"
   fi
 
   # Troubleshoot our environment before running (most) commands.
@@ -862,6 +895,10 @@ function _update_branch_to_worktree() {
       BR="${BASH_REMATCH[1]}"
       BRANCH_TO_WORKTREE["${BR}"]="${WT}"
     elif [[ "${LINE}" =~ ^detached ]]; then
+      if [[ ! -d "${WT}" ]]; then
+        # ignore pruneable worktrees that don't exist anymore.
+        continue
+      fi
       BR="$(
         cd "${WT}";
         for loc in rebase-merge rebase-apply; do
@@ -2162,7 +2199,7 @@ EOT
 
 function gee__mkbr() { gee__make_branch "$@"; }
 function gee__make_branch() {
-  _startup_checks
+  _startup_checks "make_branch"
 
   local BRNAME SHA CURRENT_BRANCH
   # TODO(jonathan): Let the user name the branch to branch from.
@@ -2210,7 +2247,7 @@ Usage: gee log
 EOT
 
 function gee__log() {
-  _startup_checks
+  _startup_checks "log"
 
   _check_cwd
   local -a ARGS=( "$@" )
@@ -2248,7 +2285,7 @@ If <files...> are omited, shows changes to all files.
 EOT
 
 function gee__diff() {
-  _startup_checks
+  _startup_checks "diff"
 
   _check_cwd
   local PARENT_BRANCH
@@ -2285,7 +2322,7 @@ Flags:
 EOT
 
 function gee__pack() {
-  _startup_checks
+  _startup_checks "pack"
 
   _check_cwd
   _set_main
@@ -2334,7 +2371,7 @@ Usage: gee unpack <file.pack>
 EOT
 
 function gee__unpack() {
-  _startup_checks
+  _startup_checks "unpack"
 
   _check_cwd
   _set_main
@@ -2382,7 +2419,7 @@ function gee__unpack() {
 ## EOT
 ##
 ## function gee__squash() {
-##  _startup_checks
+##  _startup_checks "squash"
 ##
 ##   _check_cwd
 ##   # Note: there is no longer any need to squash before sending out for review,
@@ -2472,7 +2509,7 @@ EOT
 
 function gee__up() { gee__update "$@"; }
 function gee__update() {
-  _startup_checks
+  _startup_checks "update"
 
   _check_cwd
   local CURRENT_BRANCH
@@ -2575,7 +2612,7 @@ function _add_parent_branches_to_chain() {
 
 function gee__rup() { gee__rupdate "$@"; }
 function gee__rupdate() {
-  _startup_checks
+  _startup_checks "rupdate"
 
   _check_cwd
   local CURRENT_BRANCH
@@ -2648,7 +2685,7 @@ EOT
 
 function gee__up_all() { gee__update_all "$@"; }
 function gee__update_all() {
-  _startup_checks
+  _startup_checks "update_all"
 
   local -a CONFLICTS=()
   local CURRENT_BRANCH
@@ -2710,7 +2747,7 @@ Reports which files in this branch differ from parent branch.
 EOT
 
 function gee__whatsout() {
-  _startup_checks
+  _startup_checks "whatsout"
 
   _check_cwd
   local BRANCH PARENT
@@ -2751,7 +2788,7 @@ EOT
 function gee__owners() { gee__codeowners "$@"; }
 function gee__reviewers() { gee__codeowners "$@"; }
 function gee__codeowners() {
-  _startup_checks
+  _startup_checks "codeowners"
 
   local OPT_COMMENT=0
   if [[ "$1" == "--comment" ]]; then
@@ -2803,7 +2840,7 @@ EOT
 function gee__lsb() { gee__lsbranches "$@"; }
 function gee__lsbr() { gee__lsbranches "$@"; }
 function gee__lsbranches() {
-  _startup_checks
+  _startup_checks "lsbranches"
 
   _set_main
   if ! _in_gee_repo; then
@@ -2836,7 +2873,7 @@ Automatically removes branches without local changes.
 EOT
 
 function gee__cleanup() {
-  _startup_checks
+  _startup_checks "cleanup"
 
   _set_main
   _read_parents_file
@@ -2947,7 +2984,7 @@ Usage: gee get_parent
 EOT
 
 function gee__get_parent() {
-  _startup_checks
+  _startup_checks "get_parent"
 
   _check_cwd
   local BRANCH
@@ -2971,7 +3008,7 @@ to do a "gee update" operation afterwards.
 EOT
 
 function gee__set_parent() {
-  _startup_checks
+  _startup_checks "set_parent"
 
   _check_cwd
   local BRANCH PARENT
@@ -3018,7 +3055,7 @@ EOT
 function gee__push() { gee__commit "$@"; }
 function gee__c() { gee__commit "$@"; }
 function gee__commit() {
-  _startup_checks
+  _startup_checks "commit"
 
   _check_cwd
   local CURRENT_BRANCH
@@ -3078,7 +3115,7 @@ Example:
 EOT
 
 function gee__revert() {
-  _startup_checks
+  _startup_checks "revert"
 
   _check_cwd
   local CURRENT_BRANCH
@@ -3130,7 +3167,7 @@ See also:
 EOT
 
 function gee__pr_checkout() {
-  _startup_checks
+  _startup_checks "pr_checkout"
 
   _check_gh_auth
   _set_main
@@ -3278,7 +3315,7 @@ function gee__lspr() { gee__pr_list "$@"; }
 function gee__list_pr() { gee__pr_list "$@"; }
 function gee__prls() { gee__pr_list "$@"; }
 function gee__pr_list() {
-  _startup_checks
+  _startup_checks "pr_list"
 
   _check_gh_auth
   local WHO WHO_3RD_PERSON USER YOUR
@@ -3359,7 +3396,7 @@ function gee__edpr() { gee__pr_edit "$@"; }
 function gee__pred() { gee__pr_edit "$@"; }
 function gee__edit_pr() { gee__pr_edit "$@"; }
 function gee__pr_edit() {
-  _startup_checks
+  _startup_checks "pr_edit"
 
   _check_cwd
   _check_gh_auth
@@ -3387,7 +3424,7 @@ function gee__pr_edit() {
 ##########################################################################
 
 function gee__pr_debug() {
-  _startup_checks
+  _startup_checks "pr_debug"
 
   _check_cwd
   _check_gh_auth
@@ -3413,7 +3450,7 @@ EOT
 
 function gee__view_pr() { gee__pr_view "$@"; }
 function gee__pr_view() {
-  _startup_checks
+  _startup_checks "pr_view"
 
   _check_cwd
   _check_gh_auth
@@ -3449,7 +3486,7 @@ function gee__make_pr() { gee__pr_make "$@"; }
 function gee__pr_create() { gee__pr_make "$@"; }
 function gee__create_pr() { gee__pr_make "$@"; }
 function gee__pr_make() {
-  _startup_checks
+  _startup_checks "pr_make"
 
   _check_cwd
   _check_gh_auth
@@ -3632,7 +3669,7 @@ EOT
 function gee__check_pr() { gee__pr_check "$@"; }
 function gee__pr_checks() { gee__pr_check "$@"; }
 function gee__pr_check() {
-  _startup_checks
+  _startup_checks "pr_check"
 
   local -a CHECKS=()
   local -A CHECK_COUNTS=()
@@ -3702,7 +3739,7 @@ EOT
 function gee__submit_pr() { gee__pr_submit "$@"; }
 function gee__merge() { gee__pr_submit "$@"; }
 function gee__pr_submit() {
-  _startup_checks
+  _startup_checks "pr_submit"
 
   _check_cwd
   _check_gh_auth
@@ -4041,7 +4078,7 @@ function _remove_a_branch() {
 
 function gee__rmbr() { gee__remove_branch "$@"; }
 function gee__remove_branch() {
-  _startup_checks
+  _startup_checks "remove_branch"
 
   local -a BRANCHES=( "$@" )
 
@@ -4077,7 +4114,7 @@ out as formatting rules are highly project specific.
 EOT
 
 function gee__fix() {
-  _startup_checks
+  _startup_checks "fix"
 
   local BDIR
   BDIR="$(_get_branch_rootdir)"
@@ -4277,7 +4314,7 @@ your branch with other users (in advance of sending out a PR).
 EOT
 
 function gee__share() {
-  _startup_checks
+  _startup_checks "share"
 
   local CURRENT_BRANCH PARENT_BRANCH
   CURRENT_BRANCH="$(_get_current_branch)"
