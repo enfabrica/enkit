@@ -532,9 +532,7 @@ function _check_gh_auth() {
   RC=$?
   set -e
   if (( RC != 0 )); then
-    _info "Could not authenticate to github.  Got:" "${OUTPUT}"
-    _info "Let's try refreshing your access token:"
-    _cmd "${GH}" auth login
+    _gh_authenticate
     if ! "${GH}" auth status; then
       _fatal "Still can't authenticate to github."
     fi
@@ -690,6 +688,41 @@ function _startup_checks() {
   fi
 }
 
+function _gh_authenticate() {
+  local TRIES="${1:-3}"
+
+  while ! _gh auth status; do
+    if [[ "$TRIES" == 0 ]]; then
+      _warn "Failed to authenticate to github.  Ask an administrator for help?"
+      return
+    fi
+    _info \
+      "You are not currently authenticated to github.  We need to create a github" \
+      "authentication token for you before we can proceed." \
+      "" \
+      "To create a github authentication token:" \
+      "" \
+      "1. Open in a web browser: https://github.com/settings/tokens/new" \
+      "2. Log in to github, if you aren't already." \
+      "3. Fill in the \"Note\" field with something descriptive." \
+      "4. Select a reasonable Expiration duration (90 days is recommended)." \
+      "5. Click to enable the following permissions:" \
+      "   * \"repo\" (enables the whole sub-tree of permissions)" \
+      "   * \"read:org\" (below the \"admin:org\" permission tree)" \
+      "   * \"admin:public_key\" (enables the whole sub-tree of permissions)" \
+      "6. Finally, click \"Generate token\" at the bottom of the form." \
+      ""
+    local TOKEN=""
+    read -rp "Paste your github authentication token here: " TOKEN
+    _info "Trying to authenticate using your token..."
+    if ! _gh auth login -p ssh -h github.com --with-token <<< "${TOKEN}"; then
+      _warn "\"gh auth login\" failed with exit code $?" ""
+      echo ""
+    fi
+    TRIES="$(( TRIES - 1 ))"
+  done
+}
+
 function _ssh_enroll() {
   # Enroll the user for ssh access to github by creating and uploading a keyfile.
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
@@ -753,30 +786,7 @@ EOT
   _gh config set git_protocol ssh
 
   _info "Checking your access to github using the \"gh\" tool:"
-  while ! _gh auth status; do
-    _info \
-      "You are not currently authenticated to github.  We need to create a github" \
-      "authentication token for you before we can proceed." \
-      "" \
-      "To create a github authentication token:" \
-      "" \
-      "1. Open in a web browser: https://github.com/settings/tokens/new" \
-      "2. Log in to github, if you aren't already." \
-      "3. Fill in the \"Note\" field with something descriptive." \
-      "4. Select a reasonable Expiration duration (90 days is recommended)." \
-      "5. Click to enable the following permissions:" \
-      "   * \"repo\" (enables the whole sub-tree of permissions)" \
-      "   * \"read:org\" (below the \"admin:org\" permission tree)" \
-      "   * \"admin:public_key\" (enables the whole sub-tree of permissions)" \
-      "6. Finally, click \"Generate token\" at the bottom of the form." \
-      ""
-    local TOKEN=""
-    read -rp "Paste your github authentication token here: " TOKEN
-    _info "Trying to authenticate using your token..."
-    if ! _gh auth login -p ssh -h github.com --with-token <<< "${TOKEN}"; then
-      _warn "\"gh auth login\" failed with exit code $?" ""
-    fi
-  done
+  _gh_authenticate
 
   if ! _gh ssh-key add "${SSHKEYFILE}.pub" --title "gee-created-key"; then
     _warn "Could not add your key to github (maybe it's already there?)."
@@ -4481,16 +4491,7 @@ function gee__repair() {
   # check that we can connect to github via ssh
   _check_ssh
 
-  if ! _gh auth status; then
-    _warn "Looks like you were not able to authenticate to the github REST API."
-    _info "Let's try re-authenticating to github:"
-    _gh auth login
-
-    if ! _gh auth status; then
-      _warn "Still can't authenticate to github!  You might need more help."
-      # Gallantly attempt to carry on in the face of adversity...
-    fi
-  fi
+  _gh_authenticate
 
   if ! _in_gee_repo; then
     _fatal "Not in a gee repo directory, aborting further repairs."
