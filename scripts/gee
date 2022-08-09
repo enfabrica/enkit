@@ -4532,6 +4532,13 @@ Usage: gee restore_all_branches
 Gee looks up all branches on the origin remote, and makes sure an equivalent
 branch is checked out and updated locally.
 
+If you have the `dialog` utility installed, gee will let you interactively
+select which branches you want to restore.
+
+Alternately, if the user supplies a list of branches on the command line (for
+instance, "origin/test1 origin/test2"), restore_all_branches will only attempt
+to restore those branches.
+
 Note that gee isn't able to restore parentage metadata in this way.  Be
 sure to invoke `gee set_parent` in branches that benefit from this.
 EOT
@@ -4547,9 +4554,39 @@ function gee__restore_all_branches() {
   _info "Fetching all commits in origin since ${OLDEST_COMMIT}"
   _git fetch origin --shallow-since "${OLDEST_COMMIT}"
 
-  local -a BRANCHES=()
-  mapfile -t BRANCHES < <( \
-    git branch -r --format="%(refname:short)" | grep ^origin/ | grep -v HEAD )
+  local -a BRANCHES=( "$@" )
+  if (( "${#BRANCHES[@]}" == 0 )); then
+    mapfile -t BRANCHES < <( \
+      git branch -r --format="%(refname:short)" | grep ^origin/ | grep -v HEAD )
+    if command -v dialog > /dev/null; then
+      local -a DIALOG_OPTS=(
+        --no-lines
+        --keep-tite
+        --backtitle "gee ${VERSION}"
+        --title "gee restore_all_branches"
+        --checklist
+        "Select which branches you want to restore:"
+        0 0 0
+      )
+      local B
+      for B in "${BRANCHES[@]}"; do
+        DIALOG_OPTS+=( "${B}" "" "off" )
+      done
+
+      local RESULT EXITCODE
+      set +e
+      exec 3>&1
+      RESULT="$(dialog "${DIALOG_OPTS[@]}" 2>&1 1>&3)"
+      EXITCODE=$?
+      exec 3>&-
+      set -e
+      if (( EXITCODE != 0  )); then
+        _warn "User cancelled operation."
+        return
+      fi
+      read -r -a BRANCHES <<< "${RESULT}"
+    fi
+  fi
 
   _set_main
   local RB
@@ -4991,7 +5028,7 @@ function _render_markdown_manual() {
   for h in "${HELP[@]}"; do
     IFS=": " read -r h_cmd h_desc <<< "${h}"
     echo "| <a href=\"#${h_cmd}\">${BT}${h_cmd}${BT}</a> | ${h_desc} |"
-  done | sort
+  done | sort --dictionary-order
   echo ""
   echo "## Commands"
   echo ""
