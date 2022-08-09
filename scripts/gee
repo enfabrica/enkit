@@ -689,12 +689,11 @@ function _startup_checks() {
 }
 
 function _gh_authenticate() {
-  local TRIES="${1:-3}"
+  local TRIES=3
 
   while ! _gh auth status; do
     if [[ "$TRIES" -eq 0 ]]; then
-      _warn "Failed to authenticate to github.  Ask an administrator for help?"
-      return
+      _fatal "Failed to authenticate to github.  Join \"git help\" chatroom and ask for help?"
     fi
     _info \
       "You are not currently authenticated to github.  We need to create a github" \
