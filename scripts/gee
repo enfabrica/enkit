@@ -444,7 +444,7 @@ function _check_enkit_cert() {
   if (( COUNT == 0 )); then
     _warn "enkit certificate is expired."
     _info "Please authenticate:"
-    "${ENKIT}" login
+    "${ENKIT}" login "${USER}@enfabrica.net"
     COUNT="$("${ENKIT}" agent print | wc -l)"
     if (( COUNT == 0 )); then
       _fatal "No enkit certificate, aborting."
@@ -752,7 +752,7 @@ function _ssh_enroll() {
   if (( COUNT == 0 )); then
     _warn "No enkit certificates are present."
     _info "Let's try authenticating:"
-    "${ENKIT}" auth
+    "${ENKIT}" auth "${USER}@enfabrica.net"
     COUNT="$("${ENKIT}" agent list | wc -l)"
     if (( COUNT == 0 )); then
       _die "Still could not find any enkit certificates."
@@ -764,7 +764,7 @@ function _ssh_enroll() {
   if (( COUNT == 0 )); then
     _warn "No enkit certificates are present."
     _info "Let's try authenticating:"
-    "${ENKIT}" auth
+    "${ENKIT}" auth "${USER}@enfabrica.net"
     COUNT="$("${ENKIT}" agent list | wc -l)"
     if (( COUNT == 0 )); then
       _die "Still could not find any enkit certificates."
