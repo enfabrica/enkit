@@ -600,7 +600,7 @@ function _startup_checks() {
   fi
   GITDIR="$(readlink -f "${GITDIR}")"
   if [[ "${GITDIR}" != "${GEE_DIR}"/*/.git ]]; then
-    if [[ *" ${COMMAND} "* == "${SAFE_COMMANDS}" ]]; then
+    if [[ "${SAFE_COMMANDS}" == *" ${COMMAND} "* ]]; then
       _info "Switching to ${GEE_DIR}/${REPO}/${MAIN}"
       cd "${GEE_DIR}/${REPO}/${MAIN}"
     else
