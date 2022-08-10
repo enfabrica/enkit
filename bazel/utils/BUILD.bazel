@@ -139,6 +139,7 @@ exec_test(
     must_fail = True,
 )
 
+#### Actual tests
 sh_binary(
     name = "save-argv",
     srcs = ["testdata/remote/save-argv.sh"],
@@ -276,4 +277,40 @@ remote_run_test(
         "/tmp/testdir/",
     ],
     target = ":quote01",
+)
+
+remote_run_test(
+    name = "with-inputs",
+    dests = [
+        "/tmp/testdir/",
+    ],
+    inputs = ":hello-world",
+)
+
+remote_run_test(
+    name = "with-noop-inputs",
+    dests = [
+        "non-existant-machine-1.corp",
+    ],
+    target = ":hello-world",
+    # Should be equivalent to no inputs specified.
+    inputs = "@enkit//bazel/utils/remote:noop",
+)
+
+remote_run_test(
+    name = "with-all-inputs",
+    dests = [
+        "non-existant-machine-1.corp",
+    ],
+    alldeps = True,
+    inputs = ":hello-world",
+)
+
+remote_run_test(
+    name = "with-all-basic",
+    dests = [
+        "non-existant-machine-1.corp",
+    ],
+    alldeps = True,
+    target = ":wrapper",
 )

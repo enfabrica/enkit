@@ -1,0 +1,1 @@
+--files-from=bazel/utils/with-inputs.files_to_copy --delete -avrz --progress --copy-unsafe-links .. /tmp/testdir/
