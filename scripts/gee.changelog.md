@@ -4,6 +4,7 @@
 
 ### 0.2.34
 
+* `gee init`: use the new gh auth flow more consistently (#732)
 * `gee`: do our best regardless of which directory gee is invoked from (#699)
 * `gee gcd`: fix bug where savelog output would break gcd (#728)
 * `gee lsbr`: fix bug where upstream branches would break lsbr (#710)
