@@ -84,6 +84,9 @@ type SSHAgent struct {
 }
 
 func (a SSHAgent) Kill() error {
+	if a.PID == 0 {
+		return nil
+	}
 	p, err := os.FindProcess(a.PID)
 	if err != nil {
 		return err
@@ -163,7 +166,11 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 }
 
 func (a SSHAgent) GetEnv() []string {
-	return []string{fmt.Sprintf("SSH_AUTH_SOCK=%s", a.Socket), fmt.Sprintf("SSH_AGENT_PID=%d", a.PID)}
+	env := []string{fmt.Sprintf("SSH_AUTH_SOCK=%s", a.Socket)}
+	if a.PID != 0 {
+		env = append(env, fmt.Sprintf("SSH_AGENT_PID=%d", a.PID))
+	}
+	return env
 }
 
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
@@ -190,14 +197,21 @@ func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
 
 // FindSSHAgentFromEnv
 func FindSSHAgentFromEnv() *SSHAgent {
+	// If the SSH agent was started locally, both SSH_AGENT_SOCK and
+	// SSH_AGENT_PID will be set.  However, when using ssh-agent forwarding over
+	// an SSH or CRD session, only SSH_AUTH_SOCK will be set.
 	envSSHSock := os.Getenv("SSH_AUTH_SOCK")
 	envSSHPID := os.Getenv("SSH_AGENT_PID")
-	if envSSHSock == "" || envSSHPID == "" {
+	if envSSHSock == "" {
 		return nil
 	}
-	pid, err := strconv.Atoi(envSSHPID)
-	if err != nil {
-		return nil
+	pid := 0
+	if envSSHPID != "" {
+		var err error
+		pid, err = strconv.Atoi(envSSHPID)
+		if err != nil {
+			return nil
+		}
 	}
 	return &SSHAgent{PID: pid, Socket: envSSHSock, Close: func() {}}
 }
