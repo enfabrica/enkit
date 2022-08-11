@@ -1912,7 +1912,7 @@ function _check_pr_description() {
     return 1
   fi
   if [[ "${LINES[0]}" == "Tested:" ]]; then
-    # This will happen if the user saves the PR description template without saving.
+    # This will happen if the user saves the PR description template without editing
     _warn "\"Tested:\" can't be the title of the PR description." \
       "(Did you not make any edits to the PR description template?)"
     return 1
