@@ -3617,7 +3617,11 @@ EndOfPrTemplate
     if _check_pr_description "${TRIMMED}"; then
       DONE=1
     else
-      _info "Please fix your PR description."
+      declare -g RESP=""
+      _choose_one "PR description needs a fix.  [R]e-edit or [a]bort?  " \ "rRaA" "r"
+      case "${RESP}" in
+        [aA]*) _fatal "Aborted."; ;;
+      esac
     fi
   done
 
