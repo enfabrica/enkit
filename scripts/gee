@@ -1911,6 +1911,12 @@ function _check_pr_description() {
     _warn "The first line of the description must be the title."
     return 1
   fi
+  if [[ "${LINES[0]}" == "Tested:" ]]; then
+    # This will happen if the user saves the PR description template without saving.
+    _warn "\"Tested:\" can't be the title of the PR description." \
+      "(Did you not make any edits to the PR description template?)"
+    return 1
+  fi
   if [[ -n "${LINES[1]}" ]]; then
     _warn "The second line of the description must be blank."
     return 1
@@ -3613,7 +3619,6 @@ EndOfPrTemplate
       exit 1
     fi
 
-    # Check that the PR description looks valid
     if _check_pr_description "${TRIMMED}"; then
       DONE=1
     else
