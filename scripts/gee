@@ -3624,10 +3624,10 @@ EndOfPrTemplate
 
   # Parse metadata from PR description.
   local TITLE
-  TITLE="$(head -1 "${BODYFILE}")"
+  TITLE="$(head -1 "${TRIMMED}")"
   # We remove the title from the body file to avoid "stuttering" the
   # title when we eventually submit the PR:
-  sed -i '1{d};2{/^$/d}' "${BODYFILE}"
+  sed -i '1{d};2{/^$/d}' "${TRIMMED}"
 
   _push_to_origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
@@ -3640,11 +3640,11 @@ EndOfPrTemplate
     --repo "${UPSTREAM}/${REPO}"
     --title "${TITLE}"
     -H "${GHUSER}:${CURRENT_BRANCH}"
-    --body-file "${BODYFILE}"
+    --body-file "${TRIMMED}"
   )
 
   local DRAFT=0
-  if grep --quiet -E "^\s*DRAFT" "${BODYFILE}"; then
+  if grep --quiet -E "^\s*DRAFT" "${TRIMMED}"; then
     DRAFT=1
     PR_ARGS+=( --draft )
   fi
@@ -3669,7 +3669,7 @@ EndOfPrTemplate
       _warn "Don't forget to add reviewers!"
     fi
   fi
-  rm "${BODYFILE}"
+  rm "${BODYFILE}" "${TRIMMED}"
 }
 
 ##########################################################################
