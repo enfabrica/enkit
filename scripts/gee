@@ -3555,8 +3555,9 @@ function gee__pr_make() {
   local -a PARENT_PRS
   mapfile -t PARENT_PRS < <( _list_open_pr_numbers "$(_get_parent_branch)" )
 
-  local BODYFILE
+  local BODYFILE TRIMMED
   BODYFILE="$(mktemp -t prbody.XXXXXX.txt)"
+  TRIMMED="${BODYFILE}.trimmed"
   (
     cat <<'EndOfPrTemplate'
 # The first line should be the PR title.
@@ -3588,30 +3589,38 @@ EndOfPrTemplate
     #                 PR description.
   ) >"${BODYFILE}"
 
-  if [[ -n "${EDITOR}" ]]; then
-    "${EDITOR}" "${BODYFILE}"
-  else
-    declare -g RESP=""
-    _choose_one "How do you want to edit the PR description?? ([V]im, [e]macs, or [a]bort)  " \
-        "vVeEaA" "v"
-    case "${RESP}" in
-      [vV]*) vim "${BODYFILE}"; ;;
-      [eE]*) emacs "${BODYFILE}"; ;;
-      [aA]*) _fatal "Aborted."; ;;
-    esac
-  fi
+  DONE=0
+  while (( DONE == 0 )); do
+    if [[ -n "${EDITOR}" ]]; then
+      "${EDITOR}" "${BODYFILE}"
+    else
+      declare -g RESP=""
+      _choose_one "How do you want to edit the PR description?? ([V]im, [e]macs, or [a]bort)  " \
+          "vVeEaA" "v"
+      case "${RESP}" in
+        [vV]*) vim "${BODYFILE}"; ;;
+        [eE]*) emacs "${BODYFILE}"; ;;
+        [aA]*) _fatal "Aborted."; ;;
+      esac
+    fi
 
-  # Remove all comments from the description and squeeze multiple blank
-  # lines into single blank lines:
-  sed -i 's/^ *#.*//;/\S/,/^\s*$/!d' "${BODYFILE}"
+    # Remove all comments from the description and squeeze multiple blank
+    # lines into single blank lines:
+    sed 's/^ *#.*//;/\S/,/^\s*$/!d' "${BODYFILE}" > "${TRIMMED}"
 
-  if grep --quiet -E "^\s*ABORT" "${BODYFILE}"; then
-    _fatal "Aborting creation of new PR, as requested."
-    exit 1
-  fi
+    if grep --quiet -E "^\s*ABORT" "${TRIMMED}"; then
+      _fatal "Aborting creation of new PR, as requested."
+      exit 1
+    fi
 
-  # Check that the PR description looks valid
-  _check_pr_description "${BODYFILE}"
+    # Check that the PR description looks valid
+    if _check_pr_description "${TRIMMED}"; then
+      DONE=1
+    else
+      _info "Please fix your PR description."
+      sleep 1
+    fi
+  done
 
   # Parse metadata from PR description.
   local TITLE
