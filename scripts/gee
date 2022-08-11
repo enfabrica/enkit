@@ -3618,7 +3618,6 @@ EndOfPrTemplate
       DONE=1
     else
       _info "Please fix your PR description."
-      sleep 1
     fi
   done
 
