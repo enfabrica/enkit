@@ -1911,6 +1911,12 @@ function _check_pr_description() {
     _warn "The first line of the description must be the title."
     return 1
   fi
+  if [[ "${LINES[0]}" == "Tested:" ]]; then
+    # This will happen if the user saves the PR description template without any edits.
+    _warn "\"Tested:\" can't be the title of the PR description." \
+      "(Did you not make any edits to the PR description template?)"
+    return 1
+  fi
   if [[ -n "${LINES[1]}" ]]; then
     _warn "The second line of the description must be blank."
     return 1
@@ -3555,8 +3561,9 @@ function gee__pr_make() {
   local -a PARENT_PRS
   mapfile -t PARENT_PRS < <( _list_open_pr_numbers "$(_get_parent_branch)" )
 
-  local BODYFILE
+  local BODYFILE TRIMMED
   BODYFILE="$(mktemp -t prbody.XXXXXX.txt)"
+  TRIMMED="${BODYFILE}.trimmed"
   (
     cat <<'EndOfPrTemplate'
 # The first line should be the PR title.
@@ -3588,37 +3595,47 @@ EndOfPrTemplate
     #                 PR description.
   ) >"${BODYFILE}"
 
-  if [[ -n "${EDITOR}" ]]; then
-    "${EDITOR}" "${BODYFILE}"
-  else
-    declare -g RESP=""
-    _choose_one "How do you want to edit the PR description?? ([V]im, [e]macs, or [a]bort)  " \
-        "vVeEaA" "v"
-    case "${RESP}" in
-      [vV]*) vim "${BODYFILE}"; ;;
-      [eE]*) emacs "${BODYFILE}"; ;;
-      [aA]*) _fatal "Aborted."; ;;
-    esac
-  fi
+  DONE=0
+  while (( DONE == 0 )); do
+    if [[ -n "${EDITOR}" ]]; then
+      "${EDITOR}" "${BODYFILE}"
+    else
+      declare -g RESP=""
+      _choose_one "How do you want to edit the PR description?? ([V]im, [e]macs, or [a]bort)  " \
+          "vVeEaA" "v"
+      case "${RESP}" in
+        [vV]*) vim "${BODYFILE}"; ;;
+        [eE]*) emacs "${BODYFILE}"; ;;
+        [aA]*) _fatal "Aborted."; ;;
+      esac
+    fi
 
-  # Remove all comments from the description and squeeze multiple blank
-  # lines into single blank lines:
-  sed -i 's/^ *#.*//;/\S/,/^\s*$/!d' "${BODYFILE}"
+    # Remove all comments from the description and squeeze multiple blank
+    # lines into single blank lines:
+    sed 's/^ *#.*//;/\S/,/^\s*$/!d' "${BODYFILE}" > "${TRIMMED}"
 
-  if grep --quiet -E "^\s*ABORT" "${BODYFILE}"; then
-    _fatal "Aborting creation of new PR, as requested."
-    exit 1
-  fi
+    if grep --quiet -E "^\s*ABORT" "${TRIMMED}"; then
+      _fatal "Aborting creation of new PR, as requested."
+      exit 1
+    fi
 
-  # Check that the PR description looks valid
-  _check_pr_description "${BODYFILE}"
+    if _check_pr_description "${TRIMMED}"; then
+      DONE=1
+    else
+      declare -g RESP=""
+      _choose_one "PR description needs a fix.  [R]e-edit or [a]bort?  " \ "rRaA" "r"
+      case "${RESP}" in
+        [aA]*) _fatal "Aborted."; ;;
+      esac
+    fi
+  done
 
   # Parse metadata from PR description.
   local TITLE
-  TITLE="$(head -1 "${BODYFILE}")"
+  TITLE="$(head -1 "${TRIMMED}")"
   # We remove the title from the body file to avoid "stuttering" the
   # title when we eventually submit the PR:
-  sed -i '1{d};2{/^$/d}' "${BODYFILE}"
+  sed -i '1{d};2{/^$/d}' "${TRIMMED}"
 
   _push_to_origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
@@ -3631,11 +3648,11 @@ EndOfPrTemplate
     --repo "${UPSTREAM}/${REPO}"
     --title "${TITLE}"
     -H "${GHUSER}:${CURRENT_BRANCH}"
-    --body-file "${BODYFILE}"
+    --body-file "${TRIMMED}"
   )
 
   local DRAFT=0
-  if grep --quiet -E "^\s*DRAFT" "${BODYFILE}"; then
+  if grep --quiet -E "^\s*DRAFT" "${TRIMMED}"; then
     DRAFT=1
     PR_ARGS+=( --draft )
   fi
@@ -3660,7 +3677,7 @@ EndOfPrTemplate
       _warn "Don't forget to add reviewers!"
     fi
   fi
-  rm "${BODYFILE}"
+  rm "${BODYFILE}" "${TRIMMED}"
 }
 
 ##########################################################################
