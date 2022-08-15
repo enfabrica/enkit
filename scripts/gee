@@ -581,11 +581,15 @@ function _startup_checks() {
   # 2. Ensure that we are in a gee-controlled git repo.  If not,
   #    switch to the main branch of the git repo, if we are running
   #    a command on the "safe" list.
-  local SAFE_COMMANDS=" bash_setup bazelgc cleanup codeowners config create_ssh_key diagnose"
-  SAFE_COMMANDS+=" diff gcd get_parent hello help log lsbranches make_branch pack pr_check"
-  SAFE_COMMANDS+=" pr_checkout pr_edit pr_list pr_make pr_push pr_rollback pr_submit pr_view"
-  SAFE_COMMANDS+=" remove_branch repair restore_all_branches rupdate share update update_all"
-  SAFE_COMMANDS+=" upgrade version whatsout "
+  local -a SAFE_COMMANDS_ARRAY=(
+     bash_setup bazelgc cleanup codeowners config create_ssh_key diagnose diff
+     gcd get_parent hello help log lsbranches make_branch pack pr_check
+     pr_checkout pr_edit pr_list pr_make pr_push pr_rerun pr_rollback pr_submit
+     pr_view remove_branch repair restore_all_branches rupdate share update
+     update_all upgrade version whatsout
+  )
+  # compose into a glob-comparable string, with a space at the start and end:
+  local SAFE_COMMANDS=" ${SAFE_COMMANDS_ARRAY[*]} "
   local GITDIR
   if ! GITDIR="$("${GIT}" rev-parse --git-common-dir 2>/dev/null )"; then
     # not in a git directory
@@ -3749,6 +3753,34 @@ function gee__pr_check() {
     _warn "Some presubmit checks have failed."
   fi
   return "${CHECKS_FAILED}"
+}
+
+##########################################################################
+# pr_rerun command
+##########################################################################
+
+_register_help "pr_rerun" \
+  "Rerun presubmit checks." \
+  "pr_run" "rerun" "gcbrun" <<'EOT'
+Usage: gee pr_rerun
+
+Forces any presubmit checks associated with this PR to try again.
+
+This normally occurs whenever you push a new commit to your PR.  Sometimes,
+however, a presubmit will fail for reasons unrelated to your PR (for example, a
+transient infrastructure failure).  This command allows you to re-run the set
+of presubmit checks without changing your PR.
+EOT
+
+function gee__rerun() { gee__pr_rerun "$@"; }
+function gee__gcbrun() { gee__pr_rerun "$@"; }
+function gee__pr_run() { gee__pr_rerun "$@"; }
+function gee__pr_rerun() {
+  _info foo
+  _startup_checks "pr_rerun"
+
+  _gh pr comment --body "/gcbrun"
+  _info "Give github about a minute to start running checks again."
 }
 
 ##########################################################################
