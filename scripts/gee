@@ -582,11 +582,42 @@ function _startup_checks() {
   #    switch to the main branch of the git repo, if we are running
   #    a command on the "safe" list.
   local -a SAFE_COMMANDS_ARRAY=(
-     bash_setup bazelgc cleanup codeowners config create_ssh_key diagnose diff
-     gcd get_parent hello help log lsbranches make_branch pack pr_check
-     pr_checkout pr_edit pr_list pr_make pr_push pr_rerun pr_rollback pr_submit
-     pr_view remove_branch repair restore_all_branches rupdate share update
-     update_all upgrade version whatsout
+      "bash_setup"
+      "bazelgc"
+      "cleanup"
+      "codeowners"
+      "config"
+      "create_ssh_key"
+      "diagnose"
+      "diff"
+      "gcd"
+      "get_parent"
+      "hello"
+      "help"
+      "log"
+      "lsbranches"
+      "make_branch"
+      "pack"
+      "pr_check"
+      "pr_checkout"
+      "pr_edit"
+      "pr_list"
+      "pr_make"
+      "pr_push"
+      "pr_rerun"
+      "pr_rollback"
+      "pr_submit"
+      "pr_view"
+      "remove_branch"
+      "repair"
+      "restore_all_branches"
+      "rupdate"
+      "share"
+      "update"
+      "update_all"
+      "upgrade"
+      "version"
+      "whatsout"
   )
   # compose into a glob-comparable string, with a space at the start and end:
   local SAFE_COMMANDS=" ${SAFE_COMMANDS_ARRAY[*]} "
