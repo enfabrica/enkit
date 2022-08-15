@@ -116,6 +116,7 @@ review.
 | <a href="#pr_list">`pr_list`</a> | List outstanding PRs |
 | <a href="#pr_make">`pr_make`</a> | Creates a pull request from this branch. |
 | <a href="#pr_push">`pr_push`</a> | Push commits into another user's PR branch. |
+| <a href="#pr_rerun">`pr_rerun`</a> | Rerun presubmit checks. |
 | <a href="#pr_rollback">`pr_rollback`</a> | Create a rollback PR for a specified PR. |
 | <a href="#pr_submit">`pr_submit`</a> | Merge the approved PR into the parent branch. |
 | <a href="#pr_view">`pr_view`</a> | View an existing pull request. |
@@ -481,6 +482,19 @@ Aliases: pr_checks check_pr
 Usage: `gee pr_check`
 
 Checks presubmit tests.
+
+### pr_rerun
+
+Aliases: pr_run rerun gcbrun
+
+Usage: `gee pr_rerun`
+
+Forces any presubmit checks associated with this PR to try again.
+
+This normally occurs whenever you push a new commit to your PR.  Sometimes,
+however, a presubmit will fail for reasons unrelated to your PR (for example, a
+transient infrastructure failure).  This command allows you to re-run the set
+of presubmit checks without changing your PR.
 
 ### pr_submit
 
