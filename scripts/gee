@@ -3776,7 +3776,6 @@ function gee__rerun() { gee__pr_rerun "$@"; }
 function gee__gcbrun() { gee__pr_rerun "$@"; }
 function gee__pr_run() { gee__pr_rerun "$@"; }
 function gee__pr_rerun() {
-  _info foo
   _startup_checks "pr_rerun"
 
   _gh pr comment --body "/gcbrun"
