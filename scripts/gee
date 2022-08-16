@@ -1579,6 +1579,10 @@ function _safer_rebase() {
   local ONTO="$3"  # optional
   local MB=""
 
+  if [[ "$(git config --global rerere.enabled || /bin/true)" != "true" ]]; then
+    _git config --global rerere.enabled true
+  fi
+
   # check if child branch has an outstanding PR:
   local -a OPEN_PRS
   mapfile -t OPEN_PRS < <( _list_open_pr_numbers )
@@ -2187,6 +2191,7 @@ Valid configuration options are:
 * "enable_meld": Set "meld" as your GUI merge tool.
 EOT
 function gee__config() {
+  _git config --global rerere.enabled true
   case "$1" in
     default)
       gee__config enable_vim
@@ -4565,6 +4570,9 @@ function gee__repair() {
 
   _gee_fix_remote_origin_fetch_config
   _gee_fix_gh_resolved_base
+  if [[ "$(git config --global rerere.enabled || /bin/true)" != "true" ]]; then
+    _git config --global rerere.enabled true
+  fi
 
   # check that we can connect to github via ssh
   _check_ssh
