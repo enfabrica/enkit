@@ -3,10 +3,9 @@
 load "external/bats_support/load.bash"
 load "external/bats_assert/load.bash"
 
-# for tputs
-export TERM=screen-256color
 
 setup() {
+  export TERM=screen-256color
   source ./scripts/gee
 }
 
@@ -33,6 +32,11 @@ setup() {
   assert_equal 2    "${#ARGS_POSITIONAL[@]}"
   assert_equal bar  "${ARGS_POSITIONAL[0]}"
   assert_equal bum  "${ARGS_POSITIONAL[1]}"
+}
+
+@test "test_foo" {
+  echo foo >&3
+  echo bar >&3
 }
 
 @test "_parse_options success" {
@@ -81,3 +85,25 @@ setup() {
   assert_failure
 }
 
+function invoke_parse_gh_pr_checks() {
+  # do this in a function so that indirect variable references will work.
+  declare -a CHECKS=(
+    "internal-bazel-presubmit (cloud-build-290921)   fail    27m36s  https://console.cloud.google.com/cloud-build/builds/104e0ed9-6dd6-443d-8afd-1aa05c649fac?project=496137108493"
+    "linter-checks (cloud-build-290921)      pass    30s     https://console.cloud.google.com/cloud-build/builds/260f3b1a-b423-4ffc-a522-5eecc6480c28?project=496137108493"
+    "Pushes-preview-version-of-web-pages (cloud-build-290921)        skipping        0       https://console.cloud.google.com/cloud-build/triggers/edit/c731b7a4-47a4-4ee2-8d5e-e0f699da7568?project=496137108493"
+    "external-dependencies (cloud-build-290921)      skipping        0       https://console.cloud.google.com/cloud-build/triggers/edit/4298bbb8-4289-4d32-be9e-5d0d69fe27de?project=496137108493"
+  )
+  declare -A CHECK_COUNTS=( [fail]=999 )
+  declare -a FAILED_BUILDS=( foobar )
+  _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}" >&2
+  echo "RC=$?" >&2
+  typeset -p CHECK_COUNTS >&2
+  typeset -p FAILED_BUILDS >&2
+}
+
+@test "test _parse_gh_pr_checks" {
+  run invoke_parse_gh_pr_checks
+  assert_equal \
+    'RC=0'$'\n''declare -A CHECK_COUNTS=([skipping]="2" [pass]="1" [fail]="1" )'$'\n''declare -a FAILED_BUILDS=([0]="104e0ed9-6dd6-443d-8afd-1aa05c649fac")' \
+    "$output"
+}
