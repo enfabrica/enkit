@@ -3733,6 +3733,22 @@ Checks presubmit tests.
 EOT
 
 function _parse_gh_pr_checks() {
+  # Usage: _parse_gh__pr_checks COUNTS BUILDS "${LINES[@]}"
+  # where:
+  #   COUNTS is the name of the associative array to populate with counts of each result type.
+  #   BUILDS is the name of the array to populate with the build identifiers of failed tests.
+  #   LINES is the output of `gh pr checks`, in array form.
+  #
+  # This function parses the output of "gh pr checks" and converts it to a more useful form.
+  #
+  # Example output of gh pr checks command:
+  #
+  #   $ gh pr checks | column -t
+  #   internal-bazel-presubmit             (cloud-build-290921)  fail      27m36s  https://console.cloud.google.com/cloud-build/builds/104e0ed9-6dd6-443d-8afd-1aa05c649fac?project=496137108493
+  #   linter-checks                        (cloud-build-290921)  pass      30s     https://console.cloud.google.com/cloud-build/builds/260f3b1a-b423-4ffc-a522-5eecc6480c28?project=496137108493
+  #   Pushes-preview-version-of-web-pages  (cloud-build-290921)  skipping  0       https://console.cloud.google.com/cloud-build/triggers/edit/c731b7a4-47a4-4ee2-8d5e-e0f699da7568?project=496137108493
+  #   external-dependencies                (cloud-build-290921)  skipping  0       https://console.cloud.google.com/cloud-build/triggers/edit/4298bbb8-4289-4d32-be9e-5d0d69fe27de?project=496137108493
+
   local -n CHECK_COUNTS_REF="$1"  # reference to an associative array
   shift
   local -n FAILED_BUILDS_REF="$1"  # reference to an array
@@ -3761,14 +3777,6 @@ function gee__check_pr() { gee__pr_check "$@"; }
 function gee__pr_checks() { gee__pr_check "$@"; }
 function gee__pr_check() {
   _startup_checks "pr_check"
-
-  # This command parses the output of "gh pr checks" and does something useful with it.  Example output:
-  #
-  #   $ gh pr checks | cat
-  #   internal-bazel-presubmit (cloud-build-290921)   fail    27m36s  https://console.cloud.google.com/cloud-build/builds/104e0ed9-6dd6-443d-8afd-1aa05c649fac?project=496137108493
-  #   linter-checks (cloud-build-290921)      pass    30s     https://console.cloud.google.com/cloud-build/builds/260f3b1a-b423-4ffc-a522-5eecc6480c28?project=496137108493
-  #   Pushes-preview-version-of-web-pages (cloud-build-290921)        skipping        0       https://console.cloud.google.com/cloud-build/triggers/edit/c731b7a4-47a4-4ee2-8d5e-e0f699da7568?project=496137108493
-  #   external-dependencies (cloud-build-290921)      skipping        0       https://console.cloud.google.com/cloud-build/triggers/edit/4298bbb8-4289-4d32-be9e-5d0d69fe27de?project=496137108493
 
   local PREV_CHECKS=""
   local -a CHECKS=()
