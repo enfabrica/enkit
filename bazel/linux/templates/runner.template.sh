@@ -95,6 +95,11 @@ SINGLE=""
 TMPDIR="${TEST_TMPDIR:-$(mktemp -d)}"
 OUTPUT_DIR=${TEST_UNDECLARED_OUTPUTS_DIR:-$(mktemp -d)}
 
+# If TERM variable is exported, then set the number of columns in the VM.
+if [[ "${TERM@a}" == *x* ]]; then
+  KERNEL_OPTS+=("COLUMNS=$(tput cols)")
+fi
+
 # Variables provided by bazel will point to a directory that only contains the
 # deps for this targets as symlinks. But symlinks don't work if we only mount
 # a subdirectory. This finds the original/underlying location.
