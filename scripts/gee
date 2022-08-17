@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly VERSION="0.2.34"
+readonly VERSION="0.2.35"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -1158,7 +1158,7 @@ function _read_cmd() {
     RC="${!TMP}"  # indirect
     unset "${VAR}[-1]"
     if [[ "${RC}" -ne 0 ]]; then
-      _warn "Command returned non-zero exit code: ${RC}"
+      [[ $DONT_WARN -eq 0 ]] && _warn "Command returned non-zero exit code: ${RC}"
       if [[ -n "${NOFAIL}" ]]; then
         RC=0
       fi
@@ -3732,39 +3732,81 @@ Usage: gee pr_check
 Checks presubmit tests.
 EOT
 
+function _parse_gh_pr_checks() {
+  # Usage: _parse_gh__pr_checks COUNTS BUILDS "${LINES[@]}"
+  # where:
+  #   COUNTS is the name of the associative array to populate with counts of each result type.
+  #   BUILDS is the name of the array to populate with the build identifiers of failed tests.
+  #   LINES is the output of `gh pr checks`, in array form.
+  #
+  # This function parses the output of "gh pr checks" and converts it to a more useful form.
+  #
+  # Example output of gh pr checks command:
+  #
+  #   $ gh pr checks | column -t
+  #   internal-bazel-presubmit             (cloud-build-290921)  fail      27m36s  https://console.cloud.google.com/cloud-build/builds/104e0ed9-6dd6-443d-8afd-1aa05c649fac?project=496137108493
+  #   linter-checks                        (cloud-build-290921)  pass      30s     https://console.cloud.google.com/cloud-build/builds/260f3b1a-b423-4ffc-a522-5eecc6480c28?project=496137108493
+  #   Pushes-preview-version-of-web-pages  (cloud-build-290921)  skipping  0       https://console.cloud.google.com/cloud-build/triggers/edit/c731b7a4-47a4-4ee2-8d5e-e0f699da7568?project=496137108493
+  #   external-dependencies                (cloud-build-290921)  skipping  0       https://console.cloud.google.com/cloud-build/triggers/edit/4298bbb8-4289-4d32-be9e-5d0d69fe27de?project=496137108493
+
+  local -n CHECK_COUNTS_REF="$1"  # reference to an associative array
+  shift
+  local -n FAILED_BUILDS_REF="$1"  # reference to an array
+  shift
+  local -a LINES=( "$@" )
+  CHECK_COUNTS_REF=( [fail]=0 )
+  FAILED_BUILDS_REF=()
+
+  local LINE
+  local -a FIELDS=()
+  for LINE in "${LINES[@]}"; do
+    read -r -a FIELDS <<< "${LINE}"
+    (( CHECK_COUNTS_REF["${FIELDS[2]}"]++ )) || /bin/true
+    if [[ "${FIELDS[2]}" == "fail" ]]; then
+      if [[ "${FIELDS[4]}" =~ builds/([a-f0-9-]*)\?project ]]; then
+        FAILED_BUILDS_REF+=( "${BASH_REMATCH[1]}" )
+      else
+        _warn "Could not parse build number from URL: ${FIELDS[4]}"
+      fi
+    fi
+  done
+  return 0
+}
+
 function gee__check_pr() { gee__pr_check "$@"; }
 function gee__pr_checks() { gee__pr_check "$@"; }
 function gee__pr_check() {
   _startup_checks "pr_check"
 
+  local PREV_CHECKS=""
   local -a CHECKS=()
   local -A CHECK_COUNTS=()
+  local -a FAILED_BUILDS=()
   local PENDING=1
   local CHECKS_FAILED=0
   local WAIT=0
+  printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" " ${GH} pr checks"  # show user what we're doing
   while [[ "${PENDING}" -ne 0 ]]; do
-    if _read_cmd CHECKS "${GH}" pr checks; then
-      _info "${CHECKS[@]}"
+    if VERBOSE=0 DONT_WARN=1 _read_cmd CHECKS "${GH}" pr checks; then
+      printf "%s\n" "${CHECKS[@]}" | column -t >&2
       # no failures, nothing pending.
       _info "All checks successful."
       CHECKS_FAILED=0
       PENDING=0
     else
-      _info "${CHECKS[@]}"
       # something went wrong.  Is a test pending, or did we get a failure?
-      CHECK_COUNTS=( [fail]=0 )
-      local LINE
-      for LINE in "${CHECKS[@]}"; do
-        local -a FIELDS=()
-        read -r -a FIELDS <<< "${LINE}"
-        (( CHECK_COUNTS["${FIELDS[2]}"]++ )) || /bin/true
-      done
-      local REPORT="gh pr checks:"
-      local KEY
-      for KEY in "${!CHECK_COUNTS[@]}"; do
-        REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
-      done
-      _info "${REPORT}"
+      _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
+      # Only inform the user when a result changes:
+      if [[ "${PREV_CHECKS}" != "{CHECKS[*]}"  ]]; then
+        printf "%s\n" "${CHECKS[@]}" | column -t >&2
+        PREV_CHECKS="${CHECKS[*]}"
+        local REPORT="gh pr checks:"
+        local KEY
+        for KEY in "${!CHECK_COUNTS[@]}"; do
+          REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
+        done
+        _info "${REPORT}"
+      fi
       CHECKS_FAILED="${CHECK_COUNTS["fail"]}"
       PENDING="${CHECK_COUNTS["pending"]}"
       if [[ "${PENDING}" -ne 0 ]]; then
@@ -3787,6 +3829,13 @@ function gee__pr_check() {
   done
   if (( CHECKS_FAILED > 0 )); then
     _warn "Some presubmit checks have failed."
+    if command -v gcloud &> /dev/null; then
+      local BUILD
+      for BUILD in "${FAILED_BUILDS[@]}"; do
+        _warn "Failed build: ${BUILD}"
+        gcloud builds log "${BUILD}" | grep -i FAILED
+      done
+    fi
   fi
   return "${CHECKS_FAILED}"
 }
