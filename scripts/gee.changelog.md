@@ -2,6 +2,12 @@
 
 ## Releases
 
+### 0.2.35
+
+* `gee pr_checks`: report the specific failing test that caused a presubmit check to fail. (#739)
+* `gee config`: turn on rerere.enabled for all users. (#738)
+* `gee pr_rerun`: re-trigger PR presubmit tests. (#737)
+
 ### 0.2.34
 
 * `gee`: always specify full email address when authenticating to gh (#731)
