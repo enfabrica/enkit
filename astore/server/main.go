@@ -263,8 +263,7 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 		ShowResult(w, r, "angry", "Nothing to see here", messageNothing, http.StatusUnauthorized)
 	})
 
-	server.Run(mux, grpcs)
-	return nil
+	return server.Run(mux, grpcs, nil)
 }
 
 func main() {

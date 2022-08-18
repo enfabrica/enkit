@@ -28,5 +28,5 @@ func main() {
 	ec := EchoController{}
 	echopb.RegisterEchoControllerServer(grpcs, ec)
 	h := cors.AllowAll().Handler(http.NewServeMux())
-	server.Run(h, grpcs)
+	server.Run(h, grpcs, nil)
 }

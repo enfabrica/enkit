@@ -1,17 +1,21 @@
 package mserver
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"time"
+	
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/machinist/rpc/machinist"
 	"github.com/enfabrica/enkit/machinist/state"
+
 	"github.com/miekg/dns"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"net"
-	"time"
 )
 
 type Controller struct {
@@ -179,6 +183,34 @@ func (en *Controller) ServeAllAndInfoRecords(killChannel chan struct{}, killChan
 			return
 		}
 	}
+}
+
+// scrapeConfigForHost returns a config object to instruct Prometheus to scrape
+// this host. See:
+// https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_sd_config.
+// Set a "hostname" label on all metrics from this host.
+func scrapeConfigForHost(hostname string, addrs []string) map[string]interface{} {
+	return map[string]interface{} {
+		"targets": addrs,
+		"labels": map[string]string{
+			"hostname": hostname,
+		},
+	}
+}
+
+// MetricsTargets is an HTTP handler that satisfies
+// https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_sd_config.
+func (en *Controller) MetricsTargets(w http.ResponseWriter, r *http.Request) {
+	scrapeConfig := []map[string]interface{}{}
+	for _, node := range en.Nodes() {
+		var ips []string
+		for _, ip := range node.Ips {
+			ips = append(ips, ip.String())
+		}
+		scrapeConfig = append(scrapeConfig, scrapeConfigForHost(node.Name, ips))
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(scrapeConfig)
 }
 
 // WriteState writes state to the specified state file every 2 seconds. Will not exit or error out unless no statefile is

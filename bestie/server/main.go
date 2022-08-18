@@ -131,5 +131,5 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
-	server.Run(mux, grpcs)
+	glog.Exit(server.Run(mux, grpcs, nil))
 }

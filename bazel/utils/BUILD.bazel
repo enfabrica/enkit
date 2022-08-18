@@ -292,25 +292,25 @@ remote_run_test(
     dests = [
         "non-existant-machine-1.corp",
     ],
-    target = ":hello-world",
     # Should be equivalent to no inputs specified.
     inputs = "@enkit//bazel/utils/remote:noop",
+    target = ":hello-world",
 )
 
 remote_run_test(
     name = "with-all-inputs",
+    alldeps = True,
     dests = [
         "non-existant-machine-1.corp",
     ],
-    alldeps = True,
     inputs = ":hello-world",
 )
 
 remote_run_test(
     name = "with-all-basic",
+    alldeps = True,
     dests = [
         "non-existant-machine-1.corp",
     ],
-    alldeps = True,
     target = ":wrapper",
 )

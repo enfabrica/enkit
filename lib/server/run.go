@@ -21,7 +21,7 @@ import (
 // ✔ grpc-web via websockets
 // ✔ HTTP 1.1
 // ✗ HTTP 2.0 (hijacked by grpc support)
-func Run(mux http.Handler, grpcs *grpc.Server) {
+func Run(mux http.Handler, grpcs *grpc.Server, lis net.Listener) error {
 	if mux == nil {
 		mux = http.NewServeMux()
 	}
@@ -30,19 +30,22 @@ func Run(mux http.Handler, grpcs *grpc.Server) {
 	}
 	reflection.Register(grpcs)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "6433"
-	}
+	if lis == nil {
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "6433"
+		}
 
-	log.Printf("Opening port %s - will be available at http://127.0.0.1:%s/", port, port)
-	listener, err := net.Listen("tcp", net.JoinHostPort("", port))
-	if err != nil {
-		log.Fatalf("failed to listen: %s", err)
+		log.Printf("Opening port %s - will be available at http://127.0.0.1:%s/", port, port)
+		var err error
+		lis, err = net.Listen("tcp", net.JoinHostPort("", port))
+		if err != nil {
+			log.Fatalf("failed to listen: %s", err)
+		}
 	}
 
 	// Create all listeners.
-	cml := cmux.New(listener)
+	cml := cmux.New(lis)
 	grpcl := cml.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
 	httpl := cml.Match(cmux.Any())
 
@@ -58,9 +61,7 @@ func Run(mux http.Handler, grpcs *grpc.Server) {
 	go grpcs.Serve(grpcl)
 	go https.Serve(httpl)
 
-	if err := cml.Serve(); err != nil {
-		log.Fatalf("Serve failed with error: %s", err)
-	}
+	return cml.Serve()
 }
 
 // CloudRun starts an HTTP and gRPC server handling requests for all on the same
