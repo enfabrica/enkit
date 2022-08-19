@@ -196,7 +196,6 @@ def _inputs_aspect(target, ctx):
 
         for atarget in attrvalue:
             if atarget and InputFiles in atarget:
-                print("FOUND INPUTS", atarget[InputFiles])
                 allfiles.extend(atarget[InputFiles].all.to_list())
 
     return [InputFiles(direct = depset(direct), all = depset(allfiles))]
