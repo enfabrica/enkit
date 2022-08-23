@@ -1,8 +1,12 @@
 package mserver
 
 import (
+	"net/http"
+
 	"github.com/enfabrica/enkit/machinist/config"
-	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
+	mpb "github.com/enfabrica/enkit/machinist/rpc/machinist"
+	"github.com/enfabrica/enkit/lib/server"
+
 	"google.golang.org/grpc"
 )
 
@@ -43,7 +47,7 @@ func (s *ControlPlane) MachinistCommon() *config.Common {
 
 func (s *ControlPlane) Run() error {
 	grpcs := grpc.NewServer()
-	machinist_rpc.RegisterControllerServer(grpcs, s.Controller)
+	mpb.RegisterControllerServer(grpcs, s.Controller)
 	s.runningServer = grpcs
 	go func() {
 		s.killChannel <- s.Controller.dnsServer.Run()
@@ -51,12 +55,15 @@ func (s *ControlPlane) Run() error {
 	s.Controller.Init()
 	go s.Controller.ServeAllAndInfoRecords(s.allRecordsKillChannel, s.allRecordsKillAckChannel)
 	go s.Controller.WriteState()
-	return grpcs.Serve(s.Listener)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/metrics_targets", s.Controller.MetricsTargets)
+
+	return server.Run(mux, grpcs, s.Listener)
 }
 
 func (s *ControlPlane) Stop() error {
 	s.allRecordsKillChannel <- struct{}{}
 	<-s.allRecordsKillAckChannel
-	s.runningServer.Stop()
 	return s.Controller.dnsServer.Stop()
 }

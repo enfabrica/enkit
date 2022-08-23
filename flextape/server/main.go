@@ -74,5 +74,5 @@ func main() {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/queue", fe)
 
-	server.Run(mux, grpcs)
+	exitIf(server.Run(mux, grpcs, nil))
 }
