@@ -12,7 +12,6 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/enfabrica/enkit/proxy/enfuse/fusecmd"
 	tcommands "github.com/enfabrica/enkit/proxy/ptunnel/commands"
 
 	"github.com/spf13/cobra"
@@ -68,8 +67,6 @@ func New() (*EnkitCommand, error) {
 		return nil, err
 	}
 	root.AddCommand(outputs.Command)
-
-	root.AddCommand(fusecmd.New())
 
 	return &EnkitCommand{
 		cmd:       root,
