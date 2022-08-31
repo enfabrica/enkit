@@ -431,10 +431,10 @@ func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ..
 		})
 
 		waiter := t.browser.Set(conn, ack, pos)
-		if err := waiter.Wait(); errors.Is(err, CloseRequested) {
-			return nil
+		if err := waiter.Wait(); !errors.Is(err, CloseRequested) {
+			return err
 		}
-		return err
+		return nil
 	})
 }
 
