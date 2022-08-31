@@ -530,6 +530,8 @@ outer:
 func (t *Tunnel) BrowserReceive() error {
 	ackbuffer := [4]byte{}
 	var conn *websocket.Conn
+
+retry:
 	for {
 		if err := t.ReceiveWin.WaitToFill(); err != nil {
 			t.browser.Close(fmt.Errorf("stopping browser read - writer returned: %w", err))
@@ -556,16 +558,18 @@ func (t *Tunnel) BrowserReceive() error {
 			continue
 		}
 
-		size, err := r.Read(ackbuffer[:])
-		if err != nil {
-			t.browser.Error(conn, fmt.Errorf("browser ack read failed with %w", err))
-			continue
+		// Retry the read until the ack (4 bytes, unit32) has been read fully.
+		for ackread := 0; ackread < len(ackbuffer); {
+			size, err := r.Read(ackbuffer[ackread:])
+			if err != nil {
+				if err != io.EOF {
+					t.browser.Error(conn, err)
+				}
+				continue retry
+			}
+			ackread += size
 		}
 
-		if size != len(ackbuffer) {
-			t.browser.Error(conn, fmt.Errorf("browser ack read returned less than 4 bytes when reading ack"))
-			continue
-		}
 		ack := binary.BigEndian.Uint32(ackbuffer[:])
 		if ack&0xff000000 != 0 {
 			t.browser.Error(conn, fmt.Errorf("browser read resulted in ack requesting connection reset (%08x)", ack))
@@ -579,7 +583,7 @@ func (t *Tunnel) BrowserReceive() error {
 				break
 			}
 
-			size, err = r.Read(buffer)
+			size, err := r.Read(buffer)
 			if err != nil {
 				if err != io.EOF {
 					t.browser.Error(conn, fmt.Errorf("browser read failed with %w", err))
