@@ -16,11 +16,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -406,9 +408,8 @@ func TestBandwidth(t *testing.T) {
 	var fe string
 	rng := rand.New(rand.NewSource(1))
 
-	accumulator := logger.NewAccumulator()
 	ep, err := New(rng, WithHttpStarter(Server(&sync.WaitGroup{}, &fe)), WithConfig(config),
-		WithLogging(accumulator), WithAuthenticator(Allow(cookie)),
+		WithLogging(logger.DefaultLogger{Printer: log.Printf}), WithAuthenticator(Allow(cookie)),
 		WithNasshpMods(nasshp.WithSymmetricOptions(token.WithGeneratedSymmetricKey(0))))
 	assert.NoError(t, err)
 	assert.NotNil(t, ep)
@@ -456,47 +457,55 @@ func TestBandwidth(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	const kTotalBytes = 10 * 1048576
+	const kTotalBytes = 1000 * 1048576
 	quote := "You never change things by fighting the existing reality. To change something, build a new model that makes the existing model obsolete.\n"
 
 	start := time.Now()
+
+	var total_write uint64
 	go func() {
 		defer wg.Done()
 
-		transferred := 0
-		for count := 0; transferred < kTotalBytes; count++ {
-			l, err := write.Write([]byte(fmt.Sprintf("%05d %s", count, quote)))
+		for count := 0; atomic.LoadUint64(&total_write) < kTotalBytes; count++ {
+			l, err := write.Write([]byte(fmt.Sprintf("%09d %s", count, quote)))
 			assert.NoError(t, err)
-			assert.Equal(t, len(quote)+6, l)
-			transferred += l
+			assert.Equal(t, len(quote)+10, l)
+			atomic.AddUint64(&total_write, uint64(l))
 		}
 		write.Close()
 	}()
 
+	var total_read uint64
 	go func() {
 		defer wg.Done()
 
 		reader := bufio.NewReader(read)
-		transferred := 0
-		for count := 0; transferred < kTotalBytes; count++ {
+		for count := 0; atomic.LoadUint64(&total_read) < kTotalBytes; count++ {
 			rback, err := reader.ReadString('\n')
 			if err == io.EOF {
 				break
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, fmt.Sprintf("%05d %s", count, quote), rback, "incorrect at offset %d - count %d", transferred, count)
-			transferred += len(rback)
+			assert.Equal(t, fmt.Sprintf("%09d %s", count, quote), rback, "incorrect at offset %d - count %d", atomic.LoadUint64(&total_read), count)
+			atomic.AddUint64(&total_read, uint64(len(rback)))
 		}
 		read.Close()
+	}()
+
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			log.Printf("Progress: read %d - write %d", atomic.LoadUint64(&total_read), atomic.LoadUint64(&total_write))
+		}
 	}()
 	wg.Wait()
 
 	done := time.Now()
 	logs := tlog.Retrieve()
-	// Should only log the fact that the library quit.
 	assert.True(t, len(logs) <= 0, "more than one log entry: %v", logs)
 
 	delta := done.Sub(start)
 	rate := (kTotalBytes / delta.Seconds()) / 1024
 	assert.True(t, rate >= 10, "total run time: %s - rate %f KBps", delta, rate)
+	log.Printf("total run time: %s - rate %f KBps", delta, rate)
 }
