@@ -144,6 +144,11 @@ func getAgent(t *testing.T) (*kcerts.SSHAgent, error) {
 	if err != nil {
 		return nil, err
 	}
+	old := kcerts.GetConfigDir
+	defer func() { kcerts.GetConfigDir = old }()
+	kcerts.GetConfigDir = func(app string, namespaces ...string) (string, error) {
+		return tmpDir + "/.config/enkit", nil
+	}
 
 	c := cache.Local{Root: tempdir}
 	l := logger.DefaultLogger{Printer: t.Logf}

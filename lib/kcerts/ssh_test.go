@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/enfabrica/enkit/lib/cache"
-	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
@@ -39,9 +38,6 @@ func TestAddSSHCAToClient(t *testing.T) {
 func TestStartSSHAgent(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", "en")
 	assert.Nil(t, err)
-	os.Mkdir(tmpDir+"/.config", 0700)
-	os.Mkdir(tmpDir+"/.config/enkit", 0700)
-
 	old := kcerts.GetConfigDir
 	defer func() { kcerts.GetConfigDir = old }()
 	kcerts.GetConfigDir = func(app string, namespaces ...string) (string, error) {
