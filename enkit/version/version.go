@@ -36,6 +36,7 @@ func (r *Root) Run(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("Built from branch: %s\n", stamp.GitBranch)
 	fmt.Printf("Builder: %s\n", stamp.BuildUser)
+	fmt.Printf("Built at: %s\n", stamp.BuildTimestamp())
 	fmt.Printf("Clean build: %v\n", stamp.IsClean())
 	fmt.Printf("Official build: %v\n", stamp.IsOfficial())
 	return nil

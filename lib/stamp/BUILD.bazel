@@ -11,5 +11,6 @@ go_library(
         "GitSha": "{STABLE_GIT_SHA}",
         "GitMasterSha": "{STABLE_GIT_MASTER_SHA}",
         "changedFiles": "{STABLE_GIT_CHANGES}",
+        "buildTimestamp": "{BUILD_TIMESTAMP}",
     },
 )

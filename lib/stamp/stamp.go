@@ -1,7 +1,9 @@
 package stamp
 
 import (
+	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -10,7 +12,8 @@ var (
 	GitSha       = "<unknown>"
 	GitMasterSha = "<unknown>"
 
-	changedFiles = "<unknown>"
+	changedFiles   = "<unknown>"
+	buildTimestamp = "<unknown>"
 )
 
 func IsClean() bool {
@@ -19,4 +22,12 @@ func IsClean() bool {
 
 func IsOfficial() bool {
 	return strings.TrimSpace(changedFiles) == "" && GitBranch == "master"
+}
+
+func BuildTimestamp() time.Time {
+	ts, err := strconv.ParseInt(buildTimestamp, 10, 64)
+	if err != nil {
+		return time.Time{}
+	}
+	return time.Unix(ts, 0)
 }
