@@ -29,9 +29,9 @@ const (
 )
 
 var (
-	sockR       = regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
-	pidR        = regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
-  GetConfigDir  = directory.GetConfigDir  // to enable mocking
+	sockR        = regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
+	pidR         = regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
+	GetConfigDir = directory.GetConfigDir // to enable mocking
 )
 
 // FindSSHDir will find the users ssh directory based on $HOME. If $HOME/.ssh does not exist
@@ -107,7 +107,7 @@ func (a SSHAgent) Valid() bool {
 }
 
 func (a *SSHAgent) GetStandardSocketPath() (string, error) {
-  path, err := GetConfigDir("enkit")
+	path, err := GetConfigDir("enkit")
 	if err != nil {
 		return "", err
 	}
@@ -122,11 +122,11 @@ func (a *SSHAgent) GetStandardSocketPath() (string, error) {
 
 	socket := filepath.Join(path, "agent")
 
-  return socket, nil
+	return socket, nil
 }
 
 func (a *SSHAgent) UseStandardPaths() error {
-  socket, err := a.GetStandardSocketPath()
+	socket, err := a.GetStandardSocketPath()
 	if err != nil {
 		return err
 	}
@@ -230,49 +230,49 @@ func (a SSHAgent) GetEnv() []string {
 // FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // It will pull, in order: from the env, from the cache, create new.
 func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
-  var err error
+	var err error
 	agent := FindSSHAgentFromEnv()
-  if agent != nil {
-    if !agent.Valid() {
-      logger.Warnf("%s from env isn't a valid ssh-agent socket.", agent.Socket)
-      agent = nil
-    }
-  }
+	if agent != nil {
+		if !agent.Valid() {
+			logger.Warnf("%s from env isn't a valid ssh-agent socket.", agent.Socket)
+			agent = nil
+		}
+	}
 
-  if agent == nil {
-    agent, err = FetchSSHAgentFromCache(store)
-    if err != nil {
-      logger.Warnf("%s", err)
-      agent = nil
-    }
-    if agent != nil {
-      if !agent.Valid() {
-        logger.Warnf("%s from cache isn't a valid ssh-agent socket.", agent.Socket)
-        agent = nil
-      }
-    }
-  }
+	if agent == nil {
+		agent, err = FetchSSHAgentFromCache(store)
+		if err != nil {
+			logger.Warnf("%s", err)
+			agent = nil
+		}
+		if agent != nil {
+			if !agent.Valid() {
+				logger.Warnf("%s from cache isn't a valid ssh-agent socket.", agent.Socket)
+				agent = nil
+			}
+		}
+	}
 
-  if agent == nil {
-    agent, err = CreateNewSSHAgent()
-    if err != nil {
-      logger.Warnf("%s", err)
-      return nil, err
-    }
-    if agent != nil {
-      if !agent.Valid() {
-        logger.Warnf("Newly created socket %s isn't a valid ssh-agent socket.", agent.Socket)
-        agent = nil
-      }
-    }
-  }
+	if agent == nil {
+		agent, err = CreateNewSSHAgent()
+		if err != nil {
+			logger.Warnf("%s", err)
+			return nil, err
+		}
+		if agent != nil {
+			if !agent.Valid() {
+				logger.Warnf("Newly created socket %s isn't a valid ssh-agent socket.", agent.Socket)
+				agent = nil
+			}
+		}
+	}
 
-  if agent == nil {
-    return nil, fmt.Errorf("Failed to find or create ssh-agent socket.")
-  }
+	if agent == nil {
+		return nil, fmt.Errorf("Failed to find or create ssh-agent socket.")
+	}
 
-  // If we have a valid agent, make sure the paths are right.
-  err = agent.UseStandardPaths()
+	// If we have a valid agent, make sure the paths are right.
+	err = agent.UseStandardPaths()
 	if err != nil {
 		return nil, err
 	}
@@ -305,18 +305,18 @@ func FindSSHAgentFromEnv() *SSHAgent {
 // CreateNewSSHAgent creates a new ssh agent. Its env variables have not been added to the shell. It does not maintain
 // its own connection.
 func CreateNewSSHAgent() (*SSHAgent, error) {
-  a := &SSHAgent{}
+	a := &SSHAgent{}
 
-  socket, err := a.GetStandardSocketPath()
+	socket, err := a.GetStandardSocketPath()
 	if err != nil {
 		return nil, err
 	}
 
-  os.Remove(socket)  // ignore errors
-  _, err = os.Stat(socket)
-  if err == nil {
-    return nil, fmt.Errorf("unable to delete existing socket: %s", socket)
-  }
+	os.Remove(socket) // ignore errors
+	_, err = os.Stat(socket)
+	if err == nil {
+		return nil, fmt.Errorf("unable to delete existing socket: %s", socket)
+	}
 
 	// TODO(jonathan): is it necessary or safer to delete the socket first?
 	cmd := exec.Command("ssh-agent", "-s", "-a", socket)
@@ -337,8 +337,8 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error processing ssh agent pid %s: %w", resultPID, err)
 	}
-  a.Socket = rawSock
-  a.PID = pid
+	a.Socket = rawSock
+	a.PID = pid
 	a.Close = func() {
 		_ = a.Kill()
 	}

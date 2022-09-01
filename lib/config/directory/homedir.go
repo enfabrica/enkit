@@ -24,7 +24,7 @@ func GetConfigDir(app string, namespaces ...string) (string, error) {
 		dir = filepath.Join(user.HomeDir, dir)
 	}
 
-  return dir, nil
+	return dir, nil
 }
 
 // OpenHomeDir returns a Loader capable of loading and creating config
@@ -33,10 +33,10 @@ func GetConfigDir(app string, namespaces ...string) (string, error) {
 //
 // On Linux systems, this generally means ~/.config/<app>/<namespace>/.
 func OpenHomeDir(app string, namespaces ...string) (*Directory, error) {
-  dir, err := GetConfigDir(app, namespaces...)
-  if err != nil {
-    return nil, err
-  }
+	dir, err := GetConfigDir(app, namespaces...)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Directory{path: dir}, nil
 }

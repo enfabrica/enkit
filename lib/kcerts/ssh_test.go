@@ -39,13 +39,13 @@ func TestAddSSHCAToClient(t *testing.T) {
 func TestStartSSHAgent(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", "en")
 	assert.Nil(t, err)
-  os.Mkdir(tmpDir + "/.config", 0700)
-  os.Mkdir(tmpDir + "/.config/enkit", 0700)
+	os.Mkdir(tmpDir+"/.config", 0700)
+	os.Mkdir(tmpDir+"/.config/enkit", 0700)
 
 	old := kcerts.GetConfigDir
 	defer func() { kcerts.GetConfigDir = old }()
 	kcerts.GetConfigDir = func(app string, namespaces ...string) (string, error) {
-    return tmpDir + "/.config/enkit", nil
+		return tmpDir + "/.config/enkit", nil
 	}
 
 	assert.Nil(t, os.Unsetenv("SSH_AUTH_SOCK"))
