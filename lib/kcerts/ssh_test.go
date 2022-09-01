@@ -1,9 +1,8 @@
-package kcerts_test
+package kcerts
 
 import (
 	"io/ioutil"
 	"os"
-	"os/user"
 	"testing"
 	"time"
 
@@ -38,19 +37,20 @@ func TestAddSSHCAToClient(t *testing.T) {
 
 // TODO(adam): test cache failures and edge cases
 func TestStartSSHAgent(t *testing.T) {
-	old := kcerts.UserCurrent
-	defer func() { kcerts.UserCurrent = old }()
-	kcerts.UserCurrent = func() (*user.User, error) {
-		u := &user.User{
-			Username: "testuser",
-		}
-		return u, nil
+	tmpDir, err := ioutil.TempDir("", "en")
+	assert.Nil(t, err)
+  os.Mkdir(tmpDir + "/.config", 0700)
+  os.Mkdir(tmpDir + "/.config/enkit", 0700)
+
+	old := kcerts.GetConfigDir
+	defer func() { kcerts.GetConfigDir = old }()
+	kcerts.GetConfigDir = func(app string, namespaces ...string) (string, error) {
+    return tmpDir + "/.config/enkit", nil
 	}
+
 	assert.Nil(t, os.Unsetenv("SSH_AUTH_SOCK"))
 	assert.Nil(t, os.Unsetenv("SSH_AGENT_PID"))
 
-	tmpDir, err := ioutil.TempDir("", "en")
-	assert.Nil(t, err)
 	localCache := &cache.Local{
 		Root: tmpDir,
 	}
