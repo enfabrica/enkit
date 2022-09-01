@@ -13,6 +13,10 @@ type Directory struct {
 	path string
 }
 
+// Returns the absolute path to a specific folder within the
+// system default configuration directory for the current user.
+//
+// On Linux systems, this generally means ~/.config/<app>/<namespace>
 func GetConfigDir(app string, namespaces ...string) (string, error) {
 	paths := append([]string{app}, namespaces...)
 	dir := configdir.LocalConfig(paths...)
