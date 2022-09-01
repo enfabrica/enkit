@@ -88,11 +88,19 @@ func TestStartSSHAgent(t *testing.T) {
 }
 
 func TestSSHAgent_Principals(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "en")
+	assert.Nil(t, err)
+	os.Mkdir(tmpDir+"/.config", 0700)
+	os.Mkdir(tmpDir+"/.config/enkit", 0700)
+	old := kcerts.GetConfigDir
+	defer func() { kcerts.GetConfigDir = old }()
+	kcerts.GetConfigDir = func(app string, namespaces ...string) (string, error) {
+		return tmpDir + "/.config/enkit", nil
+	}
+
 	sourcePubKey, sourcePrivKey, err := kcerts.GenerateED25519()
 	assert.Nil(t, err)
 	toBeSigned, toBeSignedPrivateKey, err := kcerts.GenerateED25519()
-	assert.Nil(t, err)
-	tmpDir, err := ioutil.TempDir("", "en")
 	assert.Nil(t, err)
 	// code of your test
 	principalList := []string{"foo", "bar", "baz"}
