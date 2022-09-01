@@ -2,6 +2,8 @@ package knetwork
 
 import (
 	"io"
+	"net"
+	"os"
 )
 
 // ReadOnlyCloser is any object that is capable of closing the
@@ -55,3 +57,22 @@ func (roca *writeOnlyCloseAdapter) Close() error {
 func WriteOnlyClose(woc WriteOnlyCloser) io.WriteCloser {
 	return &writeOnlyCloseAdapter{woc}
 }
+
+// FileListener can represent any net.Listener that also has a File() method.
+type FileListener interface {
+	net.Listener
+	File() (*os.File, error)
+}
+
+// CleanupListener deletes the file at `path` after delegating to the
+// wrapped FileListener's Close().
+type CleanupListener struct {
+	FileListener
+	Path string
+}
+
+func (c *CleanupListener) Close() error {
+	defer os.Remove(c.Path)
+	return c.FileListener.Close()
+}
+

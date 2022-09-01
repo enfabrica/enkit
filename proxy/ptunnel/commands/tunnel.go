@@ -1,30 +1,33 @@
 package commands
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/client"
-	"github.com/enfabrica/enkit/lib/goroutine"
-	"github.com/enfabrica/enkit/lib/kflags"
-	"github.com/enfabrica/enkit/lib/kflags/kcobra"
-	"github.com/enfabrica/enkit/lib/khttp"
-	"github.com/enfabrica/enkit/lib/khttp/krequest"
-	"github.com/enfabrica/enkit/lib/khttp/protocol"
-	"github.com/enfabrica/enkit/lib/knetwork"
-	"github.com/enfabrica/enkit/lib/retry"
-	"github.com/enfabrica/enkit/proxy/nasshp"
-	"github.com/enfabrica/enkit/proxy/ptunnel"
-	"github.com/spf13/cobra"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"os/user"
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/goroutine"
+	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/kflags/kcobra"
+	"github.com/enfabrica/enkit/lib/khttp/krequest"
+	"github.com/enfabrica/enkit/lib/khttp/protocol"
+	"github.com/enfabrica/enkit/lib/knetwork"
+	"github.com/enfabrica/enkit/lib/retry"
+	"github.com/enfabrica/enkit/proxy/nasshp"
+	"github.com/enfabrica/enkit/proxy/ptunnel"
+
+	"github.com/spf13/cobra"
 )
 
 type Tunnel struct {
@@ -48,6 +51,49 @@ func (r *Tunnel) Username() string {
 	return user.Username
 }
 
+// normalizeListenAddr parses the user-supplied local listen address to a
+// network and address that can be passed to net.Dial().
+//
+// If addr is empty, the returned values are also empty, and no error is
+// returned.
+func normalizeListenAddr(addr string) (string, string, error) {
+	if addr == "" {
+		return "", "", nil
+	}
+	// If the supplied address is just a number, interpret as a port on all IP
+	// addresses on the machine.
+	if _, err := strconv.ParseUint(addr, 10, 16); err == nil {
+		return "tcp", net.JoinHostPort("", addr), nil
+	}
+
+	// See if address is an IP:Port
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		// Empty host means addr is of the form ":1234"; use the wildcard host
+		if host == "" {
+			return "tcp", addr, nil
+		}
+
+		// Non-empty host means addr may of the form "ip:port" - see if the IP
+		// portion is a valid IP. If not, it could just be any string with a `:`
+		// in it.
+		if ip := net.ParseIP(host); ip != nil {
+			return "tcp", addr, nil
+		}
+	}
+
+	// Otherwise, assume addr is a full URL, and parse as such.
+	u, err := url.Parse(addr)
+	if err != nil {
+		return "", "", fmt.Errorf("not a valid URL: %w", err)
+	}
+	// Use first populated value in [.Host, .Path]
+	a := u.Host
+	if a == "" {
+		a = u.Path
+	}
+	return u.Scheme, a, nil
+}
+
 func (r *Tunnel) Run(cmd *cobra.Command, args []string) (err error) {
 	id := ""
 	defer func() {
@@ -68,6 +114,11 @@ func (r *Tunnel) Run(cmd *cobra.Command, args []string) (err error) {
 			err = kflags.NewStatusErrorf(10, "cannot open socket - %w", err)
 		}
 	}()
+
+	// Gracefully clean up tunnels on Ctrl-C and/or `kill <pid>` by passing
+	// this context around and waiting on ctx.Done()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
 	// Treat credentials as optional, move forward in any case.
 	_, cookie, _ := r.IdentityCookie()
@@ -112,20 +163,13 @@ func (r *Tunnel) Run(cmd *cobra.Command, args []string) (err error) {
 		host = args[0]
 	}
 
-	if r.Listen != "" {
-		rhost, rport, err := khttp.SplitHostPort(r.Listen)
-		if err != nil {
-			return kflags.NewUsageErrorf("The address '%s' you dared specify with -L or --listen does not look like 'host:port' - %w", r.Listen, err)
-		}
+	n, addr, err := normalizeListenAddr(r.Listen)
+	if err != nil {
+		return kflags.NewUsageErrorf("--listen/-L address does not look like one of: [port num, ip:port, unix:///path/to/socket]: %w", err)
+	}
 
-		// A port number must always be specified. If no port number, assume the host is the port.
-		// This allows to use "53" in place of ":53".
-		if rport == "" {
-			rport = rhost
-			rhost = ""
-		}
-
-		return r.OpenAndListen(purl, id, host, port, cookie, net.JoinHostPort(rhost, rport))
+	if addr != "" {
+		return r.OpenAndListen(ctx, purl, id, host, port, cookie, n, addr)
 	}
 
 	id = fmt.Sprintf("tunnel by %s on <stdin/stdout> with %s:%d through %s", r.Username(), host, port, proxy)
@@ -138,24 +182,70 @@ func (r *Tunnel) Run(cmd *cobra.Command, args []string) (err error) {
 	return err
 }
 
-func (r *Tunnel) RunListener(listener net.Listener, proxy *url.URL, host string, port uint16, cookie *http.Cookie, hostport string) error {
-	defer listener.Close()
-	for {
-		generic, err := listener.Accept()
-		if err != nil {
-			return err
-		}
-
-		conn := generic.(*net.TCPConn)
-		id := fmt.Sprintf("tunnel by %s on %s with %s:%d via %s from %s", r.Username(), hostport, host, port, proxy, conn.RemoteAddr())
-		r.Log.Infof("%s - accepted connection", id)
-		go func() {
-			defer conn.Close()
-			err := r.RunTunnel(proxy, id, host, port, cookie, knetwork.ReadOnlyClose(conn), knetwork.WriteOnlyClose(conn))
+// listenerChan returns a channel that contains connections that the Listener is
+// accepting. If the listener encounters an error, it will fill in `e` before
+// closing the returned channel and terminating.
+func listenerChan(l net.Listener, e *error) <-chan net.Conn {
+	c := make(chan net.Conn)
+	go func() {
+		defer close(c)
+		for {
+			conn, err := l.Accept()
 			if err != nil {
-				r.Log.Infof("%s - terminated with %v", id, err)
+				*e = err
+				return
+			} else {
+				c <- conn
 			}
-		}()
+		}
+	}()
+	return c
+}
+
+func (r *Tunnel) RunListener(ctx context.Context, listener net.Listener, proxy *url.URL, host string, port uint16, cookie *http.Cookie, localAddr string) error {
+	var listenerErr error
+	conns := listenerChan(listener, &listenerErr)
+	for {
+		select {
+		case <-ctx.Done():
+			listener.Close()
+			// Listener is closed; drain the channel until the listener loop
+			// closes it.
+			for len(conns) > 0 {
+				<-conns
+			}
+			// The listener will report an error from Accept because we closed
+			// it, but this is expected and can be ignored.
+			return nil
+
+		case conn, ok := <-conns:
+			// Listener loop closed the channel unexpectedly, so no more
+			// connections, and there is probably an error.
+			if !ok {
+				listener.Close()
+				return listenerErr
+			}
+
+			id := fmt.Sprintf("tunnel by %s on %s with %s:%d via %s from %s", r.Username(), localAddr, host, port, proxy, conn.RemoteAddr())
+			r.Log.Infof("%s - accepted connection", id)
+			go func() {
+				defer conn.Close()
+				err := r.RunTunnel(
+					proxy,
+					id,
+					host,
+					port,
+					cookie,
+					// Type assertions here are OK as long as connections are one of
+					// [*TCPConn, *UnixConn]
+					knetwork.ReadOnlyClose(conn.(knetwork.ReadOnlyCloser)),
+					knetwork.WriteOnlyClose(conn.(knetwork.WriteOnlyCloser)),
+				)
+				if err != nil {
+					r.Log.Infof("%s - terminated with %v", id, err)
+				}
+			}()
+		}
 	}
 }
 
@@ -182,13 +272,25 @@ func IsBackgroundFork() bool {
 //    as file descriptor number 3 (this is part of the ExtraFiles API in cmd.Exec).
 //    This hopefully will get us back in this function. A simple fork() would have been significantly
 //    simpler, but the behavior with threads is undefined and evil.
-func (r *Tunnel) OpenAndListen(proxy *url.URL, id, host string, port uint16, cookie *http.Cookie, hostport string) error {
-	var listener net.Listener
+func (r *Tunnel) OpenAndListen(ctx context.Context, proxy *url.URL, id, host string, port uint16, cookie *http.Cookie, network string, localAddr string) error {
+	var listener knetwork.FileListener
 	if r.Background && IsBackgroundFork() {
 		var err error
-		listener, err = net.FileListener(os.NewFile(3, "listener"))
+		fl, err := net.FileListener(os.NewFile(3, "listener"))
 		if err != nil {
 			return err
+		}
+		// Shouldn't ever fail, based on the implementation of `net.fileListener()`:
+		// https://cs.opensource.google/go/go/+/refs/tags/go1.19:src/net/file_unix.go;drc=d7a3fa120db1f8ab9e02ea8fccd0cc8699bf9382;l=89
+		// and the fact that the listener created below only supports protocols
+		// whose corresponding net.Listener concrete implementations are also
+		// knetwork.FileListeners.
+		listener = fl.(knetwork.FileListener)
+
+		// If using a UNIX domain socket - make sure the socket path is cleaned
+		// up on close.
+		if network == "unix" && localAddr != "" {
+			listener = &knetwork.CleanupListener{FileListener: listener, Path: localAddr}
 		}
 	} else {
 		err := r.CanConnect(proxy, id, host, port, cookie)
@@ -196,28 +298,57 @@ func (r *Tunnel) OpenAndListen(proxy *url.URL, id, host string, port uint16, coo
 			return err
 		}
 
-		addr, err := net.ResolveTCPAddr("tcp", hostport)
-		if err != nil {
-			return err
+		if localAddr == "" {
+			return fmt.Errorf("no local listen address set")
 		}
 
-		tlisten, err := net.ListenTCP("tcp", addr)
+		l, err := net.Listen(network, localAddr)
 		if err != nil {
-			return err
+			var errno syscall.Errno
+			if errors.As(err, &errno) && errno == syscall.EADDRINUSE && network == "unix" {
+				// EADDRINUSE could be:
+				// * a tunnel process is currently listening on this socket path
+				// * a previous tunnel process failed to clean up the socket path
+				
+				// If we can successfully dial the socket, return the original
+				// EADDRINUSE error, which will get translated to the specific
+				// returncode at a higher level.
+				if conn, dialErr := net.Dial(network, localAddr); dialErr == nil {
+					conn.Close()
+					return err
+				}
+
+				// Otherwise, this must be an orphaned socket file - provide
+				// instructions to manually delete.
+				return fmt.Errorf("socket path %q already exists. Delete this socket file manually if it was left in place by a crashing tunnel.", localAddr)
+			}
+			return fmt.Errorf("failed to listen on %s %s: %w", network, localAddr, err)
+		}
+
+		var ok bool
+		listener, ok = l.(knetwork.FileListener)
+		if !ok {
+			return fmt.Errorf("got net.Listener with no File() method: %T", l)
 		}
 		if r.Background {
-			err := r.RunBackground(tlisten)
-			tlisten.Close()
+			err := r.RunBackground(listener)
+			// If using a UNIX domain socket, calling Close() here unlinks it
+			// from the FS. The forked process will still be able to listen
+			// since it has an open FD, but no other process can dial it, which
+			// kinda defeats the purpose.
+			//
+			// Instead, let the forked process clean up when it is signalled.
+			if err != nil || network != "unix" {
+				listener.Close()
+			}
 			return err
 		}
-
-		listener = tlisten
 	}
 
-	return r.RunListener(listener, proxy, host, port, cookie, hostport)
+	return r.RunListener(ctx, listener, proxy, host, port, cookie, localAddr)
 }
 
-func (r *Tunnel) RunBackground(listener *net.TCPListener) error {
+func (r *Tunnel) RunBackground(listener knetwork.FileListener) error {
 	file, err := listener.File()
 	if err != nil {
 		return err
