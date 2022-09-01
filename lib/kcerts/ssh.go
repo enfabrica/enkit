@@ -258,13 +258,13 @@ func FindSSHAgentFromEnv() *SSHAgent {
 		return nil
 	}
 	pid := 0
-  if envSSHPID != "" {
-    var err error
-    pid, err = strconv.Atoi(envSSHPID)
-    if err != nil {
-      return nil
-    }
-  }
+	if envSSHPID != "" {
+		var err error
+		pid, err = strconv.Atoi(envSSHPID)
+		if err != nil {
+			return nil
+		}
+	}
 	return &SSHAgent{PID: pid, Socket: envSSHSock, Close: func() {}}
 }
 
