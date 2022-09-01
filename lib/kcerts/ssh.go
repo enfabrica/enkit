@@ -227,8 +227,18 @@ func (a SSHAgent) GetEnv() []string {
 	return env
 }
 
-// FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
-// It will pull, in order: from the env, from the cache, create new.
+// FindSSHAgent will attempt to find a working ssh-agent socket, or will create
+// a new ssh-agent if necessary.  If a valid socket is found that does not
+// correspond with the desired standard location, a symlink is created.
+//
+// In detail:
+//   1) tries the socket indicated by the SSH_AUTH_SOCK environment variable.
+//   2) otherwise, tries the socket indicated by the cache.
+//   3) otherwise, starts a new ssh-agent.
+//   4) ensures the valid socket has the right path, otherwise does a symlink.
+//
+// The final ssh-agent socket returned by FindSSHAgent is always
+// ~/.config/enkit/agent.
 func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
 	var err error
 	agent := FindSSHAgentFromEnv()
