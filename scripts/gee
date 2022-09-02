@@ -3725,11 +3725,13 @@ EndOfPrTemplate
 ##########################################################################
 
 _register_help "pr_check" \
-  "Checks whether presubmit tests for a PR." \
+  "Checks the status of presubmit tests for a PR." \
   "pr_checks" "check_pr" <<'EOT'
-Usage: gee pr_check
+Usage: gee pr_check [--wait]
 
-Checks presubmit tests.
+Returns the state of presubmit checks.  If the --wait option is provided,
+this command will continue to report check status until all pending
+checks have completed.
 EOT
 
 function _parse_gh_pr_checks() {
@@ -3778,13 +3780,17 @@ function gee__pr_checks() { gee__pr_check "$@"; }
 function gee__pr_check() {
   _startup_checks "pr_check"
 
+  local WAIT=0
+  if [[ " $* " == *" --wait "* ]]; then
+    WAIT=1
+  fi
+
   local PREV_CHECKS=""
   local -a CHECKS=()
   local -A CHECK_COUNTS=()
   local -a FAILED_BUILDS=()
   local PENDING=1
   local CHECKS_FAILED=0
-  local WAIT=0
   printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" " ${GH} pr checks"  # show user what we're doing
   while [[ "${PENDING}" -ne 0 ]]; do
     if VERBOSE=0 DONT_WARN=1 _read_cmd CHECKS "${GH}" pr checks; then
