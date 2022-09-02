@@ -3797,7 +3797,7 @@ function gee__pr_check() {
       # something went wrong.  Is a test pending, or did we get a failure?
       _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
       # Only inform the user when a result changes:
-      if [[ "${PREV_CHECKS}" != "{CHECKS[*]}"  ]]; then
+      if [[ "${PREV_CHECKS}" != "${CHECKS[*]}"  ]]; then
         printf "%s\n" "${CHECKS[@]}" | column -t >&2
         PREV_CHECKS="${CHECKS[*]}"
         local REPORT="gh pr checks:"
