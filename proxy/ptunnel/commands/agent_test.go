@@ -13,6 +13,14 @@ import (
 )
 
 func TestRunAgentCommand(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "en")
+	assert.NoError(t, err)
+	old := kcerts.GetConfigDir
+	defer func() { kcerts.GetConfigDir = old }()
+	kcerts.GetConfigDir = func(app string, namespaces ...string) (string, error) {
+		return tmpDir + "/.config/enkit", nil
+	}
+
 	bf := client.DefaultBaseFlags("", "testing")
 	testAgent, err := kcerts.PrepareSSHAgent(bf.Local, bf.Log)
 	assert.Nil(t, err)
@@ -25,6 +33,14 @@ func TestRunAgentCommand(t *testing.T) {
 }
 
 func TestRunAgentCommand_Error(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "en")
+	assert.NoError(t, err)
+	old := kcerts.GetConfigDir
+	defer func() { kcerts.GetConfigDir = old }()
+	kcerts.GetConfigDir = func(app string, namespaces ...string) (string, error) {
+		return tmpDir + "/.config/enkit", nil
+	}
+
 	bf := client.DefaultBaseFlags("", "testing")
 	c := commands.NewAgentCommand(bf)
 	c.SetArgs([]string{"run", "--", "exit", "6"})
