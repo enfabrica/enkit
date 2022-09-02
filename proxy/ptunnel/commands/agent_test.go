@@ -7,6 +7,7 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/proxy/ptunnel/commands"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	"os/exec"
 	"reflect"
 	"testing"
