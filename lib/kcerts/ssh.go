@@ -307,7 +307,6 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 		return nil, fmt.Errorf("unable to delete existing socket: %s", socket)
 	}
 
-	// TODO(jonathan): is it necessary or safer to delete the socket first?
 	cmd := exec.Command("ssh-agent", "-s")
 	out, err := cmd.Output()
 	if err != nil {
