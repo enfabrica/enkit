@@ -111,7 +111,7 @@ review.
 | <a href="#make_branch">`make_branch`</a> | Create a new child branch based on the current branch. |
 | <a href="#pack">`pack`</a> | Exports all unsubmitted changes in this branch as a pack file. |
 | <a href="#pr_checkout">`pr_checkout`</a> | Create a client containing someone's pull request. |
-| <a href="#pr_check">`pr_check`</a> | Checks whether presubmit tests for a PR. |
+| <a href="#pr_check">`pr_check`</a> | Checks the status of presubmit tests for a PR. |
 | <a href="#pr_edit">`pr_edit`</a> | Edit an existing pull request. |
 | <a href="#pr_list">`pr_list`</a> | List outstanding PRs |
 | <a href="#pr_make">`pr_make`</a> | Creates a pull request from this branch. |
@@ -479,9 +479,11 @@ Uses the same options as "gh pr create".
 
 Aliases: pr_checks check_pr
 
-Usage: `gee pr_check`
+Usage: `gee pr_check [--wait]`
 
-Checks presubmit tests.
+Returns the state of presubmit checks.  If the --wait option is provided,
+this command will continue to report check status until all pending
+checks have completed.
 
 ### pr_rerun
 
