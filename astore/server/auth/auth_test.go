@@ -147,7 +147,7 @@ func getAgent(t *testing.T) (*kcerts.SSHAgent, error) {
 	old := kcerts.GetConfigDir
 	defer func() { kcerts.GetConfigDir = old }()
 	kcerts.GetConfigDir = func(app string, namespaces ...string) (string, error) {
-		return tmpDir + "/.config/enkit", nil
+		return tempdir + "/.config/enkit", nil
 	}
 
 	c := cache.Local{Root: tempdir}
