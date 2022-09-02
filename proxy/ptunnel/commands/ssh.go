@@ -130,7 +130,7 @@ func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 	ecmd.Stderr = os.Stderr
 
 	if r.UseInternalAgent {
-		agent, err := kcerts.FindSSHAgent(r.BaseFlags.Local, r.Log)
+		agent, err := kcerts.PrepareSSHAgent(r.BaseFlags.Local, r.Log)
 		if err != nil {
 			return err
 		}

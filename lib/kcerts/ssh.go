@@ -223,58 +223,41 @@ func (a SSHAgent) GetEnv() []string {
 	return env
 }
 
-// FindSSHAgent will attempt to find a working ssh-agent socket, or will create
-// a new ssh-agent if necessary.  If a valid socket is found that does not
-// correspond with the desired standard location, a symlink is created.
-//
-// In detail:
-//   1) tries the socket indicated by the SSH_AUTH_SOCK environment variable.
-//   2) otherwise, tries the socket indicated by the cache.
-//   3) otherwise, starts a new ssh-agent.
-//   4) ensures the valid socket has the right path, otherwise does a symlink.
-//
-// The final ssh-agent socket returned by FindSSHAgent is always
-// ~/.config/enkit/agent.
-func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
-	var err error
+// FindOrCreateSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
+// It will pull, in order: from the env, from the cache, create new.
+func FindOrCreateSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
 	agent := FindSSHAgentFromEnv()
-	if agent != nil {
-		if !agent.Valid() {
-			logger.Warnf("%s from env isn't a valid ssh-agent socket.", agent.Socket)
-			agent = nil
-		}
+	if agent != nil && agent.Valid() {
+		return agent, nil
 	}
-
-	if agent == nil {
-		agent, err = FetchSSHAgentFromCache(store)
-		if err != nil {
-			logger.Warnf("%s", err)
-			agent = nil
-		}
-		if agent != nil {
-			if !agent.Valid() {
-				logger.Warnf("%s from cache isn't a valid ssh-agent socket.", agent.Socket)
-				agent = nil
-			}
-		}
+	agent, err := FetchSSHAgentFromCache(store)
+	if err != nil {
+		logger.Warnf("%s", err)
 	}
-
-	if agent == nil {
-		agent, err = CreateNewSSHAgent()
-		if err != nil {
-			logger.Warnf("%s", err)
-			return nil, err
-		}
-		if agent != nil {
-			if !agent.Valid() {
-				logger.Warnf("Newly created socket %s isn't a valid ssh-agent socket.", agent.Socket)
-				agent = nil
-			}
-		}
+	if agent != nil && agent.Valid() {
+		return agent, nil
 	}
+	newAgent, err := CreateNewSSHAgent()
+	if err != nil {
+		return nil, err
+	}
+	if newAgent != nil && newAgent.Valid() {
+		return newAgent, nil
+	}
+	return nil, fmt.Errorf("Could not find or start an ssh-agent")
+}
 
-	if agent == nil {
-		return nil, fmt.Errorf("Failed to find or create ssh-agent socket.")
+// PrepareSSHAgent ensures that we end up with a working ssh-agent,
+// either by discovering an existing ssh-agent or creating a new one.
+// It also ensures that we have an up-to-date symlink to that agent's
+// socket in the standard location.
+//
+// The final ssh-agent socket returned by PrepareSSHAgent is always
+// ~/.config/enkit/agent.
+func PrepareSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
+	agent, err := FindOrCreateSSHAgent(store, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	// If we have a valid agent, make sure the paths are right.
@@ -325,7 +308,7 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 	}
 
 	// TODO(jonathan): is it necessary or safer to delete the socket first?
-	cmd := exec.Command("ssh-agent", "-s", "-a", socket)
+	cmd := exec.Command("ssh-agent", "-s")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err

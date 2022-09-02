@@ -152,7 +152,7 @@ func getAgent(t *testing.T) (*kcerts.SSHAgent, error) {
 
 	c := cache.Local{Root: tempdir}
 	l := logger.DefaultLogger{Printer: t.Logf}
-	return kcerts.FindSSHAgent(&c, l)
+	return kcerts.PrepareSSHAgent(&c, l)
 }
 
 func TestCAAuthRSA(t *testing.T) {

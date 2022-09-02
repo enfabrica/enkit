@@ -28,7 +28,7 @@ func SaveCredentials(credentials *EnkitCredentials, store cache.Store, l logger.
 	if err != nil {
 		return err
 	}
-	agent, err := kcerts.FindSSHAgent(store, l)
+	agent, err := kcerts.PrepareSSHAgent(store, l)
 	if err != nil {
 		return err
 	}
