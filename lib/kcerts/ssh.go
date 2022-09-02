@@ -2,9 +2,9 @@ package kcerts
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io/ioutil"
+	mathrand "math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -17,6 +17,7 @@ import (
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/config/directory"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -112,16 +113,12 @@ func (a *SSHAgent) GetStandardSocketPath() (string, error) {
 		return "", err
 	}
 
-	// Securely make sure path exists and is permission 0700
+	// Securely make sure path exists and its permissions are 0700
 	if err := os.MkdirAll(path, 0700); err != nil && !os.IsExist(err) {
-		return "", err
-	}
-	if err := os.Chmod(path, 0700); err != nil {
 		return "", err
 	}
 
 	socket := filepath.Join(path, "agent")
-
 	return socket, nil
 }
 
@@ -136,24 +133,23 @@ func (a *SSHAgent) UseStandardPaths() error {
 		return nil
 	}
 
-	// Securely rename socket:
-	_, err = os.Stat(socket)
-	if err == nil {
-		err := os.Remove(socket)
-		if err != nil {
-			return err
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
+	// Create symlink with a random name
+	path, err := GetConfigDir("enkit")
+	if err != nil {
 		return err
 	}
-	if err := os.Chmod(a.Socket, 0700); err != nil {
+	tempname := fmt.Sprintf("%s/enkit.tmp%016x", path, mathrand.New(srand.Source).Uint64())
+	defer os.Remove(tempname)
+	if err := os.Symlink(a.Socket, tempname); err != nil {
 		return err
 	}
-	if err := os.Symlink(a.Socket, socket); err != nil {
+	// Rename symlink to the standard name
+	os.Remove(socket) // if it exists
+	if err := os.Rename(tempname, socket); err != nil {
 		return err
 	}
-	a.Socket = socket
 
+	a.Socket = socket
 	return nil
 }
 

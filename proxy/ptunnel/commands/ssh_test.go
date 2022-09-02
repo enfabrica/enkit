@@ -1,13 +1,13 @@
 package commands
 
 import (
-	"testing"
 	"io/ioutil"
+	"testing"
 
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/errdiff"
-	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/logger"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -69,7 +69,7 @@ var exampleProxyMap = []proxyMapping{
 }
 
 func TestSSHChooseProxy(t *testing.T) {
-  tmpDir, err := ioutil.TempDir("", "en")
+	tmpDir, err := ioutil.TempDir("", "en")
 	assert.Nil(t, err)
 	old := kcerts.GetConfigDir
 	defer func() { kcerts.GetConfigDir = old }()

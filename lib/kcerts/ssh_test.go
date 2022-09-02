@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/enfabrica/enkit/lib/cache"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
