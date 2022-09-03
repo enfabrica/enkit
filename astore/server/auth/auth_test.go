@@ -4,18 +4,18 @@ import (
 	"context"
 	"github.com/enfabrica/enkit/astore/common"
 	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/lib/cache"
+	"github.com/enfabrica/enkit/lib/kcerts"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/nacl/box"
-	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/lib/cache"
+	"golang.org/x/crypto/ssh"
+	"io/ioutil"
 	"math/rand"
 	"strings"
 	"testing"
-	"io/ioutil"
 	"time"
 )
 
@@ -144,10 +144,15 @@ func getAgent(t *testing.T) (*kcerts.SSHAgent, error) {
 	if err != nil {
 		return nil, err
 	}
+	old := kcerts.GetConfigDir
+	defer func() { kcerts.GetConfigDir = old }()
+	kcerts.GetConfigDir = func(app string, namespaces ...string) (string, error) {
+		return tempdir + "/.config/enkit", nil
+	}
 
 	c := cache.Local{Root: tempdir}
 	l := logger.DefaultLogger{Printer: t.Logf}
-	return kcerts.FindSSHAgent(&c, l)
+	return kcerts.PrepareSSHAgent(&c, l)
 }
 
 func TestCAAuthRSA(t *testing.T) {

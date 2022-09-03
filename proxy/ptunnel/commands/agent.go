@@ -27,7 +27,7 @@ func NewListAgentCommand(bf *client.BaseFlags) *cobra.Command {
 	c := &cobra.Command{
 		Use: "list",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			agent, err := kcerts.FindSSHAgent(bf.Local, bf.Log)
+			agent, err := kcerts.PrepareSSHAgent(bf.Local, bf.Log)
 			if err != nil {
 				return err
 			}
@@ -62,7 +62,7 @@ func NewRunAgentCommand(parent *cobra.Command, bf *client.BaseFlags) *cobra.Comm
 }
 
 func RunAgentCommand(command *cobra.Command, bf *client.BaseFlags, args []string) error {
-	agent, err := kcerts.FindSSHAgent(bf.Local, bf.Log)
+	agent, err := kcerts.PrepareSSHAgent(bf.Local, bf.Log)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func NewPrintCommand(parent *cobra.Command, bf *client.BaseFlags) *cobra.Command
 		Use:   "print",
 		Short: "Prints out the enkit agent as if you ran ssh-agent -s, compatible with bourne shells",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			agent, err := kcerts.FindSSHAgent(bf.Local, bf.Log)
+			agent, err := kcerts.PrepareSSHAgent(bf.Local, bf.Log)
 			if err != nil {
 				return err
 			}

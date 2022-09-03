@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
+	mathrand "math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -14,7 +15,9 @@ import (
 	"time"
 
 	"github.com/enfabrica/enkit/lib/cache"
+	"github.com/enfabrica/enkit/lib/config/directory"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -27,8 +30,9 @@ const (
 )
 
 var (
-	sockR = regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
-	pidR  = regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
+	sockR        = regexp.MustCompile("(?m)SSH_AUTH_SOCK=([^;\\n]*)")
+	pidR         = regexp.MustCompile("(?m)SSH_AGENT_PID=([0-9]*)")
+	GetConfigDir = directory.GetConfigDir // to enable mocking
 )
 
 // FindSSHDir will find the users ssh directory based on $HOME. If $HOME/.ssh does not exist
@@ -103,6 +107,52 @@ func (a SSHAgent) Valid() bool {
 	return err == nil
 }
 
+func (a *SSHAgent) GetStandardSocketPath() (string, error) {
+	path, err := GetConfigDir("enkit")
+	if err != nil {
+		return "", err
+	}
+
+	// Securely make sure path exists and its permissions are 0700
+	if err := os.MkdirAll(path, 0700); err != nil && !os.IsExist(err) {
+		return "", err
+	}
+
+	socket := filepath.Join(path, "agent")
+	return socket, nil
+}
+
+func (a *SSHAgent) UseStandardPaths() error {
+	socket, err := a.GetStandardSocketPath()
+	if err != nil {
+		return err
+	}
+
+	if a.Socket == socket {
+		// no standardization needed.
+		return nil
+	}
+
+	// Create symlink with a random name
+	path, err := GetConfigDir("enkit")
+	if err != nil {
+		return err
+	}
+	tempname := fmt.Sprintf("%s/enkit.tmp%016x", path, mathrand.New(srand.Source).Uint64())
+	defer os.Remove(tempname)
+	if err := os.Symlink(a.Socket, tempname); err != nil {
+		return err
+	}
+	// Rename symlink to the standard name
+	os.Remove(socket) // if it exists
+	if err := os.Rename(tempname, socket); err != nil {
+		return err
+	}
+
+	a.Socket = socket
+	return nil
+}
+
 type AgentCert struct {
 	MD5        string
 	Principals []string
@@ -173,9 +223,9 @@ func (a SSHAgent) GetEnv() []string {
 	return env
 }
 
-// FindSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
+// FindOrCreateSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // It will pull, in order: from the env, from the cache, create new.
-func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
+func FindOrCreateSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
 	agent := FindSSHAgentFromEnv()
 	if agent != nil && agent.Valid() {
 		return agent, nil
@@ -191,8 +241,33 @@ func FindSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("%s", WriteAgentToCache(store, newAgent))
-	return newAgent, nil
+	if newAgent != nil && newAgent.Valid() {
+		return newAgent, nil
+	}
+	return nil, fmt.Errorf("Could not find or start an ssh-agent")
+}
+
+// PrepareSSHAgent ensures that we end up with a working ssh-agent,
+// either by discovering an existing ssh-agent or creating a new one.
+// It also ensures that we have an up-to-date symlink to that agent's
+// socket in the standard location.
+//
+// The final ssh-agent socket returned by PrepareSSHAgent is always
+// ~/.config/enkit/agent.
+func PrepareSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
+	agent, err := FindOrCreateSSHAgent(store, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// If we have a valid agent, make sure the paths are right.
+	err = agent.UseStandardPaths()
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Infof("%s", WriteAgentToCache(store, agent))
+	return agent, nil
 }
 
 // FindSSHAgentFromEnv
@@ -219,6 +294,19 @@ func FindSSHAgentFromEnv() *SSHAgent {
 // CreateNewSSHAgent creates a new ssh agent. Its env variables have not been added to the shell. It does not maintain
 // its own connection.
 func CreateNewSSHAgent() (*SSHAgent, error) {
+	a := &SSHAgent{}
+
+	socket, err := a.GetStandardSocketPath()
+	if err != nil {
+		return nil, err
+	}
+
+	os.Remove(socket) // ignore errors
+	_, err = os.Stat(socket)
+	if err == nil {
+		return nil, fmt.Errorf("unable to delete existing socket: %s", socket)
+	}
+
 	cmd := exec.Command("ssh-agent", "-s")
 	out, err := cmd.Output()
 	if err != nil {
@@ -237,11 +325,12 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error processing ssh agent pid %s: %w", resultPID, err)
 	}
-	s := &SSHAgent{Socket: rawSock, PID: pid}
-	s.Close = func() {
-		_ = s.Kill()
+	a.Socket = rawSock
+	a.PID = pid
+	a.Close = func() {
+		_ = a.Kill()
 	}
-	return s, nil
+	return a, nil
 }
 
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters

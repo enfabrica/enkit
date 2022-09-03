@@ -13,20 +13,33 @@ type Directory struct {
 	path string
 }
 
+// Returns the absolute path to a specific folder within the
+// system default configuration directory for the current user.
+//
+// On Linux systems, this generally means ~/.config/<app>/<namespace>
+func GetConfigDir(app string, namespaces ...string) (string, error) {
+	paths := append([]string{app}, namespaces...)
+	dir := configdir.LocalConfig(paths...)
+	if !filepath.IsAbs(dir) {
+		user, err := user.Current()
+		if err != nil {
+			return "", err
+		}
+		dir = filepath.Join(user.HomeDir, dir)
+	}
+
+	return dir, nil
+}
+
 // OpenHomeDir returns a Loader capable of loading and creating config
 // files in the system default configuration directory for the current
 // user.
 //
 // On Linux systems, this generally means ~/.config/<app>/<namespace>/.
 func OpenHomeDir(app string, namespaces ...string) (*Directory, error) {
-	paths := append([]string{app}, namespaces...)
-	dir := configdir.LocalConfig(paths...)
-	if !filepath.IsAbs(dir) {
-		user, err := user.Current()
-		if err != nil {
-			return nil, err
-		}
-		dir = filepath.Join(user.HomeDir, dir)
+	dir, err := GetConfigDir(app, namespaces...)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Directory{path: dir}, nil
