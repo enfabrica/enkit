@@ -20,6 +20,7 @@ go_binary(
     goarch = "amd64",
     goos = "linux",
     static = "on",
+    cgo = True,
     visibility = ["//visibility:public"],
 )
 
