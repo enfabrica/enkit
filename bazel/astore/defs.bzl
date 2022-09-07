@@ -40,7 +40,12 @@ def _astore_upload(ctx):
 astore_upload = rule(
     implementation = _astore_upload,
     attrs = {
-        "targets": attr.label_list(allow_files = True, providers = [DefaultInfo], mandatory = True),
+        "targets": attr.label_list(
+            allow_files = True,
+            providers = [DefaultInfo],
+            mandatory = True,
+            cfg = "target",
+        ),
         "dir": attr.string(
             doc = "All the targets outputs will be uploaded as different files in an astore directory.",
         ),
@@ -96,8 +101,8 @@ def _astore_download(ctx):
         },
     )
     return [DefaultInfo(
-       files = depset([output]),
-       runfiles = ctx.runfiles([output]),
+        files = depset([output]),
+        runfiles = ctx.runfiles([output]),
     )]
 
 astore_download = rule(
@@ -112,7 +117,7 @@ astore_download = rule(
         ),
         "timeout": attr.int(
             doc = "Timeout for astore download operation, in seconds.",
-            default = 10*60,
+            default = 10 * 60,
         ),
         "_astore_client": attr.label(
             default = Label("//astore/client:astore"),
