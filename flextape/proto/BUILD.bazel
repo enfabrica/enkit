@@ -9,6 +9,7 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 proto_library(
     name = "flextape_proto",
     srcs = ["flextape.proto"],
+    visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:timestamp_proto",
     ],
