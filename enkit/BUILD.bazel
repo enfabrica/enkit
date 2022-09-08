@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("//bazel/astore:defs.bzl", "astore_upload")
 
 go_library(
     name = "go_default_library",
@@ -19,8 +20,10 @@ go_binary(
     embed = [":go_default_library"],
     goarch = "amd64",
     goos = "linux",
-    static = "on",
-    cgo = True,
+    # Force cgo DNS resolver to be used, which is required in certain
+    # environments (those using NIS to resolve addresses, for one). Also disable
+    # `static`, since this causes segfaults when forcing cgo to be enabled.
+    pure = "off",
     visibility = ["//visibility:public"],
 )
 
@@ -41,8 +44,6 @@ go_binary(
     static = "on",
     visibility = ["//visibility:public"],
 )
-
-load("//bazel/astore:defs.bzl", "astore_upload")
 
 astore_upload(
     name = "deploy",
