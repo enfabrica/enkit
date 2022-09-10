@@ -20,10 +20,10 @@ def stage_1():
     maybe(
         name = "io_bazel_rules_go",
         repo_rule = http_archive,
-        sha256 = "d6b2513456fe2229811da7eb67a444be7785f5323c6708b38d851d2b51e54d83",
+        sha256 = "01d708d4e17ce3f44323a61bdefbf964c6dcb6922417a98e5176942cc2796d62",
+        strip_prefix = "rules_go-cf20167d606377a36aadc98f9ede16687e3c716a",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.30.0/rules_go-v0.30.0.zip",
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.30.0/rules_go-v0.30.0.zip",
+            "https://github.com/bazelbuild/rules_go/archive/cf20167d606377a36aadc98f9ede16687e3c716a.tar.gz",
         ],
     )
 
@@ -180,6 +180,10 @@ def stage_1():
         sha256 = "27d53c1d646fc9537a70427ad7b034734d08a9c38924cc6357cc973fed300820",
         strip_prefix = "rules_docker-0.24.0",
         urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.24.0/rules_docker-v0.24.0.tar.gz"],
+        patches = [
+            "@enkit//bazel/dependencies:rules_docker_no_init_go.patch",
+        ],
+        patch_args = ["-p1"],
     )
 
     maybe(
