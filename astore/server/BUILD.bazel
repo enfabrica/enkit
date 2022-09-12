@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_cross_binary", "go_library")
 load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
 load("//bazel/appengine:defs.bzl", "go_appengine_deploy")
 
@@ -40,6 +40,15 @@ go_binary(
     name = "server",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
+)
+
+# This target exists to ensure that the server binary builds with the version of
+# the Go SDK that supports AppEngine, which guards against e.g. third-party
+# dependencies that have newer Go SDK requirements.
+go_cross_binary(
+    name = "server_appengine",
+    sdk_version = "1.16",
+    target = ":server",
 )
 
 # Generate a .go file containing all the credentials supplied during the build.

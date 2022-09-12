@@ -1,0 +1,19 @@
+diff --git a/repositories/go_repositories.bzl b/repositories/go_repositories.bzl
+index e6998c3..5c5b122 100644
+--- a/repositories/go_repositories.bzl
++++ b/repositories/go_repositories.bzl
+@@ -36,9 +36,11 @@ def go_deps(go_repository_default_config = "@//:WORKSPACE"):
+     Args:
+         go_repository_default_config (str, optional): A file used to determine the root of the workspace.
+     """
+-    go_rules_dependencies()
+-    go_register_toolchains()
+-    gazelle_dependencies(go_repository_default_config = go_repository_default_config)
++    # ENFABRICA PATCH: No need to call these unconditionally, as we do so
++    # before initializing rules_docker.
++    #go_rules_dependencies()
++    #go_register_toolchains()
++    #gazelle_dependencies(go_repository_default_config = go_repository_default_config)
+     excludes = native.existing_rules().keys()
+     if "com_github_google_go_containerregistry" not in excludes:
+         go_repository(

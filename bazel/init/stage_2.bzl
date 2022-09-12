@@ -17,8 +17,8 @@ load("@io_bazel_rules_docker//python:image.bzl", rules_docker_python_dependencie
 load("@io_bazel_rules_docker//repositories:deps.bzl", rules_docker_container_dependencies = "deps")
 load("@io_bazel_rules_docker//repositories:repositories.bzl", rules_docker_dependencies = "repositories")
 load("@io_bazel_rules_go//extras:embed_data_deps.bzl", "go_embed_data_dependencies")
+load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk", "go_register_toolchains", "go_rules_dependencies")
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 load(
@@ -55,10 +55,32 @@ def stage_2():
     )
 
     go_repositories()
+
+    # SDKs that can be used to build Go code. We need:
+    # * the most recent version we can support
+    # * the most recent version AppEngine can support (currently 1.16)
+    #
+    # The version of the Go SDK used during the build is the same for all
+    # binaries/libraries, unless a `go_cross_binary` rule is used to specify a
+    # specific version.
+    #
+    # The version is controlled by the
+    # `--@io_bazel_rules_go//go/toolchain:sdk_version=` flag to bazel. The
+    # default seems to be whichever go_download_sdk rule is listed first here.
+    go_download_sdk(
+        name = "go_sdk_1_19",
+        version = "1.19.1",
+    )
+    go_download_sdk(
+        name = "go_sdk_1_16",
+        version = "1.16.14",
+    )
+
     go_rules_dependencies()
-    go_register_toolchains(version = "1.16")
+    go_register_toolchains()
+
+    gazelle_dependencies(go_sdk = "go_sdk_1_19")
     go_embed_data_dependencies()
-    gazelle_dependencies()
 
     rules_proto_dependencies()
     rules_proto_toolchains()
