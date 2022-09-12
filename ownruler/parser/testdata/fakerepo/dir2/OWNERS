@@ -1,0 +1,4 @@
+per-file *.py=@goo
+set noparent
+per-file BUILD=@gaa
+@denny

@@ -1,0 +1,38 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "gerrit.go",
+        "proto.go",
+        "scan.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/ownruler/parser",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/multierror:go_default_library",
+        "//ownruler/proto:owners-proto-lib",
+        "@com_github_go_git_go_billy_v5//:go_default_library",
+        "@com_github_go_git_go_billy_v5//osfs:go_default_library",  # keep
+        "@com_github_go_git_go_billy_v5//util:go_default_library",  # keep
+        "@com_github_go_git_go_git//plumbing/format/gitignore:go_default_library",
+        "@org_golang_google_protobuf//encoding/prototext:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "gerrit_test.go",
+        "proto_test.go",
+        "scan_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    embed = [":go_default_library"],
+    deps = [
+        "//lib/testutil:go_default_library",
+        "//ownruler/proto:owners-proto-lib",
+        "@com_github_go_git_go_billy_v5//:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
+)
