@@ -318,11 +318,18 @@ func (r *Tunnel) OpenAndListen(ctx context.Context, proxy *url.URL, id, host str
 					return err
 				}
 
-				// Otherwise, this must be an orphaned socket file - provide
-				// instructions to manually delete.
-				return fmt.Errorf("socket path %q already exists. Delete this socket file manually if it was left in place by a crashing tunnel.", localAddr)
+				// Otherwise, this must be an orphaned socket file - delete the file and
+				// try again
+				if err := os.Remove(localAddr); err != nil {
+					return fmt.Errorf("failed to clean up orphaned Unix socket %q: %w", localAddr, err)
+				}
+				l, err = net.Listen(network, localAddr)
+				if err != nil {
+					return fmt.Errorf("while re-listening after cleaning up socket %q: %w", localAddr, err)
+				}
+			} else {
+				return fmt.Errorf("failed to listen on %s %s: %w", network, localAddr, err)
 			}
-			return fmt.Errorf("failed to listen on %s %s: %w", network, localAddr, err)
 		}
 
 		var ok bool
