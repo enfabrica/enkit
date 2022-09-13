@@ -23,6 +23,7 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, l
 		return nil, nil, err
 	}
 	excludeTags := config.GetExcludeTags()
+
 	// Open the bazel workspaces, using a temporary output_base. Since the
 	// temporary worktrees created above will have a different path on every
 	// invocation, by default bazel will create a new cache directory for them,
@@ -54,64 +55,8 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, l
 	}
 	defer os.RemoveAll(endOutputBase)
 
-	// Joining the new worktree roots to the relative path portion handles the
-	// case where bazel workspaces are not in the top directory of the git
-	// worktree.
-	startWorkspace, err := OpenWorkspace(
-		start,
-		WithOutputBase(startOutputBase),
-		WithLogging(log),
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
-	}
-	endWorkspace, err := OpenWorkspace(
-		end,
-		WithOutputBase(endOutputBase),
-		WithLogging(log),
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
-	}
+	startResults, startQueryErr, endResults, endQueryErr, errs := ParallelQuery(start, end, startOutputBase, endOutputBase, log)
 
-	workspaceLogStart, err := WithTempWorkspaceRulesLog()
-	if err != nil {
-		return nil, nil, fmt.Errorf("start workspace: %w", err)
-	}
-	workspaceLogEnd, err := WithTempWorkspaceRulesLog()
-	if err != nil {
-		return nil, nil, fmt.Errorf("end workspace: %w", err)
-	}
-
-	// Get all target info for both VCS time points.
-	var startResults *QueryResult
-	var endResults *QueryResult
-	var startQueryErr error
-	var endQueryErr error
-	errs := goroutine.WaitAll(
-		func() error {
-			log.Infof("Querying dependency graph for 'before' workspace...")
-			var err error
-			startResults, err = startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
-			if err != nil {
-				startQueryErr = fmt.Errorf("failed to query deps for start point: %w", err)
-				return startQueryErr
-			}
-			log.Infof("Queried info for %d targets from 'before' workspace", len(startResults.Targets))
-			return nil
-		},
-		func() error {
-			log.Infof("Querying dependency graph for 'after' workspace...")
-			var err error
-			endResults, err = endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
-			if err != nil {
-				endQueryErr = fmt.Errorf("failed to query deps for end point: %w", err)
-				return endQueryErr
-			}
-			log.Infof("Queried info for %d targets from 'after' workspace", len(endResults.Targets))
-			return nil
-		},
-	)
 	if errs != nil {
 		if startQueryErr != nil && endQueryErr == nil {
 			// We are calculating targets over a change that fixes the build graph
@@ -169,6 +114,68 @@ skipTarget:
 	log.Infof("Found %d affected rule targets and %d affected tests", len(changedRules), len(changedTests))
 
 	return changedRules, changedTests, nil
+}
+
+func ParallelQuery(start, end, startOutputBase, endOutputBase string, log logger.Logger) (*QueryResult, error, *QueryResult, error, error) {
+	// Joining the new worktree roots to the relative path portion handles the
+	// case where bazel workspaces are not in the top directory of the git
+	// worktree.
+	startWorkspace, err := OpenWorkspace(
+		start,
+		WithOutputBase(startOutputBase),
+		WithLogging(log),
+	)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
+	}
+	endWorkspace, err := OpenWorkspace(
+		end,
+		WithOutputBase(endOutputBase),
+		WithLogging(log),
+	)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
+	}
+
+	workspaceLogStart, err := WithTempWorkspaceRulesLog()
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("start workspace: %w", err)
+	}
+	workspaceLogEnd, err := WithTempWorkspaceRulesLog()
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("end workspace: %w", err)
+	}
+
+	// Get all target info for both VCS time points.
+	var startResults *QueryResult
+	var endResults *QueryResult
+	var startQueryErr error
+	var endQueryErr error
+	errs := goroutine.WaitAll(
+		func() error {
+			log.Infof("Querying dependency graph for 'before' workspace...")
+			var err error
+			startResults, err = startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
+			if err != nil {
+				startQueryErr = fmt.Errorf("failed to query deps for start point: %w", err)
+				return startQueryErr
+			}
+			log.Infof("Queried info for %d targets from 'before' workspace", len(startResults.Targets))
+			return nil
+		},
+		func() error {
+			log.Infof("Querying dependency graph for 'after' workspace...")
+			var err error
+			endResults, err = endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
+			if err != nil {
+				endQueryErr = fmt.Errorf("failed to query deps for end point: %w", err)
+				return endQueryErr
+			}
+			log.Infof("Queried info for %d targets from 'after' workspace", len(endResults.Targets))
+			return nil
+		},
+	)
+	return startResults, startQueryErr, endResults, endQueryErr, errs
 }
 
 func calculateAffected(startResults, endResults *QueryResult) ([]string, error) {
