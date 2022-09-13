@@ -80,6 +80,7 @@ type AffectedTargetsList struct {
 
 	AffectedTargetsFile string
 	AffectedTestsFile   string
+	Parallel bool
 }
 
 func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
@@ -98,6 +99,8 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 		parent: parent,
 	}
 	command.Command.RunE = command.Run
+
+	command.Flags().BoolVar(&command.Parallel, "parallel", true, "If set, the bazel query is run in parallel")
 	command.Flags().StringVar(&command.AffectedTargetsFile, "affected_targets_file", "", "If set, the list of affected targets will be dumped to this file path")
 	command.Flags().StringVar(&command.AffectedTestsFile, "affected_tests_file", "", "If set, the list of affected tests will be dumped to this file path")
 	return command
@@ -153,7 +156,12 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	c.root.BaseFlags.Log.Infof("Checked out %q to %q", c.parent.End, endTreePath)
 	endWS := filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
 
-	rules, tests, err := bazel.GetAffectedTargets(startWS, endWS, config, c.root.BaseFlags.Log)
+	mode := bazel.ParallelQuery
+	if (!c.Parallel) {
+		mode = bazel.SerialQuery
+	}
+
+	rules, tests, err := bazel.GetAffectedTargets(startWS, endWS, config, mode, c.root.BaseFlags.Log)
 	if err != nil {
 		return fmt.Errorf("failed to calculate affected targets: %w", err)
 	}
