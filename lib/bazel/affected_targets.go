@@ -14,6 +14,25 @@ import (
 	"github.com/enfabrica/enkit/lib/multierror"
 )
 
+type SourceOptions struct {
+	// Path of the git repository containing the start/end code.
+	RepoPath string
+	// Path of the --output_base to use with bazel.
+	// If empty, a default path will be used depending on the GetMode used.
+	OutputBase string
+}
+
+type GetModeOptions struct {
+	// The starting point to compute the diff.
+	Start SourceOptions
+	// The end point to compute the diff.
+	End SourceOptions
+
+	// Bazel query to use to find all the targets. Must be set.
+	// A good default is "deps(//...)"
+	Query string
+}
+
 // The result of running a GetMode function below.
 type GetResult struct {
 	StartQueryResult *QueryResult
@@ -24,11 +43,13 @@ type GetResult struct {
 
 // GetMode is a function to run bazel queries.
 //
-// As paramters, it takes a start git client and output base, an end git client and output base,
-// a logging object, and returns the result of the queries.
-type GetMode func(start, end, startOutputBase, endOutputBase string, log logger.Logger) (*GetResult, error)
+// As paramters, it takes a temporary directory to use for the work,
+// and a GetModeOptions object.
+//
+// There are currently two implementations of GetMode: ParallelQuery, and SerialQuery.
+type GetMode func(options GetModeOptions, log logger.Logger) (*GetResult, error)
 
-func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, mode GetMode, log logger.Logger) ( /* changedRules */ []*Target /* changedTests */, []*Target, error) {
+func GetAffectedTargets(config *ppb.PresubmitConfig, mode GetMode, opts GetModeOptions, log logger.Logger) ( /* changedRules */ []*Target /* changedTests */, []*Target, error) {
 	includePatterns, err := NewPatternSet(config.GetIncludePatterns())
 	if err != nil {
 		return nil, nil, err
@@ -58,19 +79,24 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, m
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to make root cache dir: %w", err)
 	}
-	startOutputBase, err := ioutil.TempDir(cacheDir, "output_base_*")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create temporary output_base: %w", err)
+	if opts.Start.OutputBase == "" {
+		opts.Start.OutputBase, err = ioutil.TempDir(cacheDir, "output_base_*")
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create temporary output_base: %w", err)
+		}
+		defer os.RemoveAll(opts.Start.OutputBase)
 	}
-	defer os.RemoveAll(startOutputBase)
 
-	endOutputBase, err := ioutil.TempDir(cacheDir, "output_base_*")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create temporary output_base: %w", err)
+	if opts.End.OutputBase == "" {
+		opts.End.OutputBase, err = ioutil.TempDir(cacheDir, "output_base_*")
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create temporary output_base: %w", err)
+		}
+		defer os.RemoveAll(opts.End.OutputBase)
 	}
-	defer os.RemoveAll(endOutputBase)
 
-	result, errs := mode(start, end, startOutputBase, endOutputBase, log)
+	result, errs := mode(opts, log)
+
 	if errs != nil {
 		if result.StartQueryError != nil && result.EndQueryError == nil {
 			// We are calculating targets over a change that fixes the build graph
@@ -130,18 +156,18 @@ skipTarget:
 	return changedRules, changedTests, nil
 }
 
-func SerialQuery(start, end string, startOutputBase, endOutputBase string, log logger.Logger) (*GetResult, error) {
+func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 	startWorkspace, err := OpenWorkspace(
-		start,
-		WithOutputBase(startOutputBase),
+		opt.Start.RepoPath,
+		WithOutputBase(opt.Start.OutputBase),
 		WithLogging(log),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 	endWorkspace, err := OpenWorkspace(
-		end,
-		WithOutputBase(endOutputBase),
+		opt.End.RepoPath,
+		WithOutputBase(opt.End.OutputBase),
 		WithLogging(log),
 	)
 	if err != nil {
@@ -160,7 +186,7 @@ func SerialQuery(start, end string, startOutputBase, endOutputBase string, log l
         var errs []error
 	var result GetResult
 	log.Infof("Querying dependency graph for 'before' workspace...")
-	result.StartQueryResult, err = startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
+	result.StartQueryResult, err = startWorkspace.Query(opt.Query, WithUnorderedOutput(), workspaceLogStart)
 	if err != nil {
 		result.StartQueryError = fmt.Errorf("failed to query deps for start point: %w", err)
 		errs = append(errs, result.StartQueryError)
@@ -169,7 +195,7 @@ func SerialQuery(start, end string, startOutputBase, endOutputBase string, log l
 	}
 
 	log.Infof("Querying dependency graph for 'after' workspace...")
-	result.EndQueryResult, err = endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
+	result.EndQueryResult, err = endWorkspace.Query(opt.Query, WithUnorderedOutput(), workspaceLogEnd)
 	if err != nil {
 		result.EndQueryError = fmt.Errorf("failed to query deps for end point: %w", err)
 		errs = append(errs, result.EndQueryError)
@@ -180,21 +206,21 @@ func SerialQuery(start, end string, startOutputBase, endOutputBase string, log l
 	return &result, multierror.New(errs)
 }
 
-func ParallelQuery(start, end, startOutputBase, endOutputBase string, log logger.Logger) (*GetResult, error) {
+func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 	// Joining the new worktree roots to the relative path portion handles the
 	// case where bazel workspaces are not in the top directory of the git
 	// worktree.
 	startWorkspace, err := OpenWorkspace(
-		start,
-		WithOutputBase(startOutputBase),
+		opt.Start.RepoPath,
+		WithOutputBase(opt.Start.OutputBase),
 		WithLogging(log),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 	endWorkspace, err := OpenWorkspace(
-		end,
-		WithOutputBase(endOutputBase),
+		opt.End.RepoPath,
+		WithOutputBase(opt.End.OutputBase),
 		WithLogging(log),
 	)
 	if err != nil {
@@ -216,7 +242,7 @@ func ParallelQuery(start, end, startOutputBase, endOutputBase string, log logger
 		func() error {
 			log.Infof("Querying dependency graph for 'before' workspace...")
 			var err error
-			result.StartQueryResult, err = startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
+			result.StartQueryResult, err = startWorkspace.Query(opt.Query, WithUnorderedOutput(), workspaceLogStart)
 			if err != nil {
 				result.StartQueryError = fmt.Errorf("failed to query deps for start point: %w", err)
 				return result.StartQueryError
@@ -227,7 +253,7 @@ func ParallelQuery(start, end, startOutputBase, endOutputBase string, log logger
 		func() error {
 			log.Infof("Querying dependency graph for 'after' workspace...")
 			var err error
-			result.EndQueryResult, err = endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
+			result.EndQueryResult, err = endWorkspace.Query(opt.Query, WithUnorderedOutput(), workspaceLogEnd)
 			if err != nil {
 				result.EndQueryError = fmt.Errorf("failed to query deps for end point: %w", err)
 				return result.EndQueryError
