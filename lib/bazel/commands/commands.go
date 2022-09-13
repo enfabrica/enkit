@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -257,8 +256,4 @@ func bazelGitRoot(dir string) (string, string, error) {
 		return "", "", fmt.Errorf("can't calculate common path between %q and %q: %w", root, bazelRoot, err)
 	}
 	return root, rel, nil
-}
-
-func relativeWorkspace(gitRoot fs.FS, relativeWorkspace string) (fs.FS, error) {
-	return nil, fmt.Errorf("not implemented")
 }
