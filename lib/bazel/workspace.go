@@ -118,7 +118,7 @@ func (w *Workspace) OutputExternal() (string, error) {
 // * subcommand and subcommand args
 // * rooted to the correct workspace directory
 func (w *Workspace) bazelCommand(subCmd subcommand) (Command, error) {
-	args := w.options.flags()
+	args := w.options.Args()
 	args = append(args, subCmd.Args()...)
 	cmd := exec.Command("bazel", args...)
 	cmd.Dir = w.root

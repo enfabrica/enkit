@@ -27,6 +27,13 @@ func TestBazelQueryCommand(t *testing.T) {
 			queryOpts: nil,
 			wantArgs:  []string{"bazel", "query", "--output=streamed_proto", "--", cannedQuery},
 		},
+		{
+			desc:      "basic query",
+			baseOpts:  []BaseOption{WithExtraStartupFlags("--blastoff")},
+			queryOpts: nil,
+			wantArgs:  []string{"bazel", "--blastoff", "query", "--output=streamed_proto", "--", cannedQuery},
+		},
+
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {

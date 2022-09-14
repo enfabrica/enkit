@@ -31,6 +31,11 @@ type GetModeOptions struct {
 	// Bazel query to use to find all the targets. Must be set.
 	// A good default is "deps(//...)"
 	Query string
+
+	// Extra startup flags to pass to bazel.
+	// Those flags are appended after other common flags (but before
+        // subcommand flags), so should override any global flag.
+	ExtraStartup []string
 }
 
 // The result of running a GetMode function below.
@@ -161,6 +166,7 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		opt.Start.RepoPath,
 		WithOutputBase(opt.Start.OutputBase),
 		WithLogging(log),
+		WithExtraStartupFlags(opt.ExtraStartup...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
@@ -169,6 +175,7 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		opt.End.RepoPath,
 		WithOutputBase(opt.End.OutputBase),
 		WithLogging(log),
+		WithExtraStartupFlags(opt.ExtraStartup...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
@@ -214,6 +221,7 @@ func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		opt.Start.RepoPath,
 		WithOutputBase(opt.Start.OutputBase),
 		WithLogging(log),
+		WithExtraStartupFlags(opt.ExtraStartup...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
@@ -222,6 +230,7 @@ func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		opt.End.RepoPath,
 		WithOutputBase(opt.End.OutputBase),
 		WithLogging(log),
+		WithExtraStartupFlags(opt.ExtraStartup...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)

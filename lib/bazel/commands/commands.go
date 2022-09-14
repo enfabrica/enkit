@@ -110,6 +110,8 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 	command.Flags().StringVar(&command.Query, "query", "deps(//...)",
 		"The query to use to find the targets. Only the default query has been tested, "+
 			"not all queries will work correctly, make sure to test your changes carefully")
+	command.Flags().StringArrayVar(&command.ExtraStartup, "extra_startup", nil, "Extra startup flags appended to the bazel command line")
+
 	return command
 }
 
@@ -121,7 +123,7 @@ func setCurrentOutputBaseAsDefault(gitRoot string, options *bazel.GetModeOptions
 		return nil
 	}
 
-	ws, err := bazel.OpenWorkspace(gitRoot, bazel.WithLogging(log))
+	ws, err := bazel.OpenWorkspace(gitRoot, bazel.WithExtraStartupFlags(options.ExtraStartup...), bazel.WithLogging(log))
 	if err != nil {
 		return err
 	}

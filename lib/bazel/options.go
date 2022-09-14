@@ -22,6 +22,9 @@ type subcommand interface {
 type baseOptions struct {
 	// Bazel's cache directory for this workspace.
 	OutputBase string
+	// Additional flags appended to bazel after other common flags,
+        // but before any command.
+	ExtraStartupFlags []string
 	// Logging object for internal log messages
 	Log logger.Logger
 }
@@ -38,17 +41,27 @@ func WithOutputBase(outputBase string) BaseOption {
 	}
 }
 
+// WithExtraStartupFlags adds extra startup flags for this bazel invocation.
+func WithExtraStartupFlags(extra ...string) BaseOption {
+	return func(o *baseOptions) {
+		o.ExtraStartupFlags = append(o.ExtraStartupFlags, extra...)
+	}
+}
+
 func WithLogging(log logger.Logger) BaseOption {
 	return func(o *baseOptions) {
 		o.Log = log
 	}
 }
 
-// flags returns the startup flags as passed to bazel.
-func (o *baseOptions) flags() []string {
+// Args returns the startup flags as passed to bazel.
+func (o *baseOptions) Args() []string {
 	var f []string
 	if o.OutputBase != "" {
 		f = append(f, "--output_base", o.OutputBase)
+	}
+	if len(o.ExtraStartupFlags) > 0 {
+		f = append(f, o.ExtraStartupFlags...)
 	}
 	return f
 }
