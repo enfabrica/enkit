@@ -30,6 +30,9 @@ type Command interface {
 	// StdoutContents reads all of stdout into a raw byte slice.
 	StdoutContents() ([]byte, error)
 
+	// Returns a string representation of the command itself, for debug purposes.
+	String() string
+
 	// StderrContents reads stderr into a string. This method cannot fail, as it
 	// is intended to be used only in logging/errors; if reading fails, a sentinel
 	// error string will be returned instead.
@@ -135,6 +138,10 @@ func (c *fileCommand) StderrContents() string {
 		return "<failed to read stderr contents>"
 	}
 	return string(bytes.TrimSpace(contents))
+}
+
+func (c *fileCommand) String() string {
+	return c.cmd.String()
 }
 
 // Close removes stdout and stderr temporary files.

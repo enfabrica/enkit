@@ -127,6 +127,7 @@ func (w *Workspace) bazelCommand(subCmd subcommand) (Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct bazel command: %w", err)
 	}
+	w.options.Log.Debugf("=> %s", cmd.String())
 	return bazelCmd, nil
 }
 
@@ -142,7 +143,7 @@ func (w *Workspace) Info(options ...InfoOption) (string, error) {
 
 	err = cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("bazel info failed: %v\n\nbazel stderr:\n\n%s", err, cmd.StderrContents())
+		return "", fmt.Errorf("Command: %s\nFailed: %v\n\nbazel stderr:\n\n%s", cmd.String(), err, cmd.StderrContents())
 	}
 
 	b, err := cmd.StdoutContents()
