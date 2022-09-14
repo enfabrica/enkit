@@ -10,6 +10,7 @@ import (
 	"github.com/enfabrica/enkit/lib/bazel"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/git"
+	"github.com/enfabrica/enkit/lib/logger"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -112,6 +113,35 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 	return command
 }
 
+// setCurrentOutputBaseAsDefault takes the output base of the bazel workspace
+// specified in gitRoot and sets it as the default for Start and End OutputBase,
+// assuming one was not specified from the command line already.
+func setCurrentOutputBaseAsDefault(gitRoot string, options *bazel.GetModeOptions, log logger.Logger) error {
+	if options.Start.OutputBase != "" && options.End.OutputBase != "" {
+		return nil
+	}
+
+	ws, err := bazel.OpenWorkspace(gitRoot, bazel.WithLogging(log))
+	if err != nil {
+		return err
+	}
+
+	obase, err := ws.OutputBaseDir()
+	if err != nil {
+		return err
+	}
+
+	if options.Start.OutputBase == "" {
+		options.Start.OutputBase = obase
+	}
+
+	if options.End.OutputBase == "" {
+		options.End.OutputBase = obase
+	}
+
+	return nil
+}
+
 func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	config := defaultConfig()
 	if c.parent.PresubmitConfig != "" {
@@ -164,6 +194,10 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 
 	mode := bazel.ParallelQuery
 	if (!c.Parallel) {
+		if err := setCurrentOutputBaseAsDefault(gitRoot, &c.GetModeOptions, c.root.Log); err != nil {
+			c.root.Log.Warnf("Could not compute output_base of workspace %s: %s", gitRoot, err)
+		}
+
 		mode = bazel.SerialQuery
 	}
 
