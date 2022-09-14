@@ -19,10 +19,8 @@ func testWorkspace(t *testing.T) *Workspace {
 		"test/anotherdir/file.txt":     []byte("Another dir"),
 	}
 	sourceFS := testutil.NewFS(t, files)
-	genFS := testutil.NewFS(t, nil)
 	return &Workspace{
-		sourceDir: sourceFS,
-		bazelBin:  genFS,
+		sourceFS: sourceFS,
 	}
 }
 
