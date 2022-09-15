@@ -14,11 +14,19 @@ import (
 	"github.com/enfabrica/enkit/lib/multierror"
 )
 
+// The result of running a GetMode function below.
+type GetResult struct {
+	StartQueryResult *QueryResult
+	StartQueryError  error
+	EndQueryResult   *QueryResult
+	EndQueryError    error
+}
+
 // GetMode is a function to run bazel queries.
 //
 // As paramters, it takes a start git client and output base, an end git client and output base,
 // a logging object, and returns the result of the queries.
-type GetMode func(start, end, startOutputBase, endOutputBase string, log logger.Logger) (*QueryResult, error, *QueryResult, error, error)
+type GetMode func(start, end, startOutputBase, endOutputBase string, log logger.Logger) (*GetResult, error)
 
 func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, mode GetMode, log logger.Logger) ( /* changedRules */ []*Target /* changedTests */, []*Target, error) {
 	includePatterns, err := NewPatternSet(config.GetIncludePatterns())
@@ -62,18 +70,16 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, m
 	}
 	defer os.RemoveAll(endOutputBase)
 
-	startResults, startQueryErr, endResults, endQueryErr, errs := mode(
-		start, end, startOutputBase, endOutputBase, log)
-
+	result, errs := mode(start, end, startOutputBase, endOutputBase, log)
 	if errs != nil {
-		if startQueryErr != nil && endQueryErr == nil {
+		if result.StartQueryError != nil && result.EndQueryError == nil {
 			// We are calculating targets over a change that fixes the build graph
 			// (broken before, working after). In a presubmit context, we want this
 			// step to succeed, but there is no sensible list of targets that the
 			// change affects since the build graph was broken in one stage.
 			//
 			// Pass here but emit a warning.
-			log.Warnf("Got error at start point:\n%v\n", startQueryErr)
+			log.Warnf("Got error at start point:\n%v\n", result.StartQueryError)
 			log.Warnf("Broken build graph detected at start point; this change fixes the build graph, but no targets will be tested. This change must be tested manually.")
 			return nil, nil, nil // No changed targets and no error
 		}
@@ -81,7 +87,7 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, m
 	}
 
 	log.Infof("Calculating affected targets...")
-	diff, err := calculateAffected(startResults, endResults)
+	diff, err := calculateAffected(result.StartQueryResult, result.EndQueryResult)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -93,7 +99,7 @@ func GetAffectedTargets(start string, end string, config *ppb.PresubmitConfig, m
 
 skipTarget:
 	for _, targetName := range diff {
-		target := endResults.Targets[targetName]
+		target := result.EndQueryResult.Targets[targetName]
 		if target.ruleType() == "" {
 			log.Debugf("Filtering non-rule target %q", targetName)
 			continue skipTarget
@@ -124,14 +130,14 @@ skipTarget:
 	return changedRules, changedTests, nil
 }
 
-func SerialQuery(start, end string, startOutputBase, endOutputBase string, log logger.Logger) (*QueryResult, error, *QueryResult, error, error) {
+func SerialQuery(start, end string, startOutputBase, endOutputBase string, log logger.Logger) (*GetResult, error) {
 	startWorkspace, err := OpenWorkspace(
 		start,
 		WithOutputBase(startOutputBase),
 		WithLogging(log),
 	)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
+		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 	endWorkspace, err := OpenWorkspace(
 		end,
@@ -139,43 +145,42 @@ func SerialQuery(start, end string, startOutputBase, endOutputBase string, log l
 		WithLogging(log),
 	)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
+		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 
 	workspaceLogStart, err := WithTempWorkspaceRulesLog()
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("start workspace: %w", err)
+		return nil, fmt.Errorf("start workspace: %w", err)
 	}
 	workspaceLogEnd, err := WithTempWorkspaceRulesLog()
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("end workspace: %w", err)
+		return nil, fmt.Errorf("end workspace: %w", err)
 	}
 
         var errs []error
-	var startQueryErr error
+	var result GetResult
 	log.Infof("Querying dependency graph for 'before' workspace...")
-	startResults, err := startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
+	result.StartQueryResult, err = startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
 	if err != nil {
-		startQueryErr = fmt.Errorf("failed to query deps for start point: %w", err)
-		errs = append(errs, startQueryErr)
+		result.StartQueryError = fmt.Errorf("failed to query deps for start point: %w", err)
+		errs = append(errs, result.StartQueryError)
 	} else {
-		log.Infof("Queried info for %d targets from 'before' workspace", len(startResults.Targets))
+		log.Infof("Queried info for %d targets from 'before' workspace", len(result.StartQueryResult.Targets))
 	}
 
-	var endQueryErr error
 	log.Infof("Querying dependency graph for 'after' workspace...")
-	endResults, err := endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
+	result.EndQueryResult, err = endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
 	if err != nil {
-		endQueryErr = fmt.Errorf("failed to query deps for end point: %w", err)
-		errs = append(errs, endQueryErr)
+		result.EndQueryError = fmt.Errorf("failed to query deps for end point: %w", err)
+		errs = append(errs, result.EndQueryError)
 	} else {
-		log.Infof("Queried info for %d targets from 'after' workspace", len(endResults.Targets))
+		log.Infof("Queried info for %d targets from 'after' workspace", len(result.EndQueryResult.Targets))
 	}
 
-	return startResults, startQueryErr, endResults, endQueryErr, multierror.New(errs)
+	return &result, multierror.New(errs)
 }
 
-func ParallelQuery(start, end, startOutputBase, endOutputBase string, log logger.Logger) (*QueryResult, error, *QueryResult, error, error) {
+func ParallelQuery(start, end, startOutputBase, endOutputBase string, log logger.Logger) (*GetResult, error) {
 	// Joining the new worktree roots to the relative path portion handles the
 	// case where bazel workspaces are not in the top directory of the git
 	// worktree.
@@ -185,7 +190,7 @@ func ParallelQuery(start, end, startOutputBase, endOutputBase string, log logger
 		WithLogging(log),
 	)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
+		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 	endWorkspace, err := OpenWorkspace(
 		end,
@@ -193,48 +198,45 @@ func ParallelQuery(start, end, startOutputBase, endOutputBase string, log logger
 		WithLogging(log),
 	)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to open bazel workspace: %w", err)
+		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 
 	workspaceLogStart, err := WithTempWorkspaceRulesLog()
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("start workspace: %w", err)
+		return nil, fmt.Errorf("start workspace: %w", err)
 	}
 	workspaceLogEnd, err := WithTempWorkspaceRulesLog()
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("end workspace: %w", err)
+		return nil, fmt.Errorf("end workspace: %w", err)
 	}
 
 	// Get all target info for both VCS time points.
-	var startResults *QueryResult
-	var endResults *QueryResult
-	var startQueryErr error
-	var endQueryErr error
+	var result GetResult
 	errs := goroutine.WaitAll(
 		func() error {
 			log.Infof("Querying dependency graph for 'before' workspace...")
 			var err error
-			startResults, err = startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
+			result.StartQueryResult, err = startWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogStart)
 			if err != nil {
-				startQueryErr = fmt.Errorf("failed to query deps for start point: %w", err)
-				return startQueryErr
+				result.StartQueryError = fmt.Errorf("failed to query deps for start point: %w", err)
+				return result.StartQueryError
 			}
-			log.Infof("Queried info for %d targets from 'before' workspace", len(startResults.Targets))
+			log.Infof("Queried info for %d targets from 'before' workspace", len(result.StartQueryResult.Targets))
 			return nil
 		},
 		func() error {
 			log.Infof("Querying dependency graph for 'after' workspace...")
 			var err error
-			endResults, err = endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
+			result.EndQueryResult, err = endWorkspace.Query("deps(//...)", WithUnorderedOutput(), workspaceLogEnd)
 			if err != nil {
-				endQueryErr = fmt.Errorf("failed to query deps for end point: %w", err)
-				return endQueryErr
+				result.EndQueryError = fmt.Errorf("failed to query deps for end point: %w", err)
+				return result.EndQueryError
 			}
-			log.Infof("Queried info for %d targets from 'after' workspace", len(endResults.Targets))
+			log.Infof("Queried info for %d targets from 'after' workspace", len(result.EndQueryResult.Targets))
 			return nil
 		},
 	)
-	return startResults, startQueryErr, endResults, endQueryErr, errs
+	return &result, errs
 }
 
 func calculateAffected(startResults, endResults *QueryResult) ([]string, error) {
