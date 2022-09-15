@@ -27,6 +27,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//lib/bes:go_default_library",
+        "//lib/errdiff:go_default_library",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
         "//third_party/buildbuddy/proto:buildbuddy_go_proto",
         "@com_github_golang_protobuf//proto:go_default_library",
