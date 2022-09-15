@@ -54,8 +54,6 @@ def stage_2():
         requirements_lock = "//:requirements.txt",
     )
 
-    go_repositories()
-
     # SDKs that can be used to build Go code. We need:
     # * the most recent version we can support
     # * the most recent version AppEngine can support (currently 1.16)
