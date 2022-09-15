@@ -3,7 +3,6 @@
 See README.md for more information.
 """
 
-load("//bazel:go_repositories.bzl", "go_repositories")
 load("//bazel/meson:meson.bzl", "meson_register_toolchains")
 load("//bazel/ui:deps.bzl", "install_ui_deps")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
