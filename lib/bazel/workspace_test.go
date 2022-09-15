@@ -38,7 +38,7 @@ func TestBazelQueryCommand(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			var gotCmd *exec.Cmd
-			stubs := gostub.Stub(&NewCommand, func(cmd *exec.Cmd) (Command, error) {
+			stubs := gostub.Stub(&NewCommand, func(cmd *exec.Cmd, env ...string) (Command, error) {
 				gotCmd = cmd
 				return &fakeCommand{
 					stdout: io.NopCloser(strings.NewReader("")),

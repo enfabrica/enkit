@@ -214,6 +214,23 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 }
 
 func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
+	// BUG(INFRA-140) - By default, cargo will download packages to a well-known
+	// directory under $HOME; this will mean that parallel bazel invocations could
+	// race on this directory if they both fetch Cargo packages. Cargo respects
+	// the $CARGO_HOME environment variable, so set it to something unique for
+	// this invocation.
+	cargoHomeStart, err := ioutil.TempDir("", "bazel_cargo_home_*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tmpdir for $CARGO_HOME: %w", err)
+	}
+	defer os.RemoveAll(cargoHomeStart)
+
+	cargoHomeEnd, err := ioutil.TempDir("", "bazel_cargo_home_*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tmpdir for $CARGO_HOME: %w", err)
+	}
+	defer os.RemoveAll(cargoHomeEnd)
+
 	// Joining the new worktree roots to the relative path portion handles the
 	// case where bazel workspaces are not in the top directory of the git
 	// worktree.
@@ -222,6 +239,7 @@ func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		WithOutputBase(opt.Start.OutputBase),
 		WithLogging(log),
 		WithExtraStartupFlags(opt.ExtraStartup...),
+		WithExtraEnv("CARGO_HOME="+cargoHomeStart),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
@@ -231,6 +249,7 @@ func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		WithOutputBase(opt.End.OutputBase),
 		WithLogging(log),
 		WithExtraStartupFlags(opt.ExtraStartup...),
+		WithExtraEnv("CARGO_HOME="+cargoHomeEnd),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)

@@ -25,6 +25,8 @@ type baseOptions struct {
 	// Additional flags appended to bazel after other common flags,
         // but before any command.
 	ExtraStartupFlags []string
+	// Additional environment variables to set.
+	ExtraEnv []string
 	// Logging object for internal log messages
 	Log logger.Logger
 }
@@ -45,6 +47,13 @@ func WithOutputBase(outputBase string) BaseOption {
 func WithExtraStartupFlags(extra ...string) BaseOption {
 	return func(o *baseOptions) {
 		o.ExtraStartupFlags = append(o.ExtraStartupFlags, extra...)
+	}
+}
+
+// WithExtraEnv adds extra environment variables for this bazel invocation.
+func WithExtraEnv(extra ...string) BaseOption {
+	return func(o *baseOptions) {
+		o.ExtraEnv = append(o.ExtraEnv, extra...)
 	}
 }
 

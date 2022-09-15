@@ -43,14 +43,15 @@ type Command interface {
 // temporary file.
 type fileCommand struct {
 	cmd           *exec.Cmd
+	// Additional environment variables overridden by API.
+	env	      []string
 	stdoutPath    string
 	stderrPath    string
-	cargoHomePath string
 }
 
 // NewCommand returns a fileCommand wrapping the provided exec.Cmd. It is
 // defined as a var so it can be stubbed in unit tests.
-var NewCommand = func(cmd *exec.Cmd) (Command, error) {
+var NewCommand = func(cmd *exec.Cmd, env ...string) (Command, error) {
 	stdout, err := ioutil.TempFile("", "bazel_stdout_*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdout file: %w", err)
@@ -62,24 +63,11 @@ var NewCommand = func(cmd *exec.Cmd) (Command, error) {
 	}
 	stderr.Close()
 
-	// BUG(INFRA-140) - By default, cargo will download packages to a well-known
-	// directory under $HOME; this will mean that parallel bazel invocations could
-	// race on this directory if they both fetch Cargo packages. Cargo respects
-	// the $CARGO_HOME environment variable, so set it to something unique for
-	// this invocation.
-	env := os.Environ()
-	cargoHome, err := ioutil.TempDir("", "bazel_cargo_home_*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tmpdir for $CARGO_HOME: %w", err)
-	}
-	env = append(env, "CARGO_HOME="+cargoHome)
-	cmd.Env = env
-
 	return &fileCommand{
 		cmd:           cmd,
+		env:	       env,
 		stdoutPath:    stdout.Name(),
 		stderrPath:    stderr.Name(),
-		cargoHomePath: cargoHome,
 	}, nil
 }
 
@@ -141,13 +129,12 @@ func (c *fileCommand) StderrContents() string {
 }
 
 func (c *fileCommand) String() string {
-	return c.cmd.String()
+	return CommandString(c.cmd, c.env)
 }
 
 // Close removes stdout and stderr temporary files.
 func (c *fileCommand) Close() error {
 	os.Remove(c.stdoutPath)
 	os.Remove(c.stderrPath)
-	os.RemoveAll(c.cargoHomePath)
 	return nil
 }

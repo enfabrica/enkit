@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/enfabrica/enkit/lib/logger"
@@ -122,13 +123,25 @@ func (w *Workspace) bazelCommand(subCmd subcommand) (Command, error) {
 	args = append(args, subCmd.Args()...)
 	cmd := exec.Command("bazel", args...)
 	cmd.Dir = w.root
-	cmd.Env = os.Environ()
-	bazelCmd, err := NewCommand(cmd)
+	cmd.Env = append(os.Environ(), w.options.ExtraEnv...)
+	bazelCmd, err := NewCommand(cmd, w.options.ExtraEnv...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct bazel command: %w", err)
 	}
-	w.options.Log.Debugf("=> %s", cmd.String())
+	w.options.Log.Debugf("=> %s", CommandString(cmd, w.options.ExtraEnv))
 	return bazelCmd, nil
+}
+
+// CommandString returns a string describing a command.
+//
+// Differently from cmd.String(), the command description includes environment
+// variables that were explicitly set on the binary.
+func CommandString(cmd *exec.Cmd, cmdenv []string) string {
+	envs := strings.Join(cmdenv, " ")
+	if len(envs) > 0 {
+		return envs + " " + cmd.String()
+	}
+	return cmd.String()
 }
 
 func (w *Workspace) Info(options ...InfoOption) (string, error) {
