@@ -4,6 +4,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/enfabrica/enkit/lib/logger"
 )
 
 // Waiter is similar to sync.CondWait as it can be used exactly
@@ -95,6 +97,8 @@ type BlockingSendWindow struct {
 
 	cf *Waiter // Wait for fill to be ready.
 	ce *Waiter // Wait for empty to be ready.
+
+	log logger.Logger
 }
 
 // BlockingReceiveWindow allows to split the filling and emptying of a ReceiveWindow across different goroutines.
@@ -111,15 +115,21 @@ type BlockingReceiveWindow struct {
 
 	cf *Waiter // Wait for fill to be ready.
 	ce *Waiter // Wait for empty to be ready.
+
+	log logger.Logger
 }
 
-func NewBlockingReceiveWindow(pool *BufferPool, max uint64) *BlockingReceiveWindow {
+func NewBlockingReceiveWindow(pool *BufferPool, max uint64, log logger.Logger) *BlockingReceiveWindow {
+	if log == nil {
+		log = &logger.NilLogger{}
+	}
 	bw := &BlockingReceiveWindow{}
 	bw.w.pool = pool
 	bw.w.buffer.Init()
 	bw.ce = NewWaiter(&bw.l)
 	bw.cf = NewWaiter(&bw.l)
 	bw.max = max
+	bw.log = log
 	return bw
 }
 
@@ -135,13 +145,17 @@ func (b *BlockingReceiveWindow) WaitToFill() error {
 }
 
 func (b *BlockingReceiveWindow) WaitToEmpty() error {
+	b.log.Debugf("WaitToEmpty(): acquiring lock")
 	b.l.Lock()
+	b.log.Debugf("WaitToEmpty(): got lock")
 	defer b.l.Unlock()
 	for len(b.w.ToEmpty()) == 0 {
+		b.log.Debugf("WaitToEmpty(): waiting for empty to be ready")
 		if err := b.ce.Wait(); err != nil {
 			return err
 		}
 	}
+	b.log.Debugf("WaitToEmpty(): len of data from ToEmpty() = %d", len(b.w.ToEmpty()))
 	return nil
 }
 
@@ -153,10 +167,15 @@ func (b *BlockingReceiveWindow) ToFill() []byte {
 }
 
 func (b *BlockingReceiveWindow) Fill(size int) uint64 {
+	b.log.Debugf("Fill(): acquiring lock")
 	b.l.Lock()
+	b.log.Debugf("Fill(): got lock")
 	defer b.l.Unlock()
 	filled := b.w.Fill(size)
+	b.log.Debugf("Fill(%d) -> %d", size, filled)
+	b.log.Debugf("Fill(): Signalling empty")
 	b.ce.Signal()
+	b.log.Debugf("Fill(): Signalled empty")
 	return filled
 }
 
@@ -185,7 +204,10 @@ func (b *BlockingReceiveWindow) Fail(err error) {
 	b.cf.Fail(err)
 }
 
-func NewBlockingSendWindow(pool *BufferPool, max uint64) *BlockingSendWindow {
+func NewBlockingSendWindow(pool *BufferPool, max uint64, log logger.Logger) *BlockingSendWindow {
+	if log == nil {
+		log = &logger.NilLogger{}
+	}
 	bw := &BlockingSendWindow{}
 	bw.w.pool = pool
 	bw.w.buffer.Init()
@@ -193,6 +215,7 @@ func NewBlockingSendWindow(pool *BufferPool, max uint64) *BlockingSendWindow {
 	bw.ce = NewWaiter(&bw.l)
 	bw.cf = NewWaiter(&bw.l)
 	bw.max = max
+	bw.log = log
 	return bw
 }
 
@@ -238,6 +261,7 @@ func (b *BlockingSendWindow) WaitToFill() error {
 }
 
 func (b *BlockingSendWindow) WaitToEmpty(d time.Duration) error {
+	
 	b.l.Lock()
 	defer b.l.Unlock()
 	for len(b.w.ToEmpty()) == 0 {

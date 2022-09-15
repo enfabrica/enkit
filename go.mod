@@ -6,9 +6,7 @@ require (
 	bazil.org/fuse v0.0.0-20200524192727-fb710f7dfd05
 	cloud.google.com/go/asset v1.1.0 // indirect
 	cloud.google.com/go/bigquery v1.28.0 // indirect
-	cloud.google.com/go/compute v1.3.0 // indirect
 	cloud.google.com/go/datastore v1.1.0
-	cloud.google.com/go/iam v0.2.0 // indirect
 	cloud.google.com/go/security v1.2.0 // indirect
 	cloud.google.com/go/storage v1.26.0
 	github.com/KohlsTechnology/prometheus_bigquery_remote_storage_adapter v0.4.6 // indirect
@@ -47,9 +45,7 @@ require (
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/uuid v1.3.0
-	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
-	github.com/googleapis/go-type-adapters v1.0.0 // indirect
-	github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket v1.5.0
 	github.com/improbable-eng/grpc-web v0.13.0
 	github.com/kataras/muxie v1.1.1
 	github.com/kirsle/configdir v0.0.0-20170128060238-e45d2f54772f
@@ -84,14 +80,12 @@ require (
 	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
 	// BUG(INFRA-1801): Last version that supports go1.16 is golang.org/x/net v0.0.0-20211020060615-d418f374d309
 	golang.org/x/net v0.0.0-20211020060615-d418f374d309
-	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
+	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
 	// BUG(INFRA-1801): Last version that supports go1.16 is golang.org/x/sys v0.0.0-20220908164124-27713097b956
 	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/tools v0.1.9 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
-	google.golang.org/api v0.68.0
+	google.golang.org/api v0.94.0
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect

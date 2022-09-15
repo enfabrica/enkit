@@ -428,11 +428,17 @@ func (r *Tunnel) RunTunnel(proxy *url.URL, id, host string, port uint16, cookie 
 			return tunnel.KeepConnected(proxy, host, port, mods...)
 		},
 		func() error {
-			defer func() { writer.Close() }()
+			defer func() {
+				r.Log.Debugf("RunTunnel(): Closing writer")
+				writer.Close()
+			}()
 			return tunnel.Receive(writer)
 		},
 		func() error {
-			defer func() { reader.Close() }()
+			defer func() {
+				r.Log.Debugf("RunTunnel(): Closing reader")
+				reader.Close()
+			}()
 			return tunnel.Send(reader)
 		},
 	)

@@ -377,8 +377,8 @@ func NewTunnel(pool *nasshp.BufferPool, mods ...Modifier) (*Tunnel, error) {
 		log:      options.Logger,
 		timeouts: options.Timeouts,
 
-		SendWin:    nasshp.NewBlockingSendWindow(pool, uint64(options.MaxSendWindow)),
-		ReceiveWin: nasshp.NewBlockingReceiveWindow(pool, uint64(options.MaxReceiveWindow)),
+		SendWin:    nasshp.NewBlockingSendWindow(pool, uint64(options.MaxSendWindow), options.Logger),
+		ReceiveWin: nasshp.NewBlockingReceiveWindow(pool, uint64(options.MaxReceiveWindow), options.Logger),
 		browser:    nasshp.NewReplaceableBrowser(options.Logger, nil)}
 
 	go tl.BrowserReceive()
@@ -531,20 +531,28 @@ func (t *Tunnel) BrowserReceive() error {
 	ackbuffer := [4]byte{}
 	var conn *websocket.Conn
 
+	defer func() {
+		t.log.Debugf("BrowserReceive(): returning")
+	}()
+
 retry:
 	for {
+		t.log.Debugf("BrowserReceive(): outer loop start")
 		if err := t.ReceiveWin.WaitToFill(); err != nil {
 			t.browser.Close(fmt.Errorf("stopping browser read - writer returned: %w", err))
 			return err
 		}
+		t.log.Debugf("BrowserReceive(): rx window WaitToFill returned (no error)")
 
 		nconn, ru, err := t.browser.GetForReceive()
 		if err != nil {
 			t.browser.Close(fmt.Errorf("stopping browser read: %w", err))
 			return err
 		}
+		t.log.Debugf("BrowserReceive(): got conn for rx")
 
 		if nconn != conn {
+			t.log.Debugf("BrowserReceive(): got different conn, resetting ru -> %d", ru)
 			if err := t.ReceiveWin.Reset(ru); err != nil {
 				t.browser.Close(fmt.Errorf("browser receive reset failed: %w", err))
 				continue
@@ -552,11 +560,14 @@ retry:
 			conn = nconn
 		}
 
+		t.log.Debugf("BrowserReceive(): fetching conn's next reader...")
 		_, r, err := conn.NextReader()
 		if err != nil {
+			t.log.Errorf("BrowserReceive(): websocket NextReader returned error: %v", err)
 			t.browser.Error(conn, fmt.Errorf("websocket NextReader returned error: %w", err))
 			continue
 		}
+		t.log.Debugf("BrowserReceive(): got conn's next reader")
 
 		// Retry the read until the ack (4 bytes, unit32) has been read fully.
 		for ackread := 0; ackread < len(ackbuffer); {
@@ -568,9 +579,11 @@ retry:
 				continue retry
 			}
 			ackread += size
+			t.log.Debugf("BrowserReceive(): got %d/%d bytes of ack", ackread, len(ackbuffer))
 		}
 
 		ack := binary.BigEndian.Uint32(ackbuffer[:])
+		t.log.Debugf("BrowserReceive(): got ack 0x%x", ack)
 		if ack&0xff000000 != 0 {
 			t.browser.Error(conn, fmt.Errorf("browser read resulted in ack requesting connection reset (%08x)", ack))
 			continue
@@ -580,18 +593,27 @@ retry:
 		for {
 			buffer := t.ReceiveWin.ToFill()
 			if len(buffer) == 0 {
+				t.log.Debugf("BrowserReceive(): exiting rx loop because len(buffer) = 0")
 				break
 			}
 
+			t.log.Debugf("BrowserReceive(): got buffer of size %d", len(buffer))
 			size, err := r.Read(buffer)
+			t.log.Debugf("BrowserReceive(): reader.Read() -> size: %d", size)
 			if err != nil {
+				t.log.Debugf("BrowserReceive(): exiting rx loop because conn reader.Read failed: %v", err)
 				if err != io.EOF {
 					t.browser.Error(conn, fmt.Errorf("browser read failed with %w", err))
 				}
 				break
 			}
-			conn.SetReadDeadline(t.timeouts.Now().Add(t.timeouts.BrowserPingTimeout))
+			t.log.Debugf("BrowserRecieve(): read %d bytes into buffer of size %d", size, len(buffer))
+			if err := conn.SetReadDeadline(t.timeouts.Now().Add(t.timeouts.BrowserPingTimeout)); err != nil {
+				t.log.Errorf("BrowserReceive(): failed to set conn read deadline: %v", err)
+			}
+			t.log.Debugf("BrowserReceive(): set conn read deadline to %v", t.timeouts.Now().Add(t.timeouts.BrowserPingTimeout))
 			filled := t.ReceiveWin.Fill(size)
+			t.log.Debugf("BrowserReceive(): rx window Fill(%d) -> %d", size, filled)
 			t.browser.PushReadUntil((uint32)(filled) & 0xffffff)
 		}
 	}
@@ -599,16 +621,20 @@ retry:
 
 func (t *Tunnel) Send(file io.Reader) error {
 	for {
+		t.log.Debugf("Send(): Blocking on WaitToFill()")
 		if err := t.SendWin.WaitToFill(); err != nil {
 			return err
 		}
+		t.log.Debugf("Send(): WaitToFill() return")
 
 		buffer := t.SendWin.ToFill()
 		size, err := file.Read(buffer)
 		if err != nil {
 			return err
 		}
+		t.log.Debugf("Send(): Filling size: %d", size)
 		t.SendWin.Fill(size)
+		t.log.Debugf("Send(): Fill return")
 	}
 }
 
@@ -623,14 +649,18 @@ type WithWriteDeadline interface {
 func (t *Tunnel) Receive(file io.Writer) error {
 	flushable, canflush := file.(Flushable)
 	timeouttable, cantimeout := file.(WithWriteDeadline)
+	t.log.Debugf("Receive(): can flush: %v\t can timeout: %v", canflush, cantimeout)
 
 	for {
+		t.log.Debugf("Receive(): Blocking on WaitToEmpty()")
 		if err := t.ReceiveWin.WaitToEmpty(); err != nil {
 			return err
 		}
+		t.log.Debugf("Receive(): WaitToEmpty() return")
 
 		for {
 			buffer := t.ReceiveWin.ToEmpty()
+			t.log.Debugf("Receive(): got buffer of len %d", len(buffer))
 			if len(buffer) == 0 {
 				break
 			}
@@ -642,16 +672,20 @@ func (t *Tunnel) Receive(file io.Writer) error {
 					cantimeout = false
 				}
 			}
+			t.log.Debugf("Receive(): starting Write()")
 			size, err := file.Write(buffer)
 			if err != nil {
 				return err
 			}
+			t.log.Debugf("Receive(): wrote %d bytes", size)
 
 			t.ReceiveWin.Empty(size)
 			if canflush {
+				t.log.Debugf("Receive(): flushing")
 				if err := flushable.Flush(); err != nil {
 					return err
 				}
+				t.log.Debugf("Receive(): flush finished")
 			}
 
 		}
