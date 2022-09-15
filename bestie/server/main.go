@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	fileTooBigErr      = errors.New("File exceeds maximum size allowed")
-	maxFileSize   int  = (5 * 1024 * 1024)
+	fileTooBigErr     = errors.New("File exceeds maximum size allowed")
+	maxFileSize   int = (5 * 1024 * 1024)
 )
 
 type BuildEventService struct {
@@ -87,10 +87,14 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 
 // Command line arguments.
 var (
-	argBaseUrl     = flag.String("base_url", "", "Base URL for accessing output artifacts in the build cluster (required)")
-	argDataset     = flag.String("dataset", "", "BigQuery dataset name (required) -- staging, production")
-	argMaxFileSize = flag.Int("max_file_size", maxFileSize, "Maximum output file size allowed for processing")
-	argTableName   = flag.String("table_name", "testmetrics", "BigQuery table name")
+	argBaseUrl        = flag.String("base_url", "", "Base URL for accessing output artifacts in the build cluster (required)")
+	argDataset        = flag.String("dataset", "", "BigQuery dataset name (required) -- staging, production")
+	argMaxFileSize    = flag.Int("max_file_size", maxFileSize, "Maximum output file size allowed for processing")
+	argTableName      = flag.String("table_name", "testmetrics", "BigQuery table name")
+	// gRPC max message size needs to match the max size of the sender (e.g.
+	// BuildBuddy, Bazel). Bazel targets ~50MB messages, so that is the default
+	// here.
+	argMaxMessageSize = flag.Int("grpc_max_message_size_bytes", 50*1024*1024, "Maximum receive message size in bytes accepted by gRPC methods")
 )
 
 func checkCommandArgs() error {
@@ -125,7 +129,9 @@ func main() {
 		glog.Exitf("Invalid command: %s", err)
 	}
 
-	grpcs := grpc.NewServer()
+	grpcs := grpc.NewServer(
+		grpc.MaxRecvMsgSize(*argMaxMessageSize),
+	)
 	bpb.RegisterPublishBuildEventServer(grpcs, &BuildEventService{})
 
 	mux := http.NewServeMux()
