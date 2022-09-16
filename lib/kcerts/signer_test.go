@@ -1,8 +1,7 @@
-package kcerts_test
+package kcerts
 
 import (
 	"fmt"
-	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
 	"reflect"
@@ -10,9 +9,9 @@ import (
 	"time"
 )
 
-var tableTestTypes = []kcerts.SSHKeyGenerator{kcerts.GenerateED25519, kcerts.GenerateRSA}
+var tableTestTypes = []SSHKeyGenerator{GenerateED25519, GenerateRSA}
 
-// TestSha256Signer_PublicKey tests all possible combinations of supported kcerts.PrivateKey signing ssh.PublicKeys
+// TestSha256Signer_PublicKey tests all possible combinations of supported PrivateKey signing ssh.PublicKeys
 // It will sign the following ssh certs with the custom algos by their providers
 func TestSha256Signer_PublicKey(t *testing.T) {
 	for _, sourceType := range tableTestTypes {
@@ -23,7 +22,7 @@ func TestSha256Signer_PublicKey(t *testing.T) {
 			assert.Nil(t, err)
 			t.Run(fmt.Sprintf("Source:%v,Sign:%v", reflect.TypeOf(sourcePrivKey), reflect.TypeOf(toBeSigned)), func(t *testing.T) {
 				// code of your test
-				r, err := kcerts.SignPublicKey(sourcePrivKey, 1, []string{}, 5*time.Hour, toBeSigned)
+				r, err := SignPublicKey(sourcePrivKey, 1, []string{}, 5*time.Hour, toBeSigned)
 				assert.Nil(t, err)
 				assert.NotNil(t, r)
 				fmt.Println(r.Type())
@@ -32,7 +31,7 @@ func TestSha256Signer_PublicKey(t *testing.T) {
 	}
 }
 
-// TestSha256Signer_PublicKey tests all possible combinations of supported kcerts.PrivateKey signing ssh.PublicKeys
+// TestSha256Signer_PublicKey tests all possible combinations of supported PrivateKey signing ssh.PublicKeys
 // It will sign the following ssh certs with the custom algos by their providers
 func TestPemEncodeKeys(t *testing.T) {
 	for _, sourceType := range tableTestTypes {

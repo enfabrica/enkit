@@ -1,4 +1,4 @@
-package kcerts_test
+package kcerts
 
 import (
 	"crypto/rand"
@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
 	"net"
@@ -16,22 +15,22 @@ import (
 )
 
 func TestCertSuite(t *testing.T) {
-	opts, err := kcerts.NewOptions(
-		kcerts.WithCountries([]string{"US"}),
-		kcerts.WithOrganizations([]string{"Test Corp"}),
-		kcerts.WithValidUntil(time.Now().AddDate(3, 0, 0)),
-		kcerts.WithNotValidBefore(time.Now().Add(-10*time.Minute)),
-		kcerts.WithIpAddresses([]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("0.0.0.0")}),
+	opts, err := NewOptions(
+		WithCountries([]string{"US"}),
+		WithOrganizations([]string{"Test Corp"}),
+		WithValidUntil(time.Now().AddDate(3, 0, 0)),
+		WithNotValidBefore(time.Now().Add(-10*time.Minute)),
+		WithIpAddresses([]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("0.0.0.0")}),
 	)
 
 	assert.Nil(t, err)
-	rootCert, rootPem, rootPrivateKey, err := kcerts.GenerateNewCARoot(opts)
+	rootCert, rootPem, rootPrivateKey, err := GenerateNewCARoot(opts)
 	assert.Nil(t, err)
 
-	intermediateCert, intermediatePem, intermediatePrivateKey, err := kcerts.GenerateIntermediateCertificate(opts, rootCert, rootPrivateKey)
+	intermediateCert, intermediatePem, intermediatePrivateKey, err := GenerateIntermediateCertificate(opts, rootCert, rootPrivateKey)
 	assert.Nil(t, err)
 
-	serverCert, _, _, err := kcerts.GenerateServerKey(opts, intermediateCert, intermediatePrivateKey)
+	serverCert, _, _, err := GenerateServerKey(opts, intermediateCert, intermediatePrivateKey)
 	t.Run("verify intermediate", func(t *testing.T) {
 		assert.Nil(t, verifyIntermediateChain(rootPem, intermediateCert))
 	})
@@ -46,7 +45,7 @@ func TestCertSuite(t *testing.T) {
 	})
 
 	t.Run("test rsa output generations", func(t *testing.T) {
-		publicBytes, privateBytes := kcerts.GenerateSSHKeyPair(rootPrivateKey)
+		publicBytes, privateBytes := GenerateSSHKeyPair(rootPrivateKey)
 
 		publicBlock, _ := pem.Decode(publicBytes)
 		assert.NotNil(t, publicBlock)
@@ -112,15 +111,15 @@ func verifyRSAEncryption(key *rsa.PrivateKey) error {
 }
 
 func TestCertTTL(t *testing.T) {
-	_, sourcePrivKey, err := kcerts.GenerateED25519()
+	_, sourcePrivKey, err := GenerateED25519()
 	assert.Nil(t, err)
-	toBeSigned, _, err := kcerts.GenerateED25519()
+	toBeSigned, _, err := GenerateED25519()
 	assert.Nil(t, err)
 	// code of your test
 	principalList := []string{"foo", "bar", "baz"}
-	cert, err := kcerts.SignPublicKey(sourcePrivKey, 1, principalList, 5*time.Hour, toBeSigned)
-	certTotalTTL := kcerts.SSHCertTotalTTL(cert)
-	certRemainingTTL := kcerts.SSHCertRemainingTTL(cert)
+	cert, err := SignPublicKey(sourcePrivKey, 1, principalList, 5*time.Hour, toBeSigned)
+	certTotalTTL := SSHCertTotalTTL(cert)
+	certRemainingTTL := SSHCertRemainingTTL(cert)
 
 	assert.Equal(t, certTotalTTL, 5*time.Hour)
 	assert.Greater(t, int(certTotalTTL), 0)
@@ -132,8 +131,8 @@ func TestCertTTL(t *testing.T) {
 		ValidBefore: ssh.CertTimeInfinity,
 		ValidAfter:  0,
 	}
-	infTTL := kcerts.SSHCertTotalTTL(infiniteCert)
-	assert.Equal(t, infTTL, kcerts.MaxCertTimeDuration)
+	infTTL := SSHCertTotalTTL(infiniteCert)
+	assert.Equal(t, infTTL, MaxCertTimeDuration)
 
 	nowTime := time.Now().Unix()
 	badCerts := []ssh.Certificate{
@@ -155,7 +154,7 @@ func TestCertTTL(t *testing.T) {
 		},
 	}
 	for _, badCert := range badCerts {
-		bttl := kcerts.SSHCertTotalTTL(&badCert)
-		assert.Equalf(t, kcerts.InValidCertTimeDuration, bttl, "%v was not equal to 0", badCert)
+		bttl := SSHCertTotalTTL(&badCert)
+		assert.Equalf(t, InValidCertTimeDuration, bttl, "%v was not equal to 0", badCert)
 	}
 }
