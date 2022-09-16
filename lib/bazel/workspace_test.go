@@ -27,11 +27,18 @@ func TestBazelQueryCommand(t *testing.T) {
 			queryOpts: nil,
 			wantArgs:  []string{"bazel", "query", "--output=streamed_proto", "--", cannedQuery},
 		},
+		{
+			desc:      "basic query",
+			baseOpts:  []BaseOption{WithExtraStartupFlags("--blastoff")},
+			queryOpts: nil,
+			wantArgs:  []string{"bazel", "--blastoff", "query", "--output=streamed_proto", "--", cannedQuery},
+		},
+
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			var gotCmd *exec.Cmd
-			stubs := gostub.Stub(&NewCommand, func(cmd *exec.Cmd) (Command, error) {
+			stubs := gostub.Stub(&NewCommand, func(cmd *exec.Cmd, env ...string) (Command, error) {
 				gotCmd = cmd
 				return &fakeCommand{
 					stdout: io.NopCloser(strings.NewReader("")),

@@ -8,9 +8,11 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/enfabrica/enkit/lib/logger"
-
 	"github.com/bazelbuild/buildtools/wspace"
 )
 
@@ -20,8 +22,12 @@ type Workspace struct {
 	root    string // Path to the workspace root on the filesystem
 	options *baseOptions
 
-	bazelBin  fs.FS
-	sourceDir fs.FS
+	lock sync.Mutex
+	bazelBin  string
+	sourceDir string
+	outputBaseDir string
+
+	sourceFS fs.FS
 }
 
 // FindRoot returns the path to the bazel workspace root in which `dir`
@@ -47,18 +53,65 @@ func OpenWorkspace(rootPath string, options ...BaseOption) (*Workspace, error) {
 		root:    rootPath,
 		options: opts,
 	}
-	generatedFilesDir, err := w.Info(ForElement("bazel-bin"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to locate bazel-bin: %w", err)
-	}
-	sourceDir, err := w.Info(ForElement("workspace"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect execution root: %w", err)
-	}
-	w.bazelBin = os.DirFS(generatedFilesDir)
-	w.sourceDir = os.DirFS(sourceDir)
+
 	w.options.Log.Debugf("Opened bazel workspace at %q", rootPath)
 	return w, nil
+}
+
+func (w *Workspace) getAndCachePath(path string, dest *string) (string, error) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	if *dest != "" {
+		return *dest, nil
+	}
+
+	dirname, err := w.Info(ForElement(path))
+	if err != nil {
+		return "", fmt.Errorf("failed to locate %s: %w", path, err)
+	}
+
+	(*dest) = dirname
+	return dirname, nil
+}
+
+func (w *Workspace) GeneratedFilesDir() (string, error) {
+	return w.getAndCachePath("bazel-bin", &w.bazelBin)
+}
+
+func (w *Workspace) SourceDir() (string, error) {
+	return w.getAndCachePath("workspace", &w.sourceDir)
+}
+
+func (w *Workspace) OutputBaseDir() (string, error) {
+	return w.getAndCachePath("output_base", &w.outputBaseDir)
+}
+
+func (w *Workspace) OpenSource(path string) (fs.File, error) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	if w.sourceFS == nil {
+		// SourceDir() internally grabs the lock.
+		// Let's release it temporarily.
+		w.lock.Unlock()
+		srcdir, err := w.SourceDir()
+		w.lock.Lock()
+		if err != nil {
+			return nil, err
+		}
+
+		w.sourceFS = os.DirFS(srcdir)
+	}
+	return w.sourceFS.Open(path)
+}
+
+func (w *Workspace) OutputExternal() (string, error) {
+       obase, err := w.OutputBaseDir()
+       if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(obase, "external"), nil
 }
 
 // bazelCommand generates an executable command that includes:
@@ -66,16 +119,29 @@ func OpenWorkspace(rootPath string, options ...BaseOption) (*Workspace, error) {
 // * subcommand and subcommand args
 // * rooted to the correct workspace directory
 func (w *Workspace) bazelCommand(subCmd subcommand) (Command, error) {
-	args := w.options.flags()
+	args := w.options.Args()
 	args = append(args, subCmd.Args()...)
 	cmd := exec.Command("bazel", args...)
 	cmd.Dir = w.root
-	cmd.Env = os.Environ()
-	bazelCmd, err := NewCommand(cmd)
+	cmd.Env = append(os.Environ(), w.options.ExtraEnv...)
+	bazelCmd, err := NewCommand(cmd, w.options.ExtraEnv...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct bazel command: %w", err)
 	}
+	w.options.Log.Debugf("=> %s", CommandString(cmd, w.options.ExtraEnv))
 	return bazelCmd, nil
+}
+
+// CommandString returns a string describing a command.
+//
+// Differently from cmd.String(), the command description includes environment
+// variables that were explicitly set on the binary.
+func CommandString(cmd *exec.Cmd, cmdenv []string) string {
+	envs := strings.Join(cmdenv, " ")
+	if len(envs) > 0 {
+		return envs + " " + cmd.String()
+	}
+	return cmd.String()
 }
 
 func (w *Workspace) Info(options ...InfoOption) (string, error) {
@@ -90,7 +156,7 @@ func (w *Workspace) Info(options ...InfoOption) (string, error) {
 
 	err = cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("bazel info failed: %v\n\nbazel stderr:\n\n%s", err, cmd.StderrContents())
+		return "", fmt.Errorf("Command: %s\nFailed: %v\n\nbazel stderr:\n\n%s", cmd.String(), err, cmd.StderrContents())
 	}
 
 	b, err := cmd.StdoutContents()

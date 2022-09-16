@@ -109,7 +109,7 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 		if err != nil {
 			return 0, err
 		}
-		f, err := w.sourceDir.Open(lbl.filePath())
+		f, err := w.OpenSource(lbl.filePath())
 		if err != nil {
 			return 0, fmt.Errorf("can't open source file %q: %w", lbl.filePath(), err)
 		}

@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"github.com/enfabrica/enkit/lib/bazel"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/git"
+	"github.com/enfabrica/enkit/lib/logger"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -80,6 +80,9 @@ type AffectedTargetsList struct {
 
 	AffectedTargetsFile string
 	AffectedTestsFile   string
+	Parallel bool
+
+	bazel.GetModeOptions
 }
 
 func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
@@ -98,9 +101,47 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 		parent: parent,
 	}
 	command.Command.RunE = command.Run
+
+	command.Flags().BoolVar(&command.Parallel, "parallel", true, "If set, the bazel query is run in parallel")
 	command.Flags().StringVar(&command.AffectedTargetsFile, "affected_targets_file", "", "If set, the list of affected targets will be dumped to this file path")
 	command.Flags().StringVar(&command.AffectedTestsFile, "affected_tests_file", "", "If set, the list of affected tests will be dumped to this file path")
+	command.Flags().StringVar(&command.Start.OutputBase, "start_output_base", "", "If set, the directory to use as start output base")
+	command.Flags().StringVar(&command.End.OutputBase, "end_output_base", "", "If set, the directory to use as end output base")
+	command.Flags().StringVar(&command.Query, "query", "deps(//...)",
+		"The query to use to find the targets. Only the default query has been tested, "+
+			"not all queries will work correctly, make sure to test your changes carefully")
+	command.Flags().StringArrayVar(&command.ExtraStartup, "extra_startup", nil, "Extra startup flags appended to the bazel command line")
+
 	return command
+}
+
+// setCurrentOutputBaseAsDefault takes the output base of the bazel workspace
+// specified in gitRoot and sets it as the default for Start and End OutputBase,
+// assuming one was not specified from the command line already.
+func setCurrentOutputBaseAsDefault(gitRoot string, options *bazel.GetModeOptions, log logger.Logger) error {
+	if options.Start.OutputBase != "" && options.End.OutputBase != "" {
+		return nil
+	}
+
+	ws, err := bazel.OpenWorkspace(gitRoot, bazel.WithExtraStartupFlags(options.ExtraStartup...), bazel.WithLogging(log))
+	if err != nil {
+		return err
+	}
+
+	obase, err := ws.OutputBaseDir()
+	if err != nil {
+		return err
+	}
+
+	if options.Start.OutputBase == "" {
+		options.Start.OutputBase = obase
+	}
+
+	if options.End.OutputBase == "" {
+		options.End.OutputBase = obase
+	}
+
+	return nil
 }
 
 func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
@@ -135,7 +176,7 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't generate worktree for committish %q: %w", c.parent.Start, err)
 	}
 	defer startTree.Close()
-	startWS := filepath.Clean(filepath.Join(startTree.Root(), gitToBazelPath))
+	c.Start.RepoPath = filepath.Clean(filepath.Join(startTree.Root(), gitToBazelPath))
 	c.root.BaseFlags.Log.Infof("Checked out %q to %q", c.parent.Start, startTree.Root())
 
 	endTreePath := gitRoot
@@ -151,9 +192,18 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 		c.root.BaseFlags.Log.Infof("Using %d as ending working directory", endTreePath)
 	}
 	c.root.BaseFlags.Log.Infof("Checked out %q to %q", c.parent.End, endTreePath)
-	endWS := filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
+	c.End.RepoPath = filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
 
-	rules, tests, err := bazel.GetAffectedTargets(startWS, endWS, config, c.root.BaseFlags.Log)
+	mode := bazel.ParallelQuery
+	if (!c.Parallel) {
+		if err := setCurrentOutputBaseAsDefault(gitRoot, &c.GetModeOptions, c.root.Log); err != nil {
+			c.root.Log.Warnf("Could not compute output_base of workspace %s: %s", gitRoot, err)
+		}
+
+		mode = bazel.SerialQuery
+	}
+
+	rules, tests, err := bazel.GetAffectedTargets(config, mode, c.GetModeOptions, c.root.BaseFlags.Log)
 	if err != nil {
 		return fmt.Errorf("failed to calculate affected targets: %w", err)
 	}
@@ -242,8 +292,4 @@ func bazelGitRoot(dir string) (string, string, error) {
 		return "", "", fmt.Errorf("can't calculate common path between %q and %q: %w", root, bazelRoot, err)
 	}
 	return root, rel, nil
-}
-
-func relativeWorkspace(gitRoot fs.FS, relativeWorkspace string) (fs.FS, error) {
-	return nil, fmt.Errorf("not implemented")
 }

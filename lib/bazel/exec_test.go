@@ -25,6 +25,10 @@ func (c *fakeCommand) Close() error {
 	return c.closeErr
 }
 
+func (c *fakeCommand) String() string {
+	return "your-fakest-command"
+}
+
 func (c *fakeCommand) Stdout() (io.ReadCloser, error) {
 	if c.stdoutErr != nil {
 		return nil, c.stdoutErr

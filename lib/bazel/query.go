@@ -150,7 +150,7 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 	defer cmd.Close()
 	err = cmd.Run()
 	if err := queryOpts.filterError(err); err != nil {
-		return nil, fmt.Errorf("bazel query failed: %v\n\nbazel stderr:\n%s", err, cmd.StderrContents())
+		return nil, fmt.Errorf("Command: %s\nError: %v\n\nbazel stderr:\n%s", cmd.String(), err, cmd.StderrContents())
 	}
 
 	targets := map[string]*Target{}

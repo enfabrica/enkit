@@ -9,6 +9,7 @@ go_library(
         "//enkit/proto:go_default_library",
         "//lib/bazel:go_default_library",
         "//lib/client:go_default_library",
+        "//lib/logger:go_default_library",
         "//lib/git:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext:go_default_library",

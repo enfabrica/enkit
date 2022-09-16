@@ -48,7 +48,7 @@ func TestQueryOutput(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			stubs := gostub.Stub(&NewCommand, func(cmd *exec.Cmd) (Command, error) {
+			stubs := gostub.Stub(&NewCommand, func(cmd *exec.Cmd, env ...string) (Command, error) {
 				// Record the command
 				tc.gotCommands = append(tc.gotCommands, cmd)
 				// Return fake results
