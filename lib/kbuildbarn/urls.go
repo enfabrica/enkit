@@ -20,13 +20,27 @@ func ParseByteStreamUrl(byteStream string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+
+	// BUG(INFRA-1836): When bazel is talking to the BES endpoint via UNIX domain
+	// socket, it embeds bytestream URLs that have:
+	// * an excessive number of slashes (bytestream://////rest/of/path)
+	// * no host - only a path
+	// * path is absolute path to the UDS on the client joined with the normal
+	//   path (/blobs/hash/size)
+	// If this is the case, truncate path to what it otherwise would be when
+	// talking to a web endpoint (/blobs/hash/size, with leading slash)
+	const sockSuffix = ".sock"
+	if strings.Contains(u.Path, "////") && strings.Contains(u.Path, sockSuffix) {
+		idx := strings.Index(u.Path, sockSuffix)
+		u.Path = u.Path[idx+len(sockSuffix):]
+	}
+
 	splitUrl := strings.Split(u.Path, "/")
 	if len(splitUrl) != 4 {
 		return "", "", fmt.Errorf("ParseByteStreamUrl() bytestream url is not well formed %s", byteStream)
 	}
 	return splitUrl[2], splitUrl[3], nil
 }
-
 
 func performRequest(client *http.Client, url string) (io.ReadCloser, error) {
 	resp, err := client.Get(url)
