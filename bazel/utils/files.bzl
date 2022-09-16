@@ -164,7 +164,7 @@ def files_to_dir(ctx, dirname, paths, post = ""):
 
     pack = []
     for k, v in roots.items():
-        pack.append("tar -C {root} -hc {files} |tar -x -C {dest}".format(
+        pack.append("tarcopy {root} {dest} {files}".format(
             root = shell.quote(k or "."),
             files = escape_and_join(v),
             dest = dest,
@@ -177,8 +177,31 @@ def files_to_dir(ctx, dirname, paths, post = ""):
         dest = dest,
     )
 
+    # TODO(carlo): Why retry?? it's a local copy!
+    # We've observed in CI on buildbarn the error:
+    #   tar: whatever/path/...: file changed as we read it
+    #
+    # As of Sep/2022, this is the most common cause of flakiness in our
+    # tests. We have so far not been able to find an error in the rule
+    # or our deployment that would cause this, and have not been able
+    # to consistently reproduce it locally (or remotely) to debug it
+    # either. The retry strategy here is an attempt to paper over
+    # the issue, while we figure it out.
     copy_command = """#!/bin/bash
 set -euo pipefail
+function tarcopy() {{
+  local root="$1"
+  local dest="$2"
+  shift 2
+  
+  for attempt in $(seq 1 5); do
+    tar -C "$root" -hc "$@" | tar -x -C "$dest" && return 0
+    echo "attempt $attempt - tar command failed - retrying" 1>&2
+    sleep 1
+  done
+  echo "tar command failed in 5 attempts - exiting"
+  exit 1
+}}
 {pack}
 {post}
 """.format(
