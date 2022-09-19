@@ -2,6 +2,11 @@
 
 ## Releases
 
+### Unreleased
+
+* `gee pr_checks`: make output quieter, add --wait flag (#749)
+* `gee restore_all_branches` works from non-gee dirs (#743)
+
 ### 0.2.35
 
 * `gee pr_checks`: report the specific failing test that caused a presubmit check to fail. (#739)
