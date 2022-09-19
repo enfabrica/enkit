@@ -3,7 +3,6 @@
 See README.md for more information.
 """
 
-load("//bazel:go_repositories.bzl", "go_repositories")
 load("//bazel/meson:meson.bzl", "meson_register_toolchains")
 load("//bazel/ui:deps.bzl", "install_ui_deps")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
@@ -53,8 +52,6 @@ def stage_2():
         ],
         requirements_lock = "//:requirements.txt",
     )
-
-    go_repositories()
 
     # SDKs that can be used to build Go code. We need:
     # * the most recent version we can support
