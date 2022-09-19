@@ -4733,6 +4733,9 @@ function gee__restore_all_branches() {
   # Make sure all tools are available
   _install_tools
 
+  # Make sure we're in a valid git repo
+  _startup_checks "restore_all_branches"
+
   _gee_fix_remote_origin_fetch_config
 
   local OLDEST_COMMIT
