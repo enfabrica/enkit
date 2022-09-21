@@ -16,6 +16,8 @@ def _kernel_modules(ctx):
     bundled = []
     for arch in ctx.attr.archs:
         inputs = ctx.files.srcs + ctx.files.kernel
+        includes = []
+        quote_includes = []
         extra_symbols = []
 
         kdeps = []
@@ -28,6 +30,8 @@ def _kernel_modules(ctx):
             if not is_module(d):
                 if CcInfo in d:
                     inputs += d[CcInfo].compilation_context.headers.to_list()
+                    includes += d[CcInfo].compilation_context.includes.to_list()
+                    quote_includes += d[CcInfo].compilation_context.quote_includes.to_list()
             else:
                 mods = get_compatible(ctx, arch, ki.package, d)
 
@@ -109,7 +113,13 @@ def _kernel_modules(ctx):
         # Force GCC to produce colored output
         cflags += " -fdiagnostics-color=always"
 
-        extra.append("EXTRA_CFLAGS='%s'" % cflags)
+        for include in depset(includes).to_list():
+            cflags += " -I $PWD/%s" % include
+
+        for include in depset(quote_includes).to_list():
+            cflags += " -iquote $PWD/%s" % include
+
+        extra.append("EXTRA_CFLAGS+=\"%s\"" % cflags)
 
         ctx.actions.run_shell(
             mnemonic = "KernelBuild",
