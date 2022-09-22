@@ -1,4 +1,7 @@
+load("//bazel/enkit:defs.bzl", "multirun")
 load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+
 
 # To update and generate the BUILD.bazel files, run:
 #     bazelisk run //:gazelle
@@ -48,10 +51,19 @@ exports_files(
     visibility = ["//:__subpackages__"],
 )
 
-load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
-
 # To automatically format all .bzl files and all BUILD.bzl files, run:
 #     bazelisk run //:buildifier
 buildifier(
     name = "buildifier",
+)
+
+multirun(
+    name = "binaries_release",
+    commands = [
+        "//enkit:deploy",
+        "//faketree:astore_push",
+        "//flextape/server:astore_push",
+        # TODO(scott): Move the main to //flextape/client, delete this dir
+        "//manager/client:astore_push",
+    ],
 )
