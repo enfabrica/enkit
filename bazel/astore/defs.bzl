@@ -132,31 +132,19 @@ With this rule, you can easily download
 files from an artifact store.""",
 )
 
-def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None, timeout = 10 * 60):
-    """Fetch and extract a package from astore.
-
-    This method downloads a package stored as an archive in astore, verifies
-    the sha256 digest provided by calling rules, and strips out any archive path
-    components provided by the caller. This function is only meant to be used by
-    Bazel repository rules and they do not maintain a dependency graph and the
-    ctx object is different than the ones used with regular rules.
-    """
-    f = ctx.path((path or ctx.attr.path).split("/")[-1])
-
-    # Download archive
+def _astore_download_and_verify(rctx, dest, uid, digest, timeout):
+    # Download by UID to destination
     enkit_args = [
         "enkit",
         "astore",
         "download",
         "--force-uid",
-        uid or ctx.attr.uid,
+        uid,
         "--output",
-        f,
+        dest,
         "--overwrite",
     ]
-    if hasattr(ctx.attr, "timeout"):
-        timeout = ctx.attr.timeout
-    res = ctx.execute(enkit_args, timeout = timeout)
+    res = rctx.execute(enkit_args, timeout = timeout)
     if res.return_code:
         fail("Astore download failed\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
             enkit_args,
@@ -164,9 +152,9 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
             res.stderr,
         ))
 
-    # Check digest of archive
-    checksum_args = ["sha256sum", f]
-    res = ctx.execute(checksum_args, timeout = 60)
+    # Check digest of downloaded file
+    checksum_args = ["sha256sum", dest]
+    res = rctx.execute(checksum_args, timeout = 60)
     if res.return_code:
         fail("Failed to calculate checksum\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
             checksum_args,
@@ -177,27 +165,49 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
     got_digest = res.stdout.strip().split(" ")[0]
     if got_digest != digest:
         fail("WORKSPACE repository {}: Got digest {}; expected digest {}".format(
-            ctx.attr.name,
+            rctx.attr.name,
             got_digest,
             digest,
         ))
 
-    ctx.extract(
+def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None, timeout = 10 * 60):
+    """Fetch and extract a package from astore.
+
+    This method downloads a package stored as an archive in astore, verifies
+    the sha256 digest provided by calling rules, and strips out any archive path
+    components provided by the caller. This function is only meant to be used by
+    Bazel repository rules and they do not maintain a dependency graph and the
+    ctx object is different than the ones used with regular rules.
+    """
+
+    # Hard to rename this var, since downstream calls this function using
+    # keyword args, naming ctx explicitly. However, it is a repository context,
+    # so use rctx throughout to minimize confusion.
+    rctx = ctx
+
+    f = rctx.path((path or rctx.attr.path).split("/")[-1])
+    uid = uid or rctx.attr.uid
+    if hasattr(rctx.attr, "timeout"):
+        timeout = rctx.attr.timeout
+
+    _astore_download_and_verify(rctx, f, uid, digest, timeout)
+
+    rctx.extract(
         archive = f,
         output = ".",
         stripPrefix = stripPrefix,
     )
-    ctx.delete(f)
+    rctx.delete(f)
 
-    if hasattr(ctx.attr, "build") and ctx.attr.build:
-        ctx.template("BUILD.bazel", ctx.attr.build)
+    if hasattr(rctx.attr, "build") and rctx.attr.build:
+        rctx.template("BUILD.bazel", rctx.attr.build)
 
 # This wrapper is in place to allow a rolling upgrade across Enkit and the
 # external repositories which consume the kernel_tree_version rule defined in
 # //enkit/linux/defs.bzl, which uses "sha256" as the attribute name instead of
 # "digest".
-def _astore_download_and_extract_impl(ctx):
-    astore_download_and_extract(ctx, ctx.attr.digest, ctx.attr.strip_prefix)
+def _astore_download_and_extract_impl(rctx):
+    astore_download_and_extract(rctx, rctx.attr.digest, rctx.attr.strip_prefix)
 
 astore_package = repository_rule(
     implementation = _astore_download_and_extract_impl,
@@ -224,6 +234,49 @@ astore_package = repository_rule(
         "timeout": attr.int(
             doc = "Timeout for astore fetch operation, in seconds.",
             default = 10 * 60,
+        ),
+    },
+)
+
+def _astore_file_impl(rctx):
+    f = rctx.path(rctx.attr.path.split("/")[-1])
+
+    _astore_download_and_verify(rctx, f, rctx.attr.uid, rctx.attr.digest, 10 * 60)
+
+    # Fix permissions on downloaded file.
+    #
+    # Executable bit is not preserved on round-trip through astore, so this is
+    # passed in via a rule attribute. Otherwise, permissions are the two that
+    # git typically supports.
+    perms = "0644"
+    if rctx.attr.executable:
+        perms = "0755"
+    rctx.execute(["chmod", perms, f])
+
+    # Create a WORKSPACE file
+    rctx.file("WORKSPACE", content = "", executable = False)
+
+    # Create a BUILD file
+    rctx.file("BUILD.bazel", content = 'exports_files(glob(["**/*"]))', executable = False)
+
+astore_file = repository_rule(
+    implementation = _astore_file_impl,
+    attrs = {
+        "path": attr.string(
+            doc = "Path to the object in astore",
+            mandatory = True,
+        ),
+        "uid": attr.string(
+            doc = "Astore UID of the desired version of the object.",
+            mandatory = True,
+        ),
+        "digest": attr.string(
+            doc = "SHA256 digest of the object.",
+            mandatory = True,
+        ),
+        "executable": attr.bool(
+            doc = "Whether this file is an executable",
+            default = False,
         ),
     },
 )
