@@ -429,7 +429,7 @@ function _check_ssh_agent() {
       _fatal "Something is wrong with enkit's ssh agent."
     fi
   fi
-  if ! ssh-add -l > /dev/null; then
+  if ! timeout 2 ssh-add -l > /dev/null; then
     local RC=$?
     if (( RC == 2 )); then
       _fatal "Unable to communicate with enkit's ssh agent."
@@ -450,7 +450,7 @@ function _check_enkit_cert() {
       _fatal "No enkit certificate, aborting."
     fi
   fi
-  COUNT="$(ssh-add -l | wc -l)"
+  COUNT="$(timeout 2 ssh-add -l | wc -l)"
   if (( COUNT == 0 )); then
     _fatal "enkit's certificate isn't showing up in ssh-agent."
   fi
@@ -690,7 +690,7 @@ function _startup_checks() {
   # check ssh agent
   local RC
   set +e
-  ssh-add -l >/dev/null
+  timeout 2 ssh-add -l >/dev/null
   RC=$?
   set -e
   if (( RC == 0 )); then
@@ -711,7 +711,7 @@ function _startup_checks() {
   fi
 
   set +e
-  ssh-add -l >/dev/null
+  timeout 2 ssh-add -l >/dev/null
   RC=$?
   set -e
   if (( RC == 1 )); then
@@ -4542,7 +4542,7 @@ function gee__diagnose() {
     printf "%q\n" "${SSH_AGENT_PID}"
     echo "-------- ssh configuration --------"
     cat ~/.ssh/config
-    ssh-add -l
+    timeout 2 ssh-add -l
     ssh -v -T "${GIT_AT_GITHUB}"
     echo "-------- gh connectivity --------"
     "${GH}" auth status
