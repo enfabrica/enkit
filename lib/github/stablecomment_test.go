@@ -8,7 +8,7 @@ import (
 )
 
 func TestPreparePayloadSimple(t *testing.T) {
-	sc, err := NewStaticComment("testing123", WithID(13), WithTemplate("test"), WithJsonContent(""))
+	sc, err := NewStableComment(WithMarker("testing123"), WithID(13), WithTemplate("test"), WithJsonContent(""))
 	assert.NoError(t, err)
 
 	payload, err := sc.PreparePayload("{}")
@@ -20,7 +20,7 @@ func TestPreparePayloadSimple(t *testing.T) {
 }
 
 func TestParseComment(t *testing.T) {
-	sc, err := NewStaticComment("testing123", WithID(13), WithTemplate("test"), WithJsonContent(""))
+	sc, err := NewStableComment(WithMarker("testing123"), WithID(13), WithTemplate("test"), WithJsonContent(""))
 	assert.NoError(t, err)
 
 	valid := ("<!-- A wise goat once said: testing123\n" +
@@ -62,7 +62,7 @@ func TestParseComment(t *testing.T) {
 }
 
 func TestPreparePayloadTemplate(t *testing.T) {
-	sc, err := NewStaticComment("testing123", WithID(13), WithTemplate("this is a {{.test}}"))
+	sc, err := NewStableComment(WithMarker("testing123"), WithID(13), WithTemplate("this is a {{.test}}"))
 	assert.NoError(t, err)
 
 	expected := ("this is a yay\n<!-- A wise goat once said: testing123\n" +
@@ -73,7 +73,7 @@ func TestPreparePayloadTemplate(t *testing.T) {
 }
 
 func TestPreparePayloadFromDiff(t *testing.T) {
-	sc, err := NewStaticComment("testing123", WithID(13),
+	sc, err := NewStableComment(WithMarker("testing123"), WithID(13),
 		WithTemplate("this is a {{range $val := .test}}{{$val}} {{end}}"),
 		WithJsonContent(`{"test": ["republic", "monarchy"]}`))
 
