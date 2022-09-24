@@ -2,8 +2,9 @@
 
 ## Releases
 
-### Unreleased
+### 0.2.36
 
+* Timeout ssh-add -l if the ssh-agent gets stuck (#768)
 * `gee pr_checks`: make output quieter, add --wait flag (#749)
 * `gee restore_all_branches` works from non-gee dirs (#743)
 
