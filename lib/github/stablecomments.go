@@ -116,9 +116,11 @@ type StableCommentFlags struct {
 	JsonContent string
 }
 
+var DefaultMarker = "staco-unfortunate-id"
+
 func DefaultStableCommentFlags() *StableCommentFlags {
 	flags := &StableCommentFlags{
-		Marker:      "staco-unfortunate-id",
+		Marker:      DefaultMarker,
 		JsonContent: "{}",
 	}
 	return flags
@@ -142,8 +144,8 @@ type StableCommentDiffFlags struct {
 
 func (fl *StableCommentDiffFlags) Register(set kflags.FlagSet, prefix string) *StableCommentDiffFlags {
 	set.StringVar(&fl.Diff, prefix+"diff-jd", fl.Diff, "A change to apply in jd format - https://github.com/josephburnett/jd#diff-language")
-	set.StringVar(&fl.Patch, prefix+"diff-patch", fl.Patch, "A change to apply in RFC 7386 format")
-	set.StringVar(&fl.Merge, prefix+"diff-merge", fl.Patch, "A change to apply in RFC 6902 format")
+	set.StringVar(&fl.Patch, prefix+"diff-patch", fl.Patch, "A change to apply in RFC 7386 format (patch format)")
+	set.StringVar(&fl.Merge, prefix+"diff-merge", fl.Patch, "A change to apply in RFC 6902 format (merge format)")
 
 	return fl
 }
@@ -152,9 +154,6 @@ func NewDiffFromFlags(fl *StableCommentDiffFlags) (jd.Diff, error) {
 	if (fl.Diff != "" && fl.Patch != "") || (fl.Diff != "" && fl.Merge != "") || (fl.Patch != "" && fl.Merge != "") {
 		return nil, kflags.NewUsageErrorf("only one of --diff-jd, --diff-patch, and --diff-merge must be specified")
 	}
-	if fl.Diff == "" && fl.Patch == "" && fl.Merge == "" {
-		return nil, kflags.NewUsageErrorf("one of --diff-jd, --diff-patch, and --diff-merge must be specified")
-	}
 
 	if fl.Diff != "" {
 		return jd.ReadDiffString(fl.Diff)
@@ -162,13 +161,16 @@ func NewDiffFromFlags(fl *StableCommentDiffFlags) (jd.Diff, error) {
 	if fl.Patch != "" {
 		return jd.ReadPatchString(fl.Patch)
 	}
-	return jd.ReadMergeString(fl.Merge)
+	if fl.Merge != "" {
+		return jd.ReadMergeString(fl.Merge)
+	}
+	return nil, nil
 }
 
 func NewStableComment(mods ...StableCommentModifier) (*StableComment, error) {
 	sc := &StableComment{
 		jsoncontent: "{}",
-		marker:      "staco-unfortunate-id",
+		marker:      DefaultMarker,
 		log:         logger.Nil,
 	}
 	if err := StableCommentModifiers(mods).Apply(sc); err != nil {
@@ -183,7 +185,7 @@ func NewStableComment(mods ...StableCommentModifier) (*StableComment, error) {
 	return sc, nil
 }
 
-func FromFlags(fl StableCommentFlags) StableCommentModifier {
+func FromFlags(fl *StableCommentFlags) StableCommentModifier {
 	return func(sc *StableComment) error {
 		if fl.Marker != "" {
 			sc.marker = fl.Marker
@@ -196,9 +198,25 @@ func FromFlags(fl StableCommentFlags) StableCommentModifier {
 }
 
 func (sc *StableComment) UpdateFromPR(rc *RepoClient, ctx context.Context, pr int) error {
-	comments, err := rc.GetPRComments(ctx, pr)
+	id, payload, template, err := sc.FetchPRState(rc, ctx, pr)
 	if err != nil {
 		return err
+	}
+
+	sc.id = id
+	if payload != "" {
+		sc.jsoncontent = payload
+	}
+	if sc.template == "" {
+		sc.template = template
+	}
+	return nil
+}
+
+func (sc *StableComment) FetchPRState(rc *RepoClient, ctx context.Context, pr int) (int64, string, string, error) {
+	comments, err := rc.GetPRComments(ctx, pr)
+	if err != nil {
+		return 0, "", "", err
 	}
 
 	for _, comment := range comments {
@@ -216,20 +234,23 @@ func (sc *StableComment) UpdateFromPR(rc *RepoClient, ctx context.Context, pr in
 
 			sc.log.Warnf("PR %d - Corrupted comment %d? %s", pr, *comment.ID, err)
 		}
-
-		sc.id = *comment.ID
-		sc.jsoncontent = payload
-		if sc.template == "" {
-			sc.template = template
-		}
-
-		return nil
+		return *comment.ID, payload, template, nil
 	}
 
 	// NOT FOUND - no defaults.
-	return nil
+	return 0, "", "", nil
 }
 
+// ParseComment parses a string comment.
+//
+// The string comment is normally retrieved from github,
+// but this function can be used for scripts or tests.
+//
+// Returns the parsed and validated json content and template.
+//
+// If the error returns nil on Unwrap() it means there was
+// no parsing or validation error - the supplied string
+// did not contain metadata.
 func (sc *StableComment) ParseComment(comment string) (string, string, error) {
 	found := sc.matcher.FindStringSubmatch(comment)
 	if len(found) < 2 {
@@ -257,6 +278,7 @@ func (sc *StableComment) ParseComment(comment string) (string, string, error) {
 	return payload.Content, payload.Template, nil
 }
 
+// PostPayload posts a pre-formatted comment to the specified PR.
 func (sc *StableComment) PostPayload(rc *RepoClient, ctx context.Context, comment string, prnumber int) error {
 	if sc.id == 0 {
 		_, err := rc.AddPRComment(ctx, prnumber, comment)
@@ -264,6 +286,14 @@ func (sc *StableComment) PostPayload(rc *RepoClient, ctx context.Context, commen
 	}
 
 	return rc.EditPRComment(ctx, sc.id, comment)
+}
+
+// PostAction describes the action that needs to be performed for this comment.
+func (sc *StableComment) PostAction() string {
+	if sc.id == 0 {
+		return "create new comment"
+	}
+	return fmt.Sprintf("edit comment ID %d", sc.id)
 }
 
 func (sc *StableComment) PostToPR(rc *RepoClient, ctx context.Context, diff jd.Diff, prnumber int) error {
@@ -280,6 +310,10 @@ func (sc *StableComment) PreparePayloadFromDiff(diff jd.Diff) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if diff == nil {
+		return sc.PreparePayload(jc.Json())
+	}
+
 	jp, err := jc.Patch(diff)
 	if err != nil {
 		return "", err

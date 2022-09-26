@@ -1,11 +1,11 @@
 package github
 
 import (
-	"os"
 	"context"
-	"github.com/google/go-github/github"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
+	"os"
 )
 
 // GithubRepo uniquely identifies a git repository on github.
@@ -30,7 +30,7 @@ type RepoClient struct {
 
 type RepoClientFlags struct {
 	Token string
-	Repo GithubRepo
+	Repo  GithubRepo
 }
 
 func (fl *RepoClientFlags) Register(set kflags.FlagSet, prefix string) *RepoClientFlags {
@@ -39,22 +39,26 @@ func (fl *RepoClientFlags) Register(set kflags.FlagSet, prefix string) *RepoClie
 	return fl
 }
 
+// NewRepoClientFromFlags initializes a new RepoClient object from flags.
+//
+// A RepoClient object wraps a github.Client and a GithubRepo under a single
+// object, and provides some simplified APIs for github access.
 func NewRepoClientFromFlags(fl *RepoClientFlags) (*RepoClient, error) {
 	token := fl.Token
 	if fl.Token == "" {
 		token = os.Getenv("GH_TOKEN")
 		if token == "" {
 			return nil, kflags.NewUsageErrorf(
-	"A github token must be supplied, either via flags (see --help, --github-token) or via GH_TOKEN")
+				"A github token must be supplied, either via flags (see --help, --github-token) or via GH_TOKEN")
 		}
 	}
 	if fl.Repo.Owner == "" {
 		return nil, kflags.NewUsageErrorf(
-	"A github repository owner must be supplied, see --help, --github-owner")
+			"A github repository owner must be supplied, see --help, --github-owner")
 	}
 	if fl.Repo.Name == "" {
 		return nil, kflags.NewUsageErrorf(
-	"A github repository name must be supplied, see --help, --github-repo")
+			"A github repository name must be supplied, see --help, --github-repo")
 	}
 
 	ts := oauth2.StaticTokenSource(
@@ -65,7 +69,7 @@ func NewRepoClientFromFlags(fl *RepoClientFlags) (*RepoClient, error) {
 	client := github.NewClient(tc)
 	return &RepoClient{
 		client: client,
-		repo: fl.Repo,
+		repo:   fl.Repo,
 	}, nil
 }
 
