@@ -25,6 +25,16 @@ If not specified, the current root of the filesystem will be used as rootfs.
             mandatory = True,
             doc = "List of executable targets to run in the emulator.",
         ),
+        "wrapper_flags": attr.string_list(
+            doc = """\
+Flags to append after '--' at the end of the qemu command line.
+
+This is useful when the emulator is being invoked through a wrapper, or
+when a wrapper is invoked by the emulator. It allows to separate the
+emulator flags from those passed to the wrapper.
+""",
+            default = [],
+        ),
         "template_init": attr.label(
             allow_single_file = True,
             default = template_init_default,
@@ -181,6 +191,7 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
         "rootfs": rootfs,
         "init": init.short_path,
         "runtime": runtime_root.short_path,
+	"wrapper_flags": shell.array_literal(ctx.attr.wrapper_flags),
     }, **extra)
 
     subs["code"] = code.format(**subs)
