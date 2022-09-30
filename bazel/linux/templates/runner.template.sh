@@ -14,6 +14,7 @@ RELRUNTIME="{runtime}"
 ROOTFS="{rootfs}"
 KERNEL="{kernel}"
 TARGET="{target}"
+WRAPPER_OPTS={wrapper_flags} # Array, no quotes!
 
 # A script in charge of verifying the output of the run.
 CHECKER="{checker}"
@@ -120,7 +121,7 @@ while getopts "k:e:r:hsx" opt; do
 done
 shift $((OPTIND - 1))
 
-WRAPPER_OPTS=("$@")
+WRAPPER_OPTS+=("$@")
 
 showstate
 
