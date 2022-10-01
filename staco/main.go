@@ -17,7 +17,7 @@ func PostCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 
-	gh := &github.RepoClientFlags{}
+	gh := github.DefaultRepoClientFlags()
 	gh.Register(&kcobra.FlagSet{cmd.Flags()}, "")
 
 	df := &github.StableCommentDiffFlags{}
@@ -153,7 +153,7 @@ func ShowCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 
-	gh := &github.RepoClientFlags{}
+	gh := github.DefaultRepoClientFlags()
 	gh.Register(&kcobra.FlagSet{cmd.Flags()}, "")
 
 	var pr int
