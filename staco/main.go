@@ -35,7 +35,7 @@ func PostCommand() *cobra.Command {
 		if pr == 0 {
 			return kflags.NewUsageErrorf("A PR number MUST be specified with --pr")
 		}
-		repo, err := github.NewRepoClientFromFlags(gh)
+		repo, err := github.NewRepoClient(github.RepoClientFromFlags(context.Background(), gh))
 		if err != nil {
 			return err
 		}
@@ -45,18 +45,16 @@ func PostCommand() *cobra.Command {
 			return err
 		}
 
-		sc, err := github.NewStableComment(github.FromFlags(scf))
+		sc, err := github.NewStableComment(github.StableCommentFromFlags(scf))
 		if err != nil {
 			return err
 		}
 
-		// TODO! ctx.Background!
-		if err := sc.UpdateFromPR(repo, context.Background(), pr); err != nil {
+		if err := sc.UpdateFromPR(repo, pr); err != nil {
 			return err
 		}
 		if !dryrun {
-			// TODO! ctx.Background!
-			if err := sc.PostToPR(repo, context.Background(), diff, pr); err != nil {
+			if err := sc.PostToPR(repo, diff, pr); err != nil {
 				return err
 			}
 		} else {
@@ -170,7 +168,7 @@ func ShowCommand() *cobra.Command {
 		if pr == 0 {
 			return kflags.NewUsageErrorf("A PR number MUST be specified with --pr")
 		}
-		repo, err := github.NewRepoClientFromFlags(gh)
+		repo, err := github.NewRepoClient(github.RepoClientFromFlags(context.Background(), gh))
 		if err != nil {
 			return err
 		}
@@ -180,8 +178,7 @@ func ShowCommand() *cobra.Command {
 			return err
 		}
 
-		// FIXME:background
-		id, payload, template, err := sc.FetchPRState(repo, context.Background(), pr)
+		id, payload, template, err := sc.FetchPRState(repo, pr)
 		if err != nil {
 			return err
 		}

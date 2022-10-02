@@ -2,7 +2,6 @@ package github
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -185,7 +184,7 @@ func NewStableComment(mods ...StableCommentModifier) (*StableComment, error) {
 	return sc, nil
 }
 
-func FromFlags(fl *StableCommentFlags) StableCommentModifier {
+func StableCommentFromFlags(fl *StableCommentFlags) StableCommentModifier {
 	return func(sc *StableComment) error {
 		if fl.Marker != "" {
 			sc.marker = fl.Marker
@@ -197,8 +196,8 @@ func FromFlags(fl *StableCommentFlags) StableCommentModifier {
 	}
 }
 
-func (sc *StableComment) UpdateFromPR(rc *RepoClient, ctx context.Context, pr int) error {
-	id, payload, template, err := sc.FetchPRState(rc, ctx, pr)
+func (sc *StableComment) UpdateFromPR(rc *RepoClient, pr int) error {
+	id, payload, template, err := sc.FetchPRState(rc, pr)
 	if err != nil {
 		return err
 	}
@@ -213,8 +212,8 @@ func (sc *StableComment) UpdateFromPR(rc *RepoClient, ctx context.Context, pr in
 	return nil
 }
 
-func (sc *StableComment) FetchPRState(rc *RepoClient, ctx context.Context, pr int) (int64, string, string, error) {
-	comments, err := rc.GetPRComments(ctx, pr)
+func (sc *StableComment) FetchPRState(rc *RepoClient, pr int) (int64, string, string, error) {
+	comments, err := rc.GetPRComments(pr)
 	if err != nil {
 		return 0, "", "", err
 	}
@@ -279,13 +278,13 @@ func (sc *StableComment) ParseComment(comment string) (string, string, error) {
 }
 
 // PostPayload posts a pre-formatted comment to the specified PR.
-func (sc *StableComment) PostPayload(rc *RepoClient, ctx context.Context, comment string, prnumber int) error {
+func (sc *StableComment) PostPayload(rc *RepoClient, comment string, prnumber int) error {
 	if sc.id == 0 {
-		_, err := rc.AddPRComment(ctx, prnumber, comment)
+		_, err := rc.AddPRComment(prnumber, comment)
 		return err
 	}
 
-	return rc.EditPRComment(ctx, sc.id, comment)
+	return rc.EditPRComment(sc.id, comment)
 }
 
 // PostAction describes the action that needs to be performed for this comment.
@@ -296,13 +295,13 @@ func (sc *StableComment) PostAction() string {
 	return fmt.Sprintf("edit comment ID %d", sc.id)
 }
 
-func (sc *StableComment) PostToPR(rc *RepoClient, ctx context.Context, diff jd.Diff, prnumber int) error {
+func (sc *StableComment) PostToPR(rc *RepoClient, diff jd.Diff, prnumber int) error {
 	payload, err := sc.PreparePayloadFromDiff(diff)
 	if err != nil {
 		return err
 	}
 
-	return sc.PostPayload(rc, ctx, payload, prnumber)
+	return sc.PostPayload(rc, payload, prnumber)
 }
 
 func (sc *StableComment) PreparePayloadFromDiff(diff jd.Diff) (string, error) {
