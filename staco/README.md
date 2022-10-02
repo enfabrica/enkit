@@ -10,7 +10,7 @@ to act as a mini-dashboard.
 Let's say, for example, that you have a BOT that on every PR does some analysis,
 and needs to post the link to a generated report. Every time the PR is updated,
 a new report is generated. But you don't want a new comment to be posted on the
-PR every time! Rather, you'd like your first comment to be updated with the
+PR every time! Rather, you'd like a comment to be updated with the
 latest link, and maybe maintain a little bit of history with the links to
 the previous analysis.
 
@@ -18,7 +18,7 @@ staco combines:
 * text/template - to define the format of your stable comment.
 * json - to define the data to be displayed (and updated) in the comment.
 * json patches - in various formats (thanks to the [jd library](https://pkg.go.dev/github.com/josephburnett/jd@v1.6.1/lib)),
-  describing how to update the comments.
+  describing how to update the data displayed in comments.
 
 # Example
 
@@ -47,9 +47,16 @@ for providing the list of all supported html and markdown formatting on github)
 
 ### Template
 
-The first step is to turn this into a valid [template](https://pkg.go.dev/text/template).
-Something like this would work (watch out that golang templates preserve newlines, and
-github html is sometimes weird around empty lines):
+The first step is to turn your desired comment into a valid
+[golang template](https://pkg.go.dev/text/template), consuming the
+JSON objects. If you're not familiar with golang templates combined
+with json, all you need to know is that `.Something` refers to the
+top level object (`.`), field `Something`, you can iterate on
+an array with `range` (or get the length with `len`), or get a specific
+element with `index .Something 0` (or 1, or 2).
+
+A template like this would work (watch out that golang templates preserve
+newlines, and github html is sometimes weird around empty lines):
 
     Build reports for the latest run ({{(index .Run 0).Time}}) available here:
     {{range (index .Run 0).Links}}* [{{.Description}}]({{.Link}})
@@ -65,7 +72,7 @@ github html is sometimes weird around empty lines):
 
 ### JSON
 
-From the template above, we basically defined a JSON providing the data
+To fill the template above, we basically defined a JSON providing the data
 that looks like this:
 
     {
@@ -153,16 +160,16 @@ so that `staco` can use the modified json to re-render the template.
 At time of writing, there are three formats supported by `staco` to describe
 a patch:
 
-1. `jd` fomat, native of the jd library.
-2. Merge Patch format, defined by [RFC 7386](https://datatracker.ietf.org/doc/html/rfc7386).
-3. JSON Patch format, defined by [RFC 6902](https://datatracker.ietf.org/doc/html/rfc6902).
+1. **jd** fomat, native of the jd library.
+2. **Merge** format, defined by [RFC 7386](https://datatracker.ietf.org/doc/html/rfc7386).
+3. **JSON Patch** format, defined by [RFC 6902](https://datatracker.ietf.org/doc/html/rfc6902).
 
 You can use the [online tool here](http://play.jd-tool.io/) to generate a patch
 between two jsons, or use the `staco diff --input "$(< /tmp/before.json)" --output "$(< /tmp/after.json)"` to
 generate the diff. The patch can normally be used and re-used easily from a script.
 
 Watch out though that both the online tool and the `staco diff` command generate a patch
-that is far from optimal: you will need some tweaking to make it reasonable.
+that is far from optimal: while valid, you will probably want to do some tweaking to make it reasonable.
 
 For example, let's say we wanted to add a new run in the example above, and prepend it to the
 list of runs (first run is always the most recent one).
@@ -171,20 +178,16 @@ In the "JSON patch format" this could look like:
 
     [
       {"op":"add","path":"/Run/0/Time","value":"13:22, Wednesday 17th"},
-      {"op":"add","path":"/Run/0/Time","value":"13:22, Wednesday 17th"},
       {"op":"add","path":"/Run/0/Links/0/Description","value":"Static0 analysis"},
       {"op":"add","path":"/Run/0/Links/0/Link","value":"http://static0-analysis"},
       {"op":"add","path":"/Run/0/Links/1/Description","value":"Dynamic0 simulation"},
       {"op":"add","path":"/Run/0/Links/1/Link","value":"http://dynamic0-analysis"}
     ]
 
-or:
+or, more simply:
 
     [
-      {
-        "op":"add",
-        "path":"/Run/0",
-        "value": { 
+      {"op":"add","path":"/Run/0","value": { 
           "Time": "13:22, Wednesday 17th",
           "Links": [
             {"Link": "http://static0", "Description": "Static0"},
@@ -205,18 +208,18 @@ run staco with this information:
     staco post --diff-patch "$(< /tmp/message.patch.json)" \
             --github-owner oktokit --github-repo test --pr 8448
 
-After, of course, saving your patch diff in the `/tmp/patch.json` file.
+After, of course, saving your patch diff in the `/tmp/message.patch.json` file.
 
 ### Wrapping it all together
 
-So, let's say you have one tool run from your CI/CD pipeline. Let's say
-your tool doesn't know if it's run for the first time, or it was run before.
+So, let's say your CI/CD pipeline is made of tools that run in parallel or
+at different time. This means that none of the tool knows if it's run for
+the first time, or it was run before.
 
-The recommendation is to start from an empty json file, and always add
-through patches. Completing the example above:
+What you can do is start from an empty json, and grow it through patches.
 
 * Let's keep the template the same, in `/tmp/message.template`.
-* In `/tmp/message.json`, let's keep an empty skeleton instead:
+* In `/tmp/message.json`, let's make it an empty skeleton instead:
 
     {"Run": []}
 
