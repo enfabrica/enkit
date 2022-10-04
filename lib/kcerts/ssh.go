@@ -141,12 +141,12 @@ func (a *SSHAgent) UseStandardPaths() error {
 	tempname := fmt.Sprintf("%s/enkit.tmp%016x", path, mathrand.New(srand.Source).Uint64())
 	defer os.Remove(tempname)
 	if err := os.Symlink(a.Socket, tempname); err != nil {
-		return err
+		return fmt.Errorf("UseStandardPaths symlink failed: %w", err)
 	}
 	// Rename symlink to the standard name
 	os.Remove(socket) // if it exists
 	if err := os.Rename(tempname, socket); err != nil {
-		return err
+		return fmt.Errorf("UseStandardPaths rename failed: %w", err)
 	}
 
 	a.Socket = socket
