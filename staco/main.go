@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/github"
 	"github.com/enfabrica/enkit/lib/kflags"
@@ -14,7 +15,76 @@ func PostCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "post --github-... --pr=PR# --template='...' --diff-...",
 		Short: "Posts data to a new or existing stable comment",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+
 		Args:  cobra.NoArgs,
+
+		Long: `"staco post" adds or updates a stable comment on github.
+
+To use 'staco post' you must supply --github-owner, --github-repo and
+--pr to select the github repository and PR to work on.
+
+For authentication purposes, you must provide a --github-token (or
+a GH_TOKEN environment variable). If you use the gh tool from
+https://github.com/cli/cli you can configure the token with:
+
+  export GH_TOKEN=$(gh auth status -t 2>&1 |sed -ne 's/.*Token: //p')
+
+To describe the stable comment to add or update, you should specify
+the options --template, --json, and one of the --diff-* options.
+
+To understand how to use those options, you need to understand
+how post works:
+1) It checks if the PR specified already has a stable comment
+   that was posted before (see --marker below). If it does, it loads
+   the --template and --json that was used on the last update.
+   If you are guaranteed that a comment already exists,
+   --template and --json are thus entirely optional.
+
+2) If --template was specified on the command line, or no template
+   was found in the posted comment, the template on the command
+   line is used. --template OVERRIDES the one on the PR - so you
+   can always roll out new dashboards easily.
+
+3) If --json was specified on the command line, and no json was
+   found in the comment, than json is used. --json provides a
+   default json if no other comment was pushed before.
+
+4) Finally, --diff-{patch,merge,jd} describe how to change the
+   comment, in the format chosen.
+   One of the --diffs options is generally always required,
+   unless you are pushing a static comment - one you don't
+   plan to dynamically update.
+
+Stateless scripts updating a dashboard concurrently from a
+CI/CD pipeline will typically always provide a --template and 
+an empty/skeleton --json, and always update the content via
+--diff. See the examples section.`,
+		Example: `
+  $ staco post --json '{}' --template '{{. |printf "%#v"}}' \
+       --github-owner octo-test --github-repo octo-repo --pr 3 \
+       --dry-run
+
+    Creates (or updates) a stable comment for PR#3 on the
+    repository https://github.com/octo-test/octo-repo.
+    The comment posted will just dump the content of the json
+    as computed by staco. No change is applied.
+    --dry-run prevents any change, so no PR is harmed by
+    running this command.
+
+  $ staco post --json '{"Runs":[]}' --template '{{. |printf "%#v"}}' \
+       --diff-patch '[{"op":"add", "path":"/Runs/0", "value":{"Test": 123}}]' \
+
+    Same as above, except no PR and no github repository is specified,
+    so the command is assumed to be running in dry-run mode, and outputs
+    what it would do on the screen. Also, it modifies the json to prepend
+    {"Test":123} to the "Runs" array.
+
+    The first time this command is run, "Runs" will be initialized to an
+    empty array, and immediately gain the {"Test":123} first value. If this
+    command is re-run multiple times (on an actual PR), the "Runs"
+    array will keep growing with more and more {"Test":123} objects.`,
 	}
 
 	gh := github.DefaultRepoClientFlags()
@@ -32,14 +102,6 @@ func PostCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&dryrun, "dry-run", "n", false, "Don't change the comment, show what you would do")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if pr == 0 {
-			return kflags.NewUsageErrorf("A PR number MUST be specified with --pr")
-		}
-		repo, err := github.NewRepoClient(github.RepoClientFromFlags(context.Background(), gh))
-		if err != nil {
-			return err
-		}
-
 		diff, err := github.NewDiffFromFlags(df)
 		if err != nil {
 			return err
@@ -50,10 +112,22 @@ func PostCommand() *cobra.Command {
 			return err
 		}
 
-		if err := sc.UpdateFromPR(repo, pr); err != nil {
-			return err
+		var repo *github.RepoClient
+		if pr != 0 {
+			repo, err = github.NewRepoClient(github.RepoClientFromFlags(context.Background(), gh))
+			if err != nil {
+				return err
+			}
+
+			if err := sc.UpdateFromPR(repo, pr); err != nil {
+				return err
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "WARNING: no PR specified, --dryrun is assumed - just showing result on STDOUT\n")
+			dryrun = true
 		}
-		if !dryrun {
+
+		if !dryrun && repo != nil {
 			if err := sc.PostToPR(repo, diff, pr); err != nil {
 				return err
 			}
@@ -75,6 +149,24 @@ func DiffCommand() *cobra.Command {
 		Use:   "diff --input '{...}' --output '{...}'",
 		Short: "Shows the diff between the input and output json in patch/merge/jd format",
 		Args:  cobra.NoArgs,
+
+		SilenceUsage:  true,
+		SilenceErrors: true,
+
+		Example: `
+  $ staco diff --input='{"Runs":[]}' --output='{"Runs":[{"Test":123}]}'
+
+        Outputs the diff betwee input and output in all supported formats.
+        Specifically, in the example above, it would output:
+
+  diff in jd format:
+  @ ["Runs",-1]
+  + {"Test":123}
+  
+  diff in merge format:
+  {"Runs":[{"Test":123}]}
+  diff in patch format:
+  [{"op":"add","path":"/Runs/-","value":{"Test":123}}]`,
 	}
 
 	var input, output string
@@ -86,7 +178,6 @@ func DiffCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&patchfmt, "patch", false, "Shows the diff in patch format (and no other, unless explicitly enabled)")
 	cmd.Flags().BoolVar(&mergefmt, "merge", false, "Shows the diff in merge format (and no other, unless explicitly enabled)")
 
-	// FIXME: http://play.jd-tool.io/
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if input == "" {
 			return kflags.NewUsageErrorf("You MUST specify an input JSON string")
@@ -149,6 +240,21 @@ func ShowCommand() *cobra.Command {
 		Use:   "show",
 		Short: "Downloads and shows the data of a posted stable comment",
 		Args:  cobra.NoArgs,
+
+		SilenceUsage:  true,
+		SilenceErrors: true,
+
+		Long: `"staco show" parses and shows the staco metadata in a PR.
+
+The command will scan all the comments of a PR, look for the staco
+comment with the specified --marker, and output the metdata
+stored in the comment itself: the json, and template used.
+
+This command is mostly useful for debugging, or in cases
+the built in patching support is not enough. For example,
+you could use "staco show ... --json=true | jd ... > new.json"
+to edit the json with more familiar commands, to then
+pipe it back to the post command.`,
 	}
 
 	gh := github.DefaultRepoClientFlags()
@@ -218,6 +324,9 @@ func main() {
 	root := &cobra.Command{
 		Use:   "staco",
 		Short: "Tool to create and handle stable comments on github",
+
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	root.AddCommand(PostCommand())

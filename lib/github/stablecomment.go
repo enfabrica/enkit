@@ -49,6 +49,7 @@ type StableComment struct {
 
 	id          int64
 	jsoncontent string
+	jsonreset   bool
 	template    string
 }
 
@@ -102,6 +103,13 @@ func WithJsonContent(content string) StableCommentModifier {
 	}
 }
 
+func WithJsonReset(reset bool) StableCommentModifier {
+	return func(sc *StableComment) error {
+		sc.jsonreset = reset
+		return nil
+	}
+}
+
 func WithID(id int64) StableCommentModifier {
 	return func(sc *StableComment) error {
 		sc.id = id
@@ -113,6 +121,7 @@ type StableCommentFlags struct {
 	Marker      string
 	Template    string
 	JsonContent string
+	JsonReset   bool
 }
 
 var DefaultMarker = "staco-unfortunate-id"
@@ -129,6 +138,7 @@ func (fl *StableCommentFlags) Register(set kflags.FlagSet, prefix string) *Stabl
 	set.StringVar(&fl.Marker, prefix+"marker", fl.Marker, "A unique marker to identify the comment across subsequent runs of this command")
 	set.StringVar(&fl.Template, prefix+"template", fl.Template, "Message to post in the comment, a text/template valorized through the json flag")
 	set.StringVar(&fl.JsonContent, prefix+"json", fl.JsonContent, "JSON providing the default values for the text/template specified")
+	set.BoolVar(&fl.JsonReset, prefix+"reset", fl.JsonReset, "Ignore the JSON parsed from the PR, start over with the default json in --json")
 	return fl
 }
 
@@ -191,6 +201,7 @@ func StableCommentFromFlags(fl *StableCommentFlags) StableCommentModifier {
 		}
 		sc.template = fl.Template
 		sc.jsoncontent = fl.JsonContent
+		sc.jsonreset = fl.JsonReset
 
 		return nil
 	}
@@ -203,7 +214,7 @@ func (sc *StableComment) UpdateFromPR(rc *RepoClient, pr int) error {
 	}
 
 	sc.id = id
-	if payload != "" {
+	if payload != "" && !sc.jsonreset {
 		sc.jsoncontent = payload
 	}
 	if sc.template == "" {
