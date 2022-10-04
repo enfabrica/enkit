@@ -9,4 +9,4 @@ docker run \
   -e "PORT=${PORT}" \
   --name=flextape \
   --restart="always" \
-  "gcr.io/devops-284019/infra/flextape@sha256:f2de37b84cfdb699442ac4f1013a4400bd0f8a01be2d0b9fd28904cb7a125377"
+  "gcr.io/devops-284019/infra/flextape@sha256:5c9a99f960cac259fd9592bc75605359b7098862ca50bc0b14448e1994744a06"
