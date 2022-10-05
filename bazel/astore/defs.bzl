@@ -105,6 +105,11 @@ of the target in the following manner:
 
 For example: a target named foo/bar:some-script.sh would correspond with the
 UID variable name "UID_SOME_SCRIPT_SH".
+
+Note that the "uidfile" functionality is currently only supported when using
+the "file" attribute, but not the "dir" attribute.
+
+TODO(jonathan): add support for the "dir" attribute.
 """,
 )
 

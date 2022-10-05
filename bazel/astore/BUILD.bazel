@@ -20,4 +20,5 @@ astore_upload(
     uidfile = "BUILD.bazel",
 )
 
-UID_ASTORE_UPLOAD_FILE_SH = "6iaexnhkshxbbbmacmtw2euuoxmcjet2"
+UID_ASTORE_UPLOAD_FILE_SH = "k6xcd26ipqk6o6axnxwmxa8gf8bpjhnc"
+SHA_ASTORE_UPLOAD_FILE_SH = "d47d169097d16b57a2f8899c6c0b553c61f6a52cffe8d6264432324db1d80421"
