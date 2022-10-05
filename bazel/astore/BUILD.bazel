@@ -1,4 +1,4 @@
-load("@//bazel/astore:defs.bzl", "astore_upload")
+load("@//bazel/astore:defs.bzl", "astore_upload", "astore_download")
 
 exports_files([
     "astore_upload_file.sh",
@@ -22,3 +22,16 @@ astore_upload(
 
 UID_ASTORE_UPLOAD_FILE_SH = "k6xcd26ipqk6o6axnxwmxa8gf8bpjhnc"
 SHA_ASTORE_UPLOAD_FILE_SH = "d47d169097d16b57a2f8899c6c0b553c61f6a52cffe8d6264432324db1d80421"
+
+astore_download(
+  name = "test_astore_download_file",
+  download_src = "tmp/astore_upload_file_testdata",
+  uid = UID_ASTORE_UPLOAD_FILE_SH,
+)
+
+astore_download(
+  name = "test_astore_download_file_with_digest",
+  download_src = "tmp/astore_upload_file_testdata",
+  uid = UID_ASTORE_UPLOAD_FILE_SH,
+  digest = SHA_ASTORE_UPLOAD_FILE_SH,
+)
