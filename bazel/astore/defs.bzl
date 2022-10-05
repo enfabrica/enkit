@@ -114,7 +114,10 @@ TODO(jonathan): add support for the "dir" attribute.
 )
 
 def _astore_download(ctx):
-    output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
+    if ctx.attr.output:
+      output = ctx.outputs.output
+    else:
+      output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
     command = ("%s download --no-progress --overwrite -o %s" %
                (ctx.executable._astore_client.path, output.path))
     execution_requirements = {
@@ -166,6 +169,9 @@ astore_download = rule(
         "timeout": attr.int(
             doc = "Timeout for astore download operation, in seconds.",
             default = 10 * 60,
+        ),
+        "output": attr.output(
+          doc = "Overrides the default output path, if used.",
         ),
         "uid": attr.string(
           doc = "The UID of a specific version of the file to download.",
