@@ -123,7 +123,6 @@ def _astore_download(ctx):
     execution_requirements = {
             # We can't run these remotely since remote workers won't have
             # credentials to fetch from astore.
-            "no-remote": "Don't run remotely or cache remotely",
             "requires-network": "Downloads from astore",
             "timeout": "%d" % ctx.attr.timeout,
         }
@@ -134,6 +133,7 @@ def _astore_download(ctx):
     else:
         command += " %s" % ctx.attr.download_src
         execution_requirements["no-cache"] = "Not hermetic, since uid was not specified."
+        execution_requirements["no-remote"] = "Not hermetic, since uid was not specified."
         # TODO(ccontavalli): an old comment claimed the following, is it
         # still true?
         # # We should also avoid remotely caching since:
