@@ -114,28 +114,40 @@ TODO(jonathan): add support for the "dir" attribute.
 )
 
 def _astore_download(ctx):
-    output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
-    command = ("%s download --no-progress -o %s %s" %
-               (ctx.executable._astore_client.path, output.path, ctx.attr.download_src))
+    if ctx.attr.output:
+      output = ctx.outputs.output
+    else:
+      output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
+    command = ("%s download --no-progress --overwrite -o %s" %
+               (ctx.executable._astore_client.path, output.path))
+    execution_requirements = {
+            # We can't run these remotely since remote workers won't have
+            # credentials to fetch from astore.
+            "no-remote": "Don't run remotely or cache remotely",
+            "requires-network": "Downloads from astore",
+            "timeout": "%d" % ctx.attr.timeout,
+        }
     if ctx.attr.arch:
         command += " -a " + ctx.attr.arch
+    if ctx.attr.uid:
+        command += " --force-uid %s" % ctx.attr.uid
+    else:
+        command += " %s" % ctx.attr.download_src
+        execution_requirements["no-cache"] = "Not hermetic, since uid was not specified."
+        # TODO(ccontavalli): an old comment claimed the following, is it
+        # still true?
+        # # We should also avoid remotely caching since:
+        # # * this means we need to give individuals permissions to remotely
+        # #   cache local actions, which we currently don't do
+        # # * we might spend lots of disk/network caching astore artifacts
+        # #   remotely
+    if ctx.attr.digest:
+      command += " && (echo \"%s\" %s | sha256sum --check -)" % (ctx.attr.digest, output.path)
     ctx.actions.run_shell(
         command = command,
         tools = [ctx.executable._astore_client],
         outputs = [output],
-        execution_requirements = {
-            # We can't run these remotely since remote workers won't have
-            # credentials to fetch from astore.
-            # We should also avoid remotely caching since:
-            # * this means we need to give individuals permissions to remotely
-            #   cache local actions, which we currently don't do
-            # * we might spend lots of disk/network caching astore artifacts
-            #   remotely
-            "no-remote": "Don't run remotely or cache remotely",
-            "requires-network": "Downloads from astore",
-            "no-cache": "Not hermetic, since it doesn't refer to packages by hash",
-            "timeout": "%d" % ctx.attr.timeout,
-        },
+        execution_requirements = execution_requirements,
     )
     return [DefaultInfo(
         files = depset([output]),
@@ -157,6 +169,19 @@ astore_download = rule(
         "timeout": attr.int(
             doc = "Timeout for astore download operation, in seconds.",
             default = 10 * 60,
+        ),
+        "output": attr.output(
+          doc = "Overrides the default output path, if used.",
+        ),
+        "uid": attr.string(
+          doc = "The UID of a specific version of the file to download.",
+          mandatory = False,
+          default = "",
+        ),
+        "digest": attr.string(
+          doc = "The sha256 digest of the file that we expect to receive.",
+          mandatory = False,
+          default = "",
         ),
         "_astore_client": attr.label(
             default = Label("//astore/client:astore"),
