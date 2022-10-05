@@ -29,9 +29,18 @@ V1_SHA_ASTORE_UPLOAD_FILE_SH = "d47d169097d16b57a2f8899c6c0b553c61f6a52cffe8d626
 astore_download(
   name = "test_astore_download_file",
   download_src = "tmp/astore_upload_file_testdata",
+  tags = ["manual", "no-presubmit"],
+)
+
+# downloads whatever the latest version is:
+astore_download(
+  name = "test_astore_download_file_by_uid",
+  download_src = "tmp/astore_upload_file_testdata",
+  output= "by_uid.txt",
   uid = UID_ASTORE_UPLOAD_FILE_SH,
   tags = ["manual", "no-presubmit"],
 )
+
 
 # downloads the version specified by UID_ASTORE_UPLOAD_FILE_SH, which is automatically
 # updated by the astore_upload rule above.
