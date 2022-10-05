@@ -1,4 +1,24 @@
+load("@//bazel/astore:defs.bzl", "astore_upload")
+
 exports_files([
     "astore_upload_file.sh",
     "astore_upload_dir.sh",
 ])
+
+# This target can be used to validate the "uidfile" functionality
+# of the astore_upload rule.  Running this rule will cause the
+# UID_ASTORE_UPLOAD_FILE_SH variable, below, to be updated.
+astore_upload(
+    name = "test_astore_upload_file",
+    file = "tmp/astore_upload_file_testdata",
+    targets = [
+        ":astore_upload_file.sh",
+    ],
+    visibility = [
+        "//developer:__subpackages__",
+    ],
+    uidfile = "BUILD.bazel",
+)
+
+UID_ASTORE_UPLOAD_FILE_SH = "k6xcd26ipqk6o6axnxwmxa8gf8bpjhnc"
+SHA_ASTORE_UPLOAD_FILE_SH = "d47d169097d16b57a2f8899c6c0b553c61f6a52cffe8d6264432324db1d80421"

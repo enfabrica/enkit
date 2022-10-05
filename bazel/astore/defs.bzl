@@ -9,33 +9,38 @@ def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
     )
 
 def _astore_upload(ctx):
-    push = ctx.actions.declare_file("{}.sh".format(ctx.attr.name))
-
     if ctx.attr.dir and ctx.attr.file:
         fail("in '%s' rule for an astore_upload in %s - you can only set dir or file, not both" % (ctx.attr.name, ctx.build_file_path), "dir")
 
-    inputs = [ctx.executable._astore_client]
+    files = [ctx.executable._astore_client]
     targets = []
     for target in ctx.attr.targets:
         targets.extend([t.short_path for t in target.files.to_list()])
-        inputs.extend([f for f in target.files.to_list()])
+        files.extend([f for f in target.files.to_list()])
 
     template = ctx.file._astore_upload_file
     if ctx.attr.dir:
         template = ctx.file._astore_upload_dir
 
+    uidfile=""
+    if ctx.attr.uidfile:
+        uidfile=ctx.files.uidfile[0].short_path
+        files.append(ctx.files.uidfile[0])
+
     ctx.actions.expand_template(
         template = template,
-        output = push,
+        output = ctx.outputs.executable,
         substitutions = {
             "{astore}": ctx.executable._astore_client.short_path,
             "{targets}": " ".join(targets),
             "{file}": ctx.attr.file,
             "{dir}": ctx.attr.dir,
+            "{uidfile}": uidfile,
         },
         is_executable = True,
     )
-    return [DefaultInfo(executable = push, runfiles = ctx.runfiles(inputs))]
+    runfiles = ctx.runfiles(files = files)
+    return [DefaultInfo(runfiles = runfiles)]
 
 astore_upload = rule(
     implementation = _astore_upload,
@@ -53,6 +58,12 @@ astore_upload = rule(
             doc = "All the targets outputs will be uploaded as the same file in an astore directory. " +
                   "This is useful when you have multiple targets to build the same binary for different " +
                   "architectures or operating systems.",
+        ),
+        "uidfile": attr.label(
+          allow_files = True,
+          providers = [DefaultInfo],
+          mandatory = False,
+          doc = "If specified, will attempt to update the UID variable in this (build) file."
         ),
         "_astore_upload_file": attr.label(
             default = Label("//bazel/astore:astore_upload_file.sh"),
@@ -73,7 +84,33 @@ astore_upload = rule(
     doc = """Uploads artifacts to an artifact store - astore.
 
 With this rule, you can easily upload the output of a build rule
-to an artifact store.""",
+to an artifact store.
+
+Optionally, this rule can update a BUILD file (or other text file) to contain
+the generated UID for each uploaded target.  This functionality is enabled
+by specifying the "uidfile" attribute.
+
+The script will search that file for a line matching:
+
+UID_TARGETNAME = "some-uid-string"
+
+And update "some-uid-string" with the UID of the file that was just uploaded.
+
+The variable name "UID_TARGETNAME" is formed by transforming the base name
+of the target in the following manner:
+
+  - all non-alphanumeric characters are replaced with underscores.
+  - all alphabetic characters are converted to uppercase.
+  - "UID_" is prepended.
+
+For example: a target named foo/bar:some-script.sh would correspond with the
+UID variable name "UID_SOME_SCRIPT_SH".
+
+Note that the "uidfile" functionality is currently only supported when using
+the "file" attribute, but not the "dir" attribute.
+
+TODO(jonathan): add support for the "dir" attribute.
+""",
 )
 
 def _astore_download(ctx):
@@ -105,6 +142,8 @@ def _astore_download(ctx):
         runfiles = ctx.runfiles([output]),
     )]
 
+# TODO: add an optional "uid" attribute to this rule
+# TODO: add an optional "digest" attribute to this rule
 astore_download = rule(
     implementation = _astore_download,
     attrs = {
