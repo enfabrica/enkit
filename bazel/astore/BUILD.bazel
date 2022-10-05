@@ -32,7 +32,7 @@ astore_download(
   tags = ["manual", "no-presubmit"],
 )
 
-# downloads whatever the latest version is:
+# downloads the version specified by UID_ASTORE_UPLOAD_FILE_SH
 astore_download(
   name = "test_astore_download_file_by_uid",
   download_src = "tmp/astore_upload_file_testdata",
@@ -42,8 +42,8 @@ astore_download(
 )
 
 
-# downloads the version specified by UID_ASTORE_UPLOAD_FILE_SH, which is automatically
-# updated by the astore_upload rule above.
+# downloads the version specified by UID_ASTORE_UPLOAD_FILE_SH
+# and verifies it using SHA_ASTORE_UPLOAD_FILE_SH
 astore_download(
   name = "test_astore_download_file_with_digest",
   download_src = "tmp/astore_upload_file_testdata",
