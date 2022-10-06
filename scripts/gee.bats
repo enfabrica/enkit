@@ -1,4 +1,4 @@
-#!/usr/bin/env bats
+#!/usr/bin/env bats -x
 
 load "external/bats_support/load.bash"
 load "external/bats_assert/load.bash"
@@ -32,6 +32,16 @@ setup() {
   assert_equal 2    "${#ARGS_POSITIONAL[@]}"
   assert_equal bar  "${ARGS_POSITIONAL[0]}"
   assert_equal bum  "${ARGS_POSITIONAL[1]}"
+}
+
+@test "_grep_for_merge_conflict_markers" {
+  local testdata=$'fooo\nbar\n<<<<<<<<<\nabc\n===\nbar >>>>>>>> bum\n======\n>>>>>\n>>>>>>>>>>\n'
+  run _grep_for_merge_conflict_markers <<< "${testdata}"
+  assert_success
+  assert_output $'<<<<<<<<<\n======\n>>>>>>>>>>'  # bats run eats the final newline.
+  run _grep_for_merge_conflict_markers <<< $'foobar\ndeadbeef\n'
+  assert_failure
+  assert_output ""
 }
 
 @test "test_foo" {
