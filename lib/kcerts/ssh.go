@@ -123,12 +123,12 @@ func (a *SSHAgent) GetStandardSocketPath() (string, error) {
 }
 
 func (a *SSHAgent) UseStandardPaths() error {
-	socket, err := a.GetStandardSocketPath()
+	standard_socket_path, err := a.GetStandardSocketPath()
 	if err != nil {
 		return err
 	}
 
-	if a.Socket == socket {
+	if a.Socket == standard_socket_path {
 		// no standardization needed.
 		return nil
 	}
@@ -141,15 +141,14 @@ func (a *SSHAgent) UseStandardPaths() error {
 	tempname := fmt.Sprintf("%s/enkit.tmp%016x", path, mathrand.New(srand.Source).Uint64())
 	defer os.Remove(tempname)
 	if err := os.Symlink(a.Socket, tempname); err != nil {
-		return err
+		return fmt.Errorf("UseStandardPaths symlink failed: %w", err)
 	}
 	// Rename symlink to the standard name
-	os.Remove(socket) // if it exists
-	if err := os.Rename(tempname, socket); err != nil {
-		return err
+	if err := os.Rename(tempname, standard_socket_path); err != nil {
+		return fmt.Errorf("UseStandardPaths rename failed: %w", err)
 	}
 
-	a.Socket = socket
+	a.Socket = standard_socket_path
 	return nil
 }
 
