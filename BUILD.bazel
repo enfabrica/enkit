@@ -60,6 +60,7 @@ multirun(
     name = "binaries_release",
     commands = [
         "//enkit:deploy",
+        "//staco:deploy",
         "//faketree:astore_push",
         "//flextape/server:astore_push",
         # TODO(scott): Move the main to //flextape/client, delete this dir
