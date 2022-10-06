@@ -125,6 +125,7 @@ then :; fi
 # TODO(jonathan): "git push -u" option is going to change soon.
 
 set -e
+trap 'printf "WARN:gee:%s: command %q failed with rc=%d\n" "${BASH_SOURCE}" "${LINENO}" "${BASH_COMMAND}" "$?"' ERR
 
 if [[ -n "${DEBUG}" ]]; then
   set -x
