@@ -1,0 +1,59 @@
+load("@//bazel/astore:defs.bzl", "astore_upload", "astore_download")
+
+# This target can be used to validate the "uidfile" functionality
+# of the astore_upload rule.  Running this rule will cause the
+# UID_TESTDATA_TXT variable, below, to be updated.
+astore_upload(
+    name = "test_astore_upload_file",
+    file = "tmp/astore_upload_file_testdata",
+    targets = [
+        "testdata.txt",
+    ],
+    visibility = [
+        "//developer:__subpackages__",
+    ],
+    uidfile = "BUILD.bazel",
+)
+
+UID_TESTDATA_TXT = "wg36keugs3w6eexzg8azrnuspoqcrbnn"
+SHA_TESTDATA_TXT = "20f565a43697b7804d6a9d7ad4929118a1ed660183dda18229a92fc71c449725"
+V1_UID_TESTDATA_TXT = "k6xcd26ipqk6o6axnxwmxa8gf8bpjhnc"
+V1_SHA_TESTDATA_TXT = "d47d169097d16b57a2f8899c6c0b553c61f6a52cffe8d6264432324db1d80421"
+
+# downloads whatever the latest version is:
+astore_download(
+  name = "test_astore_download_file",
+  download_src = "tmp/astore_upload_file_testdata",
+  tags = ["manual", "no-presubmit"],
+)
+
+# downloads the version specified by UID_TESTDATA_TXT
+astore_download(
+  name = "test_astore_download_file_by_uid",
+  download_src = "tmp/astore_upload_file_testdata",
+  output= "by_uid.txt",
+  uid = UID_TESTDATA_TXT,
+  tags = ["manual", "no-presubmit"],
+)
+
+
+# downloads the version specified by UID_TESTDATA_TXT
+# and verifies it using SHA_TESTDATA_TXT
+astore_download(
+  name = "test_astore_download_file_with_digest",
+  download_src = "tmp/astore_upload_file_testdata",
+  output = "with_digest.txt",  # must be specified to avoid output collision with previous rule.
+  uid = UID_TESTDATA_TXT,
+  digest = SHA_TESTDATA_TXT,
+  tags = ["manual", "no-presubmit"],
+)
+
+# downloads a "frozen" V1 version of the uploaded file.  This UID is manually updated only.
+astore_download(
+  name = "test_astore_download_file_v1",
+  download_src = "tmp/astore_upload_file_testdata",
+  output = "v1_with_digest.txt",  # must be specified to avoid output collision with previous rule.
+  uid = V1_UID_TESTDATA_TXT,
+  digest = V1_SHA_TESTDATA_TXT,
+  tags = ["manual", "no-presubmit"],
+)
