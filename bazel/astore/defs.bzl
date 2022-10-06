@@ -131,7 +131,7 @@ def _astore_download(ctx):
     if ctx.attr.uid:
         command += " --force-uid %s" % ctx.attr.uid
     else:
-        command += " %s" % ctx.attr.download_src
+        command += " --tag %s %s" % (ctx.attr.astore_tag, ctx.attr.download_src)
         execution_requirements["no-cache"] = "Not hermetic, since uid was not specified."
         execution_requirements["no-remote"] = "Not hermetic, since uid was not specified."
         # TODO(ccontavalli): an old comment claimed the following, is it
@@ -148,6 +148,7 @@ def _astore_download(ctx):
         tools = [ctx.executable._astore_client],
         outputs = [output],
         execution_requirements = execution_requirements,
+        use_default_shell_env = True,
     )
     return [DefaultInfo(
         files = depset([output]),
@@ -162,6 +163,10 @@ astore_download = rule(
         "download_src": attr.string(
             doc = "Provided the full path, download a file from astore.",
             mandatory = True,
+        ),
+        "astore_tag": attr.string(
+            doc = "Astore tag name to specify version of the artifact to download",
+            default = "latest",
         ),
         "arch": attr.string(
             doc = "Architecture to download the file for.",
