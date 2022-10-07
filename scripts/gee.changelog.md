@@ -2,9 +2,9 @@
 
 ## Releases
 
-### Unreleased
+### 0.2.37
 
-* Re-enable --autostash behavior when rebasing (#780)
+* Re-enable `--autostash` behavior when rebasing (#780)
 
 ### 0.2.36
 
