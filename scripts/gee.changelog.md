@@ -2,6 +2,10 @@
 
 ## Releases
 
+### Unreleased
+
+* Re-enable --autostash behavior when rebasing (#780)
+
 ### 0.2.36
 
 * Timeout ssh-add -l if the ssh-agent gets stuck (#768)
