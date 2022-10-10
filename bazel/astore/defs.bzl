@@ -12,35 +12,30 @@ def _astore_upload(ctx):
     if ctx.attr.dir and ctx.attr.file:
         fail("in '%s' rule for an astore_upload in %s - you can only set dir or file, not both" % (ctx.attr.name, ctx.build_file_path), "dir")
 
-    files = [ctx.executable._astore_client]
-    targets = []
-    for target in ctx.attr.targets:
-        targets.extend([t.short_path for t in target.files.to_list()])
-        files.extend([f for f in target.files.to_list()])
+    files = [ctx.executable._astore_upload_tool, ctx.executable._astore_client]
+    args = [ctx.executable._astore_upload_tool.short_path,
+            "--astore_bin", ctx.executable._astore_client.short_path]
 
-    template = ctx.file._astore_upload_file
+    if ctx.attr.file:
+      args += ['--astore_file', ctx.attr.file]
+
     if ctx.attr.dir:
-        template = ctx.file._astore_upload_dir
+      args += ['--astore_dir', ctx.attr.dir]
 
-    uidfile=""
-    if ctx.attr.uidfile:
-        uidfile=ctx.files.uidfile[0].short_path
-        files.append(ctx.files.uidfile[0])
+    for target in ctx.files.targets:
+      args += ['--target', target.path]
+      files.append(target)
 
-    ctx.actions.expand_template(
-        template = template,
-        output = ctx.outputs.executable,
-        substitutions = {
-            "{astore}": ctx.executable._astore_client.short_path,
-            "{targets}": " ".join(targets),
-            "{file}": ctx.attr.file,
-            "{dir}": ctx.attr.dir,
-            "{uidfile}": uidfile,
-        },
-        is_executable = True,
-    )
+    for uidfile in ctx.files.uidfile:
+      args += ['--uidfile', uidfile.path]
+      files.append(uidfile)
+
+    script = ctx.actions.declare_file("%s-script" % ctx.label.name)
+    script_content = "#!/bin/bash\n\n" + " ".join(args) + "\n"
+    ctx.actions.write(script, script_content, is_executable = True)
+
     runfiles = ctx.runfiles(files = files)
-    return [DefaultInfo(runfiles = runfiles)]
+    return [DefaultInfo(executable = script, runfiles = runfiles)]
 
 astore_upload = rule(
     implementation = _astore_upload,
@@ -65,13 +60,11 @@ astore_upload = rule(
           mandatory = False,
           doc = "If specified, will attempt to update the UID variable in this (build) file."
         ),
-        "_astore_upload_file": attr.label(
-            default = Label("//bazel/astore:astore_upload_file.sh"),
-            allow_single_file = True,
-        ),
-        "_astore_upload_dir": attr.label(
-            default = Label("//bazel/astore:astore_upload_dir.sh"),
-            allow_single_file = True,
+        "_astore_upload_tool": attr.label(
+            default = Label("//bazel/astore:astore_upload.py"),
+            executable = True,
+            cfg = 'host',
+            allow_files = True,
         ),
         "_astore_client": attr.label(
             default = Label("//astore/client:astore"),

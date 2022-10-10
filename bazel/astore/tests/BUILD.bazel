@@ -15,10 +15,29 @@ astore_upload(
     uidfile = "BUILD.bazel",
 )
 
-UID_TESTDATA_TXT = "wg36keugs3w6eexzg8azrnuspoqcrbnn"
+astore_upload(
+    name = "test_astore_upload_dir",
+    dir = "tmp",
+    targets = [
+        "testdata2.txt",
+    ],
+    visibility = [
+        "//developer:__subpackages__",
+    ],
+    uidfile = "BUILD.bazel",
+)
+
+SHA_TESTDATA2_TXT = "3d18d6629ab72155b1a87c2a90bfed986f3290d71e20e2f79806c4656f4e30b8"
 SHA_TESTDATA_TXT = "20f565a43697b7804d6a9d7ad4929118a1ed660183dda18229a92fc71c449725"
-V1_UID_TESTDATA_TXT = "k6xcd26ipqk6o6axnxwmxa8gf8bpjhnc"
+UID_TESTDATA2_TXT = "azw46ddasdtz6jeiupkhyqyvpbbj2di8"
+UID_TESTDATA_TXT = "ygosi3m6ts8az2xwreyt4mnvwyg2ngcm"
 V1_SHA_TESTDATA_TXT = "d47d169097d16b57a2f8899c6c0b553c61f6a52cffe8d6264432324db1d80421"
+V1_UID_TESTDATA_TXT = "k6xcd26ipqk6o6axnxwmxa8gf8bpjhnc"
+
+MAP = {
+  "testdata.txt": [UID_TESTDATA_TXT, SHA_TESTDATA_TXT],
+  "testdata2.txt": [UID_TESTDATA2_TXT, SHA_TESTDATA2_TXT],
+}
 
 # downloads whatever the latest version is:
 astore_download(

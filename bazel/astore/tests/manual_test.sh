@@ -9,6 +9,9 @@ trap 'printf "%s:%s: command %q failed with rc=%d\n" "${BASH_SOURCE}" "${LINENO}
 echo "## Uploading to astore."
 bazel run //bazel/astore/tests:test_astore_upload_file
 
+echo "## Uploading to astore by specifying a directory."
+bazel run //bazel/astore/tests:test_astore_upload_dir
+
 echo "## Validate that BUILD file changes look right:"
 git diff BUILD.bazel
 

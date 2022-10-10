@@ -1,4 +1,6 @@
 #!/bin/sh
+#
+# DEPRECATED
 
 set -e
 
