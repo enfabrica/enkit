@@ -23,7 +23,7 @@ def _astore_upload(ctx):
       args += ['--astore_dir', ctx.attr.dir]
 
     for target in ctx.files.targets:
-      args += ['--target', target.path]
+      args += ['--target', target.short_path]
       files.append(target)
 
     for uidfile in ctx.files.uidfile:
@@ -31,7 +31,7 @@ def _astore_upload(ctx):
       files.append(uidfile)
 
     script = ctx.actions.declare_file("%s-script" % ctx.label.name)
-    script_content = "#!/bin/bash\n\n" + " ".join(args) + "\n"
+    script_content = "#!/bin/bash\npwd\nfind . -type f\n" + " ".join(args) + "\n"
     ctx.actions.write(script, script_content, is_executable = True)
 
     runfiles = ctx.runfiles(files = files)
