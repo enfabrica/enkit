@@ -5,6 +5,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"math/rand"
 )
+
 // Copied from https://github.com/mikesmitty/edkey/blob/master/edkey.go
 /* Writes ed25519 private keys into the new OpenSSH private key format.
 I have no idea why this isn't implemented anywhere yet, you can do seemingly

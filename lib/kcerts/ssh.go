@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -122,6 +123,19 @@ func (a *SSHAgent) GetStandardSocketPath() (string, error) {
 	return socket, nil
 }
 
+// Annotate an error message with filename and line number.
+// TODO(jonathan): move this function to a separate module
+func AnnotatedErrorf(format string, args ...interface{}) error {
+	a_format := "[%s:%d] " + format
+	_, filename, line, _ := runtime.Caller(1)
+	var new_args []interface{}
+	// Alas, append won't let us do all of this in one line:
+	new_args = append(new_args, filename)
+	new_args = append(new_args, line)
+	new_args = append(new_args, args...)
+	return fmt.Errorf(a_format, new_args...)
+}
+
 func (a *SSHAgent) UseStandardPaths() error {
 	standard_socket_path, err := a.GetStandardSocketPath()
 	if err != nil {
@@ -141,11 +155,18 @@ func (a *SSHAgent) UseStandardPaths() error {
 	tempname := fmt.Sprintf("%s/enkit.tmp%016x", path, mathrand.New(srand.Source).Uint64())
 	defer os.Remove(tempname)
 	if err := os.Symlink(a.Socket, tempname); err != nil {
-		return fmt.Errorf("UseStandardPaths symlink failed: %w", err)
+		return AnnotatedErrorf("UseStandardPaths symlink failed: %w", err)
+	}
+	if _, err := os.Stat(standard_socket_path); err == nil {
+		// The file exists, so let's remove it or die trying.
+		err = os.Remove(standard_socket_path)
+		if err != nil {
+			return AnnotatedErrorf("UseStandardPaths remove failed: %w", err)
+		}
 	}
 	// Rename symlink to the standard name
 	if err := os.Rename(tempname, standard_socket_path); err != nil {
-		return fmt.Errorf("UseStandardPaths rename failed: %w", err)
+		return AnnotatedErrorf("UseStandardPaths rename failed: %w", err)
 	}
 
 	a.Socket = standard_socket_path

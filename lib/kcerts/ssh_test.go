@@ -12,6 +12,12 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+func TestAnnotatedErrorf(t *testing.T) {
+	err := AnnotatedErrorf("foo %d %d", 2, 3)
+	expectedErrorMsg := "[lib/kcerts/ssh_test.go:16] foo 2 3"
+	assert.EqualErrorf(t, err, expectedErrorMsg, "AnnotatedErrorf mismatch.")
+}
+
 // TODO(adam): improve this test, including files writes and other edges cases
 func TestAddSSHCAToClient(t *testing.T) {
 	hdir, _ := os.UserHomeDir()

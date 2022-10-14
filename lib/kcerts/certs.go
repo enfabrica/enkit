@@ -215,7 +215,7 @@ func checkValidCert(cert *ssh.Certificate) bool {
 }
 
 const (
-	MaxCertTimeDuration = time.Duration(1 << 63 - 1)
+	MaxCertTimeDuration     = time.Duration(1<<63 - 1)
 	InValidCertTimeDuration = time.Duration(0)
 )
 
