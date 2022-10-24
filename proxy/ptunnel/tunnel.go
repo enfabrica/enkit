@@ -23,6 +23,7 @@ import (
 	"github.com/enfabrica/enkit/proxy/nasshp"
 
 	"github.com/gorilla/websocket"
+	"github.com/jackpal/gateway"
 )
 
 type Tunnel struct {
@@ -658,17 +659,45 @@ func (t *Tunnel) Receive(file io.Writer) error {
 	}
 }
 
-// ShouldTunnel advises on whether the application should open a tunnel to
-// connect to the provided URL, or just connect to it directly. It returns an
-// error if DNS resolution for the URL fails or doesn't result in any IP
-// addresses.
-func ShouldTunnel(host string) (bool, error) {
+type TunnelType int
+
+const (
+	TunnelTypeNone TunnelType = iota
+	TunnelTypePersistent
+	TunnelTypeLocal
+)
+
+func TunnelTypeForHost(host string) (TunnelType, error) {
 	ips, err := net.LookupIP(host)
 	if err != nil {
-		return false, fmt.Errorf("failed to look up %q: %w", host, err)
+		return TunnelTypeNone, fmt.Errorf("failed to look up %q: %w", host, err)
 	}
 	if len(ips) < 1 {
-		return false, fmt.Errorf("expected at least one IP for host %q; got 0", host)
+		return TunnelTypeNone, fmt.Errorf("expected at least one IP for host %q; got 0", host)
 	}
-	return ips[0].IsLoopback(), nil
+	// Assumption: only the first IP in the returned record is used. We
+	// currently don't have any instances of multiple IPs for our services.
+	ip := ips[0]
+
+	// If the IP resolves to the local system, the expectation is that a tunnel
+	// is created to reach the host.
+	if ip.IsLoopback() {
+		return TunnelTypeLocal, nil
+	}
+	// IP is not loopback, so it is either the gateway, or the IP of the actual
+	// target.
+
+	gw, err := gateway.DiscoverGateway()
+	if err != nil {
+		return TunnelTypeNone, fmt.Errorf("failed to discover gateway: %w", err)
+	}
+
+	// If the IP resolves to the gateway, the connection is assumed to be going
+	// through a persistent tunnel.
+	if ip.Equal(gw) {
+		return TunnelTypePersistent, nil
+	}
+
+	// The IP is assumed to be that of the actual target; no tunnel needed.
+	return TunnelTypeNone, nil
 }

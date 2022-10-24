@@ -1371,6 +1371,12 @@ def go_repositories():
         sum = "h1:HqW4xhhynfjrtEiiSGcQUd6vrK23iMam1FO8rI7mwig=",
         version = "v0.0.0-20200827194710-b269163b24ab",
     )
+    go_repository(
+        name = "com_github_jackpal_gateway",
+        importpath = "github.com/jackpal/gateway",
+        sum = "h1:7tIFeCGmpyrMx9qvT0EgYUi7cxVW48a0mMvnIL17bPM=",
+        version = "v1.0.7",
+    )
 
     go_repository(
         name = "com_github_jbenet_go_context",
