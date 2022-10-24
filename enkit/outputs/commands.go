@@ -111,14 +111,19 @@ func NewMount(root *Root) *Mount {
 // clients should connect to, which could either be the original host/port if no
 // tunnel was necessary, or a modified host/port if a tunnel was necessary.
 //
-// More specifically, if a tunnel is not necessary, this returns the original
-// host:port (but split into host and port).
-// If a tunnel was necessary, this:
-// * creates the tunnel to tunnelTarget listening on tunnelPort on localhost
-// * returns the original host but changes the port to the tunnelPort
-// It is expected that the supplied host resolve to localhost, so that the
-// connection for the returned host and port combo jumps through the tunnel.
-func maybeSetupTunnel(hostPort string, tunnelTarget string, tunnelPort int, gatewayProxy string) (string, int, error) {
+// There are three possible scenarios:
+//
+//  1. Target is on the local network. No tunnel needed, and the host and port
+//     remain unchanged.
+//  2. Target is not on the local network, but the gateway is running a
+//     persistent tunnel. No tunnel needs to be created, but the dial address
+//     should be that of the gateway's tunnel, rather than the original target
+//     port. This is detected by determining whether the resolved IP is the same
+//     as the gateway IP. In this case, return the tunnel port, not the original
+//     port.
+//  3. Target is not on the local network, and a tunnel is required. Start the
+//     tunnel, and then return the port the tunnel is listening on.
+func (c *Mount) maybeSetupTunnel(hostPort string, tunnelTarget string, tunnelPort int, gatewayProxy string) (string, int, error) {
 	host, port, err := net.SplitHostPort(hostPort)
 	if err != nil {
 		return "", 0, fmt.Errorf("can't split %q into host+port: %w", hostPort, err)
@@ -127,21 +132,30 @@ func maybeSetupTunnel(hostPort string, tunnelTarget string, tunnelPort int, gate
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to parse port %q: %w", port, err)
 	}
-	shouldTunnel, err := ptunnel.ShouldTunnel(host)
+	tunnelType, err := ptunnel.TunnelTypeForHost(host)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to determine if tunnel is required for %q: %w", host, err)
 	}
-	if shouldTunnel {
+	switch tunnelType {
+	default:
+		return "", 0, fmt.Errorf("unhandled tunnel type: %v", tunnelType)
+	case ptunnel.TunnelTypeNone:
+		c.root.Log.Debugf("No tunnel needed; connecting directly to %q", hostPort)
+		return host, int(parsedPort), nil
+	case ptunnel.TunnelTypePersistent:
+		c.root.Log.Debugf("Connecting to %q via gateway tunnel on port %d", host, tunnelPort)
+		return host, tunnelPort, nil
+	case ptunnel.TunnelTypeLocal:
+		c.root.Log.Debugf("Starting a tunnel for %q on port %d", hostPort, tunnelPort)
 		if err := tunnelexec.NewBackgroundTunnel(tunnelTarget, int(parsedPort), tunnelPort, gatewayProxy); err != nil {
 			return "", 0, fmt.Errorf("failed to start tunnel to %q: %w", hostPort, err)
 		}
 		return host, tunnelPort, nil
 	}
-	return host, int(parsedPort), nil
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	host, port, err := maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget, c.root.TunnelListenPort, c.root.GatewayProxy)
+	host, port, err := c.maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget, c.root.TunnelListenPort, c.root.GatewayProxy)
 	if err != nil {
 		return err
 	}

@@ -194,22 +194,22 @@ func TestHostLookup(t *testing.T) {
 	})
 }
 
-func TestShouldTunnel(t *testing.T) {
+func TestTunnelTypeForHost(t *testing.T) {
 	testCases := []struct {
-		desc         string
-		host         string
-		shouldTunnel bool
-		wantErr      string
+		desc    string
+		host    string
+		want    TunnelType
+		wantErr string
 	}{
 		{
-			desc:         "false for external URL",
-			host:         "www.enfabrica.net",
-			shouldTunnel: false,
+			desc: "no tunnel required for external URL",
+			host: "www.enfabrica.net",
+			want: TunnelTypeNone,
 		},
 		{
-			desc:         "true for internal URL",
-			host:         "anything.local.enfabrica.net",
-			shouldTunnel: true,
+			desc: "local tunnel for localhost URL",
+			host: "anything.local.enfabrica.net",
+			want: TunnelTypeLocal,
 		},
 		{
 			desc:    "error for non-existent URL",
@@ -219,12 +219,12 @@ func TestShouldTunnel(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			got, gotErr := ShouldTunnel(tc.host)
+			got, gotErr := TunnelTypeForHost(tc.host)
 			errdiff.Check(t, gotErr, tc.wantErr)
 			if gotErr != nil {
 				return
 			}
-			assert.Equal(t, got, tc.shouldTunnel)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
