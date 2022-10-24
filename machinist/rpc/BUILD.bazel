@@ -1,9 +1,8 @@
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-# Gazelle seems to not detect my existing proto_library rules, and
-# create new ones with names I don't like. So here you go, gazelle!
-# gazelle:proto disable
+# gazelle:ignore
 
 proto_library(
     name = "machinist_proto",
@@ -19,16 +18,14 @@ proto_library(
 go_proto_library(
     name = "machinist-proto-lib",
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
-    importpath = "github.com/enfabrica/enkit/machinist/rpc/machinist",
+    importpath = "github.com/enfabrica/enkit/machinist/rpc",
     proto = ":machinist_proto",
     visibility = ["//visibility:public"],
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
 go_library(
     name = "machinist-go",
     embed = [":machinist-proto-lib"],
-    importpath = "github.com/enfabrica/enkit/machinist/rpc/machinist",
+    importpath = "github.com/enfabrica/enkit/machinist/rpc",
     visibility = ["//visibility:public"],
 )

@@ -18,6 +18,7 @@ go_proto_library(
 
 go_library(
     name = "go_default_library",
+    srcs = ["empty.go"],
     embed = [":license_go_proto"],
     importpath = "github.com/enfabrica/enkit/manager/rpc",
     visibility = ["//visibility:public"],

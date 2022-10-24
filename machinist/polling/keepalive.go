@@ -2,11 +2,13 @@ package polling
 
 import (
 	"context"
-	machinist_rpc "github.com/enfabrica/enkit/machinist/rpc/machinist"
+
+	mpb "github.com/enfabrica/enkit/machinist/rpc"
+
 	"time"
 )
 // SendKeepAliveRequest will run a keepalive request ad infinittum, only logging when EOF.
-func SendKeepAliveRequest(ctx context.Context, client machinist_rpc.ControllerClient) error {
+func SendKeepAliveRequest(ctx context.Context, client mpb.ControllerClient) error {
 	pollStream, err := client.Poll(ctx)
 	if err != nil {
 		return err
@@ -14,9 +16,9 @@ func SendKeepAliveRequest(ctx context.Context, client machinist_rpc.ControllerCl
 	for {
 		select {
 		case <-time.After(1 * time.Second):
-			pollReq := &machinist_rpc.PollRequest{
-				Req: &machinist_rpc.PollRequest_Ping{
-					Ping: &machinist_rpc.ClientPing{
+			pollReq := &mpb.PollRequest{
+				Req: &mpb.PollRequest_Ping{
+					Ping: &mpb.ClientPing{
 						Payload: []byte(``),
 					},
 				},

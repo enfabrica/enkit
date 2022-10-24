@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/enfabrica/enkit/machinist/config"
-	mpb "github.com/enfabrica/enkit/machinist/rpc/machinist"
+	mpb "github.com/enfabrica/enkit/machinist/rpc"
 	"github.com/enfabrica/enkit/lib/server"
 
 	"google.golang.org/grpc"

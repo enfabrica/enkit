@@ -29,5 +29,5 @@ astore_upload(
     targets = [
         ":client",
     ],
-    visibility = ["//:__pkg__"]
+    visibility = ["//:__pkg__"],
 )

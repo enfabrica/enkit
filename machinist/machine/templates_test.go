@@ -3,7 +3,7 @@ package machine_test
 import (
 	"fmt"
 	"github.com/enfabrica/enkit/machinist/machine"
-	"github.com/enfabrica/enkit/machinist/machinist_assets"
+	"github.com/enfabrica/enkit/machinist/machine/assets"
 	"github.com/stretchr/testify/assert"
 
 	"testing"
@@ -12,7 +12,7 @@ import (
 func TestMachinistNodeTemplate(t *testing.T) {
 	_, err := machine.ReadSSHDContent("/bar", "/foo", "/baz")
 	assert.Nil(t, err)
-	for k := range machinist_assets.AutoUserBinaries {
+	for k := range assets.AutoUserBinaries {
 		fmt.Println(k)
 	}
 	c := &machine.NssConf{

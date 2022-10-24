@@ -10,7 +10,7 @@ import (
 	
 	"github.com/enfabrica/enkit/lib/knetwork/kdns"
 	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/machinist/rpc/machinist"
+	mpb "github.com/enfabrica/enkit/machinist/rpc"
 	"github.com/enfabrica/enkit/machinist/state"
 
 	"github.com/miekg/dns"
@@ -48,26 +48,26 @@ func (en *Controller) Nodes() []*state.Machine {
 	return nodes
 }
 
-func (en *Controller) Download(*machinist.DownloadRequest, machinist.Controller_DownloadServer) error {
+func (en *Controller) Download(*mpb.DownloadRequest, mpb.Controller_DownloadServer) error {
 	return nil
 }
 
-func (en *Controller) Upload(machinist.Controller_UploadServer) error {
+func (en *Controller) Upload(mpb.Controller_UploadServer) error {
 	return nil
 }
 
-func (en *Controller) HandlePing(stream machinist.Controller_PollServer, ping *machinist.ClientPing) error {
+func (en *Controller) HandlePing(stream mpb.Controller_PollServer, ping *mpb.ClientPing) error {
 	return stream.Send(
-		&machinist.PollResponse{
-			Resp: &machinist.PollResponse_Pong{
-				Pong: &machinist.ActionPong{
+		&mpb.PollResponse{
+			Resp: &mpb.PollResponse_Pong{
+				Pong: &mpb.ActionPong{
 					Payload: ping.Payload,
 				},
 			},
 		})
 }
 
-func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, ping *machinist.ClientRegister) error {
+func (en *Controller) HandleRegister(stream mpb.Controller_PollServer, ping *mpb.ClientRegister) error {
 	var parsedIps []net.IP
 	for _, p := range ping.Ips {
 		i := net.ParseIP(p)
@@ -88,15 +88,15 @@ func (en *Controller) HandleRegister(stream machinist.Controller_PollServer, pin
 	}
 	en.addNodeToDns(ping.Name, newMachine.Ips, newMachine.Tags)
 	return stream.Send(
-		&machinist.PollResponse{
-			Resp: &machinist.PollResponse_Result{
-				Result: &machinist.ActionResult{},
+		&mpb.PollResponse{
+			Resp: &mpb.PollResponse_Result{
+				Result: &mpb.ActionResult{},
 			},
 		})
 
 }
 
-func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
+func (en *Controller) Poll(stream mpb.Controller_PollServer) error {
 	for {
 		in, err := stream.Recv()
 		if err != nil {
@@ -104,10 +104,10 @@ func (en *Controller) Poll(stream machinist.Controller_PollServer) error {
 		}
 
 		switch r := in.Req.(type) {
-		case *machinist.PollRequest_Ping:
+		case *mpb.PollRequest_Ping:
 			en.HandlePing(stream, r.Ping)
 
-		case *machinist.PollRequest_Register:
+		case *mpb.PollRequest_Register:
 			if err = en.HandleRegister(stream, r.Register); err != nil {
 				return err
 			}

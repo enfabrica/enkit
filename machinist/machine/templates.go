@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/machinist/machinist_assets"
+	"github.com/enfabrica/enkit/machinist/machine/assets"
 	"io/ioutil"
 	"os/exec"
 	"strings"
@@ -12,14 +12,14 @@ import (
 )
 
 func InstallLibPam(l logger.Logger) error {
-	cmd := exec.Command("/bin/bash", "-c", string(machinist_assets.InstallLibPamScript))
+	cmd := exec.Command("/bin/bash", "-c", string(assets.InstallLibPamScript))
 	o, err := cmd.Output()
 	l.Infof("output of installer is %s", string(o))
 	return err
 }
 
 func ReadSSHDContent(cafile, hostKey, hostCertificateFile string) ([]byte, error) {
-	tpl, err := template.New("ssh_server").Parse(machinist_assets.SSHDTemplate)
+	tpl, err := template.New("ssh_server").Parse(assets.SSHDTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func ReadSSHDContent(cafile, hostKey, hostCertificateFile string) ([]byte, error
 
 // fetchLibNSSAutoUser will fetch the nss_autouser  lib that's embedded. The current build exports one .a and one .so.
 func fetchLibNSSAutoUser() ([]byte, error) {
-	for k, v := range machinist_assets.AutoUserBinaries {
+	for k, v := range assets.AutoUserBinaries {
 		if strings.Contains(k, ".so") {
 			return v, nil
 		}
@@ -93,7 +93,7 @@ func InstallNssAutoUserConf(path string, conf *NssConf) error {
 }
 
 func ReadNssConf(conf *NssConf) ([]byte, error) {
-	tpl, err := template.New("nss_config").Parse(machinist_assets.NssConfig)
+	tpl, err := template.New("nss_config").Parse(assets.NssConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -107,16 +107,16 @@ func ReadNssConf(conf *NssConf) ([]byte, error) {
 // Pam Installer Functions
 func InstallPamSSHDFile(path string, l logger.Logger) error {
 	l.Infof("installing pam login file")
-	return ioutil.WriteFile(path, machinist_assets.PamSSHDConfig, 0700)
+	return ioutil.WriteFile(path, assets.PamSSHDConfig, 0700)
 }
 
 func InstallPamScript(path string, l logger.Logger) error {
 	l.Infof("Installing Pam Account Script")
-	return ioutil.WriteFile(path, machinist_assets.PamScript, 0755)
+	return ioutil.WriteFile(path, assets.PamScript, 0755)
 }
 
 func ParseSystemdTemplate(user, installPath, command string) (string, error) {
-	tpl, err := template.New("machinist_service").Parse(string(machinist_assets.SystemdTemplate))
+	tpl, err := template.New("machinist_service").Parse(string(assets.SystemdTemplate))
 	if err != nil {
 		return "", err
 	}

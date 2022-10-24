@@ -10,4 +10,3 @@ exports_files([
     "astore_upload_file.sh",
     "astore_upload_dir.sh",
 ])
-
