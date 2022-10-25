@@ -420,7 +420,7 @@ export_and_run_rule = rule(
     executable = True,
     attrs = dict(_common_attrs(), **{
         "target": attr.label(
-            cfg = "host",
+            cfg = "target",
             doc = "Target to execute on the remote machine",
         ),
         "inputs": attr.label(
