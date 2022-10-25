@@ -75,7 +75,7 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
-	rc.PersistentFlags().IntVar(&rc.TunnelListenPort, "tunnel-listen-port", 8822, "If a tunnel is required, this is the local port the tunnel listens on for connections")
+	rc.PersistentFlags().IntVar(&rc.TunnelListenPort, "tunnel-listen-port", 8001, "If a tunnel is required, this is the local port the tunnel listens on for connections")
 	rc.PersistentFlags().StringVar(&rc.GatewayProxy, "gateway-proxy", "", "If a tunnel is used, gateway proxy to tunnel through")
 	return rc, nil
 }
