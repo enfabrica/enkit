@@ -3854,7 +3854,7 @@ function gee__pr_check() {
       local BUILD
       for BUILD in "${FAILED_BUILDS[@]}"; do
         _warn "Failed build: ${BUILD}"
-        gcloud builds log "${BUILD}" | grep -i FAILED
+        gcloud builds log "${BUILD}" | grep -i -E "(failed:|error:|streaming build results to:)"
       done
     fi
   fi
