@@ -2,9 +2,11 @@
 
 ## Releases
 
-### Unreleased
+### 0.2.37
 
-* Re-enable --autostash behavior when rebasing (#780)
+* Re-enable `--autostash` behavior when rebasing (#780)
+* Improve error reporting (#778)
+* `gee pr_checks`: report the buildbuddy URL on failure (#788)
 
 ### 0.2.36
 
