@@ -1,0 +1,34 @@
+#!/bin/bash
+
+SEARCH_FOR="$*"
+
+if [[ -z "${FSCKFILE}"  ]]; then
+  FSCKFILE="$(mktemp /tmp/stashes-"$USER".XXXXXX)"
+  echo "Creating temporary FSCKFILE=${FSCKFILE}"
+fi
+
+if [[ ! -s "${FSCKFILE}" ]]; then
+  git fsck --no-reflog | awk '/dangling commit/ {print $3}' > "${FSCKFILE}"
+  echo "Caching git fsck results to FSCKFILE=${FSCKFILE}"
+fi
+
+declare -a COMMITS
+mapfile -t COMMITS < "${FSCKFILE}"
+echo "Found ${#COMMITS[*]} commits."
+
+declare -a MATCHES=()
+i=0
+while (( i < ${#COMMITS[@]} )); do
+  commit="${COMMITS[$i]}"
+  # echo "Trying commit $((i+1))/${#COMMITS[@]}: ${commit}"
+  if grep -q "${SEARCH_FOR}" < <(git show "${commit}"); then
+    MATCHES+=("${commit}")
+  fi
+  i=$(( i + 1 ))
+done
+
+echo "Found ${#MATCHES[@]} matches."
+for t in "${MATCHES[@]}"; do
+  echo $(git show --format="format:%at %H %ad" -s "${t}")
+done | sort -n | awk '{$1=" "; print $0}'
+

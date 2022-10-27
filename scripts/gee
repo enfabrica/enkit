@@ -4837,6 +4837,58 @@ function gee__restore_all_branches() {
 }
 
 ##########################################################################
+# recover_stashes
+##########################################################################
+
+_register_help "recover_stashes" "Recover identifiers for old, dropped stashes." \
+<<'EOT'
+Usage: recover_stashes <"optional string to search for">
+
+The `recover_stashes` command searches your git repo for commits associated
+with old stashed changes that may have been already dropped (ie. are no
+longer listed in `git stash list`).  It reports them as a list, sorted by
+date.
+EOT
+
+function gee__recover_stashes() {
+  local SEARCH_FOR="$*"
+
+  if [[ -z "${FSCKFILE}"  ]]; then
+    FSCKFILE="$(mktemp /tmp/stashes-"$USER".XXXXXX)"
+    _info "Created temporary FSCKFILE=${FSCKFILE}"
+  fi
+
+  if [[ ! -s "${FSCKFILE}" ]]; then
+    _info "Searching your repo for discarded stash commits..."
+    git fsck --no-reflog | awk '/dangling commit/ {print $3}' > "${FSCKFILE}"
+    _info "Cached search results to FSCKFILE=${FSCKFILE}"
+  fi
+
+  local -a COMMITS
+  mapfile -t COMMITS < "${FSCKFILE}"
+  echo "Found ${#COMMITS[*]} commits."
+
+  _info "Filtering candidate commits..."
+  local -a MATCHES=()
+  i=0
+  while (( i < ${#COMMITS[@]} )); do
+    commit="${COMMITS[$i]}"
+    # echo "Trying commit $((i+1))/${#COMMITS[@]}: ${commit}"
+    if grep -q "${SEARCH_FOR}" < <(git show "${commit}" || /bin/true); then
+      MATCHES+=("${commit}")
+    fi
+    i=$(( i + 1 ))
+  done
+
+  echo "Found ${#MATCHES[@]} matches."
+  for t in "${MATCHES[@]}"; do
+    echo $(git show --format="format:%at %H %ad" -s "${t}")
+  done | sort -n | awk '{$1=" "; print $0}'
+  _info "Remove ${FSCKFILE} if you no longer need it."
+}
+
+
+##########################################################################
 # bash_setup command
 ##########################################################################
 
