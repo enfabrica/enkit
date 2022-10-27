@@ -124,7 +124,8 @@ then :; fi
 # TODO(jonathan): Bash implementation is a prototype.  rewrite in golang?
 # TODO(jonathan): "git push -u" option is going to change soon.
 
-set -e
+set -E  # enables errtrace (allows ERR traps to be inherited by functions and subshells)
+set -e  # terminate script on any simple command failure.
 
 if [[ -n "${DEBUG}" ]]; then
   set -x
@@ -1874,22 +1875,27 @@ function _write_parents_file() {
 
 ABNORMAL=1
 function _cleanup() {
-  local lineno="$1"
+  set +e
+  trap - ERR
+  if (( ABNORMAL == 1 )); then
+    _warn "Abnormal termination: gee unexpectedly exited."
+  fi
   # Ensure we always save the PARENTS file, even if we die:
   _write_parents_file
   # Warn the user if we terminated abnormally (for example, if set -e fired).
-  if (( ABNORMAL == 1 )); then
-    _warn "Abnormal termination at line ${lineno}"
-  fi
 }
+function _log_command_failure() {
+  local lineno="$1"
+  local cmd="$2"
+  local rc="$3"
+  local msg
+  msg="$(printf "gee:%s: command %q failed with rc=%d" "${lineno}" "${cmd}" "${rc}")"
+  printf >&2 "${_COLOR_WARN}WARNING: %s${_COLOR_RST}\n" "$msg"
+  printf "  warn: %s\n" "$msg" | _to_gee_log
+}
+
+trap '_log_command_failure "${LINENO}" "${BASH_COMMAND}" "$?"' ERR
 trap '_cleanup "${LINENO}"' EXIT
-# This doesn't quite work right, which is why gee needs to be rewritten
-# in golang:
-# function _error_report() {
-#   local lineno="$1"
-#   _warn "ERR signal raised on line ${lineno}"
-# }
-# trap '_error_report "${LINENO}"' ERR
 
 function _join() {
   # Usage:  _join <delimiter> <elements...>
@@ -4444,6 +4450,11 @@ function gee__hello() {
   if [[ -z "${_QUIET}" ]]; then
     _info "Hello, ${GHUSER}.  Connectivity to github is AOK."
   fi
+}
+
+function gee__debug_error_reporting() {
+  echo "About to run /bin/false, which should report an error:"
+  /bin/false
 }
 
 ##########################################################################
