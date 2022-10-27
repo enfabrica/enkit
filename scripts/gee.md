@@ -120,6 +120,7 @@ review.
 | <a href="#pr_rollback">`pr_rollback`</a> | Create a rollback PR for a specified PR. |
 | <a href="#pr_submit">`pr_submit`</a> | Merge the approved PR into the parent branch. |
 | <a href="#pr_view">`pr_view`</a> | View an existing pull request. |
+| <a href="#recover_stashes">`recover_stashes`</a> | Recover identifiers for old, dropped stashes. |
 | <a href="#remove_branch">`remove_branch`</a> | Remove a branch. |
 | <a href="#repair">`repair`</a> | Repair your gee workspace. |
 | <a href="#restore_all_branches">`restore_all_branches`</a> | Check out all remote branches. |
@@ -657,6 +658,38 @@ to restore those branches.
 
 Note that gee isn't able to restore parentage metadata in this way.  Be
 sure to invoke `gee set_parent` in branches that benefit from this.
+
+### recover_stashes
+
+Usage: `recover_stashes <"optional string to search for">`
+
+The `recover_stashes` command is useful if you accidentally dropped some
+stashed changes that you wanted to hold onto.  Even dropped stashes
+can be recovered if you know the right hash for the stash, and this
+command helps you discover them.
+
+By default, `recover_stashes` will print the hash ids for all stashes
+in your repo, sorted by author-date.  Any additional options are used
+to filter the commits (ie. by filename or file contents).
+
+Results are reported as a list of commits and their author-dates.
+
+For example:
+
+    $ gee recover_stashes enkit
+    Created temporary FSCKFILE=/tmp/stashes-jonathan.0JTAXI
+    Searching your repo for discarded stash commits...
+    Checking object directories: 100% (256/256), done.
+    Checking objects: 100% (8266/8266), done.
+    Cached search results to FSCKFILE=/tmp/stashes-jonathan.0JTAXI
+    Found 58 commits.
+    Filtering candidate commits...
+    Found 4 matches.
+      914c9f7f2a43e34c8b1f8ac26f478d4a3ae66c46 Sat Sep 24 12:56:57 2022 -0700
+      7b81aec0ed7806963e79bd2b236523aba57405a7 Tue Oct 4 07:33:03 2022 +0000
+      b957986e8044e8b3097591bae25dfee04e567469 Tue Oct 4 09:32:05 2022 -0700
+      184e791a27fe0f2dd3a7c87a7a9ea4c384d498e7 Thu Oct 6 06:01:44 2022 +0000
+    Remove /tmp/stashes-jonathan.0JTAXI if you no longer need it.
 
 ### bash_setup
 
