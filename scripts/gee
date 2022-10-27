@@ -1888,7 +1888,7 @@ function _log_command_failure() {
   local lineno="$1"
   local cmd="$2"
   local rc="$3"
-  local msg="$(printf "gee:%s: command %q failed with rc=%d" "${LINENO}" "${BASH_COMMAND}" "$?")"
+  local msg="$(printf "gee:%s: command %q failed with rc=%d" "${lineno}" "${cmd}" "${rc}")"
   printf >&2 "${_COLOR_WARN}WARNING: %s${_COLOR_RST}\n" "$msg"
   printf "  warn: %s\n" "$msg" | _to_gee_log
 }
@@ -4452,7 +4452,7 @@ function gee__hello() {
 }
 
 function gee__debug_error_reporting() {
-  echo "About the run /bin/false, which should report an error:"
+  echo "About to run /bin/false, which should report an error:"
   /bin/false
 }
 
