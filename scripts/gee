@@ -4897,8 +4897,7 @@ function gee__recover_stashes() {
   i=0
   while (( i < ${#COMMITS[@]} )); do
     commit="${COMMITS[$i]}"
-    # echo "Trying commit $((i+1))/${#COMMITS[@]}: ${commit}"
-    if grep -q "${SEARCH_FOR}" < <(git show "${commit}" || /bin/true); then
+    if git show "${commit}" | grep -q "${SEARCH_FOR}"; then
       MATCHES+=("${commit}")
     fi
     i=$(( i + 1 ))
