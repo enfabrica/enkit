@@ -1153,7 +1153,13 @@ function _read_cmd() {
       printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
     fi
     set +e
-    mapfile -t "${VAR}" < <("$@"; printf "%d\n" "$?")
+    mapfile -t "${VAR}" < <(
+      # use "if" statement to avoid ERR trap.
+      if ! "$@"; then
+        printf "%d\n" "$?";
+      else
+        printf "%d\n" "$?";
+      fi)
     local TMP
     TMP="${VAR}[-1]"
     RC="${!TMP}"  # indirect
@@ -4905,7 +4911,7 @@ function gee__recover_stashes() {
 
   echo "Found ${#MATCHES[@]} matches."
   for t in "${MATCHES[@]}"; do
-    echo $(git show --format="format:%at %H %ad" -s "${t}")
+    git show --format=$'format:%at %H %ad\n' -s "${t}"
   done | sort -n | awk '{$1=" "; print $0}'
   _info "Remove ${FSCKFILE} if you no longer need it."
 }
