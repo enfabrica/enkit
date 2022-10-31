@@ -1153,13 +1153,8 @@ function _read_cmd() {
       printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
     fi
     set +e
-    mapfile -t "${VAR}" < <(
-      # use "if" statement to avoid ERR trap.
-      if ! "$@"; then
-        printf "%d\n" "$?";
-      else
-        printf "%d\n" "$?";
-      fi)
+    # We want to capture the return code, but not trigger an ERR trap:
+    mapfile -t "${VAR}" < <("$@" && echo "$?" || echo "$?")
     local TMP
     TMP="${VAR}[-1]"
     RC="${!TMP}"  # indirect
@@ -5406,9 +5401,11 @@ function main() {
   # Let's make pr-submit and pr_submit equivalent:
   cmdname="$(tr '-' '_' <<< "${cmdname}")"
   if type "gee__${cmdname}" >/dev/null 2>&1; then
-    "gee__${cmdname}" "$@"
+    RC=0
+    "gee__${cmdname}" "$@" || RC=$?
     ABNORMAL=0
-    echo "  exit rc=0" | _to_gee_log
+    echo "  exit rc=$RC" | _to_gee_log
+    exit $RC
   else
     echo "Unknown command ${cmdname}"
     echo ""
