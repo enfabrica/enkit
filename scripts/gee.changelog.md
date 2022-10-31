@@ -7,6 +7,7 @@
 * Re-enable `--autostash` behavior when rebasing (#780)
 * Improve error reporting (#778)
 * `gee pr_checks`: report the buildbuddy URL on failure (#788)
+* `gee recover_stashes`: helps users recover dropped stashes (#791)
 
 ### 0.2.36
 
