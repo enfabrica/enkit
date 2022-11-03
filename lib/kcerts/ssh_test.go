@@ -97,7 +97,7 @@ func TestSSHAgent_Principals(t *testing.T) {
 	toBeSigned, toBeSignedPrivateKey, err := GenerateED25519()
 	assert.NoError(t, err)
 	// code of your test
-	principalList := []string{"foo", "bar", "baz"}
+	principalList := []string{"foo", "bar", "foo@enfabrica.net", "foo@ext.enfabrica.net", "baz"}
 	cert, err := SignPublicKey(sourcePrivKey, 1, principalList, 5*time.Hour, toBeSigned)
 	localCache := &cache.Local{
 		Root: tmpDir,
