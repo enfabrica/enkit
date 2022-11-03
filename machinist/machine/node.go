@@ -100,26 +100,30 @@ func (n *Machine) Enroll() error {
 		}
 	}
 
-	// Pam Installer Steps
-	n.Log.Infof("Executing Pam installation steps")
-	if err := InstallLibPam(n.Log); err != nil {
-		return err
-	}
-	if err := InstallPamSSHDFile(n.PamSSHDLocation, n.Log); err != nil {
-		return err
-	}
-	if err := InstallPamScript(n.PamSecurityLocation, n.Log); err != nil {
-		return err
-	}
+	if n.ModifyMachineConfig{
+		// Pam Installer Steps
+		n.Log.Infof("Executing Pam installation steps")
+		if err := InstallLibPam(n.Log); err != nil {
+			return err
+		}
+		if err := InstallPamSSHDFile(n.PamSSHDLocation, n.Log); err != nil {
+			return err
+		}
+		if err := InstallPamScript(n.PamSecurityLocation, n.Log); err != nil {
+			return err
+		}
 
-	//// Nss AutoUser Setup
-	if err := InstallNssAutoUserConf(n.LibNssConfLocation, &NssConf{
-		DefaultShell: "/bin/bash",
-	}); err != nil {
-		return err
-	}
-	if err := InstallNssAutoUser(n.Log); err != nil {
-		return err
+		//// Nss AutoUser Setup
+		if err := InstallNssAutoUserConf(n.LibNssConfLocation, &NssConf{
+			DefaultShell: "/bin/bash",
+		}); err != nil {
+			return err
+		}
+		if err := InstallNssAutoUser(n.Log); err != nil {
+			return err
+		}
+	} else {
+		n.Log.Infof("Skipping machine configuration steps, as ModifyMachineConfig was not set")
 	}
 
 	// SSHD installer steps
