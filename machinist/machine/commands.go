@@ -43,6 +43,7 @@ func NewEnrollCommand(conf *config.Node) *cobra.Command {
 	}
 	// General Flags.
 	c.PersistentFlags().BoolVar(&conf.RequireRoot, "require-root", true, "should the enroll command require root for execution")
+	c.PersistentFlags().BoolVar(&conf.ModifyMachineConfig, "modify-machine-config", true, "perform additional setup (install libnss_autouser and config, PAM scripts, etc.)")
 
 	// NSS AutoUser flags.
 	c.PersistentFlags().StringVar(&conf.LibNssConfLocation, "nss-autouser-conf", "/etc/nss-autouser.conf", "the file location of libnss autouser configuration file")

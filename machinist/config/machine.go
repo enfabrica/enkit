@@ -12,6 +12,12 @@ type Node struct {
 
 	RequireRoot bool
 
+	// BUG(INFRA-2550): Machinist can unpack files/scripts/config onto the host
+	// machine, but this is better managed out-of-band by another tool, such as
+	// Ansible or Puppet. If this bool is set, perform the legacy unpacking
+	// behavior.
+	ModifyMachineConfig bool
+
 	LibNssConfLocation string
 
 	// Pam Location configs
