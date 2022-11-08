@@ -4,11 +4,9 @@ go 1.16
 
 require (
 	bazil.org/fuse v0.0.0-20200524192727-fb710f7dfd05
-	cloud.google.com/go/asset v1.1.0 // indirect
-	cloud.google.com/go/bigquery v1.28.0 // indirect
 	cloud.google.com/go/datastore v1.1.0
-	cloud.google.com/go/security v1.2.0 // indirect
-	cloud.google.com/go/storage v1.26.0
+	cloud.google.com/go/storage v1.27.0
+	github.com/GoogleCloudPlatform/cloud-build-notifiers v0.0.0-20221005190102-4a3420d331aa // indirect
 	github.com/KohlsTechnology/prometheus_bigquery_remote_storage_adapter v0.4.6 // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
@@ -21,7 +19,7 @@ require (
 	github.com/cybozu-go/aptutil v1.4.2-0.20200413001041-3f82d8384481
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v20.10.3+incompatible
+	github.com/docker/docker v20.10.5+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0
@@ -41,11 +39,11 @@ require (
 	github.com/golangci/gosec v0.0.0-20190211064107-66fb7fc33547 // indirect
 	github.com/golangci/ineffassign v0.0.0-20190609212857-42439a7714cc // indirect
 	github.com/golangci/prealloc v0.0.0-20180630174525-215b22d4de21 // indirect
+	github.com/google/cel-go v0.11.3 // indirect
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/uuid v1.3.0
-	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
 	github.com/googleapis/go-type-adapters v1.0.0 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/improbable-eng/grpc-web v0.13.0
@@ -80,21 +78,20 @@ require (
 	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
 	go.uber.org/zap v1.19.1
-	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
-	// BUG(INFRA-1801): Last version that supports go1.16 is golang.org/x/net v0.0.0-20211020060615-d418f374d309
-	golang.org/x/net v0.0.0-20211020060615-d418f374d309
-	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
-	// BUG(INFRA-1801): Last version that supports go1.16 is golang.org/x/sys v0.0.0-20220908164124-27713097b956
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/net v0.0.0-20221014081412-f15817d10f9b
+	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
 	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	golang.org/x/tools v0.1.9 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
-	google.golang.org/api v0.94.0
-	google.golang.org/grpc v1.49.0
+	google.golang.org/api v0.100.0
+	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c // indirect
+	google.golang.org/grpc v1.50.1
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
+	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	sourcegraph.com/sqs/pbtypes v0.0.0-20180604144634-d3ebe8f20ae4 // indirect
