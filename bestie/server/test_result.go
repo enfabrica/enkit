@@ -160,9 +160,9 @@ func handleTestResultEvent(bazelBuildEvent bes.BuildEvent, streamId *build.Strea
 		sbuf.WriteString(fmt.Sprintf("\tinvocationId: %s\n", stream.invocationId))
 		sbuf.WriteString(fmt.Sprintf("\tinvocationSha: %s\n", stream.invocationSha))
 		glog.Info(sbuf.String())
-  } else {
-    glog.Info(fmt.Sprintf("Processing invocationId: %s\n", stream.invocationId));
-  }
+	} else {
+		glog.Info(fmt.Sprintf("Processing invocationId: %s\n", stream.invocationId))
+	}
 
 	var errs []error
 	var fileName, fileUri string
