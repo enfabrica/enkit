@@ -187,16 +187,27 @@ type Authenticator struct {
 }
 
 type Identity struct {
+	// Id is a globally unique identifier of the user.
+	// It is oauth provider specific, generally contains an integer or string
+	// uniquely identifying the user, and a domain name used to namespace the id.
 	Id           string
+	// Username is the name of the user on the remote system.
 	Username     string
+	// Organization is the domain name used to authenticate the user.
+	// For example, github.com, or the specific gsuite domain.
 	Organization string
+	// Groups is a list of string identifying the groups the user is part of.
+	Groups       []string
 }
 
 // GlobalName returns a human friendly string identifying the user.
 //
-// It looks like an email, but it is not necessarily an email.
+// It looks like an email, but it may or may not be a valid email address.
+//
 // For example: github users will have github.com as organization, and their login as Username.
 //              The GlobalName will be username@github.com. Not a valid email.
+// On the other hand: gsuite users for enfabrica.net will have enfabrica.net as organization,
+//		and their username as Username, forming a valid email.
 //
 // Interpret the result as meaning "user by this name" @ "organization by this name".
 func (i *Identity) GlobalName() string {
