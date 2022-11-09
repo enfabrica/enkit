@@ -178,7 +178,7 @@ func WithTargetURL(url string) Modifier {
 
 func WithScopes(scopes []string) Modifier {
 	return func(opt *Options) error {
-		opt.conf.Scopes = append([]string{}, scopes...)
+		opt.conf.Scopes = append(opt.conf.Scopes, scopes...)
 		return nil
 	}
 }
@@ -236,8 +236,11 @@ func WithFactory(factory VerifierFactory) Modifier {
 		if err != nil {
 			return err
 		}
+		if err := WithScopes(verifier.Scopes())(opt); err != nil {
+			return err
+		}
 
-		opt.verifier = verifier
+		opt.verifiers = append(opt.verifiers, verifier)
 		return nil
 	}
 }
@@ -454,7 +457,7 @@ type Options struct {
 	version         int
 	conf            *oauth2.Config
 
-	verifier   Verifier
+	verifiers   []Verifier
 	baseCookie string
 	authURL    *url.URL // Only used by the Redirector.
 
@@ -490,7 +493,7 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 		rng: opt.rng,
 
 		authEncoder: te,
-		verifier:    opt.verifier,
+		verifiers:   opt.verifiers,
 		conf:        opt.conf,
 	}
 	if authenticator.conf.RedirectURL == "" {
@@ -499,8 +502,8 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 	if authenticator.conf.ClientID == "" || authenticator.conf.ClientSecret == "" {
 		return nil, fmt.Errorf("API used incorrectly - must supply secrets with WithSecrets")
 	}
-	if authenticator.verifier == nil {
-		return nil, fmt.Errorf("API used incorrectly - must supply verifier with WithFactory")
+	if len(authenticator.verifiers) <= 0 {
+		return nil, fmt.Errorf("API used incorrectly - must supply at least one verifier with WithFactory")
 	}
 	if len(authenticator.conf.Scopes) == 0 {
 		return nil, fmt.Errorf("API used incorrectly - no scopes configured")

@@ -67,7 +67,18 @@ import (
 	"github.com/enfabrica/enkit/lib/token"
 )
 
-type Verifier func(tok *oauth2.Token) (*Identity, error)
+// Verifier is an object capable of verifying an oauth2.Token after obtaining it.
+//
+// Verifiers can also add information retrieved from the remote provider to the
+// identity, using some provider specific mechanisms.
+//
+// For example, they can check if a domain matches a list of allowed domains, or
+// retrieve a list of groups and add them as part of the user identity.
+type Verifier interface {
+	Scopes() []string
+	Verify(identity *Identity, tok *oauth2.Token) (*Identity, error)
+}
+
 type VerifierFactory func(conf *oauth2.Config) (Verifier, error)
 
 // Extractor is an object capable of extracting and verifying authentication information.
@@ -172,7 +183,7 @@ type Authenticator struct {
 
 	conf *oauth2.Config
 
-	verifier Verifier
+	verifiers []Verifier
 }
 
 type Identity struct {
@@ -654,10 +665,19 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	if !tok.Valid() {
 		return AuthData{}, fmt.Errorf("Invalid token retrieved")
 	}
-	identity, err := a.verifier(tok)
-	if err != nil {
-		return AuthData{}, fmt.Errorf("Invalid token - %w", err)
+
+	identity := &Identity{}
+	for _, verifier := range a.verifiers {
+		identity, err = verifier.Verify(identity, tok)
+		if err != nil {
+			return AuthData{}, fmt.Errorf("Invalid token - %w", err)
+		}
 	}
+	// For defense in depth. This should never happen if configured properly.
+	if identity.Id == "" || identity.Username == "" {
+		return AuthData{}, fmt.Errorf("Authentication process succeeded with no credentials")
+	}
+
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}
 	return AuthData{Creds: &creds, Target: received.Target, State: received.State}, nil
 }
