@@ -63,7 +63,7 @@ class BenchDataLoader(unittest.TestCase):
         benchmark("json.loads-pretty", lambda: json.loads(big_json))
         benchmark("json.loads-packed", lambda: json.loads(packed_json))
         d = data_loader.DataLoader()
-        benchmark("data_loader", lambda: d.ParseYaml(big_text))
+        benchmark("data_loader", lambda: d.ParseYaml("big_text", big_text))
 
 
 
