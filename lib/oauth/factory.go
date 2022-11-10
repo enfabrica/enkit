@@ -97,6 +97,13 @@ func (rf *RedirectorFlags) Register(set kflags.FlagSet, prefix string) *Redirect
 	return rf
 }
 
+// Flags defines the basic configuration parameters to run the oauth cycle.
+//
+// Use Flags if you have your own code to handle the specific oauth provider.
+// To allow the configuration and use of one of the providers this library
+// supports, use providers.ProviderFlags.
+//
+// To pass Flags to one of the constructurs, use `WithFlags`.
 type Flags struct {
 	*SigningExtractorFlags
 
