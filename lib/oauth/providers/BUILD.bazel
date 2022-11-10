@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["providers.go"],
+    srcs = [
+        "groups.go",
+        "providers.go",
+    ],
     importpath = "github.com/enfabrica/enkit/lib/oauth/providers",
     visibility = ["//visibility:public"],
     deps = [
@@ -10,5 +13,6 @@ go_library(
         "//lib/oauth:go_default_library",
         "//lib/oauth/ogithub:go_default_library",
         "//lib/oauth/ogoogle:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
     ],
 )
