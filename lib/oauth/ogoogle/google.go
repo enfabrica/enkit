@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/coreos/go-oidc"
 	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/cloudidentity/v1"
@@ -13,6 +14,50 @@ import (
 	"io/ioutil"
 	"strings"
 )
+
+type Flags struct {
+	// Use JWT certs or API calls to retrieve user info. 
+	// Valid values are jwt or api.
+	FetchMethod   string
+
+	// Retrieve groups using cloudidentity.
+	GroupsEnabled bool
+}
+
+func DefaultFlags() *Flags {
+	return &Flags{
+		FetchMethod: "jwt",
+		GroupsEnabled: true,
+	}
+}
+
+func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
+	set.StringVar(&f.FetchMethod, prefix+"fetch-method", f.FetchMethod,
+		"How to fetch the user information: API call (api) or decoding the jwt cookie (jwt)?")
+	set.BoolVar(&f.GroupsEnabled, prefix+"groups", f.GroupsEnabled,
+		"If true, group membership of the user will be fetched with the cloudidentity APIs")
+	return f
+}
+
+func FromFlags(f *Flags) (oauth.Modifier, error) {
+	mods := []oauth.Modifier{
+		oauth.WithEndpoint(google.Endpoint),
+	}
+
+	if f.FetchMethod == "jwt" {
+		mods = append(mods, oauth.WithFactory(NewOidJWTVerifier))
+	} else if f.FetchMethod == "api" {
+		mods = append(mods, oauth.WithFactory(NewGetUserInfoVerifier))
+	} else {
+		return nil, fmt.Errorf("google oauth - unknown --fetch-method: %s (valid: jwt or api)", f.FetchMethod)
+	}
+
+	if f.GroupsEnabled {
+		mods = append(mods, oauth.WithFactory(NewGetGroupsVerifier))
+	}
+
+	return oauth.WithModifiers(mods...), nil
+}
 
 func Defaults() oauth.Modifier {
 	return oauth.WithModifiers(
@@ -146,6 +191,10 @@ func (gui *GetGroupsVerifier) Verify(identity *oauth.Identity, tok *oauth2.Token
 
 	identity.Groups = append(identity.Groups, groups...)
 	return identity, nil
+}
+
+func NewGetGroupsVerifier(conf *oauth2.Config) (oauth.Verifier, error) {
+	return &GetGroupsVerifier{conf: conf}, nil
 }
 
 type GetUserInfoVerifier struct {

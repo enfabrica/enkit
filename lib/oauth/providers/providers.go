@@ -20,6 +20,7 @@ import (
 // To pass Flags to one of the constructurs, use `WithFlags`.
 type Flags struct {
 	*oauth.Flags
+        Google *ogoogle.Flags
 
 	// The name of the provider to use: google or github.
 	Provider string
@@ -28,12 +29,14 @@ type Flags struct {
 func DefaultFlags() *Flags {
 	return &Flags{
 		Flags: oauth.DefaultFlags(),
+		Google: ogoogle.DefaultFlags(),
 		Provider: "google",
 	}
 }
 
 func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	f.Flags.Register(set, prefix)
+	f.Google.Register(set, prefix+"google-")
 
 	set.StringVar(&f.Provider, prefix+"provider", f.Provider,
 		"Selects the provider to use, one of 'google' or 'github'")
@@ -48,7 +51,12 @@ func WithFlags(fl *Flags) oauth.Modifier {
 
 		switch fl.Provider {
 		case "google":
-			return ogoogle.Defaults()(o)
+			mod, err := ogoogle.FromFlags(fl.Google)
+			if err != nil {
+				return fmt.Errorf("could not initialize google provider (--provider=google): %w", err)
+			}
+			return mod(o)
+
 		case "github":
 			return ogithub.Defaults()(o)
 		}
