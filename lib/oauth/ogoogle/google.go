@@ -22,20 +22,25 @@ type Flags struct {
 
 	// Retrieve groups using cloudidentity.
 	GroupsEnabled bool
+	// If true, treat group retrieval failures as non-fatal.
+	GroupsOptional bool
 }
 
 func DefaultFlags() *Flags {
 	return &Flags{
 		FetchMethod: "jwt",
 		GroupsEnabled: true,
+		GroupsOptional: true,
 	}
 }
 
 func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.StringVar(&f.FetchMethod, prefix+"fetch-method", f.FetchMethod,
 		"How to fetch the user information: API call (api) or decoding the jwt cookie (jwt)?")
-	set.BoolVar(&f.GroupsEnabled, prefix+"groups", f.GroupsEnabled,
+	set.BoolVar(&f.GroupsEnabled, prefix+"groups-enabled", f.GroupsEnabled,
 		"If true, group membership of the user will be fetched with the cloudidentity APIs")
+	set.BoolVar(&f.GroupsOptional, prefix+"groups-optional", f.GroupsOptional,
+		"If true, failures in fetching group memberships will be ignored")
 	return f
 }
 
@@ -53,7 +58,12 @@ func FromFlags(f *Flags) (oauth.Modifier, error) {
 	}
 
 	if f.GroupsEnabled {
-		mods = append(mods, oauth.WithFactory(NewGetGroupsVerifier))
+		if f.GroupsOptional {
+			mods = append(mods, oauth.WithFactory(
+				oauth.NewOptionalVerifierFactory(NewGetGroupsVerifier)))
+		} else {
+			mods = append(mods, oauth.WithFactory(NewGetGroupsVerifier))
+		}
 	}
 
 	return oauth.WithModifiers(mods...), nil

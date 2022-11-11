@@ -81,6 +81,33 @@ type Verifier interface {
 
 type VerifierFactory func(conf *oauth2.Config) (Verifier, error)
 
+type OptionalVerifier struct {
+	inner Verifier
+}
+
+func (ov *OptionalVerifier) Scopes() []string {
+	return ov.inner.Scopes()
+}
+
+func (ov *OptionalVerifier) Verify(identity *Identity, tok *oauth2.Token) (*Identity, error) {
+	result, err := ov.inner.Verify(identity, tok)
+	if err != nil {
+		// FIXME: log error!
+		return identity, nil
+	}
+	return result, nil
+}
+
+func NewOptionalVerifierFactory(factory VerifierFactory) VerifierFactory {
+	return func(conf *oauth2.Config) (Verifier, error) {
+		inner, err := factory(conf)
+		if err != nil {
+			return nil, err
+		}
+		return &OptionalVerifier{inner: inner}, nil
+	}
+}
+
 // Extractor is an object capable of extracting and verifying authentication information.
 type Extractor struct {
 	version int
