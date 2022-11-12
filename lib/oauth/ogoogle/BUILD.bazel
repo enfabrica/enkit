@@ -8,6 +8,8 @@ go_library(
     deps = [
         "//lib/oauth:go_default_library",
         "@com_github_coreos_go_oidc//:go_default_library",
+        "@org_golang_google_api//cloudidentity/v1:go_default_library",
+        "@org_golang_google_api//option:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
         "@org_golang_x_oauth2//google:go_default_library",
     ],
