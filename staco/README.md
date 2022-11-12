@@ -5,21 +5,36 @@
 staco is a Command Line tool to create and manage "STAble COmments" on github.
 
 Stable comments are comments posted on a PR that can be updated by automation
-to act as a mini-dashboard.
+and can be used as a mini-dashboard.
 
 Let's say, for example, that you have a BOT that on every PR does some analysis,
 and needs to post the link to a generated report. Every time the PR is updated,
 a new report is generated. But you don't want a new comment to be posted on the
 PR every time! Rather, you'd like a comment to be updated with the
 latest link, and maybe maintain a little bit of history with the links to
-the previous analysis.
+the previous analysis. If the analysis fails, maybe you want to post some
+debug info, or links, or suggestions.
 
 staco combines:
-* text/template - to define the format of your stable comment, with support
-  for the [srpig extensions](http://masterminds.github.io/sprig/).
+* text/template - a templating language to define the format of your stable
+  comment, with support for the [srpig extensions](http://masterminds.github.io/sprig/).
 * json - to define the data to be displayed (and updated) in the comment.
-* json patches - in various formats (thanks to the [jd library](https://pkg.go.dev/github.com/josephburnett/jd@v1.6.1/lib)),
-  describing how to update the data displayed in comments.
+* jq and json patches - in various formats (thanks to the [jd library](https://pkg.go.dev/github.com/josephburnett/jd@v1.6.1/lib)
+  and [gojq library](https://github.com/itchyny/gojq)), describing how to update the
+  data displayed in comments.
+
+All you need to do is:
+1. Define a json format you'd like to use to represent your information. For example,
+   the json could contain a link, an error message, a short history of previous runs...
+   All the metadata you want to show in the dashboard.
+2. Create a template to print it. The library used, text/template, is the same
+   library used by docker, and a lot of the k8 world.
+3. Use staco to render your json data in the template, and post it (together
+   with some metadata) on a github PR.
+3. Use staco to run jq or json patches to update your json, which will cause
+   the template to re-rendered with your new data.
+
+You can follow the demo here, or find some examples in the examples/ directory.
 
 # Example
 
@@ -111,8 +126,8 @@ Before moving forward, it's worth validating the template and the json:
 3. Pick a PR number of choice and a github repository. In the example, we'll use `8448` and `github.com/oktokit/test`.
 3. Show what would be done, without actually posting it (--dry-run flag is important):
 
-    staco post --json "$(< /tmp/message.json)" --template "$(< /tmp/message.template)" \
-            --github-owner oktokit --github-repo test --pr 8448 --dry-run
+        staco post --json "$(< /tmp/message.json)" --template "$(< /tmp/message.template)" \
+                --github-owner oktokit --github-repo test --pr 8448 --dry-run
 
 Running the command above should show something like:
 
@@ -152,22 +167,44 @@ To update a message that was posted before, what you really need to do
 is change the json with the new information to add (or remove) from the
 rendered template.
 
-`staco` uses the [jd](https://pkg.go.dev/github.com/josephburnett/jd@v1.6.1/lib) library
-to parse and process `json patches` in different formats.
+You can follow two routes here: either just replace the json entirely
+(using the `--reset` flag) or more conveniently, provide a query describing
+how to change the json.
 
-In short, this patch describes how to change the json that was already posted,
+So, why not just replace the json entirely? Depends on your CI/CD pipeline,
+and your automation. In our case, the pipeline is parallelized, made of multiple
+steps and commands that can complete at any time.
+
+If we were to replace the json every time... one step would risk removing/clearing
+the content posted by another step, and it would be hard to incrementally add
+information.
+
+Instead, `staco` allows passing a `query` (or a patch, a diff...) indicating how
+to **change** the json, whatever that change is. So for example, one CI step can
+add a coverage report to the dashboard. Another CI step can add a link to a
+deployment to a dev environment to test, another CI step can suggest/recommend
+reviewers based on some history of the files changed, ... whenever those steps
+complete, the dashboard is updated.
+
+`staco` uses the [jd](https://pkg.go.dev/github.com/josephburnett/jd@v1.6.1/lib) library
+to parse and process `json patches` in different formats, as well as the
+[go jq](https://github.com/itchyny/gojq) library, allowing arbitrary `jq` query.
+
+This patch describes how to change the json that was already posted,
 so that `staco` can use the modified json to re-render the template.
 
-At time of writing, there are three formats supported by `staco` to describe
-a patch:
+At time of writing, there are 4 formats supported by `staco` to describe a patch:
 
 1. **jd** fomat, native of the jd library.
 2. **Merge** format, defined by [RFC 7386](https://datatracker.ietf.org/doc/html/rfc7386).
 3. **JSON Patch** format, defined by [RFC 6902](https://datatracker.ietf.org/doc/html/rfc6902).
+4. **jq** query format, defined by [the original jq manual](https://stedolan.github.io/jq/manual/#Basicfilters)
 
 You can use the [online tool here](http://play.jd-tool.io/) to generate a patch
 between two jsons, or use the `staco diff --input "$(< /tmp/before.json)" --output "$(< /tmp/after.json)"` to
-generate the diff. The patch can normally be used and re-used easily from a script.
+generate the diff in any of the first 3 formats. The patch can normally be used and re-used easily from a script.
+
+For `jq`, there is no trick: you'll need to define the query manually.
 
 Watch out though that both the online tool and the `staco diff` command generate a patch
 that is far from optimal: while valid, you will probably want to do some tweaking to make it reasonable.
@@ -222,25 +259,25 @@ What you can do is start from an empty json, and grow it through patches.
 * Let's keep the template the same, in `/tmp/message.template`.
 * In `/tmp/message.json`, let's make it an empty skeleton instead:
 
-    {"Run": []}
+        {"Run": []}
 
 * Now all updates and posts are patches, prepending one element to the
   `Run` list. Our `/tmp/message.patch.json` would be generated on the
   fly by our automation, to contain something like:
 
-    [
-      {
-        "op":"add",
-        "path":"/Run/0",
-        "value": { 
-          "Time": "13:22, Wednesday 17th",
-          "Links": [
-            {"Link": "http://static0", "Description": "Static0"},
-            {"Link": "http://static1", "Description": "Static1"}
-          ]
-        }
-      }
-    ]
+        [
+          {
+            "op":"add",
+            "path":"/Run/0",
+            "value": { 
+              "Time": "13:22, Wednesday 17th",
+              "Links": [
+                {"Link": "http://static0", "Description": "Static0"},
+                {"Link": "http://static1", "Description": "Static1"}
+              ]
+            }
+          }
+        ]
 
 In bash, this could look like:
 
@@ -282,7 +319,17 @@ In bash, this could look like:
 
 which would always update the stable comment by prepending new links.
 
-## Authentication
+# A more complex example
+
+We won't be describing this example much, but here's a couple screenshots of what one of
+our mini-dashboards looks like:
+
+![Dashboard example](/staco/examples/advanced-closed.png?raw=true "Closed")
+![Dashboard example](/staco/examples/advanced-opened.png?raw=true "Opened")
+
+The corresponding code can be found under [examples](/staco/examples/advanced.commands.md) in the advanced files.
+
+# Authentication
 
 At time of writing, `staco` only supports github tokens for authentication.
 You can export a github token with the environment variable `GH_TOKEN` for
@@ -290,7 +337,26 @@ staco to pick it up, or use the flag `--github-token`.
 
 Instructions to create a token are [here](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 
-## Using staco as a library
+# Debugging
+
+You can use the `--dry-run` flag to show what would be done without actually doing it.
+
+If you omit the `--pr` flags and some of the github flags, you'll see the actions printed
+on the screen, without actually them being performed.
+
+The most common kind of error is having an invalid template, or a template that fails
+if some of the data is missing. Look at the advanced template and the constructs used
+there, you can avoid most pitfalls with a few conditionals.
+
+Another common error is appending to arrays naively, like in the simple example
+above: if your CI/CD can start multiple builds in parallel, or it can start a new
+build before the old one finishes, you can end up interleaving informations by
+different builds. This is easy to fix: check the advanced example, keep an array
+of build ids, and then keep an object with all the data for each build using the
+build id as a key. The array is updated once at build start, the object with the
+build id as a key is update throughout the build.
+
+# Using staco as a library
 
 All the code behind staco can be used as a library. The go documentation is
 available on godoc, at [https://pkg.go.dev/github.com/enfabrica/enkit/lib/github](https://pkg.go.dev/github.com/enfabrica/enkit/lib/github).
