@@ -63,8 +63,8 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
-	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/enfabrica/enkit/lib/token"
 )
 
@@ -212,7 +212,7 @@ type Authenticator struct {
 	Extractor
 
 	rng         *rand.Rand
-	log	    logger.Logger
+	log         logger.Logger
 	authEncoder *token.TypeEncoder
 
 	conf *oauth2.Config
@@ -224,14 +224,14 @@ type Identity struct {
 	// Id is a globally unique identifier of the user.
 	// It is oauth provider specific, generally contains an integer or string
 	// uniquely identifying the user, and a domain name used to namespace the id.
-	Id           string
+	Id string
 	// Username is the name of the user on the remote system.
-	Username     string
+	Username string
 	// Organization is the domain name used to authenticate the user.
 	// For example, github.com, or the specific gsuite domain.
 	Organization string
 	// Groups is a list of string identifying the groups the user is part of.
-	Groups       []string
+	Groups []string
 }
 
 // GlobalName returns a human friendly string identifying the user.

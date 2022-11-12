@@ -8,10 +8,10 @@ package providers
 import (
 	"fmt"
 
-	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/enfabrica/enkit/lib/oauth/ogoogle"
-	"github.com/enfabrica/enkit/lib/oauth/ogithub"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/oauth/ogithub"
+	"github.com/enfabrica/enkit/lib/oauth/ogoogle"
 )
 
 // Flags allows to configure oauth for one of the specific providers
@@ -20,24 +20,24 @@ import (
 // To pass Flags to one of the constructurs, use `WithFlags`.
 type Flags struct {
 	*oauth.Flags
-        Google *ogoogle.Flags
+	Google *ogoogle.Flags
 
 	// The name of the provider to use: google or github.
 	Provider string
 
 	// Only groups matching this regex are kept.
-	GroupsKeep    string
+	GroupsKeep string
 	// Name of the group will be mangled based on this substitution.
-	GroupsRename  string
+	GroupsRename string
 }
 
 func DefaultFlags() *Flags {
 	return &Flags{
-		Flags: oauth.DefaultFlags(),
-		Google: ogoogle.DefaultFlags(),
+		Flags:    oauth.DefaultFlags(),
+		Google:   ogoogle.DefaultFlags(),
 		Provider: "google",
 
-		GroupsKeep: "role-([^@]*)@.*",
+		GroupsKeep:   "role-([^@]*)@.*",
 		GroupsRename: "$1",
 	}
 }

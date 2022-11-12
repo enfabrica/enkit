@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/coreos/go-oidc"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
-	"github.com/enfabrica/enkit/lib/kflags"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/cloudidentity/v1"
@@ -17,9 +17,9 @@ import (
 )
 
 type Flags struct {
-	// Use JWT certs or API calls to retrieve user info. 
+	// Use JWT certs or API calls to retrieve user info.
 	// Valid values are jwt or api.
-	FetchMethod   string
+	FetchMethod string
 
 	// Retrieve groups using cloudidentity.
 	GroupsEnabled bool
@@ -29,8 +29,8 @@ type Flags struct {
 
 func DefaultFlags() *Flags {
 	return &Flags{
-		FetchMethod: "jwt",
-		GroupsEnabled: true,
+		FetchMethod:    "jwt",
+		GroupsEnabled:  true,
 		GroupsOptional: true,
 	}
 }

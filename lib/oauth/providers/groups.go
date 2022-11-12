@@ -2,10 +2,10 @@ package providers
 
 import (
 	"fmt"
-	"regexp"
-	"golang.org/x/oauth2"
-	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/oauth"
+	"golang.org/x/oauth2"
+	"regexp"
 )
 
 func NewGroupsKeeperFactory(keep, rename string) (oauth.VerifierFactory, error) {
@@ -25,7 +25,7 @@ func NewGroupsKeeperFactory(keep, rename string) (oauth.VerifierFactory, error) 
 }
 
 type GroupsKeeper struct {
-	keep *regexp.Regexp
+	keep   *regexp.Regexp
 	rename string
 }
 

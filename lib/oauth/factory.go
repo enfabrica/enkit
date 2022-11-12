@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/token"
 	"golang.org/x/oauth2"
 )
@@ -469,17 +469,17 @@ type Options struct {
 	loginTime    time.Duration // How long the token is valid for after successful authentication.
 	maxLoginTime time.Duration // Tokens issued more than maxLoginTime ago will always be rejected.
 
-	version         int
-	conf            *oauth2.Config
+	version int
+	conf    *oauth2.Config
 
-	verifiers   []Verifier
+	verifiers  []Verifier
 	baseCookie string
 	authURL    *url.URL // Only used by the Redirector.
 
 	symmetricSetters []token.SymmetricSetter
 	signingSetters   []token.SigningSetter
 
-	log	logger.Logger
+	log logger.Logger
 }
 
 func DefaultOptions(rng *rand.Rand) Options {
@@ -489,7 +489,7 @@ func DefaultOptions(rng *rand.Rand) Options {
 		loginTime:    time.Hour * 24,
 		maxLoginTime: time.Hour * 24 * 365,
 		conf:         &oauth2.Config{},
-		log:	      logger.Nil,
+		log:          logger.Nil,
 	}
 }
 
