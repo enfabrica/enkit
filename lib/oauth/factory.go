@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/token"
 	"golang.org/x/oauth2"
@@ -167,6 +168,13 @@ func (mods Modifiers) Apply(o *Options) error {
 		}
 	}
 	return nil
+}
+
+func WithLogging(log logger.Logger) Modifier {
+	return func(opt *Options) error {
+		opt.log = log
+		return nil
+	}
 }
 
 func WithAuthURL(url *url.URL) Modifier {
@@ -470,6 +478,8 @@ type Options struct {
 
 	symmetricSetters []token.SymmetricSetter
 	signingSetters   []token.SigningSetter
+
+	log	logger.Logger
 }
 
 func DefaultOptions(rng *rand.Rand) Options {
@@ -479,6 +489,7 @@ func DefaultOptions(rng *rand.Rand) Options {
 		loginTime:    time.Hour * 24,
 		maxLoginTime: time.Hour * 24 * 365,
 		conf:         &oauth2.Config{},
+		log:	      logger.Nil,
 	}
 }
 
@@ -498,6 +509,7 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 		Extractor: *extractor,
 
 		rng: opt.rng,
+		log: opt.log,
 
 		authEncoder: te,
 		verifiers:   opt.verifiers,

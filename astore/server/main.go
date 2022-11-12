@@ -137,14 +137,14 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		return fmt.Errorf("could not initialize auth server - %s", err)
 	}
 
-	reqAuth, err := oauth.New(rng, providers.WithFlags(oauthFlags))
+	reqAuth, err := oauth.New(rng, oauth.WithLogging(logger.Go), providers.WithFlags(oauthFlags))
 	if err != nil {
 		return fmt.Errorf("could not initialize primary authenticator - %w", err)
 	}
 	var authWeb oauth.IAuthenticator
 	authWeb = reqAuth
 	if useMulti {
-		optAuth, err := oauth.New(rng, providers.WithFlags(optAuthFlags))
+		optAuth, err := oauth.New(rng, oauth.WithLogging(logger.Go), providers.WithFlags(optAuthFlags))
 		if err != nil {
 			return fmt.Errorf("could not initialize secondary authenticator - %w", err)
 		}

@@ -10,6 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//lib/kflags:go_default_library",
+        "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
         "//lib/oauth/ogithub:go_default_library",
         "//lib/oauth/ogoogle:go_default_library",

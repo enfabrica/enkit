@@ -6,8 +6,9 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/oauth/ogoogle",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/oauth:go_default_library",
         "//lib/kflags:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/oauth:go_default_library",
         "@com_github_coreos_go_oidc//:go_default_library",
         "@org_golang_google_api//cloudidentity/v1:go_default_library",
         "@org_golang_google_api//option:go_default_library",

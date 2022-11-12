@@ -64,6 +64,7 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/token"
 )
 
@@ -76,7 +77,7 @@ import (
 // retrieve a list of groups and add them as part of the user identity.
 type Verifier interface {
 	Scopes() []string
-	Verify(identity *Identity, tok *oauth2.Token) (*Identity, error)
+	Verify(log logger.Logger, identity *Identity, tok *oauth2.Token) (*Identity, error)
 }
 
 type VerifierFactory func(conf *oauth2.Config) (Verifier, error)
@@ -89,10 +90,15 @@ func (ov *OptionalVerifier) Scopes() []string {
 	return ov.inner.Scopes()
 }
 
-func (ov *OptionalVerifier) Verify(identity *Identity, tok *oauth2.Token) (*Identity, error) {
-	result, err := ov.inner.Verify(identity, tok)
+func (ov *OptionalVerifier) Verify(log logger.Logger, identity *Identity, tok *oauth2.Token) (*Identity, error) {
+	result, err := ov.inner.Verify(log, identity, tok)
 	if err != nil {
-		// FIXME: log error!
+		user := "<unknown>"
+		if identity != nil {
+			user = identity.GlobalName()
+		}
+
+		log.Warnf("for user %s - ignored verifier %T - error: %s", user, ov.inner, err)
 		return identity, nil
 	}
 	return result, nil
@@ -206,6 +212,7 @@ type Authenticator struct {
 	Extractor
 
 	rng         *rand.Rand
+	log	    logger.Logger
 	authEncoder *token.TypeEncoder
 
 	conf *oauth2.Config
@@ -706,7 +713,7 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 
 	identity := &Identity{}
 	for _, verifier := range a.verifiers {
-		identity, err = verifier.Verify(identity, tok)
+		identity, err = verifier.Verify(a.log, identity, tok)
 		if err != nil {
 			return AuthData{}, fmt.Errorf("Invalid token - %w", err)
 		}

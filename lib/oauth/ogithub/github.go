@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/logger"
 	gh "github.com/google/go-github/github"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -27,7 +28,7 @@ func (guv *GetUserVerifier) Scopes() []string {
 	}
 }
 
-func (guv *GetUserVerifier) Verify(identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
+func (guv *GetUserVerifier) Verify(log logger.Logger, identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
 	client := gh.NewClient(guv.conf.Client(oauth2.NoContext, tok))
 
 	// FIXME: timeout, retry strategy.

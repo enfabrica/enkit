@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/coreos/go-oidc"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"golang.org/x/oauth2"
@@ -139,7 +140,7 @@ func (ggv *GetGroupsVerifier) Scopes() []string {
 	}
 }
 
-func (gui *GetGroupsVerifier) Verify(identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
+func (gui *GetGroupsVerifier) Verify(log logger.Logger, identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
 	if identity == nil {
 		return nil, fmt.Errorf("group verifier can only be run after another verifier established identity")
 	}
@@ -217,7 +218,7 @@ func (gui *GetUserInfoVerifier) Scopes() []string {
 	}
 }
 
-func (gui *GetUserInfoVerifier) Verify(identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
+func (gui *GetUserInfoVerifier) Verify(log logger.Logger, identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
 	// FIXME: timeout, retry strategy.
 	client := gui.conf.Client(oauth2.NoContext, tok)
 	email, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
@@ -259,7 +260,7 @@ func (ojt *OidJWTVerifier) Scopes() []string {
 	}
 }
 
-func (ojt *OidJWTVerifier) Verify(identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
+func (ojt *OidJWTVerifier) Verify(log logger.Logger, identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
 	// TODO: oid parse jwt token to avoid the call to googleapis below here.
 	// https://github.com/coreos/go-oidc
 	// Extract the ID Token from OAuth2 token.

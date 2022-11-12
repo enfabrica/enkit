@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"golang.org/x/oauth2"
 	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/logger"
 )
 
 func NewGroupsKeeperFactory(keep, rename string) (oauth.VerifierFactory, error) {
@@ -32,7 +33,7 @@ func (gk *GroupsKeeper) Scopes() []string {
 	return nil
 }
 
-func (gk *GroupsKeeper) Verify(identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
+func (gk *GroupsKeeper) Verify(log logger.Logger, identity *oauth.Identity, tok *oauth2.Token) (*oauth.Identity, error) {
 	newgroups := []string{}
 	for _, group := range identity.Groups {
 		if gk.keep != nil && !gk.keep.MatchString(group) {
