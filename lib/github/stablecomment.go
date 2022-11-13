@@ -8,6 +8,7 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/josephburnett/jd/lib"
+        "github.com/Masterminds/sprig/v3"
 	"regexp"
 	"text/template"
 )
@@ -281,7 +282,7 @@ func (sc *StableComment) ParseComment(comment string) (string, string, error) {
 		return "", "", fmt.Errorf("invalid content payload '%w' in:\n%s", err, payload)
 	}
 
-	if _, err := template.New("template").Option("missingkey=error").Parse(payload.Template); err != nil {
+	if _, err := template.New("template").Funcs(sprig.FuncMap()).Option("missingkey=error").Parse(payload.Template); err != nil {
 		return "", "", fmt.Errorf("invalid template payload '%w' in:\n%s", err, payload)
 	}
 
@@ -338,7 +339,7 @@ func (sc *StableComment) PreparePayload(jsonvars string) (string, error) {
 		return "", fmt.Errorf("invalid json supplied: %w -- '%s'", err, jsonvars)
 	}
 
-	tp, err := template.New("template").Option("missingkey=error").Parse(sc.template)
+	tp, err := template.New("template").Funcs(sprig.FuncMap()).Option("missingkey=error").Parse(sc.template)
 	if err != nil {
 		return "", err
 	}

@@ -15,7 +15,8 @@ latest link, and maybe maintain a little bit of history with the links to
 the previous analysis.
 
 staco combines:
-* text/template - to define the format of your stable comment.
+* text/template - to define the format of your stable comment, with support
+  for the [srpig extensions](http://masterminds.github.io/sprig/).
 * json - to define the data to be displayed (and updated) in the comment.
 * json patches - in various formats (thanks to the [jd library](https://pkg.go.dev/github.com/josephburnett/jd@v1.6.1/lib)),
   describing how to update the data displayed in comments.

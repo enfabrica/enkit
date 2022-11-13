@@ -14,6 +14,7 @@ go_library(
         "//lib/retry:go_default_library",
         "@com_github_google_go_github//github:go_default_library",
         "@com_github_josephburnett_jd//lib:go_default_library",
+        "@com_github_masterminds_sprig_v3//:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
     ],
 )

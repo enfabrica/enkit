@@ -8,6 +8,7 @@ require (
 	cloud.google.com/go/storage v1.27.0
 	github.com/GoogleCloudPlatform/cloud-build-notifiers v0.0.0-20221005190102-4a3420d331aa // indirect
 	github.com/KohlsTechnology/prometheus_bigquery_remote_storage_adapter v0.4.6 // indirect
+	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6 // indirect
