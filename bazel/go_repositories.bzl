@@ -887,8 +887,8 @@ def go_repositories():
     go_repository(
         name = "com_github_go_openapi_jsonpointer",
         importpath = "github.com/go-openapi/jsonpointer",
-        sum = "h1:gihV7YNZK1iK6Tgwwsxo2rJbD1GTbdm72325Bq8FI3w=",
-        version = "v0.19.3",
+        sum = "h1:gZr+CIYByUqjcgeLXnQu2gHYQC9o73G2XUeOFYEICuY=",
+        version = "v0.19.5",
     )
     go_repository(
         name = "com_github_go_openapi_jsonreference",
@@ -905,8 +905,8 @@ def go_repositories():
     go_repository(
         name = "com_github_go_openapi_swag",
         importpath = "github.com/go-openapi/swag",
-        sum = "h1:lTz6Ys4CmqqCQmZPBlbQENR1/GucA2bzYTE12Pw4tFY=",
-        version = "v0.19.5",
+        sum = "h1:wm0rhTb5z7qpJRHBdPOMuY4QjVUMbF6/kwoYeRAOrKU=",
+        version = "v0.21.1",
     )
 
     go_repository(
@@ -1196,6 +1196,11 @@ def go_repositories():
     )
     go_repository(
         name = "com_github_google_cel_go",
+        build_directives = [
+            # We are consistently using proto-generated code, rather than the
+            # genproto pre-generated repo where conflicts exist.
+            "gazelle:resolve go google.golang.org/genproto/googleapis/rpc/status @go_googleapis//google/rpc:status_go_proto",
+        ],
         # BUILD file generation needs to be forced on, since:
         # * this repo is bazel-aware and comes with BUILD files already
         # * we want to override certain import -> dep mappints with directives
@@ -1203,11 +1208,6 @@ def go_repositories():
         build_file_generation = "on",
         build_naming_convention = "go_default_library",
         importpath = "github.com/google/cel-go",
-        build_directives = [
-            # We are consistently using proto-generated code, rather than the
-            # genproto pre-generated repo where conflicts exist.
-            "gazelle:resolve go google.golang.org/genproto/googleapis/rpc/status @go_googleapis//google/rpc:status_go_proto",
-        ],
         sum = "h1:MnUpbcMtr/eA8vRTEYSru+fyCAgGUYLrY/49vUvphbI=",
         version = "v0.11.3",
     )
@@ -1660,6 +1660,19 @@ def go_repositories():
         version = "v0.1.0",
     )
     go_repository(
+        name = "com_github_josephburnett_jd",
+        importpath = "github.com/josephburnett/jd",
+        sum = "h1:Uzqhcje4WqvVyp85F3Oj0ezISPTlnhnr/KaLZIy8qh0=",
+        version = "v1.6.1",
+    )
+    go_repository(
+        name = "com_github_josharian_intern",
+        importpath = "github.com/josharian/intern",
+        sum = "h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=",
+        version = "v1.0.0",
+    )
+
+    go_repository(
         name = "com_github_jpillora_backoff",
         importpath = "github.com/jpillora/backoff",
         sum = "h1:uvFg412JmmHBHw7iwprIxkPMI+sGQ4kzOWsMeHnm2EA=",
@@ -1865,8 +1878,8 @@ def go_repositories():
     go_repository(
         name = "com_github_mailru_easyjson",
         importpath = "github.com/mailru/easyjson",
-        sum = "h1:aizVhC/NAAcKWb+5QsU1iNOZb4Yws5UO2I+aIprQITM=",
-        version = "v0.7.0",
+        sum = "h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0=",
+        version = "v0.7.7",
     )
 
     go_repository(
