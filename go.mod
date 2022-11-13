@@ -50,6 +50,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/improbable-eng/grpc-web v0.13.0
 	github.com/jackpal/gateway v1.0.7 // indirect
+	github.com/itchyny/gojq v0.12.9 // indirect
 	github.com/josephburnett/jd v1.6.1
 	github.com/kataras/muxie v1.1.1
 	github.com/kirsle/configdir v0.0.0-20170128060238-e45d2f54772f

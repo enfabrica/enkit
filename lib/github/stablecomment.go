@@ -2,13 +2,17 @@ package github
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/josephburnett/jd/lib"
         "github.com/Masterminds/sprig/v3"
+        "github.com/itchyny/gojq"
+	"os"
 	"regexp"
 	"text/template"
 )
@@ -152,6 +156,10 @@ type StableCommentDiffFlags struct {
 	Merge string
 }
 
+func DefaultStableCommentDiffFlags() *StableCommentDiffFlags {
+	return &StableCommentDiffFlags{}
+}
+
 func (fl *StableCommentDiffFlags) Register(set kflags.FlagSet, prefix string) *StableCommentDiffFlags {
 	set.StringVar(&fl.Diff, prefix+"diff-jd", fl.Diff, "A change to apply in jd format - https://github.com/josephburnett/jd#diff-language")
 	set.StringVar(&fl.Patch, prefix+"diff-patch", fl.Patch, "A change to apply in RFC 7386 format (patch format)")
@@ -175,6 +183,142 @@ func NewDiffFromFlags(fl *StableCommentDiffFlags) (jd.Diff, error) {
 		return jd.ReadMergeString(fl.Merge)
 	}
 	return nil, nil
+}
+
+type DiffTransformer jd.Diff
+
+func (dt *DiffTransformer) Apply(ijson string) (string, error) {
+	jc, err := jd.ReadJsonString(ijson)
+	if err != nil {
+		return "", err
+	}
+	if dt == nil {
+		return jc.Json(), nil
+	}
+
+	jp, err := jc.Patch(jd.Diff(*dt))
+	if err != nil {
+		return "", err
+	}
+
+	return jp.Json(), nil
+}
+
+type StableCommentJqFlags struct {
+	Timeout time.Duration
+	Code string
+}
+
+func DefaultStableCommentJqFlags() *StableCommentJqFlags {
+	return &StableCommentJqFlags{
+		Timeout: time.Second * 1,
+	}
+}
+
+func (fl *StableCommentJqFlags) Register(set kflags.FlagSet, prefix string) *StableCommentJqFlags {
+	set.DurationVar(&fl.Timeout, prefix+"jq-timeout", fl.Timeout, "How long to wait at most for the jq program to terminate")
+	set.StringVar(&fl.Code, prefix+"jq-code", fl.Code, "The actual jq program to run")
+	return fl
+}
+
+type JqTransformer struct {
+	code *gojq.Code
+	timeout time.Duration
+}
+
+func (jt *JqTransformer) Apply(ijson string) (string, error) {
+	if jt == nil || jt.code == nil {
+		return ijson, nil
+	}
+
+	var pjson map[string]interface{}
+	if err := json.Unmarshal([]byte(ijson), &pjson); err != nil {
+		return "", err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), jt.timeout)
+	defer cancel()
+
+	results := jt.code.RunWithContext(ctx, pjson)
+
+	first, ok := results.Next()
+	if !ok {
+		return "", fmt.Errorf("jq script returned no value")
+	}
+	if err, ok := first.(error); ok {
+		return "", fmt.Errorf("jq script execution returned error - %w", err)
+	}
+
+	second, ok := results.Next()
+	if ok {
+		return "", fmt.Errorf("jq script returned too many values - %#v", second)
+	}
+
+	omap, ok := first.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("jq script returned something that's not a map[] - %#v", first)
+	}
+	ojson, err := json.Marshal(omap)
+	if err != nil {
+		return "", fmt.Errorf("jq returned something that cannot be marshalled - %#v", omap)
+	}
+	return string(ojson), nil
+}
+
+func NewJqFromFlags(jqf *StableCommentJqFlags) (*JqTransformer, error) {
+	if jqf.Code == "" {
+		return nil, nil
+	}
+	q, err := gojq.Parse(jqf.Code)
+	if err != nil {
+		return nil, err
+	}
+
+	code, err := gojq.Compile(q, gojq.WithEnvironLoader(os.Environ))
+	if err != nil {
+		return nil, err
+	}
+	return &JqTransformer{code: code, timeout: jqf.Timeout}, nil
+}
+
+type Transformer interface {
+	Apply(inputjson string) (string, error)
+}
+
+type StableCommentTransformerFlags struct {
+	jqFlags *StableCommentJqFlags
+	diffFlags *StableCommentDiffFlags
+}
+
+func DefaultStableCommentTransformerFlags() *StableCommentTransformerFlags {
+	return &StableCommentTransformerFlags{
+		jqFlags: DefaultStableCommentJqFlags(),
+		diffFlags: DefaultStableCommentDiffFlags(),
+	}
+}
+
+func (fl *StableCommentTransformerFlags) Register(
+    set kflags.FlagSet, prefix string) *StableCommentTransformerFlags {
+	fl.jqFlags.Register(set, prefix)
+	fl.diffFlags.Register(set, prefix)
+	return fl
+}
+
+func NewTransformerFromFlags(fl *StableCommentTransformerFlags) (Transformer, error) {
+	jq, err := NewJqFromFlags(fl.jqFlags)
+	if err != nil {
+		return nil, err
+	}
+
+	diff, err := NewDiffFromFlags(fl.diffFlags)
+	if err != nil {
+		return nil, err
+	}
+
+	if jq != nil {
+		return jq, nil
+	}
+	return (*DiffTransformer)(&diff), nil
 }
 
 func NewStableComment(mods ...StableCommentModifier) (*StableComment, error) {
@@ -307,8 +451,8 @@ func (sc *StableComment) PostAction() string {
 	return fmt.Sprintf("edit comment ID %d", sc.id)
 }
 
-func (sc *StableComment) PostToPR(rc *RepoClient, diff jd.Diff, prnumber int) error {
-	payload, err := sc.PreparePayloadFromDiff(diff)
+func (sc *StableComment) PostToPR(rc *RepoClient, tr Transformer, prnumber int) error {
+	payload, err := sc.PreparePayloadFromDiff(tr)
 	if err != nil {
 		return err
 	}
@@ -316,23 +460,20 @@ func (sc *StableComment) PostToPR(rc *RepoClient, diff jd.Diff, prnumber int) er
 	return sc.PostPayload(rc, payload, prnumber)
 }
 
-func (sc *StableComment) PreparePayloadFromDiff(diff jd.Diff) (string, error) {
-	jc, err := jd.ReadJsonString(sc.jsoncontent)
-	if err != nil {
-		return "", err
-	}
-	if diff == nil {
-		return sc.PreparePayload(jc.Json())
-	}
-
-	jp, err := jc.Patch(diff)
+func (sc *StableComment) PreparePayloadFromDiff(tr Transformer) (string, error) {
+	ojson, err := tr.Apply(sc.jsoncontent)
 	if err != nil {
 		return "", err
 	}
 
-	return sc.PreparePayload(jp.Json())
+	return sc.PreparePayload(ojson)
 }
 
+// PreparePayload prepares a comment to post based on the specified jsonvars.
+//
+// jsonvars is a json payload, as a string.
+//
+// Returns the payload, ready to be posted with PostPayload(), or an error.
 func (sc *StableComment) PreparePayload(jsonvars string) (string, error) {
 	vars := map[string]interface{}{}
 	if err := json.Unmarshal([]byte(jsonvars), &vars); err != nil {
@@ -346,7 +487,7 @@ func (sc *StableComment) PreparePayload(jsonvars string) (string, error) {
 
 	rendered := bytes.NewBufferString("")
 	if err := tp.Execute(rendered, vars); err != nil {
-		return "", err
+		return "", fmt.Errorf("template expansion failed! Template:\n%s\nVariables:\n%s\nError: %w", sc.template, jsonvars, err)
 	}
 
 	payload := CommentPayload{

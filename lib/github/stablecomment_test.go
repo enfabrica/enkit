@@ -82,7 +82,7 @@ func TestPreparePayloadFromDiff(t *testing.T) {
 		`[{"op":"add","path":"/test/0","value":"anarchy"}]`,
 	)
 	assert.NoError(t, err)
-	text, err := sc.PreparePayloadFromDiff(diff)
+	text, err := sc.PreparePayloadFromDiff((*DiffTransformer)(&diff))
 	assert.NoError(t, err)
 	expected := ("this is a anarchy republic monarchy \n<!-- A wise goat once said: " +
 		"testing123\n{\"Template\":\"this is a {{range $val := .test}}{{$val}}" +

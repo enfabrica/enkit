@@ -90,8 +90,8 @@ an empty/skeleton --json, and always update the content via
 	gh := github.DefaultRepoClientFlags()
 	gh.Register(&kcobra.FlagSet{cmd.Flags()}, "")
 
-	df := &github.StableCommentDiffFlags{}
-	df.Register(&kcobra.FlagSet{cmd.Flags()}, "")
+	tf := github.DefaultStableCommentTransformerFlags()
+	tf.Register(&kcobra.FlagSet{cmd.Flags()}, "")
 
 	scf := github.DefaultStableCommentFlags()
 	scf.Register(&kcobra.FlagSet{cmd.Flags()}, "")
@@ -102,7 +102,7 @@ an empty/skeleton --json, and always update the content via
 	cmd.Flags().BoolVarP(&dryrun, "dry-run", "n", false, "Don't change the comment, show what you would do")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		diff, err := github.NewDiffFromFlags(df)
+		transformer, err := github.NewTransformerFromFlags(tf)
 		if err != nil {
 			return err
 		}
@@ -128,11 +128,11 @@ an empty/skeleton --json, and always update the content via
 		}
 
 		if !dryrun && repo != nil {
-			if err := sc.PostToPR(repo, diff, pr); err != nil {
+			if err := sc.PostToPR(repo, transformer, pr); err != nil {
 				return err
 			}
 		} else {
-			result, err := sc.PreparePayloadFromDiff(diff)
+			result, err := sc.PreparePayloadFromDiff(transformer)
 			if err != nil {
 				return err
 			}
