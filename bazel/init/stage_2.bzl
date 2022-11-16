@@ -18,6 +18,14 @@ load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk", "go_register_toolchai
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+load(
+    "@rules_proto_grpc//:repositories.bzl",
+    "grpc_web_plugin_darwin",
+    "grpc_web_plugin_linux",
+    "grpc_web_plugin_windows",
+    "rules_proto_grpc_repos",
+    "rules_proto_grpc_toolchains",
+)
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 
 def stage_2():
@@ -83,5 +91,10 @@ def stage_2():
         repository = "distroless/base",
     )
 
+    rules_proto_grpc_toolchains()
+    rules_proto_grpc_repos()
+    grpc_web_plugin_linux()
+    grpc_web_plugin_darwin()
+    grpc_web_plugin_windows()
     rules_foreign_cc_dependencies()
     meson_register_toolchains()

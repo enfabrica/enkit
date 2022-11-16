@@ -51,8 +51,11 @@ def _transform(ctx):
     for iattr in ctx.attr.inputs:
         for ifile in iattr.files.to_list():
             opath = ifile.short_path
+            if opath.startswith("../"):
+                opath = "external/" + opath[len("../"):]
+
             info = ("FROM", iattr.label, "PATH", opath, "DIR", ifile.is_directory, "ORIGIN", ifile.short_path)
-            if not ifile.is_directory:
+            if not ifile.is_directory and not ifile.short_path in ctx.attr.expand:
                 debug(ctx.attr.debug, "FILE", *info)
                 opaths.append((ifile, ifile.path, opath))
                 continue
@@ -79,7 +82,7 @@ def _transform(ctx):
                     ], tools = ctx.files.tools)
                     continue
 
-                opaths.append((ifile, ifile.path + "/" + output, ifile.short_path + "/" + output))
+                opaths.append((ifile, ifile.path + "/" + output, opath + "/" + output))
 
     for ifile, ipath, opath in opaths:
         debug(ctx.attr.debug, "GENERATING FILE", opath, "- FROM TREE?", ifile.is_directory, "- SOURCE PATH", ifile.short_path)
@@ -94,10 +97,8 @@ def _transform(ctx):
             ofile = ctx.actions.declare_file(opath)
             outputs.append(ofile)
 
-            if not ifile.is_directory:
-                ctx.actions.symlink(output = ofile, target_file = ifile, progress_message = _message(ctx, ofile))
-            else:
-                ctx.actions.run(outputs = [ofile], inputs = [ifile], executable = "cp", arguments = ["-f", ipath, ofile.path])
+            ctx.actions.run(outputs = [ofile], inputs = [ifile], mnemonic="CopyFile",
+                            executable = "cp", arguments = ["-f", "--preserve=all", ipath, ofile.path])
             continue
 
     for o in outputs:

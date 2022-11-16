@@ -2,6 +2,7 @@ load("//bazel/enkit:defs.bzl", "multirun")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
+load("@npm//:defs.bzl", "npm_link_all_packages")
 
 # To update and generate the BUILD.bazel files, run:
 #     bazelisk run //:gazelle
@@ -74,3 +75,5 @@ compile_pip_requirements(
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
 )
+
+npm_link_all_packages(name = "node_modules")

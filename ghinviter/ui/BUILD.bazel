@@ -1,0 +1,27 @@
+load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
+
+ts_project(
+    name = "ts",
+    srcs = ["main.tsx"],
+    declaration = True,
+    allow_js = True,
+    # "." is the same as default
+    # explicitly given as a regression test for https://github.com/aspect-build/rules_ts/issues/195
+    out_dir = ".",
+    # Note, the tsconfig attribute defaults to the tsconfig.json file in this directory.
+    # tsconfig = "<default>",
+    deps = [
+    ],
+#    validate = False,
+)
+
+load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
+
+esbuild(
+    name = "ui",
+    srcs = [
+        ":ts",
+    ],
+    entry_point = "main.js",
+    metafile = True,
+)

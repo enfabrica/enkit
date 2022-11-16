@@ -179,7 +179,13 @@ def stage_1():
         ],
         patch_args = ["-p1"],
     )
-
+    maybe(
+        name = "rules_proto_grpc",
+        repo_rule = http_archive,
+        sha256 = "bbe4db93499f5c9414926e46f9e35016999a4e9f6e3522482d3760dc61011070",
+        strip_prefix = "rules_proto_grpc-4.2.0",
+        urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.2.0.tar.gz"],
+    )
     maybe(
         name = "com_google_googleapis",
         repo_rule = http_archive,

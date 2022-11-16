@@ -1,0 +1,24 @@
+WEB UI
+- Minimal web interface with wizard (gsuite authenticated)
+- Button has the user authenticate via github.
+- At completion, mapping between user and enfabrica email is saved.
+
+- if user is not part of the enfabrica organization, an invite is sent.
+- based on gsuite groups, add user to corresponding github groups.
+
+
+from CLI? URL to authenticate via github? not sure it makes sense?
+workflow has to be completed via browser? (well, could use the GH_TOKEN,
+a local token or key)
+
+
+CRON JOB - big brother
+- read audit log
+- for each user seen in audit log:
+  - update "last seen timestamp"
+  - update IP addresses seen from
+
+
+CRON JOB - notifier
+- check database, if user has not been seen for too long, notify user/manager of imminent removal.
+- 
