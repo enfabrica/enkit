@@ -21,27 +21,26 @@ type Flags struct {
 	// Valid values are jwt or api.
 	FetchMethod string
 
-	// Retrieve groups using cloudidentity.
-	GroupsEnabled bool
-	// If true, treat group retrieval failures as non-fatal.
-	GroupsOptional bool
+	// Tri-state:
+	//    disabled: don't retrieve groups.
+	//    enabled: retrieve groups, but don't fail if there is an error.
+	//    enforced: retrieve groups, fail if there is an error.
+	GroupsPolicy string
 }
 
 func DefaultFlags() *Flags {
 	return &Flags{
-		FetchMethod:    "jwt",
-		GroupsEnabled:  true,
-		GroupsOptional: true,
+		FetchMethod:  "jwt",
+		GroupsPolicy: "enabled",
 	}
 }
 
 func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.StringVar(&f.FetchMethod, prefix+"fetch-method", f.FetchMethod,
 		"How to fetch the user information: API call (api) or decoding the jwt cookie (jwt)?")
-	set.BoolVar(&f.GroupsEnabled, prefix+"groups-enabled", f.GroupsEnabled,
-		"If true, group membership of the user will be fetched with the cloudidentity APIs")
-	set.BoolVar(&f.GroupsOptional, prefix+"groups-optional", f.GroupsOptional,
-		"If true, failures in fetching group memberships will be ignored")
+	set.StringVar(&f.GroupsPolicy, prefix+"groups-policy", f.GroupsPolicy,
+		"Fetch group membership? 'disabled' means no. 'enabled' means yes, but don't fail if "+
+			"there's an error in retrieving groups. 'enforced' means yes, and fail if groups cannot be retrieved")
 	return f
 }
 
@@ -58,13 +57,15 @@ func FromFlags(f *Flags) (oauth.Modifier, error) {
 		return nil, fmt.Errorf("google oauth - unknown --fetch-method: %s (valid: jwt or api)", f.FetchMethod)
 	}
 
-	if f.GroupsEnabled {
-		if f.GroupsOptional {
-			mods = append(mods, oauth.WithFactory(
-				oauth.NewOptionalVerifierFactory(NewGetGroupsVerifier)))
-		} else {
-			mods = append(mods, oauth.WithFactory(NewGetGroupsVerifier))
-		}
+	switch f.GroupsPolicy {
+	case "disabled":
+	case "enabled":
+		mods = append(mods, oauth.WithFactory(
+			oauth.NewOptionalVerifierFactory(NewGetGroupsVerifier)))
+	case "enforced":
+		mods = append(mods, oauth.WithFactory(NewGetGroupsVerifier))
+	default:
+		return nil, fmt.Errorf("google oauth - invalid --groups-policy %s (valid: disabled, enabled, enforced)", f.GroupsPolicy)
 	}
 
 	return oauth.WithModifiers(mods...), nil
