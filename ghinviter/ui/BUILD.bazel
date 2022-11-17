@@ -2,7 +2,7 @@ load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
 
 ts_project(
     name = "ts",
-    srcs = ["main.tsx"],
+    srcs = ["main.tsx", "stepper.tsx"],
     declaration = True,
     allow_js = True,
     # "." is the same as default
@@ -15,6 +15,8 @@ ts_project(
       "//:node_modules/react-dom",
       "//:node_modules/@types/react",
       "//:node_modules/@types/react-dom",
+      "//:node_modules/@fontsource",
+      "//:node_modules/@mui/material",
     ],
 )
 # in tsconfig to debug module loading:
@@ -27,7 +29,15 @@ esbuild(
     srcs = [
         ":ts",
     ],
+    config = {
+      "loader": {
+         ".woff2": "file",
+         ".woff": "file",
+      },
+    },
+    output_dir = True,
     entry_point = "main.js",
+#    output_css = "ui.css",
 #    minify = False,
     metafile = True,
 )
