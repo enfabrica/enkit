@@ -1,9 +1,0 @@
-{
-    "compilerOptions": {
-        "declaration": true,
-        "baseUrl": ".",
-        "paths": {
-            "@myorg/*": ["../*"]
-        }
-    }
-}
