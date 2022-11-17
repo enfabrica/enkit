@@ -96,11 +96,12 @@ class DataLoader(object):
             logging.vlog(2, "Loaded data from %r", path)
             logging.vlog(3, "%r", d)
 
-    def ParseYaml(self, text: str):
+    def ParseYaml(self, path: str, text: str):
         try:
             d = yaml.load(text, Loader=_MergingLoader)
-        except yaml.parser.ParserError as e:
+        except (yaml.scanner.ScannerError, yaml.parser.ParserError) as e:
             logging.error(e)
+            logging.error(f"YAML parsing error in {path}.")
             sys.exit(1)
         logging.vlog(3, "Loaded: %r", d)
         self.context = _merge(self.context, d)
@@ -108,6 +109,6 @@ class DataLoader(object):
     def LoadYamlFile(self, path: str):
         with open(path, "r", encoding="utf-8") as fd:
             text = fd.read()
-            self.ParseYaml(text)
+            self.ParseYaml(path, text)
             self.context["_DATA"].append(path)
             logging.vlog(2, "Loaded data from %r", path)

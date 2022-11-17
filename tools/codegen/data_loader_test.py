@@ -16,7 +16,7 @@ class TestDataLoader(unittest.TestCase):
 
     def test_parse_yaml(self):
         d = data_loader.DataLoader()
-        d.ParseYaml(
+        d.ParseYaml("string",
             textwrap.dedent(
                 """\
             foo:
