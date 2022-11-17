@@ -11,9 +11,14 @@ ts_project(
     # Note, the tsconfig attribute defaults to the tsconfig.json file in this directory.
     # tsconfig = "<default>",
     deps = [
+      "//:node_modules/react",
+      "//:node_modules/react-dom",
+      "//:node_modules/@types/react",
+      "//:node_modules/@types/react-dom",
     ],
-#    validate = False,
 )
+# in tsconfig to debug module loading:
+#    "traceResolution": true,
 
 load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
 
@@ -23,5 +28,6 @@ esbuild(
         ":ts",
     ],
     entry_point = "main.js",
+#    minify = False,
     metafile = True,
 )
