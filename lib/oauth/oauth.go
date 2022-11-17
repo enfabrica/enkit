@@ -98,7 +98,7 @@ func (ov *OptionalVerifier) Verify(log logger.Logger, identity *Identity, tok *o
 			user = identity.GlobalName()
 		}
 
-		log.Warnf("for user %s - ignored verifier %T - error: %s", user, ov.inner, err)
+		log.Errorf("for user %s - ignored verifier %T - error: %s", user, ov.inner, err)
 		return identity, nil
 	}
 	return result, nil
