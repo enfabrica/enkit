@@ -133,6 +133,8 @@ func SplitUsername(email, hd string) (string, string) {
 //		https://support.google.com/a/answer/10607394?hl=en
 type GetGroupsVerifier struct {
 	conf *oauth2.Config
+	// Used mostly for testing, overrides the API endpoint if not empty.
+	BasePath string
 }
 
 func (ggv *GetGroupsVerifier) Scopes() []string {
@@ -160,6 +162,10 @@ func (gui *GetGroupsVerifier) Verify(log logger.Logger, identity *oauth.Identity
 		option.WithTokenSource(gui.conf.TokenSource(context.Background(), tok)))
 	if err != nil {
 		return nil, fmt.Errorf("for user %s cloudidentity refused token - %w", email, err)
+	}
+
+	if gui.BasePath != "" {
+		cis.BasePath = gui.BasePath
 	}
 
 	// TODO(carlo): the fmt.Sprintf() makes me extremely uncomfortable. SQL injection mumble mumble.
