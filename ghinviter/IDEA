@@ -1,3 +1,44 @@
+New user in the organization: is emailed a link like "github.service.enfabrica.net/tokentokentokentoken"
+User kicked out of the organization (or needs to refresh groups): has to visit me.service.enfabrica.net
+
+Page structure:
+1) long term, fields that we want the user to modify on his/her own
+2) short term, just the github username
+
+"Your current github username is: ...."
+
+"You are part of the groups: ...."
+
+[change] [update groups]
+
+"Last github activity: ..."
+
+
+"Your github account is not configured"
+[get started by authenticating]
+
+
+click button -> github authentication -> come back to ui
+
+check github username is set up correctly
+[check again]
+
+set github username in contacts API
+
+set github username in datastore
+
+invite username in organization
+
+fetch groups from google -> list groups
+
+
+
+or
+New 
+
+me.service.enfabrica.net
+
+
 WEB UI
 - Minimal web interface with wizard (gsuite authenticated)
 - Button has the user authenticate via github.

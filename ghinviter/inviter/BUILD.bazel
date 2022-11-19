@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["inviter.go"],
+    importpath = "github.com/enfabrica/enkit/ghinviter/inviter",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ghinviter/assets:go_default_library",
+        "//ghinviter/ui:go_default_library",
+        "//lib/kflags:go_default_library",
+        "//lib/khttp:go_default_library",
+        "//lib/khttp/kassets:go_default_library",
+        "//lib/logger:go_default_library",
+        "//lib/oauth:go_default_library",
+        "//lib/oauth/ogithub:go_default_library",
+    ],
+)

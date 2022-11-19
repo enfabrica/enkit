@@ -98,6 +98,7 @@ func MuxMapper(mux *http.ServeMux) AssetMapper {
 	}
 }
 
+<<<<<<< HEAD
 type Wrapper func(khttp.FuncHandler) khttp.FuncHandler
 
 // WrapMapper will wrap the computed handler with a handler of your choice.

@@ -1,22 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
 
 ts_project(
     name = "ts",
-    srcs = ["main.tsx", "stepper.tsx"],
-    declaration = True,
+    srcs = [
+        "main.tsx",
+        "stepper.tsx",
+    ],
     allow_js = True,
+    declaration = True,
     # "." is the same as default
     # explicitly given as a regression test for https://github.com/aspect-build/rules_ts/issues/195
     out_dir = ".",
     # Note, the tsconfig attribute defaults to the tsconfig.json file in this directory.
     # tsconfig = "<default>",
     deps = [
-      "//:node_modules/react",
-      "//:node_modules/react-dom",
-      "//:node_modules/@types/react",
-      "//:node_modules/@types/react-dom",
-      "//:node_modules/@fontsource",
-      "//:node_modules/@mui/material",
+        "//:node_modules/@fontsource",
+        "//:node_modules/@mui/material",
+        "//:node_modules/@types/react",
+        "//:node_modules/@types/react-dom",
+        "//:node_modules/react",
+        "//:node_modules/react-dom",
     ],
 )
 # in tsconfig to debug module loading:
@@ -30,14 +34,33 @@ esbuild(
         ":ts",
     ],
     config = {
-      "loader": {
-         ".woff2": "file",
-         ".woff": "file",
-      },
+        "loader": {
+            ".woff2": "file",
+            ".woff": "file",
+        },
     },
-    output_dir = True,
     entry_point = "main.js",
-#    output_css = "ui.css",
-#    minify = False,
+    #    output_css = "ui.css",
+    #    minify = False,
     metafile = True,
+    output_dir = True,
+)
+
+load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
+
+go_embed_data(
+    name = "embedded-assets",
+    srcs = [":ui"],
+    flatten = True,
+    package = "ui",
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "empty.go",
+        ":embedded-assets",  # keep
+    ],
+    importpath = "github.com/enfabrica/enkit/ghinviter/ui",
+    visibility = ["//visibility:public"],
 )
