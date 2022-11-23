@@ -21,6 +21,7 @@ type ExtractorFlags struct {
 	// Version of the cookie format.
 	Version int
 
+	// Prefix to be prepended to the name of the cookie used.
 	BaseCookie string
 
 	SymmetricKey      []byte
@@ -40,7 +41,7 @@ func (f *ExtractorFlags) Register(set kflags.FlagSet, prefix string) *ExtractorF
 		"How long should the generated authentication tokens be valid for.")
 	set.DurationVar(&f.MaxLoginTime, prefix+"max-login-time", f.MaxLoginTime,
 		"When verifying a cookie, reject cookies older than this long no matter what.")
-	set.StringVar(&f.BaseCookie, prefix+"base-cookie", "",
+	set.StringVar(&f.BaseCookie, prefix+"base-cookie", f.BaseCookie,
 		"Prefix to append to the cookies used for authentication")
 	set.ByteFileVar(&f.SymmetricKey, prefix+"token-encryption-key", "",
 		"Path of the file containing the symmetric key to use to encrypt/decrypt returned client tokens. "+
