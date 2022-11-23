@@ -248,7 +248,7 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 			log.Printf("ERROR - could not perform token exchange - %s", err)
 			return
 		}
-		if authWeb.Complete(data) {
+		if data.Complete() {
 			if key, ok := data.State.(common.Key); ok {
 				authServer.FeedToken(key, data)
 			}

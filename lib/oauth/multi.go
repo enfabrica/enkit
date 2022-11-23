@@ -118,10 +118,6 @@ func (mo *MultiOauth) PerformLogin(w http.ResponseWriter, r *http.Request, lm ..
 	return a.PerformLogin(w, r, lm...)
 }
 
-func (mo *MultiOauth) Complete(data AuthData) bool {
-	return mo.RequiredAuth.Complete(data)
-}
-
 func init() {
 	gob.Register(MultiOAuthState{})
 }

@@ -248,6 +248,11 @@ func (i *Identity) GlobalName() string {
 	return i.Username + "@" + i.Organization
 }
 
+// Valid returns true if the identity has been initialized.
+func (i *Identity) Valid() bool {
+	return i.Id != "" && i.Username != "" && i.Organization != ""
+}
+
 // Based on the kind of identity obtained, returns a modifier able to generate
 // certificates to support that specific identity type.
 func (i *Identity) CertMod() kcerts.CertMod {
@@ -556,7 +561,7 @@ func (a *Authenticator) LoginHandler(lm ...LoginModifier) khttp.FuncHandler {
 func (a *Authenticator) MakeAuthHandler(handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := a.PerformAuth(w, r)
-		if err == nil && data.Creds != nil {
+		if err == nil && data.Complete() {
 			ctx := SetCredentials(r.Context(), data.Creds)
 			r = r.WithContext(ctx)
 		}
@@ -585,7 +590,7 @@ func (a *Authenticator) MakeAuthHandler(handler khttp.FuncHandler) khttp.FuncHan
 func (a *Authenticator) AuthHandler() khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := a.PerformAuth(w, r)
-		if err != nil {
+		if err != nil || !data.Complete() {
 			http.Error(w, "your lack of authentication cookie is impressive - something went wrong", http.StatusInternalServerError)
 			log.Printf("ERROR - could not complete authentication - %s", err)
 			return
@@ -669,6 +674,23 @@ type AuthData struct {
 	State      interface{}
 }
 
+// Complete verifies that AuthData is well formed and valid.
+//
+// It checks that the identities match, and that the type of credentials are
+// the same type that should be returned by the authenticator.
+func (a *AuthData) Complete() bool {
+	if a.Creds == nil {
+		return false
+	}
+	if !a.Creds.Identity.Valid() {
+		return false
+	}
+	if !a.Creds.Token.Valid() {
+		return false
+	}
+	return true
+}
+
 func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (AuthData, error) {
 	cookie, err := r.Cookie(authEncoder(a.baseCookie))
 	if err != nil || cookie == nil {
@@ -734,23 +756,6 @@ func (a *Authenticator) SetAuthCookie(ad AuthData, w http.ResponseWriter, co ...
 	}
 	http.SetCookie(w, a.CredentialsCookie(ccookie, co...))
 	return AuthData{Creds: ad.Creds, Cookie: ccookie, Target: ad.Target, State: ad.State}, nil
-}
-
-// Complete verifies that AuthData is well formed and valid.
-//
-// It checks that the identities match, and that the type of credentials are
-// the same type that should be returned by the authenticator.
-func (a *Authenticator) Complete(data AuthData) bool {
-	if _, _, err := a.ParseCredentialsCookie(data.Cookie); err != nil {
-		return false
-	}
-	if data.Creds == nil {
-		return false
-	}
-	if !data.Creds.Token.Valid() {
-		return false
-	}
-	return true
 }
 
 // CredentialsCookie will create an http.Cookie object containing the user credentials.
