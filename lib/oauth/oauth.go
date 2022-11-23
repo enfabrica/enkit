@@ -1,13 +1,27 @@
 package oauth
 
-// Simplifies the use of oauth2 with a net.http handler and grpc.
+// Simplifies the use of oauth2 with a net.http handler and specific oauth providers.
+//
+// # Introduction
 //
 // To use the library, you have to:
 //
-//   1) Setup the oauth2 hanlders so the user can log in.
-//   2) Verify the validity of the user credentials when performing privileged operations.
+//   1) Create a new authentication object of your taste, using one of
+//      New(), NewExtractor(), NewRedirector(), NewMultiOauth(), ...
+//   2) Set up two urls in your http mux: one to start the login process (with LoginHandler,
+//      PerformLogin, MakeLoginHandler), and one to end the login process, and finally
+//      authenticate the user (with AuthHandler, PerformAuth, MakeAuthHandler), and Complete().
 //
-// Simple setup:
+// In your other http handlers, you can then use WithCredentialsOrRedirect,
+// WithCredentialsOrError or WithCredentials as a moral equivalent of a middleware to 
+// have the credentials of the user accessible from the context of your http handler with
+// GetCredentials.
+//
+// Wrappers for grpc or the kassets library (Mapper) are also provided.
+//
+// # Examples
+//
+// Simple setup/example:
 //
 //     authenticator, err := New(..., WithSecrets(...), WithTarget("https://localhos:5433/auth"), ogoogle.Defaults())
 //
@@ -43,6 +57,36 @@ package oauth
 //    }
 //
 //
+// # Authentication mechanisms
+//
+// The library currently allows to obtain and interact with authentication
+// cookies by either using an [Extractor], [Redirector], or a full fledger [Authenticator].
+//
+// An [Extractor] is generally used on non-interactive backends (eg, a gRPC
+// or JSON endpoint) that expects to receive an authentication cookie, and
+// simply returns an error if no such cookie is found, or if the cookie is
+// invalid from a cryptographic standpoint.
+//
+// A [Redirector] is an [Extractor] that is capable of generating http
+// redirects and receiving the result of those redirects to complete
+// the authentication process. This is commonly used if - for example -
+// you deploy an authentication server in your environment which is
+// the only configured endpoint for oauth2, but use additional web
+// backends or microservices that need to support logging in your users.
+// This is very typical of corp environments, where it is impractical
+// to configure each internal web service or endpoint as an oauth target.
+//
+// An [Authenticator] is a full fledged oauth server: it redirects the user
+// to the IdP of your choice to complete authentication after setting up some
+// encrypted cookies and tokens, verifies the information received at the end
+// of authentication, and then generates an enkit/lib/oauth specific cookie
+// that [Redirector]s or [Extractor]s can process.
+//
+// Both [Redirector] and [Authenticator] implement the [IAuthenticator]
+// interface. A backend should typically use the [IAuthenticator] interface
+// and set it up via flags (or config structs) so the backend can either
+// directly perform oAuth with google/github/... or rely on an authentication
+// server using lib/oauth in your network.
 
 import (
 	"bytes"
@@ -139,6 +183,8 @@ var ErrorLoops = errors.New("You have been redirected back to this url - but you
 	"which would be bad for the future of the internet, my load, and your bandwidth. Hit refresh if you want, but there's likely\n" +
 	"something wrong in your cookies, or your setup")
 var ErrorCannotAuthenticate = errors.New("Who are you? Sorry, you have no authentication cookie, and there is no authentication service configured")
+var ErrorStateUnsupported = errors.New("Incorrect API usage - the authentication method does not support propagating state")
+var ErrorNotAuthenticated = errors.New("No authentication information found")
 
 // Authenticate parses the request received to authenticate the user.
 //
@@ -185,27 +231,52 @@ func CreateRedirectURL(r *http.Request) *url.URL {
 	return rurl
 }
 
-func (as *Redirector) Authenticate(w http.ResponseWriter, r *http.Request, rurl *url.URL) (*CredentialsCookie, error) {
-	creds, err := as.GetCredentialsFromRequest(r)
-	if creds != nil && err == nil {
-		return creds, nil
+func (as *Redirector) PerformLogin(w http.ResponseWriter, r *http.Request, lm ...LoginModifier) error {
+	options := LoginModifiers(lm).Apply(&LoginOptions{})
+	// TODO(carlo): add support for state propagation.
+	if options.State != nil {
+		return ErrorStateUnsupported
 	}
 
 	if as.AuthURL == nil {
-		return nil, ErrorCannotAuthenticate
+		return ErrorCannotAuthenticate
 	}
 
 	_, redirected := r.URL.Query()["_redirected"]
 	if redirected {
-		return nil, ErrorLoops
+		return ErrorLoops
 	}
 
 	target := *as.AuthURL
-	if rurl != nil {
-		target.RawQuery = khttp.JoinURLQuery(target.RawQuery, "r="+url.QueryEscape(rurl.String()))
+	if options.Target != "" {
+		target.RawQuery = khttp.JoinURLQuery(target.RawQuery, "r="+url.QueryEscape(options.Target))
 	}
 	http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
-	return nil, nil
+	return nil
+}
+
+func (as *Redirector) PerformAuth(w http.ResponseWriter, r *http.Request, mods ...kcookie.Modifier) (AuthData, error) {
+	creds, cookie, err := as.GetCredentialsFromRequest(r)
+	if err != nil {
+		return AuthData{}, err
+	}
+
+	// This in theory is not possible - added for defence in depth.
+	if creds == nil {
+		return AuthData{}, fmt.Errorf("invalid nil credentials")
+	}
+
+	// TODO(carlo): add support for state propagation.
+	return AuthData{Creds: creds, Cookie: cookie}, nil
+}
+
+func (as *Redirector) Authenticate(w http.ResponseWriter, r *http.Request, rurl *url.URL) (*CredentialsCookie, error) {
+	ad, err := as.PerformAuth(w, r)
+	if ad.Complete() && err == nil {
+		return ad.Creds, nil
+	}
+
+	return nil, as.PerformLogin(w, r, WithTarget(rurl.String()))
 }
 
 type Authenticator struct {
@@ -401,22 +472,26 @@ func (a *Extractor) EncodeCredentials(creds CredentialsCookie) (string, error) {
 
 // GetCredentialsFromRequest will parse and validate the credentials in an http request.
 //
-// If successful, it will return a CredentialsCookie pointer.
-// If no credentials, or invalid credentials, an error is returned with nil credentials.
-func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCookie, error) {
+// If successful, it will return a CredentialsCookie pointer and the string content of the cookie.
+// If no credentials, or invalid credentials, an error is returned with nil credentials and no cookie.
+func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCookie, string, error) {
 	cookie, err := r.Cookie(a.CredentialsCookieName())
 	if err != nil {
-		return nil, err
+		if errors.Is(err, http.ErrNoCookie) {
+			return nil, "", ErrorNotAuthenticated
+		}
+
+		return nil, "", err
 	}
 
 	_, credentials, err := a.ParseCredentialsCookie(cookie.Value)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if credentials == nil {
-		return nil, fmt.Errorf("invalid nil credentials")
+		return nil, "", fmt.Errorf("invalid nil credentials")
 	}
-	return credentials, nil
+	return credentials, cookie.Value, nil
 }
 
 // WithCredentials invokes the handler with the identity of the user supplied in the context.
@@ -429,7 +504,7 @@ func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCook
 // expect your handler to be invoked with or without credentials.
 func (a *Extractor) WithCredentials(handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		creds, err := a.GetCredentialsFromRequest(r)
+		creds, _, err := a.GetCredentialsFromRequest(r)
 		if creds != nil && err == nil {
 			r = r.WithContext(SetCredentials(r.Context(), creds))
 		}
@@ -443,7 +518,7 @@ func (a *Extractor) WithCredentials(handler khttp.FuncHandler) khttp.FuncHandler
 // GetCredentials() invoked from the handler is guaranteed to return a non null result.
 func (a *Authenticator) WithCredentialsOrRedirect(handler khttp.FuncHandler, target string) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		creds, err := a.GetCredentialsFromRequest(r)
+		creds, _, err := a.GetCredentialsFromRequest(r)
 		if creds == nil || err != nil {
 			http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 		} else {
@@ -456,7 +531,7 @@ func (a *Authenticator) WithCredentialsOrRedirect(handler khttp.FuncHandler, tar
 // WithCredentialsOrError invokes the handler if credentials are available, errors out if not.
 func (a *Authenticator) WithCredentialsOrError(handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		creds, err := a.GetCredentialsFromRequest(r)
+		creds, _, err := a.GetCredentialsFromRequest(r)
 		if creds == nil || err != nil {
 			http.Error(w, "not authorized", http.StatusUnauthorized)
 		} else {
@@ -497,7 +572,7 @@ func (a *Authenticator) MakeLoginHandler(handler khttp.FuncHandler, lm ...LoginM
 			return
 		}
 
-		creds, err := a.GetCredentialsFromRequest(r)
+		creds, _, err := a.GetCredentialsFromRequest(r)
 		if creds != nil && err == nil {
 			r = r.WithContext(SetCredentials(r.Context(), creds))
 			handler(w, r)
@@ -694,6 +769,10 @@ func (a *AuthData) Complete() bool {
 func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (AuthData, error) {
 	cookie, err := r.Cookie(authEncoder(a.baseCookie))
 	if err != nil || cookie == nil {
+		if errors.Is(err, http.ErrNoCookie) {
+			return AuthData{}, ErrorNotAuthenticated
+		}
+
 		return AuthData{}, fmt.Errorf("Cookie parsing failed - %w", err)
 	}
 
