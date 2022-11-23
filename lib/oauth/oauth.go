@@ -23,7 +23,7 @@ package oauth
 //
 // Simple setup/example:
 //
-//     authenticator, err := New(..., WithSecrets(...), WithTarget("https://localhos:5433/auth"), ogoogle.Defaults())
+//     authenticator, err := New(..., WithSecrets(...), WithTargetURL("https://localhos:5433/auth"), ogoogle.Defaults())
 //
 //     [...]
 //
@@ -32,7 +32,7 @@ package oauth
 //
 // More complex setup:
 //
-//     authenticator, err := New(..., WithSecrets(...), WithTarget("https://localhos:5433/auth"), ogoogle.Defaults())
+//     authenticator, err := New(..., WithSecrets(...), WithTargetURL("https://localhos:5433/auth"), ogoogle.Defaults())
 //
 //     [...]
 //
@@ -175,7 +175,11 @@ type Extractor struct {
 // Redirector is an extractor capable of redirecting to an authentication server for login.
 type Redirector struct {
 	*Extractor
+
+	// If user does not have authentication cookie, redirect user to this URL to get one.
 	AuthURL *url.URL
+	// After successful authentication via redirection, send user back here by default.
+	DefaultTarget string
 }
 
 var ErrorLoops = errors.New("You have been redirected back to this url - but you still don't have an authentication token.\n" +
@@ -247,11 +251,16 @@ func (as *Redirector) PerformLogin(w http.ResponseWriter, r *http.Request, lm ..
 		return ErrorLoops
 	}
 
-	target := *as.AuthURL
+	authServer := *as.AuthURL
+	target := as.DefaultTarget
 	if options.Target != "" {
-		target.RawQuery = khttp.JoinURLQuery(target.RawQuery, "r="+url.QueryEscape(options.Target))
+		target = options.Target
 	}
-	http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+
+	if target != "" {
+		authServer.RawQuery = khttp.JoinURLQuery(authServer.RawQuery, "r="+url.QueryEscape(target))
+	}
+	http.Redirect(w, r, authServer.String(), http.StatusTemporaryRedirect)
 	return nil
 }
 

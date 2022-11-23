@@ -575,9 +575,15 @@ func (opt *Options) NewRedirector() (*Redirector, error) {
 		return nil, fmt.Errorf("API usage error - an authURL must be supplied with WithAuthURL")
 	}
 
+	defaultTarget := ""
+	if opt.conf != nil {
+		defaultTarget = opt.conf.RedirectURL
+	}
+
 	return &Redirector{
 		Extractor: extractor,
 		AuthURL:   opt.authURL,
+		DefaultTarget: defaultTarget,
 	}, nil
 }
 
