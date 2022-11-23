@@ -118,6 +118,10 @@ func (mo *MultiOauth) PerformLogin(w http.ResponseWriter, r *http.Request, lm ..
 	return a.PerformLogin(w, r, lm...)
 }
 
+func (mo *MultiOauth) GetCredentialsFromRequest(r *http.Request) (*CredentialsCookie, string, error) {
+	return mo.RequiredAuth.GetCredentialsFromRequest(r)
+}
+
 func init() {
 	gob.Register(MultiOAuthState{})
 }

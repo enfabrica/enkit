@@ -377,18 +377,18 @@ func (a *Authenticator) LoginURL(target string, state interface{}) (string, []by
 
 // Mapper configures all the URLs to redirect to / unless an authentication cookie is provided by the browser.
 // Further, it configures / to redirect and perform oauth authentication.
-func (a *Authenticator) Mapper(mapper kassets.AssetMapper, lm ...LoginModifier) kassets.AssetMapper {
+func Mapper(a IAuthenticator, mapper kassets.AssetMapper, lm ...LoginModifier) kassets.AssetMapper {
 	return func(original, name string, handler khttp.FuncHandler) []string {
 		ext := filepath.Ext(original)
 		switch {
 		case name == "/favicon.ico":
 			return mapper(original, name, handler)
 		case name == "/":
-			return mapper(original, name, a.MakeAuthHandler(a.MakeLoginHandler(handler, lm...)))
+			return mapper(original, name, MakeAuthHandler(a, MakeLoginHandler(a, handler, lm...)))
 		case ext == ".html":
-			return mapper(original, name, a.WithCredentialsOrRedirect(handler, "/"))
+			return mapper(original, name, WithCredentialsOrRedirect(a, handler, "/"))
 		default:
-			return mapper(original, name, a.WithCredentialsOrError(handler))
+			return mapper(original, name, WithCredentialsOrError(a, handler))
 		}
 	}
 }
@@ -502,7 +502,7 @@ func (a *Extractor) GetCredentialsFromRequest(r *http.Request) (*CredentialsCook
 //
 // Normally, you should use WithCredentialsOrRedirect(). Use this function only if you
 // expect your handler to be invoked with or without credentials.
-func (a *Extractor) WithCredentials(handler khttp.FuncHandler) khttp.FuncHandler {
+func WithCredentials(a IAuthenticator, handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		creds, _, err := a.GetCredentialsFromRequest(r)
 		if creds != nil && err == nil {
@@ -516,7 +516,7 @@ func (a *Extractor) WithCredentials(handler khttp.FuncHandler) khttp.FuncHandler
 //
 // Same as WithCredentials, except that invalid credentials result in a redirect to the specified target.
 // GetCredentials() invoked from the handler is guaranteed to return a non null result.
-func (a *Authenticator) WithCredentialsOrRedirect(handler khttp.FuncHandler, target string) khttp.FuncHandler {
+func WithCredentialsOrRedirect(a IAuthenticator, handler khttp.FuncHandler, target string) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		creds, _, err := a.GetCredentialsFromRequest(r)
 		if creds == nil || err != nil {
@@ -529,7 +529,7 @@ func (a *Authenticator) WithCredentialsOrRedirect(handler khttp.FuncHandler, tar
 }
 
 // WithCredentialsOrError invokes the handler if credentials are available, errors out if not.
-func (a *Authenticator) WithCredentialsOrError(handler khttp.FuncHandler) khttp.FuncHandler {
+func WithCredentialsOrError(a IAuthenticator, handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		creds, _, err := a.GetCredentialsFromRequest(r)
 		if creds == nil || err != nil {
@@ -561,8 +561,8 @@ func (a *Authenticator) WithCredentialsOrError(handler khttp.FuncHandler) khttp.
 // with your own code, ensuring it is an absolute URL.
 //
 // Note that login handlers need to be registered with your oauth provider.
-func (a *Authenticator) MakeLoginHandler(handler khttp.FuncHandler, lm ...LoginModifier) khttp.FuncHandler {
-	loginHandler := a.LoginHandler(lm...)
+func MakeLoginHandler(a IAuthenticator, handler khttp.FuncHandler, lm ...LoginModifier) khttp.FuncHandler {
+	loginHandler := LoginHandler(a, lm...)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		creds := GetCredentials(r.Context())
@@ -608,7 +608,7 @@ func (a *Authenticator) MakeLoginHandler(handler khttp.FuncHandler, lm ...LoginM
 // Note that this call does not allow you to carry any additional state.
 // Use session cookies for that part instead, or get parameters.
 //
-func (a *Authenticator) LoginHandler(lm ...LoginModifier) khttp.FuncHandler {
+func LoginHandler(a IAuthenticator, lm ...LoginModifier) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := a.PerformLogin(w, r, lm...)
 		if err != nil {
@@ -633,7 +633,7 @@ func (a *Authenticator) LoginHandler(lm ...LoginModifier) khttp.FuncHandler {
 //
 // Note that auth handlers need to be registered with your oauth provider.
 //
-func (a *Authenticator) MakeAuthHandler(handler khttp.FuncHandler) khttp.FuncHandler {
+func MakeAuthHandler(a IAuthenticator, handler khttp.FuncHandler) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := a.PerformAuth(w, r)
 		if err == nil && data.Complete() {
@@ -662,7 +662,7 @@ func (a *Authenticator) MakeAuthHandler(handler khttp.FuncHandler) khttp.FuncHan
 // In case of error, an ugly error message is displayed.
 //
 // Use MakeAuthHandler to customize the behavior.
-func (a *Authenticator) AuthHandler() khttp.FuncHandler {
+func AuthHandler(a IAuthenticator) khttp.FuncHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := a.PerformAuth(w, r)
 		if err != nil || !data.Complete() {
