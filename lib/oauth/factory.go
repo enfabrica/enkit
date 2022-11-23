@@ -96,7 +96,7 @@ func DefaultRedirectorFlags() *RedirectorFlags {
 
 func (rf *RedirectorFlags) Register(set kflags.FlagSet, prefix string) *RedirectorFlags {
 	rf.ExtractorFlags.Register(set, prefix)
-	set.StringVar(&rf.AuthURL, prefix+"auth-url", "", "Where to redirect users for authentication.")
+	set.StringVar(&rf.AuthURL, prefix+"auth-url", rf.AuthURL, "Where to redirect users for authentication.")
 	return rf
 }
 
