@@ -3,23 +3,25 @@ load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
 load("//bazel/utils:transform.bzl", "transform")
 
 transform(
-  name = "material-assets",
-  inputs = ["@npm__material-design-icons__3.0.1//:source_directory",
-            "@npm__material-design-lite__1.3.0//:source_directory"],
-  expand = {
-    "../npm__material-design-icons__3.0.1/package": [
-        "iconfont/MaterialIcons-Regular.ttf",
-        "iconfont/MaterialIcons-Regular.woff",
-        "iconfont/MaterialIcons-Regular.woff2",
-        "iconfont/material-icons.css",
+    name = "material-assets",
+    expand = {
+        "../npm__material-design-icons__3.0.1/package": [
+            "iconfont/MaterialIcons-Regular.ttf",
+            "iconfont/MaterialIcons-Regular.woff",
+            "iconfont/MaterialIcons-Regular.woff2",
+            "iconfont/material-icons.css",
+        ],
+        "../npm__material-design-lite__1.3.0/package": [
+            "material.min.css",
+            "material.min.css.map",
+            "material.min.js",
+            "material.min.js.map",
+        ],
+    },
+    inputs = [
+        "@npm__material-design-icons__3.0.1//:source_directory",
+        "@npm__material-design-lite__1.3.0//:source_directory",
     ],
-    "../npm__material-design-lite__1.3.0/package": [
-        "material.min.css",
-        "material.min.css.map",
-        "material.min.js",
-        "material.min.js.map",
-    ],
-  },
 )
 
 # Generate a .go file containing all the web assets.
