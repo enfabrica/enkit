@@ -11,7 +11,6 @@ import (
 	"github.com/enfabrica/enkit/lib/oauth/ogithub"
 	"math/rand"
 	"net/http"
-	"log"
 	"fmt"
 )
 
@@ -47,6 +46,10 @@ func DefaultFlags() *Flags {
 		Access: oauth.DefaultRedirectorFlags(),
 		Github: oauth.DefaultFlags(),
 	}
+
+	// We are using two instances of the oauth library.
+	// Make sure cookie names don't conflict.
+	flags.Github.BaseCookie = "Gh"
 
 	return flags
 }
@@ -122,14 +125,12 @@ func FromFlags(rng *rand.Rand, flags *Flags) Modifier {
 		}
 		mods = append(mods, WithServer(server))
 
-		log.Printf("SETTING REDIRECTOR FLAGS")
 		redir, err := oauth.NewRedirector(oauth.WithRedirectorFlags(flags.Access), oauth.WithTargetURL(flags.TargetURL))
 		if err != nil {
 			return err
 		}
 		mods = append(mods, WithRedirector(redir))
 
-		log.Printf("SETTING GITHUB FLAGS")
 		github, err := oauth.New(rng, oauth.WithFlags(flags.Github), oauth.WithTargetURL(flags.TargetURL), ogithub.Defaults())
 		if err != nil {
 			return err
@@ -151,11 +152,26 @@ func New(mods... Modifier) (*Inviter, error) {
 		return nil, err
 	}
 
+	if inviter.github == nil {
+		return nil, fmt.Errorf("API usage error - a github oauth handler must be initialized - use WithGithub")
+	}
+
 	stats := kassets.AssetStats{}
 
-	kassets.RegisterAssets(&stats, ui.Data, "", kassets.BasicMapper(kassets.MuxMapper(inviter.mux)))
-	kassets.RegisterAssets(&stats, assets.Data, "", kassets.BasicMapper(kassets.MuxMapper(inviter.mux)))
+	urlmap := map[string]kassets.Wrapper{
+		"/index.html": func (handler khttp.FuncHandler) khttp.FuncHandler {
+		return oauth.MakeAuthHandler(inviter.github, handler)
+	},
+		"": nil,
+	}
+
+	kassets.RegisterAssets(&stats, ui.Data, "/ui/", kassets.BasicMapper(oauth.Mapper(inviter.redirector, kassets.MuxMapper(inviter.mux))))
+	kassets.RegisterAssets(&stats, assets.Data, "", kassets.BasicMapper(oauth.Mapper(inviter.redirector, kassets.MapWrapper(urlmap, kassets.MuxMapper(inviter.mux)))))
+
+	inviter.mux.HandleFunc("/github", oauth.LoginHandler(inviter.github, oauth.WithTarget("/")))
+
 	stats.Log(inviter.log.Infof)
+
 
 	return inviter, nil
 }

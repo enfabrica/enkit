@@ -1,6 +1,30 @@
 New user in the organization: is emailed a link like "github.service.enfabrica.net/tokentokentokentoken"
 User kicked out of the organization (or needs to refresh groups): has to visit me.service.enfabrica.net
 
+
+PSEUDO CODE:
+1) If user has a github username in database, display info from database.
+
+   "Your github username is: ..."
+   "You are member of the github groups: ..."
+   
+   If user is not in database...
+   "Welcome to ... let's setup your github account..."
+
+2) For any next step, authenticate with github. So we learn the github username.
+
+3) Check github status:
+
+   1) Is user member of organization?
+
+   2) Is user in all groups he/she is supposed to be?
+
+   3) Other things the user needs to do?
+
+
+"Please login with github..."
+
+
 Page structure:
 1) long term, fields that we want the user to modify on his/her own
 2) short term, just the github username

@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package ghinviter.proto;
+
+message Hello {}
+
+service User {
+  rpc Cheeer(Hello) returns (Hello) {}
+}

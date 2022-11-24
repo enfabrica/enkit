@@ -1,0 +1,36 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
+load("//bazel/typescript:defs.bzl", "ts_proto_compile")
+
+proto_library(
+    name = "user-proto",
+    srcs = ["user.proto"],
+    # import_prefix = "blah.xyz",
+    visibility = ["//visibility:public"],
+)
+
+ts_proto_compile(
+    name = "user-ts",
+    protos = [
+        ":user-proto",
+    ],
+    # https://github.com/rules-proto-grpc/rules_proto_grpc/blob/master/internal/compile.bzl#L37
+    #     NO_PREFIX_FLAT is preferred, but requires updating rules_proto_grpc.
+    # until we can use it, the path to include the client is convoluted.
+    output_mode = "NO_PREFIX_FLAT",
+    # verbose = 4,
+    visibility = ["//visibility:public"],
+)
+
+ts_project(
+    name = "user-lib-ts",
+    srcs = [":user-ts"],
+    #allow_js = True,
+    declaration = True,
+    tsconfig = "//:tsconfig",
+    visibility = ["//ghinviter:__subpackages__"],
+    deps = [
+        "//:node_modules/protobufjs",
+        "//:node_modules/nice-grpc-common",
+    ],
+)

@@ -4,16 +4,15 @@ load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
 ts_project(
     name = "ts",
     srcs = [
+        "client.ts",
         "main.tsx",
         "stepper.tsx",
     ],
-    allow_js = True,
+    tsconfig = "//:tsconfig",
     declaration = True,
-    # "." is the same as default
-    # explicitly given as a regression test for https://github.com/aspect-build/rules_ts/issues/195
-    out_dir = ".",
-    # Note, the tsconfig attribute defaults to the tsconfig.json file in this directory.
-    # tsconfig = "<default>",
+    # allow_js = True,
+# in tsconfig to debug module loading:
+#    "traceResolution": true,
     deps = [
         "//:node_modules/@fontsource",
         "//:node_modules/@mui/material",
@@ -21,10 +20,11 @@ ts_project(
         "//:node_modules/@types/react-dom",
         "//:node_modules/react",
         "//:node_modules/react-dom",
+        "//:node_modules/nice-grpc-web",
+
+        "//ghinviter/proto:user-lib-ts",
     ],
 )
-# in tsconfig to debug module loading:
-#    "traceResolution": true,
 
 load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
 
@@ -44,6 +44,7 @@ esbuild(
     #    minify = False,
     metafile = True,
     output_dir = True,
+    target = "es2019",
 )
 
 load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
@@ -51,7 +52,7 @@ load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
 go_embed_data(
     name = "embedded-assets",
     srcs = [":ui"],
-    flatten = True,
+    flatten = False,
     package = "ui",
 )
 

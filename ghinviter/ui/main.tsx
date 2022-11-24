@@ -11,8 +11,18 @@ import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
+import { client } from './client';
 
 function App() {
+
+  React.useEffect(() => {
+    async function fetchData() {
+       const response = await client.cheeer({});
+    }
+
+    fetchData();
+  }, []);
+
   return (
     <React.Fragment>
         <CssBaseline enableColorScheme />
