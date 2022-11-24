@@ -58,6 +58,18 @@ buildifier(
     name = "buildifier",
 )
 
+load("@aspect_rules_ts//ts:defs.bzl", "ts_config")
+
+# Following the advice here:
+#   https://github.com/aspect-build/rules_ts/blob/b42ce861c2e2532e06e2856b9aa4170cf0cd2b15/docs/tsconfig.md
+#
+# This defines a top level tsconfig file used throughout projects.
+ts_config(
+    name = "tsconfig",
+    src = "tsconfig.json",
+    visibility = [":__subpackages__"],
+)
+
 multirun(
     name = "binaries_release",
     commands = [

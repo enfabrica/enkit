@@ -1,0 +1,48 @@
+load("@rules_proto_grpc//:defs.bzl", "proto_plugin")
+load("@npm__ts-proto__1.133.0//:package_json.bzl", ts_proto_bin_factories = "bin") 
+
+ts_proto_bin_factories.protoc_gen_ts_proto_binary(
+    name = "protoc-gen-ts-proto",
+)
+
+# Why this wrapper? See:
+#   https://github.com/aspect-build/rules_js/issues/397#issuecomment-1240193933 
+# and related PR:
+#   https://github.com/bazelbuild/bazel/issues/15470
+#
+# Tl;Dr: protoc_gen_ts_proto_binary above is roughly equivalent to a 'js_binary'
+# rule, it creates a shell script that starts a node binary running the .js binary
+# defined in the package.json file (through generated .bzl macros). This shell
+# script REQUIREs an environment variable BAZEL_BINDIR, unless run from the runfiles
+# directory directly. But BAZEL_BINDIR is not exposed in current versions of bazel,
+# and rules_proto_grpc have no hook to add environment variables.
+#
+# protoc.sh works around the problem by entering the runfiles directory before
+# execing the generated protoc-gen-ts-proto.sh  script.
+sh_binary(
+    name = "protoc",
+    srcs = [
+        "protoc.sh",
+    ],
+    data = [
+        ":protoc-gen-ts-proto",
+    ],
+)
+
+proto_plugin(
+    name = "ts_proto_compile",
+    outputs = ["{protopath}.ts"],
+    # Based on documentation here:
+    #  https://github.com/deeplay-io/nice-grpc/tree/master/packages/nice-grpc-web#using-ts-proto
+    options = [
+        "env=browser",
+        "outputServices=nice-grpc",
+        "outputServices=generic-definitions",
+        "outputJsonMethods=false",
+        "useExactTypes=false",
+    ],
+    protoc_plugin_name = "ts_proto",
+    tool = ":protoc",
+    use_built_in_shell_environment = False,
+    visibility = ["//visibility:public"],
+)
