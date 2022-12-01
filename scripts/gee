@@ -3816,7 +3816,7 @@ function gee__pr_check() {
   printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" " ${GH} pr checks"  # show user what we're doing
   while [[ "${PENDING}" -ne 0 ]]; do
     if VERBOSE=0 DONT_WARN=1 _read_cmd CHECKS "${GH}" pr checks; then
-      printf "%s\n" "${CHECKS[@]}" | column -t >&2
+      printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
       # no failures, nothing pending.
       _info "All checks successful."
       CHECKS_FAILED=0
@@ -3826,7 +3826,7 @@ function gee__pr_check() {
       _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
       # Only inform the user when a result changes:
       if [[ "${PREV_CHECKS}" != "${CHECKS[*]}"  ]]; then
-        printf "%s\n" "${CHECKS[@]}" | column -t >&2
+        printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
         PREV_CHECKS="${CHECKS[*]}"
         local REPORT="gh pr checks:"
         local KEY
