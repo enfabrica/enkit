@@ -8,20 +8,19 @@ ts_project(
         "main.tsx",
         "stepper.tsx",
     ],
-    tsconfig = "//:tsconfig",
     declaration = True,
+    tsconfig = "//:tsconfig",
     # allow_js = True,
-# in tsconfig to debug module loading:
-#    "traceResolution": true,
+    # in tsconfig to debug module loading:
+    #    "traceResolution": true,
     deps = [
         "//:node_modules/@fontsource",
         "//:node_modules/@mui/material",
         "//:node_modules/@types/react",
         "//:node_modules/@types/react-dom",
+        "//:node_modules/nice-grpc-web",
         "//:node_modules/react",
         "//:node_modules/react-dom",
-        "//:node_modules/nice-grpc-web",
-
         "//ghinviter/proto:user-lib-ts",
     ],
 )

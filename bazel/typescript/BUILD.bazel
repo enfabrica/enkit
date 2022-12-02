@@ -1,12 +1,12 @@
 load("@rules_proto_grpc//:defs.bzl", "proto_plugin")
-load("@npm__ts-proto__1.133.0//:package_json.bzl", ts_proto_bin_factories = "bin") 
+load("@npm__ts-proto__1.133.0//:package_json.bzl", ts_proto_bin_factories = "bin")
 
 ts_proto_bin_factories.protoc_gen_ts_proto_binary(
     name = "protoc-gen-ts-proto",
 )
 
 # Why this wrapper? See:
-#   https://github.com/aspect-build/rules_js/issues/397#issuecomment-1240193933 
+#   https://github.com/aspect-build/rules_js/issues/397#issuecomment-1240193933
 # and related PR:
 #   https://github.com/bazelbuild/bazel/issues/15470
 #
@@ -31,7 +31,6 @@ sh_binary(
 
 proto_plugin(
     name = "ts_proto_compile",
-    outputs = ["{protopath}.ts"],
     # Based on documentation here:
     #  https://github.com/deeplay-io/nice-grpc/tree/master/packages/nice-grpc-web#using-ts-proto
     options = [
@@ -41,6 +40,7 @@ proto_plugin(
         "outputJsonMethods=false",
         "useExactTypes=false",
     ],
+    outputs = ["{protopath}.ts"],
     protoc_plugin_name = "ts_proto",
     tool = ":protoc",
     use_built_in_shell_environment = False,

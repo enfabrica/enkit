@@ -1,3 +1,5 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
 load("//bazel/typescript:defs.bzl", "ts_proto_compile")
@@ -11,13 +13,13 @@ proto_library(
 
 ts_proto_compile(
     name = "user-ts",
-    protos = [
-        ":user-proto",
-    ],
     # https://github.com/rules-proto-grpc/rules_proto_grpc/blob/master/internal/compile.bzl#L37
     #     NO_PREFIX_FLAT is preferred, but requires updating rules_proto_grpc.
     # until we can use it, the path to include the client is convoluted.
     output_mode = "NO_PREFIX_FLAT",
+    protos = [
+        ":user-proto",
+    ],
     # verbose = 4,
     visibility = ["//visibility:public"],
 )
@@ -30,7 +32,22 @@ ts_project(
     tsconfig = "//:tsconfig",
     visibility = ["//ghinviter:__subpackages__"],
     deps = [
-        "//:node_modules/protobufjs",
         "//:node_modules/nice-grpc-common",
+        "//:node_modules/protobufjs",
     ],
+)
+
+go_proto_library(
+    name = "ghinviter_proto_go_proto",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "github.com/enfabrica/enkit/ghinviter/proto",
+    proto = ":user-proto",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":ghinviter_proto_go_proto"],
+    importpath = "github.com/enfabrica/enkit/ghinviter/proto",
+    visibility = ["//visibility:public"],
 )
