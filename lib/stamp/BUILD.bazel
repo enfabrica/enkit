@@ -6,9 +6,9 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/stamp",
     visibility = ["//visibility:public"],
     x_defs = {
-        "BuildUser": "{STABLE_USER}",
-        "GitBranch": "{STABLE_GIT_BRANCH}",
-        "GitSha": "{STABLE_GIT_SHA}",
+        "BuildUser": "{STABLE_ENKIT_USER}",
+        "GitBranch": "{GIT_BRANCH}",
+        "GitSha": "{COMMIT_SHA}",
         "GitMasterSha": "{STABLE_GIT_MASTER_SHA}",
         "changedFiles": "{STABLE_GIT_CHANGES}",
         "buildTimestamp": "{BUILD_TIMESTAMP}",
