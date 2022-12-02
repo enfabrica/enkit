@@ -25,7 +25,25 @@ type Flags struct {
 	Cache string
 }
 
-const DefaultPort = 9999
+// EnvPort returns the port specified in the PORT env variable, or a default if not found.
+//
+// GCP, appengine, and a few other cloud or container environment default
+// to reserving a port for the application and exporting it in the PORT environment
+// variable. This function allows to use that port number as the default.
+func EnvPort(ifnotfound int) int {
+	iport := ifnotfound
+	sport := os.Getenv("PORT")
+	if sport != "" {
+		pport, err := strconv.Atoi(sport)
+		if err == nil && pport > 0 && pport <= 65535 {
+			iport = pport
+		}
+	}
+
+	return iport
+}
+
+var DefaultPort = EnvPort(9999)
 
 var DefaultCache = configdir.LocalCache("enkit-certs")
 
