@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/khttp/ktls"
 	"net/http"
 	"time"
 )
@@ -215,6 +216,43 @@ func WithDisabledRedirects() Modifier {
 	})
 }
 
+// WithTLSConfig adds a tls client configuration.
+func WithTLSConfig(config *tls.Config) Modifier {
+	return func(c *http.Client) error {
+		transport, err := transport(c)
+		if err != nil {
+			return err
+		}
+
+		transport.TLSClientConfig = config
+		return nil
+	}
+}
+
+// WithTLSOptions applies the tls modifiers to the client configuration.
+func WithTLSOptions(mods ...ktls.Modifier) Modifier {
+	return func(c *http.Client) error {
+		transport, err := transport(c)
+		if err != nil {
+			return err
+		}
+
+		config := transport.TLSClientConfig
+		if config == nil {
+			config = &tls.Config{}
+		} else {
+			config = config.Clone()
+		}
+
+		if err := ktls.Modifiers(mods).Apply(config); err != nil {
+			return err
+		}
+
+		transport.TLSClientConfig = config
+		return nil
+	}
+}
+
 func WithInsecureCertificates() Modifier {
 	return func(c *http.Client) error {
 		transport, err := transport(c)
@@ -228,7 +266,6 @@ func WithInsecureCertificates() Modifier {
 			transport.TLSClientConfig = config
 		}
 
-		config.InsecureSkipVerify = true
-		return nil
+		return ktls.WithInsecureCertificates()(config)
 	}
 }
