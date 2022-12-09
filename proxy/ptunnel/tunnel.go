@@ -519,6 +519,8 @@ outer:
 			if len(buffer) == 0 {
 				break
 			}
+
+			conn.SetWriteDeadline(t.timeouts.Now().Add(t.timeouts.BrowserWriteTimeout))
 		}
 
 		if err := writer.Close(); err != nil {
