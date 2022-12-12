@@ -20,10 +20,9 @@ def stage_1():
     maybe(
         name = "io_bazel_rules_go",
         repo_rule = http_archive,
-        sha256 = "01d708d4e17ce3f44323a61bdefbf964c6dcb6922417a98e5176942cc2796d62",
-        strip_prefix = "rules_go-cf20167d606377a36aadc98f9ede16687e3c716a",
+        sha256 = "56d8c5a5c91e1af73eca71a6fab2ced959b67c86d12ba37feedb0a2dfea441a6",
         urls = [
-            "https://github.com/bazelbuild/rules_go/archive/cf20167d606377a36aadc98f9ede16687e3c716a.tar.gz",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.37.0/rules_go-v0.37.0.zip",
         ],
     )
 
@@ -36,11 +35,11 @@ def stage_1():
 
     maybe(
         name = "bazel_gazelle",
-        sha256 = "de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb",
+        sha256 = "448e37e0dbf61d6fa8f00aaa12d191745e14f07c31cabfa731f0c8e8a4f41b97",
         repo_rule = http_archive,
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.28.0/bazel-gazelle-v0.28.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.28.0/bazel-gazelle-v0.28.0.tar.gz",
         ],
     )
 
