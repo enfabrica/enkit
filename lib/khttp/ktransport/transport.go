@@ -19,6 +19,7 @@ package ktransport
 import (
 	"context"
 	"crypto/tls"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/khttp/ktls"
 	"golang.org/x/net/http2"
 	"net"
@@ -105,6 +106,129 @@ func NewHTTP2(mods ...Modifier2) (*http2.Transport, error) {
 // and can be used directly in kclient.WithTransport(ktransport.NewH2C(...)).
 func NewH2C(mods ...Modifier2) (*http2.Transport, error) {
 	return NewHTTP2(append([]Modifier2{WithH2COnly2()}, mods...)...)
+}
+
+// Flags defines the command line tunables for an http.Transport.
+type Flags struct {
+	ExpectContinueTimeout time.Duration
+	TLSHandshakeTimeout   time.Duration
+	IdleConnTimeout       time.Duration
+	MaxIdleConns          int
+}
+
+func DefaultFlags() *Flags {
+	flags := &Flags{}
+
+	transport, ok := http.DefaultTransport.(*http.Transport)
+
+	// Goal is to use the timeouts set in the default transport by default.
+	// If that transport does not exist, or is not net.http, then ... let's use
+	// the language default, same as if we used an empty object.
+	if ok {
+		flags.ExpectContinueTimeout = transport.ExpectContinueTimeout
+		flags.TLSHandshakeTimeout = transport.TLSHandshakeTimeout
+		flags.IdleConnTimeout = transport.IdleConnTimeout
+		flags.MaxIdleConns = transport.MaxIdleConns
+	}
+
+	return flags
+}
+
+func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
+	set.DurationVar(&fl.ExpectContinueTimeout, prefix+"http-expect-continue-timeout",
+		fl.ExpectContinueTimeout, "How long to wait for a continue in a persistent http connection")
+	set.DurationVar(&fl.TLSHandshakeTimeout, prefix+"http-tls-handshake-timeout",
+		fl.TLSHandshakeTimeout, "How long to wait for the TLS Handshke to complete")
+	set.DurationVar(&fl.IdleConnTimeout, prefix+"http-idle-conn-timeout",
+		fl.IdleConnTimeout, "How long to keep a connection open before closing it")
+	set.IntVar(&fl.MaxIdleConns, prefix+"http-max-idle-conns",
+		fl.MaxIdleConns, "How many idle connections to keep at most")
+	return fl
+}
+
+// Matches can be used to check if the flags configured actually change the transport.
+//
+// Returns true if the flags match the configured object, false otherwise.
+func (fl *Flags) Matches(transport *http.Transport) bool {
+	if transport.ExpectContinueTimeout != fl.ExpectContinueTimeout || transport.TLSHandshakeTimeout != fl.TLSHandshakeTimeout || transport.IdleConnTimeout != fl.IdleConnTimeout {
+		return false
+	}
+	if transport.MaxIdleConns != fl.MaxIdleConns {
+		return false
+	}
+
+	return true
+}
+
+// FromFlags initializes a transport from the supplied flags object.
+func FromFlags(flags *Flags) Modifier {
+	return func(transport *http.Transport) error {
+		if flags == nil {
+			return nil
+		}
+
+		transport.ExpectContinueTimeout = flags.ExpectContinueTimeout
+		transport.TLSHandshakeTimeout = flags.TLSHandshakeTimeout
+		transport.IdleConnTimeout = flags.IdleConnTimeout
+		transport.MaxIdleConns = flags.MaxIdleConns
+
+		return nil
+	}
+}
+
+// Flags2 defines the command line tunables for an http2.Transport.
+type Flags2 struct {
+	ReadIdleTimeout  time.Duration
+	PingTimeout      time.Duration
+	WriteByteTimeout time.Duration
+
+	CompressionEnabled bool
+}
+
+func DefaultFlags2() *Flags2 {
+	return &Flags2{CompressionEnabled: true}
+}
+
+func (fl *Flags2) Register(set kflags.FlagSet, prefix string) *Flags2 {
+	set.DurationVar(&fl.ReadIdleTimeout, prefix+"http2-read-idle-timeout", fl.ReadIdleTimeout,
+		"If set, a health check is performed once the timeout expires without frames on the connection")
+	set.DurationVar(&fl.PingTimeout, prefix+"http2-ping-timeout", fl.PingTimeout,
+		"If no response is received to a health check after this timeout, the connection is closed")
+	set.DurationVar(&fl.WriteByteTimeout, prefix+"http2-write-byte-timeout", fl.WriteByteTimeout,
+		"If there is pending data to write, and no more data can be written within the timeout, the connection is closed")
+	set.BoolVar(&fl.CompressionEnabled, prefix+"http2-compression-enabled", fl.CompressionEnabled,
+		"If set to true, http/2 compression is enabled")
+	return fl
+}
+
+// Matches can be used to check if the flags configured actually change the transport.
+//
+// Returns true if the flags match the configured object, false otherwise.
+func (fl *Flags2) Matches(transport *http2.Transport) bool {
+	if transport.ReadIdleTimeout != fl.ReadIdleTimeout || transport.PingTimeout != fl.PingTimeout || transport.WriteByteTimeout != fl.WriteByteTimeout {
+		return false
+	}
+	if transport.DisableCompression != !fl.CompressionEnabled {
+		return false
+	}
+
+	return true
+}
+
+// FromFlags initializes a transport from the supplied flags object.
+func FromFlags2(flags *Flags2) Modifier2 {
+	return func(transport *http2.Transport) error {
+		if flags == nil {
+			return nil
+		}
+
+		transport.ReadIdleTimeout = flags.ReadIdleTimeout
+		transport.PingTimeout = flags.PingTimeout
+		transport.WriteByteTimeout = flags.WriteByteTimeout
+		transport.DisableCompression = !flags.CompressionEnabled
+
+		return nil
+	}
 }
 
 // WithExpectContinueTimeout configures an http.Transport ExpectContinueTimeout.
