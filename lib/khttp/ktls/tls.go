@@ -71,36 +71,42 @@ func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	return fl
 }
 
+func (fl *Flags) Modifiers() Modifiers {
+	mods := []Modifier{}
+	if fl.InsecureSkipVerify {
+		mods = append(mods, WithInsecureCertificates())
+	}
+	if fl.DisableSystemCA {
+		mods = append(mods, WithDisabledSystemRootCAs())
+	}
+
+	if len(fl.RootCA) > 0 {
+		if !fl.DisableSystemCA {
+			mods = append(mods, WithSystemRootCAs())
+		}
+
+		mods = append(mods, WithRootCAPEM(fl.RootCA))
+	}
+
+	if len(fl.CertData) > 0 || len(fl.CertKey) > 0 {
+		mods = append(mods, WithCert(fl.CertData, fl.CertKey))
+	}
+
+	return mods
+}
+
 func FromFlags(fl *Flags) Modifier {
-	return func (c *tls.Config) error {
+	return func(c *tls.Config) error {
 		if fl.DisableSystemCA && !fl.InsecureSkipVerify && len(fl.RootCA) <= 0 {
-			return kflags.NewUsageErrorf("--tls-disable-system-ca requires setting --tls-insecure-skip-verify or --tls-root-ca, otherwise TLS will always fail")
+			return kflags.NewUsageErrorf(
+				"--tls-disable-system-ca requires setting --tls-insecure-skip-verify or --tls-root-ca, otherwise TLS will always fail")
 		}
 		if len(fl.CertKey) > 0 && len(fl.CertData) <= 0 {
-			return kflags.NewUsageErrorf("Specifying a TLS cert key requires specifying a TLS certificate as well (--tls-cert-key and --tls-cert-data)")
+			return kflags.NewUsageErrorf(
+				"Specifying a TLS cert key requires specifying a TLS certificate as well (--tls-cert-key and --tls-cert-data)")
 		}
 
-		mods := []Modifier{}
-		if fl.InsecureSkipVerify {
-			mods = append(mods, WithInsecureCertificates())
-		}
-		if fl.DisableSystemCA {
-			mods = append(mods, WithDisabledSystemRootCAs())
-		}
-
-		if len(fl.RootCA) > 0 {
-			if !fl.DisableSystemCA {
-				mods = append(mods, WithSystemRootCAs())
-			}
-
-			mods = append(mods, WithRootCAPEM(fl.RootCA))
-		}
-
-		if len(fl.CertData) > 0 || len(fl.CertKey) > 0 {
-			mods = append(mods, WithCert(fl.CertData, fl.CertKey))
-		}
-
-		if err := Modifiers(mods).Apply(c); err != nil {
+		if err := fl.Modifiers().Apply(c); err != nil {
 			return kflags.NewUsageErrorf("invalid --tls-... flags: %w", err)
 		}
 		return nil

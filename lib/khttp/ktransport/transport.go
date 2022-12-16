@@ -8,17 +8,21 @@
 // For example, to create an http transport object with a well defined TLS handshake
 // timeout and a specific set of TLS settings, you can use:
 //
-//	transport, err := ktransport.New(
+//	transport, err := ktransport.NewHTTP(
 //	    ktransport.WithTLSHandshakeTimeout(10 * time.Second),
 //	    ktransport.WithTLSOptions(
 //	        ktls.WithRootCAFile("/etc/corp/enfabrica.crt"),
 //	    )
 //	)
+//
+// To have a transport of choice based on command line flags, you can use the
+// RTFlags object (RT for RoundTripper), and corresponding New method.
 package ktransport
 
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/khttp/ktls"
 	"golang.org/x/net/http2"
@@ -57,15 +61,15 @@ func (mods Modifiers2) Apply(transport *http2.Transport) error {
 	return nil
 }
 
-// New returns a default transport with the options supplied applied.
+// NewHTTP returns a default transport with the options supplied applied.
 //
 // At time of writing (2022), the default http transport for go supports
 // HTTP/1.1, and if configured for HTTPS, it allows for HTTP/2 upgrade if
 // both the client and server support it.
 //
 // The returned *http.Transport implements the http.RoundTripper interface, and
-// can be used directly in kclient.WithTransport(ktransport.New(...)).
-func New(mods ...Modifier) (*http.Transport, error) {
+// can be used directly in kclient.WithTransport(ktransport.NewHTTP(...)).
+func NewHTTP(mods ...Modifier) (*http.Transport, error) {
 	t := &http.Transport{}
 	if err := Modifiers(mods).Apply(t); err != nil {
 		return nil, err
@@ -76,9 +80,9 @@ func New(mods ...Modifier) (*http.Transport, error) {
 // NewHTTP1 returns a transport that only supports HTTP < 2.
 //
 // Unless you need to explicitly disallow the use of HTTP/2, you
-// should just use New() instead.
+// should just use NewHTTP() instead.
 func NewHTTP1(mods ...Modifier) (*http.Transport, error) {
-	return New(append([]Modifier{WithHTTP2Disabled()}, mods...)...)
+	return NewHTTP(append([]Modifier{WithHTTP2Disabled()}, mods...)...)
 }
 
 // NewHTTP2 returns a transpoort that only supports HTTP/2.
@@ -229,6 +233,221 @@ func FromFlags2(flags *Flags2) Modifier2 {
 
 		return nil
 	}
+}
+
+// RTFlags allows to create a generic transport (RoundTripper) based on command line flags.
+//
+// To use it:
+//  1. Create a RTFlags object using DefaultRTFlags().
+//  2. Tweak any default that needs to be changed in your code.
+//  3. Call .Register() on the RTFlags object.
+//  4. After flag parsing, use New(ff, ...)
+type RTFlags struct {
+	HTTP  *Flags
+	HTTP2 *Flags2
+	TLS   *ktls.Flags
+
+	Dialect string
+}
+
+func DefaultRTFlags() *RTFlags {
+	return &RTFlags{
+		HTTP:  DefaultFlags(),
+		HTTP2: DefaultFlags2(),
+		TLS:   ktls.DefaultFlags(),
+
+		Dialect: "default",
+	}
+}
+
+// Register flags needed by the RTFlags object.
+func (fl *RTFlags) Register(set kflags.FlagSet, prefix string) *RTFlags {
+	fl.HTTP.Register(set, prefix)
+	fl.HTTP2.Register(set, prefix)
+	fl.TLS.Register(set, prefix)
+
+	set.StringVar(&fl.Dialect, prefix+"http-dialect", fl.Dialect,
+		"HTTP dialect to use - one of: default (or empty), http1, http2, h2c. default: will start with http1.*, upgrade to http2 if possible. "+
+			"http1: starts with http1.*, does not upgrade to http2. http2: requires https url, starts with http2, fails if not supported. "+
+			"h2c: requires http url, starts with http2 on a cleartext connection.")
+
+	return fl
+}
+
+type RTModifier func(*Modifiers, *Modifiers2, *ktls.Modifiers)
+
+type RTModifiers []RTModifier
+
+// Apply applies the modifiers in RTModifiers to the supplied RoundTripper.
+//
+// If the RoundTripper is an http2.Transport, http.Transport parameters are ignored.
+//
+// If the RoundTripper is an http.Transport with http2 enabled, http2.Transport
+// parameters will result in WithHTTP2Options being invoked, explicitly configuring
+// the http2.Transport parameters for http.Transport in case an upgrade is negotiated.
+// Note that WithHTTP2Options can only be invoked once on a transport due to golang,
+// API constraints, so make sure that all the necessary mods are in place
+// before invoking Apply.
+//
+// TLS Options are applied to the transport that will be used to establish the
+// HTTP connection only (http.Transport object, or http2.Transport only in case
+// http2 prior knowledge is configured).
+func (mods RTModifiers) Apply(rt http.RoundTripper) error {
+	h1 := Modifiers{}
+	h2 := Modifiers2{}
+	tm := ktls.Modifiers{}
+	for _, m := range mods {
+		m(&h1, &h2, &tm)
+	}
+
+	// The TLS options only affect the outer transport used.
+	// Eg, when an http2 upgrade is performed, TLS is already established.
+	// No need to change the TLS config in WithHTTP2Options().
+	switch t := rt.(type) {
+	case *http.Transport:
+		if len(tm) > 0 {
+			h1 = append(h1, WithTLSOptions(tm...))
+		}
+		if len(h2) > 0 {
+			h1 = append(h1, WithHTTP2Options(h2...))
+		}
+		return h1.Apply(t)
+
+	case *http2.Transport:
+		if len(tm) > 0 {
+			h2 = append(h2, WithTLSOptions2(tm...))
+		}
+		return h2.Apply(t)
+
+	default:
+	}
+
+	return fmt.Errorf("unknonw transport type: %T", rt)
+}
+
+// WithRTOptions adds HTTP options.
+//
+// The options are used only if an HTTP or HTTP1 transport is created.
+// The parameters are otherwise ignored.
+func WithRTOptions(mods ...Modifier) RTModifier {
+	return func(m *Modifiers, _ *Modifiers2, _ *ktls.Modifiers) {
+		*m = append(*m, mods...)
+	}
+}
+
+// WithRTOptions adds HTTP2 options.
+//
+// The options are used only if an HTTP2 transport is created.
+// The parameters are otherwise ignored.
+func WithRTOptions2(mods ...Modifier2) RTModifier {
+	return func(_ *Modifiers, m *Modifiers2, _ *ktls.Modifiers) {
+		*m = append(*m, mods...)
+	}
+}
+
+// WithRTTLSOptions adds TLS options.
+//
+// The options are used only if TLS is used.
+func WithRTTLSOptions(mods ...ktls.Modifier) RTModifier {
+	return func(_ *Modifiers, _ *Modifiers2, t *ktls.Modifiers) {
+		*t = append(*t, mods...)
+	}
+}
+
+// WithRTFlags applies the options specified by the RTFlags object.
+func WithRTFlags(flags *RTFlags) RTModifier {
+	return func(m1 *Modifiers, m2 *Modifiers2, tm *ktls.Modifiers) {
+		*m1 = append(*m1, FromFlags(flags.HTTP))
+		*tm = append(*tm, ktls.FromFlags(flags.TLS))
+
+		// Adding an http2 modifier forces the creation of a dedicated
+		// http2.Transport. Let's avoid it unless flags require it.
+		if !flags.HTTP2.Matches(&http2.Transport{}) {
+			*m2 = append(*m2, FromFlags2(flags.HTTP2))
+		}
+	}
+}
+
+// NewByDialect returns a new transport based on a string identifying the type.
+//
+// If NewByDialect is invoked with an empty string or "default", it returns a NewHTTP().
+// If invoked with "http1", it returns a NewHTTP1().
+// If invoked with "http2", it returns a NewHTTP2().
+// If invoked with "h2c", it returns a NewH2C().
+//
+// In any other case, it returns nil.
+func NewByDialect(dialect string) (http.RoundTripper, error) {
+	switch dialect {
+	case "default":
+		fallthrough
+	case "":
+		return NewHTTP()
+
+	case "http1":
+		return NewHTTP1()
+
+	case "http2":
+		return NewHTTP2()
+
+	case "h2c":
+		return NewH2C()
+	}
+
+	return nil, fmt.Errorf("invalid dialect %s - valid: default, http1, http2, h2c", dialect)
+}
+
+// CanUseDefault returns true if the golang http.DefaultTransport is deemed safe to use.
+//
+// This function returns true if the supplied flags and modifiers are not expected
+// to introduce changes in the DefaultTransport configuration, thus allowing the DefaultTransport
+// to be used as configured by the user.
+//
+// This can potentially allow better connection pooling and re-use depending on client code.
+func CanUseDefault(fl *RTFlags, mods ...RTModifier) bool {
+	tm := fl.TLS.Modifiers()
+	if (fl.Dialect == "default" || fl.Dialect == "") && len(mods) == 0 && len(tm) == 0 && fl.HTTP2.Matches(&http2.Transport{}) {
+		transport, ok := http.DefaultTransport.(*http.Transport)
+
+		// TLSNextProto != nil may mean that http2 has been explicitly enabled/disabled,
+		// thus invalidating the ...Matches(&http2.Transport{}) in the if above.
+		if ok && fl.HTTP.Matches(transport) && transport.TLSNextProto == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// DefaultOrNew returns a transport based on the supplied flags and modifiers.
+//
+// If the flags and modifiers would create a transport equivalent to the http.DefaultTransport,
+// the http.DefaultTransport is returned instead.
+//
+// If not, a new transport is created.
+//
+// The modifiers supplied are applied as defaults, the flags supplied will
+// override them. You can separately use RTModifiers.Apply() on the returned
+// object to apply further parameters, or manually invoke CanUseDefault() and
+// New() to implement arbitrary semantics.
+func DefaultOrNew(fl *RTFlags, mods ...RTModifier) (http.RoundTripper, error) {
+	if CanUseDefault(fl, mods...) {
+		return http.DefaultTransport, nil
+	}
+
+	return New(fl.Dialect, append(RTModifiers{WithRTFlags(fl)}, mods...)...)
+}
+
+// New creates a new transport speaking the specified dialect configured as per modifiers.
+func New(dialect string, mods ...RTModifier) (http.RoundTripper, error) {
+	rt, err := NewByDialect(dialect)
+	if err != nil {
+		return nil, kflags.NewUsageErrorf("--http-dialect invalid: %w", err)
+	}
+
+	if err := RTModifiers(mods).Apply(rt); err != nil {
+		return nil, err
+	}
+
+	return rt, nil
 }
 
 // WithExpectContinueTimeout configures an http.Transport ExpectContinueTimeout.
