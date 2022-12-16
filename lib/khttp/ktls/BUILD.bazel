@@ -5,4 +5,5 @@ go_library(
     srcs = ["tls.go"],
     importpath = "github.com/enfabrica/enkit/lib/khttp/ktls",
     visibility = ["//visibility:public"],
+    deps = ["//lib/kflags:go_default_library"],
 )

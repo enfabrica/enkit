@@ -13,6 +13,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"os"
 )
 
@@ -37,6 +38,73 @@ func NewConfig(mods ...Modifier) (*tls.Config, error) {
 		return nil, err
 	}
 	return config, nil
+}
+
+type Flags struct {
+	InsecureSkipVerify bool
+	DisableSystemCA    bool
+
+	RootCA []byte
+
+	CertData []byte
+	CertKey  []byte
+}
+
+func DefaultFlags() *Flags {
+	return &Flags{}
+}
+
+func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
+	set.BoolVar(&fl.InsecureSkipVerify, prefix+"tls-insecure-skip-verify",
+		fl.InsecureSkipVerify, "If set to true, disable SSL certificate verificaiton - any certificate is accepted")
+	set.BoolVar(&fl.DisableSystemCA, prefix+"tls-disable-system-ca",
+		fl.DisableSystemCA, "If set to true, system certificates will not be used/considered valid - all connections "+
+			"will be rejected unless --tls-root-ca or --tls-insecure-skip-verify is used")
+
+	set.ByteFileVar(&fl.RootCA, prefix+"tls-root-ca", "",
+		"Path to a PEM encoded root certificate - peer certificates signed by this CA will be considered valid")
+
+	set.ByteFileVar(&fl.CertData, prefix+"tls-cert-data", "",
+		"Path to a certificate (.crt) - certificate presented to the peer to prove this code's identity")
+	set.ByteFileVar(&fl.CertKey, prefix+"tls-cert-key", "",
+		"Path to a certificate key (.key) - key to the certificate presented with --tls-cert-data")
+	return fl
+}
+
+func FromFlags(fl *Flags) Modifier {
+	return func (c *tls.Config) error {
+		if fl.DisableSystemCA && !fl.InsecureSkipVerify && len(fl.RootCA) <= 0 {
+			return kflags.NewUsageErrorf("--tls-disable-system-ca requires setting --tls-insecure-skip-verify or --tls-root-ca, otherwise TLS will always fail")
+		}
+		if len(fl.CertKey) > 0 && len(fl.CertData) <= 0 {
+			return kflags.NewUsageErrorf("Specifying a TLS cert key requires specifying a TLS certificate as well (--tls-cert-key and --tls-cert-data)")
+		}
+
+		mods := []Modifier{}
+		if fl.InsecureSkipVerify {
+			mods = append(mods, WithInsecureCertificates())
+		}
+		if fl.DisableSystemCA {
+			mods = append(mods, WithDisabledSystemRootCAs())
+		}
+
+		if len(fl.RootCA) > 0 {
+			if !fl.DisableSystemCA {
+				mods = append(mods, WithSystemRootCAs())
+			}
+
+			mods = append(mods, WithRootCAPEM(fl.RootCA))
+		}
+
+		if len(fl.CertData) > 0 || len(fl.CertKey) > 0 {
+			mods = append(mods, WithCert(fl.CertData, fl.CertKey))
+		}
+
+		if err := Modifiers(mods).Apply(c); err != nil {
+			return kflags.NewUsageErrorf("invalid --tls-... flags: %w", err)
+		}
+		return nil
+	}
 }
 
 // WithInsecureCertificates skips CA certificate verification.
@@ -91,6 +159,16 @@ func WithSystemRootCAs() Modifier {
 		}
 
 		c.RootCAs = pool
+		return nil
+	}
+}
+
+// WithDisabledSystemRootCAs configures tls to explicitly ignore the OS Root CAs.
+//
+// It initializes the tls.Config object to have an empty set of RootCAs.
+func WithDisabledSystemRootCAs() Modifier {
+	return func(c *tls.Config) error {
+		c.RootCAs = x509.NewCertPool()
 		return nil
 	}
 }
@@ -170,6 +248,9 @@ func WithCert(certf, keyf []byte) Modifier {
 // WithCertFile adds a certificate from files.
 //
 // Just like WithCert, but loads the certificates from a file.
+//
+// The cert file is typically a file with .crt extension, while the key file
+// typically as a .key extension.
 func WithCertFile(certf, keyf string) Modifier {
 	return func(c *tls.Config) error {
 		cert, err := tls.LoadX509KeyPair(certf, keyf)
@@ -178,6 +259,14 @@ func WithCertFile(certf, keyf string) Modifier {
 		}
 
 		c.Certificates = append(c.Certificates, cert)
+		return nil
+	}
+}
+
+// WithGetCertificate configures a GetCertificate callback on the TLS config.
+func WithGetCertificate(getter func(*tls.ClientHelloInfo) (*tls.Certificate, error)) Modifier {
+	return func(c *tls.Config) error {
+		c.GetCertificate = getter
 		return nil
 	}
 }
