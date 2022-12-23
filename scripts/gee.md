@@ -478,7 +478,7 @@ Uses the same options as "gh pr create".
 
 ### pr_check
 
-Aliases: pr_checks check_pr
+Aliases: pr_checks check_pr check checks
 
 Usage: `gee pr_check [--wait]`
 
