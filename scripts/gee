@@ -3748,7 +3748,7 @@ EndOfPrTemplate
 
 _register_help "pr_check" \
   "Checks the status of presubmit tests for a PR." \
-  "pr_checks" "check_pr" <<'EOT'
+  "pr_checks" "check_pr" "check" "checks" <<'EOT'
 Usage: gee pr_check [--wait]
 
 Returns the state of presubmit checks.  If the --wait option is provided,
@@ -3798,6 +3798,8 @@ function _parse_gh_pr_checks() {
 }
 
 function gee__check_pr() { gee__pr_check "$@"; }
+function gee__check() { gee__pr_check "$@"; }
+function gee__checks() { gee__pr_check "$@"; }
 function gee__pr_checks() { gee__pr_check "$@"; }
 function gee__pr_check() {
   _startup_checks "pr_check"
@@ -3816,7 +3818,7 @@ function gee__pr_check() {
   printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" " ${GH} pr checks"  # show user what we're doing
   while [[ "${PENDING}" -ne 0 ]]; do
     if VERBOSE=0 DONT_WARN=1 _read_cmd CHECKS "${GH}" pr checks; then
-      printf "%s\n" "${CHECKS[@]}" | column -t >&2
+      printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
       # no failures, nothing pending.
       _info "All checks successful."
       CHECKS_FAILED=0
@@ -3826,7 +3828,7 @@ function gee__pr_check() {
       _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
       # Only inform the user when a result changes:
       if [[ "${PREV_CHECKS}" != "${CHECKS[*]}"  ]]; then
-        printf "%s\n" "${CHECKS[@]}" | column -t >&2
+        printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
         PREV_CHECKS="${CHECKS[*]}"
         local REPORT="gh pr checks:"
         local KEY
@@ -3957,7 +3959,7 @@ function gee__pr_submit() {
   fi
 
   # Presubmit check: Are presubmit checks passing?
-  if ! gee__pr_check; then
+  if ! gee__pr_check "$@"; then
     if ! _confirm_default_no \
       "Presubmit checks did not succeed.  Proceed anyway? (y/N)  "; then
       _fatal "PR submission aborted."
