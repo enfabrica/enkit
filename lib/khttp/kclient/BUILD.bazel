@@ -8,5 +8,6 @@ go_library(
     deps = [
         "//lib/kflags:go_default_library",
         "//lib/khttp/ktls:go_default_library",
+        "//lib/khttp/ktransport:go_default_library",
     ],
 )
