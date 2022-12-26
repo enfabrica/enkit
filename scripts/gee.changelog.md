@@ -2,6 +2,14 @@
 
 ## Releases
 
+### 0.2.38
+
+Cosmetic improvements:
+
+* Improve `pr_checks` output formatting (#800)
+* Catch and handle error code from `gh pr list` (#794)
+* Improved detection and reporting of failed subcommands (#792)
+
 ### 0.2.37
 
 * Re-enable `--autostash` behavior when rebasing (#780)
