@@ -199,7 +199,7 @@ def stage_1():
     maybe(
         name = "rules_proto_grpc",
         repo_rule = http_archive,
-        sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        sha256 = "fb7fc7a3c19a92b2f15ed7c4ffb2983e956625c1436f57a3430b897ba9864059",
         strip_prefix = "rules_proto_grpc-4.3.0",
         urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.3.0.tar.gz"],
     )
