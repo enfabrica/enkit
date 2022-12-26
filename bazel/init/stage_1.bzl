@@ -18,6 +18,15 @@ def stage_1():
     way of forcing a dependency upgrade underneath e.g. io_bazel_rules_go.
     """
     maybe(
+        name = "platforms",
+        repo_rule = http_archive,
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
+        ],
+        sha256 = "5308fc1d8865406a49427ba24a9ab53087f17f5266a7aabbfc28823f3916e1ca",
+    )
+    maybe(
         name = "io_bazel_rules_go",
         repo_rule = http_archive,
         sha256 = "56d8c5a5c91e1af73eca71a6fab2ced959b67c86d12ba37feedb0a2dfea441a6",
@@ -117,9 +126,9 @@ def stage_1():
     maybe(
         name = "com_google_googletest",
         repo_rule = http_archive,
-        sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
-        strip_prefix = "googletest-release-1.10.0",
-        url = "https://github.com/google/googletest/archive/release-1.10.0.zip",
+        # sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
+        strip_prefix = "googletest-release-1.12.1",
+        url = "https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip"
     )
 
     maybe(
