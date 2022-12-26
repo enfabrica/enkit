@@ -126,15 +126,26 @@ def stage_1():
     maybe(
         name = "com_google_googletest",
         repo_rule = http_archive,
-        sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        strip_prefix = "googletest-release-1.12.1",
-        url = "https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip",
+        patches = [
+            "@enkit//bazel/dependencies/googletest:new_platforms.patch",
+        ],
+        # Note: googletest 1.11 and newer exposes a bug in the version of gcc-10 that
+        # we are using, that makes gtest-printers.h fail when googletest is asked to
+        # compare std::chrono types.
+        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=51577
+        # TODO(carlo): Update to a newer gcc-10 and then uncomment:
+        # sha256 = "24564e3b712d3eb30ac9a85d92f7d720f60cc0173730ac166f27dda7fed76cb2",
+        # strip_prefix = "googletest-release-1.12.1",
+        # url = "https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip",
+        sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
+        strip_prefix = "googletest-release-1.10.0",
+        url = "https://github.com/google/googletest/archive/refs/tags/release-1.10.0.zip",
     )
 
     maybe(
         name = "com_google_absl",
         repo_rule = http_archive,
-        sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        sha256 = "54707f411cb62a26a776dad5fd60829098c181700edcd022ea5c2ca49e9b7ef1",
         strip_prefix = "abseil-cpp-20220623.1",
         urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20220623.1.zip"],
     )
@@ -169,7 +180,7 @@ def stage_1():
             # workaround for https://github.com/grpc/grpc/issues/31182:
             "@enkit//bazel/dependencies/grpc:ignore_version_in_go_register_toolchains.patch",
         ],
-        sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        sha256 = "cdeb805385fba23242bf87073e68d590c446751e09089f26e5e0b3f655b0f089",
         strip_prefix = "grpc-1.49.2",
         urls = [
             "https://github.com/grpc/grpc/archive/refs/tags/v1.49.2.tar.gz",
