@@ -126,17 +126,17 @@ def stage_1():
     maybe(
         name = "com_google_googletest",
         repo_rule = http_archive,
-        # sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
+        sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         strip_prefix = "googletest-release-1.12.1",
-        url = "https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip"
+        url = "https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip",
     )
 
     maybe(
         name = "com_google_absl",
         repo_rule = http_archive,
-        sha256 = "a4567ff02faca671b95e31d315bab18b42b6c6f1a60e91c6ea84e5a2142112c2",
-        strip_prefix = "abseil-cpp-20211102.0",
-        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.zip"],
+        sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        strip_prefix = "abseil-cpp-20220623.1",
+        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20220623.1.zip"],
     )
 
     maybe(
@@ -166,11 +166,13 @@ def stage_1():
         patch_args = ["-p1"],
         patches = [
             "@enkit//bazel/dependencies/grpc:no_remote_tag.patch",
+            # workaround for https://github.com/grpc/grpc/issues/31182:
+            "@enkit//bazel/dependencies/grpc:ignore_version_in_go_register_toolchains.patch",
         ],
-        sha256 = "e18b16f7976aab9a36c14c38180f042bb0fd196b75c9fd6a20a2b5f934876ad6",
-        strip_prefix = "grpc-1.45.2",
+        sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        strip_prefix = "grpc-1.49.2",
         urls = [
-            "https://github.com/grpc/grpc/archive/refs/tags/v1.45.2.tar.gz",
+            "https://github.com/grpc/grpc/archive/refs/tags/v1.49.2.tar.gz",
         ],
     )
 
@@ -197,9 +199,9 @@ def stage_1():
     maybe(
         name = "rules_proto_grpc",
         repo_rule = http_archive,
-        sha256 = "28724736b7ff49a48cb4b2b8cfa373f89edfcb9e8e492a8d5ab60aa3459314c8",
-        strip_prefix = "rules_proto_grpc-4.0.1",
-        urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.0.1.tar.gz"],
+        sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        strip_prefix = "rules_proto_grpc-4.3.0",
+        urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.3.0.tar.gz"],
     )
 
     maybe(

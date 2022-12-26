@@ -22,7 +22,8 @@ load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 load(
     "@rules_proto_grpc//:repositories.bzl",
-    "grpc_web_plugin_darwin",
+    "grpc_web_plugin_darwin_arm64",
+    "grpc_web_plugin_darwin_x86_64",
     "grpc_web_plugin_linux",
     "grpc_web_plugin_windows",
     "rules_proto_grpc_repos",
@@ -67,6 +68,10 @@ def stage_2():
     go_download_sdk(
         name = "go_sdk_1_19",
         version = "1.19.1",
+    )
+    go_download_sdk(
+        name = "go_sdk_1_18",
+        version = "1.18.9",
     )
     go_download_sdk(
         name = "go_sdk_1_16",
@@ -117,7 +122,8 @@ def stage_2():
     rules_proto_grpc_toolchains()
     rules_proto_grpc_repos()
     grpc_web_plugin_linux()
-    grpc_web_plugin_darwin()
+    grpc_web_plugin_darwin_arm64()
+    grpc_web_plugin_darwin_x86_64()
     grpc_web_plugin_windows()
 
     rules_foreign_cc_dependencies()
