@@ -16,9 +16,10 @@ import (
 // http.Handle, wrapping a Mux, ...).
 //
 // Example:
-//    mux := http.NewServeMux()
-//    ...
-//    http.ListenAndServe(":8080", &Dumper{Real: mux, Log: log.Printf})
+//
+//	mux := http.NewServeMux()
+//	...
+//	http.ListenAndServe(":8080", &Dumper{Real: mux, Log: log.Printf})
 type Dumper struct {
 	Real http.Handler
 	Log  logger.Printer
