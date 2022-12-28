@@ -2404,7 +2404,7 @@ command.
 
 Example of use:
 
-    grg -t bazel unit_test
+    grg -l fdst
 
 EOT
 function gee__grep() {
