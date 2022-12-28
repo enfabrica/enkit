@@ -2408,6 +2408,8 @@ Example of use:
 
 EOT
 function gee__grep() {
+  # The GEE_NO_RIPGREP environment variable is available for testing, to force
+  # the use of grep without requiring that ripgrep be uninstalled.
   _startup_checks "grep"
   _check_cwd
 
@@ -2415,7 +2417,7 @@ function gee__grep() {
   CURRENT_BRANCH="$(_get_current_branch)"
   BRANCH_ROOT_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
 
-  if command -v rg > /dev/null; then
+  if [[ "${GEE_NO_RIPGREP}" == "" ]] && command -v rg > /dev/null; then
     NOFAIL=1 _cmd rg "$@" "${BRANCH_ROOT_DIR}"
   else
     NOFAIL=1 _cmd grep -r --exclude-dir=.git "$@" "${BRANCH_ROOT_DIR}"
