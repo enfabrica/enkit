@@ -126,9 +126,11 @@ func DefaultFlags() *Flags {
 		Http:  khttp.DefaultFlags(),
 		Oauth: oauth.DefaultRedirectorFlags(),
 		Nassh: nasshp.DefaultFlags(),
-		// A khttp server that has no ip/port and is disabled by default.
-		Prometheus: &khttp.Flags{Cache: khttp.DefaultCache},
+		Prometheus: khttp.DefaultFlags(),
 	}
+
+	// By default, disable the prometheus server.
+	fl.Prometheus.HttpPort = 0
 	return fl
 }
 
@@ -150,6 +152,17 @@ func (fl *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 // Requires providing a logger, an http.Handler (typically some form of mux), and
 // a list of domains for which an https certificate is necessary.
 type Starter func(log logger.Printer, handler http.Handler, domains ...string) error
+
+// StarterFromFlags creates a starter from kserver.Flags.
+func StarterFromFlags(flags *khttp.Flags) Starter {
+	if flags.HttpPort == 0 && flags.HttpsPort == 0 {
+		return nil
+	}
+
+	return func (log logger.Printer, handler http.Handler, domains ...string) error {
+		return khttp.Run(handler, khttp.WithLogger(log), khttp.FromFlags(flags, domains...))
+	}
+}
 
 type Options struct {
 	log logger.Logger
@@ -218,25 +231,13 @@ func WithMetricsStarter(starter Starter) Modifier {
 
 func WithHttpFlags(flags *khttp.Flags) Modifier {
 	return func(op *Options) error {
-		server, err := khttp.FromFlags(flags)
-		if err != nil {
-			return err
-		}
-
-		return WithHttpStarter(server.Run)(op)
+		return WithHttpStarter(StarterFromFlags(flags))(op)
 	}
 }
 
 func WithMetricsFlags(flags *khttp.Flags) Modifier {
 	return func(op *Options) error {
-		if flags.HttpPort == 0 && flags.HttpsPort == 0 {
-			return nil
-		}
-		server, err := khttp.FromFlags(flags)
-		if err != nil {
-			return err
-		}
-		return WithMetricsStarter(server.Run)(op)
+		return WithMetricsStarter(StarterFromFlags(flags))(op)
 	}
 }
 
@@ -335,7 +336,7 @@ type Enproxy struct {
 func New(rng *rand.Rand, mods ...Modifier) (*Enproxy, error) {
 	op := &Options{
 		log:   &logger.DefaultLogger{Printer: log.Printf},
-		proxy: khttp.DefaultServer().Run,
+		proxy: StarterFromFlags(khttp.DefaultFlags()),
 	}
 	if err := Modifiers(mods).Apply(op); err != nil {
 		return nil, err
