@@ -103,6 +103,7 @@ review.
 | <a href="#fix">`fix`</a> | Run automatic code formatters over changed files only. |
 | <a href="#gcd">`gcd`</a> | Change directory to another branch. |
 | <a href="#get_parent">`get_parent`</a> | Which branch is this branch branched from? |
+| <a href="#grep">`grep`</a> | Greps the current branch. |
 | <a href="#hello">`hello`</a> | Check connectivity to github. |
 | <a href="#help">`help`</a> | Print more help about a command. |
 | <a href="#init">`init`</a> | initialize a new git workspace |
@@ -187,6 +188,28 @@ Usage: `gee diff [<files...>]`
 Shows all local changes this since branch diverged from its parent branch.
 
 If <files...> are omited, shows changes to all files.
+
+### grep
+
+Usage: `gee grep [options] <expression>`
+
+Searches the current branch for the specified expression.
+
+If the ripgrep tool is installed, then this command invokes:
+
+    rg "$@" "${BRANCH_ROOT_DIR}"
+
+If ripgrep is not installed, this command falls back on the grep utility,
+invoked to be similar in operation to ripgrep, like this:
+
+    grep -r --exclude-dir=.git "$@" "${BRANCH_ROOT_DIR}"
+
+If the `gee bash_setup` environment is loaded, `grg` is an alias for this
+command.
+
+Example of use:
+
+    grg -l fdst
 
 ### pack
 

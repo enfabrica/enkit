@@ -2382,6 +2382,49 @@ function gee__diff() {
 }
 
 ##########################################################################
+# grep command
+##########################################################################
+
+_register_help "grep" "Greps the current branch." <<'EOT'
+Usage: gee grep [options] <expression>
+
+Searches the current branch for the specified expression.
+
+If the ripgrep tool is installed, then this command invokes:
+
+    rg "$@" "${BRANCH_ROOT_DIR}"
+
+If ripgrep is not installed, this command falls back on the grep utility,
+invoked to be similar in operation to ripgrep, like this:
+
+    grep -r --exclude-dir=.git "$@" "${BRANCH_ROOT_DIR}"
+
+If the `gee bash_setup` environment is loaded, `grg` is an alias for this
+command.
+
+Example of use:
+
+    grg -l fdst
+
+EOT
+function gee__grep() {
+  # The GEE_NO_RIPGREP environment variable is available for testing, to force
+  # the use of grep without requiring that ripgrep be uninstalled.
+  _startup_checks "grep"
+  _check_cwd
+
+  local CURRENT_BRANCH BRANCH_ROOT_DIR
+  CURRENT_BRANCH="$(_get_current_branch)"
+  BRANCH_ROOT_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+
+  if [[ "${GEE_NO_RIPGREP}" == "" ]] && command -v rg > /dev/null; then
+    NOFAIL=1 _cmd rg "$@" "${BRANCH_ROOT_DIR}"
+  else
+    NOFAIL=1 _cmd grep -r --exclude-dir=.git "$@" "${BRANCH_ROOT_DIR}"
+  fi
+}
+
+##########################################################################
 # pack command
 ##########################################################################
 
@@ -3195,7 +3238,7 @@ function gee__revert() {
   _startup_checks "revert"
 
   _check_cwd
-  local CURRENT_BRANCH
+  local CURRENT_BRANCH CURRENT_ROOT
   CURRENT_BRANCH="$(_get_current_branch)"
   CURRENT_ROOT="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
   local PARENT_BRANCH
@@ -5004,6 +5047,10 @@ function gcd() {
   fi
   export BROOT="$(git rev-parse --show-toplevel)"
   export BRBIN="${BROOT}/bazel-bin"
+}
+
+function grg() {
+  gee grep "$@"
 }
 
 function _gee_completion_branches() {
