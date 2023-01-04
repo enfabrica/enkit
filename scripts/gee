@@ -4557,6 +4557,7 @@ EOT
 
 function gee__bazelgc() {
   # Get a list of all unowned bazel directories
+  local -a EXPIRED=()
   mapfile -t EXPIRED < \
      <( (
        # Emit a list of all existing cache directories:
@@ -4567,19 +4568,42 @@ function gee__bazelgc() {
                 ) | sort | uniq -c | awk '$1 == "1" {print $2}' )
   if [[ "${#EXPIRED[@]}" == 0 ]]; then
     _info "No ~/.cache/bazel directories to delete."
-    return 0
-  fi
-  _info "About to delete the following ~/.cache/bazel directories:" "${EXPIRED[@]}"
-  if _confirm_default_no "Proceed? (y/N)  "; then
-    local USED1
-    USED1="$(df -k --output=used ~/.cache | tail -1)"
-    _cmd chmod -R u+w "${EXPIRED[@]}"
-    _cmd rm -rf "${EXPIRED[@]}"
-    USED2="$(df -k --output=used ~/.cache | tail -1)"
-    MBFREED="$(( (USED1 - USED2) / 1024 ))"
-    _info "Approximately ${MBFREED}MiB freed."
   else
-    _info "Garbage collection aborted, nothing was deleted."
+    _info "About to delete the following ~/.cache/bazel directories:" "${EXPIRED[@]}"
+    if _confirm_default_no "Proceed? (y/N)  "; then
+      local USED1
+      USED1="$(df -k --output=used ~/.cache | tail -1)"
+      _cmd chmod -R u+w "${EXPIRED[@]}"
+      _cmd rm -rf "${EXPIRED[@]}"
+      USED2="$(df -k --output=used ~/.cache | tail -1)"
+      MBFREED="$(( (USED1 - USED2) / 1024 ))"
+      _info "Approximately ${MBFREED}MiB freed."
+    else
+      _info "Garbage collection of ~/.cache/bazel aborted, nothing was deleted."
+    fi
+  fi
+
+  if [[ -d ~/.cache/bazel-disk-cache ]]; then
+    local -a OLD=()
+    mapfile -t OLD -d '' < \
+      <(find ~/.cache/bazel-disk-cache \( -type f -o -type l \) -atime +5 -print0)
+    if [[ "${#OLD[@]}" == 0 ]]; then
+      _info "No old ~/.cache/bazel-disk-cache entries to delete."
+    else
+      _info "About to delete ${#OLD[@]} old entries from ~/.cache/bazel-disk-cache"
+      if _confirm_default_no "Proceed? (y/N)  "; then
+        local USED1
+        USED1="$(df -k --output=used ~/.cache | tail -1)"
+        _cmd rm -f "${OLD[@]}"
+        USED2="$(df -k --output=used ~/.cache | tail -1)"
+        MBFREED="$(( (USED1 - USED2) / 1024 ))"
+        _info "Approximately ${MBFREED}MiB freed."
+      else
+        _info "bazel-disk-cache garbage collection aborted, nothing was deleted."
+      fi
+    fi
+  else
+    _info "No ~/.cache/bazel-disk-cache directory to garbage collect."
   fi
 }
 
