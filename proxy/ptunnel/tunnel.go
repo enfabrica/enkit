@@ -108,7 +108,15 @@ func GetSID(proxy *url.URL, host string, port uint16, mods ...GetModifier) (stri
 	retrier := retry.New(options.retryOptions...)
 
 	sid := ""
-	err := retrier.Run(func() error {
+	err := retrier.RunAttempt(func(attempt int) error {
+		// Re-evalute the options - they may load different parameters.
+		if attempt > 0 {
+			options = &GetOptions{}
+			if err := GetModifiers(mods).Apply(options); err != nil {
+				return err
+			}
+		}
+
 		err := protocol.Get(curl.String(), protocol.Read(protocol.String(&sid)),
 			append([]protocol.Modifier{
 				protocol.WithClientOptions(kclient.WithDisabledRedirects()),
@@ -413,7 +421,15 @@ func (t *Tunnel) KeepConnected(proxy *url.URL, host string, port uint16, mods ..
 	}
 
 	retrier := retry.New(options.retryOptions...)
-	return retrier.Run(func() error {
+	return retrier.RunAttempt(func(attempt int) error {
+		// Re-evaluate the options - this may result in a new cookie loaded.
+		if attempt > 0 {
+			options = &GetOptions{}
+			if err := GetModifiers(mods).Apply(options); err != nil {
+				return err
+			}
+		}
+
 		// Following the nassh documentation, at:
 		//  https://chromium.googlesource.com/apps/libapps/+/4763ff7fa95760c9c85ef3563953cdfb391d209f/nassh/doc/relay-protocol.md
 		// pos: "... the last write ack the client received" -> WrittenUntil
