@@ -4585,8 +4585,8 @@ function gee__bazelgc() {
 
   if [[ -d ~/.cache/bazel-disk-cache ]]; then
     local -a OLD=()
-    mapfile -t OLD -d '' < \
-      <(find ~/.cache/bazel-disk-cache \( -type f -o -type l \) -atime +5 -print0)
+    mapfile -d '' OLD < \
+      <(find ~/.cache/bazel-disk-cache \( -type f -o -type l \) -atime +3 -print0)
     if [[ "${#OLD[@]}" == 0 ]]; then
       _info "No old ~/.cache/bazel-disk-cache entries to delete."
     else
@@ -4594,7 +4594,7 @@ function gee__bazelgc() {
       if _confirm_default_no "Proceed? (y/N)  "; then
         local USED1
         USED1="$(df -k --output=used ~/.cache | tail -1)"
-        _cmd rm -f "${OLD[@]}"
+        rm -f "${OLD[@]}"
         USED2="$(df -k --output=used ~/.cache | tail -1)"
         MBFREED="$(( (USED1 - USED2) / 1024 ))"
         _info "Approximately ${MBFREED}MiB freed."
