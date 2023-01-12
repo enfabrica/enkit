@@ -2,6 +2,11 @@
 
 ## Releases
 
+### 0.2.39
+
+* gee bazelgc: also prune old files from ~/.cache/bazel-disk-cache (#813)
+* gee grep: new command, easily search a git branch using grep or ripgrep (#811)
+
 ### 0.2.38
 
 Cosmetic improvements:
