@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly VERSION="0.2.38"
+readonly VERSION="0.2.39"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -4585,6 +4585,7 @@ function gee__bazelgc() {
 
   if [[ -d ~/.cache/bazel-disk-cache ]]; then
     local -a OLD=()
+    local i
     mapfile -d '' OLD < \
       <(find ~/.cache/bazel-disk-cache \( -type f -o -type l \) -atime +3 -print0)
     if [[ "${#OLD[@]}" == 0 ]]; then
@@ -4594,7 +4595,13 @@ function gee__bazelgc() {
       if _confirm_default_no "Proceed? (y/N)  "; then
         local USED1
         USED1="$(df -k --output=used ~/.cache | tail -1)"
-        rm -f "${OLD[@]}"
+        # Unfortunately the OLD list might be longer than ARG_MAX, so we break
+        # this list up to delete files in batches of 100.
+        for i in $(seq 0 100 ${#OLD[@]}); do
+          local -a OLD_SLICE
+          OLD_SLICE=( "${OLD[@]:${i}:100}" )
+          rm -f "${OLD_SLICE[@]}"
+        done
         USED2="$(df -k --output=used ~/.cache | tail -1)"
         MBFREED="$(( (USED1 - USED2) / 1024 ))"
         _info "Approximately ${MBFREED}MiB freed."
