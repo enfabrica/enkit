@@ -29,6 +29,7 @@ astore_download(
     download_src = "tmp/astore_upload_file_testdata",
     tags = [
         "manual",
+        "no-cloudbuild",
         "no-presubmit",
     ],
 )
@@ -40,6 +41,7 @@ astore_download(
     output = "by_uid.txt",
     tags = [
         "manual",
+        "no-cloudbuild",
         "no-presubmit",
     ],
     uid = UID_TESTDATA_TXT,
@@ -54,6 +56,7 @@ astore_download(
     output = "with_digest.txt",  # must be specified to avoid output collision with previous rule.
     tags = [
         "manual",
+        "no-cloudbuild",
         "no-presubmit",
     ],
     uid = UID_TESTDATA_TXT,
@@ -67,6 +70,7 @@ astore_download(
     output = "v1_with_digest.txt",  # must be specified to avoid output collision with previous rule.
     tags = [
         "manual",
+        "no-cloudbuild",
         "no-presubmit",
     ],
     uid = V1_UID_TESTDATA_TXT,
