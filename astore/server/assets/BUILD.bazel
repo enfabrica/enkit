@@ -1,18 +1,27 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
 
+# Fetched by doing:
+#
+# ```
+# npm i material-design-icons
+# npm i material-design-lite
+# ```
+#
+# and then copying these files out of `node_modules` into this dir.
 filegroup(
     name = "css",
     srcs = [
-        "@npm//:node_modules/material-design-icons/iconfont/MaterialIcons-Regular.ttf",
-        "@npm//:node_modules/material-design-icons/iconfont/MaterialIcons-Regular.woff",
-        "@npm//:node_modules/material-design-icons/iconfont/MaterialIcons-Regular.woff2",
-        "@npm//:node_modules/material-design-icons/iconfont/material-icons.css",
-        "@npm//:node_modules/material-design-lite/material.min.css",
-        "@npm//:node_modules/material-design-lite/material.min.css.map",
-        "@npm//:node_modules/material-design-lite/material.min.js",
-        "@npm//:node_modules/material-design-lite/material.min.js.map",
+        "MaterialIcons-Regular.ttf",
+        "MaterialIcons-Regular.woff",
+        "MaterialIcons-Regular.woff2",
+        "material.min.css",
+        "material.min.css.map",
+        "material.min.js",
+        "material.min.js.map",
+        "material-icons.css",
     ],
+    visibility = ["//astore/server:__subpackages__"],
 )
 
 # Generate a .go file containing all the web assets.

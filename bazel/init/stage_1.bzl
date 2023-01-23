@@ -27,13 +27,6 @@ def stage_1():
     )
 
     maybe(
-        name = "build_bazel_rules_nodejs",
-        repo_rule = http_archive,
-        sha256 = "f7037c8e295fdc921f714962aee7c496110052511e2b14076bd8e2d46bc9819c",
-        urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/4.4.5/rules_nodejs-4.4.5.tar.gz"],
-    )
-
-    maybe(
         name = "bazel_gazelle",
         sha256 = "448e37e0dbf61d6fa8f00aaa12d191745e14f07c31cabfa731f0c8e8a4f41b97",
         repo_rule = http_archive,
@@ -183,14 +176,6 @@ def stage_1():
             "@enkit//bazel/dependencies:rules_docker_no_init_go.patch",
         ],
         patch_args = ["-p1"],
-    )
-
-    maybe(
-        name = "rules_proto_grpc",
-        repo_rule = http_archive,
-        sha256 = "28724736b7ff49a48cb4b2b8cfa373f89edfcb9e8e492a8d5ab60aa3459314c8",
-        strip_prefix = "rules_proto_grpc-4.0.1",
-        urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.0.1.tar.gz"],
     )
 
     maybe(
