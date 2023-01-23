@@ -2,7 +2,6 @@
 
 workspace(
     name = "enkit",
-    managed_directories = {"@npm": ["ui/node_modules"]},
 )
 
 load("//bazel/init:stage_1.bzl", "stage_1")
