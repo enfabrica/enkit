@@ -3,6 +3,8 @@ enkit/bazel/utils/testdata/remote/quote00.txt
 enkit/bazel/utils/quote01.txt
 enkit/tools/codegen/tests/gen-test.actual
 enkit/../com_google_absl/AUTHORS
+enkit/../com_google_googletest/libgtest.a
+enkit/../com_google_googletest/libgtest.so
 enkit/_solib_k8/libexternal_Scom_Ugoogle_Ugoogletest_Slibgtest.so
 enkit/bazel/utils/testdata/remote/save-argv.sh
 enkit/bazel/utils/wrapper
