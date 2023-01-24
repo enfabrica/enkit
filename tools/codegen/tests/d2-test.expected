@@ -1,6 +1,7 @@
 over=rides
 zoo=zebra
 foo=bar
+camel=BAR
   bum: x
   bum: y
   bum: z

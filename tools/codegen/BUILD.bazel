@@ -49,6 +49,7 @@ py_binary(
         ":data_loader",
         requirement("absl-py"),
         requirement("jinja2"),
+        requirement("jinja2-strcase"),
         requirement("jsonschema"),
         requirement("markupsafe"),
         requirement("pyyaml"),
