@@ -63,6 +63,8 @@ enkit/../python_dependencies_jinja2/jinja2/sandbox.py
 enkit/../python_dependencies_jinja2/jinja2/tests.py
 enkit/../python_dependencies_jinja2/jinja2/utils.py
 enkit/../python_dependencies_jinja2/jinja2/visitor.py
+enkit/../python_dependencies_jinja2_strcase/jinja2_strcase/__init__.py
+enkit/../python_dependencies_jinja2_strcase/jinja2_strcase/jinja2_strcase.py
 enkit/../python_dependencies_jsonschema/jsonschema/__init__.py
 enkit/../python_dependencies_jsonschema/jsonschema/__main__.py
 enkit/../python_dependencies_jsonschema/jsonschema/_format.py
@@ -261,6 +263,10 @@ enkit/../python_dependencies_markupsafe/markupsafe/_speedups.c
 enkit/../python_dependencies_markupsafe/markupsafe/_speedups.cpython-38-x86_64-linux-gnu.so
 enkit/../python_dependencies_markupsafe/markupsafe/_speedups.pyi
 enkit/../python_dependencies_markupsafe/markupsafe/py.typed
+enkit/../python_dependencies_jinja2_strcase/jinja2_strcase-0.0.2.dist-info/LICENSE
+enkit/../python_dependencies_jinja2_strcase/jinja2_strcase-0.0.2.dist-info/METADATA
+enkit/../python_dependencies_jinja2_strcase/jinja2_strcase-0.0.2.dist-info/WHEEL
+enkit/../python_dependencies_jinja2_strcase/jinja2_strcase-0.0.2.dist-info/top_level.txt
 enkit/tools/codegen/tests/data.yaml
 enkit/tools/codegen/tests/test.template
 enkit/../com_google_googletest/googlemock/include/gmock/gmock-actions.h

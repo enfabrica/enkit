@@ -100,7 +100,7 @@ class Template(data_loader.DataLoader):
         super(Template, self).__init__()
         search_paths = ["."] + FLAGS.incdir
         self.env = jinja2.Environment(
-            extensions=["jinja2.ext.do", "jinja2.ext.loopcontrols", "jinja2.ext.debug", RaiseExtension],
+            extensions=["jinja2.ext.do", "jinja2.ext.loopcontrols", "jinja2.ext.debug", "jinja2_strcase.StrcaseExtension", RaiseExtension],
             loader=jinja2.FileSystemLoader(search_paths),
             keep_trailing_newline=True,
             autoescape=False,

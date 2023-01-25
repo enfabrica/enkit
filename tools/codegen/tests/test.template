@@ -1,6 +1,7 @@
 over={{over}}
 zoo={{zoo}}
 foo={{foo}}
+camel={{foo|to_screaming_snake}}
 {%- for t in bum %}
   bum: {{ t }}
 {%- endfor %}
