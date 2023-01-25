@@ -30,6 +30,7 @@ go_proto_library(
         ":build_event_stream_proto",
     ],
     visibility = [
+        "//bes_publisher:__subpackages__",
         "//bestie:__subpackages__",
         "//lib/bes:__subpackages__",
         "//lib/kbuildbarn:__subpackages__",
