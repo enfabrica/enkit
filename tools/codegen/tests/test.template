@@ -2,6 +2,8 @@ over={{over}}
 zoo={{zoo}}
 foo={{foo}}
 camel={{foo|to_screaming_snake}}
+tooth={{"tooth"|re_sub("o", "a")}}
+tooth={{re_sub("foo", "o", "a")}}
 {%- for t in bum %}
   bum: {{ t }}
 {%- endfor %}
