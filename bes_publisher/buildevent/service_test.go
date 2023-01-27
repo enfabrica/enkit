@@ -82,12 +82,63 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 			wantErr: "",
 		},
 		{
-			desc: "build started",
+			desc: "normal build",
 			events: []*bes.BuildEvent{
 				&bes.BuildEvent{
 					Payload: &bes.BuildEvent_Started{
 						Started: &bes.BuildStarted{
 							Uuid: "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						},
+					},
+				},
+				&bes.BuildEvent{
+					Payload: &bes.BuildEvent_BuildMetadata{
+						BuildMetadata: &bes.BuildMetadata{
+							Metadata: map[string]string{"ROLE": "interactive"},
+						},
+					},
+				},
+				&bes.BuildEvent{
+					Payload: &bes.BuildEvent_WorkspaceStatus{
+						WorkspaceStatus: &bes.WorkspaceStatus{
+							Item: []*bes.WorkspaceStatus_Item{
+								&bes.WorkspaceStatus_Item{Key: "GIT_USER", Value: "jmcclane"},
+							},
+						},
+					},
+				},
+				&bes.BuildEvent{
+					Id: &bes.BuildEventId{
+						Id: &bes.BuildEventId_TestResult{
+							TestResult: &bes.BuildEventId_TestResultId{
+								Label: "//foo/bar:baz_test",
+								Run: 1,
+							},
+						},
+					},
+					Payload: &bes.BuildEvent_TestResult{
+						TestResult: &bes.TestResult{
+							Status: bes.TestStatus_PASSED,
+							CachedLocally: false,
+						},
+					},
+				},
+				&bes.BuildEvent{
+					Payload: &bes.BuildEvent_Finished{
+						Finished: &bes.BuildFinished{
+							ExitCode: &bes.BuildFinished_ExitCode{
+								Name: "SUCCESS",
+								Code: 0,
+							},
+						},
+					},
+				},
+				&bes.BuildEvent{
+					Payload: &bes.BuildEvent_BuildMetrics{
+						BuildMetrics: &bes.BuildMetrics{
+							BuildGraphMetrics: &bes.BuildMetrics_BuildGraphMetrics{
+								ActionCount: 3,
+							},
 						},
 					},
 				},
@@ -97,6 +148,43 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 					Data: []byte(`{"started":{"uuid":"d9b5cec0-c1e6-428c-8674-a74194b27447"}}`),
 					Attributes: map[string]string{
 						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+					},
+				},
+				&pubsub.Message{
+					Data: []byte(`{"buildMetadata":{"metadata":{"ROLE":"interactive"}}}`),
+					Attributes: map[string]string{
+						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_type": "interactive",
+					},
+				},
+				&pubsub.Message{
+					Data: []byte(`{"workspaceStatus":{"item":[{"key":"GIT_USER", "value":"jmcclane"}]}}`),
+					Attributes: map[string]string{
+						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_type": "interactive",
+					},
+				},
+				&pubsub.Message{
+					Data: []byte(`{"id":{"testResult":{"label":"//foo/bar:baz_test", "run":1}}, "testResult":{"status":"PASSED"}}`),
+					Attributes: map[string]string{
+						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_type": "interactive",
+					},
+				},
+				&pubsub.Message{
+					Data: []byte(`{"finished":{"exitCode":{"name":"SUCCESS"}}}`),
+					Attributes: map[string]string{
+						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_type": "interactive",
+						"result": "SUCCESS",
+					},
+				},
+				&pubsub.Message{
+					Data: []byte(`{"buildMetrics":{"buildGraphMetrics":{"actionCount":3}}}`),
+					Attributes: map[string]string{
+						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_type": "interactive",
+						"result": "SUCCESS",
 					},
 				},
 			},
@@ -124,16 +212,23 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 				stream.On("Recv").Return(nil, io.EOF).Once()
 			}
 
-			var sentMessages []*pubsub.Message
-			topic.On("Publish", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-				sent := args.Get(1).(*pubsub.Message)
-				sentMessages = append(sentMessages, sent)
-			}).Return(newMockPublishResult(randomMs(10, 100), nil))
+			for _, msg := range tc.wantMessages {
+				// Need to capture the loop variable, or all the assertions will
+				// run against the last element of wantMessages.
+				//
+				// There's something goofy happening (spaces added after
+				// commas?) when comparing against the message directly, so make
+				// a deep copy here and compare against that instead.
+				msg := *msg
+				topic.On("Publish", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					sent := args.Get(1).(*pubsub.Message)
+					testutil.AssertCmp(t, sent, &msg, cmpopts.IgnoreUnexported(pubsub.Message{}))
+				}).Return(newMockPublishResult(randomMs(10, 100), nil)).Once()
+			}
 
 			gotErr := service.PublishBuildToolEventStream(stream)
 
 			errdiff.Check(t, gotErr, tc.wantErr)
-			testutil.AssertCmp(t, sentMessages, tc.wantMessages, cmpopts.IgnoreUnexported(pubsub.Message{}))
 		})
 	}
 }

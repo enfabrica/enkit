@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
+	"github.com/enfabrica/enkit/lib/gmap"
 )
 
 func init() {
@@ -65,6 +66,15 @@ var (
 	},
 		[]string{
 			"outcome",
+		},
+	)
+	metricUnknownBuildType = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "bes_publisher",
+		Name:      "unknown_build_type",
+		Help:      "Number of invocations with build_metadata ROLE set to an unrecognized value",
+	},
+		[]string{
+			"role",
 		},
 	)
 )
@@ -213,19 +223,41 @@ func (b *buildStream) updateAttrs(event *bes.BuildEvent) {
 	switch payload := event.Payload.(type) {
 	case *bes.BuildEvent_Started:
 		b.attrs["inv_id"] = payload.Started.GetUuid()
+	case *bes.BuildEvent_BuildMetadata:
+		if role, ok := payload.BuildMetadata.GetMetadata()["ROLE"]; ok {
+			switch role {
+			case "interactive":
+				b.attrs["inv_type"] = "interactive"
+			case "presubmit":
+				b.attrs["inv_type"] = "presubmit"
+			case "CI":
+				b.attrs["inv_type"] = "postsubmit"
+			default:
+				metricUnknownBuildType.WithLabelValues(role).Inc()
+			}
+		} else {
+			metricUnknownBuildType.WithLabelValues("<unset>").Inc()
+		}
+	case *bes.BuildEvent_Finished:
+		b.attrs["result"] = payload.Finished.GetExitCode().GetName()
 	}
 }
 
 // maybePublish publishes the given event if it is one that we care about;
 // otherwise, the event is dropped.
 func (b *buildStream) maybePublish(event *bes.BuildEvent) error {
-	copy := &bes.BuildEvent{Payload: event.Payload}
+	copy := &bes.BuildEvent{Id: event.Id, Payload: event.Payload}
 
 	switch event.Payload.(type) {
 	default:
 		metricBuildEventServiceEventCount.WithLabelValues(oneofType(event.Payload), "dropped").Inc()
 		return nil
 	case *bes.BuildEvent_Started:
+	case *bes.BuildEvent_BuildMetadata:
+	case *bes.BuildEvent_WorkspaceStatus:
+	case *bes.BuildEvent_TestResult:
+	case *bes.BuildEvent_Finished:
+	case *bes.BuildEvent_BuildMetrics:
 	}
 
 	contents, err := protojson.Marshal(copy)
@@ -236,7 +268,7 @@ func (b *buildStream) maybePublish(event *bes.BuildEvent) error {
 
 	res := b.besTopic.Publish(b.stream.Context(), &pubsub.Message{
 		Data:       contents,
-		Attributes: b.attrs,
+		Attributes: gmap.Copy(b.attrs),
 	})
 
 	b.outstandingPublish.Add(1)
