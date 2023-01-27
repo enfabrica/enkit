@@ -196,6 +196,9 @@ The following generic jinja2 extensions are enabled within codegen:
 * [debug](https://jinja.palletsprojects.com/en/3.1.x/extensions/#debug-extension):
   Adds the "debug" statement to dump debugging information from within the
   template.
+* [case conversion](https://pypi.org/project/jinja2-strcase/):
+  Adds a few filters to convert `CamelCase` to `snake_case` and the other
+  way around.
 
 Additionally, codegen adds the following functions:
 
@@ -203,3 +206,5 @@ Additionally, codegen adds the following functions:
 * `bitwise_or(x, y)`: performs a bitwise or operation for two integers.
 * `bitwise_xor(x, y)`: performs a bitwise xor operation for two integers.
 * `bitwise_not(x)`: performs a bitwise not operation for an integer.
+* `re_split(regx, text)`: splits text based on the regex.
+* `re_sub(text, match, sub)`: applies the regex substitution specified. `re_sub` can also be used as a filter.
