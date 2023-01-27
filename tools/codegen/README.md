@@ -206,5 +206,5 @@ Additionally, codegen adds the following functions:
 * `bitwise_or(x, y)`: performs a bitwise or operation for two integers.
 * `bitwise_xor(x, y)`: performs a bitwise xor operation for two integers.
 * `bitwise_not(x)`: performs a bitwise not operation for an integer.
-* `re_split_function(regx, text)`: splits text based on the regex.
-* `re_sub_function(text, match, sub)`: applies the regex substitution specified. `re_sub_function` can also be used as a filter.
+* `re_split(regx, text)`: splits text based on the regex.
+* `re_sub(text, match, sub)`: applies the regex substitution specified. `re_sub` can also be used as a filter.
