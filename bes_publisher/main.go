@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"net/http"
+	"os"
+	"os/signal"
 
+	"cloud.google.com/go/pubsub"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	bpb "google.golang.org/genproto/googleapis/devtools/build/v1"
@@ -21,15 +25,40 @@ var (
 		50*1024*1024,
 		"Maximum receive message size in bytes accepted by gRPC methods",
 	)
+	gcpProjectID = flag.String(
+		"gcp_project_id",
+		"",
+		"GCP project with PubSub resources to use",
+	)
+	besPubsubTopic = flag.String(
+		"bes_pubsub_topic",
+		"",
+		"Name of topic to publish BES messages on",
+	)
 )
+
+func exitIf(err error) {
+	if err != nil {
+		glog.Exit(err)
+	}
+}
 
 func main() {
 	flag.Parse()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	defer cancel()
+
+	pubsubClient, err := pubsub.NewClient(ctx, *gcpProjectID)
+	exitIf(err)
+	topic := buildevent.NewTopic(pubsubClient.Topic(*besPubsubTopic))
+
+	srv, err := buildevent.NewService(topic)
+	exitIf(err)
 
 	grpcs := grpc.NewServer(
 		grpc.MaxRecvMsgSize(*maxMessageSize),
 	)
-	bpb.RegisterPublishBuildEventServer(grpcs, &buildevent.Service{})
+	bpb.RegisterPublishBuildEventServer(grpcs, srv)
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
