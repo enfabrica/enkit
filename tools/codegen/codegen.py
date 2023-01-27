@@ -76,6 +76,10 @@ def re_split_function(regex, text):
     return re.split(regex, text)
 
 
+def re_sub_function(text, match, sub):
+    return re.sub(match, sub, text)
+
+
 def _merge(a, b, path=None):
     """Merges structure b into structure a."""
     if path is None:
@@ -112,6 +116,12 @@ class Template(data_loader.DataLoader):
                 "bitwise_xor": bitwise_xor_function,
                 "bitwise_not": bitwise_not_function,
                 "re_split": re_split_function,
+                "re_sub": re_sub_function,
+            }
+        )
+        self.env.filters.update(
+            {
+                "re_sub": re_sub_function,
             }
         )
         self.context = {"_DATA": [], "_TEMPLATE": ""}
