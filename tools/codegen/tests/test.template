@@ -1,9 +1,13 @@
+{%- macro ImAFilter(text, prefix) -%}
+{{prefix}}{{text|upper}}
+{%- endmacro -%}
 over={{over}}
 zoo={{zoo}}
 foo={{foo}}
 camel={{foo|to_screaming_snake}}
 tooth={{"tooth"|re_replace("o", "a")}}
 tooth={{re_replace("foo", "o", "a")}}
+filtered={{"test string"|as_filter("ImAFilter", "myp_")}}
 {%- for t in bum %}
   bum: {{ t }}
 {%- endfor %}

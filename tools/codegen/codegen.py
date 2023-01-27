@@ -80,6 +80,22 @@ def re_replace_function(text, match, sub):
     return re.sub(match, sub, text)
 
 
+@jinja2.pass_context
+def as_filter_function(context, text, macro, *args, **kwargs):
+    """Allows to use a macro as a filter.
+
+    For example:
+        {% macro UpperPrefix(text, prefix = "prefix_") -%}
+        {{prefix}}{{text|upper}}
+        {%- endmacro %}
+
+        {{"toast"|as_filter("UpperPrefix", prefix = "prefix_")}}
+
+    Will invoke the macro UpperPrefix as a filter, returning
+    "prefix_TOAST".
+    """
+    return context.vars[macro](text, *args, **kwargs)
+
 def _merge(a, b, path=None):
     """Merges structure b into structure a."""
     if path is None:
@@ -122,6 +138,7 @@ class Template(data_loader.DataLoader):
         self.env.filters.update(
             {
                 "re_replace": re_replace_function,
+                "as_filter": as_filter_function,
             }
         )
         self.context = {"_DATA": [], "_TEMPLATE": ""}

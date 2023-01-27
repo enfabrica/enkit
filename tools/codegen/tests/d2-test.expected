@@ -4,6 +4,7 @@ foo=bar
 camel=BAR
 tooth=taath
 tooth=faa
+filtered=myp_TEST STRING
   bum: x
   bum: y
   bum: z
