@@ -169,7 +169,44 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "hello-dynamic",
+    srcs = ["testdata/dynamic/hello-dynamic.cc"],
+    linkstatic = False,
+    deps = [
+        "@com_google_googletest//:gtest",
+    ],
+)
+
 #### Actual tests
+load("//bazel/utils:cc_dynamic_wrapper.bzl", "cc_dynamic_wrapper")
+
+cc_dynamic_wrapper(
+    name = "dynamic-test",
+    bin = ":hello-dynamic",
+)
+
+cc_dynamic_wrapper(
+    name = "dynamic-test-false",
+    bin = ":hello-dynamic",
+    debug = True,
+    run = "/bin/false",
+)
+
+# Verifies that the generated wrapper is executable without error.
+exec_test(
+    name = "dynamic-wrapper_test",
+    dep = ":dynamic-test",
+    must_fail = False,
+)
+
+# The same wrapper as above is now running /bin/false, error status is propagated.
+exec_test(
+    name = "dynamic-wrapper-false_test",
+    dep = ":dynamic-test-false",
+    must_fail = True,
+)
+
 remote_run(
     name = "test-no-dests",
     rsync_cmd = "./bazel/utils/save-argv test1.rsync",
