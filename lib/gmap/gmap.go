@@ -18,3 +18,15 @@ func Keys[T map[K]V, K comparable, V any](m T) []K {
 	}
 	return keys
 }
+
+// Merge returns a copy of the first arg, with each of the subsequent maps of
+// the same type merged in. If map keys overlap, entry from the last map wins.
+func Merge[T map[K]V, K comparable, V any](ms ...T) T {
+	copy := T{}
+	for _, m := range ms {
+		for k, v := range m {
+			copy[k] = v
+		}
+	}
+	return copy
+}

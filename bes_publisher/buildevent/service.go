@@ -20,8 +20,8 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
 	"github.com/enfabrica/enkit/lib/gmap"
+	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
 )
 
 func init() {
@@ -75,6 +75,15 @@ var (
 	},
 		[]string{
 			"role",
+		},
+	)
+	metricUnknownTargetType = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "bes_publisher",
+		Name:      "unknown_target_type",
+		Help:      "Number of completions of targets that couldn't be matched to a TargetConfigured message",
+	},
+		[]string{
+			"reason",
 		},
 	)
 )
@@ -137,11 +146,13 @@ func (s *Service) PublishLifecycleEvent(ctx context.Context, req *bpb.PublishLif
 // PublishBuildToolEventStream handles all the Bazel BES messages seen.
 func (s *Service) PublishBuildToolEventStream(stream bpb.PublishBuildEvent_PublishBuildToolEventStreamServer) (retErr error) {
 	bs := &buildStream{
-		stream:             stream,
-		besTopic:           s.besTopic,
-		attrs:              map[string]string{},
-		errs:               newErrslice(),
-		outstandingPublish: sync.WaitGroup{},
+		stream:                        stream,
+		besTopic:                      s.besTopic,
+		attrs:                         map[string]string{},
+		typeFromLabelAndAspect:        map[string]string{},
+		typeFromLabelAndConfiguration: map[string]string{},
+		errs:                          newErrslice(),
+		outstandingPublish:            sync.WaitGroup{},
 	}
 	if err := bs.handleMessages(); err != nil {
 		glog.Errorf("while handling messages from BEP stream: %v", err)
@@ -162,9 +173,11 @@ type buildStream struct {
 	stream   bpb.PublishBuildEvent_PublishBuildToolEventStreamServer
 	besTopic sender
 
-	attrs              map[string]string
-	errs               *errslice
-	outstandingPublish sync.WaitGroup
+	attrs                         map[string]string
+	typeFromLabelAndAspect        map[string]string
+	typeFromLabelAndConfiguration map[string]string
+	errs                          *errslice
+	outstandingPublish            sync.WaitGroup
 }
 
 func (b *buildStream) Close() error {
@@ -232,11 +245,14 @@ func (b *buildStream) updateAttrs(event *bes.BuildEvent) {
 				b.attrs["inv_type"] = "presubmit"
 			case "CI":
 				b.attrs["inv_type"] = "postsubmit"
+				b.attrs["build_name"] = payload.BuildMetadata.GetMetadata()["postsubmit_name"]
 			default:
 				metricUnknownBuildType.WithLabelValues(role).Inc()
 			}
 		} else {
 			metricUnknownBuildType.WithLabelValues("<unset>").Inc()
+			// Assume these are "interactive" builds, for backwards-compatibility
+			b.attrs["inv_type"] = "interactive"
 		}
 	case *bes.BuildEvent_Finished:
 		b.attrs["result"] = payload.Finished.GetExitCode().GetName()
@@ -248,17 +264,69 @@ func (b *buildStream) updateAttrs(event *bes.BuildEvent) {
 func (b *buildStream) maybePublish(event *bes.BuildEvent) error {
 	copy := &bes.BuildEvent{Id: event.Id, Payload: event.Payload}
 
-	switch event.Payload.(type) {
+	extraAttrs := map[string]string{}
+	switch payload := event.Payload.(type) {
 	default:
 		metricBuildEventServiceEventCount.WithLabelValues(oneofType(event.Payload), "dropped").Inc()
+		return nil
+	case *bes.BuildEvent_Configured:
+		// To date, nothing really cares about this message directly. However, we do
+		// care about TargetComplete messages; specifically, being able to tell what
+		// kind of rule it was. TargetComplete has deprecated fields for this, and
+		// says to look at TargetConfigured events for the canonical info. So, we
+		// need to remember target types here for each target, to pair them with
+		// TargetComplete events later.
+		eventID := event.GetId().GetTargetConfigured()
+		k := targetKey(eventID.GetLabel(), eventID.GetAspect())
+		targetType := payload.Configured.GetTargetKind()
+		// These strings look like: `py_binary rule`
+		// Strip off ` rule` so that downstream code is more sensible
+		if strings.HasSuffix(targetType, " rule") {
+			b.typeFromLabelAndAspect[k] = strings.TrimSuffix(targetType, " rule")
+		} else {
+			// If it doesn't have this suffix, we actually have no idea what the
+			// string looks like. Add logging here if this is a problem.
+			metricUnknownTargetType.WithLabelValues("unknown_rule_str_format").Inc()
+			b.typeFromLabelAndAspect[k] = targetType
+		}
+		// Mark this event as otherwise unhandled
+		metricBuildEventServiceEventCount.WithLabelValues(oneofType(event.Payload), "recorded_only").Inc()
 		return nil
 	case *bes.BuildEvent_Started:
 	case *bes.BuildEvent_BuildMetadata:
 	case *bes.BuildEvent_WorkspaceStatus:
+	case *bes.BuildEvent_Completed:
+		// Look up the type of this target (see above in handling TargetConfigured)
+		// and stuff this as an attr for just this message.
+		eventID := event.GetId().GetTargetCompleted()
+		k := targetKey(eventID.GetLabel(), eventID.GetAspect())
+		targetType, ok := b.typeFromLabelAndAspect[k]
+		if ok {
+			extraAttrs["rule_type"] = targetType
+			// Annoyingly, subsequent events can't be identified by label + aspect, so
+			// remember a label + configuration as well to match up target kinds.
+			k = targetKey(eventID.GetLabel(), eventID.GetConfiguration().GetId())
+			b.typeFromLabelAndConfiguration[k] = targetType
+		} else {
+			metricUnknownTargetType.WithLabelValues("unmatched_completed_target").Inc()
+		}
+
 	case *bes.BuildEvent_TestResult:
+		// Look up the type of this target (see above handling in Completed) and
+		// stuff this as an attr for just this message.
+		eventID := event.GetId().GetTestResult()
+		k := targetKey(eventID.GetLabel(), eventID.GetConfiguration().GetId())
+		targetType, ok := b.typeFromLabelAndConfiguration[k]
+		if ok {
+			extraAttrs["rule_type"] = targetType
+		} else {
+			metricUnknownTargetType.WithLabelValues("unmatched_test_result").Inc()
+		}
 	case *bes.BuildEvent_Finished:
 	case *bes.BuildEvent_BuildMetrics:
 	}
+
+	attrs := gmap.Merge(b.attrs, extraAttrs)
 
 	contents, err := protojson.Marshal(copy)
 	if err != nil {
@@ -268,13 +336,13 @@ func (b *buildStream) maybePublish(event *bes.BuildEvent) error {
 
 	res := b.besTopic.Publish(b.stream.Context(), &pubsub.Message{
 		Data:       contents,
-		Attributes: gmap.Copy(b.attrs),
+		Attributes: attrs,
 	})
 
 	b.outstandingPublish.Add(1)
 	go b.recordErrFrom(res)
 
-	metricBuildEventServiceEventCount.WithLabelValues(oneofType(event.Payload), "ok").Inc()
+	metricBuildEventServiceEventCount.WithLabelValues(oneofType(event.Payload), "propagated").Inc()
 	return nil
 }
 
@@ -285,4 +353,9 @@ func (b *buildStream) recordErrFrom(res fetcher) {
 	if err != nil {
 		b.errs.Append(err)
 	}
+}
+
+// targetKey generates a stable, unique string per label/aspect pair.
+func targetKey(label string, aspect string) string {
+	return fmt.Sprintf("%s##%s", label, aspect)
 }

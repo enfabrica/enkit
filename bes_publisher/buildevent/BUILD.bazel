@@ -37,6 +37,7 @@ go_test(
         "//lib/errdiff:go_default_library",
         "//lib/testutil:go_default_library",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
+        "@com_github_google_go_cmp//cmp:go_default_library",
         "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
         "@com_github_stretchr_testify//mock:go_default_library",
         "@com_github_stretchr_testify//require:go_default_library",
