@@ -4,8 +4,6 @@ import (
 	"context"
 	"flag"
 	"net/http"
-	"os"
-	"os/signal"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/golang/glog"
@@ -45,8 +43,7 @@ func exitIf(err error) {
 
 func main() {
 	flag.Parse()
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	defer cancel()
+	ctx := context.Background()
 
 	pubsubClient, err := pubsub.NewClient(ctx, *gcpProjectID)
 	exitIf(err)
