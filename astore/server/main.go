@@ -28,12 +28,12 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/kflags/kconfig"
+	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
 	"github.com/enfabrica/enkit/lib/oauth/providers"
 	"github.com/enfabrica/enkit/lib/server"
-	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -51,11 +51,16 @@ var messageNotFound = `Well, what you're looking for ain't here.<br />Go find a 
 
 func ShowResult(w http.ResponseWriter, r *http.Request, image, title, message string, status int) {
 	w.WriteHeader(status)
+	ok := "error"
+	if status == http.StatusOK {
+		ok = "ok"
+	}
 	templates.WritePageTemplate(w, &templates.MessagePage{
 		PageTitle: title,
 		Highlight: title,
 		Text:      message,
 		ImageCSS:  image,
+		Ok:        ok,
 	})
 }
 

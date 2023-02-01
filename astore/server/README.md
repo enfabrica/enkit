@@ -1,3 +1,7 @@
+# How to test before deploying
+
+TODO(ahungrynacho, ccontavalli): please tell me how to test this.
+
 # How to deploy and use the astore server
 
 1. Read the [README.md file in the credentials directory](credentials/),
