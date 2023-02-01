@@ -2408,7 +2408,7 @@ function gee__find() {
   CURRENT_BRANCH="$(_get_current_branch)"
   BRANCH_ROOT_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
 
-  NOFAIL=1 _cmd find ${BROOT} -name .git -prune -or -name "${1}" -print
+  NOFAIL=1 _cmd find "${BRANCH_ROOT_DIR}" -name .git -prune -or -name "${1}" -print
 }
 
 ##########################################################################
@@ -2492,7 +2492,7 @@ function gee__vimdiff() {
   local RELPATH
   RELPATH="$(realpath --relative-to "${BRANCH_ROOT_DIR}" "${FILENAME}")"
   if [[ "${RELPATH}" == ".."* ]]; then
-    _fatal "File \"${FILENAME}\" is not beneath branch root directory "${BRANCH_ROOT_DIR}"."
+    _fatal "File \"${FILENAME}\" is not beneath branch root directory ${BRANCH_ROOT_DIR}."
   fi
 
   local PARENT_BRANCH PARENT_ROOT_DIR
