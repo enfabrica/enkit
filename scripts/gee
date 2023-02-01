@@ -2455,6 +2455,65 @@ function gee__grep() {
 }
 
 ##########################################################################
+# vimdiff command
+##########################################################################
+
+_register_help "vimdiff" "Runs vimdiff to compare changes in a file." <<'EOT'
+Usage: gee vimdiff <filename>
+
+Invokes vimdiff to show and edit the changes to a specific file in the current
+branch, versus the version in the parent branch.  This can be useful to clean
+up local changes, especially after resolving merge conflicts.
+
+If installed, neovim will be used.  Otherwise, gee will fallback to vim.
+
+When working in a branch created with `pr_checkout`, the parent branch isn't
+a local worktree, and so vimdiff will produce an error and fail.
+
+Example of use:
+
+    gee vimdiff BUILD.bazel
+
+EOT
+function gee__vimdiff() {
+  _startup_checks "vimdiff"
+  _check_cwd
+
+  local CURRENT_BRANCH BRANCH_ROOT_DIR
+  CURRENT_BRANCH="$(_get_current_branch)"
+  BRANCH_ROOT_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+
+  local FILENAME="$1"
+  if [[ -z "${FILENAME}" ]]; then
+    _fatal "vimdiff requires a filename argument."
+  elif [[ ! -e "${FILENAME}" ]]; then
+    _fatal "File \"${FILENAME}\" does not exist."
+  fi
+  local RELPATH
+  RELPATH="$(realpath --relative-to "${BRANCH_ROOT_DIR}" "${FILENAME}")"
+  if [[ "${RELPATH}" == ".."* ]]; then
+    _fatal "File \"${FILENAME}\" is not beneath branch root directory "${BRANCH_ROOT_DIR}"."
+  fi
+
+  local PARENT_BRANCH PARENT_ROOT_DIR
+  _read_parents_file
+  PARENT_BRANCH="$(_get_parent_branch)"
+  # branches created with "gee pr_checkout" need special handling:
+  if [[ "${PARENT_BRANCH}" == upstream/* ]]; then
+    _fatal "gee vimdiff doesn't support pr_checkout-created branches yet."
+  fi
+  PARENT_ROOT_DIR="$(_get_branch_rootdir "${PARENT_BRANCH}")"
+
+  if command -v nvim >/dev/null; then
+    _cmd nvim -d "${PARENT_ROOT_DIR}/${RELPATH}" "${BRANCH_ROOT_DIR}/${RELPATH}"
+  elif command -v vimdiff >/dev/null; then
+    _cmd vimdiff "${PARENT_ROOT_DIR}/${RELPATH}" "${BRANCH_ROOT_DIR}/${RELPATH}"
+  else
+    _fatal "Neither nvim nor vimdiff seem to be installed."
+  fi
+}
+
+##########################################################################
 # pack command
 ##########################################################################
 
