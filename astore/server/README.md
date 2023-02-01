@@ -1,6 +1,7 @@
 # How to test before deploying
 
-TODO(ccontavalli): add instructions for testing.
+TODO(ahungrynacho, ccontavalli): please tell me how to test this.  Is there a
+way to test without deploying?
 
 # How to deploy and use the astore server
 
