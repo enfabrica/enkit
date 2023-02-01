@@ -2382,6 +2382,36 @@ function gee__diff() {
 }
 
 ##########################################################################
+# find command
+##########################################################################
+
+_register_help "find" "Finds a file by name in the current branch." <<'EOT'
+Usage: gee find [options] <expression>
+
+Searches the current branch for the specified expression.  Equivalent
+to running:
+
+    find "${BROOT}" -name .git -prune -or -name "${expression}" -print
+
+Example of use:
+
+    gee find WORKSPACE
+
+EOT
+function gee__find() {
+  # The GEE_NO_RIPGREP environment variable is available for testing, to force
+  # the use of find without requiring that ripfind be uninstalled.
+  _startup_checks "find"
+  _check_cwd
+
+  local CURRENT_BRANCH BRANCH_ROOT_DIR
+  CURRENT_BRANCH="$(_get_current_branch)"
+  BRANCH_ROOT_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
+
+  NOFAIL=1 _cmd find ${BROOT} -name .git -prune -or -name "${1}" -print
+}
+
+##########################################################################
 # grep command
 ##########################################################################
 
