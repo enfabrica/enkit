@@ -100,6 +100,7 @@ review.
 | <a href="#create_ssh_key">`create_ssh_key`</a> | Create and enroll an ssh key. |
 | <a href="#diagnose">`diagnose`</a> | Capture diagnostics about your repository. |
 | <a href="#diff">`diff`</a> | Differences in this branch. |
+| <a href="#find">`find`</a> | Finds a file by name in the current branch. |
 | <a href="#fix">`fix`</a> | Run automatic code formatters over changed files only. |
 | <a href="#gcd">`gcd`</a> | Change directory to another branch. |
 | <a href="#get_parent">`get_parent`</a> | Which branch is this branch branched from? |
@@ -134,6 +135,7 @@ review.
 | <a href="#update">`update`</a> | integrate changes from parent into this branch. |
 | <a href="#upgrade">`upgrade`</a> | Upgrade the gee tool. |
 | <a href="#version">`version`</a> | Print tool version information. |
+| <a href="#vimdiff">`vimdiff`</a> | Runs vimdiff to compare changes in a file. |
 | <a href="#whatsout">`whatsout`</a> | List locally changed files in this branch. |
 
 ## Commands
@@ -179,7 +181,20 @@ revision.
 
 ### log
 
-Usage: `gee log`
+Usage: `gee log [<args...>]`
+
+Invokes `git logp` with the supplied arguments.
+
+If the supplied arguments do not contain a commit range, then gee will show the
+log messages for commits between the parent branch and the the current branch.
+
+For example:
+
+    gee log                # show all commits since HEAD of parent branch.
+
+    gee log ./scripts/gee  # show commits since parent for a single file.
+
+    gee log master...mybr  # show all commits in a specific range
 
 ### diff
 
@@ -188,6 +203,19 @@ Usage: `gee diff [<files...>]`
 Shows all local changes this since branch diverged from its parent branch.
 
 If <files...> are omited, shows changes to all files.
+
+### find
+
+Usage: `gee find [options] <expression>`
+
+Searches the current branch for the specified expression.  Equivalent
+to running:
+
+    find "${BROOT}" -name .git -prune -or -name "${expression}" -print
+
+Example of use:
+
+    gee find WORKSPACE
 
 ### grep
 
@@ -210,6 +238,23 @@ command.
 Example of use:
 
     grg -l fdst
+
+### vimdiff
+
+Usage: `gee vimdiff <filename>`
+
+Invokes vimdiff to show and edit the changes to a specific file in the current
+branch, versus the version in the parent branch.  This can be useful to clean
+up local changes, especially after resolving merge conflicts.
+
+If installed, neovim will be used.  Otherwise, gee will fallback to vim.
+
+When working in a branch created with `pr_checkout`, the parent branch isn't
+a local worktree, and so vimdiff will produce an error and fail.
+
+Example of use:
+
+    gee vimdiff BUILD.bazel
 
 ### pack
 

@@ -2,8 +2,12 @@
 
 ## Releases
 
+
 ### 0.2.39
 
+* gee find: new command, quickly find named files. (#839)
+* gee vimdiff: new command, view local changes in a file. (#839)
+* gee bazelgc: fix, correctly handle deletion of too many files. (#817)
 * gee bazelgc: also prune old files from ~/.cache/bazel-disk-cache (#813)
 * gee grep: new command, easily search a git branch using grep or ripgrep (#811)
 
