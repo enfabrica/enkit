@@ -30,6 +30,7 @@ go_test(
         # Test starts up a server on localhost, which may not be permitted on
         # remote workers.
         "no-remote-exec",
+        "no-presubmit",
     ],
     deps = [
         "//lib/errdiff",
