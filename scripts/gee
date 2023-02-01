@@ -5197,7 +5197,7 @@ function _gee_completion() {
     2)
       prev="\${COMP_WORDS[COMP_CWORD-1]}"
       case "\${prev}" in
-        diff|unpack|revert)
+        diff|log|unpack|vimdiff|revert)
           COMPREPLY=(\$(compgen -f -- "\${cur}"))
           ;;
         set_parent|gcd|rmbr|remove_branch)
