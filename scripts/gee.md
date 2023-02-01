@@ -181,7 +181,20 @@ revision.
 
 ### log
 
-Usage: `gee log`
+Usage: `gee log [<args...>]`
+
+Invokes `git logp` with the supplied arguments.
+
+If the supplied arguments do not contain a commit range, then gee will show the
+log messages for commits between the parent branch and the the current branch.
+
+For example:
+
+    gee log                # show all commits since HEAD of parent branch.
+
+    gee log ./scripts/gee  # show commits since parent for a single file.
+
+    gee log master...mybr  # show all commits in a specific range
 
 ### diff
 

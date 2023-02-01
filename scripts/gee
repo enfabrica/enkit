@@ -2318,7 +2318,21 @@ function gee__make_branch() {
 
 _register_help "log" \
   "Log of commits since parent branch." <<'EOT'
-Usage: gee log
+Usage: gee log [<args...>]
+
+Invokes `git logp` with the supplied arguments.
+
+If the supplied arguments do not contain a commit range, then gee will show the
+log messages for commits between the parent branch and the the current branch.
+
+For example:
+
+    gee log                # show all commits since HEAD of parent branch.
+
+    gee log ./scripts/gee  # show commits since parent for a single file.
+
+    gee log master...mybr  # show all commits in a specific range
+
 EOT
 
 function gee__log() {
@@ -2327,13 +2341,13 @@ function gee__log() {
   _check_cwd
   local -a ARGS=( "$@" )
   local -a RANGE=()
-  _egrep_array RANGE '^\w*\.\.\.\w*$' "$@"
+  _egrep_array RANGE '^\w*\.\.\.\w*$' "${ARGS[@]}"
   if (( ${#RANGE[@]} == 0 )); then
     local PARENT_BRANCH CURRENT_BRANCH
     _read_parents_file
     PARENT_BRANCH="$(_get_parent_branch)"
     CURRENT_BRANCH="$(_get_current_branch)"
-    ARGS+=("${PARENT_BRANCH}...${CURRENT_BRANCH}")
+    ARGS=("${PARENT_BRANCH}...${CURRENT_BRANCH}" "${ARGS[@]}")
   fi
   local -a PRETTYLOG=(
       log
