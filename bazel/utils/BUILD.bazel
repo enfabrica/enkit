@@ -4,6 +4,8 @@ load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
 load("//bazel/utils:files.bzl", "write_to_file")
 load("//bazel/utils:exec_test.bzl", "exec_test")
+load("//bazel/utils:remote.bzl", "remote_run", "remote_wrapper")
+load("//bazel/utils:remote_test.bzl", "remote_run_test")
 
 bzl_library(
     name = "diff_test_bzl",
@@ -82,11 +84,6 @@ sh_test(
     srcs = ["echo-argv_test_check.sh"],
     data = [":echo-argv_test"],
 )
-
-load("//bazel/utils:remote.bzl", "remote_run", "remote_wrapper")
-load("//bazel/utils:exec_test.bzl", "exec_test")
-load("//bazel/utils:diff_test.bzl", "diff_test")
-load("//bazel/utils:remote_test.bzl", "remote_run_test")
 
 #### Support targets
 filegroup(

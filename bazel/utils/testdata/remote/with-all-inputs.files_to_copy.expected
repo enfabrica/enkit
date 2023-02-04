@@ -1,6 +1,5 @@
 enkit/../local_config_cc/builtin_include_directory_paths
 enkit/../bazel_tools/tools/def_parser/no_op.bat
-enkit/../bazel_tools/tools/cpp/grep-includes.sh
 enkit/bazel/utils/testdata/remote/quote00.txt
 enkit/bazel/utils/quote01.txt
 enkit/tools/codegen/tests/gen-test.actual
@@ -10,8 +9,8 @@ enkit/../com_google_googletest/libgtest.so
 enkit/tools/codegen/codegen.py
 enkit/tools/codegen/codegen
 enkit/../bazel_tools/src/tools/launcher/launcher
+enkit/../bazel_tools/tools/cpp/grep-includes.sh
 enkit/../bazel_tools/src/tools/launcher/dummy.cc
-enkit/../bazel_tools/tools/python/2to3.sh
 enkit/../bazel_tools/tools/zip/zipper/zipper
 enkit/tools/codegen/data_loader.py
 enkit/../python_dependencies_absl_py/absl/__init__.py

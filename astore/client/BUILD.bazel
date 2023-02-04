@@ -18,7 +18,7 @@ go_library(
 go_binary(
     name = "astore",
     embed = [":go_default_library"],
-    static = "on",
+    pure = "on",
     visibility = ["//visibility:public"],
 )
 
