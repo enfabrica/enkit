@@ -1,6 +1,5 @@
 load("//bazel/astore:defs.bzl", "astore_upload")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("//bazel/astore:defs.bzl", "astore_upload")
 
 go_library(
     name = "go_default_library",
@@ -18,6 +17,16 @@ go_binary(
 
 go_binary(
     name = "enkit-linux-amd64",
+    embed = [":go_default_library"],
+    goarch = "amd64",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
+    name = "enkit-linux-cgo-amd64",
     cgo = True,
     embed = [":go_default_library"],
     goarch = "amd64",
