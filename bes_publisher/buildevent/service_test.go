@@ -3,9 +3,12 @@ package buildevent
 import (
 	"context"
 	"io"
+	"sync"
+	"reflect"
 	"testing"
 
 	"cloud.google.com/go/pubsub"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -112,13 +115,13 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 						Id: &bes.BuildEventId_TestResult{
 							TestResult: &bes.BuildEventId_TestResultId{
 								Label: "//foo/bar:baz_test",
-								Run: 1,
+								Run:   1,
 							},
 						},
 					},
 					Payload: &bes.BuildEvent_TestResult{
 						TestResult: &bes.TestResult{
-							Status: bes.TestStatus_PASSED,
+							Status:        bes.TestStatus_PASSED,
 							CachedLocally: false,
 						},
 					},
@@ -153,38 +156,38 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 				&pubsub.Message{
 					Data: []byte(`{"buildMetadata":{"metadata":{"ROLE":"interactive"}}}`),
 					Attributes: map[string]string{
-						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
 					},
 				},
 				&pubsub.Message{
 					Data: []byte(`{"workspaceStatus":{"item":[{"key":"GIT_USER", "value":"jmcclane"}]}}`),
 					Attributes: map[string]string{
-						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
 					},
 				},
 				&pubsub.Message{
 					Data: []byte(`{"id":{"testResult":{"label":"//foo/bar:baz_test", "run":1}}, "testResult":{"status":"PASSED"}}`),
 					Attributes: map[string]string{
-						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
 					},
 				},
 				&pubsub.Message{
 					Data: []byte(`{"finished":{"exitCode":{"name":"SUCCESS"}}}`),
 					Attributes: map[string]string{
-						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
-						"result": "SUCCESS",
+						"result":   "SUCCESS",
 					},
 				},
 				&pubsub.Message{
 					Data: []byte(`{"buildMetrics":{"buildGraphMetrics":{"actionCount":3}}}`),
 					Attributes: map[string]string{
-						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
+						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
-						"result": "SUCCESS",
+						"result":   "SUCCESS",
 					},
 				},
 			},
@@ -215,14 +218,10 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 			for _, msg := range tc.wantMessages {
 				// Need to capture the loop variable, or all the assertions will
 				// run against the last element of wantMessages.
-				//
-				// There's something goofy happening (spaces added after
-				// commas?) when comparing against the message directly, so make
-				// a deep copy here and compare against that instead.
 				msg := *msg
 				topic.On("Publish", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 					sent := args.Get(1).(*pubsub.Message)
-					testutil.AssertCmp(t, sent, &msg, cmpopts.IgnoreUnexported(pubsub.Message{}))
+					testutil.AssertCmp(t, sent, &msg, cmp.Comparer(bytesEqual), cmpopts.IgnoreUnexported(pubsub.Message{}))
 				}).Return(newMockPublishResult(randomMs(10, 100), nil)).Once()
 			}
 
@@ -231,4 +230,15 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 			errdiff.Check(t, gotErr, tc.wantErr)
 		})
 	}
+}
+
+// There's something goofy happening (spaces are added/removed in byte slices to
+// cause tests to always fail)
+// Specifying our own bytes comparison routine that synchronizes on a mutex
+// seems to fix this.
+var wtf sync.Mutex
+func bytesEqual(a, b []byte) bool {
+	wtf.Lock()
+	defer wtf.Unlock()
+	return reflect.DeepEqual(a, b)
 }
