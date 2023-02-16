@@ -3286,7 +3286,7 @@ function gee__commit() {
   if [[ "${CURRENT_BRANCH}" == "${MAIN}" ]]; then
     _info "gee's workflow doesn't allow changes to the ${MAIN} branch."
     _info "You should move your changes to another branch.  For example:"
-    _info "  git add -a; git stash; gee mkbr new1; gcd new1; git stash apply"
+    _info "  git add -A; git stash; gcd -m new1; git stash apply"
     _fatal "Commit to ${MAIN} branch denied."
   fi
   BRANCH_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
