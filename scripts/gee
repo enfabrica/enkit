@@ -2759,8 +2759,8 @@ function gee__update() {
         _info "Pulling in changes from origin/${CURRENT_BRANCH}"
         HEAD="$("${GIT}" rev-parse HEAD)"
         _info "Old head commit before rebase: ${HEAD}"
-        _git rebase --autostash "origin/${CURRENT_BRANCH}"
-        _check_diff_for_merge_conflict_markers
+        _checkout_or_die "${CURRENT_BRANCH}"
+        _safer_rebase "${CURRENT_BRANCH}" "origin/${CURRENT_BRANCH}"
       else
         _info "You may need to \"git push -u origin --force\" to fix your origin remote."
       fi
