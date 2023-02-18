@@ -1,12 +1,7 @@
-load("@python_dependencies//:requirements.bzl", "requirement")
-
 py_binary(
     name = "merge",
     srcs = [
         "merge.py",
-    ],
-    deps = [
-        requirement("pyyaml"),
     ],
     visibility = ["//visibility:public"],
 )
