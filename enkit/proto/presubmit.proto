@@ -15,4 +15,10 @@ message PresubmitConfig {
 
   // Exclude targets that have at least one of these tags from build and test.
   repeated string exclude_tags = 3;
+
+  // Only include targets that have at least one of those tags.
+  //
+  // If both exclude_tags and include_tags are specified, a target will only
+  // be run if it both has an include_tags, and does NOT have an exclude_tags.
+  repeated string include_tags = 4;
 }

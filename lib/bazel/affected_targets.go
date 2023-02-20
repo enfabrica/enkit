@@ -64,6 +64,7 @@ func GetAffectedTargets(config *ppb.PresubmitConfig, mode GetMode, opts GetModeO
 		return nil, nil, err
 	}
 	excludeTags := config.GetExcludeTags()
+        includeTags := config.GetIncludeTags()
 
 	// Open the bazel workspaces, using a temporary output_base. Since the
 	// temporary worktrees created above will have a different path on every
@@ -149,6 +150,21 @@ skipTarget:
 				continue skipTarget
 			}
 		}
+
+		if len(includeTags) > 0 {
+			isIncluded := false
+			for _, t := range includeTags {
+				if target.containsTag(t) {
+					isIncluded = true
+					break
+				}
+			}
+			if !isIncluded {
+				log.Debugf("Filtering taget that does not include any of the included tags %q: %q", includeTags, targetName)
+				continue skipTarget
+			}
+		}
+
 		changedRules = append(changedRules, target)
 		if strings.HasSuffix(target.ruleType(), "_test") {
 			changedTests = append(changedTests, target)
