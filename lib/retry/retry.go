@@ -22,20 +22,18 @@
 //
 // 1) Create a `retry.Options` object, like:
 //
-//     options := retry.New(retry.WithWait(5 * time.Second), retry.WithAttempts(10))
+//	options := retry.New(retry.WithWait(5 * time.Second), retry.WithAttempts(10))
 //
 // 2) Run some code:
 //
-//     options.Run(func () error {
-//       ...
-//     })
+//	options.Run(func () error {
+//	  ...
+//	})
 //
 // The retry library will run your functions as many times as configured until it
 // returns an error, or until it returns retry.FatalError (use retry.Fatal to
 // create one) or an error wrapping a retry.FatalError (see the errors library,
 // and all the magic wrapping/unwrapping logic).
-//
-//
 package retry
 
 import (
@@ -122,12 +120,11 @@ func (mods Modifiers) Apply(o *Options) *Options {
 //
 // If no description is provided, and retry fails, you will get a generic log entry like:
 //
-//     attempt #1 - FAILED - This is the string error received
+//	attempt #1 - FAILED - This is the string error received
 //
 // If you provide a description instead, you will get a log entry:
 //
-//     attempt #1 Your description goes here - FAILED - This is the string error received
-//
+//	attempt #1 Your description goes here - FAILED - This is the string error received
 func WithDescription(desc string) Modifier {
 	return func(o *Options) {
 		o.description = desc
@@ -193,17 +190,21 @@ func WithAttempts(atmost int) Modifier {
 	}
 }
 
+// WithLogger configures a logger to send log messages to.
 func WithLogger(log logger.Logger) Modifier {
 	return func(o *Options) {
 		o.logger = log
 	}
 }
+
+// WithTimeSource configures a different clock.
 func WithTimeSource(ts TimeSource) Modifier {
 	return func(o *Options) {
 		o.Now = ts
 	}
 }
 
+// FromFlags configures a retry object from command line flags.
 func FromFlags(fl *Flags) Modifier {
 	return func(o *Options) {
 		if fl == nil {
@@ -214,6 +215,7 @@ func FromFlags(fl *Flags) Modifier {
 	}
 }
 
+// New creates a new retry object.
 func New(mods ...Modifier) *Options {
 	return Modifiers(mods).Apply(&Options{
 		Flags:  *DefaultFlags(),
@@ -237,10 +239,20 @@ func (s *FatalError) Unwrap() error {
 	return s.Original
 }
 
+// Fatal turns a normal error into a fatal error.
+//
+// Fatal errors will stop the retrier immediately.
+// Fatal errors implement the Unwrap() API, allowing the use of
+// errors.Is, errors.As, and errors.Unwrap.
 func Fatal(err error) *FatalError {
 	return &FatalError{Original: err}
 }
 
+// DelaySince computes how longer to wait since a start time.
+//
+// DelaySince assumes that a wait started at start time, and computes
+// how longer the code still has to wait based on a delay computed
+// with the Delay() function.
 func (o *Options) DelaySince(start time.Time) time.Duration {
 	delay := o.Delay()
 	if start.IsZero() {
@@ -254,6 +266,10 @@ func (o *Options) DelaySince(start time.Time) time.Duration {
 	return delay - elapsed
 }
 
+// Delay computes how long to wait before the next attempt.
+//
+// If Fuzzy is non 0, the delay is fuzzied by a random amount
+// less than the value of fuzzy.
 func (o *Options) Delay() time.Duration {
 	delta := int64(0)
 	if o.Fuzzy > 0 {
@@ -266,8 +282,11 @@ func (o *Options) Delay() time.Duration {
 	return o.Wait + time.Duration(delta)
 }
 
+// ExaustedError is returned when the retrier has exhausted all attempts.
 type ExaustedError struct {
-	Message  string
+	// Message is a human readable error message, returned by Error().
+	Message string
+	// Original is a multierror.MultiError containing the last MaxErrors errors.
 	Original error
 }
 
@@ -279,14 +298,41 @@ func (ee *ExaustedError) Unwrap() error {
 	return ee.Original
 }
 
+// Once runs the specified function once as if it was run by Run().
+//
+// attempt is the attempt number, how many times before it was invoked.
+// runner is the function to invoke.
+//
+// Once returns the error returned by the supplied runner.
+// In case the runner fails, Once also log messages as specified by Options
+// and exactly like Run() would, and computes a delay indicating how long to
+// wait before running this function again.
+//
+// Once is useful in non-blocking or multithreaded code, when you cannot
+// afford to block an entire goroutine for the funcntion to complete, but
+// you still want to implement reasonable retry semantics based on this
+// library.
+//
+// Typically, your code will invoke Once() to run the runner, and in case of
+// failure, re-schedule it to run later.
 func (o *Options) Once(attempt int, runner func() error) (time.Duration, error) {
+	return o.OnceAttempt(attempt, func(attempt int) error {
+		return runner()
+	})
+}
+
+// OnceAttempt is just like Once, but invokes a runner that expects an attempt #.
+//
+// OnceAttempt is to Once what RunAttempt is to Run. Read the documentation for
+// RunAttempt and Once for details.
+func (o *Options) OnceAttempt(attempt int, runner func(attempt int) error) (time.Duration, error) {
 	description := ""
 	if o.description != "" {
 		description = " - " + o.description
 	}
 
 	start := o.Now()
-	err := runner()
+	err := runner(attempt)
 	if err == nil {
 		return 0, nil
 	}
@@ -309,11 +355,11 @@ func (o *Options) Once(attempt int, runner func() error) (time.Duration, error) 
 	return delay, err
 }
 
-// Run will run the function specified until it succeeds.
+// Run runs the function specified until it succeeds.
 //
 // Run will keep retrying running the function until either the function
-// succeeds, it returns a FatalError, or all retry attempts as specified
-// in Options are exhausted.
+// return a nil error, it returns a FatalError, or all retry attempts as
+// specified in Options are exhausted.
 //
 // When Run gives up running a function, it returns the original error
 // returned by the function, wrapped into an ExaustedError.
@@ -321,9 +367,22 @@ func (o *Options) Once(attempt int, runner func() error) (time.Duration, error) 
 // You can use errors.As or errors.Is or the unwrap magic to retrieve
 // the original error.
 func (o *Options) Run(runner func() error) error {
+	return o.RunAttempt(func(attempt int) error {
+		return runner()
+	})
+}
+
+// RunAttempt is just like Run, but propagates the attempt #.
+//
+// Use RunAttempt when your function callback requires knowing how
+// many attemps have been made so far at running your function.
+// This is useful, for example, to log an extra message every x
+// attempts, to re-initialize state on non-first attempt, or
+// try harder after a number of attempts, ...
+func (o *Options) RunAttempt(runner func(attempt int) error) error {
 	errs := []error{}
 	for ix := 0; o.AtMost == 0 || ix < o.AtMost; ix++ {
-		delay, err := o.Once(ix, runner)
+		delay, err := o.OnceAttempt(ix, runner)
 		if err == nil {
 			return nil
 		}
