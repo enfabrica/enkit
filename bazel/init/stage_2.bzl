@@ -19,7 +19,6 @@ load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_depende
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 load("@rules_python//python:pip.bzl", "pip_parse")
-load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 
 def stage_2():
     """Stage 2 initialization for WORKSPACE.
@@ -32,13 +31,16 @@ def stage_2():
       dependencies are in stage 2 because they depend on the existence of
       rules_python in a load statement, which is instantiated in stage 1.
     """
-
-    py_repositories()
-
-    python_register_toolchains(
-        name = "python3_8",
-        python_version = "3.8",
-        ignore_root_user_error = True,
+    pip_parse(
+        name = "python_dependencies",
+        extra_pip_args = [
+            # Needed for latest pytorch+CUDA install
+            "--find-links=https://download.pytorch.org/whl/torch_stable.html",
+            # Fixes OOMkill during torch install
+            # See https://github.com/pytorch/pytorch/issues/1022
+            "--no-cache-dir",
+        ],
+        requirements_lock = "//:requirements.txt",
     )
 
     # SDKs that can be used to build Go code. We need:
