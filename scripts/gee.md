@@ -211,7 +211,8 @@ Usage: `gee find [options] <expression>`
 Searches the current branch for the specified expression.  Equivalent
 to running:
 
-    find "${BROOT}" -name .git -prune -or -name "${expression}" -print
+    find -L "$(git rev-parse --show-toplevel)" -name .git -prune -or \
+         -name "${expression}" -print
 
 Example of use:
 
