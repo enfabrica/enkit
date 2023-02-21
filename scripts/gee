@@ -2405,7 +2405,8 @@ Usage: gee find [options] <expression>
 Searches the current branch for the specified expression.  Equivalent
 to running:
 
-    find "${BROOT}" -name .git -prune -or -name "${expression}" -print
+    find -L "$(git rev-parse --show-toplevel)" -name .git -prune -or \
+         -name "${expression}" -print
 
 Example of use:
 
@@ -2422,7 +2423,7 @@ function gee__find() {
   CURRENT_BRANCH="$(_get_current_branch)"
   BRANCH_ROOT_DIR="$(_get_branch_rootdir "${CURRENT_BRANCH}")"
 
-  NOFAIL=1 _cmd find "${BRANCH_ROOT_DIR}" -name .git -prune -or -name "${1}" -print
+  NOFAIL=1 _cmd find -L "${BRANCH_ROOT_DIR}" -name .git -prune -or -name "${1}" -print
 }
 
 ##########################################################################
