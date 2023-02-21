@@ -137,12 +137,13 @@ def stage_1():
     maybe(
         name = "rules_python",
         repo_rule = http_archive,
-        patch_tool = "patch",
         patch_args = ["-p1"],
         patches = ["@enkit//bazel/dependencies/rules_python:downgrade_setuptools.patch"],
         sha256 = "29a801171f7ca190c543406f9894abf2d483c206e14d6acbd695623662320097",
         strip_prefix = "rules_python-0.18.1",
-        url = "https://github.com/bazelbuild/rules_python/releases/download/0.18.1/rules_python-0.18.1.tar.gz",
+        urls = [
+            "https://github.com/bazelbuild/rules_python/releases/download/0.18.1/rules_python-0.18.1.tar.gz",
+        ],
     )
 
     maybe(
