@@ -5,7 +5,7 @@ type MessagePage struct {
 	ImageCSS string
 	Highlight string
 	Text string
-	Ok string
+	Status string
 }
 %}
 {% func (m *MessagePage) Title() %}{%s m.PageTitle %}{% endfunc %}
@@ -21,14 +21,16 @@ type MessagePage struct {
                 <div class="mdl-card__title-text">
                   <h2>{%s m.Highlight %}</h2>
                 </div>
-                <div class="mdl-card__supporting-text">{%s= m.Text %}</div>
+                <div class="mdl-card__supporting-text">
+                  {%s= m.Text %}
+                </div>
               </div>
           </div>
       </div>
 
       <div class="mdl-cell mdl-cell--2-col"></div>
 
-      {% if m.Ok == "ok" %}
+      {% if m.Status == "ok" %}
         <script>
           setTimeout(function() {window.close()}, 30000);
         </script>

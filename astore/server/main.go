@@ -51,16 +51,16 @@ var messageNotFound = `Well, what you're looking for ain't here.<br />Go find a 
 
 func ShowResult(w http.ResponseWriter, r *http.Request, image, title, message string, status int) {
 	w.WriteHeader(status)
-	ok := "error"
+	sstring := "error"
 	if status == http.StatusOK {
-		ok = "ok"
+		sstring = "ok"
 	}
 	templates.WritePageTemplate(w, &templates.MessagePage{
 		PageTitle: title,
 		Highlight: title,
 		Text:      message,
 		ImageCSS:  image,
-		Ok:        ok,
+		Status:    sstring,
 	})
 }
 

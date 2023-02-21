@@ -1,6 +1,6 @@
 # How to test before deploying
 
-TODO(ahungrynacho, ccontavalli): please tell me how to test this.
+TODO(ccontavalli): add instructions for testing.
 
 # How to deploy and use the astore server
 
