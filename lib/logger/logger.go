@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"log"
 )
 
 // Logger is the interface used by the enkit libraries to log messages.
@@ -48,11 +49,12 @@ func LogLines(logger Printer, buffer, indent string) {
 	}
 }
 
-// DefaultLogger implements the Logger interface.
+// DefaultLogger uses a single Printf to implement the Logger interface.
 //
 // Printer must be provided. Use log.Printf to rely on default golang logging, with:
 //    logger := &DefaultLoger{Printer: log.Printf}
 //
+// ... or just use the pre-defined `Go` variable bleow for default Go logging.
 type DefaultLogger struct {
 	Printer Printer
 	Setter  func(writer io.Writer)
@@ -85,6 +87,9 @@ func (dl DefaultLogger) SetOutput(output io.Writer) {
 // Replacing the Nil global with something else can allow seeing
 // log messages that would normally be discarded.
 var Nil Logger = &NilLogger{}
+
+// Go is a pre-defined logger that will log using default log library.
+var Go Logger = &DefaultLogger{Printer: log.Printf}
 
 // NilLogger is a logger that discards all messages.
 //

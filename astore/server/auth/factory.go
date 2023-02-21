@@ -21,6 +21,7 @@ type Flags struct {
 	TimeLimit         time.Duration
 	AuthURL           string
 	Principals        string
+	UseGroups	  bool
 	CA                []byte
 	UserCertTimeLimit time.Duration
 }
@@ -28,6 +29,7 @@ type Flags struct {
 func DefaultFlags() *Flags {
 	return &Flags{
 		TimeLimit: time.Minute * 30,
+		UseGroups: true,
 	}
 }
 
@@ -36,6 +38,7 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.DurationVar(&f.UserCertTimeLimit, prefix+"user-cert-ttl", 24*time.Hour, "How long a user's ssh certificates are valid for before they expire")
 	set.StringVar(&f.Principals, prefix+"principals", f.Principals, "Authorized ssh users which the ability to auth, in a comma separated string e.g. \"john,root,admin,smith\"")
 	set.ByteFileVar(&f.CA, prefix+"ca", "", "Path to the certificate authority private file")
+	set.BoolVar(&f.UseGroups, prefix+"use-groups", f.UseGroups, "If set to true, user groups are saved as principals in the user certificate")
 	return f
 }
 
@@ -56,6 +59,9 @@ func WithFlags(f *Flags) Modifier {
 		if err := WithPrincipals(f.Principals)(s); err != nil {
 			return err
 		}
+		if err := WithUseGroups(f.UseGroups)(s); err != nil {
+			return err
+		}
 		if s.authURL == "" || s.authURL == "/" {
 			return fmt.Errorf("an auth-url must be supplied using the --auth-url parameter")
 		}
@@ -70,6 +76,14 @@ type Modifier func(*Server) error
 func WithAuthURL(url string) Modifier {
 	return func(s *Server) error {
 		s.authURL = url
+		return nil
+	}
+}
+
+// WithUseGroups enables (or disables) the propagation of user groups as principals.
+func WithUseGroups(use bool) Modifier {
+	return func(s *Server) error {
+		s.useGroups = use
 		return nil
 	}
 }
@@ -148,6 +162,7 @@ func New(rng *rand.Rand, mods ...Modifier) (*Server, error) {
 		rng:        rng,
 		serverPub:  (*common.Key)(pub),
 		serverPriv: (*common.Key)(priv),
+		useGroups:  true,
 		jars:       map[common.Key]*Jar{},
 		limit:      30 * time.Minute,
 	}

@@ -31,6 +31,7 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/oauth/providers"
 	"github.com/enfabrica/enkit/lib/server"
 	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/srand"
@@ -100,7 +101,7 @@ func ListHandler(base, upath string, resp *rpc_astore.ListResponse, err error, w
 	})
 }
 
-func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *oauth.Flags, optAuthFlags *oauth.Flags, useMulti bool) error {
+func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *providers.Flags, optAuthFlags *providers.Flags, useMulti bool) error {
 	rng := rand.New(srand.Source)
 
 	cookieDomain = strings.TrimSpace(cookieDomain)
@@ -136,16 +137,16 @@ func Start(targetURL, cookieDomain, oAuthType string, astoreFlags *astore.Flags,
 		return fmt.Errorf("could not initialize auth server - %s", err)
 	}
 
-	reqAuth, err := oauth.New(rng, oauth.WithFlags(oauthFlags), auth.FetchCredentialOpts(oAuthType))
+	reqAuth, err := oauth.New(rng, oauth.WithLogging(logger.Go), providers.WithFlags(oauthFlags))
 	if err != nil {
-		return fmt.Errorf("could not initialize %s authenticator - %s", oAuthType, err)
+		return fmt.Errorf("could not initialize primary authenticator - %w", err)
 	}
 	var authWeb oauth.IAuthenticator
 	authWeb = reqAuth
 	if useMulti {
-		optAuth, err := oauth.New(rng, oauth.WithFlags(optAuthFlags), auth.FetchCredentialOpts("github"))
+		optAuth, err := oauth.New(rng, oauth.WithLogging(logger.Go), providers.WithFlags(optAuthFlags))
 		if err != nil {
-			return fmt.Errorf("could not initialize github authenticator - %s", err)
+			return fmt.Errorf("could not initialize secondary authenticator - %w", err)
 		}
 
 		authWeb = oauth.NewMultiOAuth(rng, reqAuth, optAuth)
@@ -274,20 +275,21 @@ func main() {
 
 	astoreFlags := astore.DefaultFlags().Register(&kcobra.FlagSet{command.Flags()}, "")
 	authFlags := auth.DefaultFlags().Register(&kcobra.FlagSet{command.Flags()}, "")
-	oauthFlags := oauth.DefaultFlags().Register(&kcobra.FlagSet{command.Flags()}, "")
-	optAuthFlags := oauth.DefaultFlags().Register(&kcobra.FlagSet{command.Flags()}, "opt-")
+	oauthFlags := providers.DefaultFlags().Register(&kcobra.FlagSet{command.Flags()}, "")
+
+	optAuthFlags := providers.DefaultFlags()
+	optAuthFlags.Provider = "github" // Secondary provider is github by default.
+	optAuthFlags.Register(&kcobra.FlagSet{command.Flags()}, "opt-")
 
 	targetURL := ""
 	cookieDomain := ""
-	oauthType := ""
 	useMulti := false
 	command.Flags().StringVar(&targetURL, "site-url", "", "The URL external users can use to reach this web server")
 	command.Flags().StringVar(&cookieDomain, "cookie-domain", "", "The domain for which the issued authentication cookie is valid. "+
 		"This implicitly authorizes redirection to any URL within the domain.")
-	command.Flags().StringVar(&oauthType, "oauth-type", "google", "the type of oauth2 provider that's presented")
 	command.Flags().BoolVar(&useMulti, "use-multi", false, "use multi oauth2 flow, if false, use single flow")
 	command.RunE = func(cmd *cobra.Command, args []string) error {
-		return Start(targetURL, cookieDomain, oauthType, astoreFlags, authFlags, oauthFlags, optAuthFlags, useMulti)
+		return Start(targetURL, cookieDomain, astoreFlags, authFlags, oauthFlags, optAuthFlags, useMulti)
 	}
 
 	kcobra.PopulateDefaults(command, os.Args,

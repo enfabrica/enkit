@@ -28,8 +28,9 @@ type Server struct {
 	jarlock sync.Mutex
 	jars    map[common.Key]*Jar
 
-	authURL string
-	limit   time.Duration
+	authURL   string
+	useGroups bool
+	limit     time.Duration
 
 	caPrivateKey          kcerts.PrivateKey
 	principals            []string
@@ -142,8 +143,15 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		effectivePrincipals := append([]string{}, s.principals...)
 		effectivePrincipals = append(effectivePrincipals, authData.Creds.Identity.Username)
 		effectivePrincipals = append(effectivePrincipals, authData.Creds.Identity.GlobalName())
+		if s.useGroups {
+			effectivePrincipals = append(effectivePrincipals, authData.Creds.Identity.Groups...)
+		}
+
 		for _, i := range authData.Identities {
 			effectivePrincipals = append(effectivePrincipals, i.GlobalName())
+			if s.useGroups {
+				effectivePrincipals = append(effectivePrincipals, i.Groups...)
+			}
 			certMods = append(certMods, i.CertMod())
 		}
 		userCert, err := kcerts.SignPublicKey(s.caPrivateKey, ssh.UserCert, effectivePrincipals, s.userCertTTL, savedPubKey, certMods...)

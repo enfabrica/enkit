@@ -63,12 +63,56 @@ import (
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/enfabrica/enkit/lib/token"
 )
 
-type Verifier func(tok *oauth2.Token) (*Identity, error)
+// Verifier is an object capable of verifying an oauth2.Token after obtaining it.
+//
+// Verifiers can also add information retrieved from the remote provider to the
+// identity, using some provider specific mechanisms.
+//
+// For example, they can check if a domain matches a list of allowed domains, or
+// retrieve a list of groups and add them as part of the user identity.
+type Verifier interface {
+	Scopes() []string
+	Verify(log logger.Logger, identity *Identity, tok *oauth2.Token) (*Identity, error)
+}
+
 type VerifierFactory func(conf *oauth2.Config) (Verifier, error)
+
+type OptionalVerifier struct {
+	inner Verifier
+}
+
+func (ov *OptionalVerifier) Scopes() []string {
+	return ov.inner.Scopes()
+}
+
+func (ov *OptionalVerifier) Verify(log logger.Logger, identity *Identity, tok *oauth2.Token) (*Identity, error) {
+	result, err := ov.inner.Verify(log, identity, tok)
+	if err != nil {
+		user := "<unknown>"
+		if identity != nil {
+			user = identity.GlobalName()
+		}
+
+		log.Errorf("for user %s - ignored verifier %T - error: %s", user, ov.inner, err)
+		return identity, nil
+	}
+	return result, nil
+}
+
+func NewOptionalVerifierFactory(factory VerifierFactory) VerifierFactory {
+	return func(conf *oauth2.Config) (Verifier, error) {
+		inner, err := factory(conf)
+		if err != nil {
+			return nil, err
+		}
+		return &OptionalVerifier{inner: inner}, nil
+	}
+}
 
 // Extractor is an object capable of extracting and verifying authentication information.
 type Extractor struct {
@@ -168,24 +212,36 @@ type Authenticator struct {
 	Extractor
 
 	rng         *rand.Rand
+	log         logger.Logger
 	authEncoder *token.TypeEncoder
 
 	conf *oauth2.Config
 
-	verifier Verifier
+	verifiers []Verifier
 }
 
 type Identity struct {
-	Id           string
-	Username     string
+	// Id is a globally unique identifier of the user.
+	// It is oauth provider specific, generally contains an integer or string
+	// uniquely identifying the user, and a domain name used to namespace the id.
+	Id string
+	// Username is the name of the user on the remote system.
+	Username string
+	// Organization is the domain name used to authenticate the user.
+	// For example, github.com, or the specific gsuite domain.
 	Organization string
+	// Groups is a list of string identifying the groups the user is part of.
+	Groups []string
 }
 
 // GlobalName returns a human friendly string identifying the user.
 //
-// It looks like an email, but it is not necessarily an email.
+// It looks like an email, but it may or may not be a valid email address.
+//
 // For example: github users will have github.com as organization, and their login as Username.
 //              The GlobalName will be username@github.com. Not a valid email.
+// On the other hand: gsuite users for enfabrica.net will have enfabrica.net as organization,
+//		and their username as Username, forming a valid email.
 //
 // Interpret the result as meaning "user by this name" @ "organization by this name".
 func (i *Identity) GlobalName() string {
@@ -654,10 +710,19 @@ func (a *Authenticator) ExtractAuth(w http.ResponseWriter, r *http.Request) (Aut
 	if !tok.Valid() {
 		return AuthData{}, fmt.Errorf("Invalid token retrieved")
 	}
-	identity, err := a.verifier(tok)
-	if err != nil {
-		return AuthData{}, fmt.Errorf("Invalid token - %w", err)
+
+	identity := &Identity{}
+	for _, verifier := range a.verifiers {
+		identity, err = verifier.Verify(a.log, identity, tok)
+		if err != nil {
+			return AuthData{}, fmt.Errorf("Invalid token - %w", err)
+		}
 	}
+	// For defense in depth. This should never happen if configured properly.
+	if identity.Id == "" || identity.Username == "" {
+		return AuthData{}, fmt.Errorf("Authentication process succeeded with no credentials")
+	}
+
 	creds := CredentialsCookie{Identity: *identity, Token: *tok}
 	return AuthData{Creds: &creds, Target: received.Target, State: received.State}, nil
 }

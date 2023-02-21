@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/token"
 	"golang.org/x/oauth2"
 )
@@ -97,6 +98,13 @@ func (rf *RedirectorFlags) Register(set kflags.FlagSet, prefix string) *Redirect
 	return rf
 }
 
+// Flags defines the basic configuration parameters to run the oauth cycle.
+//
+// Use Flags if you have your own code to handle the specific oauth provider.
+// To allow the configuration and use of one of the providers this library
+// supports, use providers.ProviderFlags.
+//
+// To pass Flags to one of the constructurs, use `WithFlags`.
 type Flags struct {
 	*SigningExtractorFlags
 
@@ -162,6 +170,13 @@ func (mods Modifiers) Apply(o *Options) error {
 	return nil
 }
 
+func WithLogging(log logger.Logger) Modifier {
+	return func(opt *Options) error {
+		opt.log = log
+		return nil
+	}
+}
+
 func WithAuthURL(url *url.URL) Modifier {
 	return func(opt *Options) error {
 		opt.authURL = url
@@ -178,7 +193,7 @@ func WithTargetURL(url string) Modifier {
 
 func WithScopes(scopes []string) Modifier {
 	return func(opt *Options) error {
-		opt.conf.Scopes = append([]string{}, scopes...)
+		opt.conf.Scopes = append(opt.conf.Scopes, scopes...)
 		return nil
 	}
 }
@@ -236,8 +251,11 @@ func WithFactory(factory VerifierFactory) Modifier {
 		if err != nil {
 			return err
 		}
+		if err := WithScopes(verifier.Scopes())(opt); err != nil {
+			return err
+		}
 
-		opt.verifier = verifier
+		opt.verifiers = append(opt.verifiers, verifier)
 		return nil
 	}
 }
@@ -451,15 +469,17 @@ type Options struct {
 	loginTime    time.Duration // How long the token is valid for after successful authentication.
 	maxLoginTime time.Duration // Tokens issued more than maxLoginTime ago will always be rejected.
 
-	version         int
-	conf            *oauth2.Config
+	version int
+	conf    *oauth2.Config
 
-	verifier   Verifier
+	verifiers  []Verifier
 	baseCookie string
 	authURL    *url.URL // Only used by the Redirector.
 
 	symmetricSetters []token.SymmetricSetter
 	signingSetters   []token.SigningSetter
+
+	log logger.Logger
 }
 
 func DefaultOptions(rng *rand.Rand) Options {
@@ -469,6 +489,7 @@ func DefaultOptions(rng *rand.Rand) Options {
 		loginTime:    time.Hour * 24,
 		maxLoginTime: time.Hour * 24 * 365,
 		conf:         &oauth2.Config{},
+		log:          logger.Nil,
 	}
 }
 
@@ -488,9 +509,10 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 		Extractor: *extractor,
 
 		rng: opt.rng,
+		log: opt.log,
 
 		authEncoder: te,
-		verifier:    opt.verifier,
+		verifiers:   opt.verifiers,
 		conf:        opt.conf,
 	}
 	if authenticator.conf.RedirectURL == "" {
@@ -499,8 +521,8 @@ func (opt *Options) NewAuthenticator() (*Authenticator, error) {
 	if authenticator.conf.ClientID == "" || authenticator.conf.ClientSecret == "" {
 		return nil, fmt.Errorf("API used incorrectly - must supply secrets with WithSecrets")
 	}
-	if authenticator.verifier == nil {
-		return nil, fmt.Errorf("API used incorrectly - must supply verifier with WithFactory")
+	if len(authenticator.verifiers) <= 0 {
+		return nil, fmt.Errorf("API used incorrectly - must supply at least one verifier with WithFactory")
 	}
 	if len(authenticator.conf.Scopes) == 0 {
 		return nil, fmt.Errorf("API used incorrectly - no scopes configured")
