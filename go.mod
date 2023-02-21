@@ -69,7 +69,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	github.com/tchap/zapext v1.0.0
-	github.com/ulikunitz/xz v0.5.8
+	github.com/ulikunitz/xz v0.5.11
 	github.com/valyala/quicktemplate v1.7.0 // indirect
 	github.com/xenking/zipstream v1.0.1 // indirect
 	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
