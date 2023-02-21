@@ -1,17 +1,13 @@
-diff --git a/query.go b/query.go
-index f2e6d9c2a..1d6c69a6d 100644
---- a/query.go
-+++ b/query.go
-@@ -331,6 +331,12 @@ func (q *Query) End(c Cursor) *Query {
- 	return q
- }
+diff -Naur a/query.go b/query.go
+--- a/query.go	2023-02-20 19:12:15.314113064 +0000
++++ b/query.go	2023-02-21 00:59:34.987308366 +0000
+@@ -928,3 +928,9 @@
  
+ // AggregationResult contains the results of an aggregation query.
+ type AggregationResult map[string]interface{}
++
 +// ENFABRICA PATCH
 +// Export toProto for use in unit tests
 +func (q *Query) ToProto(req *pb.RunQueryRequest) error {
-+  return q.toProto(req)
++	return q.toRunQueryRequest(req)
 +}
-+
- // toProto converts the query to a protocol buffer.
- func (q *Query) toProto(req *pb.RunQueryRequest) error {
- 	if len(q.projection) != 0 && q.keysOnly {
