@@ -17,7 +17,7 @@ def stage_3():
     """
 
     pip_parse(
-        name = "python_dependencies",
+        name = "enkit_pip_deps",
         extra_pip_args = [
             # Needed for latest pytorch+CUDA install
             "--find-links=https://download.pytorch.org/whl/torch_stable.html",

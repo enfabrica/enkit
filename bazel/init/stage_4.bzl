@@ -3,7 +3,7 @@
 See README.md for more information.
 """
 
-load("@python_dependencies//:requirements.bzl", python_deps = "install_deps")
+load("@enkit_pip_deps//:requirements.bzl", python_deps = "install_deps")
 
 def stage_4():
     """Stage 4 initialization for WORKSPACE.
