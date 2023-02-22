@@ -1,9 +1,14 @@
+load("@enkit_pip_deps//:requirements.bzl", "requirement")
+
 py_binary(
     name = "merge",
     srcs = [
         "merge.py",
     ],
     visibility = ["//visibility:public"],
+    deps = [
+        requirement("PyYAML"),
+    ],
 )
 
 py_binary(
