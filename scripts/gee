@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly VERSION="0.2.39"
+readonly VERSION="0.2.40"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -3317,6 +3317,12 @@ function gee__commit() {
     # We always push upstream so that users have a backup in case they lose their
     # laptop:
     _push_to_origin "${CURRENT_BRANCH}"
+    _read_parents_file
+    if [[ "${PARENTS[${CURRENT_BRANCH}]}" == upstream/refs/pull/*/head ]]; then
+      _info "NOTE: This is a branch of another user's PR.  Your changes were pushed to *your* " \
+            "      github fork.  To push your changes back into the other user's PR, you need " \
+            "      to use the \"gee pr_push\" command."
+    fi
   fi
 }
 

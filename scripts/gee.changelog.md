@@ -2,6 +2,10 @@
 
 ## Releases
 
+### 0.2.40
+
+* gee up: resolve conflicts when integrating commits from origin (#849)
+* gee find: also traverses symlinks by default. (#847)
 
 ### 0.2.39
 
