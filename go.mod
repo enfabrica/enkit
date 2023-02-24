@@ -56,7 +56,7 @@ require (
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/pelletier/go-toml v1.8.1
-	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
+	github.com/pkg/browser 681adbf594b8
 	github.com/pquerna/cachecontrol v0.0.0-20200921180117-858c6e7e6b7e // indirect
 	github.com/prashantv/gostub v1.0.0
 	github.com/prometheus/client_golang v1.12.1
