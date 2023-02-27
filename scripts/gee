@@ -5585,6 +5585,7 @@ function gee__colortest() {
   _debug "This is _debug"
   _info "This is _info"
   _warn "This is _warn"
+  DRYRUN=1 _cmd run --a --command
   (_fatal "This is _fatal") || /bin/true
   (_die "This is _die") || /bin/true
 }
