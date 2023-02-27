@@ -243,13 +243,13 @@ function safe_tput() {
 
 # colors library
 _COLOR_RST="$(safe_tput sgr0)"
-_COLOR_CMD="$(safe_tput bold; safe_tput setaf 12; safe_tput rev)"
+_COLOR_CMD="$(safe_tput bold; safe_tput setaf 12; safe_tput setab 0; safe_tput rev)"
 _COLOR_BANNER="$(safe_tput bold; safe_tput setab 21; safe_tput setaf 15)"
 #_COLOR_CMD="$(safe_tput bold; safe_tput setaf 14; safe_tput setab 16)"
-_COLOR_DBG="$(safe_tput setaf 2)"
-_COLOR_DIE="$(safe_tput bold; safe_tput setaf 15; safe_tput setab 3)"
-_COLOR_WARN="$(safe_tput setaf 11)"
-_COLOR_INFO="$(safe_tput setaf 1)"
+_COLOR_DBG="$(safe_tput setaf 2; safe_tput setab 0)"
+_COLOR_DIE="$(safe_tput bold; safe_tput setaf 0; safe_tput setab 9)"
+_COLOR_WARN="$(safe_tput setaf 11; safe_tput setab 0)"
+_COLOR_INFO="$(safe_tput setaf 6; safe_tput setab 0)"
 
 ##########################################################################
 # utility functions
@@ -1086,8 +1086,14 @@ function _warn() {
 # Use _fatal for user errors that don't require a stack dump.
 # "The user is going to be sad when they see this."
 function _fatal() {
+  local COLS LINE LEN BLANK
   printf "  fatal: %s\n" "$@" | _to_gee_log
-  printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}\n" "$@"
+  COLS="$(safe_tput cols)"
+  for LINE in "$@"; do
+    LEN="$( printf "%s\n" "$@" | wc -L )"
+    BLANK="$(head -c "$(( COLS - LEN - 8 ))" /dev/zero | tr '\0' ' ')"
+    printf >&2 "${_COLOR_DIE}FATAL: %s%s${_COLOR_RST}\n" "${LINE}" "${BLANK}"
+  done
   ABNORMAL=0  # we died intentionally.
   exit 1
 }
@@ -1095,8 +1101,14 @@ function _fatal() {
 # Use _die to report internal errors that require a stack dump.
 # "The user is going to be mad when they see this."
 function _die() {
+  local COLS LINE LEN BLANK
   printf "  die: %s\n" "$@" | _to_gee_log
-  printf >&2 "${_COLOR_DIE}FATAL: %s${_COLOR_RST}\n" "$@"
+  COLS="$(safe_tput cols)"
+  for LINE in "$@"; do
+    LEN="$( printf "%s\n" "$@" | wc -L )"
+    BLANK="$(head -c "$(( COLS - LEN - 8 ))" /dev/zero | tr '\0' ' ')"
+    printf >&2 "${_COLOR_DIE}FATAL: %s%s${_COLOR_RST}\n" "${LINE}" "${BLANK}"
+  done
   if [[ -z "${NOSTACK}" ]]; then
     echo >&2 "Stack trace:"
     local i
@@ -5566,6 +5578,15 @@ function gee__help() {
 
 function gee__banner() {
   _banner "$@"
+}
+
+function gee__colortest() {
+  _banner "This is a banner."
+  _debug "This is _debug"
+  _info "This is _info"
+  _warn "This is _warn"
+  (_fatal "This is _fatal") || /bin/true
+  (_die "This is _die") || /bin/true
 }
 
 ##########################################################################
