@@ -4,6 +4,7 @@
 
 ### 0.2.40
 
+* gee: improve color scheme.
 * gee up: resolve conflicts when integrating commits from origin (#849)
 * gee find: also traverses symlinks by default. (#847)
 
