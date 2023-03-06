@@ -95,7 +95,7 @@ def _merge(a, b, path=None):
     elif isinstance(a, list) and isinstance(b, list):
         a += b
     else:
-        raise ("Could not merge type %r with type %r", type(a), type(b))
+        raise TypeError(f"Could not merge type {type(a)!r} with type {type(b)!r}.")
     return a
 
 
