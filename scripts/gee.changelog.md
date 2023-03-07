@@ -2,9 +2,13 @@
 
 ## Releases
 
+### 0.2.41
+
+* gee pr_submit: fix bug that was deleting the PR if `gh pr merge` command failed.
+* gee: improve color scheme (#858)
+
 ### 0.2.40
 
-* gee: improve color scheme.
 * gee up: resolve conflicts when integrating commits from origin (#849)
 * gee find: also traverses symlinks by default. (#847)
 
