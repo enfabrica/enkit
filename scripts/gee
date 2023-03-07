@@ -1123,6 +1123,9 @@ function _die() {
 
 function _cmd() {
   # Run a command and generate associated log messages.
+  #
+  # The complexity of this function's logging is all the proof anyone
+  # should need that this script should have been written in python.
   local COLS ESCAPED_CMD
   COLS="$(safe_tput cols)"
   ESCAPED_CMD="$( printf " %q" "$@")"
@@ -1133,16 +1136,20 @@ function _cmd() {
       C=$(( COLS - 4 ))
       printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" "${ESCAPED_CMD}"
     fi
+    local RC LCF_ENABLED_PREV
     set +e
+    LCF_ENABLED_PREV="${LCF_ENABLED}"
+    LCF_ENABLED=0
     "$@"
     RC=$?
+    set -e
+    LCF_ENABLED="${LCF_ENABLED_PREV}"
     if [[ "${RC}" -ne 0 ]]; then
-      _warn "Command failed with exit code ${RC}"
+      _warn "Command $* failed with exit code ${RC}"
       if [[ -n "${NOFAIL}" ]]; then
         RC=0
       fi
     fi
-    set -e
     return "${RC}"
   else
     local C
@@ -1887,6 +1894,7 @@ function _write_parents_file() {
 }
 
 ABNORMAL=1
+LCF_ENABLED=0  # enables logging of failed commands.
 function _cleanup() {
   set +e
   trap - ERR
@@ -1903,7 +1911,7 @@ function _log_command_failure() {
   local rc="$3"
   local msg
   msg="$(printf "gee:%s: command %q failed with rc=%d" "${lineno}" "${cmd}" "${rc}")"
-  printf >&2 "${_COLOR_WARN}WARNING: %s${_COLOR_RST}\n" "$msg"
+  (( LCF_ENABLED == 1 )) && printf >&2 "${_COLOR_WARN}WARNING: %s${_COLOR_RST}\n" "$msg"
   printf "  warn: %s\n" "$msg" | _to_gee_log
 }
 
@@ -4623,6 +4631,7 @@ function gee__hello() {
 function gee__debug_error_reporting() {
   echo "About to run /bin/false, which should report an error:"
   /bin/false
+  echo "We should not get here."
 }
 
 ##########################################################################
@@ -5588,6 +5597,9 @@ function gee__colortest() {
   DRYRUN=1 _cmd run --a --command
   (_fatal "This is _fatal") || /bin/true
   (_die "This is _die") || /bin/true
+  _cmd /bin/true
+  _cmd /bin/false
+  _info "We should not get here."
 }
 
 ##########################################################################
@@ -5613,8 +5625,10 @@ function main() {
   # Let's make pr-submit and pr_submit equivalent:
   cmdname="$(tr '-' '_' <<< "${cmdname}")"
   if type "gee__${cmdname}" >/dev/null 2>&1; then
-    RC=0
-    "gee__${cmdname}" "$@" || RC=$?
+    set +e
+    (set -eE; "gee__${cmdname}" "$@");
+    RC=$?
+    set -e
     ABNORMAL=0
     echo "  exit rc=$RC" | _to_gee_log
     exit $RC
