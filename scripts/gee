@@ -5604,7 +5604,33 @@ function gee__banner() {
   _banner "$@"
 }
 
+function _print_color_block() {
+  local C="$1"
+  FG=15
+
+  if (( C < 16 )); then
+    if (( C != 0 )); then
+      FG=0
+    fi
+  elif (( C < 232 )); then
+    # 6x6x6 color cube
+    if (( (( C - 16 ) % 36 ) / 6 > 2 )); then
+      FG=0
+    fi
+  fi
+  printf " %s%3d%s" "$(tput setaf ${FG}; tput setab ${C})" "$C" "${_COLOR_RST}"
+}
+
 function gee__colortest() {
+  echo "Color table:"
+  for t in $(seq 0 231); do
+    _print_color_block "${t}"
+    if (( (t % 16) == 15 )); then
+      printf "\n"
+    fi
+  done
+  printf "\n\n"
+
   echo "| Class  | FG | BG |"
   echo "| ------ | -- | -- |"
   printf "| %-6.6s | %2d | %2d | %s example %s\n" "BANNER" \
