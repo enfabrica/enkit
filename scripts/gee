@@ -259,12 +259,12 @@ GEE_COLOR_INFO_FG="${GEE_COLOR_INFO_FG:-6}"
 GEE_COLOR_INFO_BG="${GEE_COLOR_INFO_BG:-0}"
 
 _COLOR_RST="$(safe_tput sgr0)"
-_COLOR_CMD="$(    safe_tput bold; safe_tput setaf ${GEE_COLOR_CMD_FG};    safe_tput setab ${GEE_COLOR_CMD_BG})"
-_COLOR_BANNER="$( safe_tput bold; safe_tput setaf ${GEE_COLOR_BANNER_FG}; safe_tput setab ${GEE_COLOR_BANNER_BG})"
-_COLOR_DBG="$(                    safe_tput setaf ${GEE_COLOR_DBG_FG};    safe_tput setab ${GEE_COLOR_DBG_BG})"
-_COLOR_DIE="$(    safe_tput bold; safe_tput setaf ${GEE_COLOR_DIE_FG};    safe_tput setab ${GEE_COLOR_DIE_BG})"
-_COLOR_WARN="$(                   safe_tput setaf ${GEE_COLOR_WARN_FG};   safe_tput setab ${GEE_COLOR_WARN_BG})"
-_COLOR_INFO="$(                   safe_tput setaf ${GEE_COLOR_INFO_FG};   safe_tput setab ${GEE_COLOR_INFO_BG})"
+_COLOR_CMD="$(    safe_tput bold; safe_tput setaf "${GEE_COLOR_CMD_FG}";    safe_tput setab "${GEE_COLOR_CMD_BG}")"
+_COLOR_BANNER="$( safe_tput bold; safe_tput setaf "${GEE_COLOR_BANNER_FG}"; safe_tput setab "${GEE_COLOR_BANNER_BG}")"
+_COLOR_DBG="$(                    safe_tput setaf "${GEE_COLOR_DBG_FG}";    safe_tput setab "${GEE_COLOR_DBG_BG}")"
+_COLOR_DIE="$(    safe_tput bold; safe_tput setaf "${GEE_COLOR_DIE_FG}";    safe_tput setab "${GEE_COLOR_DIE_BG}")"
+_COLOR_WARN="$(                   safe_tput setaf "${GEE_COLOR_WARN_FG}";   safe_tput setab "${GEE_COLOR_WARN_BG}")"
+_COLOR_INFO="$(                   safe_tput setaf "${GEE_COLOR_INFO_FG}";   safe_tput setab "${GEE_COLOR_INFO_BG}")"
 
 ##########################################################################
 # utility functions
@@ -5623,7 +5623,7 @@ function _print_color_block() {
       FG=0
     fi
   fi
-  printf " %s%3d%s" "$(tput setaf ${FG}; tput setab ${C})" "$C" "${_COLOR_RST}"
+  printf " %s%3d%s" "$(tput setaf "${FG}"; tput setab "${C}")" "$C" "${_COLOR_RST}"
 }
 
 function gee__colortest() {
