@@ -242,14 +242,29 @@ function safe_tput() {
 }
 
 # colors library
+#
+# The user can override these colors by setting any of these
+# variables in their environment.
+GEE_COLOR_CMD_FG="${GEE_COLOR_CMD_FG:-0}"
+GEE_COLOR_CMD_BG="${GEE_COLOR_CMD_BG:-12}"
+GEE_COLOR_BANNER_FG="${GEE_COLOR_BANNER_FG:-15}"
+GEE_COLOR_BANNER_BG="${GEE_COLOR_BANNER_BG:-21}"
+GEE_COLOR_DBG_FG="${GEE_COLOR_DBG_FG:-2}"
+GEE_COLOR_DBG_BG="${GEE_COLOR_DBG_BG:-0}"
+GEE_COLOR_DIE_FG="${GEE_COLOR_DIE_FG:-0}"
+GEE_COLOR_DIE_BG="${GEE_COLOR_DIE_BG:-9}"
+GEE_COLOR_WARN_FG="${GEE_COLOR_WARN_FG:-11}"
+GEE_COLOR_WARN_BG="${GEE_COLOR_WARN_BG:-0}"
+GEE_COLOR_INFO_FG="${GEE_COLOR_INFO_FG:-6}"
+GEE_COLOR_INFO_BG="${GEE_COLOR_INFO_BG:-0}"
+
 _COLOR_RST="$(safe_tput sgr0)"
-_COLOR_CMD="$(safe_tput bold; safe_tput setaf 12; safe_tput setab 0; safe_tput rev)"
-_COLOR_BANNER="$(safe_tput bold; safe_tput setab 21; safe_tput setaf 15)"
-#_COLOR_CMD="$(safe_tput bold; safe_tput setaf 14; safe_tput setab 16)"
-_COLOR_DBG="$(safe_tput setaf 2; safe_tput setab 0)"
-_COLOR_DIE="$(safe_tput bold; safe_tput setaf 0; safe_tput setab 9)"
-_COLOR_WARN="$(safe_tput setaf 11; safe_tput setab 0)"
-_COLOR_INFO="$(safe_tput setaf 6; safe_tput setab 0)"
+_COLOR_CMD="$(    safe_tput bold; safe_tput setaf ${GEE_COLOR_CMD_FG};    safe_tput setab ${GEE_COLOR_CMD_BG})"
+_COLOR_BANNER="$( safe_tput bold; safe_tput setaf ${GEE_COLOR_BANNER_FG}; safe_tput setab ${GEE_COLOR_BANNER_BG})"
+_COLOR_DBG="$(                    safe_tput setaf ${GEE_COLOR_DBG_FG};    safe_tput setab ${GEE_COLOR_DBG_BG})"
+_COLOR_DIE="$(    safe_tput bold; safe_tput setaf ${GEE_COLOR_DIE_FG};    safe_tput setab ${GEE_COLOR_DIE_BG})"
+_COLOR_WARN="$(                   safe_tput setaf ${GEE_COLOR_WARN_FG};   safe_tput setab ${GEE_COLOR_WARN_BG})"
+_COLOR_INFO="$(                   safe_tput setaf ${GEE_COLOR_INFO_FG};   safe_tput setab ${GEE_COLOR_INFO_BG})"
 
 ##########################################################################
 # utility functions
@@ -5590,6 +5605,21 @@ function gee__banner() {
 }
 
 function gee__colortest() {
+  echo "| Class  | FG | BG |"
+  echo "| ------ | -- | -- |"
+  printf "| %-6.6s | %2d | %2d | %s example %s\n" "BANNER" \
+      "${GEE_COLOR_BANNER_FG}" "${GEE_COLOR_BANNER_BG}" "${_COLOR_BANNER}" "${_COLOR_RST}"
+  printf "| %-6.6s | %2d | %2d | %s example %s\n" "CMD" \
+      "${GEE_COLOR_CMD_FG}" "${GEE_COLOR_CMD_BG}" "${_COLOR_CMD}" "${_COLOR_RST}"
+  printf "| %-6.6s | %2d | %2d | %s example %s\n" "DBG" \
+      "${GEE_COLOR_DBG_FG}" "${GEE_COLOR_DBG_BG}" "${_COLOR_DBG}" "${_COLOR_RST}"
+  printf "| %-6.6s | %2d | %2d | %s example %s\n" "DIE" \
+      "${GEE_COLOR_DIE_FG}" "${GEE_COLOR_DIE_BG}" "${_COLOR_DIE}" "${_COLOR_RST}"
+  printf "| %-6.6s | %2d | %2d | %s example %s\n" "WARN" \
+      "${GEE_COLOR_WARN_FG}" "${GEE_COLOR_WARN_BG}" "${_COLOR_WARN}" "${_COLOR_RST}"
+  printf "| %-6.6s | %2d | %2d | %s example %s\n" "INFO" \
+      "${GEE_COLOR_INFO_FG}" "${GEE_COLOR_INFO_BG}" "${_COLOR_INFO}" "${_COLOR_RST}"
+  DEBUG=1
   _banner "This is a banner."
   _debug "This is _debug"
   _info "This is _info"
