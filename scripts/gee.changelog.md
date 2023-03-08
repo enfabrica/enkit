@@ -2,6 +2,10 @@
 
 ## Releases
 
+### 0.2.42
+
+* gee: make colors configurable.  Enhanced hidden "gee colortest" command.
+
 ### 0.2.41
 
 * gee pr_submit: fix bug that was deleting the PR if `gh pr merge` command failed.
