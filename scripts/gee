@@ -5617,19 +5617,24 @@ function _print_color_block() {
     if (( (( C - 16 ) % 36 ) / 6 > 2 )); then
       FG=0
     fi
+  elif (( C < 256 )); then
+    # grayscale from 232 to 255
+    if (( C > 245 )); then
+      FG=0
+    fi
   fi
   printf " %s%3d%s" "$(tput setaf ${FG}; tput setab ${C})" "$C" "${_COLOR_RST}"
 }
 
 function gee__colortest() {
   echo "Color table:"
-  for t in $(seq 0 231); do
+  for t in $(seq 0 255); do
     _print_color_block "${t}"
     if (( (t % 16) == 15 )); then
       printf "\n"
     fi
   done
-  printf "\n\n"
+  printf "\n"
 
   echo "| Class  | FG | BG |"
   echo "| ------ | -- | -- |"
