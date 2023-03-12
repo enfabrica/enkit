@@ -20,7 +20,7 @@ require (
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/docker/docker v20.10.5+incompatible
 	github.com/dustin/go-humanize v1.0.0
-	github.com/fatih/color v1.12.0
+	github.com/fatih/color v1.15.0
 	github.com/fullstorydev/grpcurl v1.8.5 // indirect
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/go-kit/kit v0.12.0 // indirect
