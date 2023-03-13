@@ -284,4 +284,8 @@ def stage_1():
         sha256 = "e02c5c36eb53bfcd3f417c6e40703a50ec790a1a772269ea156a2ccef14998d2",
         urls = ["https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2022.83.tar.gz"],
         strip_prefix = "dropbear-DROPBEAR_2022.83",
+        patches = [
+            "//bazel/dependencies/dropbear:0000-allow-blank-password.patch",
+            "//bazel/dependencies/dropbear:0001-override-authorized-keys.patch",
+        ],
     )
