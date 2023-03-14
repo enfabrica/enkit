@@ -113,13 +113,17 @@ TODO(jonathan): add support for the "dir" attribute.
 """,
 )
 
-def _astore_download(ctx):
+def _astore_download_impl(ctx):
     if ctx.attr.output:
       output = ctx.outputs.output
     else:
       output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
-    command = ("%s download --no-progress --overwrite -o %s" %
-               (ctx.executable._astore_client.path, output.path))
+
+    if ctx.attr.local:
+        command = "/opt/enfabrica/bin/enkit astore"
+    else:
+        command = ctx.executable.astore_client.path
+    command += " download --no-progress --overwrite -o %s" % output.path
     execution_requirements = {
             # We can't run these remotely since remote workers won't have
             # credentials to fetch from astore.
@@ -145,7 +149,7 @@ def _astore_download(ctx):
       command += " && (echo \"%s\" %s | sha256sum --check -)" % (ctx.attr.digest, output.path)
     ctx.actions.run_shell(
         command = command,
-        tools = [ctx.executable._astore_client],
+        tools = [] if ctx.attr.local else [ctx.executable.astore_client],
         outputs = [output],
         execution_requirements = execution_requirements,
         use_default_shell_env = True,
@@ -157,8 +161,9 @@ def _astore_download(ctx):
 
 # TODO: add an optional "uid" attribute to this rule
 # TODO: add an optional "digest" attribute to this rule
-astore_download = rule(
-    implementation = _astore_download,
+# TODO(INFRA-2288): Always download by UID by default
+_astore_download = rule(
+    implementation = _astore_download_impl,
     attrs = {
         "download_src": attr.string(
             doc = "Provided the full path, download a file from astore.",
@@ -188,11 +193,17 @@ astore_download = rule(
           mandatory = False,
           default = "",
         ),
-        "_astore_client": attr.label(
-            default = Label("//astore/client:astore"),
+        # This needs to be overriden if using the local enkit binary
+        # since the target //astore/client:astore will still build from source
+        # even if it is not used since it is declared as a dependency.
+        "astore_client": attr.label(
             allow_single_file = True,
             executable = True,
             cfg = "host",
+        ),
+        "local": attr.bool(
+            doc = "Use the local enkit binary to perform astore download operations.",
+            default = False,
         ),
     },
     doc = """Downloads artifacts from artifact store - astore.
@@ -200,6 +211,13 @@ astore_download = rule(
 With this rule, you can easily download
 files from an artifact store.""",
 )
+
+def astore_download(local = False, *args, **kwargs):
+    if local:
+        kwargs["local"] = local
+    else:
+        kwargs["astore_client"] = Label("//astore/client:astore")
+    return _astore_download(*args, **kwargs)
 
 def _astore_download_and_verify(rctx, dest, uid, digest, timeout):
     # Download by UID to destination
