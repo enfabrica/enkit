@@ -119,10 +119,10 @@ def _astore_download_impl(ctx):
     else:
       output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
 
-    if ctx.attr.local:
-        command = "/opt/enfabrica/bin/enkit astore"
-    else:
+    if ctx.executable.astore_client:
         command = ctx.executable.astore_client.path
+    else:
+        command = "/opt/enfabrica/bin/enkit astore"
     command += " download --no-progress --overwrite -o %s" % output.path
     execution_requirements = {
             # We can't run these remotely since remote workers won't have
@@ -149,7 +149,7 @@ def _astore_download_impl(ctx):
       command += " && (echo \"%s\" %s | sha256sum --check -)" % (ctx.attr.digest, output.path)
     ctx.actions.run_shell(
         command = command,
-        tools = [] if ctx.attr.local else [ctx.executable.astore_client],
+        tools = [ctx.executable.astore_client] if ctx.executable.astore_client else [],
         outputs = [output],
         execution_requirements = execution_requirements,
         use_default_shell_env = True,
@@ -201,10 +201,6 @@ _astore_download = rule(
             executable = True,
             cfg = "host",
         ),
-        "local": attr.bool(
-            doc = "Use the local enkit binary to perform astore download operations.",
-            default = False,
-        ),
     },
     doc = """Downloads artifacts from artifact store - astore.
 
@@ -212,10 +208,8 @@ With this rule, you can easily download
 files from an artifact store.""",
 )
 
-def astore_download(local = False, *args, **kwargs):
-    if local:
-        kwargs["local"] = local
-    else:
+def astore_download(*args, **kwargs):
+    if "astore_client" not in kwargs:
         kwargs["astore_client"] = Label("//astore/client:astore")
     return _astore_download(*args, **kwargs)
 
