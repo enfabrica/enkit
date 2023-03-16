@@ -4007,10 +4007,17 @@ function gee__pr_check() {
   while [[ "${PENDING}" -ne 0 ]]; do
     if VERBOSE=0 DONT_WARN=1 _read_cmd CHECKS "${GH}" pr checks; then
       printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
-      # no failures, nothing pending.
-      _info "All checks successful."
-      CHECKS_FAILED=0
-      PENDING=0
+      # Sometimes github takes a long time to start presubmit tasks, and "gh pr checks"
+      # will incorrectly return "success" when the checks simply haven't started yet.
+      # We check for that condition by making sure the CHECKS list isn't empty.
+      if [[ "${#CHECKS[@]}" == 0 ]]; then
+        _info "Waiting for checks to start."
+      else
+        # no failures, nothing pending.
+        _info "All checks successful."
+        CHECKS_FAILED=0
+        PENDING=0
+      fi
     else
       # something went wrong.  Is a test pending, or did we get a failure?
       _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
