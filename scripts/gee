@@ -4009,8 +4009,10 @@ function gee__pr_check() {
       printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
       # Sometimes github takes a long time to start presubmit tasks, and "gh pr checks"
       # will incorrectly return "success" when the checks simply haven't started yet.
-      # We check for that condition by making sure the CHECKS list isn't empty.
-      if [[ "${#CHECKS[@]}" == 0 ]]; then
+      # We check for that condition by making sure the CHECKS list isn't empty, and
+      # doesn't contain a string like:
+      #    "no checks reported on the 'gee_no_empty_checks' branch"
+      if [[ "${#CHECKS[@]}" == 0 ]] || [[ "${CHECKS[0]}" == "no checks reported "* ]]; then
         _info "Waiting for checks to start."
       else
         # no failures, nothing pending.
