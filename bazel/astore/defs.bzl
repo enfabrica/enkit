@@ -122,7 +122,7 @@ def _astore_download_impl(ctx):
     if ctx.executable.astore_client:
         command = ctx.executable.astore_client.path
     else:
-        command = "/opt/enfabrica/bin/enkit astore"
+        command = "%s astore" % ctx.attr.astore_path
     command += " download --no-progress --overwrite -o %s" % output.path
     execution_requirements = {
             # We can't run these remotely since remote workers won't have
@@ -201,6 +201,9 @@ _astore_download = rule(
             executable = True,
             cfg = "host",
         ),
+        "astore_path": attr.string(
+            doc = "Absolute path to the enkit binary that should only be set by the bazel macro.",
+        ),
     },
     doc = """Downloads artifacts from artifact store - astore.
 
@@ -211,6 +214,8 @@ files from an artifact store.""",
 def astore_download(*args, **kwargs):
     if "astore_client" not in kwargs:
         kwargs["astore_client"] = Label("//astore/client:astore")
+    else:
+        kwargs["astore_path"] = kwargs.pop("astore_client")
     return _astore_download(*args, **kwargs)
 
 def _astore_download_and_verify(rctx, dest, uid, digest, timeout):
