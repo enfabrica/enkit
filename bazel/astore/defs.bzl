@@ -22,9 +22,9 @@ def _astore_upload(ctx):
     if ctx.attr.dir:
         template = ctx.file._astore_upload_dir
 
-    uidfile=""
+    uidfile = ""
     if ctx.attr.uidfile:
-        uidfile=ctx.files.uidfile[0].short_path
+        uidfile = ctx.files.uidfile[0].short_path
         files.append(ctx.files.uidfile[0])
 
     ctx.actions.expand_template(
@@ -60,10 +60,10 @@ astore_upload = rule(
                   "architectures or operating systems.",
         ),
         "uidfile": attr.label(
-          allow_files = True,
-          providers = [DefaultInfo],
-          mandatory = False,
-          doc = "If specified, will attempt to update the UID variable in this (build) file."
+            allow_files = True,
+            providers = [DefaultInfo],
+            mandatory = False,
+            doc = "If specified, will attempt to update the UID variable in this (build) file.",
         ),
         "_astore_upload_file": attr.label(
             default = Label("//bazel/astore:astore_upload_file.sh"),
@@ -74,7 +74,7 @@ astore_upload = rule(
             allow_single_file = True,
         ),
         "_astore_client": attr.label(
-            default = Label("//astore/client:astore"),
+            default = Label("@net_enfabrica_binary_astore//file"),
             allow_single_file = True,
             executable = True,
             cfg = "host",
@@ -115,17 +115,17 @@ TODO(jonathan): add support for the "dir" attribute.
 
 def _astore_download(ctx):
     if ctx.attr.output:
-      output = ctx.outputs.output
+        output = ctx.outputs.output
     else:
-      output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
+        output = ctx.actions.declare_file(ctx.attr.download_src.split("/")[-1])
     command = ("%s download --no-progress --overwrite -o %s" %
                (ctx.executable._astore_client.path, output.path))
     execution_requirements = {
-            # We can't run these remotely since remote workers won't have
-            # credentials to fetch from astore.
-            "requires-network": "Downloads from astore",
-            "timeout": "%d" % ctx.attr.timeout,
-        }
+        # We can't run these remotely since remote workers won't have
+        # credentials to fetch from astore.
+        "requires-network": "Downloads from astore",
+        "timeout": "%d" % ctx.attr.timeout,
+    }
     if ctx.attr.arch:
         command += " -a " + ctx.attr.arch
     if ctx.attr.uid:
@@ -141,8 +141,9 @@ def _astore_download(ctx):
         # #   cache local actions, which we currently don't do
         # # * we might spend lots of disk/network caching astore artifacts
         # #   remotely
+
     if ctx.attr.digest:
-      command += " && (echo \"%s\" %s | sha256sum --check -)" % (ctx.attr.digest, output.path)
+        command += " && (echo \"%s\" %s | sha256sum --check -)" % (ctx.attr.digest, output.path)
     ctx.actions.run_shell(
         command = command,
         tools = [ctx.executable._astore_client],
@@ -176,20 +177,20 @@ astore_download = rule(
             default = 10 * 60,
         ),
         "output": attr.output(
-          doc = "Overrides the default output path, if used.",
+            doc = "Overrides the default output path, if used.",
         ),
         "uid": attr.string(
-          doc = "The UID of a specific version of the file to download.",
-          mandatory = False,
-          default = "",
+            doc = "The UID of a specific version of the file to download.",
+            mandatory = False,
+            default = "",
         ),
         "digest": attr.string(
-          doc = "The sha256 digest of the file that we expect to receive.",
-          mandatory = False,
-          default = "",
+            doc = "The sha256 digest of the file that we expect to receive.",
+            mandatory = False,
+            default = "",
         ),
         "_astore_client": attr.label(
-            default = Label("//astore/client:astore"),
+            default = Label("@net_enfabrica_binary_astore//file"),
             allow_single_file = True,
             executable = True,
             cfg = "host",

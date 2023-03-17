@@ -3,7 +3,7 @@
 See README.md for more information.
 """
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 def stage_1():
@@ -211,4 +211,12 @@ def stage_1():
         sha256 = "a0f5caa1e70da12d5e63aa6a9504273759b891af36c8d87de381a4ed1380e845",
         urls = ["https://github.com/mesonbuild/meson/releases/download/0.62.1/meson-0.62.1.tar.gz"],
         strip_prefix = "meson-0.62.1",
+    )
+
+    maybe(
+        name = "net_enfabrica_binary_astore",
+        repo_rule = http_file,
+        sha256 = "47be8fa1067a8c498a67888b6f32386b9504b70e1da13afe869e6f06139805c9",
+        urls = ["https://astore.corp.enfabrica.net/d/bazel/workspace_deps/astore/v1?u=7hfw4dsxxobamx5uyvvwmnj8tpxj7yub"],
+        executable = True,
     )
