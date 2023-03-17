@@ -1141,6 +1141,13 @@ function _cmd() {
   #
   # The complexity of this function's logging is all the proof anyone
   # should need that this script should have been written in python.
+  #
+  # The following globals affect the behavior of this function:
+  #
+  #    DRYRUN: prints the command that would be executed instead of executing it.
+  #    VERBOSE: if VERBOSE > 0, then the command is display before execution.
+  #    LCF_ENABLED: enable for the ERR trap function
+  #    NOFAIL: always succeed regardless of exit code
   local COLS ESCAPED_CMD
   COLS="$(safe_tput cols)"
   ESCAPED_CMD="$( printf " %q" "$@")"
@@ -1159,10 +1166,12 @@ function _cmd() {
     RC=$?
     set -e
     LCF_ENABLED="${LCF_ENABLED_PREV}"
-    if [[ "${RC}" -ne 0 ]]; then
+    if [[ "${RC}" -eq 0 ]]; then
+      return 0
+    else
       _warn "Command $* failed with exit code ${RC}"
       if [[ -n "${NOFAIL}" ]]; then
-        RC=0
+        return 0
       fi
     fi
     return "${RC}"
@@ -1807,20 +1816,41 @@ function _update_from_upstream() {
   local LOCAL_BRANCH="$1"
   local UPSTREAM_BRANCH="$2"
   _checkout_or_die "${LOCAL_BRANCH}"
-  if ! _git pull --rebase --autostash upstream "${UPSTREAM_BRANCH}"; then
+  # I don't know why, but sometimes github rejects pull requests right after
+  # merging PRs.
+  #    $ /usr/bin/git pull --rebase --autostash upstream master
+  #    ssh_dispatch_run_fatal: Connection to 192.30.255.113 port 22: Broken pipe
+  #    fatal: Could not read from remote repository.
+  #
+  #    Please make sure you have the correct access rights
+  #    and the repository exists.
+  #
+  # The command always suceeds on retry.  So -- let's just enable retries for
+  # this operation.
+  local TRIES=0
+  local MAX_RETRIES=3
+  while [[ "$TRIES" -lt "$MAX_RETRIES" ]]; do
+    if _git pull --rebase --autostash upstream "${UPSTREAM_BRANCH}"; then
+      # success
+      break
+    fi
     _warn "Git pull operation failed."
-    if ! _is_rebase_in_progress; then
-      _fatal "Rebase not in progress, no idea what went wrong."
-    fi
-    _interactive_conflict_resolution "upstream/${UPSTREAM_BRANCH}" "${LOCAL_BRANCH}"
     if _is_rebase_in_progress; then
-      local STATUS
-      mapfile -t STATUS < <( "${GIT}" status );
-      _warn "${STATUS[@]}"
-      _warn "Merge conflict in branch ${LOCAL_BRANCH}, must be manually resolved."
-      _fatal "Exited without resolving rebase conflict."
+      _interactive_conflict_resolution "upstream/${UPSTREAM_BRANCH}" "${LOCAL_BRANCH}"
+      if _is_rebase_in_progress; then
+        local STATUS
+        mapfile -t STATUS < <( "${GIT}" status );
+        _warn "${STATUS[@]}"
+        _warn "Merge conflict in branch ${LOCAL_BRANCH}, must be manually resolved."
+        _fatal "Exited without resolving rebase conflict."
+      fi
+      # successful merge conflict resolution
+      break
     fi
-  fi
+    _info "Retrying..."
+    sleep 1
+    TRIES="$(( TRIES + 1 ))"
+  done
 
   local -a COUNTS=()
   read -r -a COUNTS < \
