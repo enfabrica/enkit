@@ -1,0 +1,25 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@enkit_pip_deps//:requirements.bzl", "requirement")
+
+# TODO(scott): Backport en_pyzip_binary to enkit
+py_binary(
+    name = "pygee",
+    srcs = [
+        "pygee.py",
+    ],
+    main = "pygee.py",
+    stamp = 1,
+    deps = [
+        ":version",
+        requirement("click"),
+        requirement("click-logging"),
+    ],
+)
+
+py_library(
+    name = "version",
+    srcs = ["version.py"],
+    deps = [
+        requirement("click"),
+    ],
+)
