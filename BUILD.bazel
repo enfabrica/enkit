@@ -1,6 +1,7 @@
 load("//bazel/enkit:defs.bzl", "multirun")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 
 # To update and generate the BUILD.bazel files, run:
 #     bazelisk run //:gazelle
@@ -66,4 +67,10 @@ multirun(
         # TODO(scott): Move the main to //flextape/client, delete this dir
         "//manager/client:astore_push",
     ],
+)
+
+compile_pip_requirements(
+    name = "python_deps",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.txt",
 )
