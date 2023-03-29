@@ -377,42 +377,6 @@ def kernel_module(*args, **kwargs):
 
     return _kernel_module_targets(*args, **kwargs)
 
-def nv_driver(*args, **kwargs):
-    """Convenience wrapper around kernel_modules_rule.
-
-    Use this wrpaper for building the NVidia driver modules.
-
-    The parameters passed to nv_driver are just passed to nv_driver_rule, except for
-    what is listed below.
-
-    Args:
-      srcs: list of labels, specifying the source files that constitute the kernel module.
-            If not specified, nv_driver will provide a reasonable default including all
-            files that are typically part of a kernel module (i.e., the specified makefile
-            and all .c and .h files belonging to the package where the kernel_module rule
-            has been instantiated, see https://docs.bazel.build/versions/master/be/functions.html#glob).
-      modules: list of strings, naming the output modules. Mandatory. Also, it normalizes the
-            names ensuring they have a '.ko' suffix.
-      makefile: string, name of the makefile to build the driver. If not specified, nv_driver
-            assumes it is just called Makefile.
-      kernel: a label, indicating the kernel_tree to build the module against. nv_driver ensures
-            the label starts with an '@', as per bazel convention.
-      kernels: list of kernel (same as above). kernel_module will instantiate multiple
-            kernel_module_rule, one per kernel, and ensure they all build in parallel.
-    """
-
-    if "makefile" not in kwargs:
-        kwargs["makefile"] = "Makefile"
-
-    if "srcs" not in kwargs:
-        include = ["**/*.c", "**/*.h", "Kbuild", "**/*.Kbuild", "conftest.sh", "**/*.o_binary", kwargs["makefile"]]
-        kwargs["srcs"] = native.glob(include = include, exclude = BUILD_LEFTOVERS, allow_empty = False)
-
-    if "make_format_str" not in kwargs:
-        kwargs["make_format_str"] = "-C $PWD/{src_dir} SYSSRC=$PWD/{kernel_build_dir} SYSOUT=$PWD/{kernel_build_dir} -j modules"
-
-    return _kernel_module_targets(*args, **kwargs)
-
 def _kernel_tree(ctx):
     return [DefaultInfo(files = depset(ctx.files.files)), KernelTreeInfo(
         name = ctx.attr.name,
