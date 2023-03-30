@@ -11,7 +11,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
-	github.com/bazelbuild/buildtools v0.0.0-20211007154642-8dd79e56e98e
+	github.com/bazelbuild/buildtools 7ca77e139856
 	github.com/bazelbuild/rules_go v0.32.0
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/containerd/containerd v1.4.3 // indirect
