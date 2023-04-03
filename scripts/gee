@@ -1197,7 +1197,11 @@ function _read_cmd() {
     fi
     set +e
     # We want to capture the return code, but not trigger an ERR trap:
-    mapfile -t "${VAR}" < <("$@" && echo "$?" || echo "$?")
+    if (( GRAB_STDERR )); then
+      mapfile -t "${VAR}" < <( 2>&1 "$@" && echo "$?" || echo "$?")
+    else
+      mapfile -t "${VAR}" < <("$@" && echo "$?" || echo "$?")
+    fi
     local TMP
     TMP="${VAR}[-1]"
     RC="${!TMP}"  # indirect
@@ -4035,7 +4039,7 @@ function gee__pr_check() {
   local CHECKS_FAILED=0
   printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" " ${GH} pr checks"  # show user what we're doing
   while [[ "${PENDING}" -ne 0 ]]; do
-    if VERBOSE=0 DONT_WARN=1 _read_cmd CHECKS "${GH}" pr checks; then
+    if VERBOSE=0 DONT_WARN=1 GRAB_STDERR _read_cmd CHECKS "${GH}" pr checks; then
       printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
       # Sometimes github takes a long time to start presubmit tasks, and "gh pr checks"
       # will incorrectly return "success" when the checks simply haven't started yet.
