@@ -18,7 +18,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/cybozu-go/aptutil v1.4.2-0.20200413001041-3f82d8384481
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
-	github.com/docker/docker v20.10.5+incompatible
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/color v1.12.0
 	github.com/fullstorydev/grpcurl v1.8.5 // indirect
