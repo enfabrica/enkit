@@ -4048,6 +4048,7 @@ function gee__pr_check() {
       #    "no checks reported on the 'gee_no_empty_checks' branch"
       if [[ "${#CHECKS[@]}" == 0 ]] || [[ "${CHECKS[0]}" == "no checks reported "* ]]; then
         _info "Waiting for checks to start."
+        PENDING=1
       else
         # no failures, nothing pending.
         _info "All checks successful."
