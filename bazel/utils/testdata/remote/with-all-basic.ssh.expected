@@ -1,1 +1,1 @@
-non-existant-machine-1.corp -- cd ~/__bazel_utils_wrapper/enkit; MACHINES='non-existant-machine-1.corp' ./bazel/utils/wrapper 
+non-existant-machine-1.corp -- cd ~/__bazel_utils_wrapper/enkit; /bin/bash -c "MACHINES='non-existant-machine-1.corp' ./bazel/utils/wrapper "
