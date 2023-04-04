@@ -4041,22 +4041,17 @@ function gee__pr_check() {
   while [[ "${PENDING}" -ne 0 ]]; do
     if VERBOSE=0 DONT_WARN=1 GRAB_STDERR=1 _read_cmd CHECKS "${GH}" pr checks; then
       printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
+      # no failures, nothing pending.
+      _info "All checks successful."
+      CHECKS_FAILED=0
+      PENDING=0
+    else
       # Sometimes github takes a long time to start presubmit tasks, and "gh pr checks"
       # will incorrectly return "success" when the checks simply haven't started yet.
       # We check for that condition by making sure the CHECKS list isn't empty, and
       # doesn't contain a string like:
       #    "no checks reported on the 'gee_no_empty_checks' branch"
-      if [[ "${#CHECKS[@]}" == 0 ]] || [[ "${CHECKS[0]}" == "no checks reported "* ]]; then
-        _info "Waiting for checks to start."
-        PENDING=1
-      else
-        # no failures, nothing pending.
-        _info "All checks successful."
-        CHECKS_FAILED=0
-        PENDING=0
-      fi
-    else
-      if [[ "${#CHECKS[@]}" == 0 ]] || [[ "${CHECKS[0]}" == "no checks reported "* ]]; then
+      if [[ "${#CHECKS[@]}" == 0 ]] || [[ "${CHECKS[0]}" == "no checks "* ]]; then
         # Sometimes gh pr check fails, sometimes it doesn't.
         _info "Waiting for checks to start."
         PENDING=1
@@ -4064,20 +4059,20 @@ function gee__pr_check() {
       else
         # something went wrong.  Is a test pending, or did we get a failure?
         _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
+        # Only inform the user when a result changes:
+        if [[ "${PREV_CHECKS}" != "${CHECKS[*]}"  ]]; then
+          printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
+          PREV_CHECKS="${CHECKS[*]}"
+          local REPORT="gh pr checks:"
+          local KEY
+          for KEY in "${!CHECK_COUNTS[@]}"; do
+            REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
+          done
+          _info "${REPORT}"
+        fi
+        CHECKS_FAILED="${CHECK_COUNTS["fail"]}"
+        PENDING="${CHECK_COUNTS["pending"]}"
       fi
-      # Only inform the user when a result changes:
-      if [[ "${PREV_CHECKS}" != "${CHECKS[*]}"  ]]; then
-        printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
-        PREV_CHECKS="${CHECKS[*]}"
-        local REPORT="gh pr checks:"
-        local KEY
-        for KEY in "${!CHECK_COUNTS[@]}"; do
-          REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
-        done
-        _info "${REPORT}"
-      fi
-      CHECKS_FAILED="${CHECK_COUNTS["fail"]}"
-      PENDING="${CHECK_COUNTS["pending"]}"
       if [[ "${PENDING}" -ne 0 ]]; then
         if (( WAIT == 0 )); then
           declare -g RESP=""
@@ -4096,6 +4091,9 @@ function gee__pr_check() {
       fi
     fi
   done
+  if [[ "${CHECKS_FAILED}" == "" ]]; then
+    CHECKS_FAILED=1
+  fi
   if (( CHECKS_FAILED > 0 )); then
     _warn "Some presubmit checks have failed."
     if command -v gcloud &> /dev/null; then
