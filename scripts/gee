@@ -4056,8 +4056,15 @@ function gee__pr_check() {
         PENDING=0
       fi
     else
-      # something went wrong.  Is a test pending, or did we get a failure?
-      _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
+      if [[ "${#CHECKS[@]}" == 0 ]] || [[ "${CHECKS[0]}" == "no checks reported "* ]]; then
+        # Sometimes gh pr check fails, sometimes it doesn't.
+        _info "Waiting for checks to start."
+        PENDING=1
+        CHECK_COUNTS=()
+      else
+        # something went wrong.  Is a test pending, or did we get a failure?
+        _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
+      fi
       # Only inform the user when a result changes:
       if [[ "${PREV_CHECKS}" != "${CHECKS[*]}"  ]]; then
         printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
