@@ -1141,6 +1141,13 @@ function _cmd() {
   #
   # The complexity of this function's logging is all the proof anyone
   # should need that this script should have been written in python.
+  #
+  # The following globals affect the behavior of this function:
+  #
+  #    DRYRUN: prints the command that would be executed instead of executing it.
+  #    VERBOSE: if VERBOSE > 0, then the command is display before execution.
+  #    LCF_ENABLED: enable for the ERR trap function
+  #    NOFAIL: always succeed regardless of exit code
   local COLS ESCAPED_CMD
   COLS="$(safe_tput cols)"
   ESCAPED_CMD="$( printf " %q" "$@")"
@@ -1159,10 +1166,12 @@ function _cmd() {
     RC=$?
     set -e
     LCF_ENABLED="${LCF_ENABLED_PREV}"
-    if [[ "${RC}" -ne 0 ]]; then
+    if [[ "${RC}" -eq 0 ]]; then
+      return 0
+    else
       _warn "Command $* failed with exit code ${RC}"
       if [[ -n "${NOFAIL}" ]]; then
-        RC=0
+        return 0
       fi
     fi
     return "${RC}"
@@ -1188,7 +1197,11 @@ function _read_cmd() {
     fi
     set +e
     # We want to capture the return code, but not trigger an ERR trap:
-    mapfile -t "${VAR}" < <("$@" && echo "$?" || echo "$?")
+    if (( GRAB_STDERR )); then
+      mapfile -t "${VAR}" < <( 2>&1 "$@" && echo "$?" || echo "$?")
+    else
+      mapfile -t "${VAR}" < <("$@" && echo "$?" || echo "$?")
+    fi
     local TMP
     TMP="${VAR}[-1]"
     RC="${!TMP}"  # indirect
@@ -1807,20 +1820,41 @@ function _update_from_upstream() {
   local LOCAL_BRANCH="$1"
   local UPSTREAM_BRANCH="$2"
   _checkout_or_die "${LOCAL_BRANCH}"
-  if ! _git pull --rebase --autostash upstream "${UPSTREAM_BRANCH}"; then
+  # I don't know why, but sometimes github rejects pull requests right after
+  # merging PRs.
+  #    $ /usr/bin/git pull --rebase --autostash upstream master
+  #    ssh_dispatch_run_fatal: Connection to 192.30.255.113 port 22: Broken pipe
+  #    fatal: Could not read from remote repository.
+  #
+  #    Please make sure you have the correct access rights
+  #    and the repository exists.
+  #
+  # The command always suceeds on retry.  So -- let's just enable retries for
+  # this operation.
+  local TRIES=0
+  local MAX_RETRIES=3
+  while [[ "$TRIES" -lt "$MAX_RETRIES" ]]; do
+    if _git pull --rebase --autostash upstream "${UPSTREAM_BRANCH}"; then
+      # success
+      break
+    fi
     _warn "Git pull operation failed."
-    if ! _is_rebase_in_progress; then
-      _fatal "Rebase not in progress, no idea what went wrong."
-    fi
-    _interactive_conflict_resolution "upstream/${UPSTREAM_BRANCH}" "${LOCAL_BRANCH}"
     if _is_rebase_in_progress; then
-      local STATUS
-      mapfile -t STATUS < <( "${GIT}" status );
-      _warn "${STATUS[@]}"
-      _warn "Merge conflict in branch ${LOCAL_BRANCH}, must be manually resolved."
-      _fatal "Exited without resolving rebase conflict."
+      _interactive_conflict_resolution "upstream/${UPSTREAM_BRANCH}" "${LOCAL_BRANCH}"
+      if _is_rebase_in_progress; then
+        local STATUS
+        mapfile -t STATUS < <( "${GIT}" status );
+        _warn "${STATUS[@]}"
+        _warn "Merge conflict in branch ${LOCAL_BRANCH}, must be manually resolved."
+        _fatal "Exited without resolving rebase conflict."
+      fi
+      # successful merge conflict resolution
+      break
     fi
-  fi
+    _info "Retrying..."
+    sleep 1
+    TRIES="$(( TRIES + 1 ))"
+  done
 
   local -a COUNTS=()
   read -r -a COUNTS < \
@@ -4005,37 +4039,40 @@ function gee__pr_check() {
   local CHECKS_FAILED=0
   printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" " ${GH} pr checks"  # show user what we're doing
   while [[ "${PENDING}" -ne 0 ]]; do
-    if VERBOSE=0 DONT_WARN=1 _read_cmd CHECKS "${GH}" pr checks; then
+    if VERBOSE=0 DONT_WARN=1 GRAB_STDERR=1 _read_cmd CHECKS "${GH}" pr checks; then
       printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
+      # no failures, nothing pending.
+      _info "All checks successful."
+      CHECKS_FAILED=0
+      PENDING=0
+    else
       # Sometimes github takes a long time to start presubmit tasks, and "gh pr checks"
       # will incorrectly return "success" when the checks simply haven't started yet.
       # We check for that condition by making sure the CHECKS list isn't empty, and
       # doesn't contain a string like:
       #    "no checks reported on the 'gee_no_empty_checks' branch"
-      if [[ "${#CHECKS[@]}" == 0 ]] || [[ "${CHECKS[0]}" == "no checks reported "* ]]; then
+      if [[ "${#CHECKS[@]}" == 0 ]] || [[ "${CHECKS[0]}" == "no checks "* ]]; then
+        # Sometimes gh pr check fails, sometimes it doesn't.
         _info "Waiting for checks to start."
+        PENDING=1
+        CHECK_COUNTS=()
       else
-        # no failures, nothing pending.
-        _info "All checks successful."
-        CHECKS_FAILED=0
-        PENDING=0
+        # something went wrong.  Is a test pending, or did we get a failure?
+        _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
+        # Only inform the user when a result changes:
+        if [[ "${PREV_CHECKS}" != "${CHECKS[*]}"  ]]; then
+          printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
+          PREV_CHECKS="${CHECKS[*]}"
+          local REPORT="gh pr checks:"
+          local KEY
+          for KEY in "${!CHECK_COUNTS[@]}"; do
+            REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
+          done
+          _info "${REPORT}"
+        fi
+        CHECKS_FAILED="${CHECK_COUNTS["fail"]}"
+        PENDING="${CHECK_COUNTS["pending"]}"
       fi
-    else
-      # something went wrong.  Is a test pending, or did we get a failure?
-      _parse_gh_pr_checks CHECK_COUNTS FAILED_BUILDS "${CHECKS[@]}"
-      # Only inform the user when a result changes:
-      if [[ "${PREV_CHECKS}" != "${CHECKS[*]}"  ]]; then
-        printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
-        PREV_CHECKS="${CHECKS[*]}"
-        local REPORT="gh pr checks:"
-        local KEY
-        for KEY in "${!CHECK_COUNTS[@]}"; do
-          REPORT+="$(printf " %s=%d" "${KEY}" "${CHECK_COUNTS["${KEY}"]}")"
-        done
-        _info "${REPORT}"
-      fi
-      CHECKS_FAILED="${CHECK_COUNTS["fail"]}"
-      PENDING="${CHECK_COUNTS["pending"]}"
       if [[ "${PENDING}" -ne 0 ]]; then
         if (( WAIT == 0 )); then
           declare -g RESP=""
@@ -4054,6 +4091,9 @@ function gee__pr_check() {
       fi
     fi
   done
+  if [[ "${CHECKS_FAILED}" == "" ]]; then
+    CHECKS_FAILED=1
+  fi
   if (( CHECKS_FAILED > 0 )); then
     _warn "Some presubmit checks have failed."
     if command -v gcloud &> /dev/null; then
