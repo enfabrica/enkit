@@ -79,13 +79,16 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 exit $failures
 """
 
-    prepares, runs, cleanups, checks = get_prepare_run_check(ctx, ctx.attr.tests)
+    prepares, inits, runs, cleanups, checks = get_prepare_run_check(ctx, ctx.attr.tests)
 
     outside_runfiles = ctx.runfiles()
     cprepares, outside_runfiles, _ = commands_and_runtime(ctx, "prepare", prepares, outside_runfiles, verbose = False)
     cchecks, outside_runfiles, _ = commands_and_runtime(ctx, "check", checks, outside_runfiles, verbose = False)
     ccleanups, outside_runfiles, _ = commands_and_runtime(ctx, "cleanup", cleanups, outside_runfiles, verbose = False)
-    cruns, inside_runfiles, run_labels = commands_and_runtime(ctx, "run", runs, ctx.runfiles(), verbose = False)
+
+    inside_runfiles = ctx.runfiles()
+    cinits, inside_runfiles, run_labels = commands_and_runtime(ctx, "init", inits, inside_runfiles, verbose = False)
+    cruns, inside_runfiles, run_labels = commands_and_runtime(ctx, "run", runs, inside_runfiles, verbose = False)
 
     tests = []
     for label, crun in zip(run_labels, cruns):
@@ -98,6 +101,7 @@ exit $failures
     ctx.actions.write(script, script_begin + "\n".join(tests) + script_end)
     return [RuntimeBundleInfo(
         prepare = RuntimeInfo(commands = cprepares, runfiles = outside_runfiles),
+        init = RuntimeInfo(commands = cinits, runfiles = inside_runfiles),
         run = RuntimeInfo(binary = script, runfiles = inside_runfiles),
         cleanup = RuntimeInfo(commands = ccleanups, runfiles = outside_runfiles),
         check = RuntimeInfo(commands = cchecks, runfiles = outside_runfiles),

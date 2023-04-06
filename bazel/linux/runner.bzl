@@ -104,6 +104,7 @@ def commands_and_runtime(ctx, msg, runs, runfiles, verbose = True):
 
 def get_prepare_run_check(ctx, run):
     prepares = []
+    inits = []
     runs = []
     cleanups = []
     checks = []
@@ -112,6 +113,8 @@ def get_prepare_run_check(ctx, run):
             rbi = r[RuntimeBundleInfo]
             if hasattr(rbi, "prepare") and rbi.prepare:
                 prepares.append((r, rbi.prepare))
+            if hasattr(rbi, "init") and rbi.init:
+                inits.append((r, rbi.init))
             if hasattr(rbi, "run") and rbi.run:
                 runs.append((r, rbi.run))
             if hasattr(rbi, "cleanup") and rbi.cleanup:
@@ -132,7 +135,7 @@ def get_prepare_run_check(ctx, run):
             runfiles = di.default_runfiles,
         )))
     cleanups = list(reversed(cleanups))
-    return prepares, runs, cleanups, checks
+    return prepares, inits, runs, cleanups, checks
 
 def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     ki = ctx.attr.kernel_image[KernelImageInfo]
@@ -146,7 +149,7 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
             ),
         )
 
-    prepares, runs, cleanups, checks = get_prepare_run_check(ctx, ctx.attr.run)
+    prepares, inits, runs, cleanups, checks = get_prepare_run_check(ctx, ctx.attr.run)
 
     outside_runfiles = ctx.runfiles()
     if runfiles:
@@ -154,7 +157,10 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     cprepares, outside_runfiles, _ = commands_and_runtime(ctx, "prepare", prepares, outside_runfiles)
     cchecks, outside_runfiles, _ = commands_and_runtime(ctx, "check", checks, outside_runfiles)
     ccleanups, outside_runfiles, _ = commands_and_runtime(ctx, "cleanup", cleanups, outside_runfiles)
-    cruns, inside_runfiles, _ = commands_and_runtime(ctx, "run", runs, ctx.runfiles())
+
+    inside_runfiles = ctx.runfiles()
+    cinits, inside_runfiles, _ = commands_and_runtime(ctx, "init", inits, inside_runfiles)
+    cruns, inside_runfiles, _ = commands_and_runtime(ctx, "run", runs, inside_runfiles)
 
     init = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
     ctx.actions.expand_template(
@@ -164,6 +170,7 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
             "{message}": "INIT STARTED",
             "{target}": package(ctx.label),
             "{relpath}": init.short_path,
+            "{inits}": "\n".join(cinits),
             "{commands}": "\n".join(cruns),
         },
         is_executable = True,

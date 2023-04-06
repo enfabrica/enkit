@@ -70,6 +70,7 @@ RuntimeBundleInfo = provider(
     doc = """Represents something to run in a VM environment.""",
     fields = {
         "prepare": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM BEFORE the RUN to prepare the environment",
+        "init": "RuntimeInfo, executable (and its runfiles) to run INSIDE the VM to prepare it",
         "run": "RuntimeInfo, executable (and its runfiles) to run INSIDE the VM",
         "cleanup": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN (in reverse order) to clean up the environment",
         "check": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN to check if the run was successful",

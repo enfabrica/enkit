@@ -24,6 +24,7 @@ def _add_attr_bundle(ctx, bundle, name):
 def _vm_bundle(ctx):
     bundle = {}
     _add_attr_bundle(ctx, bundle, "prepare")
+    _add_attr_bundle(ctx, bundle, "init")
     _add_attr_bundle(ctx, bundle, "run")
     _add_attr_bundle(ctx, bundle, "cleanup")
     _add_attr_bundle(ctx, bundle, "check")
@@ -38,18 +39,41 @@ This is only needed if you need to provide a specific argv, or to
 supply a script to prepare the environment to run the VM, or to clean
 up afterward.
 
-As an example, let's say you need to create an "internal-test" bundle that 1)
-runs some setup commands outside the VM, 2) runs a test binary in the VM,
-3) runs some cleanup commands outside the VM, and 4) checks the result of the
-test at the end of the run.
+The attributes are executed in the order specified: "prepare", then "init", 
+"run", "check", and "cleanup".
 
-Note that cleanup commands are executed always while checks are executed only
-if the VM exits successfully and only in non-interactive mode.
+The "prepare", "check", and "cleanup" steps are run OUTSIDE the VM.
+The "init" and "run" steps are run INSIDE the VM.
 
-You can set up the bundle like this:
+When in debugging mode, a shell is provided after the "init" step is run,
+but before the "run" step is run.
+The "check" step is only run if the "run" step succeeds.
+
+As an example, let's say you need to create an "internal-test" that:
+  1) runs some setup commands outside the VM ("parepare" step)
+  2) has to do something in the VM to prepare it
+     (for example, tune the kernel - "init" step)
+  3) runs a test binary in the VM ("run" step)
+  4) runs some cleanup commands outside the VM ("cleanup" step)
+  5) checks the result of the test at the end of the run ("check" step)
+
+Now, not all those steps have to be run every time:
+
+  1) If the user wants to have a shell in the VM and debug it,
+     the init step should be run, but not the run one.
+  2) If the run (or init) commands fail, there is no point in
+     running the check command - we know it failed already!
+
+To create "internal-test", you could use vm_bundle like this:
 
     sh_binary(
         name = "prepare-environment-outside-vm",
+        srcs = [ ... a shell script ... ],
+        data = [ ... a bunch of static files ...],
+    )
+
+    sh_binary(
+        name = "init-binary-inside-vm",
         srcs = [ ... a shell script ... ],
         data = [ ... a bunch of static files ...],
     )
@@ -73,6 +97,8 @@ You can set up the bundle like this:
         ],
         prepare_bin = ":prepare-environment-outside-vm",
         prepare_args = "--read --aggressive",
+
+        init_bin = ":init-binary-inside-vm",
 
         run_bin = ":test-binary-inside-vm",
         
@@ -100,11 +126,22 @@ You can set up the bundle like this:
         "prepare_args": attr.string(
             doc = "Optional parameters to pass to the prepare_bin. Can use shell expansion.",
         ),
+        "init_cmds": attr.string_list(
+            doc = "Shell commands to run INSIDE THE VM to prepare the VM (before init_bin - optional)",
+        ),
+        "init_bin": attr.label(
+            doc = "Binary to run INSIDE THE VM to prepare the VM (optional)",
+            executable = True,
+            cfg = "exec",
+        ),
+        "init_args": attr.string(
+            doc = "Optional parameters to pass to the init_bin. Can use shell expansion.",
+        ),
         "run_cmds": attr.string_list(
-            doc = "Shell commands to run INSIDE THE VM to run the environment (before run_bin - optional)",
+            doc = "Shell commands to run INSIDE THE VM (after init.*, before run_bin - optional)",
         ),
         "run_bin": attr.label(
-            doc = "Binary to run INSIDE THE VM to run the environment (optional)",
+            doc = "Binary to run INSIDE THE VM to run the command (after init.*, after run_cmds, optional)",
             executable = True,
             cfg = "exec",
         ),
