@@ -1,5 +1,6 @@
 load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "RuntimeBundleInfo", "RuntimeInfo")
 load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible")
+load("//bazel/linux:runner.bzl", "expand_targets_and_bundles")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("//bazel/utils:files.bzl", "files_to_dir")
 load("@bazel_skylib//lib:shell.bzl", "shell")
@@ -19,7 +20,7 @@ def _add_attr_bundle(ctx, bundle, name):
         info["binary"] = di.files_to_run.executable
         info["runfiles"] = di.default_runfiles
 
-    bundle[name] = RuntimeInfo(**info)
+    bundle[name] = [RuntimeInfo(**info)]
 
 def _vm_bundle(ctx):
     bundle = {}
@@ -220,8 +221,8 @@ def _kunit_bundle(ctx):
     return [
         DefaultInfo(files = depset([init, check]), runfiles = inside_runfiles.merge(outside_runfiles)),
         RuntimeBundleInfo(
-            run = RuntimeInfo(binary = init, runfiles = inside_runfiles),
-            check = RuntimeInfo(binary = check, runfiles = outside_runfiles),
+            run = [RuntimeInfo(binary = init, runfiles = inside_runfiles)],
+            check = [RuntimeInfo(binary = check, runfiles = outside_runfiles)],
         ),
     ]
 

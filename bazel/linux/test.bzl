@@ -3,7 +3,7 @@ load("//bazel/linux:qemu.bzl", "kernel_qemu_run")
 load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
 load("//bazel/utils:exec_test.bzl", "exec_test")
 load("//bazel/linux:bundles.bzl", "kunit_bundle")
-load("//bazel/linux:runner.bzl", "commands_and_runtime", "get_prepare_run_check")
+load("//bazel/linux:runner.bzl", "expand_targets_and_bundles")
 load("//bazel/linux:providers.bzl", "RuntimeBundleInfo", "RuntimeInfo")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
@@ -79,19 +79,10 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 exit $failures
 """
 
-    prepares, inits, runs, cleanups, checks = get_prepare_run_check(ctx, ctx.attr.tests)
-
-    outside_runfiles = ctx.runfiles()
-    cprepares, outside_runfiles, _ = commands_and_runtime(ctx, "prepare", prepares, outside_runfiles, verbose = False)
-    cchecks, outside_runfiles, _ = commands_and_runtime(ctx, "check", checks, outside_runfiles, verbose = False)
-    ccleanups, outside_runfiles, _ = commands_and_runtime(ctx, "cleanup", cleanups, outside_runfiles, verbose = False)
-
-    inside_runfiles = ctx.runfiles()
-    cinits, inside_runfiles, run_labels = commands_and_runtime(ctx, "init", inits, inside_runfiles, verbose = False)
-    cruns, inside_runfiles, run_labels = commands_and_runtime(ctx, "run", runs, inside_runfiles, verbose = False)
+    torun = expand_targets_and_bundles(ctx, ctx.attr.tests)
 
     tests = []
-    for label, crun in zip(run_labels, cruns):
+    for label, crun in zip(torun.labels.run, torun.commands.run):
         tests.append("run_test {title} {cmd}".format(
             title = shell.quote(label),
             cmd = crun,
@@ -100,11 +91,11 @@ exit $failures
     script = ctx.actions.declare_file("{}_test_runner.sh".format(ctx.attr.name))
     ctx.actions.write(script, script_begin + "\n".join(tests) + script_end)
     return [RuntimeBundleInfo(
-        prepare = RuntimeInfo(commands = cprepares, runfiles = outside_runfiles),
-        init = RuntimeInfo(commands = cinits, runfiles = inside_runfiles),
-        run = RuntimeInfo(binary = script, runfiles = inside_runfiles),
-        cleanup = RuntimeInfo(commands = ccleanups, runfiles = outside_runfiles),
-        check = RuntimeInfo(commands = cchecks, runfiles = outside_runfiles),
+        prepare = [RuntimeInfo(origin = True, commands = torun.commands.prepare, runfiles = torun.runfiles.prepare)],
+        init = [RuntimeInfo(origin = True, commands = torun.commands.init, runfiles = torun.runfiles.init)],
+        run = [RuntimeInfo(binary = script, runfiles = torun.runfiles.run)],
+        cleanup = [RuntimeInfo(origin = True, commands = torun.commands.cleanup, runfiles = torun.runfiles.cleanup)],
+        check = [RuntimeInfo(origin = True, commands = torun.commands.check, runfiles = torun.runfiles.check)],
     )]
 
 test_runner = rule(
