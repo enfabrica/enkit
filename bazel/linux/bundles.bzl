@@ -5,30 +5,47 @@ load("//bazel/utils:messaging.bzl", "location", "package")
 load("//bazel/utils:files.bzl", "files_to_dir")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
-def _add_attr_bundle(ctx, bundle, name):
+def _add_attr_bundle(ctx, bundle, name, merge = [], distribute = []):
     """Used by _vm_bundle, helper to parase its attributes"""
     abin = getattr(ctx.attr, name + "_bin")
-    aargs = getattr(ctx.attr, name + "_args")
-    acmds = getattr(ctx.attr, name + "_cmds")
+    abins = getattr(ctx.attr, name, [])
+    aargs = getattr(ctx.attr, name + "_args", [])
+    acmds = getattr(ctx.attr, name + "_cmds", [])
 
-    if not abin and not acmds:
+    if not abin and not acmds and not abins:
         return
 
-    info = dict(commands = acmds, args = aargs)
-    if abin:
-        di = abin[DefaultInfo]
-        info["binary"] = di.files_to_run.executable
-        info["runfiles"] = di.default_runfiles
+    if abins and abin:
+        fail(location(ctx) + "defines both {name}_bin and {name} - only one is allowed".format(name = name))
+    if abins and aargs:
+        fail(location(ctx) + "defines both {name} and {name}_args - {name}_args is only allowed with {name}_bin".format(name = name))
 
-    bundle[name] = [RuntimeInfo(**info)]
+    rtis = []
+    if acmds or aargs:
+        rtis = [RuntimeInfo(commands = acmds, args = aargs)]
+
+    if abin:
+        abins = [abin] + abins
+
+    if abins:
+        torun = expand_targets_and_bundles(ctx, abins)
+        rtis.append(RuntimeInfo(origin = True, commands = getattr(torun.commands, name), runfiles = getattr(torun.runfiles, name)))
+        for step in merge:
+            if getattr(torun.commands, step) or getattr(torun.runfiles, step):
+              rtis.append(RuntimeInfo(origin = True, commands = getattr(torun.commands, step), runfiles = getattr(torun.runfiles, step)))
+        for step in distribute:
+            if getattr(torun.commands, step) or getattr(torun.runfiles, step):
+              bundle.setdefault(step, []).append(RuntimeInfo(origin = True, commands = getattr(torun.commands, step), runfiles = getattr(torun.runfiles, step)))
+
+    bundle.setdefault(name, []).extend(rtis)
 
 def _vm_bundle(ctx):
     bundle = {}
-    _add_attr_bundle(ctx, bundle, "prepare")
-    _add_attr_bundle(ctx, bundle, "init")
-    _add_attr_bundle(ctx, bundle, "run")
-    _add_attr_bundle(ctx, bundle, "cleanup")
-    _add_attr_bundle(ctx, bundle, "check")
+    _add_attr_bundle(ctx, bundle, "prepare", distribute = ["cleanup", "check"])
+    _add_attr_bundle(ctx, bundle, "init", merge = ["run"], distribute = ["prepare", "cleanup", "check"])
+    _add_attr_bundle(ctx, bundle, "run", distribute = ["init", "prepare", "cleanup", "check"])
+    _add_attr_bundle(ctx, bundle, "cleanup", distribute = ["prepare", "check"])
+    _add_attr_bundle(ctx, bundle, "check", distribute = ["prepare", "cleanup"])
 
     return RuntimeBundleInfo(**bundle)
 
@@ -116,6 +133,10 @@ To create "internal-test", you could use vm_bundle like this:
 """,
     implementation = _vm_bundle,
     attrs = {
+        "prepare": attr.label_list(
+            doc = "List of binaries or bundles to run OUTSIDE THE VM to prepare the environment (cannot be combined with prepare_bin/_args - optional)",
+            cfg = "exec",
+        ),
         "prepare_cmds": attr.string_list(
             doc = "Shell commands to run OUTSIDE THE VM to prepare the environment (before prepare_bin - optional)",
         ),
@@ -127,16 +148,26 @@ To create "internal-test", you could use vm_bundle like this:
         "prepare_args": attr.string(
             doc = "Optional parameters to pass to the prepare_bin. Can use shell expansion.",
         ),
+
+        "init": attr.label_list(
+            doc = "List of binaries or bundles to run INSIDE THE VM to prepare the VM (cannot be combined with init_bin/_args - optional)",
+            cfg = "target",
+        ),
         "init_cmds": attr.string_list(
             doc = "Shell commands to run INSIDE THE VM to prepare the VM (before init_bin - optional)",
         ),
         "init_bin": attr.label(
             doc = "Binary to run INSIDE THE VM to prepare the VM (optional)",
             executable = True,
-            cfg = "exec",
+            cfg = "target",
         ),
         "init_args": attr.string(
             doc = "Optional parameters to pass to the init_bin. Can use shell expansion.",
+        ),
+
+        "run": attr.label_list(
+            doc = "List of binaries to run INSIDE THE VM (cannot be combined with init_bin/_args - optional)",
+            cfg = "target",
         ),
         "run_cmds": attr.string_list(
             doc = "Shell commands to run INSIDE THE VM (after init.*, before run_bin - optional)",
@@ -144,13 +175,18 @@ To create "internal-test", you could use vm_bundle like this:
         "run_bin": attr.label(
             doc = "Binary to run INSIDE THE VM to run the command (after init.*, after run_cmds, optional)",
             executable = True,
-            cfg = "exec",
+            cfg = "target",
         ),
         "run_args": attr.string(
             doc = "Optional parameters to pass to the run_bin. Can use shell expansion.",
         ),
+
+        "cleanup": attr.label_list(
+            doc = "List of binaries to run OUTSIDE the VM AFTER the RUN to clean up the environment (cannot be combined with cleanup_bin/_args - optional)",
+            cfg = "exec",
+        ),
         "cleanup_cmds": attr.string_list(
-            doc = "Shell commands to run OUTSIDE the VM AFTER the RUN (in reverse order) to clean up the environment (before cleanup_bin - optional)",
+            doc = "Shell commands to run OUTSIDE the VM AFTER the RUN to clean up the environment (before cleanup_bin - optional)",
         ),
         "cleanup_bin": attr.label(
             doc = "Binary to run OUTSIDE the VM AFTER the RUN (in reverse order) to clean up the environment (optional)",
@@ -159,6 +195,11 @@ To create "internal-test", you could use vm_bundle like this:
         ),
         "cleanup_args": attr.string(
             doc = "Optional parameters to pass to the cleanup_bin. Can use shell expansion.",
+        ),
+
+        "check": attr.label_list(
+            doc = "List of binaries to run OUTSIDE the VM to check the environment (cannot be combined with check_bin/_args - optional)",
+            cfg = "exec",
         ),
         "check_cmds": attr.string_list(
             doc = "Shell commands to check OUTSIDE THE VM to check the environment (before check_bin - optional)",
