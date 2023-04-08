@@ -123,9 +123,9 @@ mdformat-tables==0.4.1 \
     # via
     #   -r ./requirements.in
     #   mdformat-gfm
-mdit-py-plugins==0.3.0 \
-    --hash=sha256:b1279701cee2dbf50e188d3da5f51fee8d78d038cdf99be57c6b9d1aa93b4073 \
-    --hash=sha256:ecc24f51eeec6ab7eecc2f9724e8272c2fb191c2e93cf98109120c2cace69750
+mdit-py-plugins==0.3.5 \
+    --hash=sha256:ca9a0714ea59a24b2b044a1831f48d817dd0c817e84339f20e7889f392d77c4e \
+    --hash=sha256:eee0adc7195e5827e17e02d2a258a2ba159944a0748f59c5099a4a27f78fcf6a
     # via
     #   -r ./requirements.in
     #   mdformat-gfm
