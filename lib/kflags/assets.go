@@ -27,7 +27,7 @@ type AssetAugmenter struct {
 //
 // For example, let's say you have a dict containing:
 //
-//     "/etc/astore/astore-server.flag.txt": "127.0.0.1"
+//	"/etc/astore/astore-server.flag.txt": "127.0.0.1"
 //
 // Now let's say you have a binary that takes a --astore-server or -astore-server flag.
 //

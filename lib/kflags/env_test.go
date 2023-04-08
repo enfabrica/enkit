@@ -1,8 +1,8 @@
 package kflags
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestCamelRewrite(t *testing.T) {

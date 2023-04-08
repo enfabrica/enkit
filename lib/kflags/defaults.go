@@ -24,9 +24,8 @@ type Flag interface {
 //
 // For example, to use the default "flag" library FlagSet:
 //
-//     var set kflags.FlagSet
-//     set = &kflags.GoFlagSet{FlagSet: flag.CommandLine}
-//
+//	var set kflags.FlagSet
+//	set = &kflags.GoFlagSet{FlagSet: flag.CommandLine}
 type GoFlagSet struct {
 	*flag.FlagSet
 }
@@ -208,13 +207,12 @@ func GoPopulator(set *flag.FlagSet) Populator {
 //
 // For example, an application reading flags from the environment may use:
 //
-//     var server = flag.String("server", "127.0.0.1", "server to connect to")
-//     func main(...) {
-//       kflags.PopulateDefaults(flag.CommandLine, kflags.NewEnvAugmenter())
-//       [...]
+//	var server = flag.String("server", "127.0.0.1", "server to connect to")
+//	func main(...) {
+//	  kflags.PopulateDefaults(flag.CommandLine, kflags.NewEnvAugmenter())
+//	  [...]
 //
-//       flag.Parse()
-//
+//	  flag.Parse()
 func PopulateDefaults(set *flag.FlagSet, resolvers ...Augmenter) error {
 	errors := []error{}
 	namespace := filepath.Base(set.Name())

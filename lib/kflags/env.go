@@ -42,7 +42,7 @@ func (ems EnvModifiers) Apply(e *EnvAugmenter) {
 //
 // A nil rewriter is accepted, and performs no operation.
 func JoinRemap(separator string, rewriter ...VarRewriter) VarMangler {
-	return func (elements ...string) string {
+	return func(elements ...string) string {
 		result := []string{}
 		for _, el := range elements {
 			for _, r := range rewriter {
@@ -84,7 +84,7 @@ func UnderscoreRewrite(el string) string {
 }
 
 // UppercaseRewrite is a simple VarRewriter that upper cases everything.
-var UppercaseRewrite = strings.ToUpper;
+var UppercaseRewrite = strings.ToUpper
 
 // The set of remappers used to turn flags into environment variable names.
 var DefaultEnvRemap = JoinRemap("_", UnderscoreRewrite, UppercaseRewrite)

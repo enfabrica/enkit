@@ -1,7 +1,7 @@
 package kflags
 
 type MapAugmenter struct {
-	args map[string]string
+	args     map[string]string
 	manglers []VarMangler
 }
 
@@ -37,7 +37,7 @@ var DefaultVarMangler = []VarMangler{SkipNamespaceRemap(JoinRemap("")), SkipName
 // configured.
 func NewMapAugmenter(args map[string]string, mods ...MapModifier) *MapAugmenter {
 	augmenter := &MapAugmenter{
-		args: args,
+		args:     args,
 		manglers: DefaultVarMangler,
 	}
 
