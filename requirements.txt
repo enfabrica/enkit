@@ -106,9 +106,9 @@ markupsafe==2.1.1 \
     # via
     #   -r ./requirements.in
     #   jinja2
-mdformat==0.7.14 \
-    --hash=sha256:530eabe496726bd5f4dec5635c37c2496f4c8abc4c15fafa606919b48d92a9d9 \
-    --hash=sha256:60c457955f795e5a030e24bc96be30a29eee7836ba98b32e02581688da7670c5
+mdformat==0.7.16 \
+    --hash=sha256:76398d03baa394f331fb560fd0aed8257cf77b65b1c8146b92d395af16253662 \
+    --hash=sha256:99b105033207d2ab70ba1ced8e07327ed4ef1e0a6bc1c7c00207ea73ab502782
     # via
     #   -r ./requirements.in
     #   mdformat-gfm
