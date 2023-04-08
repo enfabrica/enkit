@@ -16,6 +16,7 @@ type FlagSet interface {
 	BoolVar(p *bool, name string, value bool, usage string)
 	DurationVar(p *time.Duration, name string, value time.Duration, usage string)
 	StringVar(p *string, name string, value string, usage string)
+	StringArrayVar(p *[]string, name string, value []string, usage string)
 	ByteFileVar(p *[]byte, name string, defaultFile string, usage string, mods ...ByteFileModifier)
 	IntVar(p *int, name string, value int, usage string)
 }

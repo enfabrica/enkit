@@ -25,6 +25,10 @@ func (hfs *HiddenFlagSet) DurationVar(p *time.Duration, name string, value time.
 	hfs.inner.DurationVar(p, name, value, usage)
 	hfs.Hide(name)
 }
+func (hfs *HiddenFlagSet) StringArrayVar(p *[]string, name string, value []string, usage string) {
+	hfs.inner.StringArrayVar(p, name, value, usage)
+	hfs.Hide(name)
+}
 func (hfs *HiddenFlagSet) StringVar(p *string, name string, value string, usage string) {
 	hfs.inner.StringVar(p, name, value, usage)
 	hfs.Hide(name)

@@ -2,6 +2,7 @@ package kflags
 
 import (
 	"flag"
+	"fmt"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,34 @@ type GoFlagSet struct {
 
 func (fs *GoFlagSet) ByteFileVar(p *[]byte, name string, defaultFile string, usage string, mods ...ByteFileModifier) {
 	fs.Var(NewByteFileFlag(p, defaultFile, mods...), name, usage)
+}
+
+// stringArrayFlag is a simple implementation of the flag.Value interface to provide array of flags.
+type stringArrayFlag struct {
+	dest     *[]string
+	defaults bool // set to true if dest points to the default value.
+}
+
+func (v *stringArrayFlag) String() string {
+	return fmt.Sprintf("%v", *v.dest)
+}
+
+func (v *stringArrayFlag) Set(value string) error {
+	// Don't modify/append to the default array, create a new one.
+	if v.defaults {
+		*v.dest = []string{}
+		v.defaults = false
+	}
+
+	*v.dest = append(*v.dest, value)
+	return nil
+}
+
+func (fs *GoFlagSet) StringArrayVar(p *[]string, name string, value []string, usage string) {
+	if len(value) > 0 {
+		*p = value[:]
+	}
+	fs.Var(&stringArrayFlag{dest: p, defaults: true}, name, usage)
 }
 
 // GoFlag wraps a flag.Flag object from the go standard library
