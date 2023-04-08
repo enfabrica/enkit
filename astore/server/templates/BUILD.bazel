@@ -22,4 +22,5 @@ go_library(
     embed = [":templates"],  # keep
     importpath = "github.com/enfabrica/enkit/astore/server/templates",
     visibility = ["//visibility:public"],
+    deps = ["@com_github_valyala_quicktemplate//:go_default_library"],
 )
