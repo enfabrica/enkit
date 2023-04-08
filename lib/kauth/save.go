@@ -17,8 +17,7 @@ func SaveCredentials(credentials *EnkitCredentials, store cache.Store, l logger.
 	l.Infof("Saving Credentials")
 	caPublicKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(credentials.CAPublicKey))
 	if err != nil {
-		fmt.Println("error parsing ca pub key", credentials.CAPublicKey)
-		return err
+		return fmt.Errorf("could not parse CA public key: %w", err)
 	}
 	sshDir, err := kcerts.FindSSHDir()
 	if err != nil {
@@ -32,7 +31,13 @@ func SaveCredentials(credentials *EnkitCredentials, store cache.Store, l logger.
 	if err != nil {
 		return err
 	}
-	defer agent.Close()
+        // If the agent was loaded from the environment, Close() is a noop.
+        // If the code just started an agent, we DO NOT WANT TO KILL IT!
+        // Killing it will destroy the key we just fetched.
+        //
+        // With this defer in place, login only works when `enkit agent run` was
+        // first started in the current bash session!
+	//   defer agent.Close() // WRONG!!
 
 	if err := agent.AddCertificates(credentials.PrivateKey, credentials.SSHCertificate); err != nil {
 		return err
