@@ -26,7 +26,7 @@ require (
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-lintpack/lintpack v0.5.2 // indirect
 	github.com/golang-collections/go-datastructures v0.0.0-20150211160725-59788d5eb259 // indirect
-	github.com/golang/protobuf v1.5.2
+	github.com/golang/protobuf v1.5.3
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/golangci/errcheck v0.0.0-20181223084120-ef45e06d44b6 // indirect
 	github.com/golangci/go-tools v0.0.0-20190318055746-e32c54105b7c // indirect
