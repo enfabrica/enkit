@@ -17,6 +17,7 @@ import (
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/config/directory"
 	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
@@ -83,7 +84,11 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) er
 type SSHAgent struct {
 	PID    int    `json:"pid"`
 	Socket string `json:"sock"`
-	// Close is edited in WriteToCache, is defaulted to an empty lambda
+
+	// Close will free the resources allocated by this SSHAgent object.
+	//
+	// If an ssh-agent was started, the Close() call will kill it.
+	// If an ssh-agent was found in the environment, it will leave it running.
 	Close func() `json:"-"`
 }
 
@@ -225,25 +230,32 @@ func (a SSHAgent) GetEnv() []string {
 // FindOrCreateSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // It will pull, in order: from the env, from the cache, create new.
 func FindOrCreateSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error) {
-	agent := FindSSHAgentFromEnv()
+	var errs []error
+	agent, err := FindSSHAgentFromEnv()
+	if err != nil {
+		logger.Infof("%s", err)
+		errs = append(errs, err)
+	}
+	if err == nil && agent != nil && agent.Valid() {
+		return agent, nil
+	}
+	agent, err = FetchSSHAgentFromCache(store)
+	if err != nil {
+		logger.Infof("%s", err)
+		errs = append(errs, err)
+	}
+	if err == nil && agent != nil && agent.Valid() {
+		return agent, nil
+	}
+	agent, err = CreateNewSSHAgent()
+	if err != nil {
+		errs = append(errs, err)
+		return nil, fmt.Errorf("could not start (or find) ssh agent - %w", multierror.New(errs))
+	}
 	if agent != nil && agent.Valid() {
 		return agent, nil
 	}
-	agent, err := FetchSSHAgentFromCache(store)
-	if err != nil {
-		logger.Warnf("%s", err)
-	}
-	if agent != nil && agent.Valid() {
-		return agent, nil
-	}
-	newAgent, err := CreateNewSSHAgent()
-	if err != nil {
-		return nil, err
-	}
-	if newAgent != nil && newAgent.Valid() {
-		return newAgent, nil
-	}
-	return nil, fmt.Errorf("Could not find or start an ssh-agent")
+	return nil, fmt.Errorf("started ssh agent is not functional - other methods failed %w", multierror.New(errs))
 }
 
 // PrepareSSHAgent ensures that we end up with a working ssh-agent,
@@ -260,8 +272,7 @@ func PrepareSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error)
 	}
 
 	// If we have a valid agent, make sure the paths are right.
-	err = agent.UseStandardPaths()
-	if err != nil {
+	if err := agent.UseStandardPaths(); err != nil {
 		return nil, err
 	}
 
@@ -269,52 +280,56 @@ func PrepareSSHAgent(store cache.Store, logger logger.Logger) (*SSHAgent, error)
 	return agent, nil
 }
 
-// FindSSHAgentFromEnv
-func FindSSHAgentFromEnv() *SSHAgent {
+// FindSSHAgentFromEnv creates an SSHAgent object based on environment variables.
+//
+// This is useful to configure an already running ssh-agent, post `eval ssh-agent`.
+func FindSSHAgentFromEnv() (*SSHAgent, error) {
 	// If the SSH agent was started locally, both SSH_AGENT_SOCK and
 	// SSH_AGENT_PID will be set.  However, when using ssh-agent forwarding over
 	// an SSH or CRD session, only SSH_AUTH_SOCK will be set.
 	envSSHSock := os.Getenv("SSH_AUTH_SOCK")
 	envSSHPID := os.Getenv("SSH_AGENT_PID")
 	if envSSHSock == "" {
-		return nil
+		return nil, fmt.Errorf("no SSH_AUTH_SOCK environment variable found")
 	}
 	pid := 0
 	if envSSHPID != "" {
 		var err error
 		pid, err = strconv.Atoi(envSSHPID)
 		if err != nil {
-			return nil
+			return nil, fmt.Errorf("invalid PID in SSH_AGENT_PID environment: %s - %w", envSSHPID, err)
 		}
 	}
-	return &SSHAgent{PID: pid, Socket: envSSHSock, Close: func() {}}
+	return &SSHAgent{PID: pid, Socket: envSSHSock, Close: func() {}}, nil
 }
 
-// CreateNewSSHAgent creates a new ssh agent. Its env variables have not been added to the shell. It does not maintain
-// its own connection.
+// CreateNewSSHAgent creates a new ssh agent.
+//
+// Its env variables have not been added to the shell.
+// It does not maintain its own connection.
 func CreateNewSSHAgent() (*SSHAgent, error) {
 	a := &SSHAgent{}
 
 	socket, err := a.GetStandardSocketPath()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create ssh agent socket path: %w", err)
 	}
 
 	os.Remove(socket) // ignore errors
 	_, err = os.Stat(socket)
 	if err == nil {
-		return nil, fmt.Errorf("unable to delete existing socket: %s", socket)
+		return nil, fmt.Errorf("could not delete existing ssh agent socket: %s", socket)
 	}
 
 	cmd := exec.Command("ssh-agent", "-s")
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("starting ssh agent failed with error %w", err)
 	}
 	resultSock := sockR.FindStringSubmatch(string(out))
 	resultPID := pidR.FindStringSubmatch(string(out))
 	if len(resultSock) != 2 || len(resultPID) != 2 {
-		return nil, fmt.Errorf("not a valid pid or agent sock, %v %v", resultSock, resultPID)
+		return nil, fmt.Errorf("ssh agent returned an invalid pid or socket - %v %v in %v", resultSock, resultPID, string(out))
 	}
 	// The second element is the raw value we want
 	rawPID := resultPID[1]
@@ -322,7 +337,7 @@ func CreateNewSSHAgent() (*SSHAgent, error) {
 
 	pid, err := strconv.Atoi(rawPID)
 	if err != nil {
-		return nil, fmt.Errorf("error processing ssh agent pid %s: %w", resultPID, err)
+		return nil, fmt.Errorf("error processing ssh agent pid %v: %w", resultPID, err)
 	}
 	a.Socket = rawSock
 	a.PID = pid

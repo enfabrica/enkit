@@ -14,13 +14,13 @@ const (
 )
 
 var (
-	SSHAgentNoCache = errors.New("the cache had not existed before")
+	SSHAgentNoCache = errors.New("ssh agent cached entry does not exist")
 )
 
 func FetchSSHAgentFromCache(store cache.Store) (*SSHAgent, error) {
 	sshEnkitCache, err := store.Exists(SSHCacheKey)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching cache: %w", err)
+		return nil, fmt.Errorf("error fetching ssh agent cache: %w", err)
 	}
 	if sshEnkitCache == "" {
 		return nil, SSHAgentNoCache
@@ -29,7 +29,7 @@ func FetchSSHAgentFromCache(store cache.Store) (*SSHAgent, error) {
 		Close: func() {},
 	}
 	if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent); err != nil {
-		return nil, fmt.Errorf("error deserializing cache: %w", err)
+		return nil, fmt.Errorf("error deserializing ssh agent cache: %w", err)
 	}
 	return agent, err
 }
