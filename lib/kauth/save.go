@@ -10,7 +10,7 @@ import (
 
 // SaveCredentials saves the passed in credentials to the current ssh-agent. If the credentials are empty, i.e.
 // the EnkitCredentials only contain EnkitCredentials.Token, it will return nil as a NoOp.
-func SaveCredentials(credentials *EnkitCredentials, store cache.Store, l logger.Logger) error {
+func SaveCredentials(credentials *EnkitCredentials, store cache.Store, l logger.Logger, sshopts ...kcerts.SSHAgentModifier) error {
 	if len(credentials.CaHosts) == 0 || credentials.SSHCertificate == nil || credentials.PrivateKey == nil {
 		return nil
 	}
@@ -27,7 +27,7 @@ func SaveCredentials(credentials *EnkitCredentials, store cache.Store, l logger.
 	if err != nil {
 		return err
 	}
-	agent, err := kcerts.PrepareSSHAgent(store, l)
+	agent, err := kcerts.PrepareSSHAgent(store, l, sshopts...)
 	if err != nil {
 		return err
 	}

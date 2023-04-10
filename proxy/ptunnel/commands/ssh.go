@@ -5,6 +5,7 @@ import (
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/spf13/cobra"
 	"os"
 	"os/exec"
@@ -20,6 +21,7 @@ type proxyMapping struct {
 type SSH struct {
 	*cobra.Command
 	*client.BaseFlags
+	AgentFlags  *kcerts.SSHAgentFlags
 
 	Tunnel     string
 	Extra      string
@@ -130,7 +132,7 @@ func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 	ecmd.Stderr = os.Stderr
 
 	if r.UseInternalAgent {
-		agent, err := kcerts.PrepareSSHAgent(r.BaseFlags.Local, r.Log)
+		agent, err := kcerts.PrepareSSHAgent(r.BaseFlags.Local, r.BaseFlags.Log, kcerts.WithFlags(r.AgentFlags))
 		if err != nil {
 			return err
 		}
@@ -188,6 +190,7 @@ func NewSSH(base *client.BaseFlags) *SSH {
 `,
 		},
 		BaseFlags: base,
+		AgentFlags: kcerts.SSHAgentDefaultFlags(),
 	}
 	root.PreRunE = root.parseFlags
 	root.RunE = root.Run
@@ -212,5 +215,7 @@ func NewSSH(base *client.BaseFlags) *SSH {
 	root.Command.Flags().StringVar(&root.Subcommand, "tunnel-command", tcommand, "Subcommand to use with the tunnel command. Defaults to empty if the tunnel command does not end with enkit")
 	root.Command.Flags().StringVar(&root.Extra, "tunnel-extra", "", "Extra arguments to pass to the tunnel command")
 	root.Command.Flags().BoolVar(&root.UseInternalAgent, "use-internal-agent", true, "Use the builtin agent that enkit manages")
+	root.AgentFlags.Register(&kcobra.FlagSet{root.Command.Flags()}, "")
+
 	return root
 }

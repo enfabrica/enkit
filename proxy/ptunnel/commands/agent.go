@@ -5,29 +5,41 @@ import (
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/spf13/cobra"
 	"os"
 	"os/exec"
 	"strings"
 )
 
+type AgentCommandFlags struct {
+	Base *client.BaseFlags
+	Agent *kcerts.SSHAgentFlags
+}
+
 func NewAgentCommand(bf *client.BaseFlags) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "agent [SubCommands] -- [Command]",
 		Short: "commands for the enkit specific ssh-agent, anything passed in will execute with SSH_AUTH_SOCK and SSH_AGENT_PID set for the enkti agent.",
 	}
+	flags := &AgentCommandFlags{
+		Base: bf,
+		Agent: kcerts.SSHAgentDefaultFlags(),
+	}
+	flags.Agent.Register(&kcobra.FlagSet{c.PersistentFlags()}, "")
+
 	// Note the following is intended to be user friendly, identities here are cert principals
-	c.AddCommand(NewRunAgentCommand(c, bf))
-	c.AddCommand(NewPrintCommand(c, bf))
-	c.AddCommand(NewListAgentCommand(bf))
+	c.AddCommand(NewRunAgentCommand(c, flags))
+	c.AddCommand(NewPrintCommand(c, flags))
+	c.AddCommand(NewListAgentCommand(flags))
 	return c
 }
-func NewListAgentCommand(bf *client.BaseFlags) *cobra.Command {
+func NewListAgentCommand(flags *AgentCommandFlags) *cobra.Command {
 	includeExt := false
 	c := &cobra.Command{
 		Use: "list",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			agent, err := kcerts.PrepareSSHAgent(bf.Local, bf.Log)
+			agent, err := kcerts.PrepareSSHAgent(flags.Base.Local, flags.Base.Log, kcerts.WithFlags(flags.Agent))
 			if err != nil {
 				return err
 			}
@@ -50,19 +62,19 @@ func NewListAgentCommand(bf *client.BaseFlags) *cobra.Command {
 	return c
 }
 
-func NewRunAgentCommand(parent *cobra.Command, bf *client.BaseFlags) *cobra.Command {
+func NewRunAgentCommand(parent *cobra.Command, flags *AgentCommandFlags) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "run -- [COMMAND]",
 		Short: "Runs the following command using the enkit ssh-agent",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunAgentCommand(parent, bf, args)
+			return RunAgentCommand(parent, flags, args)
 		},
 	}
 	return c
 }
 
-func RunAgentCommand(command *cobra.Command, bf *client.BaseFlags, args []string) error {
-	agent, err := kcerts.PrepareSSHAgent(bf.Local, bf.Log)
+func RunAgentCommand(command *cobra.Command, flags *AgentCommandFlags, args []string) error {
+	agent, err := kcerts.PrepareSSHAgent(flags.Base.Local, flags.Base.Log, kcerts.WithFlags(flags.Agent))
 	if err != nil {
 		return err
 	}
@@ -88,12 +100,12 @@ func RunAgentCommand(command *cobra.Command, bf *client.BaseFlags, args []string
 	return nil
 }
 
-func NewPrintCommand(parent *cobra.Command, bf *client.BaseFlags) *cobra.Command {
+func NewPrintCommand(parent *cobra.Command, flags *AgentCommandFlags) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "print",
 		Short: "Prints out the enkit agent as if you ran ssh-agent -s, compatible with bourne shells",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			agent, err := kcerts.PrepareSSHAgent(bf.Local, bf.Log)
+			agent, err := kcerts.PrepareSSHAgent(flags.Base.Local, flags.Base.Log, kcerts.WithFlags(flags.Agent))
 			if err != nil {
 				return err
 			}

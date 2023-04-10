@@ -17,6 +17,7 @@ go_library(
         "//lib/config/directory:go_default_library",
         "//lib/config/marshal:go_default_library",
         "//lib/kcerts/ked25519:go_default_library",
+        "//lib/kflags:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/multierror:go_default_library",
         "//lib/srand:go_default_library",
