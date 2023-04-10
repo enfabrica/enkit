@@ -1,1 +1,1 @@
-non-existant-machine-1.corp -- cd santa-coming/__bazel_utils_hello-world/enkit; MACHINES='non-existant-machine-1.corp non-existant-machine-2.corp' ./bazel/utils/decorated-wrapper-wrapper --wrapper_opt1=foo --wrapper-opt2 -- bazel/utils/hello-world --target_opt1=foo --wrapper-opt3
+non-existant-machine-1.corp -- cd santa-coming/__bazel_utils_hello-world/enkit; /bin/bash -c "MACHINES='non-existant-machine-1.corp non-existant-machine-2.corp' ./bazel/utils/decorated-wrapper-wrapper --wrapper_opt1=foo --wrapper-opt2 -- bazel/utils/hello-world --target_opt1=foo --wrapper-opt3"
