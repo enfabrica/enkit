@@ -82,18 +82,26 @@ func AddSSHCAToClient(publicKey ssh.PublicKey, hosts []string, sshDir string) er
 	return nil
 }
 
-type SSHAgent struct {
+// SSHAgentState is the struct marsheld/unmarshaled to/from disk to maintain
+// state about an existing ssh-agent.
+type SSHAgentState struct {
 	PID    int    `json:"pid"`
 	Socket string `json:"sock"`
+}
+
+// SSHAgent is a wrapper around golang.org/x/crypto/ssh/agent to ease the
+// creation and management of ssh-agents.
+type SSHAgent struct {
+	SSHAgentState
 
 	// Close will free the resources allocated by this SSHAgent object.
 	//
 	// If an ssh-agent was started, the Close() call will kill it.
 	// If an ssh-agent was found in the environment, it will leave it running.
-	Close func() `json:"-"`
+	Close func()
 
 	// How long to wait when connecting/reading/writing into the unix domain socket.
-	Timeout time.Duration `json:"-"`
+	Timeout time.Duration
 }
 
 type SSHAgentModifier func(s *SSHAgent) error

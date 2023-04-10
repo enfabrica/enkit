@@ -29,7 +29,7 @@ func FetchSSHAgentFromCache(store cache.Store, mods ...SSHAgentModifier) (*SSHAg
 	if err != nil {
 		return nil, err
 	}
-	if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent); err != nil {
+	if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent.SSHAgentState); err != nil {
 		return nil, fmt.Errorf("error deserializing ssh agent cache: %w", err)
 	}
 	return agent, err
@@ -41,7 +41,7 @@ func WriteAgentToCache(store cache.Store, agent *SSHAgent) error {
 		return fmt.Errorf("error fetching cache: %w", err)
 	}
 	defer store.Rollback(sshEnkitCache)
-	err = marshal.MarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), agent)
+	err = marshal.MarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent.SSHAgentState)
 	if err != nil {
 		return fmt.Errorf("error writing to cache: %w", err)
 	}

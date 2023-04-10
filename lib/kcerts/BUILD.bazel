@@ -30,6 +30,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "cache_test.go",
         "certs_test.go",
         "signer_test.go",
         "ssh_test.go",
