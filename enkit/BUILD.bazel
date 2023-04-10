@@ -60,7 +60,7 @@ astore_upload(
     name = "deploy",
     file = "tools/enkit",
     targets = [
-        ":enkit-linux-amd64",
+        ":enkit-linux-cgo-amd64",
         ":enkit-darwin-amd64",
         ":enkit-win-amd64",
     ],
