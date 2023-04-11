@@ -20,6 +20,23 @@ type Regex struct {
 	match      *regexp.Regexp
 }
 
+type HeaderGroupMapping struct {
+	// Header which should get a value
+	Header string
+	// List of groups that should be tested. The header gets the value of the
+	// first group that matches the current request. If no match occurs, the
+	// request is rejected.
+	GroupMapping []ValueByGroup
+}
+
+type ValueByGroup struct {
+	// Name of the group this value should apply to. If set to the empty string,
+	// should match all requests (as a sort of "default case").
+	Group string
+	// If the group specifier matches, this value is used.
+	Value string
+}
+
 func (t *Regex) Compile() error {
 	var err error
 	t.match, err = regexp.Compile(t.Match)
@@ -80,6 +97,14 @@ type Transform struct {
 	// For example, by setting MapRequestHeaders to "Sec-Websocket-Key" to "Sec-WebSocket-Key"
 	// the case for WebSocket will be changed.
 	MapRequestHeaders map[string]string
+
+	// Add additional headers based on the groups the user is part of.
+	// This is useful to conditionally set headers based on the user's identity -
+	// for instance, to add an "X-Webauth-Role" to Grafana requests to indicate
+	// the user's role in Grafana.
+	//
+	// TODO(INFRA-4919): Implement this feature
+	MapRequestHeadersByGroup []HeaderGroupMapping
 
 	stripCookie     []*regexp.Regexp
 	noSlashFromPath string
