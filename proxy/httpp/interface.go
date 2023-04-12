@@ -6,9 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/khttp"
+	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/slice"
 )
 
 type HostPath struct {
@@ -180,6 +181,28 @@ func (t *Transform) Apply(req *http.Request) bool {
 		req.Header.Set("X-Webauth-Username", creds.Identity.Username)
 		req.Header.Set("X-Webauth-Organization", creds.Identity.Organization)
 		req.Header.Set("X-Webauth-Globalname", creds.Identity.GlobalName())
+	}
+
+	userGroups := map[string]struct{}{}
+	creds := oauth.GetCredentials(req.Context())
+	if creds != nil {
+		userGroups = slice.ToSet(creds.Identity.Groups)
+	}
+
+nextHeader:
+	for _, header := range t.MapRequestHeadersByGroup {
+		for _, groupMap := range header.GroupMapping {
+			// Empty group means this header value should always apply
+			if groupMap.Group == "" {
+				req.Header.Set(header.Header, groupMap.Value)
+				continue nextHeader
+			}
+
+			if _, ok := userGroups[groupMap.Group]; ok {
+				req.Header.Set(header.Header, groupMap.Value)
+				continue nextHeader
+			}
+		}
 	}
 
 	return t.Maintain

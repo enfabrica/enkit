@@ -24,7 +24,7 @@ go_test(
     deps = [
         "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
-        "//lib/oauth/providers:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
     ],
 )

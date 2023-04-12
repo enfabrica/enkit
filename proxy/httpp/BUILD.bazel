@@ -14,6 +14,7 @@ go_library(
         "//lib/logger:go_default_library",
         "//lib/multierror:go_default_library",
         "//lib/oauth:go_default_library",
+        "//lib/slice:go_default_library",
         "//proxy/amux:go_default_library",
     ],
 )
