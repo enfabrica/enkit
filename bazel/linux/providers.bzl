@@ -58,6 +58,7 @@ and have basic tools available necessary for its users.
 RuntimeInfo = provider(
     doc = """Represents a binary to run""",
     fields = {
+        "origin": "bool, set to true if the commands print origin information for debug purposes",
         "commands": "list of string, shell commands to embed in the script before running the binary",
         "binary": "File object, executable, binary to run",
         "runfiles": "runfiles() object, representing the files needed by the binary at run time",
@@ -69,9 +70,10 @@ RuntimeInfo = provider(
 RuntimeBundleInfo = provider(
     doc = """Represents something to run in a VM environment.""",
     fields = {
-        "prepare": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM BEFORE the RUN to prepare the environment",
-        "run": "RuntimeInfo, executable (and its runfiles) to run INSIDE the VM",
-        "cleanup": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN (in reverse order) to clean up the environment",
-        "check": "RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN to check if the run was successful",
+        "prepare": "list of RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM BEFORE the RUN to prepare the environment",
+        "init": "list of RuntimeInfo, executable (and its runfiles) to run INSIDE the VM to prepare it",
+        "run": "list of RuntimeInfo, executable (and its runfiles) to run INSIDE the VM",
+        "cleanup": "list of RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN (in reverse order) to clean up the environment",
+        "check": "list of RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN to check if the run was successful",
     },
 )
