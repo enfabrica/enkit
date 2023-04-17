@@ -21,7 +21,7 @@ type proxyMapping struct {
 type SSH struct {
 	*cobra.Command
 	*client.BaseFlags
-	AgentFlags  *kcerts.SSHAgentFlags
+	AgentFlags *kcerts.SSHAgentFlags
 
 	Tunnel     string
 	Extra      string
@@ -132,7 +132,7 @@ func (r *SSH) Run(cmd *cobra.Command, args []string) error {
 	ecmd.Stderr = os.Stderr
 
 	if r.UseInternalAgent {
-		agent, err := kcerts.PrepareSSHAgent(r.BaseFlags.Local, r.BaseFlags.Log, kcerts.WithFlags(r.AgentFlags))
+		agent, err := kcerts.PrepareSSHAgent(r.BaseFlags.Local, kcerts.WithLogging(r.BaseFlags.Log), kcerts.WithFlags(r.AgentFlags))
 		if err != nil {
 			return err
 		}
@@ -189,7 +189,7 @@ func NewSSH(base *client.BaseFlags) *SSH {
 	be found in your path.
 `,
 		},
-		BaseFlags: base,
+		BaseFlags:  base,
 		AgentFlags: kcerts.SSHAgentDefaultFlags(),
 	}
 	root.PreRunE = root.parseFlags

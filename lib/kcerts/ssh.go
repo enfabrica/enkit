@@ -1,6 +1,7 @@
 package kcerts
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
@@ -101,7 +102,18 @@ type SSHAgent struct {
 	Close func()
 
 	// How long to wait when connecting/reading/writing into the unix domain socket.
-	Timeout time.Duration
+	timeout time.Duration
+
+	// Command to use to start ssh-agent, with options.
+	agentPath string
+	agentArgs []string
+
+	// Namespace for configs. This is typically the name of the directory under
+	// ~/.config/ where configs for the agent should be kept.
+	config string
+
+	// The logger to use.
+	log logger.Logger
 }
 
 type SSHAgentModifier func(s *SSHAgent) error
@@ -118,32 +130,83 @@ func (m SSHAgentModifiers) Apply(a *SSHAgent) error {
 }
 
 type SSHAgentFlags struct {
-	Timeout time.Duration
+	Timeout   time.Duration
+	AgentPath string
+	AgentArgs []string
 }
 
 const kDefaultTimeout = 10 * time.Second
 
 func SSHAgentDefaultFlags() *SSHAgentFlags {
 	return &SSHAgentFlags{
-		Timeout: kDefaultTimeout,
+		Timeout:   kDefaultTimeout,
+		AgentPath: "ssh-agent",
+		AgentArgs: []string{"-s"},
 	}
 }
 
 func (f *SSHAgentFlags) Register(set kflags.FlagSet, prefix string) *SSHAgentFlags {
 	set.DurationVar(&f.Timeout, prefix+"ssh-agent-timeout", f.Timeout,
 		"How long to wait before considering an agent unusable - read, write, connect timeout")
+	set.StringVar(&f.AgentPath, prefix+"ssh-agent-command", f.AgentPath,
+		"Command to use to start an ssh agent")
+	set.StringArrayVar(&f.AgentArgs, prefix+"ssh-agent-flags", f.AgentArgs,
+		"Command line options to pass to the ssh agent")
 	return f
+}
+
+func WithTimeout(timeout time.Duration) SSHAgentModifier {
+	return func(a *SSHAgent) error {
+		a.timeout = timeout
+		return nil
+	}
+}
+
+func WithAgentPath(path string, args []string) SSHAgentModifier {
+	return func(a *SSHAgent) error {
+		a.agentPath = path
+		a.agentArgs = args
+		return nil
+	}
+}
+
+func WithLogging(log logger.Logger) SSHAgentModifier {
+	return func(a *SSHAgent) error {
+		a.log = log
+		return nil
+	}
+}
+
+func WithConfigDir(dir string) SSHAgentModifier {
+	return func(a *SSHAgent) error {
+		a.config = dir
+		return nil
+	}
 }
 
 func WithFlags(f *SSHAgentFlags) SSHAgentModifier {
 	return func(a *SSHAgent) error {
-		a.Timeout = f.Timeout
+		if err := WithTimeout(f.Timeout)(a); err != nil {
+			return kflags.NewUsageErrorf("invalid ssh-agent-timeout specified: %w", err)
+		}
+		if len(f.AgentPath) <= 0 {
+			return kflags.NewUsageErrorf("invalid ssh-agent-command - empty string")
+		}
+		if err := WithAgentPath(f.AgentPath, f.AgentArgs)(a); err != nil {
+			return kflags.NewUsageErrorf("invalid ssh-agent-command or flags - %w", err)
+		}
 		return nil
 	}
 }
 
 func NewSSHAgent(mods ...SSHAgentModifier) (*SSHAgent, error) {
-	agent := &SSHAgent{Timeout: kDefaultTimeout}
+	agent := &SSHAgent{
+		timeout:   kDefaultTimeout,
+		agentPath: "ssh-agent",
+		agentArgs: []string{"-s"},
+		config:    "enkit",
+		log:       logger.Go,
+	}
 	if err := SSHAgentModifiers(mods).Apply(agent); err != nil {
 		return nil, err
 	}
@@ -162,17 +225,26 @@ func (a SSHAgent) Kill() error {
 	return p.Kill()
 }
 
-func (a SSHAgent) Valid() bool {
-	conn, err := net.DialTimeout("unix", a.Socket, a.Timeout)
+func (a SSHAgent) Valid() error {
+	if a.Socket == "" {
+		return nil
+	}
+
+	conn, err := net.DialTimeout("unix", a.Socket, a.timeout)
 	if err != nil {
-		return false
+		return fmt.Errorf("invalid agent - could not connect - %w", err)
 	}
 	defer conn.Close()
-	return err == nil
+
+	conn.SetDeadline(time.Now().Add(a.timeout))
+	if _, err := agent.NewClient(conn).List(); err != nil {
+		return fmt.Errorf("invalid agent - could not list - %w", err)
+	}
+	return nil
 }
 
 func (a *SSHAgent) GetStandardSocketPath() (string, error) {
-	path, err := GetConfigDir("enkit")
+	path, err := GetConfigDir(a.config)
 	if err != nil {
 		return "", err
 	}
@@ -198,7 +270,7 @@ func (a *SSHAgent) UseStandardPaths() error {
 	}
 
 	// Create symlink with a random name
-	path, err := GetConfigDir("enkit")
+	path, err := GetConfigDir(a.config)
 	if err != nil {
 		return err
 	}
@@ -225,13 +297,13 @@ type AgentCert struct {
 
 // Principals returns a map where the keys are the CA's PKS and the certs identities are the values
 func (a SSHAgent) Principals() ([]AgentCert, error) {
-	conn, err := net.DialTimeout("unix", a.Socket, a.Timeout)
+	conn, err := net.DialTimeout("unix", a.Socket, a.timeout)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
 
-	conn.SetDeadline(time.Now().Add(a.Timeout))
+	conn.SetDeadline(time.Now().Add(a.timeout))
 	keys, err := agent.NewClient(conn).List()
 	if err != nil {
 		return nil, err
@@ -259,7 +331,7 @@ func (a SSHAgent) Principals() ([]AgentCert, error) {
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
 // Note that ed25519.PrivateKey should be passed by value.
 func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey) error {
-	conn, err := net.DialTimeout("unix", a.Socket, a.Timeout)
+	conn, err := net.DialTimeout("unix", a.Socket, a.timeout)
 	if err != nil {
 		return err
 	}
@@ -273,7 +345,7 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 		return fmt.Errorf("certificate is already expired or invalid, not adding")
 	}
 
-	conn.SetDeadline(time.Now().Add(a.Timeout))
+	conn.SetDeadline(time.Now().Add(a.timeout))
 	return agent.NewClient(conn).Add(agent.AddedKey{
 		PrivateKey:   privateKey.Raw(),
 		Certificate:  cert,
@@ -291,35 +363,49 @@ func (a SSHAgent) GetEnv() []string {
 
 // FindOrCreateSSHAgent Will start the ssh agent in the interactive terminal if it isn't present already as an environment variable
 // It will pull, in order: from the env, from the cache, create new.
-func FindOrCreateSSHAgent(store cache.Store, logger logger.Logger, mods ...SSHAgentModifier) (*SSHAgent, error) {
+func FindOrCreateSSHAgent(store cache.Store, mods ...SSHAgentModifier) (*SSHAgent, error) {
+	agent, err := NewSSHAgent(mods...)
+	if err != nil {
+		return nil, err
+	}
+
 	var errs []error
-	agent, err := FindSSHAgentFromEnv(mods...)
+	err = agent.LoadFromEnvironment()
 	if err != nil {
-		logger.Infof("%s", err)
-		errs = append(errs, err)
-	}
-	if err == nil && agent != nil && agent.Valid() {
-		return agent, nil
+		agent.log.Infof("%s", err)
+		errs = append(errs, fmt.Errorf("environment - %w", err))
+	} else {
+		err := agent.Valid()
+		if err == nil {
+			return agent, nil
+		}
+		errs = append(errs, fmt.Errorf("environment - %w", err))
 	}
 
-	agent, err = FetchSSHAgentFromCache(store, mods...)
+	err = agent.LoadFromCache(store)
 	if err != nil {
-		logger.Infof("%s", err)
-		errs = append(errs, err)
-	}
-	if err == nil && agent != nil && agent.Valid() {
-		return agent, nil
+		agent.log.Infof("%s", err)
+		errs = append(errs, fmt.Errorf("cache - %w", err))
+	} else {
+		err := agent.Valid()
+		if err == nil {
+			return agent, nil
+		}
+		errs = append(errs, fmt.Errorf("cache - %w", err))
 	}
 
-	agent, err = CreateNewSSHAgent(mods...)
+	err = agent.CreateNew()
 	if err != nil {
-		errs = append(errs, err)
+		errs = append(errs, fmt.Errorf("new - %w", err))
 		return nil, fmt.Errorf("could not start (or find) ssh agent - %w", multierror.New(errs))
 	}
-	if agent != nil && agent.Valid() {
+	err = agent.Valid()
+	if err == nil {
 		return agent, nil
 	}
-	return nil, fmt.Errorf("started ssh agent is not functional - other methods failed %w", multierror.New(errs))
+
+	errs = append(errs, fmt.Errorf("new - %w", err))
+	return nil, fmt.Errorf("started ssh agent is not functional - other methods failed. %w", multierror.New(errs))
 }
 
 // PrepareSSHAgent ensures that we end up with a working ssh-agent,
@@ -329,8 +415,8 @@ func FindOrCreateSSHAgent(store cache.Store, logger logger.Logger, mods ...SSHAg
 //
 // The final ssh-agent socket returned by PrepareSSHAgent is always
 // ~/.config/enkit/agent.
-func PrepareSSHAgent(store cache.Store, logger logger.Logger, mods ...SSHAgentModifier) (*SSHAgent, error) {
-	agent, err := FindOrCreateSSHAgent(store, logger, mods...)
+func PrepareSSHAgent(store cache.Store, mods ...SSHAgentModifier) (*SSHAgent, error) {
+	agent, err := FindOrCreateSSHAgent(store, mods...)
 	if err != nil {
 		return nil, err
 	}
@@ -340,71 +426,64 @@ func PrepareSSHAgent(store cache.Store, logger logger.Logger, mods ...SSHAgentMo
 		return nil, err
 	}
 
-	logger.Infof("%s", WriteAgentToCache(store, agent))
+	agent.log.Infof("%s", WriteAgentToCache(store, agent))
 	return agent, nil
 }
 
-// FindSSHAgentFromEnv creates an SSHAgent object based on environment variables.
+// LoadFromEnvironment prepares an SSHAgent from environment variables.
 //
 // This is useful to configure an already running ssh-agent, post `eval ssh-agent`.
-func FindSSHAgentFromEnv(mods ...SSHAgentModifier) (*SSHAgent, error) {
+func (agent *SSHAgent) LoadFromEnvironment() error {
 	// If the SSH agent was started locally, both SSH_AGENT_SOCK and
 	// SSH_AGENT_PID will be set.  However, when using ssh-agent forwarding over
 	// an SSH or CRD session, only SSH_AUTH_SOCK will be set.
 	envSSHSock := os.Getenv("SSH_AUTH_SOCK")
 	envSSHPID := os.Getenv("SSH_AGENT_PID")
 	if envSSHSock == "" {
-		return nil, fmt.Errorf("no SSH_AUTH_SOCK environment variable found")
+		return fmt.Errorf("no SSH_AUTH_SOCK environment variable found")
 	}
 	pid := 0
 	if envSSHPID != "" {
 		var err error
 		pid, err = strconv.Atoi(envSSHPID)
 		if err != nil {
-			return nil, fmt.Errorf("invalid PID in SSH_AGENT_PID environment: %s - %w", envSSHPID, err)
+			return fmt.Errorf("invalid PID in SSH_AGENT_PID environment: %s - %w", envSSHPID, err)
 		}
-	}
-
-	agent, err := NewSSHAgent(mods...)
-	if err != nil {
-		return nil, err
 	}
 
 	agent.PID = pid
 	agent.Socket = envSSHSock
-	return agent, nil
+	return nil
 }
 
 // CreateNewSSHAgent creates a new ssh agent.
 //
 // Its env variables have not been added to the shell.
 // It does not maintain its own connection.
-func CreateNewSSHAgent(mods ...SSHAgentModifier) (*SSHAgent, error) {
-	a, err := NewSSHAgent(mods...)
+func (agent *SSHAgent) CreateNew() error {
+	socket, err := agent.GetStandardSocketPath()
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("could not create ssh agent socket path: %w", err)
 	}
 
-	socket, err := a.GetStandardSocketPath()
-	if err != nil {
-		return nil, fmt.Errorf("could not create ssh agent socket path: %w", err)
-	}
-
-	os.Remove(socket) // ignore errors
+	rerr := os.Remove(socket) // ignore errors
 	_, err = os.Stat(socket)
 	if err == nil {
-		return nil, fmt.Errorf("could not delete existing ssh agent socket: %s", socket)
+		return fmt.Errorf("could not delete existing socket: %w", rerr)
 	}
 
-	cmd := exec.Command("ssh-agent", "-s")
+	cmd := exec.Command(agent.agentPath, agent.agentArgs...)
+	buf := bytes.NewBufferString("")
+	cmd.Stderr = buf
+
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("starting ssh agent failed with error %w", err)
+		return fmt.Errorf("starting ssh agent failed with error %w - stderr: %s", err, buf.String())
 	}
 	resultSock := sockR.FindStringSubmatch(string(out))
 	resultPID := pidR.FindStringSubmatch(string(out))
 	if len(resultSock) != 2 || len(resultPID) != 2 {
-		return nil, fmt.Errorf("ssh agent returned an invalid pid or socket - %v %v in %v", resultSock, resultPID, string(out))
+		return fmt.Errorf("ssh agent returned an invalid pid or socket - %v %v in %v", resultSock, resultPID, string(out))
 	}
 	// The second element is the raw value we want
 	rawPID := resultPID[1]
@@ -412,14 +491,14 @@ func CreateNewSSHAgent(mods ...SSHAgentModifier) (*SSHAgent, error) {
 
 	pid, err := strconv.Atoi(rawPID)
 	if err != nil {
-		return nil, fmt.Errorf("error processing ssh agent pid %v: %w", resultPID, err)
+		return fmt.Errorf("error processing ssh agent pid %v: %w", resultPID, err)
 	}
-	a.Socket = rawSock
-	a.PID = pid
-	a.Close = func() {
-		_ = a.Kill()
+	agent.Socket = rawSock
+	agent.PID = pid
+	agent.Close = func() {
+		_ = agent.Kill()
 	}
-	return a, nil
+	return nil
 }
 
 // SignPublicKey will sign and return credentials based on the CA signer and given parameters

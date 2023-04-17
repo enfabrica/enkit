@@ -17,22 +17,20 @@ var (
 	SSHAgentNoCache = errors.New("ssh agent cached entry does not exist")
 )
 
-func FetchSSHAgentFromCache(store cache.Store, mods ...SSHAgentModifier) (*SSHAgent, error) {
+func (agent *SSHAgent) LoadFromCache(store cache.Store) error {
 	sshEnkitCache, err := store.Exists(SSHCacheKey)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching ssh agent cache: %w", err)
+		return fmt.Errorf("error fetching ssh agent cache: %w", err)
 	}
 	if sshEnkitCache == "" {
-		return nil, SSHAgentNoCache
+		return SSHAgentNoCache
 	}
-	agent, err := NewSSHAgent(mods...)
-	if err != nil {
-		return nil, err
+	var state SSHAgentState
+	if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &state); err != nil {
+		return fmt.Errorf("error deserializing ssh agent cache: %w", err)
 	}
-	if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent.SSHAgentState); err != nil {
-		return nil, fmt.Errorf("error deserializing ssh agent cache: %w", err)
-	}
-	return agent, err
+	agent.SSHAgentState = state // Ensure the whole state is set/overwritten.
+	return err
 }
 
 func WriteAgentToCache(store cache.Store, agent *SSHAgent) error {
