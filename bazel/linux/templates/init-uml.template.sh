@@ -10,5 +10,4 @@ dir="${path%%$relpath}"
 test "$dir" == "$path" || cd "$dir"
 
 set -e
-{inits}
 {commands}

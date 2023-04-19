@@ -2,8 +2,8 @@ load("//bazel/linux:uml.bzl", "kernel_uml_run")
 load("//bazel/linux:qemu.bzl", "kernel_qemu_run")
 load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
 load("//bazel/utils:exec_test.bzl", "exec_test")
-load("//bazel/linux:bundles.bzl", "kunit_bundle", "vm_bundle")
-load("//bazel/linux:runner.bzl", "expand_targets_and_bundles")
+load("//bazel/linux:bundles.bzl", "kunit_bundle")
+load("//bazel/linux:runner.bzl", "commands_and_runtime", "get_prepare_run_check")
 load("//bazel/linux:providers.bzl", "RuntimeBundleInfo", "RuntimeInfo")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
@@ -79,10 +79,16 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 exit $failures
 """
 
-    torun = expand_targets_and_bundles(ctx, ctx.attr.tests)
+    prepares, runs, cleanups, checks = get_prepare_run_check(ctx, ctx.attr.tests)
+
+    outside_runfiles = ctx.runfiles()
+    cprepares, outside_runfiles, _ = commands_and_runtime(ctx, "prepare", prepares, outside_runfiles, verbose = False)
+    cchecks, outside_runfiles, _ = commands_and_runtime(ctx, "check", checks, outside_runfiles, verbose = False)
+    ccleanups, outside_runfiles, _ = commands_and_runtime(ctx, "cleanup", cleanups, outside_runfiles, verbose = False)
+    cruns, inside_runfiles, run_labels = commands_and_runtime(ctx, "run", runs, ctx.runfiles(), verbose = False)
 
     tests = []
-    for label, crun in zip(torun.labels.run, torun.commands.run):
+    for label, crun in zip(run_labels, cruns):
         tests.append("run_test {title} {cmd}".format(
             title = shell.quote(label),
             cmd = crun,
@@ -91,11 +97,10 @@ exit $failures
     script = ctx.actions.declare_file("{}_test_runner.sh".format(ctx.attr.name))
     ctx.actions.write(script, script_begin + "\n".join(tests) + script_end)
     return [RuntimeBundleInfo(
-        prepare = [RuntimeInfo(origin = True, commands = torun.commands.prepare, runfiles = torun.runfiles.prepare)],
-        init = [RuntimeInfo(origin = True, commands = torun.commands.init, runfiles = torun.runfiles.init)],
-        run = [RuntimeInfo(binary = script, runfiles = torun.runfiles.run)],
-        cleanup = [RuntimeInfo(origin = True, commands = torun.commands.cleanup, runfiles = torun.runfiles.cleanup)],
-        check = [RuntimeInfo(origin = True, commands = torun.commands.check, runfiles = torun.runfiles.check)],
+        prepare = RuntimeInfo(commands = cprepares, runfiles = outside_runfiles),
+        run = RuntimeInfo(binary = script, runfiles = inside_runfiles),
+        cleanup = RuntimeInfo(commands = ccleanups, runfiles = outside_runfiles),
+        check = RuntimeInfo(commands = cchecks, runfiles = outside_runfiles),
     )]
 
 test_runner = rule(
@@ -116,7 +121,6 @@ def qemu_test(
         run,
         qemu_binary = None,
         config = {},
-        bundle = {},
         **kwargs):
     """Instantiates all the rules necessary to create a qemu based test.
 
@@ -125,8 +129,6 @@ def qemu_test(
            execute the tests in the emulator.
         {name}-run: which when run will execute a kernel_qemu_run target
            with the configs specified in config.
-        {name}-bundle: defining the init, setup, ... steps that are run
-           within the VM.
         {name}: which when executed as a test will invoke {name}-run and
            succeed if the target exits with 0.
 
@@ -135,8 +137,6 @@ def qemu_test(
             kernel_qemu_run rule. Exposed externally for convenience.
         config: dict, all additional attributes to pass to the
             kernel_qemu_run rule, generally created with mconfig().
-        bundle: dict, all additional parameters to pass to the
-            bundle created implicitly by this macro.
     """
 
     # Do not pass test specific attributes to the created rules
@@ -144,23 +144,13 @@ def qemu_test(
     kwargs_copy.pop("size", None)
     kwargs_copy.pop("timeout", None)
 
-    runner_bundle = mcreate_rule(
-        name,
-        vm_bundle,
-        "bundle",
-        bundle,
-        kwargs_copy,
-        mconfig(
-            init = setup,
-        ),
-    )
     runner_script = mcreate_rule(
         name,
         test_runner,
         "test-runner",
         [],
         kwargs_copy,
-        mconfig(tests = [runner_bundle] + run),
+        mconfig(tests = run),
     )
     runner = mcreate_rule(
         name,
@@ -171,7 +161,7 @@ def qemu_test(
         kwargs_copy,
         mconfig(
             kernel_image = kernel_image,
-            run = [runner_script],
+            run = setup + [runner_script],
             qemu_binary = qemu_binary,
         ),
     )

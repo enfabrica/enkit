@@ -28,6 +28,4 @@ mount --types 9p \
     --options trans=virtio,version=9p2000.L,msize=5000000,cache=mmap,posixacl \
     /dev/output_dir "$OUTPUT_DIR"
 
-{inits}
-
 {commands}

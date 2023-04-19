@@ -5,8 +5,6 @@ load("//bazel/utils:files.bzl", "files_to_dir")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
 def create_runner_attrs(template_init_default):
-    """Returns a dict of attributes common to all runners.""" 
-
     return {
         "kernel_image": attr.label(
             mandatory = True,
@@ -49,52 +47,51 @@ emulator flags from those passed to the wrapper.
         ),
     }
 
-def commands_and_runtime(ctx, msg, runs):
+def commands_and_runtime(ctx, msg, runs, runfiles, verbose = True):
     """Computes commands and runfiles from a list of RuntimeInfo"""
     commands = []
-    runfiles = ctx.runfiles()
+    runfiles = ctx.runfiles().merge(runfiles)
     labels = []
-    for r, rbl in runs:
-        for rbi in rbl:
-            if not hasattr(rbi, "commands") and (not hasattr(rbi, "binary") or not rbi.binary):
-                fail(location(ctx) + (" the '{msg}' step in {target} must be executable, " +
-                                      "and have a binary defined, or provide commands to run").format(msg = msg, target = package(r.label)))
+    for r, rbi in runs:
+        if not hasattr(rbi, "commands") and (not hasattr(rbi, "binary") or not rbi.binary):
+            fail(location(ctx) + (" the '{msg}' step in {target} must be executable, " +
+                                  "and have a binary defined, or provide commands to run").format(msg = msg, target = package(r.label)))
 
-            if hasattr(rbi, "commands") and rbi.commands:
-                if not getattr(rbi, "origin", False):
-                    commands.append("echo '==== {msg}: {target} -- inline commands'".format(
-                        msg = msg,
-                        target = package(r.label),
-                    ))
-                    labels.append(str(r.label))
-                commands.extend(rbi.commands)
-                for command in rbi.commands:
-                    labels.append("{label}:{cmd}".format(label = r.label, cmd = command))
+        if hasattr(rbi, "commands") and rbi.commands:
+            if verbose:
+                commands.append("echo '==== {msg}: {target} -- inline commands'".format(
+                    msg = msg,
+                    target = package(r.label),
+                ))
+                labels.append(str(r.label))
+            commands.extend(rbi.commands)
+            for command in rbi.commands:
+                labels.append("{label}:{cmd}".format(label = r.label, cmd = command))
 
-            if hasattr(rbi, "binary") and rbi.binary:
-                binary = rbi.binary
-                args = ""
-                if hasattr(rbi, "args"):
-                    args = rbi.args
+        if hasattr(rbi, "binary") and rbi.binary:
+            binary = rbi.binary
+            args = ""
+            if hasattr(rbi, "args"):
+                args = rbi.args
 
-                if not getattr(rbi, "origin", False):
-                    commands.append("echo '==== {msg}: {target} as \"{path} {args}\"...'".format(
-                        msg = msg,
-                        target = package(r.label),
-                        path = rbi.binary.short_path,
-                        args = args,
-                    ))
-                    labels.append(str(r.label))
-                commands.append("{binary} {args}".format(
-                    binary = shell.quote(binary.short_path),
+            if verbose:
+                commands.append("echo '==== {msg}: {target} as \"{path} {args}\"...'".format(
+                    msg = msg,
+                    target = package(r.label),
+                    path = rbi.binary.short_path,
                     args = args,
                 ))
                 labels.append(str(r.label))
+            commands.append("{binary} {args}".format(
+                binary = shell.quote(binary.short_path),
+                args = args,
+            ))
+            labels.append(str(r.label))
 
-                runfiles = runfiles.merge(ctx.runfiles([binary]))
+            runfiles = runfiles.merge(ctx.runfiles([binary]))
 
-            if hasattr(rbi, "runfiles") and rbi.runfiles:
-                runfiles = runfiles.merge(rbi.runfiles)
+        if hasattr(rbi, "runfiles") and rbi.runfiles:
+            runfiles = runfiles.merge(rbi.runfiles)
 
     if len(labels) != len(commands):
         fail(location(ctx) +
@@ -106,18 +103,7 @@ def commands_and_runtime(ctx, msg, runs):
     return commands, runfiles, labels
 
 def get_prepare_run_check(ctx, run):
-    """Returns a [(label, [RuntimeInfo]), ...] for each bundle or bin in run.
-
-    Args:
-      ctx: a bazel context, used for debug/error messages.
-      run: a list of executable targets or RuntimeBundleInfo objects.
-
-    Returns:
-      (prepares, inits, runs, checks, cleanups), where each of them is an array
-      of (label, [RuntimeInfo]) defining what to run in each of those steps. 
-    """
     prepares = []
-    inits = []
     runs = []
     cleanups = []
     checks = []
@@ -126,8 +112,6 @@ def get_prepare_run_check(ctx, run):
             rbi = r[RuntimeBundleInfo]
             if hasattr(rbi, "prepare") and rbi.prepare:
                 prepares.append((r, rbi.prepare))
-            if hasattr(rbi, "init") and rbi.init:
-                inits.append((r, rbi.init))
             if hasattr(rbi, "run") and rbi.run:
                 runs.append((r, rbi.run))
             if hasattr(rbi, "cleanup") and rbi.cleanup:
@@ -143,61 +127,12 @@ def get_prepare_run_check(ctx, run):
                                       target = package(r.label),
                                   )))
 
-        runs.append((r, [RuntimeInfo(
+        runs.append((r, RuntimeInfo(
             binary = di.files_to_run.executable,
             runfiles = di.default_runfiles,
-        )]))
+        )))
     cleanups = list(reversed(cleanups))
-    return prepares, inits, runs, cleanups, checks
-
-def expand_targets_and_bundles(ctx, attr, verbose = True):
-    """Returns the commands to run for the binaries or bundles supplied.
-
-    Args:
-      ctx: a bazel context, used for error message purposes.
-      attr: generally a label_list attribute, a list of targets that are either
-        executable, or represent a bundle, with the RuntimeBundleInfo provider.
-
-    Returns:
-      A struct representing the commands to run for each phase and the
-      required labels and runfiles.
-    """
-    prepares, inits, runs, cleanups, checks = get_prepare_run_check(ctx, attr)
-
-    cprepares, rprepares, lprepares = commands_and_runtime(ctx, "prepare", prepares)
-    cchecks, rchecks, lchecks = commands_and_runtime(ctx, "check", checks)
-    ccleanups, rcleanups, lcleanups  = commands_and_runtime(ctx, "cleanup", cleanups)
-    outside_runfiles = ctx.runfiles().merge_all([rprepares, rchecks, rcleanups])
-
-    cinits, rinits, linits = commands_and_runtime(ctx, "init", inits)
-    cruns, rruns, lruns = commands_and_runtime(ctx, "run", runs)
-    inside_runfiles = ctx.runfiles().merge_all([rinits, rruns])
-
-    return struct(
-        inside_runfiles = inside_runfiles,
-        outside_runfiles = outside_runfiles,
-        commands = struct(
-            prepare = cprepares,
-            check = cchecks,
-            cleanup = ccleanups,
-            init = cinits,
-            run = cruns,
-        ),
-        runfiles = struct(
-            prepare = rprepares,
-            check = rchecks,
-            cleanup = rcleanups,
-            init = rinits,
-            run = rruns,
-        ),
-        labels = struct(
-            prepare = lprepares,
-            check = lchecks,
-            cleanup = lcleanups,
-            init = linits,
-            run = lruns,
-        ),
-    )
+    return prepares, runs, cleanups, checks
 
 def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     ki = ctx.attr.kernel_image[KernelImageInfo]
@@ -211,7 +146,15 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
             ),
         )
 
-    torun = expand_targets_and_bundles(ctx, ctx.attr.run)
+    prepares, runs, cleanups, checks = get_prepare_run_check(ctx, ctx.attr.run)
+
+    outside_runfiles = ctx.runfiles()
+    if runfiles:
+        outside_runfiles = outside_runfiles.merge(runfiles)
+    cprepares, outside_runfiles, _ = commands_and_runtime(ctx, "prepare", prepares, outside_runfiles)
+    cchecks, outside_runfiles, _ = commands_and_runtime(ctx, "check", checks, outside_runfiles)
+    ccleanups, outside_runfiles, _ = commands_and_runtime(ctx, "cleanup", cleanups, outside_runfiles)
+    cruns, inside_runfiles, _ = commands_and_runtime(ctx, "run", runs, ctx.runfiles())
 
     init = ctx.actions.declare_file(ctx.attr.name + "-init.sh")
     ctx.actions.expand_template(
@@ -221,8 +164,7 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
             "{message}": "INIT STARTED",
             "{target}": package(ctx.label),
             "{relpath}": init.short_path,
-            "{inits}": "\n".join(torun.commands.init),
-            "{commands}": "\n".join(torun.commands.run),
+            "{commands}": "\n".join(cruns),
         },
         is_executable = True,
     )
@@ -230,12 +172,10 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     runtime_root = files_to_dir(
         ctx,
         ctx.attr.name + "-root",
-        torun.inside_runfiles.files.to_list() + [init],
+        inside_runfiles.files.to_list() + [init],
         post = "cd {dest}; cp -L %s ./init.sh" % (shell.quote(init.short_path)),
     )
-    outside_runfiles = torun.outside_runfiles.merge(ctx.runfiles([runtime_root, ki.image]))
-    if runfiles:
-      outside_runfiles = outside_runfiles.merge(runfiles)
+    outside_runfiles = outside_runfiles.merge(ctx.runfiles([runtime_root, ki.image]))
 
     rootfs = ""
     if ctx.attr.rootfs_image:
@@ -244,9 +184,9 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
 
     subs = dict({
         "target": package(ctx.label),
-        "prepares": "\n".join(torun.commands.prepare),
-        "cleanups": "\n".join(torun.commands.cleanup),
-        "checks": "\n".join(torun.commands.check),
+        "prepares": "\n".join(cprepares),
+        "cleanups": "\n".join(ccleanups),
+        "checks": "\n".join(cchecks),
         "kernel": ki.image.short_path,
         "rootfs": rootfs,
         "init": init.short_path,
