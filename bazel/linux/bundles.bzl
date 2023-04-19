@@ -1,6 +1,6 @@
 load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "RuntimeBundleInfo", "RuntimeInfo")
 load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible")
-load("//bazel/linux:runner.bzl", "expand_targets_and_bundles")
+load("//bazel/linux:runner.bzl", "expand_targets_and_bundles", "runtime_info_from_target")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("//bazel/utils:files.bzl", "files_to_dir")
 load("@bazel_skylib//lib:shell.bzl", "shell")
@@ -19,13 +19,18 @@ def _add_attr_bundle(ctx, bundle, name, merge = [], distribute = []):
         fail(location(ctx) + "defines both {name}_bin and {name} - only one is allowed".format(name = name))
     if abins and aargs:
         fail(location(ctx) + "defines both {name} and {name}_args - {name}_args is only allowed with {name}_bin".format(name = name))
+    if aargs and not abin:
+        fail(location(ctx) + "defines {name}_args but not {name}_bin - {name}_args is only allowed with {name}_bin".format(name = name))
+    if aargs and RuntimeBundleInfo in abin:
+        fail(location(ctx) + "has {name}_bin pointing to a vm_bundle and also defines {name}_args - which is not allowed".format(name = name))
 
     rtis = []
-    if acmds or aargs:
-        rtis = [RuntimeInfo(commands = acmds, args = aargs)]
-
-    if abin:
+    # If abin has no arguments, it is allowed to be a bundle. Rely on expand_targets_and_bundles below.
+    if abin and not aargs:
         abins = [abin] + abins
+        abin = None
+    if abin or aargs or acmds:
+        rtis += [runtime_info_from_target(ctx, abin, commands = acmds, args = aargs)]
 
     if abins:
         torun = expand_targets_and_bundles(ctx, abins)

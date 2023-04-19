@@ -105,6 +105,26 @@ def commands_and_runtime(ctx, msg, runs):
 
     return commands, runfiles, labels
 
+def runtime_info_from_target(ctx, target, **kwargs):
+    """Creates a RuntimeInfo provider from a binary target.
+
+    This function extracts info from a DefaultInfo provider, and populates the
+    corresponding RuntimeInfo fields.
+    """
+    info = dict(**kwargs)
+    if target:
+        di = target[DefaultInfo]
+        if not di.files_to_run or not di.files_to_run.executable:
+            fail(location(ctx) + (" asked to run target {target}, but " +
+                                  "it is not executable! It does not generate a binary. Fix BUILD.bazel file?".format(
+                                      target = package(target.label),
+                                  )))
+        info["binary"] = di.files_to_run.executable
+        info["runfiles"] = di.default_runfiles
+
+    return RuntimeInfo(**info)
+
+
 def get_prepare_run_check(ctx, run):
     """Returns a [(label, [RuntimeInfo]), ...] for each bundle or bin in run.
 
@@ -136,17 +156,8 @@ def get_prepare_run_check(ctx, run):
                 checks.append((r, rbi.check))
             continue
 
-        di = r[DefaultInfo]
-        if not di.files_to_run or not di.files_to_run.executable:
-            fail(location(ctx) + (" run= attribute asks to run target {target}, but " +
-                                  "it is not executable! It does not generate a binary. Fix BUILD.bazel file?".format(
-                                      target = package(r.label),
-                                  )))
+        runs.append((r, [runtime_info_from_target(ctx, r)]))
 
-        runs.append((r, [RuntimeInfo(
-            binary = di.files_to_run.executable,
-            runfiles = di.default_runfiles,
-        )]))
     cleanups = list(reversed(cleanups))
     return prepares, inits, runs, cleanups, checks
 
