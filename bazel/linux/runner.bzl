@@ -53,57 +53,41 @@ def commands_and_runtime(ctx, msg, runs):
     """Computes commands and runfiles from a list of RuntimeInfo"""
     commands = []
     runfiles = ctx.runfiles()
-    labels = []
-    for r, rbl in runs:
-        for rbi in rbl:
-            if not hasattr(rbi, "commands") and (not hasattr(rbi, "binary") or not rbi.binary):
-                fail(location(ctx) + (" the '{msg}' step in {target} must be executable, " +
-                                      "and have a binary defined, or provide commands to run").format(msg = msg, target = package(r.label)))
+    for rbi in runs:
+        if not hasattr(rbi, "commands") and (not hasattr(rbi, "binary") or not rbi.binary):
+            fail(location(ctx) + (" the '{msg}' step in {target} must be executable, " +
+                                  "and have a binary defined, or provide commands to run").format(msg = msg, target = package(rbi.origin)))
 
-            if hasattr(rbi, "commands") and rbi.commands:
-                if not getattr(rbi, "origin", False):
-                    commands.append("echo '==== {msg}: {target} -- inline commands'".format(
-                        msg = msg,
-                        target = package(r.label),
-                    ))
-                    labels.append(str(r.label))
-                commands.extend(rbi.commands)
-                for command in rbi.commands:
-                    labels.append("{label}:{cmd}".format(label = r.label, cmd = command))
+        if hasattr(rbi, "commands") and rbi.commands:
+            commands.append("echo '==== {msg}: {target} -- inline commands'".format(
+                msg = msg,
+                target = package(rbi.origin),
+            ))
+            commands.extend(rbi.commands)
 
-            if hasattr(rbi, "binary") and rbi.binary:
-                binary = rbi.binary
-                args = ""
-                if hasattr(rbi, "args"):
-                    args = rbi.args
+        if hasattr(rbi, "binary") and rbi.binary:
+            binary = rbi.binary
+            args = ""
+            if hasattr(rbi, "args"):
+                args = rbi.args
 
-                if not getattr(rbi, "origin", False):
-                    commands.append("echo '==== {msg}: {target} as \"{path} {args}\"...'".format(
-                        msg = msg,
-                        target = package(r.label),
-                        path = rbi.binary.short_path,
-                        args = args,
-                    ))
-                    labels.append(str(r.label))
-                commands.append("{binary} {args}".format(
-                    binary = shell.quote(binary.short_path),
-                    args = args,
-                ))
-                labels.append(str(r.label))
+            commands.append("echo '==== {msg}: {target} as \"{path} {args}\"...'".format(
+                msg = msg,
+                target = package(rbi.origin),
+                path = rbi.binary.short_path,
+                args = args,
+            ))
+            commands.append("{binary} {args}".format(
+                binary = shell.quote(binary.short_path),
+                args = args,
+            ))
 
-                runfiles = runfiles.merge(ctx.runfiles([binary]))
+            runfiles = runfiles.merge(ctx.runfiles([binary]))
 
-            if hasattr(rbi, "runfiles") and rbi.runfiles:
-                runfiles = runfiles.merge(rbi.runfiles)
+        if hasattr(rbi, "runfiles") and rbi.runfiles:
+            runfiles = runfiles.merge(rbi.runfiles)
 
-    if len(labels) != len(commands):
-        fail(location(ctx) +
-             "enkit error: count mismatch between labels ({len_lab}) and commands ({len_cmd})".format(
-                 len_lab = len(labels),
-                 len_cmd = len(commands),
-             ))
-
-    return commands, runfiles, labels
+    return commands, runfiles
 
 def runtime_info_from_target(ctx, target, **kwargs):
     """Creates a RuntimeInfo provider from a binary target.
@@ -111,7 +95,7 @@ def runtime_info_from_target(ctx, target, **kwargs):
     This function extracts info from a DefaultInfo provider, and populates the
     corresponding RuntimeInfo fields.
     """
-    info = dict(**kwargs)
+    info = dict(origin = getattr(target, "label", ctx.label), **kwargs)
     if target:
         di = target[DefaultInfo]
         if not di.files_to_run or not di.files_to_run.executable:
@@ -125,41 +109,36 @@ def runtime_info_from_target(ctx, target, **kwargs):
     return RuntimeInfo(**info)
 
 
-def get_prepare_run_check(ctx, run):
-    """Returns a [(label, [RuntimeInfo]), ...] for each bundle or bin in run.
+def get_prepare_run_check(ctx, run, action="run"):
+    """Returns a struct describing the RuntimeInfo for each bundle or bin in run.
 
     Args:
       ctx: a bazel context, used for debug/error messages.
       run: a list of executable targets or RuntimeBundleInfo objects.
 
     Returns:
-      (prepares, inits, runs, checks, cleanups), where each of them is an array
-      of (label, [RuntimeInfo]) defining what to run in each of those steps. 
+      struct(prepare, init, run, check, cleanup), where each field is an array
+      of (label, [RuntimeInfo]) provide all the RuntimeInfo to run for each label.
     """
-    prepares = []
-    inits = []
-    runs = []
-    cleanups = []
-    checks = []
+    result = struct(
+        prepare = [],
+        init = [],
+        run = [],
+        cleanup = [],
+        check = []
+    )
     for r in run:
         if RuntimeBundleInfo in r:
             rbi = r[RuntimeBundleInfo]
-            if hasattr(rbi, "prepare") and rbi.prepare:
-                prepares.append((r, rbi.prepare))
-            if hasattr(rbi, "init") and rbi.init:
-                inits.append((r, rbi.init))
-            if hasattr(rbi, "run") and rbi.run:
-                runs.append((r, rbi.run))
-            if hasattr(rbi, "cleanup") and rbi.cleanup:
-                cleanups.append((r, rbi.cleanup))
-            if hasattr(rbi, "check") and rbi.check:
-                checks.append((r, rbi.check))
+            for attr in ["prepare", "init", "run", "cleanup", "check"]:
+                 getattr(result, attr).extend(getattr(rbi, attr, []))
+
             continue
 
-        runs.append((r, [runtime_info_from_target(ctx, r)]))
+        getattr(result, action).append(runtime_info_from_target(ctx, r))
 
-    cleanups = list(reversed(cleanups))
-    return prepares, inits, runs, cleanups, checks
+    return result
+
 
 def expand_targets_and_bundles(ctx, attr, verbose = True):
     """Returns the commands to run for the binaries or bundles supplied.
@@ -173,15 +152,16 @@ def expand_targets_and_bundles(ctx, attr, verbose = True):
       A struct representing the commands to run for each phase and the
       required labels and runfiles.
     """
-    prepares, inits, runs, cleanups, checks = get_prepare_run_check(ctx, attr)
+    bundles = get_prepare_run_check(ctx, attr)
 
-    cprepares, rprepares, lprepares = commands_and_runtime(ctx, "prepare", prepares)
-    cchecks, rchecks, lchecks = commands_and_runtime(ctx, "check", checks)
-    ccleanups, rcleanups, lcleanups  = commands_and_runtime(ctx, "cleanup", cleanups)
+    cprepares, rprepares = commands_and_runtime(ctx, "prepare", bundles.prepare)
+    cchecks, rchecks = commands_and_runtime(ctx, "check", bundles.check)
+    # Run cleanup RuntimeInfo (not the commands!) in the opposite order they were added.
+    ccleanups, rcleanups = commands_and_runtime(ctx, "cleanup", list(reversed(bundles.cleanup)))
     outside_runfiles = ctx.runfiles().merge_all([rprepares, rchecks, rcleanups])
 
-    cinits, rinits, linits = commands_and_runtime(ctx, "init", inits)
-    cruns, rruns, lruns = commands_and_runtime(ctx, "run", runs)
+    cinits, rinits = commands_and_runtime(ctx, "init", bundles.init)
+    cruns, rruns = commands_and_runtime(ctx, "run", bundles.run)
     inside_runfiles = ctx.runfiles().merge_all([rinits, rruns])
 
     return struct(
@@ -200,13 +180,6 @@ def expand_targets_and_bundles(ctx, attr, verbose = True):
             cleanup = rcleanups,
             init = rinits,
             run = rruns,
-        ),
-        labels = struct(
-            prepare = lprepares,
-            check = lchecks,
-            cleanup = lcleanups,
-            init = linits,
-            run = lruns,
         ),
     )
 

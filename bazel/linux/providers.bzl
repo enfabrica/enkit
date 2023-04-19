@@ -58,7 +58,7 @@ and have basic tools available necessary for its users.
 RuntimeInfo = provider(
     doc = """Represents a binary to run""",
     fields = {
-        "origin": "bool, set to true if the commands print origin information for debug purposes",
+        "origin": "label, where this RuntimeInfo was first defined, used for debug info",
         "commands": "list of string, shell commands to embed in the script before running the binary",
         "binary": "File object, executable, binary to run",
         "runfiles": "runfiles() object, representing the files needed by the binary at run time",
