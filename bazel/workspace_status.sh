@@ -10,17 +10,19 @@
 #  - Things that rarely change, or if they change MUST trigger a rebuild -> STABLE.
 ########
 
-# Person building the binary. If unset, assume a generic builder.
-USER=${USER:-builds@enfabrica.net}
-echo STABLE_USER $USER
+# IMPORTANT: some variables are used as metadata by buildbuddy. Use the same naming
+# convention as described here: https://www.buildbuddy.io/docs/guide-metadata/.
 
-#Prints out current branch
+# Person building the binary. Can be empty.
+echo "STABLE_ENKIT_USER $(sed -e 's@.*"\(.*\)"@\1@' < ~/.config/enkit/identity/default.toml 2>/dev/null || echo $USER)"
+
+# Prints out current branch
 GIT_BRANCH="$(git branch --show-current)"
-echo STABLE_GIT_BRANCH "$GIT_BRANCH"
+echo GIT_BRANCH "$GIT_BRANCH"
 
 # SHA of last commit in this branch
 GIT_SHA="$(git rev-parse HEAD)"
-echo STABLE_GIT_SHA "$GIT_SHA"
+echo COMMIT_SHA "$GIT_SHA"
 
 # prints out the current branch with the current tracked remote from branch. e.g. origin/branch or source/branch
 GIT_ORIGIN_BRANCH="$(git for-each-ref --format='%(upstream:lstrip=-2)' "$(git symbolic-ref -q HEAD)")"
