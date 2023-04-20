@@ -1,6 +1,6 @@
 load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "RuntimeBundleInfo", "RuntimeInfo")
 load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible")
-load("//bazel/linux:runner.bzl", "expand_targets_and_bundles")
+load("//bazel/linux:runner.bzl", "get_prepare_run_check", "runtime_info_from_target")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("//bazel/utils:files.bzl", "files_to_dir")
 load("@bazel_skylib//lib:shell.bzl", "shell")
@@ -19,23 +19,31 @@ def _add_attr_bundle(ctx, bundle, name, merge = [], distribute = []):
         fail(location(ctx) + "defines both {name}_bin and {name} - only one is allowed".format(name = name))
     if abins and aargs:
         fail(location(ctx) + "defines both {name} and {name}_args - {name}_args is only allowed with {name}_bin".format(name = name))
+    if aargs and not abin:
+        fail(location(ctx) + "defines {name}_args but not {name}_bin - {name}_args is only allowed with {name}_bin".format(name = name))
+    if aargs and RuntimeBundleInfo in abin:
+        fail(location(ctx) + "has {name}_bin pointing to a vm_bundle and also defines {name}_args - which is not allowed".format(name = name))
 
     rtis = []
-    if acmds or aargs:
-        rtis = [RuntimeInfo(commands = acmds, args = aargs)]
-
-    if abin:
+    # If abin has no arguments, it is allowed to be a bundle. Rely on expand_targets_and_bundles
+    # to compute the actual RuntimeInfo to use.
+    if abin and not aargs:
         abins = [abin] + abins
+        abin = None
+    if abin or aargs or acmds:
+        rtis += [runtime_info_from_target(ctx, abin, commands = acmds, args = aargs)]
 
     if abins:
-        torun = expand_targets_and_bundles(ctx, abins)
-        rtis.append(RuntimeInfo(origin = True, commands = getattr(torun.commands, name), runfiles = getattr(torun.runfiles, name)))
+        # Why action=name? Naked binaries (not bundles!) listed in the specific attribute
+        # need to be assigned to that specific step. Eg, if we're processing the "prepare"
+        # actions, a binary outside a bundle should be considered a "prepare" command, not
+        # a run command. And those binaries are allowed to appear anywhere.
+        bundles = get_prepare_run_check(ctx, abins, action=name)
+        rtis.extend(getattr(bundles, name, []))
         for step in merge:
-            if getattr(torun.commands, step) or getattr(torun.runfiles, step):
-              rtis.append(RuntimeInfo(origin = True, commands = getattr(torun.commands, step), runfiles = getattr(torun.runfiles, step)))
+            rtis.extend(getattr(bundles, step, []))
         for step in distribute:
-            if getattr(torun.commands, step) or getattr(torun.runfiles, step):
-              bundle.setdefault(step, []).append(RuntimeInfo(origin = True, commands = getattr(torun.commands, step), runfiles = getattr(torun.runfiles, step)))
+            bundle.setdefault(step, []).extend(getattr(bundles, step))
 
     bundle.setdefault(name, []).extend(rtis)
 
@@ -262,8 +270,8 @@ def _kunit_bundle(ctx):
     return [
         DefaultInfo(files = depset([init, check]), runfiles = inside_runfiles.merge(outside_runfiles)),
         RuntimeBundleInfo(
-            run = [RuntimeInfo(binary = init, runfiles = inside_runfiles)],
-            check = [RuntimeInfo(binary = check, runfiles = outside_runfiles)],
+            run = [RuntimeInfo(origin = ctx.label, binary = init, runfiles = inside_runfiles)],
+            check = [RuntimeInfo(origin = ctx.label, binary = check, runfiles = outside_runfiles)],
         ),
     ]
 

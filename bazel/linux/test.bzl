@@ -1,9 +1,10 @@
 load("//bazel/linux:uml.bzl", "kernel_uml_run")
 load("//bazel/linux:qemu.bzl", "kernel_qemu_run")
 load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
+load("//bazel/utils:messaging.bzl", "package")
 load("//bazel/utils:exec_test.bzl", "exec_test")
 load("//bazel/linux:bundles.bzl", "kunit_bundle", "vm_bundle")
-load("//bazel/linux:runner.bzl", "expand_targets_and_bundles")
+load("//bazel/linux:runner.bzl", "get_prepare_run_check", "commands_and_runtime")
 load("//bazel/linux:providers.bzl", "RuntimeBundleInfo", "RuntimeInfo")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
@@ -79,23 +80,27 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 exit $failures
 """
 
-    torun = expand_targets_and_bundles(ctx, ctx.attr.tests)
-
     tests = []
-    for label, crun in zip(torun.labels.run, torun.commands.run):
-        tests.append("run_test {title} {cmd}".format(
-            title = shell.quote(label),
-            cmd = crun,
+    rtis = get_prepare_run_check(ctx, ctx.attr.tests)
+    runfiles = ctx.runfiles()
+    for index, torun in enumerate(rtis.run):
+        testcommands, testrunfiles = commands_and_runtime(ctx, "test", [torun])
+
+        tests.append("function test_{index}() {{( set -e\n{code}\n)}}".format(index = index, code = "\n".join(testcommands)))
+        tests.append("run_test {title} test_{index}".format(
+            index = index,
+            title = shell.quote(package(torun.origin)),
         ))
+        runfiles = runfiles.merge(testrunfiles)
 
     script = ctx.actions.declare_file("{}_test_runner.sh".format(ctx.attr.name))
     ctx.actions.write(script, script_begin + "\n".join(tests) + script_end)
     return [RuntimeBundleInfo(
-        prepare = [RuntimeInfo(origin = True, commands = torun.commands.prepare, runfiles = torun.runfiles.prepare)],
-        init = [RuntimeInfo(origin = True, commands = torun.commands.init, runfiles = torun.runfiles.init)],
-        run = [RuntimeInfo(binary = script, runfiles = torun.runfiles.run)],
-        cleanup = [RuntimeInfo(origin = True, commands = torun.commands.cleanup, runfiles = torun.runfiles.cleanup)],
-        check = [RuntimeInfo(origin = True, commands = torun.commands.check, runfiles = torun.runfiles.check)],
+        prepare = rtis.prepare,
+        init = rtis.init,
+        run = [RuntimeInfo(origin = ctx.label, binary = script, runfiles = runfiles)],
+        cleanup = rtis.cleanup,
+        check = rtis.check,
     )]
 
 test_runner = rule(
