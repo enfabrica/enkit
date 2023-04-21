@@ -17,3 +17,18 @@ configure_make(
     ],
     visibility = ["//visibility:public"],
 )
+
+
+load("@//bazel/utils:binary.bzl", "declare_binary")
+
+declare_binary(
+    name = "dropbear",
+    path = "dropbear",
+    dep = ":binaries",
+)
+
+declare_binary(
+    name = "dropbearkey",
+    path = "dropbearkey",
+    dep = ":binaries",
+)
