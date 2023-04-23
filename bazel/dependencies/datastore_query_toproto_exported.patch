@@ -1,17 +1,17 @@
 diff --git a/query.go b/query.go
-index f2e6d9c2a..1d6c69a6d 100644
+index 0c3fe01db8..57f63f165a 100644
 --- a/query.go
 +++ b/query.go
-@@ -331,6 +331,12 @@ func (q *Query) End(c Cursor) *Query {
- 	return q
+@@ -380,6 +380,12 @@ func (q *Query) toRunQueryRequest(req *pb.RunQueryRequest) error {
+ 	return nil
  }
  
 +// ENFABRICA PATCH
 +// Export toProto for use in unit tests
 +func (q *Query) ToProto(req *pb.RunQueryRequest) error {
-+  return q.toProto(req)
++	return q.toRunQueryRequest(req)
 +}
 +
- // toProto converts the query to a protocol buffer.
- func (q *Query) toProto(req *pb.RunQueryRequest) error {
+ func (q *Query) toProto() (*pb.Query, error) {
  	if len(q.projection) != 0 && q.keysOnly {
+ 		return nil, errors.New("datastore: query cannot both project and be keys-only")

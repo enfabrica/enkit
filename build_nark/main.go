@@ -26,10 +26,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	cbpb "cloud.google.com/go/cloudbuild/apiv1/v2/cloudbuildpb"
 	"github.com/GoogleCloudPlatform/cloud-build-notifiers/lib/notifiers"
 	"github.com/golang/protobuf/proto"
-	cbpb "google.golang.org/genproto/googleapis/devtools/cloudbuild/v1"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/gomail.v2"
 
 	"github.com/enfabrica/enkit/lib/logger"
