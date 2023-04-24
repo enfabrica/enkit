@@ -53,18 +53,14 @@ def stage_2():
     # `--@io_bazel_rules_go//go/toolchain:sdk_version=` flag to bazel. The
     # default seems to be whichever go_download_sdk rule is listed first here.
     go_download_sdk(
-        name = "go_sdk_1_19",
-        version = "1.19.1",
-    )
-    go_download_sdk(
-        name = "go_sdk_1_16",
-        version = "1.16.14",
+        name = "go_sdk_1_20",
+        version = "1.20.3",
     )
 
     go_rules_dependencies()
-    go_register_toolchains()
+    go_register_toolchains(version = "1.20.3")
 
-    gazelle_dependencies(go_sdk = "go_sdk_1_19")
+    gazelle_dependencies(go_sdk = "go_sdk_1_20")
     go_embed_data_dependencies()
 
     rules_proto_dependencies()

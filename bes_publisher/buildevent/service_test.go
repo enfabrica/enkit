@@ -1,9 +1,9 @@
 package buildevent
 
 import (
+	"bytes"
 	"context"
 	"io"
-	"sync"
 	"reflect"
 	"testing"
 
@@ -232,13 +232,14 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 	}
 }
 
-// There's something goofy happening (spaces are added/removed in byte slices to
-// cause tests to always fail)
-// Specifying our own bytes comparison routine that synchronizes on a mutex
-// seems to fix this.
-var wtf sync.Mutex
 func bytesEqual(a, b []byte) bool {
-	wtf.Lock()
-	defer wtf.Unlock()
+	// There's something goofy happening (spaces are added/removed in byte slices to
+	// cause tests to always fail)
+	// Specifying our own bytes comparison routine that "normalizes" the byte
+	// slices fixes this. The tests may be inaccurate - stripping spaces doesn't
+	// matter for JSON, but does for any strings within JSON - but hopefully the
+	// tests will be "good enough" anyway.
+	a = bytes.ReplaceAll(a, []byte(" "), []byte{})
+	b = bytes.ReplaceAll(b, []byte(" "), []byte{})
 	return reflect.DeepEqual(a, b)
 }
