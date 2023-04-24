@@ -220,3 +220,57 @@ def stage_1():
         urls = ["https://astore.corp.enfabrica.net/d/bazel/workspace_deps/astore/v1?u=7hfw4dsxxobamx5uyvvwmnj8tpxj7yub"],
         executable = True,
     )
+
+    # TODO(scott): This overrides a dependency pulled in by rules_go with a
+    # newer version.
+    #
+    # To summarize, GCP proto Go code can come from one of three places:
+    # * github.com/googleapis/googleapis (this repo) that contains only protos;
+    #   Go code is generated during the build
+    # * google.golang.org/genproto, contains pre-generated Go source
+    # * cloud.google.com/go/*, one module per service, where each service
+    #   contains its own proto
+    #
+    # Previously, we replaced all genproto imports with generated code from
+    # googleapis. The open-source migration away from genproto to
+    # cloud.google.com/go modules complicates things a bit; we prefer the
+    # latter, but not every proto is covered by a new module. For these, we use
+    # googleapis; however, cloud.google.com/go modules without a proto aren't
+    # always compatible with the old version of googleapis that rules_go fetches
+    # for us.
+    #
+    # For this reason, a new-ish version of googleapis is fetched here, and we
+    # generate patches manually using the same process rules_go does so it will
+    # be compatible.
+    maybe(
+        repo_rule = http_archive,
+        name = "go_googleapis",
+        urls = [
+            "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/7a1cb3762d72b71a598f1f0e58b2fe153ef64322.zip",
+            "https://github.com/googleapis/googleapis/archive/7a1cb3762d72b71a598f1f0e58b2fe153ef64322.zip",
+        ],
+        sha256 = "b432902a28fadd6ce8fe07f38df4a67c94948f963f647b4596e2e184b98d07d4",
+        strip_prefix = "googleapis-7a1cb3762d72b71a598f1f0e58b2fe153ef64322",
+        # rules_go usually patches this for us; essentially, BUILD files must be
+        # patched in so that gazelle can be built, which auto-patches other
+        # dependencies (otherwise a chicken-and-egg problem ensues).
+        #
+        # Instructions for how to regen patches is below, but we should prefer
+        # dropping this dep if possible (after rules_go updates it or migrates
+        # away from it).
+        patches = [
+            # Delete previous BUILD files
+            # To generate this patch:
+            # * clone the source repo
+            # * run `find . -name BUILD.bazel -delete`
+            "//bazel/dependencies:googleapis/delete_build_files.patch",
+            # set gazelle directives; change workspace name
+            "//bazel/dependencies:googleapis/add_directives.patch",
+            # Add new BUILD files
+            # To generate this patch:
+            # * clone the source repo
+            # * run `gazelle -repo_root .`
+            "//bazel/dependencies:googleapis/generate_build_files.patch",
+        ],
+        patch_args = ["-E", "-p1"],
+    )
