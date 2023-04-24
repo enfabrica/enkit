@@ -16,7 +16,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/cybozu-go/aptutil v1.4.2-0.20200413001041-3f82d8384481
 	github.com/docker/docker v23.0.4+incompatible
-	github.com/dustin/go-humanize v1.0.0
+	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.12.0
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/golang/glog v1.1.1
