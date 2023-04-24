@@ -37,7 +37,7 @@ require (
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/prashantv/gostub v1.0.0
 	github.com/prometheus/client_golang v1.14.0
-	github.com/psanford/memfs v0.0.0-20210214183328-a001468d78ef
+	github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e
 	github.com/sirupsen/logrus v1.9.0
 	github.com/soheilhy/cmux v0.1.4
 	github.com/spf13/cobra v1.6.1
