@@ -2,7 +2,7 @@ module github.com/enfabrica/enkit
 
 go 1.20
 
-replace github.com/GoogleCloudPlatform/cloud-build-notifiers => github.com/minor-fixes/cloud-build-notifiers v0.0.0-20230424124639-02281bcdd3d5
+replace github.com/GoogleCloudPlatform/cloud-build-notifiers => github.com/minor-fixes/cloud-build-notifiers v0.0.0-20230123211209-f695cd1064aa
 
 require (
 	cloud.google.com/go/bigquery v1.51.0
