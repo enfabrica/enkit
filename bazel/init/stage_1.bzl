@@ -263,14 +263,14 @@ def stage_1():
             # To generate this patch:
             # * clone the source repo
             # * run `find . -name BUILD.bazel -delete`
-            "//bazel/dependencies:googleapis/delete_build_files.patch",
+            "@enkit//bazel/dependencies:googleapis/delete_build_files.patch",
             # set gazelle directives; change workspace name
-            "//bazel/dependencies:googleapis/add_directives.patch",
+            "@enkit//bazel/dependencies:googleapis/add_directives.patch",
             # Add new BUILD files
             # To generate this patch:
             # * clone the source repo
             # * run `gazelle -repo_root .`
-            "//bazel/dependencies:googleapis/generate_build_files.patch",
+            "@enkit//bazel/dependencies:googleapis/generate_build_files.patch",
         ],
         patch_args = ["-E", "-p1"],
     )

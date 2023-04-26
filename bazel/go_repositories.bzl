@@ -245,7 +245,7 @@ def go_repositories():
         # This is a copy of this patch: https://raw.githubusercontent.com/buildbarn/bb-storage/master/patches/com_github_bazelbuild_remote_apis/golang.diff
         # with modifications:
         # - s/:longrunning_/:longrunningpb_/g
-        patches = ["//bazel/dependencies:remote_apis_fix_target_names.patch"],
+        patches = ["@enkit//bazel/dependencies:remote_apis_fix_target_names.patch"],
         sum = "h1:jVU/1F77AdTYfbUUBYDjRpyBQ+eRhniSeeY7i7rFaOs=",
         version = "v0.0.0-20230315170832-8f539af4b407",
     )
@@ -2129,7 +2129,7 @@ def go_repositories():
         patch_args = ["-p1"],
         patch_tool = "patch",
         patches = [
-            "//bazel/dependencies:datastore_query_toproto_exported.patch",
+            "@enkit//bazel/dependencies:datastore_query_toproto_exported.patch",
         ],
         sum = "h1:iF6I/HaLs3Ado8uRKMvZRvF/ZLkWaWE9i8AiHzbC774=",
         version = "v1.11.0",
