@@ -13,10 +13,11 @@ type Root struct {
 	*cobra.Command
 	*client.BaseFlags
 
-	PublicKeyPath string
-	PrivateKeyPath string
-	SignedCertPath string
-	SshdConfigPath string
+	PublicKeyPath   string
+	PrivateKeyPath  string
+	PublicCaKeyPath string
+	SignedCertPath  string
+	SshdConfigPath  string
 }
 
 func New(base *client.BaseFlags) (*Root, error) {
@@ -45,24 +46,30 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 		&rc.PublicKeyPath,
 		"public-key-path",
 		"/etc/ssh/machinist_host_key.pub",
-		"Path to location where unsigned public key should be read from or installed to",
+		"Path to location where unsigned public key should be installed to",
+	)
+	rc.PersistentFlags().StringVar(
+		&rc.PublicCaKeyPath,
+		"public-ca-key-path",
+		"/etc/ssh/machinist_host_ca.pub",
+		"Path to location where CA public key should be installed to",
 	)
 	rc.PersistentFlags().StringVar(
 		&rc.PrivateKeyPath,
 		"private-key-path",
 		"/etc/ssh/machinist_host_key",
-		"Path to location where private key should be read from or installed to",
+		"Path to location where private key should be installed to",
 	)
 	rc.PersistentFlags().StringVar(
 		&rc.SignedCertPath,
-		"private-key-path",
-		"/etc/ssh/machinist_host_key",
-		"Path to location where signed cert should be read from or installed to",
+		"signed-cert-path",
+		"/etc/ssh/machinist_host_cert",
+		"Path to location where signed cert should be installed to",
 	)
 	rc.PersistentFlags().StringVar(
 		&rc.SshdConfigPath,
 		"sshd-config-path",
-		"/etc/ssh/sshd_config",
+		"/etc/ssh/sshd_config.d/enkit.conf",
 		"Path to sshd configuration to read/modify",
 	)
 
@@ -96,11 +103,12 @@ type Install struct {
 	*cobra.Command
 	root *Root
 
-	ExistingPublicKeyPath string
+	ExistingPublicKeyPath  string
 	ExistingPrivateKeyPath string
-	Overwrite bool
-	ConfigureSshd bool
-	RestartSshd bool
+	SshPrincipals []string
+	Overwrite              bool
+	ConfigureSshd          bool
+	RestartSshd            bool
 }
 
 func NewInstall(root *Root) *Install {
@@ -140,14 +148,16 @@ func NewInstall(root *Root) *Install {
 		"If set, possibly modify sshd configuration to enable cert authentication",
 	)
 	command.Flags().BoolVar(
-		&command.ConfigureSshd,
+		&command.RestartSshd,
 		"restart-sshd",
 		true,
 		"If set, restart sshd when configuration is modified automatically",
 	)
+	command.Flags().StringSliceVar(
+		&command.SshPrincipals,
+		"ssh-principals",
+		nil,
+		"List of SSH principals to add to cert",
+	)
 	return command
-}
-
-func (i *Install) Run(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf("enkit machine-cert install not yet implemented")
 }
