@@ -4,6 +4,7 @@ import (
 	"math/rand"
 
 	acommands "github.com/enfabrica/enkit/astore/client/commands"
+	"github.com/enfabrica/enkit/enkit/machinecert"
 	ocommands "github.com/enfabrica/enkit/enkit/outputs"
 	vcommands "github.com/enfabrica/enkit/enkit/version"
 	bazelcmds "github.com/enfabrica/enkit/lib/bazel/commands"
@@ -67,6 +68,12 @@ func New() (*EnkitCommand, error) {
 		return nil, err
 	}
 	root.AddCommand(outputs.Command)
+
+	machineCert, err := machinecert.New(base)
+	if err != nil {
+		return nil, err
+	}
+	root.AddCommand(machineCert.Command)
 
 	return &EnkitCommand{
 		cmd:       root,
