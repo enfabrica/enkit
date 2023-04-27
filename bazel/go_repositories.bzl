@@ -282,6 +282,7 @@ def go_repositories():
         importpath = "github.com/buildbarn/bb-remote-execution",
         sum = "h1:u1K0yklAdRXR4srfBPXGLXs3vS7uf7DcfJjVwdUn5vM=",
         version = "v0.0.0-20230414072355-c0df58fb74b5",
+        build_naming_convention = "import",
     )
     go_repository(
         name = "com_github_buildbarn_bb_storage",
