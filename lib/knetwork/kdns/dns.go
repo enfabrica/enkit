@@ -1,6 +1,7 @@
 package kdns
 
 import (
+	"fmt"
 	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
@@ -119,6 +120,9 @@ func (s *DnsServer) HandleControllers() {
 	controllerMap := map[string]*RecordController{}
 	defer close(s.readOnlyChan)
 	defer close(s.newOrExistingChan)
+	defer func() {
+		fmt.Println("closing controllers??", s.Domains)
+	}()
 	for {
 		select {
 		case o := <-s.newOrExistingChan:

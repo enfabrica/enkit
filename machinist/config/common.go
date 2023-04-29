@@ -49,6 +49,20 @@ func WithEnableMetrics(e bool) CommonModifier {
 	}
 }
 
+func WithControlPlaneHost(host string) CommonModifier {
+	return func(s MachinistCommon) error {
+		s.MachinistCommon().ControlPlaneHost = host
+		return nil
+	}
+}
+
+func WithControlPlanePort(port int) CommonModifier {
+	return func(s MachinistCommon) error {
+		s.MachinistCommon().ControlPlanePort = port
+		return nil
+	}
+}
+
 func DefaultCommonFlags() *Common {
 	return &Common{
 		Root: client.DefaultBaseFlags("", ""),

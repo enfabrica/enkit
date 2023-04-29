@@ -16,6 +16,7 @@ import (
 
 func New(mods ...NodeModifier) (*Machine, error) {
 	n := &Machine{
+		DialFunc: nil,
 		Log:      logger.DefaultLogger{Printer: log.Printf},
 		Repeater: retry.New(retry.WithWait(5*time.Second), retry.WithAttempts(5)),
 		Node: &config.Node{
@@ -26,13 +27,6 @@ func New(mods ...NodeModifier) (*Machine, error) {
 		if err := m(n); err != nil {
 			return nil, err
 		}
-	}
-	if n.AuthClient == nil && n.DialFunc == nil {
-		conn, err := n.Root.Connect()
-		if err != nil {
-			return nil, err
-		}
-		n.AuthClient = auth.NewAuthClient(conn)
 	}
 	return n, nil
 }
