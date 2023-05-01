@@ -245,6 +245,7 @@ def go_repositories():
         # This is a copy of this patch: https://raw.githubusercontent.com/buildbarn/bb-storage/master/patches/com_github_bazelbuild_remote_apis/golang.diff
         # with modifications:
         # - s/:longrunning_/:longrunningpb_/g
+        build_naming_convention = "import",
         patches = ["@enkit//bazel/dependencies:remote_apis_fix_target_names.patch"],
         sum = "h1:jVU/1F77AdTYfbUUBYDjRpyBQ+eRhniSeeY7i7rFaOs=",
         version = "v0.0.0-20230315170832-8f539af4b407",
