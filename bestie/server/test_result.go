@@ -119,18 +119,18 @@ func openBytestreamFile(fileName, bytestreamUri string) (io.ReadCloser, error) {
 
 	hash, size, err := kbuildbarn.ParseByteStreamUrl(bytestreamUri)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing bytestream url %q: %w", bytestreamUri, err)
 	}
 	fileUrl := kbuildbarn.Url(deploymentBaseUrl, hash, size, kbuildbarn.WithFileName(fileName))
 
 	client := http.DefaultClient
 	resp, err := client.Get(fileUrl)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching URL %q: %w", fileUrl, err)
 	}
 	respStatus := resp.StatusCode
 	if respStatus != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error status %d", respStatus)
+		return nil, fmt.Errorf("HTTP error status %d while fetching %q", respStatus, fileUrl)
 	}
 	return resp.Body, nil
 }
