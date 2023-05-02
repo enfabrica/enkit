@@ -85,10 +85,10 @@ func GenerateLinksForFiles(filesPb []*bespb.File, baseName, destPrefix, invocati
 		if destPrefix == "" {
 			destPrefix = "."
 		}
-		simSource := File(baseName, digest, size,
+		simSource := File(baseName, "sha256", digest, size,
 			WithFileTemplate(DefaultBBClientdCasFileTemplate),
 			WithTemplateArgs(clusterName, digest, size))
-		simDest := filepath.Clean(File(baseName, digest, size,
+		simDest := filepath.Clean(File(baseName, "sha256", digest, size,
 			WithFileTemplate(DefaultBBClientdScratchFileTemplate),
 			WithTemplateArgs(invocationPrefix, destPrefix, f.Name)))
 		toReturn = append(toReturn, &Hardlink{Dest: simDest, Src: simSource})

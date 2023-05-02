@@ -121,7 +121,10 @@ func openBytestreamFile(fileName, bytestreamUri string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parsing bytestream url %q: %w", bytestreamUri, err)
 	}
-	fileUrl := kbuildbarn.Url(deploymentBaseUrl, hash, size, kbuildbarn.WithFileName(fileName))
+	// BUG(INFRA-5841): Buildbarn URLs include the hash function of the blob. If
+	// we ever change the hash function used, the hard-coded function in this call
+	// needs to change as well.
+	fileUrl := kbuildbarn.Url(deploymentBaseUrl, "sha256", hash, size, kbuildbarn.WithFileName(fileName))
 
 	client := http.DefaultClient
 	resp, err := client.Get(fileUrl)

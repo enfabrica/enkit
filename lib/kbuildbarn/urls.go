@@ -50,8 +50,8 @@ func performRequest(client *http.Client, url string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-func Url(baseName, hash, size string, opts ...Option) string {
-	cfg := generateOptions(baseName, hash, size, opts...)
+func Url(baseName, hashFn, hash, size string, opts ...Option) string {
+	cfg := generateOptions(baseName, hashFn, hash, size, opts...)
 	u := &url.URL{
 		Scheme: cfg.Scheme,
 		Host:   baseName,
@@ -60,8 +60,8 @@ func Url(baseName, hash, size string, opts ...Option) string {
 	return u.String()
 }
 
-func File(baseName, hash, size string, opts ...Option) string {
-	cfg := generateOptions(baseName, hash, size, opts...)
+func File(baseName, hashFn, hash, size string, opts ...Option) string {
+	cfg := generateOptions(baseName, hashFn, hash, size, opts...)
 	return filepath.Join(baseName, fmt.Sprintf(cfg.PathTemplate, cfg.TemplateArgs...))
 }
 
@@ -73,12 +73,12 @@ func readAndClose(rc io.ReadCloser) ([]byte, error) {
 
 // RetryUntilSuccess just blasts through all possible urls until it hits one that works. This is intended for
 // applications that are blind to the type of artifact
-func RetryUntilSuccess(baseName, hash, size string) ([]byte, error) {
+func RetryUntilSuccess(baseName, hashFn, hash, size string) ([]byte, error) {
 	urls := []string{
-		Url(baseName, hash, size, WithActionUrlTemplate()),
-		Url(baseName, hash, size, WithDirectoryUrlTemplate()),
-		Url(baseName, hash, size, WithCommandUrlTemplate()),
-		Url(baseName, hash, size, WithByteStreamTemplate()),
+		Url(baseName, hashFn, hash, size, WithActionUrlTemplate()),
+		Url(baseName, hashFn, hash, size, WithDirectoryUrlTemplate()),
+		Url(baseName, hashFn, hash, size, WithCommandUrlTemplate()),
+		Url(baseName, hashFn, hash, size, WithByteStreamTemplate()),
 	}
 	var errs []error
 	for _, uri := range urls {
