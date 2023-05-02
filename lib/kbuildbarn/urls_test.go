@@ -74,10 +74,10 @@ func TestDefaultUrlGeneration(t *testing.T) {
 	hash, size, err := ParseByteStreamUrl(exampleUrl)
 	assert.NoError(t, err)
 	baseName := "buildbarn.local"
-	assert.Equal(t, "http://buildbarn.local/blobs/action/foo-bar", Url(baseName, hash, size, WithActionUrlTemplate()))
-	assert.Equal(t, "http://buildbarn.local/blobs/command/foo-bar", Url(baseName, hash, size, WithCommandUrlTemplate()))
-	assert.Equal(t, "http://buildbarn.local/blobs/directory/foo-bar", Url(baseName, hash, size, WithDirectoryUrlTemplate()))
-	assert.Equal(t, "http://buildbarn.local/blobs/file/foo-bar/", Url(baseName, hash, size, WithFileName("")))
+	assert.Equal(t, "http://buildbarn.local/blobs/sha256/action/foo-bar", Url(baseName, "sha256", hash, size, WithActionUrlTemplate()))
+	assert.Equal(t, "http://buildbarn.local/blobs/sha256/command/foo-bar", Url(baseName, "sha256", hash, size, WithCommandUrlTemplate()))
+	assert.Equal(t, "http://buildbarn.local/blobs/sha256/directory/foo-bar", Url(baseName, "sha256", hash, size, WithDirectoryUrlTemplate()))
+	assert.Equal(t, "http://buildbarn.local/blobs/sha256/file/foo-bar/", Url(baseName, "sha256", hash, size, WithFileName("")))
 }
 
 func TestFileUrlGeneration(t *testing.T) {
@@ -85,14 +85,14 @@ func TestFileUrlGeneration(t *testing.T) {
 	hash, size, err := ParseByteStreamUrl(exampleUrl)
 	basename := "buildbarn.local"
 	assert.NoError(t, err)
-	assert.Equal(t, "http://buildbarn.local/blobs/file/foo-bar/mickey.mouse", Url(basename, hash, size, WithFileName("mickey.mouse")))
+	assert.Equal(t, "http://buildbarn.local/blobs/sha256/file/foo-bar/mickey.mouse", Url(basename, "sha256", hash, size, WithFileName("mickey.mouse")))
 }
 func TestByteStreamGeneration(t *testing.T) {
 	exampleUrl := "bytestream://build.local.enfabrica.net:8000/blobs/foo/bar"
 	hash, size, err := ParseByteStreamUrl(exampleUrl)
 	basename := "buildbarn.local"
 	assert.NoError(t, err)
-	assert.Equal(t, "bytestream://buildbarn.local/blobs/foo/bar", Url(basename, hash, size, WithByteStreamTemplate()))
+	assert.Equal(t, "bytestream://buildbarn.local/blobs/sha256/foo/bar", Url(basename, "sha256", hash, size, WithByteStreamTemplate()))
 }
 
 func TestFileGeneration(t *testing.T) {
@@ -100,5 +100,5 @@ func TestFileGeneration(t *testing.T) {
 	hash, size, err := ParseByteStreamUrl(exampleUrl)
 	basename := "/root"
 	assert.NoError(t, err)
-	assert.Equal(t, "/root/blobs/file/foo-bar/foo.go", File(basename, hash, size, WithFileName("foo.go")))
+	assert.Equal(t, "/root/blobs/sha256/file/foo-bar/foo.go", File(basename, "sha256", hash, size, WithFileName("foo.go")))
 }

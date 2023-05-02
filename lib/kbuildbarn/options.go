@@ -10,11 +10,11 @@ type Option interface {
 	apply(*options)
 }
 
-func generateOptions(base, hash, size string, inOpts ...Option) options {
+func generateOptions(base, hashFn, hash, size string, inOpts ...Option) options {
 	do := options{
 		Scheme:       "http",
 		PathTemplate: "",
-		TemplateArgs: []interface{}{hash, size},
+		TemplateArgs: []interface{}{hashFn, hash, size},
 	}
 	for _, o := range inOpts {
 		o.apply(&do)
@@ -24,11 +24,11 @@ func generateOptions(base, hash, size string, inOpts ...Option) options {
 
 // the following default values are arbitrary, based on what current works with buildbarn
 const (
-	DefaultFileTemplate       = "/blobs/file/%s-%s/%s"
-	DefaultActionTemplate     = "/blobs/action/%s-%s"
-	DefaultCommandTemplate    = "/blobs/command/%s-%s"
-	DefaultDirectoryTemplate  = "/blobs/directory/%s-%s"
-	DefaultByteStreamTemplate = "/blobs/%s/%s"
+	DefaultFileTemplate       = "/blobs/%s/file/%s-%s/%s"
+	DefaultActionTemplate     = "/blobs/%s/action/%s-%s"
+	DefaultCommandTemplate    = "/blobs/%s/command/%s-%s"
+	DefaultDirectoryTemplate  = "/blobs/%s/directory/%s-%s"
+	DefaultByteStreamTemplate = "/blobs/%s/%s/%s"
 )
 
 type multipleOption []Option
