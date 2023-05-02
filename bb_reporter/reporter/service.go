@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"time"
 
+	"cloud.google.com/go/bigquery"
 	repb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	cpb "github.com/buildbarn/bb-remote-execution/pkg/proto/completedactionlogger"
 	rupb "github.com/buildbarn/bb-remote-execution/pkg/proto/resourceusage"
 	"github.com/golang/glog"
-	"github.com/kylelemons/godebug/pretty"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -51,59 +50,68 @@ var (
 			"trigger",
 		},
 	)
+	metricRecordInserts = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "bb_reporter",
+		Name:      "completed_action_insert_count",
+		Help:      "Number of records inserted in bigquery, by insert result",
+	},
+		[]string{
+			"outcome",
+		},
+	)
 )
 
 type ActionRecord struct {
-	ActionId        string
-	ActionDigest    string
-	ActionSizeBytes int64
-	OutputFiles     []FileRecord
+	ActionId        string       `bigquery:"action_id"`
+	ActionDigest    string       `bigquery:"action_digest"`
+	ActionSizeBytes int64        `bigquery:"action_size_bytes"`
+	OutputFiles     []FileRecord `bigquery:"output_files"`
 
-	WorkerCluster      string
-	WorkerVirtualNode  string
-	WorkerPhysicalNode string
-	WorkerThread       uint32
+	WorkerCluster      string `bigquery:"worker_cluster"`
+	WorkerVirtualNode  string `bigquery:"worker_virtual_node"`
+	WorkerPhysicalNode string `bigquery:"worker_physical_node"`
+	WorkerThread       uint32 `bigquery:"worker_thread"`
 
-	QueuedTime                time.Time
-	WorkerStartTime           time.Time
-	WorkerCompletedTime       time.Time
-	InputFetchStartTime       time.Time
-	InputFetchCompletedTime   time.Time
-	ExecutionStartTime        time.Time
-	ExecutionCompletedTime    time.Time
-	OutputUploadStartTime     time.Time
-	OutputUploadCompletedTime time.Time
-	VirtualExecutionDuration  time.Duration
+	QueuedTime                time.Time `bigquery:"queued_time"`
+	WorkerStartTime           time.Time `bigquery:"worker_start_time"`
+	WorkerCompletedTime       time.Time `bigquery:"worker_completed_time"`
+	InputFetchStartTime       time.Time `bigquery:"input_fetch_start_time"`
+	InputFetchCompletedTime   time.Time `bigquery:"input_fetch_completed_time"`
+	ExecutionStartTime        time.Time `bigquery:"execution_start_time"`
+	ExecutionCompletedTime    time.Time `bigquery:"execution_completed_time"`
+	OutputUploadStartTime     time.Time `bigquery:"output_upload_start_time"`
+	OutputUploadCompletedTime time.Time `bigquery:"output_upload_completed_time"`
+	VirtualExecutionDuration  string    `bigquery:"virtual_execution_duration"`
 
-	BazelVersion            string
-	BazelInvocationId       string
-	CorrelatedInvocationsId string
-	Mnemonic                string
-	Target                  string
-	Configuration           string
+	BazelVersion            string `bigquery:"bazel_version"`
+	BazelInvocationId       string `bigquery:"bazel_invocation_id"`
+	CorrelatedInvocationsId string `bigquery:"correlated_invocations_id"`
+	Mnemonic                string `bigquery:"mnemonic"`
+	Target                  string `bigquery:"target"`
+	Configuration           string `bigquery:"configuration"`
 
-	UserTime                   time.Duration
-	SystemTime                 time.Duration
-	MaximumResidentSetSize     int64
-	PageReclaims               int64
-	PageFaults                 int64
-	Swaps                      int64
-	BlockInputOperations       int64
-	BlockOutputOperations      int64
-	VoluntaryContextSwitches   int64
-	InvoluntaryContextSwitches int64
+	UserTime                   string `bigquery:"user_time"`
+	SystemTime                 string `bigquery:"system_time"`
+	MaximumResidentSetSize     int64  `bigquery:"maximum_resident_set_size"`
+	PageReclaims               int64  `bigquery:"page_reclaims"`
+	PageFaults                 int64  `bigquery:"page_faults"`
+	Swaps                      int64  `bigquery:"swaps"`
+	BlockInputOperations       int64  `bigquery:"block_input_operations"`
+	BlockOutputOperations      int64  `bigquery:"block_output_operations"`
+	VoluntaryContextSwitches   int64  `bigquery:"voluntary_context_switches"`
+	InvoluntaryContextSwitches int64  `bigquery:"involuntary_context_switches"`
 
-	Expenses []Expense
+	Expenses []Expense `bigquery:"expenses"`
 }
 
 type FileRecord struct {
-	Filename  string
-	SizeBytes int64
+	Filename  string `bigquery:"filename"`
+	SizeBytes int64  `bigquery:"size_bytes"`
 }
 
 type Expense struct {
-	Name      string
-	AmountUSD float64
+	Name      string  `bigquery:"name"`
+	AmountUSD float64 `bigquery:"amount_usd"`
 }
 
 func ActionRecordFromCompletedAction(c *cpb.CompletedAction) (*ActionRecord, error) {
@@ -198,7 +206,7 @@ func ActionRecordFromCompletedAction(c *cpb.CompletedAction) (*ActionRecord, err
 		InputFetchCompletedTime:   em.GetInputFetchCompletedTimestamp().AsTime(),
 		ExecutionStartTime:        em.GetExecutionStartTimestamp().AsTime(),
 		ExecutionCompletedTime:    em.GetExecutionCompletedTimestamp().AsTime(),
-		VirtualExecutionDuration:  em.GetVirtualExecutionDuration().AsDuration(),
+		VirtualExecutionDuration:  bigquery.IntervalValueFromDuration(em.GetVirtualExecutionDuration().AsDuration()).String(),
 		OutputUploadStartTime:     em.GetOutputUploadStartTimestamp().AsTime(),
 		OutputUploadCompletedTime: em.GetOutputUploadCompletedTimestamp().AsTime(),
 
@@ -209,8 +217,8 @@ func ActionRecordFromCompletedAction(c *cpb.CompletedAction) (*ActionRecord, err
 		Target:                  rm.GetTargetId(),
 		Configuration:           rm.GetConfigurationId(),
 
-		UserTime:                   ru.GetUserTime().AsDuration(),
-		SystemTime:                 ru.GetSystemTime().AsDuration(),
+		UserTime:                   bigquery.IntervalValueFromDuration(ru.GetUserTime().AsDuration()).String(),
+		SystemTime:                 bigquery.IntervalValueFromDuration(ru.GetSystemTime().AsDuration()).String(),
 		MaximumResidentSetSize:     ru.GetMaximumResidentSetSize(),
 		PageReclaims:               ru.GetPageReclaims(),
 		PageFaults:                 ru.GetPageFaults(),
@@ -228,13 +236,20 @@ func ActionRecordFromCompletedAction(c *cpb.CompletedAction) (*ActionRecord, err
 
 type Service struct {
 	ctx      context.Context
+	table    BatchInserter[ActionRecord]
 	recvChan chan *ActionRecord
 	bufChan  chan []*ActionRecord
 }
 
-func NewService(ctx context.Context, batchSize int, batchTimeout time.Duration) (*Service, error) {
+func NewService(
+	ctx context.Context,
+	storage BatchInserter[ActionRecord],
+	batchSize int,
+	batchTimeout time.Duration,
+) (*Service, error) {
 	s := &Service{
 		ctx:      ctx,
+		table:    storage,
 		recvChan: make(chan *ActionRecord),
 		bufChan:  make(chan []*ActionRecord),
 	}
@@ -280,8 +295,6 @@ func (s *Service) batchRequestLoop(maxBatch int, maxDelay time.Duration) {
 }
 
 func (s *Service) bigqueryInsertLoop() {
-	i := 0
-
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -289,14 +302,11 @@ func (s *Service) bigqueryInsertLoop() {
 			return
 
 		case reqs := <-s.bufChan:
-			// TODO(scott): Insert into bigquery
-			// For now, to get some testdata, log a single message to stdout every 100
-			// batches
-			i++
-			if i%100 == 0 {
-				i = 0
-				fmt.Println("--------------------------------------------------------------------------------")
-				pretty.Print(reqs[0])
+			if err := s.table.BatchInsert(s.ctx, reqs); err != nil {
+				glog.Errorf("batch insertion of %d ActionRecords failed: %v", len(reqs), err)
+				metricRecordInserts.WithLabelValues("insert_failure").Add(float64(len(reqs)))
+			} else {
+				metricRecordInserts.WithLabelValues("ok").Add(float64(len(reqs)))
 			}
 		}
 	}
