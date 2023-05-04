@@ -13,7 +13,6 @@ go_library(
         "@com_github_buildbarn_bb_remote_execution//pkg/proto/completedactionlogger",
         "@com_github_buildbarn_bb_remote_execution//pkg/proto/resourceusage",
         "@com_github_golang_glog//:go_default_library",
-        "@com_github_kylelemons_godebug//pretty:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
         "@com_google_cloud_go_bigquery//:go_default_library",
