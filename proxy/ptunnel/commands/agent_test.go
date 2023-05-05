@@ -30,7 +30,7 @@ func TestRunAgentCommand(t *testing.T) {
 	b := bytes.NewBufferString("")
 	c.SetOut(b)
 	assert.Nil(t, c.Execute())
-	assert.Equal(t, testAgent.Socket, b.String())
+	assert.Equal(t, testAgent.State.Socket, b.String())
 }
 
 func TestRunAgentCommand_Error(t *testing.T) {

@@ -93,7 +93,7 @@ type SSHAgentState struct {
 // SSHAgent is a wrapper around golang.org/x/crypto/ssh/agent to ease the
 // creation and management of ssh-agents.
 type SSHAgent struct {
-	SSHAgentState
+	State SSHAgentState
 
 	// Close will free the resources allocated by this SSHAgent object.
 	//
@@ -215,10 +215,10 @@ func NewSSHAgent(mods ...SSHAgentModifier) (*SSHAgent, error) {
 }
 
 func (a SSHAgent) Kill() error {
-	if a.PID == 0 {
+	if a.State.PID == 0 {
 		return nil
 	}
-	p, err := os.FindProcess(a.PID)
+	p, err := os.FindProcess(a.State.PID)
 	if err != nil {
 		return err
 	}
@@ -226,11 +226,11 @@ func (a SSHAgent) Kill() error {
 }
 
 func (a SSHAgent) Valid() error {
-	if a.Socket == "" {
+	if a.State.Socket == "" {
 		return nil
 	}
 
-	conn, err := net.DialTimeout("unix", a.Socket, a.timeout)
+	conn, err := net.DialTimeout("unix", a.State.Socket, a.timeout)
 	if err != nil {
 		return fmt.Errorf("invalid agent - could not connect - %w", err)
 	}
@@ -264,7 +264,7 @@ func (a *SSHAgent) UseStandardPaths() error {
 		return err
 	}
 
-	if a.Socket == standard_socket_path {
+	if a.State.Socket == standard_socket_path {
 		// no standardization needed.
 		return nil
 	}
@@ -276,7 +276,7 @@ func (a *SSHAgent) UseStandardPaths() error {
 	}
 	tempname := fmt.Sprintf("%s/enkit.tmp%016x", path, mathrand.New(srand.Source).Uint64())
 	defer os.Remove(tempname)
-	if err := os.Symlink(a.Socket, tempname); err != nil {
+	if err := os.Symlink(a.State.Socket, tempname); err != nil {
 		return fmt.Errorf("UseStandardPaths symlink failed: %w", err)
 	}
 	// Rename symlink to the standard name
@@ -284,7 +284,7 @@ func (a *SSHAgent) UseStandardPaths() error {
 		return fmt.Errorf("UseStandardPaths rename failed: %w", err)
 	}
 
-	a.Socket = standard_socket_path
+	a.State.Socket = standard_socket_path
 	return nil
 }
 
@@ -297,7 +297,7 @@ type AgentCert struct {
 
 // Principals returns a map where the keys are the CA's PKS and the certs identities are the values
 func (a SSHAgent) Principals() ([]AgentCert, error) {
-	conn, err := net.DialTimeout("unix", a.Socket, a.timeout)
+	conn, err := net.DialTimeout("unix", a.State.Socket, a.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +331,7 @@ func (a SSHAgent) Principals() ([]AgentCert, error) {
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
 // Note that ed25519.PrivateKey should be passed by value.
 func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey) error {
-	conn, err := net.DialTimeout("unix", a.Socket, a.timeout)
+	conn, err := net.DialTimeout("unix", a.State.Socket, a.timeout)
 	if err != nil {
 		return err
 	}
@@ -354,9 +354,9 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 }
 
 func (a SSHAgent) GetEnv() []string {
-	env := []string{fmt.Sprintf("SSH_AUTH_SOCK=%s", a.Socket)}
-	if a.PID != 0 {
-		env = append(env, fmt.Sprintf("SSH_AGENT_PID=%d", a.PID))
+	env := []string{fmt.Sprintf("SSH_AUTH_SOCK=%s", a.State.Socket)}
+	if a.State.PID != 0 {
+		env = append(env, fmt.Sprintf("SSH_AGENT_PID=%d", a.State.PID))
 	}
 	return env
 }
@@ -451,8 +451,8 @@ func (agent *SSHAgent) LoadFromEnvironment() error {
 		}
 	}
 
-	agent.PID = pid
-	agent.Socket = envSSHSock
+	agent.State.PID = pid
+	agent.State.Socket = envSSHSock
 	return nil
 }
 
@@ -493,8 +493,8 @@ func (agent *SSHAgent) CreateNew() error {
 	if err != nil {
 		return fmt.Errorf("error processing ssh agent pid %v: %w", resultPID, err)
 	}
-	agent.Socket = rawSock
-	agent.PID = pid
+	agent.State.Socket = rawSock
+	agent.State.PID = pid
 	agent.Close = func() {
 		_ = agent.Kill()
 	}

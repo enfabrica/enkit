@@ -59,20 +59,20 @@ func TestStartSSHAgent(t *testing.T) {
 
 	agent, err := PrepareSSHAgent(localCache, WithLogging(l))
 	assert.NoError(t, err)
-	assert.NotEqual(t, "", agent.Socket)
-	assert.NotEqual(t, 0, agent.PID)
+	assert.NotEqual(t, "", agent.State.Socket)
+	assert.NotEqual(t, 0, agent.State.PID)
 	assert.NoError(t, agent.Valid())
 
 	newAgent, err := PrepareSSHAgent(localCache, WithLogging(l))
 	assert.NoError(t, err)
-	assert.Equal(t, agent.Socket, newAgent.Socket)
-	assert.Equal(t, agent.PID, newAgent.PID)
+	assert.Equal(t, agent.State.Socket, newAgent.State.Socket)
+	assert.Equal(t, agent.State.PID, newAgent.State.PID)
 	assert.NoError(t, newAgent.Valid())
 
 	newAgent, err = PrepareSSHAgent(localCache, WithLogging(l))
 	assert.NoError(t, err)
-	assert.Equal(t, agent.Socket, newAgent.Socket)
-	assert.Equal(t, agent.PID, newAgent.PID)
+	assert.Equal(t, agent.State.Socket, newAgent.State.Socket)
+	assert.Equal(t, agent.State.PID, newAgent.State.PID)
 	assert.NoError(t, newAgent.Valid())
 
 	assert.NoError(t, DeleteSSHCache(localCache))
@@ -81,8 +81,8 @@ func TestStartSSHAgent(t *testing.T) {
 	//// Testing cache expiration
 	agentAfterCacheDelete, err := PrepareSSHAgent(localCache, WithLogging(l))
 	assert.NoError(t, err)
-	// no longer valid: assert.NotEqual(t, newAgent.Socket, agentAfterCacheDelete.Socket)
-	assert.NotEqual(t, newAgent.PID, agentAfterCacheDelete.PID)
+	// no longer valid: assert.NotEqual(t, newAgent.State.Socket, agentAfterCacheDelete.State.Socket)
+	assert.NotEqual(t, newAgent.State.PID, agentAfterCacheDelete.State.PID)
 	assert.NoError(t, agentAfterCacheDelete.Valid())
 
 }
@@ -138,8 +138,8 @@ func TestSSHAgentTimeout(t *testing.T) {
 
 	// SSH agent in environment should time out.
 	assert.NoError(t, agent.LoadFromEnvironment())
-	assert.Equal(t, 0, agent.PID)
-	assert.Equal(t, sockaddr, agent.Socket)
+	assert.Equal(t, 0, agent.State.PID)
+	assert.Equal(t, sockaddr, agent.State.Socket)
 	assert.Error(t, agent.Valid())
 
 	// FindOrCreateSSHAgent should detect the problem and fail.
@@ -152,8 +152,8 @@ func TestSSHAgentTimeout(t *testing.T) {
 	assert.NotNil(t, agent)
 	defer agent.Close()
 
-	assert.NotEqual(t, 0, agent.PID)
-	assert.NotEqual(t, "", agent.Socket)
+	assert.NotEqual(t, 0, agent.State.PID)
+	assert.NotEqual(t, "", agent.State.Socket)
 }
 
 func TestSSHAgentFlags(t *testing.T) {
@@ -178,8 +178,8 @@ func TestSSHAgentFlags(t *testing.T) {
 	assert.Equal(t, "/bin/sh", agent.agentPath)
 	assert.Equal(t, []string{"-c", fakeAgent}, agent.agentArgs)
 	assert.NoError(t, agent.CreateNew())
-	assert.Equal(t, 9786, agent.PID)
-	assert.Equal(t, "/tmp/agent-from-flags", agent.Socket)
+	assert.Equal(t, 9786, agent.State.PID)
+	assert.Equal(t, "/tmp/agent-from-flags", agent.State.Socket)
 
 	//  Test agent detection, flags should still be used.
 	dir, err := os.MkdirTemp("", "test-uds-ssh")

@@ -29,27 +29,27 @@ func TestLoadSave(t *testing.T) {
 	assert.NotNil(t, agent)
 
 	// Write agent data, and read it back. Should succeed.
-	agent.PID = 1789
-	agent.Socket = "/tmp/non-existing/test"
+	agent.State.PID = 1789
+	agent.State.Socket = "/tmp/non-existing/test"
 	assert.Nil(t, WriteAgentToCache(store, agent))
 	readback, err := NewSSHAgent()
 	assert.NoError(t, err)
 	assert.NotNil(t, readback)
 	assert.NoError(t, readback.LoadFromCache(store))
-	assert.Equal(t, 1789, readback.PID)
-	assert.Equal(t, "/tmp/non-existing/test", readback.Socket)
+	assert.Equal(t, 1789, readback.State.PID)
+	assert.Equal(t, "/tmp/non-existing/test", readback.State.Socket)
 
 	// Do it again, just to make sure the file is still writable.
-	agent.PID = 9993
-	agent.Socket = "/tmp/non-existing/again"
+	agent.State.PID = 9993
+	agent.State.Socket = "/tmp/non-existing/again"
 	assert.Nil(t, WriteAgentToCache(store, agent))
 	readback, err = NewSSHAgent()
 	assert.NoError(t, err)
 	assert.NotNil(t, readback)
 	assert.NoError(t, readback.LoadFromCache(store))
 	assert.NoError(t, err)
-	assert.Equal(t, 9993, readback.PID)
-	assert.Equal(t, "/tmp/non-existing/again", readback.Socket)
+	assert.Equal(t, 9993, readback.State.PID)
+	assert.Equal(t, "/tmp/non-existing/again", readback.State.Socket)
 
 	// Deleting the cache should succeed.
 	assert.NoError(t, DeleteSSHCache(store))
