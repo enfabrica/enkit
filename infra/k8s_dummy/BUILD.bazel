@@ -1,0 +1,49 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/enfabrica/enkit/infra/k8s_dummy",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//lib/server:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "k8s_dummy",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "k8s_dummy_tar",
+    srcs = [":k8s_dummy"],
+    package_dir = "/enfabrica/bin",
+)
+
+container_image(
+    name = "k8s_dummy_image",
+    base = "@golang_base//image",
+    cmd = [
+        "/enfabrica/bin/k8s_dummy",
+    ],
+    tars = [
+        ":k8s_dummy_tar",
+    ],
+)
+
+container_push(
+    name = "k8s_dummy_image_push",
+    format = "Docker",
+    image = ":k8s_dummy_image",
+    registry = "gcr.io",
+    repository = "devops-284019/infra/k8s_dummy",
+    # TODO: Change this tag to "live"
+    tag = "testing",
+)
