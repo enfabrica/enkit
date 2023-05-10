@@ -6,7 +6,9 @@ import (
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config/identity"
 	"github.com/enfabrica/enkit/lib/kauth"
+	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/spf13/cobra"
 	"math/rand"
@@ -18,6 +20,7 @@ type Login struct {
 	rng *rand.Rand
 
 	base      *client.BaseFlags
+	agent     *kcerts.SSHAgentFlags
 	populator kflags.Populator
 
 	NoDefault   bool
@@ -41,6 +44,7 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 			Aliases: []string{"auth", "hello", "hi"},
 		},
 		base:      base,
+		agent:     kcerts.SSHAgentDefaultFlags(),
 		rng:       rng,
 		populator: populator,
 	}
@@ -48,6 +52,8 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 
 	login.Flags().BoolVarP(&login.NoDefault, "no-default", "n", false, "Do not mark this identity as the default identity to use")
 	login.Flags().DurationVar(&login.MinWaitTime, "min-wait-time", 10*time.Second, "Wait at least this long in between failed attempts to retrieve a token")
+	login.agent.Register(&kcobra.FlagSet{login.Flags()}, "")
+
 	return login
 }
 
@@ -90,12 +96,14 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := kauth.SaveCredentials(enCreds, l.base.Local, l.base.Log); err != nil {
+	l.base.Log.Infof("storing credentials in SSH agent...")
+	if err := kauth.SaveCredentials(enCreds, l.base.Local, kcerts.WithLogging(l.base.Log), kcerts.WithFlags(l.agent)); err != nil {
 		l.base.Log.Warnf("error saving credentials, err: %v", err)
 		return err
 	}
 
 	// TODO(adam): delete below when we are comfortable migrating from the token to pure ssh certificates
+	l.base.Log.Infof("storing identity in HOME config...")
 	userid := identity.Join(username, domain)
 	err = ids.Save(userid, enCreds.Token)
 	if err != nil {

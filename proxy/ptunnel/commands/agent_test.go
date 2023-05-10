@@ -23,14 +23,14 @@ func TestRunAgentCommand(t *testing.T) {
 	}
 
 	bf := client.DefaultBaseFlags("", "testing")
-	testAgent, err := kcerts.PrepareSSHAgent(bf.Local, bf.Log)
+	testAgent, err := kcerts.PrepareSSHAgent(bf.Local, kcerts.WithLogging(bf.Log))
 	assert.Nil(t, err)
 	c := commands.NewAgentCommand(bf)
 	c.SetArgs([]string{"run", "--", "echo", "-n", "$SSH_AUTH_SOCK"})
 	b := bytes.NewBufferString("")
 	c.SetOut(b)
 	assert.Nil(t, c.Execute())
-	assert.Equal(t, testAgent.Socket, b.String())
+	assert.Equal(t, testAgent.State.Socket, b.String())
 }
 
 func TestRunAgentCommand_Error(t *testing.T) {

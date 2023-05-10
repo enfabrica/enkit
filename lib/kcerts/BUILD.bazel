@@ -17,7 +17,9 @@ go_library(
         "//lib/config/directory:go_default_library",
         "//lib/config/marshal:go_default_library",
         "//lib/kcerts/ked25519:go_default_library",
+        "//lib/kflags:go_default_library",
         "//lib/logger:go_default_library",
+        "//lib/multierror:go_default_library",
         "//lib/srand:go_default_library",
         "@com_github_mitchellh_go_homedir//:go_default_library",
         "@org_golang_x_crypto//ssh:go_default_library",
@@ -28,6 +30,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "cache_test.go",
         "certs_test.go",
         "signer_test.go",
         "ssh_test.go",

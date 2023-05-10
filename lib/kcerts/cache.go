@@ -14,24 +14,23 @@ const (
 )
 
 var (
-	SSHAgentNoCache = errors.New("the cache had not existed before")
+	SSHAgentNoCache = errors.New("ssh agent cached entry does not exist")
 )
 
-func FetchSSHAgentFromCache(store cache.Store) (*SSHAgent, error) {
+func (agent *SSHAgent) LoadFromCache(store cache.Store) error {
 	sshEnkitCache, err := store.Exists(SSHCacheKey)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching cache: %w", err)
+		return fmt.Errorf("error fetching ssh agent cache: %w", err)
 	}
 	if sshEnkitCache == "" {
-		return nil, SSHAgentNoCache
+		return SSHAgentNoCache
 	}
-	agent := &SSHAgent{
-		Close: func() {},
+	var state SSHAgentState
+	if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &state); err != nil {
+		return fmt.Errorf("error deserializing ssh agent cache: %w", err)
 	}
-	if err := marshal.UnmarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent); err != nil {
-		return nil, fmt.Errorf("error deserializing cache: %w", err)
-	}
-	return agent, err
+	agent.State = state // Ensure the whole state is set/overwritten.
+	return err
 }
 
 func WriteAgentToCache(store cache.Store, agent *SSHAgent) error {
@@ -40,7 +39,7 @@ func WriteAgentToCache(store cache.Store, agent *SSHAgent) error {
 		return fmt.Errorf("error fetching cache: %w", err)
 	}
 	defer store.Rollback(sshEnkitCache)
-	err = marshal.MarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), agent)
+	err = marshal.MarshalFile(filepath.Join(sshEnkitCache, SSHCacheFile), &agent.State)
 	if err != nil {
 		return fmt.Errorf("error writing to cache: %w", err)
 	}

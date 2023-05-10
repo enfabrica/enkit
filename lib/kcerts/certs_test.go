@@ -137,8 +137,8 @@ func TestCertTTL(t *testing.T) {
 	nowTime := time.Now().Unix()
 	badCerts := []ssh.Certificate{
 		{
-			ValidAfter: uint64(nowTime + 20),
-			ValidBefore:  50,
+			ValidAfter:  uint64(nowTime + 20),
+			ValidBefore: 50,
 		},
 		{
 			ValidAfter:  uint64(nowTime + 50),

@@ -21,6 +21,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "defaults_test.go",
         "env_test.go",
         "flags_test.go",
     ],

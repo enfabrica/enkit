@@ -42,7 +42,7 @@ require (
 	github.com/soheilhy/cmux v0.1.4
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	github.com/tchap/zapext v1.0.0
 	github.com/ulikunitz/xz v0.5.8
 	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7

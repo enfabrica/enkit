@@ -2,6 +2,7 @@ package kflags
 
 import (
 	"flag"
+	"fmt"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"path/filepath"
 	"strings"
@@ -23,15 +24,42 @@ type Flag interface {
 //
 // For example, to use the default "flag" library FlagSet:
 //
-//     var set kflags.FlagSet
-//     set = &kflags.GoFlagSet{FlagSet: flag.CommandLine}
-//
+//	var set kflags.FlagSet
+//	set = &kflags.GoFlagSet{FlagSet: flag.CommandLine}
 type GoFlagSet struct {
 	*flag.FlagSet
 }
 
 func (fs *GoFlagSet) ByteFileVar(p *[]byte, name string, defaultFile string, usage string, mods ...ByteFileModifier) {
 	fs.Var(NewByteFileFlag(p, defaultFile, mods...), name, usage)
+}
+
+// stringArrayFlag is a simple implementation of the flag.Value interface to provide array of flags.
+type stringArrayFlag struct {
+	dest     *[]string
+	defaults bool // set to true if dest points to the default value.
+}
+
+func (v *stringArrayFlag) String() string {
+	return fmt.Sprintf("%v", *v.dest)
+}
+
+func (v *stringArrayFlag) Set(value string) error {
+	// Don't modify/append to the default array, create a new one.
+	if v.defaults {
+		*v.dest = []string{}
+		v.defaults = false
+	}
+
+	*v.dest = append(*v.dest, value)
+	return nil
+}
+
+func (fs *GoFlagSet) StringArrayVar(p *[]string, name string, value []string, usage string) {
+	if len(value) > 0 {
+		*p = value[:]
+	}
+	fs.Var(&stringArrayFlag{dest: p, defaults: true}, name, usage)
 }
 
 // GoFlag wraps a flag.Flag object from the go standard library
@@ -179,13 +207,12 @@ func GoPopulator(set *flag.FlagSet) Populator {
 //
 // For example, an application reading flags from the environment may use:
 //
-//     var server = flag.String("server", "127.0.0.1", "server to connect to")
-//     func main(...) {
-//       kflags.PopulateDefaults(flag.CommandLine, kflags.NewEnvAugmenter())
-//       [...]
+//	var server = flag.String("server", "127.0.0.1", "server to connect to")
+//	func main(...) {
+//	  kflags.PopulateDefaults(flag.CommandLine, kflags.NewEnvAugmenter())
+//	  [...]
 //
-//       flag.Parse()
-//
+//	  flag.Parse()
 func PopulateDefaults(set *flag.FlagSet, resolvers ...Augmenter) error {
 	errors := []error{}
 	namespace := filepath.Base(set.Name())
