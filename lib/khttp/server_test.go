@@ -2,7 +2,9 @@ package khttp
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/enfabrica/enkit/lib/kflags"
 	"os"
+	"flag"
 	"testing"
 )
 
@@ -60,4 +62,26 @@ func TestAddDefaultPort(t *testing.T) {
 	address, err = addDefaultPort("[::1]:1234", 80)
 	assert.NoError(t, err)
 	assert.Equal(t, "[::1]:1234", address)
+}
+
+func GetAllFlags(fs *flag.FlagSet) []string {
+	flags := []string{}
+	fs.VisitAll(func (fl *flag.Flag) {
+		flags = append(flags, fl.Name)
+	})
+	return flags
+}
+
+func TestFlags(t *testing.T) {
+	flags := DefaultFlags()
+
+	// Make sure register panics if some flags are duplicate.
+	set := &kflags.GoFlagSet{FlagSet: flag.NewFlagSet("test", flag.PanicOnError)}
+	flags.Register(set, "test-prefix-")
+
+	// Verify all registered flags have been prefixed correctly.
+	found := GetAllFlags(set.FlagSet)
+	for _, fl := range found {
+		assert.Regexp(t, `^test-prefix-[^-]`, fl)
+	}
 }

@@ -147,8 +147,7 @@ type Server struct {
 	log logger.Printer
 
 	// Functions used to start the http (or https) server.
-	// runp starts a plain http server, runs starts a secure TLS server.
-	run func(*http.Server) error
+	run func(logger.Printer, *http.Server) error
 
 	HTTP  *http.Server
 	HTTPS *http.Server
@@ -327,10 +326,10 @@ func WithWaiter(wg *sync.WaitGroup, httpa, httpsa **net.TCPAddr) Modifier {
 
 	return func(opts *Server) error {
 		if opts.run != nil {
-			return fmt.Errorf("WithWaiter is overriding existing runners - incorrect API usage")
+			return fmt.Errorf("WithWaiter is overriding the final runner - incorrect API usage")
 		}
 
-		opts.run = func(s *http.Server) error {
+		opts.run = func(log logger.Printer, s *http.Server) error {
 			if s.Addr == "" {
 				wg.Done()
 				return nil
@@ -349,7 +348,7 @@ func WithWaiter(wg *sync.WaitGroup, httpa, httpsa **net.TCPAddr) Modifier {
 				}
 				wg.Done()
 
-				opts.log("Listening on HTTPs address %s - configured for %s", ln.Addr(), s.Addr)
+				log("Listening on HTTPs address %s - configured for %s", ln.Addr(), s.Addr)
 				return s.ServeTLS(ln, "", "")
 			}
 
@@ -358,7 +357,7 @@ func WithWaiter(wg *sync.WaitGroup, httpa, httpsa **net.TCPAddr) Modifier {
 			}
 			wg.Done()
 
-			opts.log("Listening on HTTP address %s - configured for %s", ln.Addr(), s.Addr)
+			log("Listening on HTTP address %s - configured for %s", ln.Addr(), s.Addr)
 			return s.Serve(ln)
 		}
 
@@ -369,8 +368,11 @@ func WithWaiter(wg *sync.WaitGroup, httpa, httpsa **net.TCPAddr) Modifier {
 func WithH2C() Modifier {
 	return func(opts *Server) error {
 		runner := opts.run
+		if runner == nil {
+			runner = ListenAndServe
+		}
 
-		opts.run = func(s *http.Server) error {
+		opts.run = func(log logger.Printer, s *http.Server) error {
 			h2server := opts.HTTP2
 			if opts.HTTP2 == nil {
 				h2server = &http2.Server{}
@@ -380,7 +382,7 @@ func WithH2C() Modifier {
 				s.Handler = h2c.NewHandler(s.Handler, h2server)
 			}
 
-			return runner(s)
+			return runner(log, s)
 		}
 
 		return nil
@@ -411,19 +413,7 @@ func New(handler http.Handler, mods ...Modifier) (*Server, error) {
 	}
 
 	if opts.run == nil {
-		opts.run = func(s *http.Server) error {
-			if s.Addr == "" {
-				return nil
-			}
-
-			if s.TLSConfig != nil {
-				opts.log("Listening on HTTPs address %s", s.Addr)
-				return s.ListenAndServeTLS("", "")
-			}
-
-			opts.log("Listening on HTTP address %s", s.Addr)
-			return s.ListenAndServe()
-		}
+		opts.run = ListenAndServe
 	}
 
 	return opts, nil
@@ -435,10 +425,10 @@ func (opts *Server) Run() error {
 
 	err := goroutine.WaitFirstError(
 		func() error {
-			return opts.run(opts.HTTPS)
+			return opts.run(opts.log, opts.HTTPS)
 		},
 		func() error {
-			return opts.run(opts.HTTP)
+			return opts.run(opts.log, opts.HTTP)
 		},
 	)
 
@@ -464,3 +454,29 @@ func Run(handler http.Handler, mods ...Modifier) error {
 
 	return server.Run()
 }
+
+// ListenAndServe invokes the correct ListenAndServe on the passed http.Server.
+//
+// It invokes ListenAndServeTLS if the server has a TLSConfig assigned while
+// it invokes ListenAndServe if there is no TLSConfig.
+//
+// Rather than listen on the default http port, if no address is specified
+// no server is started.
+//
+// This function is a commodity wrapper convenient when starting servers
+// from flags or configuration files, where a lack of address means nothing
+// to start, and where the server type is determined by its configuration.
+func ListenAndServe(log logger.Printer, s *http.Server) error {
+	if s.Addr == "" {
+		return nil
+	}
+
+	if s.TLSConfig != nil {
+		log("Listening on HTTPs address %s", s.Addr)
+		return s.ListenAndServeTLS("", "")
+	}
+
+	log("Listening on HTTP address %s", s.Addr)
+	return s.ListenAndServe()
+}
+
