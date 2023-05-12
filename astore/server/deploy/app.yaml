@@ -3,4 +3,4 @@ runtime: go119
 instance_class: F1
 automatic_scaling:
   max_instances: 1
-  min_instances: 0
+  min_instances: 1
