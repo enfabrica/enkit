@@ -2,9 +2,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 
 	"github.com/enfabrica/enkit/lib/server"
 
@@ -30,8 +35,30 @@ func printPath(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "You reached page: %s\n", r.URL.Path)
 }
 
+func logHeartbeat(ctx context.Context, interval time.Duration) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	i := 0
+
+	for {
+		select {
+		case <-t.C:
+			log.Printf("Log heartbeat %d", i)
+			i++
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func main() {
 	flag.Parse()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	// Generate logs to ensure that logs collection works as expected
+	go logHeartbeat(ctx, 60*time.Second)
+
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/printpath/", printPath)
