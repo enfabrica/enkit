@@ -59,6 +59,16 @@ var (
 			"outcome",
 		},
 	)
+	metricDeducedFieldCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "bb_reporter",
+		Name:      "deduced_field_count",
+		Help:      "Number of fields that are not explicitly provided, by field name and action",
+	},
+		[]string{
+			"field",  // field that is affected
+			"action", // either "omitted" or "defaulted", depending on what the code does
+		},
+	)
 )
 
 type ActionRecord struct {
@@ -70,6 +80,9 @@ type ActionRecord struct {
 	WorkerCluster      string `bigquery:"worker_cluster"`
 	WorkerVirtualNode  string `bigquery:"worker_virtual_node"`
 	WorkerPhysicalNode string `bigquery:"worker_physical_node"`
+	WorkerEnvironment  string `bigquery:"worker_environment"`
+	WorkerPoolName     string `bigquery:"worker_pool_name"`
+	WorkerPoolVersion  string `bigquery:"worker_pool_version"`
 	WorkerThread       uint32 `bigquery:"worker_thread"`
 
 	QueuedTime                time.Time `bigquery:"queued_time"`
@@ -121,6 +134,9 @@ func ActionRecordFromCompletedAction(c *cpb.CompletedAction) (*ActionRecord, err
 		workerCluster      string
 		workerVirtualNode  string
 		workerPhysicalNode string
+		workerEnvironment  string
+		workerPoolName     string
+		workerPoolVersion  string
 		workerThread       uint32
 	)
 	workerMeta := map[string]any{}
@@ -128,18 +144,57 @@ func ActionRecordFromCompletedAction(c *cpb.CompletedAction) (*ActionRecord, err
 		glog.Errorf("Failed to unmarshal worker metadata dict on action %q: %v", c.GetUuid(), err)
 		return nil, errors.New("worker_metadata_unmarshal_failure")
 	}
+
 	if v, ok := workerMeta["nomad_alloc_id"]; ok {
 		workerVirtualNode, _ = v.(string)
+	} else if v, ok := workerMeta["pod"]; ok {
+		workerVirtualNode, _ = v.(string)
+	} else {
+		metricDeducedFieldCount.WithLabelValues("worker_virtual_node", "omitted").Inc()
 	}
+
 	if v, ok := workerMeta["nomad_datacenter"]; ok {
 		workerCluster, _ = v.(string)
+	} else if v, ok := workerMeta["k8s_cluster"]; ok {
+		workerCluster, _ = v.(string)
+	} else {
+		metricDeducedFieldCount.WithLabelValues("worker_cluster", "omitted").Inc()
 	}
+
 	if v, ok := workerMeta["nomad_node_id"]; ok {
 		workerPhysicalNode, _ = v.(string)
+	} else if v, ok := workerMeta["node"]; ok {
+		workerPhysicalNode, _ = v.(string)
+	} else {
+		metricDeducedFieldCount.WithLabelValues("worker_physical_node", "omitted").Inc()
 	}
+
+	if v, ok := workerMeta["environment"]; ok {
+		workerEnvironment, _ = v.(string)
+	} else {
+		metricDeducedFieldCount.WithLabelValues("worker_environment", "defaulted").Inc()
+		workerEnvironment = "prod"
+	}
+
+	if v, ok := workerMeta["pool_name"]; ok {
+		workerPoolName, _ = v.(string)
+	} else {
+		metricDeducedFieldCount.WithLabelValues("worker_pool_name", "defaulted").Inc()
+		workerPoolName = "legacy_nomad"
+	}
+
+	if v, ok := workerMeta["pool_version"]; ok {
+		workerPoolVersion, _ = v.(string)
+	} else {
+		metricDeducedFieldCount.WithLabelValues("worker_pool_version", "defaulted").Inc()
+		workerPoolVersion = "v0"
+	}
+
 	if v, ok := workerMeta["thread"]; ok {
 		v, _ := v.(int)
 		workerThread = uint32(v)
+	} else {
+		metricDeducedFieldCount.WithLabelValues("worker_thread", "omitted").Inc()
 	}
 
 	var rm *repb.RequestMetadata
@@ -197,6 +252,9 @@ func ActionRecordFromCompletedAction(c *cpb.CompletedAction) (*ActionRecord, err
 		WorkerCluster:      workerCluster,
 		WorkerVirtualNode:  workerVirtualNode,
 		WorkerPhysicalNode: workerPhysicalNode,
+		WorkerEnvironment:  workerEnvironment,
+		WorkerPoolName:     workerPoolName,
+		WorkerPoolVersion:  workerPoolVersion,
 		WorkerThread:       workerThread,
 
 		QueuedTime:                em.GetQueuedTimestamp().AsTime(),
