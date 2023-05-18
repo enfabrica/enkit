@@ -1,14 +1,13 @@
 package main
 
 import (
-	"github.com/enfabrica/enkit/lib/oauth/ogrpc"
-	"os"
-
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -28,12 +27,13 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/kflags/kconfig"
+	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/khttp/kcookie"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/oauth/ogrpc"
 	"github.com/enfabrica/enkit/lib/oauth/providers"
 	"github.com/enfabrica/enkit/lib/server"
-	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/srand"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -101,7 +101,7 @@ func ListHandler(base, upath string, resp *rpc_astore.ListResponse, err error, w
 	})
 }
 
-func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *providers.Flags, optAuthFlags *providers.Flags, useMulti bool) error {
+func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags *auth.Flags, oauthFlags *providers.Flags, optAuthFlags *providers.Flags, useMulti bool) error {
 	rng := rand.New(srand.Source)
 
 	cookieDomain = strings.TrimSpace(cookieDomain)
@@ -264,10 +264,12 @@ func Start(targetURL, cookieDomain string, astoreFlags *astore.Flags, authFlags 
 		ShowResult(w, r, "angry", "Nothing to see here", messageNothing, http.StatusUnauthorized)
 	})
 
-	return server.Run(mux, grpcs, nil)
+	return server.Run(ctx, mux, grpcs, nil)
 }
 
 func main() {
+	ctx := context.Background()
+
 	command := &cobra.Command{
 		Use:   "astore-server",
 		Short: "astore-server is an artifact and authentication server, usable as the backend for the 'astore' CLI tool",
@@ -289,7 +291,7 @@ func main() {
 		"This implicitly authorizes redirection to any URL within the domain.")
 	command.Flags().BoolVar(&useMulti, "use-multi", false, "use multi oauth2 flow, if false, use single flow")
 	command.RunE = func(cmd *cobra.Command, args []string) error {
-		return Start(targetURL, cookieDomain, astoreFlags, authFlags, oauthFlags, optAuthFlags, useMulti)
+		return Start(ctx, targetURL, cookieDomain, astoreFlags, authFlags, oauthFlags, optAuthFlags, useMulti)
 	}
 
 	kcobra.PopulateDefaults(command, os.Args,

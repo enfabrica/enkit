@@ -21,12 +21,12 @@ import (
 var (
 	metricPathVisits = promauto.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: "k8s_dummy",
-		Name: "path_visit_count",
+		Name:      "path_visit_count",
 	},
-	[]string{
-		"path",
-	},
-)
+		[]string{
+			"path",
+		},
+	)
 )
 
 func printPath(w http.ResponseWriter, r *http.Request) {
@@ -63,5 +63,5 @@ func main() {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/printpath/", printPath)
 
-	server.Run(mux, nil, nil)
+	server.Run(ctx, mux, nil, nil)
 }
