@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["bridge.go"],
+    importpath = "github.com/enfabrica/enkit/stackdriver_bridge/bridge",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//stackdriver_bridge/proto:go_default_library",
+        "//stackdriver_bridge/sinks:go_default_library",
+        "//stackdriver_bridge/sources:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_hashicorp_go_metrics//:go_default_library",
+        "@com_github_prometheus_client_golang//api/prometheus/v1:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
+        "@com_github_prometheus_common//model:go_default_library",
+    ],
+)

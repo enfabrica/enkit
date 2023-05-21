@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["stackdriver.go"],
+    importpath = "github.com/enfabrica/enkit/stackdriver_bridge/sinks",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_google_go_metrics_stackdriver//:go_default_library",
+        "@com_github_hashicorp_go_metrics//:go_default_library",
+        "@com_google_cloud_go_monitoring//apiv3/v2:go_default_library",
+    ],
+)

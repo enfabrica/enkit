@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package net.enfabrica.enkit.stackdriver_bridge;
+
+import "google/protobuf/duration.proto";
+
+// Config configures a single instance of stackdriver_bridge.
+message Config {
+  // The GCP project ID that metrics should be pushed to.
+  // Example: `enfabrica-cluster-prod`
+  string gcp_project_id = 1;
+
+  // A list of endpoints that should be queried and converted into Stackdriver
+  // metrics on a specified interval.
+  repeated ScrapeConfig scrape_configs = 2;
+}
+
+message ScrapeConfig {
+  // PromQL endpoint to query.
+  // Should be a URL of an HTTP or HTTPS endpoint, like:
+  // - `https://victoriametrics.gcp02.corp.enfabrica.net`
+  // - `victoriametrics.monitoring.svc:80`
+  //
+  // If the scheme is omitted, HTTP is assumed.
+  // If the scheme is HTTPS, it is assumed that the request needs to go through
+  // enproxy, and the application will attempt to resolve local enkit
+  // credentials to do so.
+  string endpoint = 1;
+
+  // List of queries to make on this endpoint.
+  repeated Metric metrics = 2;
+}
+
+message Metric {
+  // Name of the metric once it is put into Stackdriver
+  string name = 1;
+
+  string group = 2;
+
+  // PromQL query to make on the source.
+  string query = 3;
+
+  // Interval on which the query should be made.
+  //
+  // This is separate than the interval by which updates are made to sinks.
+  // Currently, the Stackdriver sink uploads the current value every 1m, which
+  // is the fastest rate allowed.
+  google.protobuf.Duration scrape_interval = 4;
+
+  // Interval by which `query` should complete.
+  google.protobuf.Duration scrape_timeout = 5;
+
+  // Labels to add on to this query.
+  //
+  // Adding labels allows multiple entries with the same `name` to be present;
+  // in other words, metrics in the sink are keyed uniquely by (name,
+  // extra_labels)
+  map<string, string> extra_labels = 6;
+}

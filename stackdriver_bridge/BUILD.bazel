@@ -1,0 +1,52 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/enfabrica/enkit/stackdriver_bridge",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//lib/protocfg:go_default_library",
+        "//lib/server:go_default_library",
+        "//stackdriver_bridge/bridge:go_default_library",
+        "//stackdriver_bridge/proto:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "stackdriver_bridge",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "stackdriver_bridge_tar",
+    srcs = [":stackdriver_bridge"],
+    package_dir = "/enfabrica/bin",
+)
+
+container_image(
+    name = "stackdriver_bridge_image",
+    base = "@golang_base//image",
+    cmd = [
+        "/enfabrica/bin/stackdriver_bridge",
+    ],
+    tars = [
+        ":stackdriver_bridge_tar",
+    ],
+)
+
+container_push(
+    name = "stackdriver_bridge_image_push",
+    format = "Docker",
+    image = ":stackdriver_bridge_image",
+    registry = "gcr.io",
+    repository = "devops-284019/infra/services/stackdriver_bridge",
+    tag = "testing",
+)
