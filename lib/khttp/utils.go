@@ -16,9 +16,10 @@ import (
 // http.Handle, wrapping a Mux, ...).
 //
 // Example:
-//    mux := http.NewServeMux()
-//    ...
-//    http.ListenAndServe(":8080", &Dumper{Real: mux, Log: log.Printf})
+//
+//	mux := http.NewServeMux()
+//	...
+//	http.ListenAndServe(":8080", &Dumper{Real: mux, Log: log.Printf})
 type Dumper struct {
 	Real http.Handler
 	Log  logger.Printer
@@ -178,4 +179,17 @@ func SplitHostPort(hostport string) (host, port string, err error) {
 	}
 
 	return host, port, nil
+}
+
+type LoggingTransport struct {
+	Transport http.RoundTripper
+	Log       logger.Printer
+}
+
+func (t *LoggingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	res, err := t.Transport.RoundTrip(r)
+	t.Log("HTTP Request: %+v", r)
+	t.Log("HTTP Response error: %v", err)
+	t.Log("HTTP Response: %+v", res)
+	return res, err
 }
