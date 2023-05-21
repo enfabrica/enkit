@@ -5,4 +5,5 @@ go_library(
     srcs = ["cookie.go"],
     importpath = "github.com/enfabrica/enkit/lib/khttp/kcookie",
     visibility = ["//visibility:public"],
+    deps = ["@org_golang_x_net//publicsuffix:go_default_library"],
 )

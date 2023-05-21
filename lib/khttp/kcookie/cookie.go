@@ -2,8 +2,12 @@
 package kcookie
 
 import (
+	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"time"
+
+	"golang.org/x/net/publicsuffix"
 )
 
 type Modifier func(*http.Cookie)
@@ -53,4 +57,12 @@ func New(name, value string, co ...Modifier) *http.Cookie {
 		Value:    value,
 		HttpOnly: true,
 	})
+}
+
+func NewJar() (http.CookieJar, error) {
+	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	if err != nil {
+		return nil, fmt.Errorf("can't create default CookieJar: %w", err)
+	}
+	return jar, nil
 }
