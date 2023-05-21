@@ -241,11 +241,11 @@ def go_repositories():
     )
     go_repository(
         name = "com_github_bazelbuild_remote_apis",
-        importpath = "github.com/bazelbuild/remote-apis",
         # This is a copy of this patch: https://raw.githubusercontent.com/buildbarn/bb-storage/master/patches/com_github_bazelbuild_remote_apis/golang.diff
         # with modifications:
         # - s/:longrunning_/:longrunningpb_/g
         build_naming_convention = "import",
+        importpath = "github.com/bazelbuild/remote-apis",
         patches = ["@enkit//bazel/dependencies:remote_apis_fix_target_names.patch"],
         sum = "h1:jVU/1F77AdTYfbUUBYDjRpyBQ+eRhniSeeY7i7rFaOs=",
         version = "v0.0.0-20230315170832-8f539af4b407",
@@ -280,10 +280,10 @@ def go_repositories():
     )
     go_repository(
         name = "com_github_buildbarn_bb_remote_execution",
+        build_naming_convention = "import",
         importpath = "github.com/buildbarn/bb-remote-execution",
         sum = "h1:u1K0yklAdRXR4srfBPXGLXs3vS7uf7DcfJjVwdUn5vM=",
         version = "v0.0.0-20230414072355-c0df58fb74b5",
-        build_naming_convention = "import",
     )
     go_repository(
         name = "com_github_buildbarn_bb_storage",
@@ -1700,8 +1700,8 @@ def go_repositories():
     go_repository(
         name = "com_github_soheilhy_cmux",
         importpath = "github.com/soheilhy/cmux",
-        sum = "h1:0HKaf1o97UwFjHH9o5XsHUOF+tqmdA7KEzXLpiyaw0E=",
-        version = "v0.1.4",
+        sum = "h1:jjzc5WVemNEDTLwv9tlmemhC73tI08BNOIGwBOo10Js=",
+        version = "v0.1.5",
     )
 
     go_repository(

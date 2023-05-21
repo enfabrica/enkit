@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"log"
 	"net"
 	"net/http"
@@ -14,14 +15,13 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-//
 // Run() starts a server supporting the following protocols:
 //
 // ✔ grpc
 // ✔ grpc-web via websockets
 // ✔ HTTP 1.1
 // ✗ HTTP 2.0 (hijacked by grpc support)
-func Run(mux http.Handler, grpcs *grpc.Server, lis net.Listener) error {
+func Run(ctx context.Context, mux http.Handler, grpcs *grpc.Server, lis net.Listener) error {
 	if mux == nil {
 		mux = http.NewServeMux()
 	}
@@ -48,6 +48,12 @@ func Run(mux http.Handler, grpcs *grpc.Server, lis net.Listener) error {
 	cml := cmux.New(lis)
 	grpcl := cml.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
 	httpl := cml.Match(cmux.Any())
+
+	go func() {
+		<-ctx.Done()
+		log.Printf("Got context done (err: %v): attempting graceful shutdown by closing mux", ctx.Err())
+		cml.Close()
+	}()
 
 	grpcw := grpcweb.WrapServer(grpcs, grpcweb.WithAllowNonRootResource(true), grpcweb.WithWebsockets(true), grpcweb.WithOriginFunc(func(string) bool { return true }))
 

@@ -1,11 +1,12 @@
 package mserver
 
 import (
+	"context"
 	"net/http"
 
+	"github.com/enfabrica/enkit/lib/server"
 	"github.com/enfabrica/enkit/machinist/config"
 	mpb "github.com/enfabrica/enkit/machinist/rpc"
-	"github.com/enfabrica/enkit/lib/server"
 
 	"google.golang.org/grpc"
 )
@@ -16,10 +17,10 @@ func New(mods ...Modifier) (*ControlPlane, error) {
 		return nil, err
 	}
 	s := &ControlPlane{
-		killChannel:           make(chan error),
-		Controller:            kd,
-		Common:                config.DefaultCommonFlags(),
-		allRecordsKillChannel: make(chan struct{}, 1),
+		killChannel:              make(chan error),
+		Controller:               kd,
+		Common:                   config.DefaultCommonFlags(),
+		allRecordsKillChannel:    make(chan struct{}, 1),
 		allRecordsKillAckChannel: make(chan struct{}, 1),
 	}
 	for _, m := range mods {
@@ -31,11 +32,11 @@ func New(mods ...Modifier) (*ControlPlane, error) {
 }
 
 type ControlPlane struct {
-	insecure              bool
-	runningServer         *grpc.Server
-	allRecordsKillChannel chan struct{}
+	insecure                 bool
+	runningServer            *grpc.Server
+	allRecordsKillChannel    chan struct{}
 	allRecordsKillAckChannel chan struct{}
-	killChannel           chan error
+	killChannel              chan error
 
 	Controller *Controller
 	*config.Common
@@ -46,6 +47,8 @@ func (s *ControlPlane) MachinistCommon() *config.Common {
 }
 
 func (s *ControlPlane) Run() error {
+	ctx := context.Background()
+
 	grpcs := grpc.NewServer()
 	mpb.RegisterControllerServer(grpcs, s.Controller)
 	s.runningServer = grpcs
@@ -59,7 +62,7 @@ func (s *ControlPlane) Run() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/metrics_targets", s.Controller.MetricsTargets)
 
-	return server.Run(mux, grpcs, s.Listener)
+	return server.Run(ctx, mux, grpcs, s.Listener)
 }
 
 func (s *ControlPlane) Stop() error {

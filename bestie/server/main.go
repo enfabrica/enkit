@@ -87,10 +87,10 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 
 // Command line arguments.
 var (
-	argBaseUrl        = flag.String("base_url", "", "Base URL for accessing output artifacts in the build cluster (required)")
-	argDataset        = flag.String("dataset", "", "BigQuery dataset name (required) -- staging, production")
-	argMaxFileSize    = flag.Int("max_file_size", maxFileSize, "Maximum output file size allowed for processing")
-	argTableName      = flag.String("table_name", "testmetrics", "BigQuery table name")
+	argBaseUrl     = flag.String("base_url", "", "Base URL for accessing output artifacts in the build cluster (required)")
+	argDataset     = flag.String("dataset", "", "BigQuery dataset name (required) -- staging, production")
+	argMaxFileSize = flag.Int("max_file_size", maxFileSize, "Maximum output file size allowed for processing")
+	argTableName   = flag.String("table_name", "testmetrics", "BigQuery table name")
 	// gRPC max message size needs to match the max size of the sender (e.g.
 	// BuildBuddy, Bazel). Bazel targets ~50MB messages, so that is the default
 	// here.
@@ -122,6 +122,7 @@ func checkCommandArgs() error {
 }
 
 func main() {
+	ctx := context.Background()
 	ServiceStats.init()
 
 	flag.Parse()
@@ -137,5 +138,5 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
-	glog.Exit(server.Run(mux, grpcs, nil))
+	glog.Exit(server.Run(ctx, mux, grpcs, nil))
 }

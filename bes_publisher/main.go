@@ -60,5 +60,5 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
-	glog.Exit(server.Run(mux, grpcs, nil))
+	glog.Exit(server.Run(ctx, mux, grpcs, nil))
 }

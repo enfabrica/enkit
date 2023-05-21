@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"fmt"
@@ -53,6 +54,7 @@ func loadConfig(path string) (*fpb.Config, error) {
 }
 
 func main() {
+	ctx := context.Background()
 	// TODO: Use enkit flag libraries
 	flag.Parse()
 	exitIf(checkFlags())
@@ -74,5 +76,5 @@ func main() {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/queue", fe)
 
-	exitIf(server.Run(mux, grpcs, nil))
+	exitIf(server.Run(ctx, mux, grpcs, nil))
 }
