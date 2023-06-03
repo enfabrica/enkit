@@ -3,6 +3,7 @@ package gwc
 import (
 	"context"
 	"net/http"
+	"net/http/httputil"
 
 	"github.com/enfabrica/enkit/lib/khttp/kclient"
 	"github.com/enfabrica/enkit/lib/khttp/krequest"
@@ -204,7 +205,10 @@ func (c *Client) Invoke(ctx context.Context, method string, args interface{}, re
 	if err := c.HttpModifier.Apply(client); err != nil {
 		return status.Errorf(codes.Internal, "could not initialize http client %s", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Url+"/"+method, io.MultiReader(bytes.NewReader(hdr[:]), bytes.NewReader(data)))
+	if !strings.HasPrefix(method, "/") {
+		method = "/" + method
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Url+method, io.MultiReader(bytes.NewReader(hdr[:]), bytes.NewReader(data)))
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to create an http request - %s", err)
 	}
@@ -230,7 +234,9 @@ func (c *Client) Invoke(ctx context.Context, method string, args interface{}, re
 	//   4 bytes - length of the protocol message.
 	//   [...]   - serialized protocol message.
 	if ct := resp.Header.Get("Content-Type"); ct != "application/grpc-web+proto" {
-		return status.Errorf(codes.Internal, "unknown content-type in response - only application/grpc-web+proto is supported - got %s", ct)
+		content, _ := httputil.DumpResponse(resp, true)
+		return status.Errorf(codes.Internal, "unknown content-type in response - only application/grpc-web+proto "+
+			"is supported - full response dump:\n------\n%s\n------", string(content))
 	}
 	message := resp.Header.Get("Grpc-Message")
 	strcode := resp.Header.Get("Grpc-Status")

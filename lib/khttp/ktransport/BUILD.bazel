@@ -2,12 +2,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["client.go"],
-    importpath = "github.com/enfabrica/enkit/lib/khttp/kclient",
+    srcs = ["transport.go"],
+    importpath = "github.com/enfabrica/enkit/lib/khttp/ktransport",
     visibility = ["//visibility:public"],
     deps = [
         "//lib/kflags:go_default_library",
         "//lib/khttp/ktls:go_default_library",
-        "//lib/khttp/ktransport:go_default_library",
+        "@org_golang_x_net//http2:go_default_library",
     ],
 )

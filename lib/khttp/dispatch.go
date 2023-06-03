@@ -17,7 +17,6 @@ import (
 //
 // By combining the two, you can easily create handlers with multiple virtual
 // hosts involved.
-//
 type HostDispatcher map[string]http.Handler
 
 func (hd HostDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package server.proto;
+
+option go_package = "github.com/enfabrica/enkit/lib/khttp/kgrpc/testdata/proto";
+
+service Fortune {
+  rpc Ask(FortuneRequest) returns (FortuneResponse) {}
+}
+
+message FortuneRequest {
+  repeated string tag = 1;
+}
+
+message FortuneResponse {
+  string text = 1;
+  repeated string tag = 2;
+}
