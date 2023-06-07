@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/enfabrica/enkit/lib/metrics"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/lib/server"
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
@@ -16,7 +17,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	bpb "google.golang.org/genproto/googleapis/devtools/build/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -152,7 +152,7 @@ func main() {
 	bpb.RegisterPublishBuildEventServer(grpcs, &BuildEventService{})
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	metrics.AddHandler(mux, "/metrics")
 
 	glog.Exit(server.Run(ctx, mux, grpcs, nil))
 }

@@ -11,22 +11,20 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/enfabrica/enkit/lib/metrics"
 	"github.com/enfabrica/enkit/lib/server"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var (
-	metricPathVisits = promauto.NewCounterVec(prometheus.CounterOpts{
-		Subsystem: "k8s_dummy",
-		Name:      "path_visit_count",
+var metricPathVisits = promauto.NewCounterVec(prometheus.CounterOpts{
+	Subsystem: "k8s_dummy",
+	Name:      "path_visit_count",
+},
+	[]string{
+		"path",
 	},
-		[]string{
-			"path",
-		},
-	)
 )
 
 func printPath(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +58,7 @@ func main() {
 	go logHeartbeat(ctx, 60*time.Second)
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	metrics.AddHandler(mux, "/metrics")
 	mux.HandleFunc("/printpath/", printPath)
 
 	server.Run(ctx, mux, nil, nil)

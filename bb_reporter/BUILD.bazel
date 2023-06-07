@@ -9,10 +9,10 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//bb_reporter/reporter:go_default_library",
+        "//lib/metrics:go_default_library",
         "//lib/server:go_default_library",
         "@com_github_buildbarn_bb_remote_execution//pkg/proto/completedactionlogger",
         "@com_github_golang_glog//:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )

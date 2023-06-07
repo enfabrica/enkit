@@ -7,11 +7,11 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	bpb "google.golang.org/genproto/googleapis/devtools/build/v1"
 	"google.golang.org/grpc"
 
 	"github.com/enfabrica/enkit/bes_publisher/buildevent"
+	"github.com/enfabrica/enkit/lib/metrics"
 	"github.com/enfabrica/enkit/lib/server"
 )
 
@@ -58,7 +58,7 @@ func main() {
 	bpb.RegisterPublishBuildEventServer(grpcs, srv)
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	metrics.AddHandler(mux, "/metrics")
 
 	glog.Exit(server.Run(ctx, mux, grpcs, nil))
 }

@@ -16,6 +16,7 @@ go_library(
     deps = [
         "//bestie/proto:go_default_library",
         "//lib/kbuildbarn:go_default_library",
+        "//lib/metrics:go_default_library",
         "//lib/multierror:go_default_library",
         "//lib/server:go_default_library",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
@@ -23,7 +24,6 @@ go_library(
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@com_github_xenking_zipstream//:go_default_library",
         "@com_google_cloud_go_bigquery//:go_default_library",
         "@go_googleapis//google/devtools/build/v1:build_go_proto",
