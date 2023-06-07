@@ -1,0 +1,61 @@
+From de04c828de9541c853bf4698b3913fac5f1f90a4 Mon Sep 17 00:00:00 2001
+From: Carlo Contavalli <carlo@enfabrica.net>
+Date: Tue, 6 Jun 2023 23:46:13 +0000
+Subject: [PATCH] absl/flags/parse.cc: provide a mechanism to let other parse
+ unknown flags.
+
+Problem:
+If multiple flag parsing libraries are used (sigh) it's important
+to have a mechanism so that 1) unknown flags are left where they are
+in argv (not moved at the beginning, not stripped, ...), and 2) a
+new argv with all known args stripped is returned.
+
+This commit implements just that.
+---
+ absl/flags/internal/parse.h | 7 +++++--
+ absl/flags/parse.cc         | 8 +++++++-
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/absl/flags/internal/parse.h b/absl/flags/internal/parse.h
+index 0a7012fc..8e6404cf 100644
+--- a/absl/flags/internal/parse.h
++++ b/absl/flags/internal/parse.h
+@@ -35,9 +35,12 @@ namespace flags_internal {
+ enum class ArgvListAction { kRemoveParsedArgs, kKeepParsedArgs };
+ enum class UsageFlagsAction { kHandleUsage, kIgnoreUsage };
+ enum class OnUndefinedFlag {
+-  kIgnoreUndefined,
++  // Undefined flags are ignored, but considered parsed (for ArgvListAction).
++  kIgnoreUndefined,   
++  // Undefined flags are ignored, and considered not parsed (for ArgvListAction).
++  kKeepUndefined,
+   kReportUndefined,
+   kAbortIfUndefined
+ };
+ 
+ std::vector<char*> ParseCommandLineImpl(int argc, char* argv[],
+diff --git a/absl/flags/parse.cc b/absl/flags/parse.cc
+index fa953f55..8dff9eb6 100644
+--- a/absl/flags/parse.cc
++++ b/absl/flags/parse.cc
+@@ -776,10 +776,16 @@ std::vector<char*> ParseCommandLineImpl(int argc, char* argv[],
+         continue;
+       }
+ 
+-      if (on_undef_flag != OnUndefinedFlag::kIgnoreUndefined) {
++      if (on_undef_flag != OnUndefinedFlag::kIgnoreUndefined &&
++          on_undef_flag != OnUndefinedFlag::kKeepUndefined) {
+         undefined_flag_names.emplace_back(arg_from_argv,
+                                           std::string(flag_name));
+       }
++
++      if (on_undef_flag == OnUndefinedFlag::kKeepUndefined && 
++          arg_list_act != ArgvListAction::kKeepParsedArgs) {
++        output_args.push_back(argv[curr_list.FrontIndex()]);
++      }
+       continue;
+     }
+ 
+-- 
+2.37.1
+
