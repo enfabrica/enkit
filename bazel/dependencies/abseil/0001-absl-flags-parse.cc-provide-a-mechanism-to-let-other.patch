@@ -1,4 +1,4 @@
-From de04c828de9541c853bf4698b3913fac5f1f90a4 Mon Sep 17 00:00:00 2001
+From 8537ac106731c3c46c4e2963ebfe90d459894395 Mon Sep 17 00:00:00 2001
 From: Carlo Contavalli <carlo@enfabrica.net>
 Date: Tue, 6 Jun 2023 23:46:13 +0000
 Subject: [PATCH] absl/flags/parse.cc: provide a mechanism to let other parse
@@ -12,15 +12,15 @@ new argv with all known args stripped is returned.
 
 This commit implements just that.
 ---
- absl/flags/internal/parse.h | 7 +++++--
- absl/flags/parse.cc         | 8 +++++++-
- 2 files changed, 12 insertions(+), 3 deletions(-)
+ absl/flags/internal/parse.h |  5 ++++-
+ absl/flags/parse.cc         | 14 +++++++++++---
+ 2 files changed, 15 insertions(+), 4 deletions(-)
 
 diff --git a/absl/flags/internal/parse.h b/absl/flags/internal/parse.h
-index 0a7012fc..8e6404cf 100644
+index 0a7012fc..ee164727 100644
 --- a/absl/flags/internal/parse.h
 +++ b/absl/flags/internal/parse.h
-@@ -35,9 +35,12 @@ namespace flags_internal {
+@@ -35,7 +35,10 @@ namespace flags_internal {
  enum class ArgvListAction { kRemoveParsedArgs, kKeepParsedArgs };
  enum class UsageFlagsAction { kHandleUsage, kIgnoreUsage };
  enum class OnUndefinedFlag {
@@ -32,13 +32,24 @@ index 0a7012fc..8e6404cf 100644
    kReportUndefined,
    kAbortIfUndefined
  };
- 
- std::vector<char*> ParseCommandLineImpl(int argc, char* argv[],
 diff --git a/absl/flags/parse.cc b/absl/flags/parse.cc
-index fa953f55..8dff9eb6 100644
+index fa953f55..5c21bb43 100644
 --- a/absl/flags/parse.cc
 +++ b/absl/flags/parse.cc
-@@ -776,10 +776,16 @@ std::vector<char*> ParseCommandLineImpl(int argc, char* argv[],
+@@ -735,8 +735,10 @@ std::vector<char*> ParseCommandLineImpl(int argc, char* argv[],
+     if (!absl::ConsumePrefix(&arg, "-") || arg.empty()) {
+       ABSL_INTERNAL_CHECK(arg_from_argv,
+                           "Flagfile cannot contain positional argument");
+-
+-      positional_args.push_back(argv[curr_list.FrontIndex()]);
++      if (on_undef_flag == OnUndefinedFlag::kKeepUndefined)
++        output_args.push_back(argv[curr_list.FrontIndex()]);
++      else
++        positional_args.push_back(argv[curr_list.FrontIndex()]);
+       continue;
+     }
+ 
+@@ -776,10 +778,16 @@ std::vector<char*> ParseCommandLineImpl(int argc, char* argv[],
          continue;
        }
  
