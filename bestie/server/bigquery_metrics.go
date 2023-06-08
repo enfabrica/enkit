@@ -8,8 +8,37 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	"cloud.google.com/go/bigquery"
+	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	metricBigqueryInsertDelay = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: "bestie",
+			Name:      "bigquery_insert_delay",
+			Help:      "Historgram of BigQuery table insertion delay, in seconds",
+			Buckets:   []float64{0.0, 5.0, 10.0, 30.0, 60.0, 90.0, 120.0},
+		},
+	)
+	metricBigqueryInsertsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "bigquery_inserts_total",
+			Help:      "Total BigQuery table insertions, tagged by result status",
+		},
+		[]string{"status"},
+	)
+	metricBigqueryMetricsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "bigquery_metrics_total",
+			Help:      "Total BigQuery metrics processed, tagged by result status",
+		},
+		[]string{"status"},
+	)
 )
 
 type bigQueryMetric struct {
@@ -218,12 +247,12 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 	// For simplicity, the BES Endpoint is not responsible for creating
 	// either one. An administrator is expected to create these ahead of time.
 	if exist := r.table.isDatasetExist(ctx, client); !exist {
-		cidExceptionDatasetNotFound.increment()
-	  return fmt.Errorf("the BigQuery dataset %q does not exist", r.table.formatDatasetId())
+		metricBigqueryExceptionsTotal.WithLabelValues("dataset_not_found").Inc()
+		return fmt.Errorf("dataset_not_found for bigquery dataset %q", r.table.formatDatasetId())
 	}
 	if exist := r.table.isTableExist(ctx, client); !exist {
-		cidExceptionTableNotFound.increment()
-	  return fmt.Errorf("the BigQuery table %q does not exist", r.table.formatTableId())
+		metricBigqueryExceptionsTotal.WithLabelValues("table_not_found").Inc()
+		return fmt.Errorf("table_not_found for bigquery table %q in dataset %q", r.table.formatTableId(), r.table.formatDatasetId())
 	}
 
 	// Prepare the metric rows for uploading to BigQuery.
@@ -235,8 +264,8 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 	for _, m := range r.metrics {
 		pMetric, err := translateMetric(stream, &m)
 		if err != nil {
-			cidMetricDiscard.increment()
-			glog.Errorf("Discarding metric %s due to error: %s", m, err)
+			metricBigqueryMetricsTotal.WithLabelValues("discard").Inc()
+			glog.Errorf("Discarding metric %q due to error: %v", m, err)
 			continue
 		}
 		bqMetrics = append(bqMetrics, *pMetric)
@@ -261,7 +290,7 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 	// Using a finite delay loop here to give BigQuery time to instantiate
 	// the table, which can take a relativly long time (i.e. tens of seconds).
 	ok := false
-	insertionDelay := 0
+	insertStart := time.Now()
 	sleepTime := 10
 	inserter := client.Dataset(r.table.dataset).Table(r.table.tableName).Inserter()
 	glog.V(2).Info("Waiting for table insertion...")
@@ -269,7 +298,7 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 		if err := inserter.Put(ctx, rows); err != nil {
 			// Treat anything other than a "not found" error as a failure.
 			if !strings.Contains(strings.ToLower(err.Error()), "not found") {
-				cidInsertError.increment()
+				metricBigqueryInsertsTotal.WithLabelValues("error").Inc()
 				return err
 			}
 		} else {
@@ -277,15 +306,14 @@ func uploadTestMetrics(stream *bazelStream, r *metricTestResult) error {
 			break
 		}
 		time.Sleep(time.Duration(sleepTime) * time.Second)
-		insertionDelay += sleepTime
 	}
 	if !ok {
-		cidInsertTimeout.increment()
+		metricBigqueryInsertsTotal.WithLabelValues("timeout").Inc()
 		return fmt.Errorf("Error uploading rows to table %q: insertion timed out", r.table.formatTableId())
 	}
-	cidInsertOK.increment()
-	cidInsertDelay.update(insertionDelay)
-	cidMetricUpload.update(len(rows))
-	glog.V(2).Infof("Successfully inserted %d rows (delay=%d)", len(rows), insertionDelay)
+	metricBigqueryInsertsTotal.WithLabelValues("ok").Inc()
+	metricBigqueryInsertDelay.Observe(time.Now().Sub(insertStart).Seconds())
+	metricBigqueryMetricsTotal.WithLabelValues("upload").Add(float64(len(rows)))
+	glog.V(1).Infof("Successfully inserted %d rows", len(rows))
 	return nil
 }

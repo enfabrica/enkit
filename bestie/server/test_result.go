@@ -247,7 +247,7 @@ func processZipMetrics(stream *bazelStream, fileReader io.Reader) error {
 		fileData, err := readFileWithLimit(zr, maxFileSize)
 		if err != nil {
 			if errors.Is(err, fileTooBigErr) {
-				cidOutputFileTooBigTotal.increment()
+				metricOutputFileTooBigTotal.WithLabelValues("metrics.pb").Inc()
 			}
 			errs = append(errs, fmt.Errorf("Error reading file %q: %w", fileName, err))
 			continue
@@ -279,7 +279,7 @@ func processZipMetrics(stream *bazelStream, fileReader io.Reader) error {
 func getTestMetricsFromProtobufData(pbmsg []byte) (*metricTestResult, error) {
 	tmet := &tpb.TestMetrics{}
 	if err := proto.Unmarshal(pbmsg, tmet); err != nil {
-		cidExceptionProtobufError.increment()
+		metricBigqueryExceptionsTotal.WithLabelValues("protobuf_error").Inc()
 		return nil, fmt.Errorf("Error extracting metric data from protobuf message: %w", err)
 	}
 	table := tmet.GetTable()

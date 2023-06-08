@@ -14,6 +14,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	bpb "google.golang.org/genproto/googleapis/devtools/build/v1"
 	"google.golang.org/grpc"
@@ -24,10 +26,25 @@ import (
 var (
 	fileTooBigErr     = errors.New("File exceeds maximum size allowed")
 	maxFileSize   int = (5 * 1024 * 1024)
+
+	metricBuildsTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "builds_total",
+			Help:      "Total number of Bazel builds seen",
+		},
+	)
+	metricEventsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "bestie",
+			Name:      "events_total",
+			Help:      "Total observed Bazel events, tagged by event ID",
+		},
+		[]string{"id"},
+	)
 )
 
-type BuildEventService struct {
-}
+type BuildEventService struct{}
 
 func (s *BuildEventService) PublishLifecycleEvent(ctx context.Context, req *bpb.PublishLifecycleEventRequest) (*emptypb.Empty, error) {
 	glog.V(2).Infof("# BEP LifecycleEvent message:\n%s", prototext.Format(req))
@@ -50,7 +67,7 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 		obe := req.GetOrderedBuildEvent()
 		event := obe.GetEvent()
 		streamId := obe.GetStreamId()
-		//bazelEvent := event.GetBazelEvent()
+		// bazelEvent := event.GetBazelEvent()
 
 		// See BuildEvent.Event in build_events.pb.go for list of event types supported.
 		switch buildEvent := event.Event.(type) {
@@ -61,9 +78,9 @@ func (s *BuildEventService) PublishBuildToolEventStream(stream bpb.PublishBuildE
 			}
 			bazelEventId := bazelBuildEvent.GetId()
 			if ok := bazelEventId.GetBuildFinished(); ok != nil {
-				cidBuildsTotal.increment()
+				metricBuildsTotal.Inc()
 			}
-			cidEventsTotal.updateWithLabel(getEventLabel(bazelEventId.Id), 1)
+			metricEventsTotal.WithLabelValues(getEventLabel(bazelEventId.Id)).Inc()
 			if m := bazelBuildEvent.GetTestResult(); m != nil {
 				if err := handleTestResultEvent(bazelBuildEvent, streamId); err != nil {
 					glog.Errorf("Error handling Bazel event %T: %s", bazelEventId.Id, err)
@@ -123,7 +140,6 @@ func checkCommandArgs() error {
 
 func main() {
 	ctx := context.Background()
-	ServiceStats.init()
 
 	flag.Parse()
 	if err := checkCommandArgs(); err != nil {

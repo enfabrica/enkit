@@ -86,7 +86,7 @@ func processXmlMetrics(stream *bazelStream, fileReader io.Reader, fileName strin
 	fileData, err := readFileWithLimit(fileReader, maxFileSize)
 	if err != nil {
 		if errors.Is(err, fileTooBigErr) {
-			cidOutputFileTooBigTotal.increment()
+			metricOutputFileTooBigTotal.WithLabelValues("xml").Inc()
 		}
 		return fmt.Errorf("Error reading file %q: %w", filepath.Base(fileName), err)
 	}
@@ -116,8 +116,8 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 	var result metricTestResult
 	var testSuites TestSuites
 	if err := xml.Unmarshal(pbmsg, &testSuites); err != nil {
-		cidExceptionXmlParseError.increment()
-		return nil, fmt.Errorf("Error extracting metric data from XML file: %s", err)
+		metricBigqueryExceptionsTotal.WithLabelValues("xml_parse_error").Inc()
+		return nil, fmt.Errorf("xml_parse_error for XML file: %v", err)
 	}
 
 	// Process each of the testcases contained in the testsuite.
@@ -144,13 +144,13 @@ func getTestMetricsFromXmlData(pbmsg []byte) (*metricTestResult, error) {
 		// Since this is non-deterministic and error prone, unstructured XML is not supported
 		// (i.e. it requires the test applications to use junitxml style of output).
 		if len(ts.SystemOut) > 0 {
-			cidExceptionXmlUnstructuredError.increment()
+			metricBigqueryExceptionsTotal.WithLabelValues("xml_unstructured_error").Inc()
 			return nil, fmt.Errorf("Unstructured XML test results not supported (use junitxml)")
 		}
 
 		xmlResults, err := parseStructuredXml(&ts)
 		if err != nil {
-			cidExceptionXmlStructuredError.increment()
+			metricBigqueryExceptionsTotal.WithLabelValues("xml_structured_error").Inc()
 			return nil, fmt.Errorf("Error parsing structured XML test results: %s", err)
 		}
 
