@@ -18,6 +18,8 @@ import (
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	"github.com/enfabrica/enkit/lib/multierror"
 	bes "github.com/enfabrica/enkit/third_party/bazel/buildeventstream" // Allows prototext to automatically decode embedded messages
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/golang/glog"
 	"github.com/xenking/zipstream"
@@ -27,6 +29,15 @@ import (
 
 // Base URL to use for reading bytestream:// artifacts from cluster builds.
 var deploymentBaseUrl string
+
+var metricBytestreamFetchCount = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Namespace: "bestie",
+		Name:      "bytestream_fetch_count",
+		Help:      "Total bytestream URLs fetched, by result",
+	},
+	[]string{"fetch_outcome", "http_code"},
+)
 
 // Pertinent fields to uniquely identify a Bazel event stream.
 type bazelStream struct {
@@ -127,11 +138,14 @@ func openBytestreamFile(fileName, bytestreamUri string) (io.ReadCloser, error) {
 	fileUrl := kbuildbarn.Url(deploymentBaseUrl, "sha256", hash, size, kbuildbarn.WithFileName(fileName))
 
 	client := http.DefaultClient
+	glog.V(1).Infof("Fetching bytestream: %s", fileUrl)
 	resp, err := client.Get(fileUrl)
 	if err != nil {
+		metricBytestreamFetchCount.WithLabelValues("err", "").Inc()
 		return nil, fmt.Errorf("fetching URL %q: %w", fileUrl, err)
 	}
 	respStatus := resp.StatusCode
+	metricBytestreamFetchCount.WithLabelValues("ok", fmt.Sprintf("%d", respStatus)).Inc()
 	if respStatus != http.StatusOK {
 		return nil, fmt.Errorf("HTTP error status %d while fetching %q", respStatus, fileUrl)
 	}
@@ -221,11 +235,14 @@ func processZipMetrics(stream *bazelStream, fileReader io.Reader) error {
 	for {
 		meta, err := zr.Next()
 		if err != nil {
-			if err == io.EOF {
-				break
+			if err != io.EOF {
+				errs = append(errs, fmt.Errorf("Error accessing zipped file: %w", err))
 			}
-			errs = append(errs, fmt.Errorf("Error accessing zipped file: %w", err))
-			continue
+			// BUG(INFRA-6331): Inability to access a file should return
+			// immediately, regardless of error type. This fixes an issue where
+			// errors are accumulated and appended here forever since the
+			// processing may not be able to move on to the next file.
+			break
 		}
 
 		// Check for a supported file type(s).
