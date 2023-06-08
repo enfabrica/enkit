@@ -11,10 +11,10 @@ import (
 
 	cpb "github.com/buildbarn/bb-remote-execution/pkg/proto/completedactionlogger"
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 
 	"github.com/enfabrica/enkit/bb_reporter/reporter"
+	"github.com/enfabrica/enkit/lib/metrics"
 	"github.com/enfabrica/enkit/lib/server"
 )
 
@@ -47,7 +47,7 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	metrics.AddHandler(mux, "/metrics")
 
 	glog.Exit(server.Run(ctx, mux, grpcs, nil))
 }

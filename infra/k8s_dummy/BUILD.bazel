@@ -8,10 +8,10 @@ go_library(
     importpath = "github.com/enfabrica/enkit/infra/k8s_dummy",
     visibility = ["//visibility:private"],
     deps = [
+        "//lib/metrics:go_default_library",
         "//lib/server:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
     ],
 )
 
