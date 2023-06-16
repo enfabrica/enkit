@@ -1,0 +1,34 @@
+load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
+
+filegroup(name = "all", srcs = glob(["**"]), visibility = ["//visibility:public"])
+
+configure_make(
+    name = "binaries",
+    lib_source = ":all",
+    configure_options = [
+        # configure_make rule expects all binaries in bin/ by default.
+        "--sbindir=$INSTALLDIR/bin",
+        "--enable-static",
+        "--enable-bundled-libtom",
+    ],
+    out_binaries = [
+        "dropbear",
+        "dropbearkey",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+
+load("@//bazel/utils:binary.bzl", "declare_binary")
+
+declare_binary(
+    name = "dropbear",
+    path = "dropbear",
+    dep = ":binaries",
+)
+
+declare_binary(
+    name = "dropbearkey",
+    path = "dropbearkey",
+    dep = ":binaries",
+)
