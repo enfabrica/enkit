@@ -4931,20 +4931,35 @@ function gee__migrate_default_branch() {
   if [[ "${MAIN}" != "${UPSTREAM_MAIN}" ]]; then
     _warn "Local repo's default branch is ${MAIN} but the upstream repo's default " \
           "branch is ${UPSTREAM_MAIN}.  Correcting the local branch."
-    _checkout_or_die "${MAIN}"
-    gee__mkbr "${UPSTREAM_MAIN}"
+    if _local_branch_exists "${UPSTREAM_MAIN}"; then
+      _warn "A local branch named \"${UPSTREAM_MAIN}\" already exists." \
+            "Proceeding will cause that branch to be reset."
+      _confirm_default_no "Do you want to proceed? (y/N)"
+      _checkout_or_die "${UPSTREAM_MAIN}"
+      _git reset --hard "${MAIN}"
+    else
+      _checkout_or_die "${MAIN}"
+      gee__mkbr "${UPSTREAM_MAIN}"
+    fi
     _checkout_or_die "${UPSTREAM_MAIN}"
     _git push -u origin ${UPSTREAM_MAIN}
     _read_parents_file
     local KEY VALUE
     for KEY in "${!PARENTS[@]}"; do
       VALUE="${PARENTS["${KEY}"]}"
-      if [[ "${VALUE}" -eq "${MAIN}" ]]; then
+      if [[ "${VALUE}" == "${MAIN}" ]]; then
         PARENTS["${KEY}"]="${UPSTREAM_MAIN}"
       fi
     done
     _write_parents_file
-    gee_rmbr "${MAIN}"
+
+    _checkout_or_die "${UPSTREAM_MAIN}"
+    _git worktree remove --force "${MAIN}"
+    _git branch -D "${MAIN}"
+    if _remote_branch_exists origin "${MAIN}"; then
+      _git_can_fail push --quiet origin --delete "${MAIN}" | cat
+    fi
+
     MAIN=""
     _set_main
     if [[ "${MAIN}" == "${UPSTREAM_MAIN}" ]]; then
@@ -4953,7 +4968,7 @@ function gee__migrate_default_branch() {
       _fatal "Something went wrong setting default branch to ${UPSTREAM_MAIN}".
     fi
   else
-    _info "Local and usptream repos both use \"${MAIN}\" as the default branch."
+    _info "Local and upstream repos both use \"${MAIN}\" as the default branch."
   fi
 }
 
