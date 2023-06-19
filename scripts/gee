@@ -376,12 +376,14 @@ function _set_main() {
   # Use a cached result if available:
   if [[ -n "${MAIN}" ]]; then return; fi
 
-  # If a master or main branch exist on our local file system, assume:
-  if [[ -d "${REPO_DIR}/master" ]]; then
-    MAIN=master
-    return
-  elif [[ -d "${REPO_DIR}/main" ]]; then
+  # Try to guess the default branch by examining which branches exist on
+  # the local filesystem.  Try "main" first:
+  if [[ -d "${REPO_DIR}/main" ]]; then
     MAIN=main
+    return
+  # Fall back to "master" if "main" doesn't exist:
+  elif [[ -d "${REPO_DIR}/master" ]]; then
+    MAIN=master
     return
   fi
 
@@ -4917,6 +4919,44 @@ function _gee_fix_gh_resolved_base() {
   fi
 }
 
+function gee__migrate_default_branch() {
+  _set_main  # ensure MAIN is set
+
+  local UPSTREAM_URL UPSTREAM_MAIN
+  UPSTREAM_URL="${GIT_AT_GITHUB}:${UPSTREAM}/${REPO}.git"
+  UPSTREAM_MAIN="$(
+    "${GIT}" remote show "${UPSTREAM_URL}" \
+      | awk '/HEAD branch/ {print $NF}'
+  )"
+  if [[ "${MAIN}" != "${UPSTREAM_MAIN}" ]]; then
+    _warn "Local repo's default branch is ${MAIN} but the upstream repo's default " \
+          "branch is ${UPSTREAM_MAIN}.  Correcting the local branch."
+    _checkout_or_die "${MAIN}"
+    gee__mkbr "${UPSTREAM_MAIN}"
+    _checkout_or_die "${UPSTREAM_MAIN}"
+    _git push -u origin ${UPSTREAM_MAIN}
+    _read_parents_file
+    local KEY VALUE
+    for KEY in "${!PARENTS[@]}"; do
+      VALUE="${PARENTS["${KEY}"]}"
+      if [[ "${VALUE}" -eq "${MAIN}" ]]; then
+        PARENTS["${KEY}"]="${UPSTREAM_MAIN}"
+      fi
+    done
+    _write_parents_file
+    gee_rmbr "${MAIN}"
+    MAIN=""
+    _set_main
+    if [[ "${MAIN}" == "${UPSTREAM_MAIN}" ]]; then
+      _info "Successfully set default branch to ${MAIN}"
+    else
+      _fatal "Something went wrong setting default branch to ${UPSTREAM_MAIN}".
+    fi
+  else
+    _info "Local and usptream repos both use \"${MAIN}\" as the default branch."
+  fi
+}
+
 function gee__repair() {
   # Make sure all tools are available
   _install_tools
@@ -4968,6 +5008,7 @@ function gee__repair() {
       _git checkout "${BRANCH}"
       _info "... Fixed."
     fi
+
   done
 
   _info "Checking each branch in the local repository..."
@@ -5006,6 +5047,8 @@ function gee__repair() {
   if (( DIRTY )); then
     _write_parents_file
   fi
+
+  gee__migrate_default_branch
 
   gee__bazelgc
 
