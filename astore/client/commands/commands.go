@@ -2,7 +2,12 @@ package commands
 
 import (
 	"fmt"
+	"os"
+	"runtime"
+	"strings"
+
 	"github.com/enfabrica/enkit/astore/client/astore"
+	castore "github.com/enfabrica/enkit/astore/client/astore"
 	arpc "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config"
@@ -10,19 +15,27 @@ import (
 	"github.com/enfabrica/enkit/lib/config/marshal"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"os"
-	"runtime"
-	"strings"
+)
+
+var (
+	formatterMap = map[string]castore.Formatter{
+		"json": NewStructuredStdout(&marshal.JsonEncoder{}),
+		"toml": NewStructuredStdout(&marshal.TomlEncoder{}),
+		"yaml": NewStructuredStdout(&marshal.YamlEncoder{}),
+		"gob":  NewStructuredStdout(&marshal.GobEncoder{}),
+	}
 )
 
 type Root struct {
 	*cobra.Command
 	*client.BaseFlags
 
-	store *client.ServerFlags
-	outputFile string
+	store         *client.ServerFlags
+	outputFile    string
+	consoleFormat string
 }
 
 func New(base *client.BaseFlags) *Root {
@@ -68,6 +81,12 @@ func NewRoot(base *client.BaseFlags) *Root {
 	rc.store.Register(&kcobra.FlagSet{FlagSet: rc.PersistentFlags()}, "")
 	rc.Command.PersistentFlags().StringVarP(&rc.outputFile, "meta-file", "m", "",
 		fmt.Sprintf("Meta-data output file. Supported formats: %s", marshal.Formats()))
+	rc.Command.PersistentFlags().StringVar(
+		&rc.consoleFormat,
+		"console-format",
+		"table",
+		fmt.Sprintf("Format to use for stdout output. Supported formats: %s", append([]string{"table"}, marshal.Formats()...)),
+	)
 
 	return rc
 }
@@ -103,14 +122,24 @@ func (rc *Root) StoreClient() (*astore.Client, error) {
 }
 
 func (rc *Root) Formatter(mods ...Modifier) astore.Formatter {
+	// The table formatter doesn't follow the same interface as the others, and
+	// can't be constructed until this point. This code should only be called once
+	// per command, making modification of this global OK; even so, it overwrites
+	// the "table" value each time so should behave as expected.
+	formatterMap["table"] = NewTableFormatter(mods...)
+
 	formatterList := NewFormatterList()
 
-	// Always include the stdout table formatter
-	formatterList.Append(NewTableFormatter(mods...))
+	if format, ok := formatterMap[strings.ToLower(rc.consoleFormat)]; ok {
+		formatterList.Append(format)
+	} else {
+		// Fall back to the table formatter
+		formatterList.Append(formatterMap["table"])
+	}
 
 	if rc.outputFile != "" {
 		// add a marshal-aware formatter
-		formatterList.Append(NewMarshalFormatter(rc.outputFile))
+		formatterList.Append(NewOpFile(rc.outputFile))
 	}
 
 	return formatterList
