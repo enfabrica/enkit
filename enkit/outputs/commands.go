@@ -29,13 +29,21 @@ type Root struct {
 	*cobra.Command
 	*client.BaseFlags
 
-	OutputsRoot           string
-	BuildBuddyApiKey      string
-	BuildBuddyUrl         string
-	BuildbarnHost         string
-	BuildbarnTunnelTarget string
-	TunnelListenPort      int
-	GatewayProxy          string
+	TunnelListenPort int // Deprecated; use BuildbarnTunnelListenPort and BuildbuddyTunnelListenPort instead
+
+	OutputsRoot string
+
+	BuildBuddyApiKey           string
+	BuildBuddyUrl              string
+	BuildBuddyHost             string
+	BuildBuddyTunnelTarget     string
+	BuildBuddyTunnelListenPort int
+
+	BuildbarnHost             string
+	BuildbarnTunnelTarget     string
+	BuildbarnTunnelListenPort int
+
+	GatewayProxy string
 }
 
 func New(base *client.BaseFlags) (*Root, error) {
@@ -70,12 +78,19 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 	}
 	defaultOutputsRoot := filepath.Join(homeDir, "outputs")
 
+	rc.PersistentFlags().IntVar(&rc.TunnelListenPort, "tunnel-listen-port", 8001, "If a tunnel is required, this is the local port the tunnel listens on for connections")
 	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs-root", defaultOutputsRoot, "Root dir of mounted outputs")
+
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
+	rc.PersistentFlags().StringVar(&rc.BuildBuddyHost, "buildbuddy-host", "", "host:port of Buildbuddy instance")
+	rc.PersistentFlags().StringVar(&rc.BuildBuddyTunnelTarget, "buildbuddy-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
+	rc.PersistentFlags().IntVar(&rc.BuildBuddyTunnelListenPort, "buildbuddy-tunnel-listen-port", 8001, "If a tunnel is required, this is the local port the tunnel listens on for connections to Buildbuddy")
+
 	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
-	rc.PersistentFlags().IntVar(&rc.TunnelListenPort, "tunnel-listen-port", 8001, "If a tunnel is required, this is the local port the tunnel listens on for connections")
+	rc.PersistentFlags().IntVar(&rc.BuildbarnTunnelListenPort, "buildbarn-tunnel-listen-port", 8002, "If a tunnel is required, this is the local port the tunnel listens on for connections to Buildbuddy")
+
 	rc.PersistentFlags().StringVar(&rc.GatewayProxy, "gateway-proxy", "", "If a tunnel is used, gateway proxy to tunnel through")
 	return rc, nil
 }
@@ -155,10 +170,28 @@ func (c *Mount) maybeSetupTunnel(hostPort string, tunnelTarget string, tunnelPor
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	host, port, err := c.maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget, c.root.TunnelListenPort, c.root.GatewayProxy)
+	c.root.Log.Debugf("Setting up connection to Buildbuddy...")
+	buddyHost, _, err := c.maybeSetupTunnel(
+		c.root.BuildBuddyHost,
+		c.root.BuildBuddyTunnelTarget,
+		c.root.BuildBuddyTunnelListenPort,
+		c.root.GatewayProxy,
+	)
 	if err != nil {
 		return err
 	}
+	c.root.Log.Debugf("Buildbuddy communication set up")
+	c.root.Log.Debugf("Setting up connection to Buildbarn...")
+	buildHost, buildPort, err := c.maybeSetupTunnel(
+		c.root.BuildbarnHost,
+		c.root.BuildbarnTunnelTarget,
+		c.root.BuildbarnTunnelListenPort,
+		c.root.GatewayProxy,
+	)
+	if err != nil {
+		return err
+	}
+	c.root.Log.Debugf("Buildbarn communication set up")
 	buddyUrl, err := url.Parse(c.root.BuildBuddyUrl)
 	if err != nil {
 		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
@@ -169,8 +202,8 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	}
 	bbOpts := bbexec.NewClientOptions(
 		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
-		host,
-		port,
+		buildHost,
+		buildPort,
 		c.root.OutputsRoot,
 	)
 	_, err = bbexec.MaybeStartClient(bbOpts, 5*time.Second)
@@ -182,7 +215,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		bc,
 		bbOpts.MountDir,
 		c.InvocationID,
-		host,
+		buddyHost,
 		kbuildbarn.WithNamedSetOfFiles(),
 		kbuildbarn.WithTestResults(),
 	)
