@@ -1,7 +1,9 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -118,7 +120,7 @@ type FormatterList struct {
 
 // Creates an empty FormatterList
 func NewFormatterList() *FormatterList {
-	return &FormatterList {}
+	return &FormatterList{}
 }
 
 // Appends a astore.Formatter to a FormatterList
@@ -159,22 +161,22 @@ func (fl *FormatterList) Flush() {
 // astore operation.
 type MarshalData struct {
 	Artifacts []astore.Artifact
-	Elements []astore.Element
+	Elements  []astore.Element
 }
 
-// MarshalFormatter formats the astore meta based on the outputFile
+// OpFile formats the astore meta based on the outputFile
 // extension.
 //
 // See also marshal.MarshalFile()
-type MarshalFormatter struct {
+type OpFile struct {
 	outputFile string
-	artifacts []astore.Artifact
-	elements []astore.Element
+	artifacts  []astore.Artifact
+	elements   []astore.Element
 }
 
-// Creates an empty MarshalFormatter
-func NewMarshalFormatter(outputFile string) *MarshalFormatter {
-	mf := &MarshalFormatter{
+// Creates an empty OpFile
+func NewOpFile(outputFile string) *OpFile {
+	mf := &OpFile{
 		outputFile: outputFile,
 	}
 
@@ -184,14 +186,14 @@ func NewMarshalFormatter(outputFile string) *MarshalFormatter {
 // Implements the astore.Formatter.Artifact() method for MarshalFormat.
 //
 // Stores the input artifact into an internal artifact sequence.
-func (mf *MarshalFormatter) Artifact(af *astore.Artifact) {
+func (mf *OpFile) Artifact(af *astore.Artifact) {
 	mf.artifacts = append(mf.artifacts, *af)
 }
 
 // Implements the astore.Formatter.Element() method for MarshalFormat.
 //
 // Stores the input element into an internal element sequence.
-func (mf *MarshalFormatter) Element(el *astore.Element) {
+func (mf *OpFile) Element(el *astore.Element) {
 	mf.elements = append(mf.elements, *el)
 }
 
@@ -200,10 +202,10 @@ func (mf *MarshalFormatter) Element(el *astore.Element) {
 // Outputs the artifact and element data to an output file using
 // marshal.MarshalFile(), which marshals the data based on the file
 // extension of the output file.
-func (mf *MarshalFormatter) Flush() {
-	data := MarshalData {
+func (mf *OpFile) Flush() {
+	data := MarshalData{
 		Artifacts: mf.artifacts,
-		Elements: mf.elements,
+		Elements:  mf.elements,
 	}
 	err := marshal.MarshalFile(mf.outputFile, data)
 	if err != nil {
@@ -212,4 +214,42 @@ func (mf *MarshalFormatter) Flush() {
 
 	mf.artifacts = nil
 	mf.elements = nil
+}
+
+type StructuredStdout struct {
+	marshaler marshal.Marshaller
+	artifacts []astore.Artifact
+	elements  []astore.Element
+}
+
+func NewStructuredStdout(m marshal.Marshaller) *StructuredStdout {
+	return &StructuredStdout{
+		marshaler: m,
+	}
+}
+
+func (s *StructuredStdout) Artifact(af *astore.Artifact) {
+	s.artifacts = append(s.artifacts, *af)
+}
+
+func (s *StructuredStdout) Element(el *astore.Element) {
+	s.elements = append(s.elements, *el)
+}
+
+func (s *StructuredStdout) Flush() {
+	data := MarshalData{
+		Artifacts: s.artifacts,
+		Elements:  s.elements,
+	}
+	output, err := s.marshaler.Marshal(data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: problems marshaling data to stdout: %v", err)
+	}
+	_, err = io.Copy(os.Stdout, bytes.NewReader(output))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: problem writing data to stdout: %v", err)
+	}
+
+	s.artifacts = nil
+	s.elements = nil
 }
