@@ -12,7 +12,6 @@ dist
 bazel-out
 node_modules
 credentials*.json
-.vscode/
 Cargo.lock
 cscope.*
 *.flag*
