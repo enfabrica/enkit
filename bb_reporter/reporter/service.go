@@ -7,7 +7,6 @@ import (
 	"io"
 	"time"
 
-	"cloud.google.com/go/bigquery"
 	repb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	cpb "github.com/buildbarn/bb-remote-execution/pkg/proto/completedactionlogger"
 	rupb "github.com/buildbarn/bb-remote-execution/pkg/proto/resourceusage"
@@ -85,16 +84,17 @@ type ActionRecord struct {
 	WorkerPoolVersion  string `bigquery:"worker_pool_version"`
 	WorkerThread       uint32 `bigquery:"worker_thread"`
 
-	QueuedTime                time.Time `bigquery:"queued_time"`
-	WorkerStartTime           time.Time `bigquery:"worker_start_time"`
-	WorkerCompletedTime       time.Time `bigquery:"worker_completed_time"`
-	InputFetchStartTime       time.Time `bigquery:"input_fetch_start_time"`
-	InputFetchCompletedTime   time.Time `bigquery:"input_fetch_completed_time"`
-	ExecutionStartTime        time.Time `bigquery:"execution_start_time"`
-	ExecutionCompletedTime    time.Time `bigquery:"execution_completed_time"`
-	OutputUploadStartTime     time.Time `bigquery:"output_upload_start_time"`
-	OutputUploadCompletedTime time.Time `bigquery:"output_upload_completed_time"`
-	VirtualExecutionDuration  string    `bigquery:"virtual_execution_duration"`
+	QueuedTime                 time.Time `bigquery:"queued_time"`
+	WorkerStartTime            time.Time `bigquery:"worker_start_time"`
+	WorkerCompletedTime        time.Time `bigquery:"worker_completed_time"`
+	InputFetchStartTime        time.Time `bigquery:"input_fetch_start_time"`
+	InputFetchCompletedTime    time.Time `bigquery:"input_fetch_completed_time"`
+	ExecutionStartTime         time.Time `bigquery:"execution_start_time"`
+	ExecutionCompletedTime     time.Time `bigquery:"execution_completed_time"`
+	OutputUploadStartTime      time.Time `bigquery:"output_upload_start_time"`
+	OutputUploadCompletedTime  time.Time `bigquery:"output_upload_completed_time"`
+	VirtualExecutionDuration   string    `bigquery:"virtual_execution_duration"`
+	VirtualExecutionDurationNs int64     `bigquery:"virtual_execution_duration_ns"`
 
 	BazelVersion            string `bigquery:"bazel_version"`
 	BazelInvocationId       string `bigquery:"bazel_invocation_id"`
@@ -104,7 +104,9 @@ type ActionRecord struct {
 	Configuration           string `bigquery:"configuration"`
 
 	UserTime                   string `bigquery:"user_time"`
+	UserTimeNs                 int64  `bigquery:"user_time_ns"`
 	SystemTime                 string `bigquery:"system_time"`
+	SystemTimeNs               int64  `bigquery:"system_time_ns"`
 	MaximumResidentSetSize     int64  `bigquery:"maximum_resident_set_size"`
 	PageReclaims               int64  `bigquery:"page_reclaims"`
 	PageFaults                 int64  `bigquery:"page_faults"`
@@ -257,16 +259,16 @@ func ActionRecordFromCompletedAction(c *cpb.CompletedAction) (*ActionRecord, err
 		WorkerPoolVersion:  workerPoolVersion,
 		WorkerThread:       workerThread,
 
-		QueuedTime:                em.GetQueuedTimestamp().AsTime(),
-		WorkerStartTime:           em.GetWorkerStartTimestamp().AsTime(),
-		WorkerCompletedTime:       em.GetWorkerCompletedTimestamp().AsTime(),
-		InputFetchStartTime:       em.GetInputFetchStartTimestamp().AsTime(),
-		InputFetchCompletedTime:   em.GetInputFetchCompletedTimestamp().AsTime(),
-		ExecutionStartTime:        em.GetExecutionStartTimestamp().AsTime(),
-		ExecutionCompletedTime:    em.GetExecutionCompletedTimestamp().AsTime(),
-		VirtualExecutionDuration:  bigquery.IntervalValueFromDuration(em.GetVirtualExecutionDuration().AsDuration()).String(),
-		OutputUploadStartTime:     em.GetOutputUploadStartTimestamp().AsTime(),
-		OutputUploadCompletedTime: em.GetOutputUploadCompletedTimestamp().AsTime(),
+		QueuedTime:                 em.GetQueuedTimestamp().AsTime(),
+		WorkerStartTime:            em.GetWorkerStartTimestamp().AsTime(),
+		WorkerCompletedTime:        em.GetWorkerCompletedTimestamp().AsTime(),
+		InputFetchStartTime:        em.GetInputFetchStartTimestamp().AsTime(),
+		InputFetchCompletedTime:    em.GetInputFetchCompletedTimestamp().AsTime(),
+		ExecutionStartTime:         em.GetExecutionStartTimestamp().AsTime(),
+		ExecutionCompletedTime:     em.GetExecutionCompletedTimestamp().AsTime(),
+		VirtualExecutionDurationNs: em.GetVirtualExecutionDuration().AsDuration().Nanoseconds(),
+		OutputUploadStartTime:      em.GetOutputUploadStartTimestamp().AsTime(),
+		OutputUploadCompletedTime:  em.GetOutputUploadCompletedTimestamp().AsTime(),
 
 		BazelVersion:            rm.GetToolDetails().GetToolVersion(),
 		BazelInvocationId:       rm.GetToolInvocationId(),
@@ -275,8 +277,8 @@ func ActionRecordFromCompletedAction(c *cpb.CompletedAction) (*ActionRecord, err
 		Target:                  rm.GetTargetId(),
 		Configuration:           rm.GetConfigurationId(),
 
-		UserTime:                   bigquery.IntervalValueFromDuration(ru.GetUserTime().AsDuration()).String(),
-		SystemTime:                 bigquery.IntervalValueFromDuration(ru.GetSystemTime().AsDuration()).String(),
+		UserTimeNs:                 ru.GetUserTime().AsDuration().Nanoseconds(),
+		SystemTimeNs:               ru.GetSystemTime().AsDuration().Nanoseconds(),
 		MaximumResidentSetSize:     ru.GetMaximumResidentSetSize(),
 		PageReclaims:               ru.GetPageReclaims(),
 		PageFaults:                 ru.GetPageFaults(),
