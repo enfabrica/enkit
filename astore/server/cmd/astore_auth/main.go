@@ -15,6 +15,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+
 	"github.com/enfabrica/enkit/astore/common"
 	rpc_astore "github.com/enfabrica/enkit/astore/rpc/astore"
 	rpc_auth "github.com/enfabrica/enkit/astore/rpc/auth"
@@ -24,6 +27,7 @@ import (
 	"github.com/enfabrica/enkit/astore/server/configs"
 	"github.com/enfabrica/enkit/astore/server/credentials"
 	"github.com/enfabrica/enkit/astore/server/templates"
+	"github.com/enfabrica/enkit/lib/appengine"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/kflags/kconfig"
@@ -35,8 +39,6 @@ import (
 	"github.com/enfabrica/enkit/lib/oauth/providers"
 	"github.com/enfabrica/enkit/lib/server"
 	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
 )
 
 var messageSuccess = `You managed to type your username and password correctly. Or click the right buttons. Whatever.<br />Enjoy your credentials while they last, delivered to you directly to your terminal.`
@@ -160,6 +162,13 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 
 	mux := http.NewServeMux()
 	stats := kassets.AssetStats{}
+
+	// Register healthchecks
+	// If the application can serve HTTP requests, it is assumed to both be live
+	// and ready (no need to wait for additional startup, or to healthcheck other
+	// components currently)
+	alwaysSucceed := func() error { return nil }
+	appengine.RegisterHealthchecks(mux, alwaysSucceed, alwaysSucceed)
 
 	// Public configs, those are accessible to anyone on the internet.
 	mux.HandleFunc("/configs/", func(w http.ResponseWriter, r *http.Request) {
