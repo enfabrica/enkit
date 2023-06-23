@@ -11,7 +11,9 @@ require (
 	cloud.google.com/go/pubsub v1.30.0
 	cloud.google.com/go/storage v1.30.1
 	github.com/bazelbuild/buildtools v0.0.0-20211007154642-8dd79e56e98e
+	github.com/bazelbuild/remote-apis v0.0.0-20230315170832-8f539af4b407
 	github.com/bazelbuild/rules_go v0.32.0
+	github.com/buildbarn/bb-remote-execution v0.0.0-20230414072355-c0df58fb74b5
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/cybozu-go/aptutil v1.4.2-0.20200413001041-3f82d8384481
@@ -23,6 +25,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github v17.0.0+incompatible
+	github.com/google/go-jsonnet v0.19.1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/improbable-eng/grpc-web v0.13.0
@@ -45,6 +48,8 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/tchap/zapext v1.0.0
 	github.com/ulikunitz/xz v0.5.8
+	github.com/valyala/bytebufferpool v1.0.0
+	github.com/valyala/quicktemplate v1.7.0
 	github.com/xor-gate/ar v0.0.0-20170530204233-5c72ae81e2b7
 	go.uber.org/goleak v1.1.11-0.20210813005559-691160354723
 	go.uber.org/zap v1.19.1
@@ -96,7 +101,6 @@ require (
 	github.com/apache/arrow/go/v11 v11.0.0 // indirect
 	github.com/apache/thrift v0.18.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/buildbarn/bb-remote-execution v0.0.0-20230414072355-c0df58fb74b5 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -141,8 +145,6 @@ require (
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/quicktemplate v1.7.0 // indirect
 	github.com/xanzy/ssh-agent v0.2.1 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
@@ -152,8 +154,8 @@ require (
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/grpc/examples v0.0.0-20230421184811-83c460b8de09 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/client-go v0.27.1 // indirect
+	sigs.k8s.io/yaml v1.3.0 // indirect
 )

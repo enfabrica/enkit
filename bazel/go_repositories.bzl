@@ -371,8 +371,8 @@ def go_repositories():
     go_repository(
         name = "com_github_cncf_xds_go",
         importpath = "github.com/cncf/xds/go",
-        sum = "h1:58f1tJ1ra+zFINPlwLWvQsR9CzAKt2e+EWV2yX9oXQ4=",
-        version = "v0.0.0-20230310173818-32f1caf87195",
+        sum = "h1:ACGZRIr7HsgBKHsueQ1yM4WaVaXh21ynwqsF8M8tXhA=",
+        version = "v0.0.0-20230105202645-06c439db220b",
     )
 
     go_repository(
@@ -523,14 +523,14 @@ def go_repositories():
     go_repository(
         name = "com_github_envoyproxy_go_control_plane",
         importpath = "github.com/envoyproxy/go-control-plane",
-        sum = "h1:jtLewhRR2vMRNnq2ZZUoCjUlgut+Y0+sDDWPOfwOi1o=",
-        version = "v0.11.0",
+        sum = "h1:xdCVXxEe0Y3FQith+0cj2irwZudqGYvecuLB1HtdexY=",
+        version = "v0.10.3",
     )
     go_repository(
         name = "com_github_envoyproxy_protoc_gen_validate",
         importpath = "github.com/envoyproxy/protoc-gen-validate",
-        sum = "h1:c0g45+xCJhdgFGw7a5QAfdS4byAbud7miNWJ1WwEVf8=",
-        version = "v0.10.1",
+        sum = "h1:PS7VIOgmSVhWUEeZwTe7z7zouA22Cr590PzXKbZHOVY=",
+        version = "v0.9.1",
     )
 
     go_repository(
@@ -2965,12 +2965,6 @@ def go_repositories():
         importpath = "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
         sum = "h1:M1YKkFIboKNieVO5DLUEVzQfGwJD30Nv2jfUgzb5UcE=",
         version = "v1.1.0",
-    )
-    go_repository(
-        name = "org_golang_google_grpc_examples",
-        importpath = "google.golang.org/grpc/examples",
-        sum = "h1:Az1gEqMIQcV1MkHJChN0LRDCj2JSWHJuPCTrxBl9byY=",
-        version = "v0.0.0-20230421184811-83c460b8de09",
     )
 
     go_repository(
