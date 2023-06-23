@@ -165,6 +165,14 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 	mux.HandleFunc("/configs/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("%s On %s", kconfig.YodaSays, time.Now()), http.StatusNotFound)
 	})
+
+	// This is for appengine deployments - see https://cloud.google.com/appengine/docs/legacy/standard/python/how-instances-are-managed#startup
+	mux.HandleFunc("/_ah/", func (w http.ResponseWriter, r *http.Request) {
+	   w.WriteHeader(http.StatusOK)
+	   log.Printf("received _ah request for %s %s", r.Host, r.URL.Path)
+	   fmt.Fprintf(w, "I hear you.")
+	})
+
 	kassets.RegisterAssets(&stats, assets.Data, "", kassets.BasicMapper(kassets.MuxMapper(mux)))
 	kassets.RegisterAssets(&stats, configs.Data, "", kassets.PrefixMapper("/configs", kassets.StripExtensionMapper(kassets.BasicMapper(kassets.MuxMapper(mux)))))
 	stats.Log(log.Printf)
