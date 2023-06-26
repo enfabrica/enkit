@@ -6,11 +6,21 @@ configure_make(
     name = "binaries",
     lib_source = ":all",
     configure_options = [
-        # configure_make rule expects all binaries in bin/ by default.
-        "--sbindir=$INSTALLDIR/bin",
         "--enable-static",
         "--enable-bundled-libtom",
     ],
+    # By default `targets` would be ["", "install"], meaning it would run
+    # `make ""` and `make "install"`.
+    #
+    # Don't run "make install" as the dropbear makefile does things to
+    # setup the privileges correctly that don't work in an RBE environment.
+    # Instead, run the few commands in postfix_script to install the
+    # binaries correctly.
+	targets = [""],
+	postfix_script = "; ".join([
+	    "mkdir -p ${INSTALLDIR}/bin",
+	    "cp dropbear dropbearkey ${INSTALLDIR}/bin",
+	]),
     out_binaries = [
         "dropbear",
         "dropbearkey",
@@ -19,7 +29,7 @@ configure_make(
 )
 
 
-load("@//bazel/utils:binary.bzl", "declare_binary")
+load("@enkit//bazel/utils:binary.bzl", "declare_binary")
 
 declare_binary(
     name = "dropbear",
