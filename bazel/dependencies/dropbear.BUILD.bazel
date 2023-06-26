@@ -19,7 +19,7 @@ configure_make(
 )
 
 
-load("@//bazel/utils:binary.bzl", "declare_binary")
+load("@enkit//bazel/utils:binary.bzl", "declare_binary")
 
 declare_binary(
     name = "dropbear",
