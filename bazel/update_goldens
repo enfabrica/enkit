@@ -1,21 +1,39 @@
 #!/usr/bin/python3
-#
-# Usage: update_goldens <args>
-#
-# Each element of args can either be:
-#    a specific bazel diff_test (:file-diff_test),
-#    a wildcard bazel rule (bar:all or //foo/bar/...),
-#    or an expected data file (./path/to/file.expected.md)
-#
-# This script maps its arguments onto a set of diff_test rules, and efficiently
-# updates the golden files for any diff_test rules that are presently failing.
-#
-# Examples of use:
-#
-#    ./tools/update_goldens //path/to:test  # update one test
-#    ./tools/update_goldens //path/to:all   # update all tests in a directory
-#    ./tools/update_goldens //path/to/...   # update all tests in a tree
-#    ./tools/update_goldens ./path/to/file  # update one file
+"""update_goldens
+
+Usage: update_goldens [--commit] [--all|--verilogpp] <args>
+
+Each element of args can either be:
+   a specific bazel diff_test (:file-diff_test),
+   a wildcard bazel rule (bar:all or //foo/bar/...),
+   or an expected data file (./path/to/file.expected.md)
+
+This script maps its arguments onto a set of diff_test rules, and efficiently
+updates the golden files for any diff_test rules that are presently failing.
+
+The "--commit" flag tells the script to automatically perform a git commit
+after running.  ./update_goldens will refuse to create a commit if there are
+other uncommitted changes in the current branch.
+
+By default, update_goldens does not update diff_test rules that have "no-presubmit"
+or "ug_exclude" tags.  This behavior can be modified with additional command line
+flags:
+
+   --all : Process all diff_test rules, regardless of tagging.
+
+   --verilogpp : Process all rules tagged "verilogpp", regardless of other tags.
+           As verilogpp_library-produced diff_test rules will always have
+           "ug_exclude" and "verilogpp" tags set, this is the only way
+           to tell update_goldens to touch these files.
+
+Examples of use:
+
+   ./tools/update_goldens //path/to:test        # update one test
+   ./tools/update_goldens //path/to:all         # update all tests in a directory
+   ./tools/update_goldens //path/to/...         # update all tests in a tree
+   ./tools/update_goldens ./path/to/file        # update one file
+   ./tools/update_goldens --verilogpp //hw/...  # update all verilogpp-maintained files.
+"""
 
 import os
 import sys
@@ -24,19 +42,34 @@ import tempfile
 import json
 
 BAZEL = "/usr/bin/bazelisk"
-BAZEL_OPTS = ["--noshow_progress", "--noshow_loading_progress", "--logging=0", "--ui_event_filters=-info,-debug"]
+BAZEL_OPTS = ["--noshow_progress", "--noshow_loading_progress", "--logging=0", "--ui_event_filters=-info,-debug", "--bes_backend="]
+VERBOSE = int(os.environ.get("UPDATE_GOLDENS_VERBOSE", 0))
 
+def RunCheckOutput(cmd, exit_on_error=True):
+    """Like subprocess.check_output but with better error reporting."""
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
+    stdout, stderr = proc.communicate()
+    if proc.returncode != 0:
+        print(f"ERROR: command failed (rc={proc.returncode}): {cmd!r}")
+        print("output:")
+        for l in stdout.decode(encoding='utf-8').splitlines():
+            print(f"    {l}")
+        for l in stderr.decode(encoding='utf-8').splitlines():
+            print(f"    {l}")
+        if exit_on_error:
+            sys.exit(1)
+    return stdout
 
 def MapFilesToTargets(files):
     """Converts a set of files to a set of targets using one bazel query."""
     # Best effort.
     if not files:
         return []
-    workspace_path = subprocess.check_output(["bazel", "info", "workspace"], stderr=subprocess.DEVNULL)
+    workspace_path = RunCheckOutput(["bazel", "info", "workspace"])
     workspace_path = workspace_path.decode("utf-8").strip()
 
-    dirnames=set()
-    basenames=set()
+    dirnames = set()
+    basenames = set()
     for f in files:
         abs_f = os.path.abspath(f)
         dirname = os.path.dirname(abs_f)
@@ -51,13 +84,13 @@ def MapFilesToTargets(files):
         dirname = dirname.replace(workspace_path, "/")
         dirnames.add("%s:*" % dirname)
         basenames.add(os.path.basename(abs_f))
-    regexp="|".join(basenames)
+    regexp = "|".join(basenames)
     paths = " + ".join(dirnames)
 
-    query = "attr('expected', '{}', {})".format(regexp, paths)
+    query = f"attr('expected', '{regexp}', {paths})"
     cmd = [BAZEL, "query", query]
     print("Running blaze query: %r" % query)
-    output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+    output = RunCheckOutput(cmd)
     targets = [x.decode("utf-8") for x in output.split(b"\n") if x]
     if not targets:
         print("    No targets found!")
@@ -66,18 +99,27 @@ def MapFilesToTargets(files):
     return targets
 
 
-def MapRuleToTargets(pattern):
+def MapRuleToTargets(pattern, include_tags, exclude_tags):
     """Converts a rule pattern to a list of rules.
 
     If the user supplies a file instead of a pattern, we try to find the diff_test rule
     that compares against that file.
+
+    Args:
+        pattern: A bazel rule-matching pattern, ie. //foo/bar:all
+        include_tags: if not None, only get tests with these tags, and ignore the exclude_tags list.
+        exclude_tags: if not None, exclude any tests with these tags.
     """
     # Call blaze query, unless we already have a fully specified rule name.
     if pattern.endswith(":all") or pattern.endswith("...") or not pattern.startswith("//"):
-        query = 'kind("diff_test rule", "%s")' % pattern
+        query = f"(kind('diff_test rule', {pattern}) + kind('multi_diff_test rule', {pattern}))"
+        if include_tags is not None:
+            query += f" intersect attr('tags', '[\[ ]({'|'.join(include_tags)})[,\]]', {pattern})"
+        elif exclude_tags is not None:
+            query += f" except attr('tags', '[\[ ]({'|'.join(exclude_tags)})[,\]]', {pattern})"
         cmd = [BAZEL, "query", query]
-        print("Running blaze query for %r" % pattern)
-        output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+        print("Running blaze query: %r" % cmd)
+        output = RunCheckOutput(cmd)
         targets = [x.decode("utf-8") for x in output.split(b"\n") if x]
         for t in targets:
             print("    %s" % t)
@@ -86,19 +128,19 @@ def MapRuleToTargets(pattern):
         return [pattern]
 
 
-def MapArgsToTargets(args):
-    files=[]
-    rules=[]
+def MapArgsToTargets(args, include_tags, exclude_tags):
+    files = []
+    rules = []
     for a in args:
         if os.path.exists(a):
             files.append(a)
         else:
             rules.append(a)
-    targets=[]
+    targets = []
     if files:
         targets.extend(MapFilesToTargets(files))
     for rule in rules:
-        targets.extend(MapRuleToTargets(rule))
+        targets.extend(MapRuleToTargets(rule, include_tags, exclude_tags))
     if not targets:
         print("Error: no targets.")
         sys.exit(1)
@@ -121,16 +163,20 @@ def GetFailingTargets(targets):
     # any test without a reported status was caused by a build failure.
     status_map = {x: "NO STATUS" for x in targets}
     tmpfile = tempfile.mktemp()
-    cmd = [BAZEL, "test", "--keep_going", "--build_event_json_file", tmpfile] + targets
+    cmd = [BAZEL, "test", "--keep_going", "--test_tag_filters=-no-presubmit,-manual", "--build_event_json_file", tmpfile] + targets
     print("Checking for failing targets.")
-    subprocess.run(cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    if VERBOSE:
+      subprocess.run(cmd)
+    else:
+      RunCheckOutput(cmd, exit_on_error=False)
     # Sadly, the BEP file is a concatenation of json objects, not a true
     # json file, so we can't just json.load it.  :-(  This code is roughly
     # cribbed from bazelci.py:
     with open(tmpfile, "r") as fd:
         raw_data = fd.read()
         fd.close()
-    os.unlink(tmpfile)
+    if not VERBOSE:
+        os.unlink(tmpfile)
     decoder = json.JSONDecoder()
     pos = 0
     while pos < len(raw_data):
@@ -140,9 +186,12 @@ def GetFailingTargets(targets):
             target = obj["id"]["testSummary"]["label"]
             status = obj["testSummary"]["overallStatus"]
             status_map[target] = status
+            if VERBOSE > 2:
+                print(f"target={target!r} status={status!r}")
+
     build_failed = [x for x in targets if status_map[x] == "NO STATUS"]
     if build_failed:
-        print("ERROR: these targets failed to build:")
+        print("Warning: these targets did not build:")
         for t in build_failed:
             print("  %s" % t)
     # Omit tests that failed to build in our list of failed tests:
@@ -151,20 +200,25 @@ def GetFailingTargets(targets):
         print("These diff_test targets are reporting mismatch:")
         for t in failing:
             print("    %s" % t)
+    else:
+        print("No diff_test targets mismatched.")
     return failing, build_failed
 
 
 def UpdateGoldens(targets):
     """Runs a list of diff_test rules with the --update_goldens flag."""
     # First build all targets to get the cache hot:
-    cmd = [BAZEL, "build"] + targets
+    cmd = [BAZEL, "build", "--build_tag_filters=-no-presubmit,-manual"] + BAZEL_OPTS + targets
     print("Building all targets.")
-    subprocess.check_call(cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    if VERBOSE:
+      subprocess.check_call(cmd)
+    else:
+      subprocess.check_call(cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
     # now run each test
     # TODO(jonathan): maybe run in parallel?
     for target in targets:
-        cmd = [BAZEL, "run", "--noremote_upload_local_results", "--bes_backend="] + BAZEL_OPTS + [target, "--", "--update_goldens"]
+        cmd = [BAZEL, "run"] + BAZEL_OPTS + [target, "--", "--update_goldens"]
         print("Regenerating goldens for %r" % target)
         subprocess.run(cmd)
 
@@ -176,28 +230,82 @@ def PrintDiffStats():
     subprocess.check_call(cmd)
 
 
+def CommitChanges(targets):
+    commit_msg = "update_goldens\n\nupdate_goldens updated:\n* " + "\n* ".join(targets)
+    print("creating git commit with commit message:")
+    print(commit_msg)
+    cmd = ["/usr/bin/git", "commit", "-a", "-m", commit_msg]
+    subprocess.check_call(cmd)
+
+
 def main(args):
+    commit_flag = False
+    uncommitted_changes = False
+    exclude_tags = ["no-presubmit", "ug_exclude", "ug-exclude"]
+    include_tags = None
+    iterations = 1
+    if "--commit" in args:
+        commit_flag = True
+        args = [x for x in args if x != "--commit"]
+    if "--all" in args:
+        args = [x for x in args if x != "--all"]
+        exclude_tags = None
+    if "--verilogpp" in args:
+        args = [x for x in args if x != "--verilogpp"]
+        include_tags = ["verilogpp"]
+        iterations = 10
     if not args:
-        args = ["..."]
-    targets = MapArgsToTargets(args)
+        args = ["//..."]
+
+    if commit_flag:
+        stdout = RunCheckOutput(["/usr/bin/git", "status", "--porcelain=v1"])
+        if stdout.strip() != b'':
+            print(f"WARNING: client contains uncommitted changes. {stdout.strip()!r}")
+            uncommitted_changes = True
+
+    targets = MapArgsToTargets(args, include_tags, exclude_tags)
     failures, build_failures = GetFailingTargets(targets)
     if not failures:
         if build_failures:
             print("All building targets pass, but some build errors occurred.")
+            if commit_flag:
+                print("       Did not create a git commit.")
             return 1
         else:
             print("All targets build and already pass.")
+            if commit_flag:
+                print("       git commit was not necessary.")
             return 0
-    UpdateGoldens(failures)
-    still_failing, build_failures = GetFailingTargets(failures)
-    if still_failing:
+
+    for iteration in range(iterations):
+        print(f"Iteration {iteration}:")
+        UpdateGoldens(failures)
+        failures, build_failures = GetFailingTargets(targets)
+        if build_failures:
+            print("Build failure detected.")
+            break
+        if not failures:
+            print("All targets pass.")
+            break
+        print(f"failing targets = {failures!r}")
+
+    if failures:
         print("ERROR: Some tests are still failing.")
+        if commit_flag:
+            print("       Did not create a git commit.")
         return 1
     if build_failures:
         print("All updated targets now pass, but some targets failed to build.")
+        if commit_flag:
+            print("       Did not create a git commit.")
         return 1
     else:
         print("All updated targets now build and pass.")
+        if commit_flag :
+            if uncommitted_changes:
+                print("       Did not create a git commit -- prior uncommitted changes were present.")
+            else:
+                CommitChanges(failures)
         return 0
 
 

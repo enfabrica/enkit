@@ -70,13 +70,16 @@ def _diff_test_impl(ctx):
         actual = ctx.files.actual[0].short_path
 
     # Note: in python format strings, {{ and }} render as { and }.
+    diff_tool = "diff -u"
+    if ctx.attr.binary:
+        diff_tool = "cmp"
     script = """
         err=0
         act="{actual}"
         exp="{expected}"
         if [[ ! -e "${{act}}" ]]; then echo "Missing file: ${{act}}"; exit 1; fi
         if [[ ! -e "${{exp}}" ]]; then echo "Missing file: ${{exp}}"; exit 1; fi
-        diff -u "${{exp}}" "${{act}}" ; RC=$?
+        {diff_tool} "${{exp}}" "${{act}}" ; RC=$?
         while [ "${{1:-}}" != "" ]; do
           if [[ "$1" == "--update_goldens" ]]; then
             echo "--update_goldens specified."
@@ -106,6 +109,7 @@ def _diff_test_impl(ctx):
         """.format(
         actual = actual,
         expected = ctx.files.expected[0].short_path,
+        diff_tool = diff_tool,
     )
     ctx.actions.write(
         output = ctx.outputs.executable,
@@ -143,6 +147,10 @@ diff_test = rule(
         ),
         "output_within_actual": attr.string(
             doc = "If actual is a target with multiple implicit outputs, the path to a specific output to test",
+        ),
+        "binary": attr.bool(
+            doc = "Enable to use `cmp` instead of `diff` for this file.",
+            default = False,
         ),
     },
     test = True,
