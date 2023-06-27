@@ -10,3 +10,43 @@ bats_test(
     srcs = ["bazel_bats_test.bats"],
     deps = [":example_sh"],
 )
+
+load("@//bazel/utils:exec_test.bzl", "exec_test", "exec_target_test")
+
+# This binary fails to build when cfg = "exec", but succeeds when cfg = "target".
+cc_binary(
+    name = "test_cfg",
+	copts = [
+      "-Wall", "-pedantic", "-extra", "-Werror",
+	],
+	srcs = ["test_cfg.c"],
+)
+
+# This builds successfully! Good.
+# Has cfg = "target".
+exec_target_test(
+    name = "target_test",
+	dep = ":test_cfg",
+)
+
+# This fails to build! Good.
+# Has cfg = "exec".
+exec_test(
+    name = "exec_test",
+	dep = ":test_cfg",
+)
+
+# THIS SHOULD BUILD, but it doesn't!
+# Has cfg = "exec", but the dep has cfg = "target".
+# So the dep should be built for target? but no, it is built for exec, FAILS!
+exec_test(
+    name = "exec_to_target_test",
+	dep = ":target_test",
+)
+
+# Has cfg = "target", but the dep has cfg = "exec".
+# So the dep should fail? Yes, it fails!
+exec_target_test(
+    name = "target_to_exec_test",
+	dep = ":exec_test",
+)

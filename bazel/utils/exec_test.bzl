@@ -63,3 +63,24 @@ if "compute-valid.sh -delta 1799" exits with status 0.
         ),
     },
 )
+
+exec_target_test = rule(
+    doc = """Same as exec_test, but uses the target architecture""",
+    implementation = _exec_test,
+    test = True,
+    attrs = {
+        "dep": attr.label(
+            doc = "Executable target to be converted into a test target",
+            mandatory = True,
+            executable = True,
+            cfg = "target",
+        ),
+        "argv": attr.string_list(
+            doc = "Additional arguments to pass to the executable target",
+        ),
+        "must_fail": attr.bool(
+            default = False,
+            doc = "Set to true if a non zero status should be interpreted as success",
+        ),
+    },
+)
