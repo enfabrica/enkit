@@ -52,7 +52,8 @@ if "compute-valid.sh -delta 1799" exits with status 0.
             doc = "Executable target to be converted into a test target",
             mandatory = True,
             executable = True,
-            cfg = "host",
+            # Tests in bazel are built for the target platform.
+            cfg = "target",
         ),
         "argv": attr.string_list(
             doc = "Additional arguments to pass to the executable target",
