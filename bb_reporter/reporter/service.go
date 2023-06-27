@@ -93,7 +93,6 @@ type ActionRecord struct {
 	ExecutionCompletedTime     time.Time `bigquery:"execution_completed_time"`
 	OutputUploadStartTime      time.Time `bigquery:"output_upload_start_time"`
 	OutputUploadCompletedTime  time.Time `bigquery:"output_upload_completed_time"`
-	VirtualExecutionDuration   string    `bigquery:"virtual_execution_duration"`
 	VirtualExecutionDurationNs int64     `bigquery:"virtual_execution_duration_ns"`
 
 	BazelVersion            string `bigquery:"bazel_version"`
@@ -103,18 +102,16 @@ type ActionRecord struct {
 	Target                  string `bigquery:"target"`
 	Configuration           string `bigquery:"configuration"`
 
-	UserTime                   string `bigquery:"user_time"`
-	UserTimeNs                 int64  `bigquery:"user_time_ns"`
-	SystemTime                 string `bigquery:"system_time"`
-	SystemTimeNs               int64  `bigquery:"system_time_ns"`
-	MaximumResidentSetSize     int64  `bigquery:"maximum_resident_set_size"`
-	PageReclaims               int64  `bigquery:"page_reclaims"`
-	PageFaults                 int64  `bigquery:"page_faults"`
-	Swaps                      int64  `bigquery:"swaps"`
-	BlockInputOperations       int64  `bigquery:"block_input_operations"`
-	BlockOutputOperations      int64  `bigquery:"block_output_operations"`
-	VoluntaryContextSwitches   int64  `bigquery:"voluntary_context_switches"`
-	InvoluntaryContextSwitches int64  `bigquery:"involuntary_context_switches"`
+	UserTimeNs                 int64 `bigquery:"user_time_ns"`
+	SystemTimeNs               int64 `bigquery:"system_time_ns"`
+	MaximumResidentSetSize     int64 `bigquery:"maximum_resident_set_size"`
+	PageReclaims               int64 `bigquery:"page_reclaims"`
+	PageFaults                 int64 `bigquery:"page_faults"`
+	Swaps                      int64 `bigquery:"swaps"`
+	BlockInputOperations       int64 `bigquery:"block_input_operations"`
+	BlockOutputOperations      int64 `bigquery:"block_output_operations"`
+	VoluntaryContextSwitches   int64 `bigquery:"voluntary_context_switches"`
+	InvoluntaryContextSwitches int64 `bigquery:"involuntary_context_switches"`
 
 	Expenses []Expense `bigquery:"expenses"`
 }
