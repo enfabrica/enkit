@@ -27,3 +27,8 @@ try-import %workspace%/.bazelrc.user
 # TODO(INFRA-4384): Remove this flag once all dependencies are compatible with
 # the new platforms repo for constraints.
 build --noincompatible_use_platforms_repo_for_constraints
+
+# googletest requires C++14 or newer. Force C++20 for all builds by default.
+# The compiler used in the current container seems to only understand
+# `-std=c++2a` instead of `-std=c++20`.
+build --cxxopt=-std=c++2a --host_cxxopt=-std=c++2a
