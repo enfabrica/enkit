@@ -111,6 +111,7 @@ review.
 | <a href="#log">`log`</a> | Log of commits since parent branch. |
 | <a href="#lsbranches">`lsbranches`</a> | List information about each branch. |
 | <a href="#make_branch">`make_branch`</a> | Create a new child branch based on the current branch. |
+| <a href="#migrate_default_branch">`migrate_default_branch`</a> | Migrate to a new default branch. |
 | <a href="#pack">`pack`</a> | Exports all unsubmitted changes in this branch as a pack file. |
 | <a href="#pr_checkout">`pr_checkout`</a> | Create a client containing someone's pull request. |
 | <a href="#pr_check">`pr_check`</a> | Checks the status of presubmit tests for a PR. |
@@ -698,6 +699,14 @@ Usage: `gee diagnose`
 This command produces a `~/gee.diagnostics.txt` file that might
 be useful to share with the tool maintainers if something has gone
 wrong with your gee repository.
+
+### migrate_default_branch
+
+Usage: `gee migrate_default_branch`
+
+This command performs necessary local fix-ups after an upstream
+branch migrates their default branch from an old name (ie, "master")
+to a new name (ie, "main").
 
 ### repair
 
