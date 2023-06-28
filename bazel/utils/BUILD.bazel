@@ -27,6 +27,20 @@ diff_test(
     expected = "testdata/expected.foobar.txt",
 )
 
+# bad utf-8: \xc3\x28 = invalid 2 octet sequence
+genrule(
+    name = "foobar.bin-gen",
+    outs = ["foobar.bin"],
+    cmd_bash = "echo -n -e \"foo bar bum\\nfee fie foe\\xc3\\x28foo foo foo\\n\" >$@",
+)
+
+diff_test(
+    name = "foobar.bin-diff_test",
+    actual = "foobar.bin",
+    expected = "testdata/expected.foobar.bin",
+    binary = True,
+)
+
 write_to_file(
     name = "escape_and_join1",
     content = "%s\n" % escape_and_join([
