@@ -165,6 +165,7 @@ Valid configuration options are:
 * "enable_emacs": Set "emacs" as your merge tool.
 * "enable_vscode": Set "vscode" as your GUI merge tool.
 * "enable_meld": Set "meld" as your GUI merge tool.
+* "enable_bcompare": Set "BeyondCompare" as your GUI merge tool.
 
 ### make_branch
 
