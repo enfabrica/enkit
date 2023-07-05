@@ -283,15 +283,13 @@ enkit/tools/codegen/tests/test.template
 enkit/../com_google_googletest/googlemock/include/gmock/gmock-actions.h
 enkit/../com_google_googletest/googlemock/include/gmock/gmock-cardinalities.h
 enkit/../com_google_googletest/googlemock/include/gmock/gmock-function-mocker.h
-enkit/../com_google_googletest/googlemock/include/gmock/gmock-generated-actions.h
-enkit/../com_google_googletest/googlemock/include/gmock/gmock-generated-function-mockers.h
-enkit/../com_google_googletest/googlemock/include/gmock/gmock-generated-matchers.h
 enkit/../com_google_googletest/googlemock/include/gmock/gmock-matchers.h
 enkit/../com_google_googletest/googlemock/include/gmock/gmock-more-actions.h
 enkit/../com_google_googletest/googlemock/include/gmock/gmock-more-matchers.h
 enkit/../com_google_googletest/googlemock/include/gmock/gmock-nice-strict.h
 enkit/../com_google_googletest/googlemock/include/gmock/gmock-spec-builders.h
 enkit/../com_google_googletest/googlemock/include/gmock/gmock.h
+enkit/../com_google_googletest/googletest/include/gtest/gtest-assertion-result.h
 enkit/../com_google_googletest/googletest/include/gtest/gtest-death-test.h
 enkit/../com_google_googletest/googletest/include/gtest/gtest-matchers.h
 enkit/../com_google_googletest/googletest/include/gtest/gtest-message.h
@@ -325,6 +323,7 @@ enkit/../com_google_googletest/googletest/include/gtest/internal/gtest-port-arch
 enkit/../com_google_googletest/googletest/include/gtest/internal/gtest-port.h
 enkit/../com_google_googletest/googletest/include/gtest/internal/gtest-string.h
 enkit/../com_google_googletest/googletest/include/gtest/internal/gtest-type-util.h
+enkit/../com_google_googletest/googletest/src/gtest-assertion-result.cc
 enkit/../com_google_googletest/googletest/src/gtest-death-test.cc
 enkit/../com_google_googletest/googletest/src/gtest-filepath.cc
 enkit/../com_google_googletest/googletest/src/gtest-internal-inl.h
