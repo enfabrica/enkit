@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly VERSION="0.2.42"
+readonly VERSION="0.2.43"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -2280,6 +2280,7 @@ Valid configuration options are:
 * "enable_emacs": Set "emacs" as your merge tool.
 * "enable_vscode": Set "vscode" as your GUI merge tool.
 * "enable_meld": Set "meld" as your GUI merge tool.
+* "enable_bcompare": Set "BeyondCompare" as your GUI merge tool.
 EOT
 function gee__config() {
   _git config --global rerere.enabled true
@@ -2311,6 +2312,23 @@ function gee__config() {
       _git config --global diff.guitool meld
       _git config --global difftool.meld.cmd \
         "/usr/bin/meld \"\$LOCAL\" \"\$REMOTE\""
+      ;;
+    enable_bcompare)
+      _info "Setting BeyondCompare as the default GUI diff and merge tool."
+      _git config --global merge.guitool bc
+      _git config --global diff.guitool bc
+      _git config --global mergetool.bc.trustExitCode true
+      _git config --global difftool.bc.trustExitCode true
+      if ! command -v bcompare > /dev/null; then
+        _warn "bcompare is not currently installed."
+        _info \
+          "To install BeyondCompare:" \
+          "" \
+          "  wget https://www.scootersoftware.com/files/bcompare-4.4.6.27483_amd64.deb" \
+          "  sudo apt install poppler-utils" \
+          "  sudo dpkg -i ./bcompare-4.4.6.27483_amd64.deb" \
+          "  which bcompare  # ensure tool is installed"
+      fi
       ;;
     enable_emacs)
       # TODO: I'm hoping an emacs expert can contribute
