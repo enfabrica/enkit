@@ -117,6 +117,6 @@ The modules still to expand are:
         if key in dups:
             continue
         result.append(mod)
-        dups|={key : ""}
+        dups[key] = True
 
     return result
