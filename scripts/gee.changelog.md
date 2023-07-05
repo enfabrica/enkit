@@ -2,6 +2,14 @@
 
 ## Releases
 
+### 0.2.43
+
+* gee setup: add support for BeyondCompare. (#945)
+* gee migrate_default_branch: new command to ease migration from
+  master to main branch names.  (#929)
+* gee pr_submit: retry failed pull requests. (#870)
+* gee checks: wait for slow-to-start tests. (#868)
+
 ### 0.2.42
 
 * gee: make colors configurable.  Enhanced hidden "gee colortest" command.
