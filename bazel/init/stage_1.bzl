@@ -122,7 +122,7 @@ def stage_1():
         strip_prefix = "abseil-cpp-20230125.3",
         patch_args = ["-p1"],
         patches = ["@enkit//bazel/dependencies/abseil:0001-absl-flags-parse.cc-provide-a-mechanism-to-let-other.patch"],
-	urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.3.zip"],
+        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.3.zip"],
     )
 
     maybe(
@@ -201,18 +201,22 @@ def stage_1():
     maybe(
         name = "rules_foreign_cc",
         repo_rule = http_archive,
-        sha256 = "bcd0c5f46a49b85b384906daae41d277b3dc0ff27c7c752cc51e43048a58ec83",
-        strip_prefix = "rules_foreign_cc-0.7.1",
-        url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.7.1.tar.gz",
+        sha256 = "2a4d07cd64b0719b39a7c12218a3e507672b82a97b98c6a89d38565894cf7c51",
+        strip_prefix = "rules_foreign_cc-0.9.0",
+        url = "https://github.com/bazelbuild/rules_foreign_cc/archive/refs/tags/0.9.0.tar.gz",
+        patches = [
+            "@enkit//bazel/dependencies:rules_foreign_cc_export_functions.patch",
+        ],
+        patch_args = ["-p1"],
     )
 
     maybe(
         name = "meson",
         repo_rule = http_archive,
         build_file = "@enkit//bazel/meson:meson.BUILD.bazel",
-        sha256 = "a0f5caa1e70da12d5e63aa6a9504273759b891af36c8d87de381a4ed1380e845",
-        urls = ["https://github.com/mesonbuild/meson/releases/download/0.62.1/meson-0.62.1.tar.gz"],
-        strip_prefix = "meson-0.62.1",
+        sha256 = "d04b541f97ca439fb82fab7d0d480988be4bd4e62563a5ca35fadb5400727b1c",
+        urls = ["https://github.com/mesonbuild/meson/releases/download/1.1.1/meson-1.1.1.tar.gz"],
+        strip_prefix = "meson-1.1.1",
     )
 
     maybe(

@@ -1,0 +1,11 @@
+diff --git a/foreign_cc/private/framework.bzl b/foreign_cc/private/framework.bzl
+index c84c217..46ddc10 100644
+--- a/foreign_cc/private/framework.bzl
++++ b/foreign_cc/private/framework.bzl
+@@ -1004,3 +1004,6 @@ def _expand_locations_in_string(ctx, expandable, data):
+         return ctx.expand_location(expandable, data)
+     else:
+         return ctx.expand_location(expandable.replace("$(execpath ", "$$EXT_BUILD_ROOT$$/$(execpath "), data)
++
++# ENFABRICA PATCH: export these functions for our own rules
++expand_locations = _expand_locations

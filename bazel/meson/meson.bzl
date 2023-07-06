@@ -21,14 +21,14 @@ def _create_meson_script(configureParameters):
     tools = get_tools_info(ctx)
     flags = get_flags_info(ctx)
     data = ctx.attr.data + ctx.attr.build_data
-    user_env = expand_locations_and_make_variables(ctx, "env", data)
+    user_env = expand_locations_and_make_variables(ctx, ctx.attr.env, "env", data)
 
     ext_build_dirs = inputs.ext_build_dirs
 
     script = pkgconfig_script(ext_build_dirs)
 
     script.append("export INSTALL_PREFIX=\"{install_prefix}\"".format(
-        install_prefix=ctx.attr.name,
+        install_prefix = ctx.attr.name,
     ))
 
     setup_args = " ".join([
@@ -55,7 +55,7 @@ def _create_meson_script(configureParameters):
     return script
 
 def _access_and_expect_label_copied(toolchain_type_, ctx):
-    tool_data = access_tool(toolchain_type_, ctx, "")
+    tool_data = access_tool(toolchain_type_, ctx)
 
     # This could be made more efficient by changing the
     # toolchain to provide the executable as a target
