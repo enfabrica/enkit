@@ -5767,11 +5767,6 @@ function _print_color_block() {
   printf " %s%3d%s" "$(tput setaf "${FG}"; tput setab "${C}")" "$C" "${_COLOR_RST}"
 }
 
-function gee__set_main_by_asking_github() {
-  _set_main_by_asking_github
-  _info "MAIN=$MAIN"
-}
-
 function gee__colortest() {
   echo "Color table:"
   for t in $(seq 0 255); do
