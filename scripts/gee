@@ -377,8 +377,12 @@ function _set_main() {
   if [[ -n "${MAIN}" ]]; then return; fi
 
   # Try to guess the default branch by examining which branches exist on
-  # the local filesystem.  Try "main" first:
-  if [[ -d "${REPO_DIR}/main" ]]; then
+  # the local filesystem.
+  if [[ -d "${REPO_DIR}/main" ]] && [[ -d "${REPO_DIR}/master" ]]; then
+    # oh no, the user has both main and master available.  Refuse to
+    # guess and ask github.
+    _warn "Confusing!  You have both \"main\" and \"master\" branches."
+  elif [[ -d "${REPO_DIR}/main" ]]; then
     MAIN=main
     return
   # Fall back to "master" if "main" doesn't exist:
@@ -5761,6 +5765,11 @@ function _print_color_block() {
     fi
   fi
   printf " %s%3d%s" "$(tput setaf "${FG}"; tput setab "${C}")" "$C" "${_COLOR_RST}"
+}
+
+function gee__set_main_by_asking_github() {
+  _set_main_by_asking_github
+  _info "MAIN=$MAIN"
 }
 
 function gee__colortest() {
