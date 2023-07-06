@@ -1,0 +1,19 @@
+diff --git a/configure b/configure
+index 58a1d4f..eb4ea7a 100755
+--- a/configure
++++ b/configure
+@@ -3007,8 +3007,12 @@ then
+    # Ok.
+    :
+ else
+-   as_fn_error $? "newly created file is older than distributed files!
+-Check your system clock" "$LINENO" 5
++   # ENFABRICA MOD: ignore timestamp checks for compatibility with filesystems
++   # that don't report accurate timestamps
++   #
++   #as_fn_error $? "newly created file is older than distributed files!
++#Check your system clock" "$LINENO" 5
++   :
+ fi
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+ printf "%s\n" "yes" >&6; }
