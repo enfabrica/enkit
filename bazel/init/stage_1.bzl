@@ -198,6 +198,32 @@ def stage_1():
         urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.1.tar.gz"],
     )
 
+    # BUG(INFRA-6710): `make` is pulled in by source by rules_foreign_cc, but we
+    # need to patch its configure script to not care so much about file
+    # timestamps, as buildbarn's FUSE workers may not expose file timestamps as
+    # expected.
+    maybe(
+        name = "gnumake_src",
+        repo_rule = http_archive,
+        sha256 = "581f4d4e872da74b3941c874215898a7d35802f03732bdccee1d4a7979105d18",
+        strip_prefix = "make-4.4",
+        build_file_content = """
+filegroup(
+    name = "all_srcs",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+""",
+        urls = [
+            "https://mirror.bazel.build/ftpmirror.gnu.org/gnu/make/make-4.4.tar.gz",
+            "http://ftpmirror.gnu.org/gnu/make/make-4.4.tar.gz",
+        ],
+        patches = [
+            "@enkit//bazel/dependencies:make_less_pedantic_configure.patch",
+        ],
+        patch_args = ["-p1"],
+    )
+
     maybe(
         name = "rules_foreign_cc",
         repo_rule = http_archive,
