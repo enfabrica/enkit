@@ -1,3 +1,5 @@
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
+
 def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
     """Returns a URL for a particular package version from astore."""
     if not package.startswith("/"):
@@ -272,6 +274,9 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
     if hasattr(rctx.attr, "build") and rctx.attr.build:
         rctx.template("BUILD.bazel", rctx.attr.build)
 
+    if hasattr(rctx.attr, "patches"):
+        patch(rctx)
+
 # This wrapper is in place to allow a rolling upgrade across Enkit and the
 # external repositories which consume the kernel_tree_version rule defined in
 # //enkit/linux/defs.bzl, which uses "sha256" as the attribute name instead of
@@ -304,6 +309,12 @@ astore_package = repository_rule(
         "timeout": attr.int(
             doc = "Timeout for astore fetch operation, in seconds.",
             default = 10 * 60,
+        ),
+        "patch_args": attr.string_list(
+            doc = "List of args to pass to patch tool",
+        ),
+        "patches": attr.label_list(
+            doc = "List of patches to apply",
         ),
     },
 )
