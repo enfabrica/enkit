@@ -26,5 +26,10 @@ go_test(
         "flags_test.go",
     ],
     embed = [":go_default_library"],
+    tags = [
+        # This test depends on being able to do `chtimes` on runfiles, which may
+        # not be possible on remote executors.
+        "no-remote-exec",
+    ],
     deps = ["@com_github_stretchr_testify//assert:go_default_library"],
 )

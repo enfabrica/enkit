@@ -37,6 +37,11 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    tags = [
+        # Test depends on being able to open the detected home directory, which
+        # may not exist on remote executors.
+        "no-remote-exec",
+    ],
     deps = [
         "//lib/cache:go_default_library",
         "//lib/kflags:go_default_library",
