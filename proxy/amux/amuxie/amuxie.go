@@ -3,10 +3,12 @@
 package amuxie
 
 import (
-	"github.com/enfabrica/enkit/proxy/amux"
-	"github.com/kataras/muxie"
 	"net/http"
 	"strings"
+
+	"github.com/kataras/muxie"
+
+	"github.com/enfabrica/enkit/proxy/amux"
 )
 
 type Mux struct {
@@ -19,9 +21,10 @@ func New() *Mux {
 
 func (m *Mux) Host(host string) amux.Mux {
 	h := muxie.NewMux()
-	m.HandleRequest(muxie.Host(host), h)
+	m.HandleRequest(NewPortStripping(host, muxie.Host(host)), h)
 	if !strings.HasSuffix(host, ".") {
-		m.HandleRequest(muxie.Host(host + "."), h)
+		absolute := host + "."
+		m.HandleRequest(NewPortStripping(absolute, muxie.Host(absolute)), h)
 	}
 
 	return &Mux{h}

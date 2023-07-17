@@ -119,4 +119,9 @@ func TestMuxConformance(t *testing.T) {
 	assert.Equal(t, http.StatusOK, Request(m, "host2.net", "/"))
 	assert.Equal(t, http.StatusOK, Request(m, "host2.net.", "/whatever"))
 	assert.Equal(t, 2, countHost2)
+	
+	// Ports shouldn't affect host mappings
+	assert.Equal(t, http.StatusOK, Request(m, "host2.net:443", "/"))
+	assert.Equal(t, http.StatusOK, Request(m, "host2.net.:443", "/whatever"))
+	assert.Equal(t, 4, countHost2)
 }
