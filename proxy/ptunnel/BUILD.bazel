@@ -27,6 +27,9 @@ go_test(
     # `http://127.0.0.1:44527/proxy?host=google.com&port=55`
     tags = [
         "no-cloudbuild",
+        # Test starts up a server on localhost, which may not be permitted on
+        # remote workers.
+        "no-remote-exec",
     ],
     deps = [
         "//lib/errdiff:go_default_library",

@@ -23,6 +23,11 @@ go_test(
     name = "go_default_test",
     srcs = ["faketree_test.go"],
     embed = [":go_default_library"],
+    tags = [
+        # This test depends on the UID/GID of the current user, which may not
+        # match that of remote executors.
+        "no-remote-exec",
+    ],
     deps = ["@com_github_stretchr_testify//assert:go_default_library"],
 )
 
