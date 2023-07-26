@@ -24,11 +24,11 @@ func generateOptions(base, hashFn, hash, size string, inOpts ...Option) options 
 
 // the following default values are arbitrary, based on what current works with buildbarn
 const (
-	DefaultFileTemplate       = "/blobs/%s/file/%s-%s/%s"
-	DefaultActionTemplate     = "/blobs/%s/action/%s-%s"
-	DefaultCommandTemplate    = "/blobs/%s/command/%s-%s"
-	DefaultDirectoryTemplate  = "/blobs/%s/directory/%s-%s"
-	DefaultByteStreamTemplate = "/blobs/%s/%s/%s"
+	DefaultFileTemplate       = "/blobs/%s/%s/file/%s-%s/%s"
+	DefaultActionTemplate     = "/blobs/%s/%s/action/%s-%s"
+	DefaultCommandTemplate    = "/blobs/%s/%s/command/%s-%s"
+	DefaultDirectoryTemplate  = "/blobs/%s/%s/directory/%s-%s"
+	DefaultByteStreamTemplate = "/blobs/%s/%s/%s/%s"
 )
 
 type multipleOption []Option

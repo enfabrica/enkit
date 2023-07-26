@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	DefaultBBClientdCasFileTemplate     = "cas/%s/blobs/file/%s-%s"
-	DefaultBBClientdScratchFileTemplate = "scratch/%s/%s/%s"
+	DefaultBBClientdCasFileTemplate     = "cas/%s/blobs/%s/file/%s-%s"
+	DefaultBBClientdScratchFileTemplate = "%s/%s/%s"
 )
 
 type HardlinkList []*Hardlink
@@ -56,15 +56,14 @@ func MergeLists(lists ...HardlinkList) HardlinkList {
 }
 
 func parsePathPrefix(prefix []string) string {
-	if len(prefix) == 3 && prefix[0] == "bazel-out" && prefix[2] == "bin" {
-		return "bazel-bin"
-	}
 	return filepath.Join(prefix...)
 }
 
 // GenerateLinksForFiles will generate a HardlinkList who has a list of all symlinks from a list of *bespb.File msg.
 // If the msg has no files, it will return nil.
 func GenerateLinksForFiles(filesPb []*bespb.File, baseName, destPrefix, invocationPrefix, clusterName string) HardlinkList {
+	const hashFn = "sha256"
+
 	var toReturn []*Hardlink
 	for _, f := range filesPb {
 		digest := f.Digest
@@ -78,17 +77,15 @@ func GenerateLinksForFiles(filesPb []*bespb.File, baseName, destPrefix, invocati
 			size = psize
 		}
 		if destPrefix == "" {
-			// TODO: This is where the bazel-bin prefix gets inserted; ideally this
-			// would be done at a higher level.
 			destPrefix = parsePathPrefix(f.GetPathPrefix())
 		}
 		if destPrefix == "" {
 			destPrefix = "."
 		}
-		simSource := File(baseName, "sha256", digest, size,
+		simSource := File(baseName, hashFn, digest, size,
 			WithFileTemplate(DefaultBBClientdCasFileTemplate),
-			WithTemplateArgs(clusterName, digest, size))
-		simDest := filepath.Clean(File(baseName, "sha256", digest, size,
+			WithTemplateArgs(clusterName, hashFn, digest, size))
+		simDest := filepath.Clean(File(baseName, hashFn, digest, size,
 			WithFileTemplate(DefaultBBClientdScratchFileTemplate),
 			WithTemplateArgs(invocationPrefix, destPrefix, f.Name)))
 		toReturn = append(toReturn, &Hardlink{Dest: simDest, Src: simSource})
