@@ -227,9 +227,9 @@ filegroup(
     maybe(
         name = "rules_foreign_cc",
         repo_rule = http_archive,
-        sha256 = "2a4d07cd64b0719b39a7c12218a3e507672b82a97b98c6a89d38565894cf7c51",
-        strip_prefix = "rules_foreign_cc-0.9.0",
-        url = "https://github.com/bazelbuild/rules_foreign_cc/archive/refs/tags/0.9.0.tar.gz",
+        sha256 = "9561b3994232ccb033278ade83c2ce48e763e9cae63452cd8fea457bedd87d05",
+        strip_prefix = "rules_foreign_cc-816905a078773405803e86635def78b61d2f782d",
+        url = "https://github.com/bazelbuild/rules_foreign_cc/archive/816905a078773405803e86635def78b61d2f782d.tar.gz",
         patches = [
             "@enkit//bazel/dependencies:rules_foreign_cc_export_functions.patch",
         ],
