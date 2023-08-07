@@ -105,6 +105,11 @@ func (r *QueryResult) addChecksumsAttributeToExternals() error {
 				if e.DownloadAndExtractEvent.GetIntegrity() != "" {
 					checksums = append(checksums, e.DownloadAndExtractEvent.GetIntegrity())
 				}
+			case *bpb.WorkspaceEvent_ExecuteEvent:
+				if len(e.ExecuteEvent.GetArguments()) == 2 && e.ExecuteEvent.GetArguments()[0] == "echo" {
+					fmt.Printf("got checksum: %q\n", e.ExecuteEvent.GetArguments()[1])
+					checksums = append(checksums, e.ExecuteEvent.GetArguments()[1])
+				}
 			}
 		}
 
