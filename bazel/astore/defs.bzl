@@ -242,6 +242,13 @@ def _astore_download_and_verify(rctx, dest, uid, digest, timeout):
             digest,
         ))
 
+    # BUG(INFRA-7187): There's no native way to pass the digest via the
+    # workspace log to affected targets detection when downloading stuff using a
+    # command instead of a built-in starlark function. This is a hack - a
+    # command that always succeeds, that allows us to detect and exfiltrate the
+    # digest.
+    rctx.execute(["echo", digest], timeout = 10)
+
 def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None, timeout = 10 * 60):
     """Fetch and extract a package from astore.
 
