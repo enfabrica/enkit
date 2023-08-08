@@ -1,4 +1,4 @@
-load("@enkit//bazel/meson:meson.bzl", "meson")
+load("@rules_foreign_cc//foreign_cc:meson.bzl", "meson")
 
 filegroup(
     name = "src",
