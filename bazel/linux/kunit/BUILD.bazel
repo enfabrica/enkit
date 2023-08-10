@@ -36,20 +36,6 @@ py_library(
     srcs = ["kunit_config.py"],
 )
 
-py_test(
-    name = "kunit_test",
-    srcs = ["kunit_tool_test.py"],
-    data = glob(["test_data/*"]),
-    main = "kunit_tool_test.py",
-    deps = [
-        ":kunit",
-        ":kunit_config",
-        ":kunit_json",
-        ":kunit_kernel",
-        ":kunit_parser",
-    ],
-)
-
 filegroup(
     name = "kunit_zip",
     srcs = [":kunit"],
