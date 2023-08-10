@@ -17,7 +17,7 @@ import textwrap
 from enum import Enum, auto
 from typing import Iterable, Iterator, List, Optional, Tuple
 
-from kunit_printer import stdout
+from bazel.linux.kunit.kunit_printer import stdout
 
 class Test:
 	"""
