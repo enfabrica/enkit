@@ -104,9 +104,7 @@ def exec_tests(linux: kunit_kernel.LinuxSourceTree,
 def parse_tests(request: KunitParseRequest) -> KunitResult:
 	parse_start = time.time()
 
-	test_result = kunit_parser.TestResult(kunit_parser.TestStatus.SUCCESS,
-					      [],
-					      'Tests not Parsed.')
+	test_result = kunit_parser.Test()
 
 	if request.raw_output:
 		kunit_parser.raw_output(request.input_data)

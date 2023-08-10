@@ -27,7 +27,10 @@ py_library(
 
 py_library(
     name = "kunit_parser",
-    srcs = ["kunit_parser.py"],
+    srcs = [
+        "kunit_parser.py",
+        "kunit_printer.py",
+    ],
     visibility = ["//visibility:public"],
 )
 
