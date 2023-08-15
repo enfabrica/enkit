@@ -26,7 +26,7 @@ if [ ! -r "$KERNEL_VERSION" ] ; then
 fi
 
 if [ -z "$KERNEL_FLAVOURS" ] ; then
-    echo "ERROR: kernel flavours not specified: valid values 'minimal generic'"
+    echo "ERROR: kernel flavours not specified: valid values 'generic'"
     exit 1
 fi
 kernel_version=$(cat "$KERNEL_VERSION")
