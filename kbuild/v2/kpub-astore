@@ -213,9 +213,6 @@ OUTPUT_BAZEL_ARCHIVE_DIR="$RT_BUILD_ROOT/bazel-archive"
 OUTPUT_APT_ARCHIVE_DIR="$RT_BUILD_ROOT/deb-archive"
 OUTPUT_ASTORE_META_DIR="$RT_BUILD_ROOT/astore-meta"
 
-OUTPUT_UML_DIR="$RT_BUILD_ROOT/uml"
-OUTPUT_UML_BAZEL_ARCHIVE_DIR="$RT_BUILD_ROOT/uml/bazel"
-
 mkdir -p "$KERNEL_DIR" "$OUTPUT_ASTORE_META_DIR"
 
 # Initialize the build area and clone the kernel repo
@@ -242,24 +239,10 @@ $RUN ${SCRIPT_PATH}/upload-deb.sh \
      "$ASTORE_BASE"               \
      "$OUTPUT_ASTORE_META_DIR"
 
-# Builds the UML kernel
-$RUN ${SCRIPT_PATH}/build-uml.sh "$KERNEL_DIR" "$KERNEL_VERSION" "$OUTPUT_UML_DIR"
-
-# For UML, creates a bazel ready tarball for building kernel modules
-$RUN ${SCRIPT_PATH}/archive-bazel-uml.sh "$KERNEL_DIR" "$OUTPUT_UML_DIR" "$OUTPUT_UML_BAZEL_ARCHIVE_DIR"
-
-# For UML, uploads the bazel ready tarball and kernel image
-$RUN ${SCRIPT_PATH}/upload-uml.sh    \
-     "$OUTPUT_UML_DIR"               \
-     "$OUTPUT_UML_BAZEL_ARCHIVE_DIR" \
-     "$ASTORE_BASE"                  \
-     "$OUTPUT_ASTORE_META_DIR"
-
 # Generate Bazel include file from upload meta-data files
 $RUN ${SCRIPT_PATH}/gen-bazel-meta.sh    \
      "$OUTPUT_DEB_DIR"                   \
      "$RT_KERNEL_FLAVOURS"               \
-     "$OUTPUT_UML_DIR"                   \
      "$ASTORE_BASE"                      \
      "$OUTPUT_ASTORE_META_DIR"           \
      "$RT_KERNEL_LABEL"
