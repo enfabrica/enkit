@@ -49,13 +49,6 @@ deb_get_kernel_version() {
     echo -n "$kernel_version"
 }
 
-uml_get_kernel_version() {
-    local uml_dir="$1"
-
-    kernel_version="$(cat ${uml_dir}/include/config/kernel.release)"
-    echo -n "$kernel_version"
-}
-
 upload_artifact() {
     local archive="$1"
     local astore_path="$2"

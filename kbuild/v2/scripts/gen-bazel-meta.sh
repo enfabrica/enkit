@@ -5,7 +5,6 @@
 # Inputs
 # - a flat directory containing the kernel .debs
 # - a space separated list of kernel flavours
-# - the UML kernel build directory
 # - The astore root where artifacts are stored
 # - a directory to store astore meta data files
 # - kernel label for creating bazel variable names
@@ -17,10 +16,9 @@ LIB_SH="$(dirname $(realpath $0))/lib.sh"
 
 OUTPUT_DEB_ROOT="$(realpath $1)"
 KERNEL_FLAVOURS="$2"
-OUTPUT_UML_DIR="$(realpath $3)"
-ASTORE_ROOT="$4"
-ASTORE_META_DIR="$5"
-KERNEL_LABEL="$6"
+ASTORE_ROOT="$3"
+ASTORE_META_DIR="$4"
+KERNEL_LABEL="$5"
 
 bazel_kernel_file="${ASTORE_META_DIR}/kernel.version.bzl"
 rm -f "$bazel_kernel_file"
@@ -97,19 +95,4 @@ gen_deb_flavours() {
     done
 }
 
-gen_uml() {
-    local kernel_version="$(uml_get_kernel_version $OUTPUT_UML_DIR)"
-
-    local flavour="test"
-
-    ## build-headers.tar.gz
-    local astore_file="build-headers.tar.gz"
-    gen_artifact_desc "KERNEL_TREE" $kernel_version "$flavour" $astore_file
-
-    ## vmlinuz-modules.tar.gz
-    local astore_file="vmlinuz-modules.tar.gz"
-    gen_artifact_desc "KERNEL_BIN" $kernel_version "$flavour" $astore_file
-}
-
 gen_deb_flavours
-gen_uml

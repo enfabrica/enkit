@@ -26,8 +26,6 @@ production path `kernel`, which will publish artifacts to the
 following paths:
 
   kernel/enf/impish-19.19/generic  (Ubuntu generic)
-  kernel/enf/impish-19.19/minimal  (Ubuntu minimal)
-  kernel/enf/impish-19.19/test     (UML)
 
 The build outputs a Bazel file, suitable for checking into the
 internal repo in `bazel/kernel.version.bzl`.
@@ -95,8 +93,7 @@ within bazel.
 This tarball includes an `install` script that bazel executes when
 unpacking the tarball.
 
-The script publishes a separate tarball for each kernel flavour and
-also one for the UML kernel.
+The script publishes a separate tarball for each kernel flavour.
 
 === Debian APT Repo Tarballs
 
@@ -118,11 +115,6 @@ This is a tarball of the kernel vmlinuz image and all the modules from
 `lib/modules/<kernel-version>`.  This tarball is used by bazel to run
 tests using QEMU.
 
-=== UML Kernel Image
-
-The script also publishes a UML kernel image to astore.  Bazel uses
-the UML kernel image to run UML kunit tests.
-
 == Install Kernel Packages via APT
 
 The Debian archive created by this build process can be used to
@@ -134,13 +126,13 @@ install kernel packages via apt.  To setup the apt repo on a host
 - using `sudo` run the install script with the `-a` option
 
   $ cd /tmp
-  $ enkit astore get -a amd64 -u 4w7kpbga283xqeyzqei4rjg4rsgg2jnq kernel/enf/impish-19.19/minimal/deb-artifacts.tar.gz
-  $ sudo mkdir /usr/share/enf/kernel-minimal-repo
-  $ cd /usr/share/enf/kernel-minimal-repo
+  $ enkit astore get -a amd64 -u 4w7kpbga283xqeyzqei4rjg4rsgg2jnq kernel/enf/impish-19.19/generic/deb-artifacts.tar.gz
+  $ sudo mkdir /usr/share/enf/kernel-generic-repo
+  $ cd /usr/share/enf/kernel-generic-repo
   $ sudo tar xf /tmp/deb-artifacts.tar.gz
-  $ sudo ./install-5.13.0-19-1-1651796444-gffc1f1c68bba-minimal.sh -a
+  $ sudo ./install-5.13.0-19-1-1651796444-gffc1f1c68bba-generic.sh -a
   $ sudo apt update
-  $ sudo apt install linux-image-5.13.0-19-1-1651796444-gffc1f1c68bba-minimal
+  $ sudo apt install linux-image-5.13.0-19-1-1651796444-gffc1f1c68bba-generic
 
 == Script Details
 
@@ -162,9 +154,6 @@ architecture.  Currently two flavours are supported for amd64:
 
 - generic -- This is a full kernel configuration, suitable for
   installing a real metal server.
-
-- minimal -- This is a small configuration, suitable for a virtual
-  machine install.
 
 === `repo-deb.sh`
 
@@ -200,20 +189,3 @@ because bazel requires that.
 
 The URL for the Debian APT repo archive is marked as private in
 astore.
-
-=== `build-uml.sh`
-
-This script compiles the User Model Linux kernel image (arch=um).
-
-=== `archive-bazel-uml.sh`
-
-This script creates a bazel ready tarball of kernel header files for
-building UML kernel modules.
-
-=== `upload-uml.sh`
-
-This script uploads the UML bazel archive and UML kernel image to
-astore.
-
-Both the bazel header file tarball and kernel image are marked as
-"public", because bazel requires that.
