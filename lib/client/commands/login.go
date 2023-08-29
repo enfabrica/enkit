@@ -2,7 +2,7 @@ package commands
 
 import (
 	"fmt"
-	"github.com/enfabrica/enkit/astore/rpc/auth"
+	apb "github.com/enfabrica/enkit/auth/proto"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config/identity"
 	"github.com/enfabrica/enkit/lib/kauth"
@@ -92,7 +92,7 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	repeater := retry.New(retry.WithWait(l.MinWaitTime), retry.WithRng(l.rng))
-	enCreds, err := kauth.PerformLogin(auth.NewAuthClient(conn), l.base.Log, repeater, l.rng, username, domain)
+	enCreds, err := kauth.PerformLogin(apb.NewAuthClient(conn), l.base.Log, repeater, l.rng, username, domain)
 	if err != nil {
 		return err
 	}

@@ -16,7 +16,7 @@ proto_library(
 go_proto_library(
     name = "go_default_library",
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
-    importpath = "github.com/enfabrica/enkit/astore/rpc/auth",
+    importpath = "github.com/enfabrica/enkit/auth/proto",
     proto = ":auth_proto",
     visibility = ["//visibility:public"],
 )

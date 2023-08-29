@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/enfabrica/enkit/astore/common"
+	"github.com/enfabrica/enkit/auth/common"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"golang.org/x/crypto/nacl/box"
 )

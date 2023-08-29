@@ -2,7 +2,7 @@ package machine
 
 import (
 	"fmt"
-	"github.com/enfabrica/enkit/astore/rpc/auth"
+	apb "github.com/enfabrica/enkit/auth/proto"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
@@ -32,7 +32,7 @@ func New(mods ...NodeModifier) (*Machine, error) {
 		if err != nil {
 			return nil, err
 		}
-		n.AuthClient = auth.NewAuthClient(conn)
+		n.AuthClient = apb.NewAuthClient(conn)
 	}
 	return n, nil
 }
@@ -77,7 +77,7 @@ func WithAuthFlags(af *client.AuthFlags) NodeModifier {
 		if err != nil {
 			return err
 		}
-		node.AuthClient = auth.NewAuthClient(cc)
+		node.AuthClient = apb.NewAuthClient(cc)
 		return nil
 	}
 }

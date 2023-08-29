@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/enfabrica/enkit/astore/rpc/auth"
+	apb "github.com/enfabrica/enkit/auth/proto"
 	"github.com/enfabrica/enkit/lib/goroutine"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
@@ -27,7 +27,7 @@ import (
 
 type Machine struct {
 	MachinistClient mpb.ControllerClient
-	AuthClient      auth.AuthClient
+	AuthClient      apb.AuthClient
 	Repeater        *retry.Options
 	Log             logger.Logger
 
@@ -84,7 +84,7 @@ func (n *Machine) Enroll() error {
 	if err != nil {
 		return err
 	}
-	hcr := &auth.HostCertificateRequest{
+	hcr := &apb.HostCertificateRequest{
 		Hostcert: pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: ssh.MarshalAuthorizedKey(pubKey)}),
 		Hosts:    n.SSHPrincipals,
 	}
