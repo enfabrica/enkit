@@ -322,3 +322,14 @@ filegroup(
             "@enkit//bazel/dependencies/dropbear:0001-override-authorized-keys.patch",
         ],
     )
+
+    # Explicitly load Jsonnet here so that we control the version, instead of
+    # rules_jsonnet and dependencies, which tend to use an old version.
+    http_archive(
+        name = "cpp_jsonnet",
+        sha256 = "77bd269073807731f6b11ff8d7c03e9065aafb8e4d038935deb388325e52511b",
+        strip_prefix = "jsonnet-0.20.0",
+        urls = [
+            "https://github.com/google/jsonnet/archive/v0.20.0.tar.gz",
+        ],
+    )
