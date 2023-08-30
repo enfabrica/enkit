@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["cas.go"],
+    importpath = "github.com/enfabrica/enkit/storage/server/cas",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//googleapis/bytestream:go_default_library",
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:execution",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["cas_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//googleapis/bytestream:go_default_library",
+        "//lib/errdiff:go_default_library",
+        "//lib/testutil:go_default_library",
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:execution",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+    ],
+)
