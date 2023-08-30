@@ -104,17 +104,6 @@ func GetAffectedTargets(config *ppb.PresubmitConfig, mode GetMode, opts GetModeO
 	result, errs := mode(opts, log)
 
 	if errs != nil {
-		if result.StartQueryError != nil && result.EndQueryError == nil {
-			// We are calculating targets over a change that fixes the build graph
-			// (broken before, working after). In a presubmit context, we want this
-			// step to succeed, but there is no sensible list of targets that the
-			// change affects since the build graph was broken in one stage.
-			//
-			// Pass here but emit a warning.
-			log.Warnf("Got error at start point:\n%v\n", result.StartQueryError)
-			log.Warnf("Broken build graph detected at start point; this change fixes the build graph, but no targets will be tested. This change must be tested manually.")
-			return nil, nil, nil // No changed targets and no error
-		}
 		return nil, nil, errs
 	}
 
