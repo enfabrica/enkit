@@ -3,7 +3,6 @@
 See README.md for more information.
 """
 
-load("@com_github_google_go_jsonnet//bazel:repositories.bzl", "jsonnet_go_repositories")
 load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 load("@rules_python//python:pip.bzl", "pip_parse")
 load("@python3_8//:defs.bzl", "interpreter")
@@ -31,5 +30,3 @@ def stage_3():
     )
 
     grpc_extra_deps()
-
-    jsonnet_go_repositories()
