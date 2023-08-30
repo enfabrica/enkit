@@ -10,15 +10,15 @@ go_library(
     importpath = "github.com/enfabrica/enkit/astore/server",
     visibility = ["//visibility:private"],
     deps = [
-        "//astore/common:go_default_library",
+        "//auth/common:go_default_library",
         "//astore/rpc/astore:go_default_library",
-        "//astore/rpc/auth:go_default_library",
-        "//astore/server/assets:go_default_library",  # keep
+        "//auth/proto:go_default_library",
+        "//auth/server/assets:go_default_library",  # keep
         "//astore/server/astore:go_default_library",
-        "//astore/server/auth:go_default_library",
+        "//auth/server/auth:go_default_library",
         "//astore/server/configs:go_default_library",  # keep
-        "//astore/server/credentials:go_default_library",  # keep
-        "//astore/server/templates",
+        "//auth/server/credentials:go_default_library",  # keep
+        "//auth/server/templates",
         "//lib/kflags:go_default_library",
         "//lib/kflags/kcobra:go_default_library",
         "//lib/kflags/kconfig:go_default_library",
@@ -78,7 +78,7 @@ go_library(
 # Generate a .go file containing all the web assets.
 go_embed_data(
     name = "embedded-assets",
-    srcs = ["//astore/server/assets:css"] + glob(["assets/**"]),
+    srcs = ["//auth/server/assets:css"] + glob(["assets/**"]),
     flatten = True,
     package = "assets",
     visibility = ["//visibility:public"],

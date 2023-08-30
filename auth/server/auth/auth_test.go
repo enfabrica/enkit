@@ -2,8 +2,8 @@ package auth
 
 import (
 	"context"
-	"github.com/enfabrica/enkit/astore/common"
-	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/auth/common"
+	apb "github.com/enfabrica/enkit/auth/proto"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
@@ -26,11 +26,11 @@ func TestInvalid(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func Authenticate(t *testing.T, rng *rand.Rand, server *Server, pubkey []byte) *auth.TokenResponse {
+func Authenticate(t *testing.T, rng *rand.Rand, server *Server, pubkey []byte) *apb.TokenResponse {
 	pub, priv, err := box.GenerateKey(rng)
 	assert.Nil(t, err, err)
 
-	areq := &auth.AuthenticateRequest{
+	areq := &apb.AuthenticateRequest{
 		Key:    (*pub)[:],
 		User:   "emma.goldman",
 		Domain: "writers.org",
@@ -55,7 +55,7 @@ func Authenticate(t *testing.T, rng *rand.Rand, server *Server, pubkey []byte) *
 	}}, Cookie: violence}
 	server.FeedToken(*key, oa)
 
-	treq := &auth.TokenRequest{
+	treq := &apb.TokenRequest{
 		Url:       aresp.Url,
 		Publickey: pubkey,
 	}

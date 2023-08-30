@@ -14,7 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/enfabrica/enkit/astore/rpc/auth"
+	apb "github.com/enfabrica/enkit/auth/proto"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"golang.org/x/crypto/ssh"
 )
@@ -28,7 +28,7 @@ func (i *Install) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("can't connect to auth server: %w", err)
 	}
-	authClient := auth.NewAuthClient(conn)
+	authClient := apb.NewAuthClient(conn)
 
 	// Check file overwriting
 	created, overwritten, err := i.getAffectedFiles()
@@ -93,7 +93,7 @@ func (i *Install) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't parse public key content: %w", err)
 	}
 
-	req := &auth.HostCertificateRequest{
+	req := &apb.HostCertificateRequest{
 		Hostcert: pem.EncodeToMemory(&pem.Block{
 			Type:  "PUBLIC KEY",
 			Bytes: ssh.MarshalAuthorizedKey(pubKey),

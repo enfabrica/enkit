@@ -3,8 +3,8 @@ package kauth
 import (
 	"context"
 	"fmt"
-	"github.com/enfabrica/enkit/astore/common"
-	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/auth/common"
+	apb "github.com/enfabrica/enkit/auth/proto"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/retry"
@@ -30,12 +30,12 @@ type EnkitCredentials struct {
 
 // PerformLogin will login with the provider auth client, retry and logger. It does not care about the cache.
 // If you wish to save the result, please call SaveCredentials
-func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.Options, rng *rand.Rand, username, domain string) (*EnkitCredentials, error) {
+func PerformLogin(authClient apb.AuthClient, l logger.Logger, repeater *retry.Options, rng *rand.Rand, username, domain string) (*EnkitCredentials, error) {
 	pubBox, privBox, err := box.GenerateKey(rng)
 	if err != nil {
 		return nil, err
 	}
-	areq := &auth.AuthenticateRequest{
+	areq := &apb.AuthenticateRequest{
 		Key:    (*pubBox)[:],
 		User:   username,
 		Domain: domain,
@@ -77,11 +77,11 @@ func PerformLogin(authClient auth.AuthClient, l logger.Logger, repeater *retry.O
 	if err != nil {
 		return nil, err
 	}
-	treq := &auth.TokenRequest{
+	treq := &apb.TokenRequest{
 		Url:       ares.Url,
 		Publickey: ssh.MarshalAuthorizedKey(sshPub),
 	}
-	var tres *auth.TokenResponse
+	var tres *apb.TokenResponse
 	if err := repeater.Run(func() error {
 		l.Infof("Polling to retrieve token.")
 		t, err := authClient.Token(context.TODO(), treq)

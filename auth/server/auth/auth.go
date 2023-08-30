@@ -6,8 +6,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/enfabrica/enkit/astore/common"
-	"github.com/enfabrica/enkit/astore/rpc/auth"
+	"github.com/enfabrica/enkit/auth/common"
+	apb "github.com/enfabrica/enkit/auth/proto"
 	"github.com/enfabrica/enkit/lib/kcerts"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/oauth"
@@ -39,7 +39,7 @@ type Server struct {
 	log                   logger.Logger
 }
 
-func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertificateRequest) (*auth.HostCertificateResponse, error) {
+func (s *Server) HostCertificate(ctx context.Context, request *apb.HostCertificateRequest) (*apb.HostCertificateResponse, error) {
 	b, _ := pem.Decode(request.Hostcert)
 	if b == nil {
 		return nil, errors.New("the public key was empty, or was an invlaid block")
@@ -52,7 +52,7 @@ func (s *Server) HostCertificate(ctx context.Context, request *auth.HostCertific
 	if err != nil {
 		return nil, err
 	}
-	return &auth.HostCertificateResponse{
+	return &apb.HostCertificateResponse{
 		Capublickey:    s.marshalledCAPublicKey,
 		Signedhostcert: ssh.MarshalAuthorizedKey(cert),
 	}, nil
@@ -90,12 +90,12 @@ func (s *Server) GetChannel(cancel context.CancelFunc, pub common.Key) chan oaut
 	return jar.channel
 }
 
-func (s *Server) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error) {
+func (s *Server) Authenticate(ctx context.Context, req *apb.AuthenticateRequest) (*apb.AuthenticateResponse, error) {
 	key, err := common.KeyFromSlice(req.Key)
 	if err != nil {
 		return nil, err
 	}
-	resp := &auth.AuthenticateResponse{
+	resp := &apb.AuthenticateResponse{
 		Key: (*s.serverPub)[:],
 		Url: fmt.Sprintf("%s/%s", s.authURL, hex.EncodeToString(key[:])),
 	}
@@ -107,7 +107,7 @@ func (s *Server) FeedToken(key common.Key, cookie oauth.AuthData) {
 	channel <- cookie
 }
 
-func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.TokenResponse, error) {
+func (s *Server) Token(ctx context.Context, req *apb.TokenRequest) (*apb.TokenResponse, error) {
 	clientPub, err := common.KeyFromURL(req.Url)
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		// If the ca signer is nil that means the CA was never passed in flags, if the request never sent a public key
 		// then so ssh certs will be sent back.
 		if s.caPrivateKey == nil || len(req.Publickey) <= 0 {
-			return &auth.TokenResponse{
+			return &apb.TokenResponse{
 				Nonce: nonce[:],
 				Token: box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			}, nil
@@ -158,7 +158,7 @@ func (s *Server) Token(ctx context.Context, req *auth.TokenRequest) (*auth.Token
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "error signing key - %s", err)
 		}
-		return &auth.TokenResponse{
+		return &apb.TokenResponse{
 			Nonce:       nonce[:],
 			Token:       box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
 			Capublickey: s.marshalledCAPublicKey,

@@ -1,0 +1,44 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
+
+# Fetched by doing:
+#
+# ```
+# npm i material-design-icons
+# npm i material-design-lite
+# ```
+#
+# and then copying these files out of `node_modules` into this dir.
+filegroup(
+    name = "css",
+    srcs = [
+        "MaterialIcons-Regular.ttf",
+        "MaterialIcons-Regular.woff",
+        "MaterialIcons-Regular.woff2",
+        "material.min.css",
+        "material.min.css.map",
+        "material.min.js",
+        "material.min.js.map",
+        "material-icons.css",
+    ],
+    visibility = ["//astore/server:__subpackages__"],
+)
+
+# Generate a .go file containing all the web assets.
+go_embed_data(
+    name = "embedded-assets",
+    srcs = [":css"] + glob(["**"]),
+    flatten = True,
+    package = "assets",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "empty.go",
+        ":embedded-assets",  # keep
+    ],
+    importpath = "github.com/enfabrica/enkit/auth/server/assets",
+    visibility = ["//visibility:public"],
+)
