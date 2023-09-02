@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -128,24 +127,26 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 		astoreFlags.PublishBaseURL = listURL
 	}
 
-	astoreServer, err := astore.New(rng, astore.WithFlags(astoreFlags))
+	log := logger.Go
+
+	astoreServer, err := astore.New(rng, astore.WithLogger(log), astore.WithFlags(astoreFlags))
 	if err != nil {
 		return fmt.Errorf("could not initialize storage - %s Maybe you need to pass --credentials-file or --project-id-file?", err)
 	}
 
-	authServer, err := auth.New(rng, auth.WithFlags(authFlags))
+	authServer, err := auth.New(rng, auth.WithLogger(log), auth.WithFlags(authFlags))
 	if err != nil {
 		return fmt.Errorf("could not initialize auth server - %s", err)
 	}
 
-	reqAuth, err := oauth.New(rng, oauth.WithLogging(logger.Go), providers.WithFlags(oauthFlags))
+	reqAuth, err := oauth.New(rng, oauth.WithLogging(log), providers.WithFlags(oauthFlags))
 	if err != nil {
 		return fmt.Errorf("could not initialize primary authenticator - %w", err)
 	}
 	var authWeb oauth.IAuthenticator
 	authWeb = reqAuth
 	if useMulti {
-		optAuth, err := oauth.New(rng, oauth.WithLogging(logger.Go), providers.WithFlags(optAuthFlags))
+		optAuth, err := oauth.New(rng, oauth.WithLogging(log), providers.WithFlags(optAuthFlags))
 		if err != nil {
 			return fmt.Errorf("could not initialize secondary authenticator - %w", err)
 		}
@@ -168,15 +169,15 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 	})
 
 	// This is for appengine deployments - see https://cloud.google.com/appengine/docs/legacy/standard/python/how-instances-are-managed#startup
-	mux.HandleFunc("/_ah/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/_ah/", func (w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		log.Printf("received _ah request for %s %s", r.Host, r.URL.Path)
+		log.Infof("received _ah request for %s %s", r.Host, r.URL.Path)
 		fmt.Fprintf(w, "I hear you.")
 	})
 
 	kassets.RegisterAssets(&stats, assets.Data, "", kassets.BasicMapper(kassets.MuxMapper(mux)))
 	kassets.RegisterAssets(&stats, configs.Data, "", kassets.PrefixMapper("/configs", kassets.StripExtensionMapper(kassets.BasicMapper(kassets.MuxMapper(mux)))))
-	stats.Log(log.Printf)
+	stats.Log(log.Infof)
 
 	// Published artifacts, web page for human consumption, lists the options available for download.
 	mux.HandleFunc("/l/", func(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +237,7 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 			oauth.WithCookieOptions(kcookie.WithPath("/")),
 		); err != nil {
 			http.Error(w, "oauth failed, no idea why, ask someone to look at the logs", http.StatusUnauthorized)
-			log.Printf("ERROR - could not perform login - %s", err)
+			log.Errorf("ERROR - could not perform login - %s", err)
 			return
 		}
 	})
@@ -254,7 +255,7 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 		data, err := authWeb.PerformAuth(w, r, copts...)
 		if err != nil {
 			ShowResult(w, r, "angry", "Not Authorized", messageFail, http.StatusUnauthorized)
-			log.Printf("ERROR - could not perform token exchange - %s", err)
+			log.Errorf("ERROR - could not perform token exchange - %s", err)
 			return
 		}
 		if authWeb.Complete(data) {
