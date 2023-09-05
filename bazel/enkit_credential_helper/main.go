@@ -71,13 +71,22 @@ func credsCheck(ctx context.Context, creds *Credentials, testURL string) error {
 	return nil
 }
 
-func fetchCreds() (*Credentials, error) {
+func readToken() (string, error) {
+	if token, ok := os.LookupEnv("ENKIT_OVERRIDE_TOKEN"); ok {
+		return token, nil
+	}
+
 	store, err := identity.NewStore("enkit", defcon.Open)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("failed to open identity store %q: %w", "enkit", err)
 	}
 
 	_, token, err := store.Load("")
+	return token, err
+}
+
+func fetchCreds() (*Credentials, error) {
+	token, err := readToken()
 	if err != nil {
 		return nil, err
 	}
