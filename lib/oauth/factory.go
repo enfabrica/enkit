@@ -154,8 +154,8 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 // Credentials structs are generally read from json files.
 // They contain the oauth credentials used by the remote service to recognize the client.
 type Credentials struct {
-	ID     string `json:"id"`
-	Secret string `json:"secret"`
+	ID     string `json:"private_key_id"`
+	Secret string `json:"private_key"`
 }
 
 type Modifier func(auth *Options) error
@@ -222,6 +222,7 @@ func WithSecretJSON(data []byte) Modifier {
 }
 
 func WithSecretFile(path string) Modifier {
+	fmt.Println("secret file")
 	return func(opt *Options) error {
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
