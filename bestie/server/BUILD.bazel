@@ -26,7 +26,7 @@ go_library(
         "@com_github_prometheus_client_golang//prometheus/promauto",
         "@com_github_xenking_zipstream//:zipstream",
         "@com_google_cloud_go_bigquery//:bigquery",
-        "@go_googleapis//google/devtools/build/v1:build_go_proto",
+        "@org_golang_google_genproto//googleapis/devtools/build/v1:build",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext",
         "@org_golang_google_protobuf//proto",

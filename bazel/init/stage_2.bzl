@@ -4,10 +4,12 @@ See README.md for more information.
 """
 
 load("//bazel/meson:meson.bzl", "meson_register_toolchains")
+load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 load("@com_github_atlassian_bazel_tools//multirun:deps.bzl", "multirun_dependencies")
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+load("@googleapis//:repository_rules.bzl", "switched_rules_by_language")
 load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
 load("@io_bazel_rules_docker//go:image.bzl", rules_docker_go_dependencies = "repositories")
 load("@io_bazel_rules_docker//python:image.bzl", rules_docker_python_dependencies = "repositories")
@@ -15,6 +17,8 @@ load("@io_bazel_rules_docker//repositories:deps.bzl", rules_docker_container_dep
 load("@io_bazel_rules_docker//repositories:repositories.bzl", rules_docker_dependencies = "repositories")
 load("@io_bazel_rules_go//extras:embed_data_deps.bzl", "go_embed_data_dependencies")
 load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk", "go_register_toolchains", "go_rules_dependencies")
+load("@io_bazel_rules_jsonnet//jsonnet:jsonnet.bzl", "jsonnet_repositories")
+load("@rules_antlr//antlr:repositories.bzl", "rules_antlr_dependencies")
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
@@ -57,7 +61,7 @@ def stage_2():
     )
 
     go_rules_dependencies()
-    go_register_toolchains(version = "1.20.3")
+    go_register_toolchains()
 
     gazelle_dependencies(go_sdk = "go_sdk_1_20")
     go_embed_data_dependencies()
@@ -85,3 +89,12 @@ def stage_2():
 
     rules_foreign_cc_dependencies()
     meson_register_toolchains()
+
+    # Begin transitive deps required by deps of buildbarn ecosystem
+    switched_rules_by_language(
+        name = "com_google_googleapis_imports",
+    )
+    jsonnet_repositories()
+    rules_js_dependencies()
+    rules_antlr_dependencies("4.10")
+    # End transitive deps required by deps of buildbarn ecosystem

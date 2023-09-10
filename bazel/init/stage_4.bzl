@@ -4,6 +4,7 @@ See README.md for more information.
 """
 
 load("@enkit_pip_deps//:requirements.bzl", python_deps = "install_deps")
+load("@npm//:repositories.bzl", "npm_repositories")
 
 def stage_4():
     """Stage 4 initialization for WORKSPACE.
@@ -15,3 +16,5 @@ def stage_4():
     """
 
     python_deps()
+
+    npm_repositories()
