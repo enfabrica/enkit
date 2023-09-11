@@ -16,7 +16,7 @@ def _codegen_impl(ctx):
         args.add("--override", kvpair)
 
     ctx.actions.run(
-        inputs = ctx.files.data + ctx.files.srcs + ctx.files.schema,
+        inputs = ctx.files.data + ctx.files.srcs + ctx.files.schema + ctx.files.deps,
         outputs = ctx.outputs.outs,
         executable = ctx.executable.codegen_tool,
         arguments = [args],
@@ -43,6 +43,10 @@ codegen = rule(
         "srcs": attr.label_list(
             allow_files = [".jinja2", ".jinja", ".template"],
             doc = "A list of jinja2 template files to import.",
+        ),
+        "deps": attr.label_list(
+            allow_files = [".jinja2", ".jinja", ".template"],
+            doc = "A list of jinja2 template files that 'srcs' depend on.",
         ),
         "schema": attr.label(
             allow_files = [".schema", "schema.yaml"],
