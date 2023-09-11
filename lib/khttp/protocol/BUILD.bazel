@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "protocol",
     srcs = [
         "get.go",
         "writers.go",
@@ -9,8 +9,14 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/khttp/protocol",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/khttp/kclient:go_default_library",
-        "//lib/khttp/krequest:go_default_library",
-        "//lib/multierror:go_default_library",
+        "//lib/khttp/kclient",
+        "//lib/khttp/krequest",
+        "//lib/multierror",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":protocol",
+    visibility = ["//visibility:public"],
 )

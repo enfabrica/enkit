@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "kdns",
     srcs = [
         "dns.go",
         "factory.go",
@@ -11,10 +11,10 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/knetwork/kdns",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/goroutine:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
-        "@com_github_miekg_dns//:go_default_library",
+        "//lib/goroutine",
+        "//lib/logger",
+        "//lib/multierror",
+        "@com_github_miekg_dns//:dns",
     ],
 )
 
@@ -32,5 +32,27 @@ go_test(
         "@com_github_miekg_dns//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
         "@org_uber_go_goleak//:go_default_library",
+    ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kdns",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "kdns_test",
+    srcs = [
+        "dns_test.go",
+        "records_test.go",
+    ],
+    deps = [
+        ":kdns",
+        "//lib/knetwork",
+        "//lib/logger",
+        "@com_github_miekg_dns//:dns",
+        "@com_github_stretchr_testify//assert",
+        "@org_uber_go_goleak//:goleak",
     ],
 )

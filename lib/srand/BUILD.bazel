@@ -1,14 +1,20 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "srand",
     srcs = ["random.go"],
     importpath = "github.com/enfabrica/enkit/lib/srand",
     visibility = ["//visibility:public"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "srand_test",
     srcs = ["random_test.go"],
-    embed = [":go_default_library"],
+    embed = [":srand"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":srand",
+    visibility = ["//visibility:public"],
 )

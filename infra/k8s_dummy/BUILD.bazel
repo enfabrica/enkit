@@ -3,21 +3,21 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_image", "cont
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 go_library(
-    name = "go_default_library",
+    name = "k8s_dummy_lib",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/infra/k8s_dummy",
     visibility = ["//visibility:private"],
     deps = [
-        "//lib/metrics:go_default_library",
-        "//lib/server:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
+        "//lib/metrics",
+        "//lib/server",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
     ],
 )
 
 go_binary(
     name = "k8s_dummy",
-    embed = [":go_default_library"],
+    embed = [":k8s_dummy_lib"],
     visibility = ["//visibility:public"],
 )
 

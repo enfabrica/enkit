@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "metrics",
     srcs = [
         "helper.go",
         "metrics.go",
@@ -9,9 +9,15 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/metrics",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/stamp:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
+        "//lib/stamp",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@com_github_prometheus_client_golang//prometheus/promhttp",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":metrics",
+    visibility = ["//visibility:public"],
 )

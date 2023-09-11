@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "errdiff",
     testonly = True,
     srcs = ["errdiff.go"],
     importpath = "github.com/enfabrica/enkit/lib/errdiff",
@@ -9,7 +9,13 @@ go_library(
 )
 
 go_test(
-    name = "go_default_test",
+    name = "errdiff_test",
     srcs = ["errdiff_test.go"],
-    embed = [":go_default_library"],
+    embed = [":errdiff"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":errdiff",
+    visibility = ["//visibility:public"],
 )

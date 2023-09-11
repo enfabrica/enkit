@@ -1,15 +1,15 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "doc_gen_lib",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/enkit/doc_gen",
     visibility = ["//visibility:private"],
-    deps = ["//enkit/cmd:go_default_library"],
+    deps = ["//enkit/cmd"],
 )
 
 go_binary(
     name = "doc_gen",
-    embed = [":go_default_library"],
+    embed = [":doc_gen_lib"],
     visibility = ["//visibility:public"],
 )

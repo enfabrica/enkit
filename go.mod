@@ -10,7 +10,7 @@ require (
 	cloud.google.com/go/datastore v1.13.0
 	cloud.google.com/go/pubsub v1.33.0
 	cloud.google.com/go/storage v1.31.0
-	github.com/bazelbuild/buildtools v0.0.0-20211007154642-8dd79e56e98e
+	github.com/bazelbuild/buildtools v0.0.0-20220208174414-fc5b9bb898c9
 	github.com/bazelbuild/remote-apis v0.0.0-20230822133051-6c32c3b917cc
 	github.com/bazelbuild/rules_go v0.32.0
 	github.com/buildbarn/bb-remote-execution v0.0.0-20230905173453-70efb72857b0
@@ -45,7 +45,7 @@ require (
 	github.com/soheilhy/cmux v0.1.5
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	github.com/tchap/zapext v1.0.0
 	github.com/ulikunitz/xz v0.5.8
 	github.com/valyala/bytebufferpool v1.0.0
@@ -101,6 +101,7 @@ require (
 	github.com/apache/arrow/go/v11 v11.0.0 // indirect
 	github.com/apache/thrift v0.18.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/buildbarn/bb-storage v0.0.0-20230905110346-c04246b462b6 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -114,6 +115,7 @@ require (
 	github.com/google/flatbuffers v23.3.3+incompatible // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
+	github.com/gordonklaus/ineffassign v0.0.0-20230610083614-0e73809eb601 // indirect
 	github.com/huandu/xstrings v1.3.1 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

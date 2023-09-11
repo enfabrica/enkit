@@ -3,26 +3,26 @@ load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@io_bazel_rules_docker//container:container.bzl", "container_push")
 
 go_library(
-    name = "go_default_library",
+    name = "cmd_lib",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/shims/buildbuddy/cmd",
     visibility = ["//visibility:public"],
     deps = [
-        "//shims/buildbuddy:go_default_library",
-        "@com_github_spf13_cobra//:go_default_library",
+        "//shims/buildbuddy",
+        "@com_github_spf13_cobra//:cobra",
     ],
 )
 
 go_binary(
     name = "cmd",
-    embed = [":go_default_library"],
+    embed = [":cmd_lib"],
     visibility = ["//visibility:public"],
 )
 
 go_image(
     name = "bb-shim",
     base = "@golang_base//image",
-    embed = [":go_default_library"],
+    embed = [":cmd_lib"],
     visibility = ["//visibility:public"],
 )
 

@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "deploy_lib",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/bazel/appengine/deploy",
     visibility = ["//visibility:public"],
@@ -9,6 +9,6 @@ go_library(
 
 go_binary(
     name = "deploy",
-    embed = [":go_default_library"],
+    embed = [":deploy_lib"],
     visibility = ["//visibility:public"],
 )

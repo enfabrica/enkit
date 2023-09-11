@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "service",
     srcs = [
         "license.go",
         "prioritizer.go",
@@ -12,31 +12,37 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//flextape/proto:go_default_library",
-        "@com_github_google_uuid//:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
-        "@org_golang_google_protobuf//types/known/timestamppb:go_default_library",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//types/known/timestamppb",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "service_test",
     srcs = [
         "queue_test.go",
         "service_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":service"],
     deps = [
         "//flextape/proto:go_default_library",
-        "//lib/errdiff:go_default_library",
-        "//lib/testutil:go_default_library",
-        "@com_github_google_go_cmp//cmp:go_default_library",
-        "@com_github_prashantv_gostub//:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
-        "@org_golang_google_protobuf//types/known/timestamppb:go_default_library",
+        "//lib/errdiff",
+        "//lib/testutil",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_prashantv_gostub//:gostub",
+        "@com_github_stretchr_testify//assert",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//types/known/timestamppb",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":service",
+    visibility = ["//visibility:public"],
 )

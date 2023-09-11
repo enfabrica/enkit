@@ -3,23 +3,23 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_image", "cont
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 go_library(
-    name = "go_default_library",
+    name = "bb_reporter_lib",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/bb_reporter",
     visibility = ["//visibility:private"],
     deps = [
-        "//bb_reporter/reporter:go_default_library",
-        "//lib/metrics:go_default_library",
-        "//lib/server:go_default_library",
+        "//bb_reporter/reporter",
+        "//lib/metrics",
+        "//lib/server",
         "@com_github_buildbarn_bb_remote_execution//pkg/proto/completedactionlogger",
-        "@com_github_golang_glog//:go_default_library",
+        "@com_github_golang_glog//:glog",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )
 
 go_binary(
     name = "bb_reporter",
-    embed = [":go_default_library"],
+    embed = [":bb_reporter_lib"],
     visibility = ["//visibility:public"],
 )
 

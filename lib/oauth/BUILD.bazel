@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "oauth",
     srcs = [
         "factory.go",
         "multi.go",
@@ -11,18 +11,24 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/oauth",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/kcerts:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/khttp:go_default_library",
-        "//lib/khttp/kassets:go_default_library",
-        "//lib/khttp/kcookie:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
-        "//lib/oauth/cookie:go_default_library",
-        "//lib/token:go_default_library",
-        "@org_golang_x_crypto//ssh:go_default_library",
-        "@org_golang_x_oauth2//:go_default_library",
-        "@org_golang_x_oauth2//github:go_default_library",
-        "@org_golang_x_oauth2//google:go_default_library",
+        "//lib/kcerts",
+        "//lib/kflags",
+        "//lib/khttp",
+        "//lib/khttp/kassets",
+        "//lib/khttp/kcookie",
+        "//lib/logger",
+        "//lib/multierror",
+        "//lib/oauth/cookie",
+        "//lib/token",
+        "@org_golang_x_crypto//ssh",
+        "@org_golang_x_oauth2//:oauth2",
+        "@org_golang_x_oauth2//github",
+        "@org_golang_x_oauth2//google",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":oauth",
+    visibility = ["//visibility:public"],
 )

@@ -1,27 +1,27 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "ptunnel",
     srcs = ["tunnel.go"],
     importpath = "github.com/enfabrica/enkit/proxy/ptunnel",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/kflags:go_default_library",
-        "//lib/khttp/kclient:go_default_library",
-        "//lib/khttp/krequest:go_default_library",
-        "//lib/khttp/protocol:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/retry:go_default_library",
-        "//proxy/nasshp:go_default_library",
-        "@com_github_gorilla_websocket//:go_default_library",
-        "@com_github_jackpal_gateway//:go_default_library",
+        "//lib/kflags",
+        "//lib/khttp/kclient",
+        "//lib/khttp/krequest",
+        "//lib/khttp/protocol",
+        "//lib/logger",
+        "//lib/retry",
+        "//proxy/nasshp",
+        "@com_github_gorilla_websocket//:websocket",
+        "@com_github_jackpal_gateway//:gateway",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "ptunnel_test",
     srcs = ["tunnel_test.go"],
-    embed = [":go_default_library"],
+    embed = [":ptunnel"],
     # Running this test in Cloud Build causes unexpected 401 errors when trying
     # to resolve URLs like
     # `http://127.0.0.1:44527/proxy?host=google.com&port=55`
@@ -32,15 +32,21 @@ go_test(
         "no-remote-exec",
     ],
     deps = [
-        "//lib/errdiff:go_default_library",
-        "//lib/khttp:go_default_library",
-        "//lib/khttp/ktest:go_default_library",
-        "//lib/khttp/protocol:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/srand:go_default_library",
-        "//lib/token:go_default_library",
-        "//proxy/nasshp:go_default_library",
-        "//proxy/utils:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/errdiff",
+        "//lib/khttp",
+        "//lib/khttp/ktest",
+        "//lib/khttp/protocol",
+        "//lib/logger",
+        "//lib/srand",
+        "//lib/token",
+        "//proxy/nasshp",
+        "//proxy/utils",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":ptunnel",
+    visibility = ["//visibility:public"],
 )

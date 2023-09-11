@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "cache",
     srcs = [
         "cache.go",
         "local.go",
@@ -9,13 +9,19 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/cache",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/kflags:go_default_library",
-        "@com_github_kirsle_configdir//:go_default_library",
+        "//lib/kflags",
+        "@com_github_kirsle_configdir//:configdir",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "cache_test",
     srcs = ["local_test.go"],
-    embed = [":go_default_library"],
+    embed = [":cache"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":cache",
+    visibility = ["//visibility:public"],
 )

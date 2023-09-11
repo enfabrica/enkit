@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "commands",
     srcs = [
         "agent.go",
         "ssh.go",
@@ -10,35 +10,41 @@ go_library(
     importpath = "github.com/enfabrica/enkit/proxy/ptunnel/commands",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/client:go_default_library",
-        "//lib/goroutine:go_default_library",
-        "//lib/kcerts:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/kflags/kcobra:go_default_library",
-        "//lib/khttp/krequest:go_default_library",
-        "//lib/khttp/protocol:go_default_library",
-        "//lib/knetwork:go_default_library",
-        "//lib/retry:go_default_library",
-        "//proxy/nasshp:go_default_library",
-        "//proxy/ptunnel:go_default_library",
-        "@com_github_spf13_cobra//:go_default_library",
+        "//lib/client",
+        "//lib/goroutine",
+        "//lib/kcerts",
+        "//lib/kflags",
+        "//lib/kflags/kcobra",
+        "//lib/khttp/krequest",
+        "//lib/khttp/protocol",
+        "//lib/knetwork",
+        "//lib/retry",
+        "//proxy/nasshp",
+        "//proxy/ptunnel",
+        "@com_github_spf13_cobra//:cobra",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "commands_test",
     srcs = [
         "agent_test.go",
         "ssh_test.go",
         "tunnel_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":commands"],
     deps = [
-        "//lib/client:go_default_library",
-        "//lib/errdiff:go_default_library",
-        "//lib/kcerts:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/logger:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/client",
+        "//lib/errdiff",
+        "//lib/kcerts",
+        "//lib/kflags",
+        "//lib/logger",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":commands",
+    visibility = ["//visibility:public"],
 )

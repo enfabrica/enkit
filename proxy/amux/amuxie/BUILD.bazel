@@ -1,12 +1,18 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "amuxie",
     srcs = ["amuxie.go"],
     importpath = "github.com/enfabrica/enkit/proxy/amux/amuxie",
     visibility = ["//visibility:public"],
     deps = [
-        "//proxy/amux:go_default_library",
-        "@com_github_kataras_muxie//:go_default_library",
+        "//proxy/amux",
+        "@com_github_kataras_muxie//:muxie",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":amuxie",
+    visibility = ["//visibility:public"],
 )

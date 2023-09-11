@@ -1,16 +1,16 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "bes_publisher_lib",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/bes_publisher",
     visibility = ["//visibility:private"],
     deps = [
-        "//bes_publisher/buildevent:go_default_library",
-        "//lib/metrics:go_default_library",
-        "//lib/server:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
-        "@com_google_cloud_go_pubsub//:go_default_library",
+        "//bes_publisher/buildevent",
+        "//lib/metrics",
+        "//lib/server",
+        "@com_github_golang_glog//:glog",
+        "@com_google_cloud_go_pubsub//:pubsub",
         "@go_googleapis//google/devtools/build/v1:build_go_proto",
         "@org_golang_google_grpc//:go_default_library",
     ],
@@ -18,6 +18,6 @@ go_library(
 
 go_binary(
     name = "bes_publisher",
-    embed = [":go_default_library"],
+    embed = [":bes_publisher_lib"],
     visibility = ["//visibility:public"],
 )

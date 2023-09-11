@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "httpp",
     srcs = [
         "build.go",
         "interface.go",
@@ -10,22 +10,28 @@ go_library(
     importpath = "github.com/enfabrica/enkit/proxy/httpp",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/khttp:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
-        "//lib/oauth:go_default_library",
-        "//lib/slice:go_default_library",
-        "//proxy/amux:go_default_library",
+        "//lib/khttp",
+        "//lib/logger",
+        "//lib/multierror",
+        "//lib/oauth",
+        "//lib/slice",
+        "//proxy/amux",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "httpp_test",
     srcs = ["build_test.go"],
-    embed = [":go_default_library"],
+    embed = [":httpp"],
     deps = [
-        "//lib/khttp:go_default_library",
-        "//proxy/amux/amuxie:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/khttp",
+        "//proxy/amux/amuxie",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":httpp",
+    visibility = ["//visibility:public"],
 )

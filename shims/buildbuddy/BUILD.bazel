@@ -1,19 +1,25 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "buildbuddy",
     srcs = ["urls.go"],
     importpath = "github.com/enfabrica/enkit/shims/buildbuddy",
     visibility = ["//visibility:public"],
-    deps = ["@com_github_rs_cors//:go_default_library"],
+    deps = ["@com_github_rs_cors//:cors"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "buildbuddy_test",
     srcs = ["urls_test.go"],
-    embed = [":go_default_library"],
+    embed = [":buildbuddy"],
     deps = [
-        "//lib/errdiff:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/errdiff",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":buildbuddy",
+    visibility = ["//visibility:public"],
 )

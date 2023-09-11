@@ -1,22 +1,28 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "git",
     srcs = [
         "git.go",
         "worktree.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/git",
     visibility = ["//visibility:public"],
-    deps = ["@com_github_go_git_go_git_v5//:go_default_library"],
+    deps = ["@com_github_go_git_go_git_v5//:go-git"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "git_test",
     srcs = ["worktree_test.go"],
-    embed = [":go_default_library"],
+    embed = [":git"],
     deps = [
-        "@com_github_prashantv_gostub//:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "@com_github_prashantv_gostub//:gostub",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":git",
+    visibility = ["//visibility:public"],
 )

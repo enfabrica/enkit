@@ -1,15 +1,21 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "common",
     srcs = ["license.go"],
     importpath = "github.com/enfabrica/enkit/manager/common",
     visibility = ["//visibility:public"],
     deps = [
-        "//astore/server/astore:go_default_library",
-        "//manager/rpc:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//metadata:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
+        "//astore/server/astore",
+        "//manager/rpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//status",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":common",
+    visibility = ["//visibility:public"],
 )

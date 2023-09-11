@@ -1,12 +1,18 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "ccontext",
     srcs = ["context.go"],
     importpath = "github.com/enfabrica/enkit/lib/client/ccontext",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/logger:go_default_library",
-        "//lib/progress:go_default_library",
+        "//lib/logger",
+        "//lib/progress",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":ccontext",
+    visibility = ["//visibility:public"],
 )

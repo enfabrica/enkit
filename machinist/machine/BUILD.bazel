@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "machine",
     srcs = [
         "commands.go",
         "factory.go",
@@ -11,20 +11,20 @@ go_library(
     importpath = "github.com/enfabrica/enkit/machinist/machine",
     visibility = ["//visibility:public"],
     deps = [
-        "//auth/proto:go_default_library",
-        "//lib/client:go_default_library",
-        "//lib/goroutine:go_default_library",
-        "//lib/kcerts:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
-        "//lib/retry:go_default_library",
-        "//machinist/config:go_default_library",
+        "//auth/proto",
+        "//lib/client",
+        "//lib/goroutine",
+        "//lib/kcerts",
+        "//lib/logger",
+        "//lib/multierror",
+        "//lib/retry",
+        "//machinist/config",
         "//machinist/machine/assets:go_default_library",
-        "//machinist/polling:go_default_library",
+        "//machinist/polling",
         "//machinist/rpc:machinist-go",
-        "@com_github_spf13_cobra//:go_default_library",
+        "@com_github_spf13_cobra//:cobra",
         "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_x_crypto//ssh:go_default_library",
+        "@org_golang_x_crypto//ssh",
     ],
 )
 
@@ -35,5 +35,21 @@ go_test(
         ":go_default_library",
         "//machinist/machine/assets:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
+    ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":machine",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "machine_test",
+    srcs = ["templates_test.go"],
+    deps = [
+        ":machine",
+        "//machinist/machine/assets:go_default_library",
+        "@com_github_stretchr_testify//assert",
     ],
 )

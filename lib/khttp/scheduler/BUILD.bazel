@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "scheduler",
     srcs = [
         "heap.go",
         "scheduler.go",
@@ -11,11 +11,17 @@ go_library(
 )
 
 go_test(
-    name = "go_default_test",
+    name = "scheduler_test",
     srcs = [
         "heap_test.go",
         "scheduler_test.go",
     ],
-    embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    embed = [":scheduler"],
+    deps = ["@com_github_stretchr_testify//assert"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":scheduler",
+    visibility = ["//visibility:public"],
 )

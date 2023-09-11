@@ -1,14 +1,20 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "exec",
     srcs = ["bb_clientd.go"],
     embedsrcs = glob(["templates/*"]),
     importpath = "github.com/enfabrica/enkit/lib/kbuildbarn/exec",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/logger:go_default_library",
-        "//lib/retry:go_default_library",
-        "@com_github_mitchellh_go_ps//:go_default_library",
+        "//lib/logger",
+        "//lib/retry",
+        "@com_github_mitchellh_go_ps//:go-ps",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":exec",
+    visibility = ["//visibility:public"],
 )

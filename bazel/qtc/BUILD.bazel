@@ -1,12 +1,18 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "qtc",
     srcs = ["dummy.go"],
     importpath = "github.com/enfabrica/enkit/bazel/qtc",
     visibility = ["//visibility:public"],
     deps = [
-        "@com_github_valyala_bytebufferpool//:go_default_library",
-        "@com_github_valyala_quicktemplate//:go_default_library",
+        "@com_github_valyala_bytebufferpool//:bytebufferpool",
+        "@com_github_valyala_quicktemplate//:quicktemplate",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":qtc",
+    visibility = ["//visibility:public"],
 )

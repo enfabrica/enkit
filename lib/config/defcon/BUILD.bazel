@@ -1,12 +1,18 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "defcon",
     srcs = ["default.go"],
     importpath = "github.com/enfabrica/enkit/lib/config/defcon",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/config:go_default_library",
-        "//lib/config/directory:go_default_library",
+        "//lib/config",
+        "//lib/config/directory",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":defcon",
+    visibility = ["//visibility:public"],
 )

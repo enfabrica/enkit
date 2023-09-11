@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "astore",
     srcs = [
         "astore.go",
         "delete.go",
@@ -14,41 +14,47 @@ go_library(
     importpath = "github.com/enfabrica/enkit/astore/server/astore",
     visibility = ["//visibility:public"],
     deps = [
-        "//astore/rpc/astore:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/oauth:go_default_library",
-        "//lib/retry:go_default_library",
-        "@com_google_cloud_go_datastore//:go_default_library",
-        "@com_google_cloud_go_storage//:go_default_library",
-        "@org_golang_google_api//iterator:go_default_library",
-        "@org_golang_google_api//option:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
-        "@org_golang_x_oauth2//google:go_default_library",
+        "//astore/rpc/astore",
+        "//lib/kflags",
+        "//lib/logger",
+        "//lib/oauth",
+        "//lib/retry",
+        "@com_google_cloud_go_datastore//:datastore",
+        "@com_google_cloud_go_storage//:storage",
+        "@org_golang_google_api//iterator",
+        "@org_golang_google_api//option",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_x_oauth2//google",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "astore_test",
     srcs = [
         "astore_test.go",
         "retrieve_test.go",
         "util_test.go",
     ],
     data = glob(["testdata/**"]),
-    embed = [":go_default_library"],
+    embed = [":astore"],
     local = True,
     deps = [
-        "//astore/client/astore:go_default_library",
-        "//astore/rpc/astore:go_default_library",
-        "//lib/errdiff:go_default_library",
-        "//lib/testutil:go_default_library",
-        "@com_github_prashantv_gostub//:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
-        "@com_google_cloud_go_datastore//:go_default_library",
-        "@com_google_cloud_go_storage//:go_default_library",
+        "//astore/client/astore",
+        "//astore/rpc/astore",
+        "//lib/errdiff",
+        "//lib/testutil",
+        "@com_github_prashantv_gostub//:gostub",
+        "@com_github_stretchr_testify//assert",
+        "@com_google_cloud_go_datastore//:datastore",
+        "@com_google_cloud_go_storage//:storage",
         "@go_googleapis//google/datastore/v1:datastore_go_proto",
         "@io_bazel_rules_go//proto/wkt:wrappers_go_proto",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":astore",
+    visibility = ["//visibility:public"],
 )

@@ -1,9 +1,15 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "goroutine",
     srcs = ["gochan.go"],
     importpath = "github.com/enfabrica/enkit/lib/goroutine",
     visibility = ["//visibility:public"],
-    deps = ["//lib/multierror:go_default_library"],
+    deps = ["//lib/multierror"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":goroutine",
+    visibility = ["//visibility:public"],
 )

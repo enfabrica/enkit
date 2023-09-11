@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "nasshp",
     srcs = [
         "blocking.go",
         "browser.go",
@@ -13,34 +13,40 @@ go_library(
     importpath = "github.com/enfabrica/enkit/proxy/nasshp",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/kflags:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/oauth:go_default_library",
-        "//lib/token:go_default_library",
-        "//proxy/utils:go_default_library",
-        "@com_github_gorilla_websocket//:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "//lib/kflags",
+        "//lib/logger",
+        "//lib/oauth",
+        "//lib/token",
+        "//proxy/utils",
+        "@com_github_gorilla_websocket//:websocket",
+        "@com_github_prometheus_client_golang//prometheus",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "nasshp_test",
     srcs = [
         "blocking_test.go",
         "nassh_test.go",
         "window_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":nasshp"],
     deps = [
-        "//lib/khttp:go_default_library",
-        "//lib/khttp/ktest:go_default_library",
-        "//lib/khttp/protocol:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/srand:go_default_library",
-        "//lib/token:go_default_library",
-        "//proxy/utils:go_default_library",
-        "@com_github_gorilla_websocket//:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
-        "@com_github_stretchr_testify//require:go_default_library",
+        "//lib/khttp",
+        "//lib/khttp/ktest",
+        "//lib/khttp/protocol",
+        "//lib/logger",
+        "//lib/srand",
+        "//lib/token",
+        "//proxy/utils",
+        "@com_github_gorilla_websocket//:websocket",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":nasshp",
+    visibility = ["//visibility:public"],
 )

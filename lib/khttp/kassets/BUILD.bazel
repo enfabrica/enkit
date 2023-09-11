@@ -1,13 +1,19 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "kassets",
     srcs = ["assets.go"],
     importpath = "github.com/enfabrica/enkit/lib/khttp/kassets",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/khttp:go_default_library",
-        "//lib/logger:go_default_library",
-        "@com_github_dustin_go_humanize//:go_default_library",
+        "//lib/khttp",
+        "//lib/logger",
+        "@com_github_dustin_go_humanize//:go-humanize",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kassets",
+    visibility = ["//visibility:public"],
 )

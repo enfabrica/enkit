@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "kconfig",
     srcs = [
         "commandretriever.go",
         "config.go",
@@ -12,23 +12,23 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/kflags/kconfig",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/cache:go_default_library",
-        "//lib/config/marshal:go_default_library",
-        "//lib/config/remote:go_default_library",
-        "//lib/karchive:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/khttp/downloader:go_default_library",
-        "//lib/khttp/kcache:go_default_library",
-        "//lib/khttp/protocol:go_default_library",
-        "//lib/khttp/workpool:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
-        "//lib/retry:go_default_library",
+        "//lib/cache",
+        "//lib/config/marshal",
+        "//lib/config/remote",
+        "//lib/karchive",
+        "//lib/kflags",
+        "//lib/khttp/downloader",
+        "//lib/khttp/kcache",
+        "//lib/khttp/protocol",
+        "//lib/khttp/workpool",
+        "//lib/logger",
+        "//lib/multierror",
+        "//lib/retry",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "kconfig_test",
     srcs = [
         "commandretriever_test.go",
         "config_test.go",
@@ -36,19 +36,25 @@ go_test(
         "retriever_test.go",
     ],
     data = glob(["testdata/**"]),
-    embed = [":go_default_library"],
+    embed = [":kconfig"],
     tags = [
         # Test depends on being able to open the detected home directory, which
         # may not exist on remote executors.
         "no-remote-exec",
     ],
     deps = [
-        "//lib/cache:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/khttp/downloader:go_default_library",
-        "//lib/khttp/ktest:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/retry:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/cache",
+        "//lib/kflags",
+        "//lib/khttp/downloader",
+        "//lib/khttp/ktest",
+        "//lib/logger",
+        "//lib/retry",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kconfig",
+    visibility = ["//visibility:public"],
 )

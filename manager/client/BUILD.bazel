@@ -2,24 +2,24 @@ load("//bazel/astore:defs.bzl", "astore_upload")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "client_lib",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/manager/client",
     visibility = ["//visibility:private"],
     deps = [
-        "//flextape/client:go_default_library",
+        "//flextape/client",
         "//flextape/proto:go_default_library",
-        "//manager/rpc:go_default_library",
-        "@com_github_google_uuid//:go_default_library",
+        "//manager/rpc",
+        "@com_github_google_uuid//:uuid",
         "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
 )
 
 go_binary(
     name = "client",
-    embed = [":go_default_library"],
+    embed = [":client_lib"],
     visibility = ["//visibility:public"],
 )
 

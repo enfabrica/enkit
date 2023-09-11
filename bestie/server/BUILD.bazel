@@ -3,7 +3,7 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
 
 go_library(
-    name = "go_default_library",
+    name = "server_lib",
     srcs = [
         "bigquery_metrics.go",
         "main.go",
@@ -15,28 +15,28 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//bestie/proto:go_default_library",
-        "//lib/kbuildbarn:go_default_library",
-        "//lib/metrics:go_default_library",
-        "//lib/multierror:go_default_library",
-        "//lib/server:go_default_library",
+        "//lib/kbuildbarn",
+        "//lib/metrics",
+        "//lib/multierror",
+        "//lib/server",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
-        "@com_github_golang_glog//:go_default_library",
+        "@com_github_golang_glog//:glog",
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
-        "@com_github_prometheus_client_golang//prometheus:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
-        "@com_github_xenking_zipstream//:go_default_library",
-        "@com_google_cloud_go_bigquery//:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@com_github_xenking_zipstream//:zipstream",
+        "@com_google_cloud_go_bigquery//:bigquery",
         "@go_googleapis//google/devtools/build/v1:build_go_proto",
         "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_protobuf//encoding/prototext:go_default_library",
-        "@org_golang_google_protobuf//proto:go_default_library",
-        "@org_golang_google_protobuf//types/known/emptypb:go_default_library",
+        "@org_golang_google_protobuf//encoding/prototext",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/emptypb",
     ],
 )
 
 go_binary(
     name = "bestie",
-    embed = [":go_default_library"],
+    embed = [":server_lib"],
     visibility = ["//visibility:public"],
 )
 
