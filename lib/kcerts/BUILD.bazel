@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "kcerts",
     srcs = [
         "cache.go",
         "certs.go",
@@ -13,34 +13,40 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/kcerts",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/cache:go_default_library",
-        "//lib/config/directory:go_default_library",
-        "//lib/config/marshal:go_default_library",
-        "//lib/kcerts/ked25519:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
-        "//lib/srand:go_default_library",
-        "@com_github_mitchellh_go_homedir//:go_default_library",
-        "@org_golang_x_crypto//ssh:go_default_library",
-        "@org_golang_x_crypto//ssh/agent:go_default_library",
+        "//lib/cache",
+        "//lib/config/directory",
+        "//lib/config/marshal",
+        "//lib/kcerts/ked25519",
+        "//lib/kflags",
+        "//lib/logger",
+        "//lib/multierror",
+        "//lib/srand",
+        "@com_github_mitchellh_go_homedir//:go-homedir",
+        "@org_golang_x_crypto//ssh",
+        "@org_golang_x_crypto//ssh/agent",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "kcerts_test",
     srcs = [
         "cache_test.go",
         "certs_test.go",
         "signer_test.go",
         "ssh_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":kcerts"],
     deps = [
-        "//lib/cache:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/logger/klog:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
-        "@org_golang_x_crypto//ssh:go_default_library",
+        "//lib/cache",
+        "//lib/kflags",
+        "//lib/logger/klog",
+        "@com_github_stretchr_testify//assert",
+        "@org_golang_x_crypto//ssh",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kcerts",
+    visibility = ["//visibility:public"],
 )

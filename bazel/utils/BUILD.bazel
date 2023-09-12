@@ -37,8 +37,8 @@ genrule(
 diff_test(
     name = "foobar.bin-diff_test",
     actual = "foobar.bin",
-    expected = "testdata/expected.foobar.bin",
     binary = True,
+    expected = "testdata/expected.foobar.bin",
 )
 
 write_to_file(

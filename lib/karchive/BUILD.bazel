@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "karchive",
     srcs = [
         "decoder.go",
         "mkdir.go",
@@ -10,22 +10,28 @@ go_library(
     ],
     importpath = "github.com/enfabrica/enkit/lib/karchive",
     visibility = ["//visibility:public"],
-    deps = ["@com_github_ulikunitz_xz//:go_default_library"],
+    deps = ["@com_github_ulikunitz_xz//:xz"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "karchive_test",
     srcs = [
         "mkdir_test.go",
         "untar_test.go",
         "unzip_test.go",
     ],
     data = glob(["testdata/**"]),
-    embed = [":go_default_library"],
+    embed = [":karchive"],
     deps = [
-        "//lib/errdiff:go_default_library",
-        "//lib/testutil:go_default_library",
-        "@com_github_prashantv_gostub//:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/errdiff",
+        "//lib/testutil",
+        "@com_github_prashantv_gostub//:gostub",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":karchive",
+    visibility = ["//visibility:public"],
 )

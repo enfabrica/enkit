@@ -1,13 +1,19 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "retry",
     srcs = ["retry.go"],
     importpath = "github.com/enfabrica/enkit/lib/retry",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/kflags:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
+        "//lib/kflags",
+        "//lib/logger",
+        "//lib/multierror",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":retry",
+    visibility = ["//visibility:public"],
 )

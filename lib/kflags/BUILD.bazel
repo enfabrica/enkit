@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "kflags",
     srcs = [
         "assets.go",
         "bytefile.go",
@@ -13,23 +13,29 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/kflags",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
+        "//lib/logger",
+        "//lib/multierror",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "kflags_test",
     srcs = [
         "defaults_test.go",
         "env_test.go",
         "flags_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":kflags"],
     tags = [
         # This test depends on being able to do `chtimes` on runfiles, which may
         # not be possible on remote executors.
         "no-remote-exec",
     ],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    deps = ["@com_github_stretchr_testify//assert"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kflags",
+    visibility = ["//visibility:public"],
 )

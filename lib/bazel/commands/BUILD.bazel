@@ -1,17 +1,23 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "commands",
     srcs = ["commands.go"],
     importpath = "github.com/enfabrica/enkit/lib/bazel/commands",
     visibility = ["//visibility:public"],
     deps = [
-        "//enkit/proto:go_default_library",
-        "//lib/bazel:go_default_library",
-        "//lib/client:go_default_library",
-        "//lib/git:go_default_library",
-        "//lib/logger:go_default_library",
-        "@com_github_spf13_cobra//:go_default_library",
-        "@org_golang_google_protobuf//encoding/prototext:go_default_library",
+        "//enkit/proto",
+        "//lib/bazel",
+        "//lib/client",
+        "//lib/git",
+        "//lib/logger",
+        "@com_github_spf13_cobra//:cobra",
+        "@org_golang_google_protobuf//encoding/prototext",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":commands",
+    visibility = ["//visibility:public"],
 )

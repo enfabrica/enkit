@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "token",
     srcs = [
         "asymmetric.go",
         "multi.go",
@@ -12,15 +12,15 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/token",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/config/marshal:go_default_library",
-        "//lib/multierror:go_default_library",
-        "@org_golang_x_crypto//nacl/box:go_default_library",
-        "@org_golang_x_crypto//nacl/sign:go_default_library",
+        "//lib/config/marshal",
+        "//lib/multierror",
+        "@org_golang_x_crypto//nacl/box",
+        "@org_golang_x_crypto//nacl/sign",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "token_test",
     srcs = [
         "asymmetric_test.go",
         "multi_test.go",
@@ -28,9 +28,15 @@ go_test(
         "time_test.go",
         "token_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":token"],
     deps = [
-        "//lib/config/marshal:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/config/marshal",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":token",
+    visibility = ["//visibility:public"],
 )

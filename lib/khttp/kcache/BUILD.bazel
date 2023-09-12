@@ -1,25 +1,31 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "kcache",
     srcs = ["cache.go"],
     importpath = "github.com/enfabrica/enkit/lib/khttp/kcache",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/cache:go_default_library",
-        "//lib/khttp/protocol:go_default_library",
-        "//lib/logger:go_default_library",
+        "//lib/cache",
+        "//lib/khttp/protocol",
+        "//lib/logger",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "kcache_test",
     srcs = ["cache_test.go"],
-    embed = [":go_default_library"],
+    embed = [":kcache"],
     deps = [
-        "//lib/cache:go_default_library",
-        "//lib/khttp/ktest:go_default_library",
-        "//lib/khttp/protocol:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/cache",
+        "//lib/khttp/ktest",
+        "//lib/khttp/protocol",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kcache",
+    visibility = ["//visibility:public"],
 )

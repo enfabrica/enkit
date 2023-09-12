@@ -1,18 +1,24 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "config",
     srcs = [
         "common.go",
         "machine.go",
     ],
     importpath = "github.com/enfabrica/enkit/machinist/config",
     visibility = ["//visibility:public"],
-    deps = ["//lib/client:go_default_library"],
+    deps = ["//lib/client"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "config_test",
     srcs = ["machine_test.go"],
-    embed = [":go_default_library"],
+    embed = [":config"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":config",
+    visibility = ["//visibility:public"],
 )

@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "marshal",
     srcs = [
         "interface.go",
         "marshal.go",
@@ -10,18 +10,24 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/config/marshal",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/multierror:go_default_library",
-        "@com_github_pelletier_go_toml//:go_default_library",
-        "@in_gopkg_yaml_v2//:go_default_library",
+        "//lib/multierror",
+        "@com_github_pelletier_go_toml//:go-toml",
+        "@in_gopkg_yaml_v2//:yaml_v2",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "marshal_test",
     srcs = [
         "marshal_test.go",
         "select_test.go",
     ],
-    embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    embed = [":marshal"],
+    deps = ["@com_github_stretchr_testify//assert"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":marshal",
+    visibility = ["//visibility:public"],
 )

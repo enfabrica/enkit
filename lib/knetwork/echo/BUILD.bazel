@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "echo",
     testonly = True,
     srcs = ["echo.go"],
     importpath = "github.com/enfabrica/enkit/lib/knetwork/echo",
@@ -9,8 +9,14 @@ go_library(
 )
 
 go_test(
-    name = "go_default_test",
+    name = "echo_test",
     srcs = ["echo_test.go"],
-    embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    embed = [":echo"],
+    deps = ["@com_github_stretchr_testify//assert"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":echo",
+    visibility = ["//visibility:public"],
 )

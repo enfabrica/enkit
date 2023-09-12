@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "commands",
     srcs = [
         "commands.go",
         "delete.go",
@@ -15,29 +15,35 @@ go_library(
     importpath = "github.com/enfabrica/enkit/astore/client/commands",
     visibility = ["//visibility:public"],
     deps = [
-        "//astore/client/astore:go_default_library",
-        "//astore/rpc/astore:go_default_library",
-        "//lib/client:go_default_library",
-        "//lib/config:go_default_library",
-        "//lib/config/defcon:go_default_library",
-        "//lib/config/marshal:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/kflags/kcobra:go_default_library",
-        "@com_github_dustin_go_humanize//:go_default_library",
-        "@com_github_fatih_color//:go_default_library",
-        "@com_github_spf13_cobra//:go_default_library",
-        "@com_github_spf13_pflag//:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
+        "//astore/client/astore",
+        "//astore/rpc/astore",
+        "//lib/client",
+        "//lib/config",
+        "//lib/config/defcon",
+        "//lib/config/marshal",
+        "//lib/kflags",
+        "//lib/kflags/kcobra",
+        "@com_github_dustin_go_humanize//:go-humanize",
+        "@com_github_fatih_color//:color",
+        "@com_github_spf13_cobra//:cobra",
+        "@com_github_spf13_pflag//:pflag",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "commands_test",
     srcs = ["formatter_test.go"],
-    embed = [":go_default_library"],
+    embed = [":commands"],
     deps = [
-        "//astore/rpc/astore:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//astore/rpc/astore",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":commands",
+    visibility = ["//visibility:public"],
 )

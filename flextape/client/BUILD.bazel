@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "client",
     srcs = ["client.go"],
     importpath = "github.com/enfabrica/enkit/flextape/client",
     visibility = [
@@ -13,14 +13,20 @@ go_library(
 )
 
 go_test(
-    name = "go_default_test",
+    name = "client_test",
     srcs = ["client_test.go"],
-    embed = [":go_default_library"],
+    embed = [":client"],
     deps = [
         "//flextape/proto:go_default_library",
-        "//lib/errdiff:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/errdiff",
+        "@com_github_stretchr_testify//assert",
         "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_protobuf//types/known/timestamppb:go_default_library",
+        "@org_golang_google_protobuf//types/known/timestamppb",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":client",
+    visibility = ["//visibility:public"],
 )

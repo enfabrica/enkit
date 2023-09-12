@@ -2,24 +2,30 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("//bazel/qtc:defs.bzl", "qtpl_go_library")
 
 qtpl_go_library(
-    name = "templates",
+    name = "templates_qtpl",
     srcs = [
         "list.qtpl",
         "message.qtpl",
         "struct.qtpl",
     ],
-    importpath = "github.com/enfabrica/enkit/astore/server/templates",
+    importpath = "github.com/enfabrica/enkit/auth/server/assets/templates",
     visibility = ["//visibility:public"],
     deps = [
-        "//astore/rpc/astore:go_default_library",
+        "//astore/rpc/astore",
         "@com_github_dustin_go_humanize//:go_default_library",
     ],
 )
 
 go_library(
-    name = "go_default_library",
+    name = "templates",
     srcs = ["empty.go"],
-    embed = [":templates"],  # keep
+    embed = [":templates_qtpl"],  # keep
     importpath = "github.com/enfabrica/enkit/auth/server/assets/templates",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":templates",
     visibility = ["//visibility:public"],
 )

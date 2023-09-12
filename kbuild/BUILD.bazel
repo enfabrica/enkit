@@ -1,26 +1,26 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "kbuild_lib",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/kbuild",
     visibility = ["//visibility:private"],
     deps = [
-        "//kbuild/assets:go_default_library",
-        "//kbuild/common:go_default_library",
-        "//kbuild/kapt:go_default_library",
-        "//lib/config/marshal:go_default_library",
-        "//lib/karchive:go_default_library",
-        "//lib/khttp/protocol:go_default_library",
-        "//lib/khttp/scheduler:go_default_library",
-        "//lib/khttp/workpool:go_default_library",
-        "//lib/retry:go_default_library",
-        "@com_github_xor_gate_ar//:go_default_library",
+        "//kbuild/assets",
+        "//kbuild/common",
+        "//kbuild/kapt",
+        "//lib/config/marshal",
+        "//lib/karchive",
+        "//lib/khttp/protocol",
+        "//lib/khttp/scheduler",
+        "//lib/khttp/workpool",
+        "//lib/retry",
+        "@com_github_xor_gate_ar//:ar",
     ],
 )
 
 go_binary(
     name = "kbuild",
-    embed = [":go_default_library"],
+    embed = [":kbuild_lib"],
     visibility = ["//visibility:public"],
 )

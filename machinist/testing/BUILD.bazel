@@ -16,3 +16,20 @@ go_test(
         "@org_golang_google_grpc//test/bufconn:go_default_library",
     ],
 )
+
+go_test(
+    name = "testing_test",
+    srcs = ["machinist_e2e_test.go"],
+    deps = [
+        "//lib/knetwork",
+        "//lib/knetwork/kdns",
+        "//lib/srand",
+        "//machinist/config",
+        "//machinist/machine",
+        "//machinist/mserver",
+        "//machinist/state",
+        "@com_github_stretchr_testify//assert",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//test/bufconn",
+    ],
+)

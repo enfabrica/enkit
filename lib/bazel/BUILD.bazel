@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "bazel",
     srcs = [
         "affected_targets.go",
         "exec.go",
@@ -14,19 +14,19 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/bazel",
     visibility = ["//visibility:public"],
     deps = [
-        "//enkit/proto:go_default_library",
+        "//enkit/proto",
         "//lib/bazel/proto:go_protos",
-        "//lib/goroutine:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
-        "//lib/proto/delimited:go_default_library",
-        "@com_github_bazelbuild_buildtools//wspace:go_default_library",
-        "@org_golang_google_protobuf//proto:go_default_library",
+        "//lib/goroutine",
+        "//lib/logger",
+        "//lib/multierror",
+        "//lib/proto/delimited",
+        "@com_github_bazelbuild_buildtools//wspace",
+        "@org_golang_google_protobuf//proto",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "bazel_test",
     srcs = [
         "affected_targets_test.go",
         "exec_test.go",
@@ -36,14 +36,20 @@ go_test(
         "workspace_test.go",
     ],
     data = glob(["testdata/**"]),
-    embed = [":go_default_library"],
+    embed = [":bazel"],
     deps = [
         "//lib/bazel/proto:go_protos",
-        "//lib/errdiff:go_default_library",
-        "//lib/testutil:go_default_library",
-        "@com_github_prashantv_gostub//:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/errdiff",
+        "//lib/testutil",
+        "@com_github_prashantv_gostub//:gostub",
+        "@com_github_stretchr_testify//assert",
         "@io_bazel_rules_go//go/tools/bazel:go_default_library",
-        "@org_golang_google_protobuf//proto:go_default_library",
+        "@org_golang_google_protobuf//proto",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":bazel",
+    visibility = ["//visibility:public"],
 )

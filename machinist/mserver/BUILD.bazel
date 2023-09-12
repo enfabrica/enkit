@@ -2,7 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
 
 go_library(
-    name = "go_default_library",
+    name = "mserver",
     srcs = [
         "command.go",
         "controller.go",
@@ -13,18 +13,18 @@ go_library(
     importpath = "github.com/enfabrica/enkit/machinist/mserver",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/client:go_default_library",
-        "//lib/knetwork/kdns:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/server:go_default_library",
-        "//machinist/config:go_default_library",
+        "//lib/client",
+        "//lib/knetwork/kdns",
+        "//lib/logger",
+        "//lib/server",
+        "//machinist/config",
         "//machinist/rpc:machinist-go",
-        "//machinist/state:go_default_library",
-        "@com_github_miekg_dns//:go_default_library",
-        "@com_github_spf13_cobra//:go_default_library",
+        "//machinist/state",
+        "@com_github_miekg_dns//:dns",
+        "@com_github_spf13_cobra//:cobra",
         "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
 )
 
@@ -57,5 +57,11 @@ go_library(
     name = "assets",
     srcs = [":embedded-assets"],
     importpath = "github.com/enfabrica/enkit/machinist/server/assets",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":mserver",
     visibility = ["//visibility:public"],
 )

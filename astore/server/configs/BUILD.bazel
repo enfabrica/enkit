@@ -11,11 +11,17 @@ go_embed_data(
 )
 
 go_library(
-    name = "go_default_library",
+    name = "configs",
     srcs = [
         "empty.go",
         ":embedded-configs",  # keep
     ],
     importpath = "github.com/enfabrica/enkit/astore/server/configs",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":configs",
     visibility = ["//visibility:public"],
 )

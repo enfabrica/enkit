@@ -1,12 +1,18 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "frontend",
     srcs = ["frontend.go"],
     importpath = "github.com/enfabrica/enkit/flextape/frontend",
     visibility = ["//flextape/server:__pkg__"],
     deps = [
         "//flextape/proto:go_default_library",
-        "//flextape/service:go_default_library",
+        "//flextape/service",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":frontend",
+    visibility = ["//visibility:public"],
 )

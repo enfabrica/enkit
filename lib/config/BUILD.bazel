@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "config",
     srcs = [
         "multi.go",
         "simple.go",
@@ -10,22 +10,28 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/config",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/config/marshal:go_default_library",
-        "//lib/multierror:go_default_library",
+        "//lib/config/marshal",
+        "//lib/multierror",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "config_test",
     srcs = [
         "multi_test.go",
         "store_test.go",
     ],
     data = glob(["testdata/**"]),
-    embed = [":go_default_library"],
+    embed = [":config"],
     deps = [
-        "//lib/config/directory:go_default_library",
-        "//lib/config/marshal:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/config/directory",
+        "//lib/config/marshal",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":config",
+    visibility = ["//visibility:public"],
 )

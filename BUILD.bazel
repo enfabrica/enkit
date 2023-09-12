@@ -17,10 +17,14 @@ load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirem
 # to download the correct dependency for bazel to download. The dependency
 # is added to the bazel/go_repositories.bzl file.
 #
-# TODO: we should have dedicated targets for the two operations.
-#
-# gazelle:exclude node_modules
+
+# Set the prefix for this repo
 # gazelle:prefix github.com/enfabrica/enkit
+
+# Ensure that BUILD files have targets generated with the correct convention
+# TODO(scott): Change to `import` after targets have migrated to use the new
+# convention
+# gazelle:go_naming_convention import_alias
 gazelle(
     name = "gazelle",
     prefix = "github.com/enfabrica/enkit",
@@ -42,6 +46,8 @@ gazelle(
 # These mappings keep gazelle from generating bogus dependency labels.
 #
 # gazelle:resolve go kythe.io/kythe/go/platform/delimited @io_kythe//kythe/go/platform/delimited
+
+# gazelle:resolve go github.com/enfabrica/enkit/auth/server/assets/templates //auth/server/assets/templates
 
 exports_files(
     [

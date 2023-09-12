@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 go_test(
-    name = "go_default_test",
+    name = "astore_test",
     srcs = [
         "e2e_test.go",
         "server_test.go",
@@ -17,16 +17,16 @@ go_test(
         "no-cloudbuild",
     ],
     deps = [
-        "//astore/atesting:go_default_library",
-        "//astore/client/astore:go_default_library",
-        "//astore/rpc/astore:go_default_library",
-        "//astore/server/astore:go_default_library",
-        "//lib/client/ccontext:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/progress:go_default_library",
-        "//lib/srand:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//astore/atesting",
+        "//astore/client/astore",
+        "//astore/rpc/astore",
+        "//astore/server/astore",
+        "//lib/client/ccontext",
+        "//lib/logger",
+        "//lib/progress",
+        "//lib/srand",
+        "@com_github_stretchr_testify//assert",
         "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//test/bufconn:go_default_library",
+        "@org_golang_google_grpc//test/bufconn",
     ],
 )

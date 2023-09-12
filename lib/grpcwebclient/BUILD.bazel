@@ -1,16 +1,22 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "grpcwebclient",
     srcs = ["client.go"],
     importpath = "github.com/enfabrica/enkit/lib/grpcwebclient",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/khttp/kclient:go_default_library",
-        "//lib/khttp/krequest:go_default_library",
+        "//lib/khttp/kclient",
+        "//lib/khttp/krequest",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":grpcwebclient",
+    visibility = ["//visibility:public"],
 )

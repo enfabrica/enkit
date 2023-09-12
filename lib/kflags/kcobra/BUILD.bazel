@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "kcobra",
     srcs = [
         "cobra.go",
         "defaults.go",
@@ -10,22 +10,28 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/kflags/kcobra",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/kflags:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/multierror:go_default_library",
-        "@com_github_spf13_cobra//:go_default_library",
-        "@com_github_spf13_pflag//:go_default_library",
+        "//lib/kflags",
+        "//lib/logger",
+        "//lib/multierror",
+        "@com_github_spf13_cobra//:cobra",
+        "@com_github_spf13_pflag//:pflag",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "kcobra_test",
     srcs = ["defaults_test.go"],
-    embed = [":go_default_library"],
+    embed = [":kcobra"],
     deps = [
-        "//lib/kflags:go_default_library",
-        "@com_github_spf13_cobra//:go_default_library",
-        "@com_github_spf13_pflag//:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/kflags",
+        "@com_github_spf13_cobra//:cobra",
+        "@com_github_spf13_pflag//:pflag",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kcobra",
+    visibility = ["//visibility:public"],
 )

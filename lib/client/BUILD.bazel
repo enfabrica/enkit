@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "client",
     srcs = [
         "client.go",
         "server.go",
@@ -9,23 +9,29 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/client",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/cache:go_default_library",
-        "//lib/client/ccontext:go_default_library",
-        "//lib/config:go_default_library",
-        "//lib/config/defcon:go_default_library",
-        "//lib/config/identity:go_default_library",
-        "//lib/grpcwebclient:go_default_library",
-        "//lib/kflags:go_default_library",
-        "//lib/kflags/provider:go_default_library",
-        "//lib/khttp/kclient:go_default_library",
-        "//lib/khttp/krequest:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/logger/klog:go_default_library",
-        "//lib/oauth/cookie:go_default_library",
-        "//lib/progress:go_default_library",
+        "//lib/cache",
+        "//lib/client/ccontext",
+        "//lib/config",
+        "//lib/config/defcon",
+        "//lib/config/identity",
+        "//lib/grpcwebclient",
+        "//lib/kflags",
+        "//lib/kflags/provider",
+        "//lib/khttp/kclient",
+        "//lib/khttp/krequest",
+        "//lib/logger",
+        "//lib/logger/klog",
+        "//lib/oauth/cookie",
+        "//lib/progress",
         "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//metadata:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//status",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":client",
+    visibility = ["//visibility:public"],
 )

@@ -1,18 +1,24 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "delimited",
     srcs = ["delimited.go"],
     importpath = "github.com/enfabrica/enkit/lib/proto/delimited",
     visibility = ["//visibility:public"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "delimited_test",
     srcs = ["delimited_test.go"],
-    embed = [":go_default_library"],
+    embed = [":delimited"],
     deps = [
-        "//lib/errdiff:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "//lib/errdiff",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":delimited",
+    visibility = ["//visibility:public"],
 )

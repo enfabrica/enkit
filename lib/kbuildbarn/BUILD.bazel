@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "kbuildbarn",
     srcs = [
         "buddy.go",
         "options.go",
@@ -11,26 +11,32 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/kbuildbarn",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/bes:go_default_library",
-        "//lib/multierror:go_default_library",
+        "//lib/bes",
+        "//lib/multierror",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "kbuildbarn_test",
     srcs = [
         "buddy_test.go",
         "protoparse_test.go",
         "urls_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":kbuildbarn"],
     deps = [
-        "//lib/bes:go_default_library",
-        "//lib/errdiff:go_default_library",
+        "//lib/bes",
+        "//lib/errdiff",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
         "//third_party/buildbuddy/proto:buildbuddy_go_proto",
         "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
+        "@com_github_stretchr_testify//assert",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kbuildbarn",
+    visibility = ["//visibility:public"],
 )

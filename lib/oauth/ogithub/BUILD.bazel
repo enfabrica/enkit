@@ -1,15 +1,21 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "ogithub",
     srcs = ["github.go"],
     importpath = "github.com/enfabrica/enkit/lib/oauth/ogithub",
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/logger:go_default_library",
-        "//lib/oauth:go_default_library",
-        "@com_github_google_go_github//github:go_default_library",
-        "@org_golang_x_oauth2//:go_default_library",
-        "@org_golang_x_oauth2//github:go_default_library",
+        "//lib/logger",
+        "//lib/oauth",
+        "@com_github_google_go_github//github",
+        "@org_golang_x_oauth2//:oauth2",
+        "@org_golang_x_oauth2//github",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":ogithub",
+    visibility = ["//visibility:public"],
 )

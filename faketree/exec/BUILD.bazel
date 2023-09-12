@@ -1,19 +1,25 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "exec",
     srcs = ["exec.go"],
     importpath = "github.com/enfabrica/enkit/faketree/exec",
     visibility = ["//visibility:public"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "exec_test",
     srcs = ["exec_test.go"],
-    embed = [":go_default_library"],
+    embed = [":exec"],
     tags = [
         # Cloud Build cannot run privileged containers
         "no-cloudbuild",
     ],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    deps = ["@com_github_stretchr_testify//assert"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":exec",
+    visibility = ["//visibility:public"],
 )

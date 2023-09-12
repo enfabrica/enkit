@@ -2,22 +2,22 @@ load("//bazel/astore:defs.bzl", "astore_upload")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "enkit_lib",
     srcs = ["main.go"],
     importpath = "github.com/enfabrica/enkit/enkit",
     visibility = ["//visibility:private"],
-    deps = ["//enkit/cmd:go_default_library"],
+    deps = ["//enkit/cmd"],
 )
 
 go_binary(
     name = "enkit",
-    embed = [":go_default_library"],
+    embed = [":enkit_lib"],
     visibility = ["//visibility:public"],
 )
 
 go_binary(
     name = "enkit-linux-amd64",
-    embed = [":go_default_library"],
+    embed = [":enkit_lib"],
     goarch = "amd64",
     goos = "linux",
     pure = "on",
@@ -28,7 +28,7 @@ go_binary(
 go_binary(
     name = "enkit-linux-cgo-amd64",
     cgo = True,
-    embed = [":go_default_library"],
+    embed = [":enkit_lib"],
     goarch = "amd64",
     goos = "linux",
     # Force cgo DNS resolver to be used, which is required in certain
@@ -40,7 +40,7 @@ go_binary(
 
 go_binary(
     name = "enkit-darwin-amd64",
-    embed = [":go_default_library"],
+    embed = [":enkit_lib"],
     goarch = "amd64",
     goos = "darwin",
     static = "on",
@@ -49,7 +49,7 @@ go_binary(
 
 go_binary(
     name = "enkit-win-amd64",
-    embed = [":go_default_library"],
+    embed = [":enkit_lib"],
     goarch = "amd64",
     goos = "windows",
     static = "on",

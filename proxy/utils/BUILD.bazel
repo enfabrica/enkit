@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "utils",
     srcs = [
         "atomictime.go",
         "clock.go",
@@ -11,15 +11,21 @@ go_library(
     ],
     importpath = "github.com/enfabrica/enkit/proxy/utils",
     visibility = ["//visibility:public"],
-    deps = ["//lib/oauth:go_default_library"],
+    deps = ["//lib/oauth"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "utils_test",
     srcs = [
         "atomictime_test.go",
         "counter_test.go",
     ],
-    embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    embed = [":utils"],
+    deps = ["@com_github_stretchr_testify//assert"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":utils",
+    visibility = ["//visibility:public"],
 )

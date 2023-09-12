@@ -15,15 +15,18 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/enfabrica/enkit/auth/common"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+
 	rpc_astore "github.com/enfabrica/enkit/astore/rpc/astore"
+	"github.com/enfabrica/enkit/astore/server/astore"
+	"github.com/enfabrica/enkit/astore/server/configs"
+	"github.com/enfabrica/enkit/auth/common"
 	rpc_auth "github.com/enfabrica/enkit/auth/proto"
 	"github.com/enfabrica/enkit/auth/server/assets"
-	"github.com/enfabrica/enkit/astore/server/astore"
+	"github.com/enfabrica/enkit/auth/server/assets/templates"
 	"github.com/enfabrica/enkit/auth/server/auth"
-	"github.com/enfabrica/enkit/astore/server/configs"
 	"github.com/enfabrica/enkit/auth/server/credentials"
-	"github.com/enfabrica/enkit/auth/server/templates"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/kflags/kconfig"
@@ -35,8 +38,6 @@ import (
 	"github.com/enfabrica/enkit/lib/oauth/providers"
 	"github.com/enfabrica/enkit/lib/server"
 	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
 )
 
 var messageSuccess = `You managed to type your username and password correctly. Or click the right buttons. Whatever.<br />Enjoy your credentials while they last, delivered to you directly to your terminal.`
@@ -167,10 +168,10 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 	})
 
 	// This is for appengine deployments - see https://cloud.google.com/appengine/docs/legacy/standard/python/how-instances-are-managed#startup
-	mux.HandleFunc("/_ah/", func (w http.ResponseWriter, r *http.Request) {
-	   w.WriteHeader(http.StatusOK)
-	   log.Printf("received _ah request for %s %s", r.Host, r.URL.Path)
-	   fmt.Fprintf(w, "I hear you.")
+	mux.HandleFunc("/_ah/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		log.Printf("received _ah request for %s %s", r.Host, r.URL.Path)
+		fmt.Fprintf(w, "I hear you.")
 	})
 
 	kassets.RegisterAssets(&stats, assets.Data, "", kassets.BasicMapper(kassets.MuxMapper(mux)))

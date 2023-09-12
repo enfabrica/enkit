@@ -1,9 +1,15 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "kclient",
     srcs = ["client.go"],
     importpath = "github.com/enfabrica/enkit/lib/khttp/kclient",
     visibility = ["//visibility:public"],
-    deps = ["//lib/kflags:go_default_library"],
+    deps = ["//lib/kflags"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kclient",
+    visibility = ["//visibility:public"],
 )

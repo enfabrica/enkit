@@ -1,15 +1,21 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "slice",
     srcs = ["slice.go"],
     importpath = "github.com/enfabrica/enkit/lib/slice",
     visibility = ["//visibility:public"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "slice_test",
     srcs = ["slice_test.go"],
-    embed = [":go_default_library"],
-    deps = ["@com_github_stretchr_testify//assert:go_default_library"],
+    embed = [":slice"],
+    deps = ["@com_github_stretchr_testify//assert"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":slice",
+    visibility = ["//visibility:public"],
 )

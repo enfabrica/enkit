@@ -1,16 +1,11 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
-
-# Gazelle seems to not detect my existing proto_library rules, and
-# create new ones with names I don't like. So here you go, gazelle!
-# gazelle:proto disable
 
 proto_library(
     name = "auth_proto",
     srcs = ["auth.proto"],
     visibility = ["//visibility:public"],
-    deps = [
-    ],
 )
 
 go_proto_library(
@@ -18,5 +13,13 @@ go_proto_library(
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
     importpath = "github.com/enfabrica/enkit/auth/proto",
     proto = ":auth_proto",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "proto",
+    srcs = ["empty.go"],
+    embed = [":go_default_library"],
+    importpath = "github.com/enfabrica/enkit/auth/proto",
     visibility = ["//visibility:public"],
 )

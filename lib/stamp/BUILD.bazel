@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "stamp",
     srcs = ["stamp.go"],
     importpath = "github.com/enfabrica/enkit/lib/stamp",
     visibility = ["//visibility:public"],
@@ -13,4 +13,10 @@ go_library(
         "changedFiles": "{STABLE_GIT_CHANGES}",
         "buildTimestamp": "{BUILD_TIMESTAMP}",
     },
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":stamp",
+    visibility = ["//visibility:public"],
 )

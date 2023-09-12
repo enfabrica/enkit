@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "kauth",
     srcs = [
         "login.go",
         "save.go",
@@ -9,14 +9,20 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/kauth",
     visibility = ["//visibility:public"],
     deps = [
-        "//auth/common:go_default_library",
-        "//auth/proto:go_default_library",
-        "//lib/cache:go_default_library",
-        "//lib/kcerts:go_default_library",
-        "//lib/logger:go_default_library",
-        "//lib/retry:go_default_library",
-        "@com_github_pkg_browser//:go_default_library",
-        "@org_golang_x_crypto//nacl/box:go_default_library",
-        "@org_golang_x_crypto//ssh:go_default_library",
+        "//auth/common",
+        "//auth/proto",
+        "//lib/cache",
+        "//lib/kcerts",
+        "//lib/logger",
+        "//lib/retry",
+        "@com_github_pkg_browser//:browser",
+        "@org_golang_x_crypto//nacl/box",
+        "@org_golang_x_crypto//ssh",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kauth",
+    visibility = ["//visibility:public"],
 )
