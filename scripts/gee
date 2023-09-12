@@ -771,7 +771,7 @@ function _gh_authenticate() {
     local TOKEN=""
     read -rp "Paste your github authentication token here: " TOKEN
     _info "Trying to authenticate using your token..."
-    if ! _gh auth login -p ssh -h github.com --with-token <<< "${TOKEN}"; then
+    if ! _gh auth login -p ssh -h github.com --with-token --insecure-storage <<< "${TOKEN}"; then
       _warn "\"gh auth login\" failed with exit code $?" ""
       echo ""
     fi
@@ -3920,7 +3920,7 @@ EndOfPrTemplate
 
     # Remove all comments from the description and squeeze multiple blank
     # lines into single blank lines:
-    sed 's/^ *#.*//;/\S/,/^\s*$/!d' "${BODYFILE}" > "${TRIMMED}"
+    sed -E 's/^#.*//;/\S/,/^\s*$/!d' "${BODYFILE}" > "${TRIMMED}"
 
     if grep --quiet -E "^\s*ABORT" "${TRIMMED}"; then
       _fatal "Aborting creation of new PR, as requested."
@@ -3961,6 +3961,7 @@ EndOfPrTemplate
 
   local DRAFT=0
   if grep --quiet -E "^\s*DRAFT" "${TRIMMED}"; then
+    sed -i '/^\s*DRAFT/d' "${TRIMMED}"
     DRAFT=1
     PR_ARGS+=( --draft )
   fi
