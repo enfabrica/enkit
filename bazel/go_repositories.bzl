@@ -1,13 +1,19 @@
 load("@bazel_gazelle//:deps.bzl", "go_repository")
 
-def go_repositories():
+def go_overrides():
     go_repository(
-        name = "cc_mvdan_gofumpt",
-        importpath = "mvdan.cc/gofumpt",
-        sum = "h1:0EQ+Z56k8tXjj/6TQD25BFNKQXpCvT0rnansIc7Ug5E=",
-        version = "v0.5.0",
+        name = "com_github_golang_mock",
+        importpath = "github.com/golang/mock",
+        patches = [
+            "@enkit//bazel/dependencies/com_github_golang_mock:mocks_for_funcs.patch",
+            "@enkit//bazel/dependencies/com_github_golang_mock:generics.patch",
+        ],
+        replace = "github.com/golang/mock",
+        sum = "h1:DxRM2MRFDKF8JGaT1ZSsCZ9KxoOki+rrOoB011jIEDc=",
+        version = "v1.6.1-0.20220512030613-73266f9366fc",
     )
 
+def go_repositories():
     go_repository(
         name = "co_honnef_go_tools",
         importpath = "honnef.co/go/tools",
@@ -73,6 +79,13 @@ def go_repositories():
         sum = "h1:xK2lYat7ZLaVVcIuj82J8kIro4V6kDe0AUDFboUCwcg=",
         version = "v1.0.0",
     )
+    go_repository(
+        name = "com_github_antlr_antlr4_runtime_go_antlr",
+        importpath = "github.com/antlr/antlr4/runtime/Go/antlr",
+        sum = "h1:rfAZfq1LjIhVCFsBp2MoXxVvgtCyZUOtzsV8azhR1Jk=",
+        version = "v0.0.0-20220722194653-14703f21b580",
+    )
+
     go_repository(
         name = "com_github_antlr_antlr4_runtime_go_antlr_v4",
         importpath = "github.com/antlr/antlr4/runtime/Go/antlr/v4",
@@ -245,12 +258,9 @@ def go_repositories():
     )
     go_repository(
         name = "com_github_bazelbuild_remote_apis",
-        # This is a copy of this patch: https://raw.githubusercontent.com/buildbarn/bb-storage/master/patches/com_github_bazelbuild_remote_apis/golang.diff
-        # with modifications:
-        # - s/:longrunning_/:longrunningpb_/g
         build_naming_convention = "import",
         importpath = "github.com/bazelbuild/remote-apis",
-        patches = ["@enkit//bazel/dependencies:remote_apis_fix_target_names.patch"],
+        patches = ["@enkit//bazel/dependencies/com_github_bazelbuild_remote_apis:golang.patch"],
         sum = "h1:TPwjNpCdoO7TcTPPMHEkrrlSwd8g2XVf3qflmnivvsU=",
         version = "v0.0.0-20230822133051-6c32c3b917cc",
     )
@@ -776,13 +786,13 @@ def go_repositories():
         sum = "h1:oI5xCqsCo564l8iNU+DwB5epxmsaqB+rhGL0m5jtYqE=",
         version = "v0.0.0-20210331224755-41bb18bfe9da",
     )
-
     go_repository(
         name = "com_github_golang_mock",
         importpath = "github.com/golang/mock",
         sum = "h1:ErTB+efbowRARo13NNdxyJji2egdxLGQhRaY+DUumQc=",
         version = "v1.6.0",
     )
+
     go_repository(
         name = "com_github_golang_protobuf",
         importpath = "github.com/golang/protobuf",
@@ -804,11 +814,6 @@ def go_repositories():
     )
     go_repository(
         name = "com_github_google_cel_go",
-        build_directives = [
-            # We are consistently using proto-generated code, rather than the
-            # genproto pre-generated repo where conflicts exist.
-            "gazelle:resolve go google.golang.org/genproto/googleapis/rpc/status @go_googleapis//google/rpc:status_go_proto",
-        ],
         # BUILD file generation needs to be forced on, since:
         # * this repo is bazel-aware and comes with BUILD files already
         # * we want to override certain import -> dep mappints with directives
@@ -854,8 +859,10 @@ def go_repositories():
     )
     go_repository(
         name = "com_github_google_go_jsonnet",
+        # Force-enable BUILD file generation to ensure that the correct naming
+        # convention is used
+        build_file_generation = "on",
         importpath = "github.com/google/go-jsonnet",
-        build_naming_convention = "go_default_library",
         patch_args = ["-p1"],
         patch_tool = "patch",
         patches = [
@@ -931,6 +938,12 @@ def go_repositories():
 
     go_repository(
         name = "com_github_googleapis_gax_go_v2",
+        build_directives = [
+            "gazelle:resolve proto proto google/rpc/code.proto @googleapis//google/rpc:code_proto",
+            "gazelle:resolve proto go google/rpc/code.proto @org_golang_google_genproto_googleapis_rpc//code",
+            "gazelle:resolve proto proto google/rpc/status.proto @googleapis//google/rpc:status_proto",
+            "gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status",
+        ],
         importpath = "github.com/googleapis/gax-go/v2",
         sum = "h1:A+gCJKdRfqXkr+BIRGtZLibNXf0m1f9E4HG56etFpas=",
         version = "v2.12.0",
@@ -1006,12 +1019,18 @@ def go_repositories():
     go_repository(
         name = "com_github_grpc_ecosystem_grpc_gateway_v2",
         importpath = "github.com/grpc-ecosystem/grpc-gateway/v2",
-        sum = "h1:YBftPWNWd4WwGqtY2yeZL2ef8rHAxPBD8KFhJpmcqms=",
-        version = "v2.16.0",
+        replace = "github.com/grpc-ecosystem/grpc-gateway/v2",
+        sum = "h1:RoziI+96HlQWrbaVhgOOdFYUHtX81pwA6tCgDS9FNRo=",
+        version = "v2.16.1",
     )
     go_repository(
         name = "com_github_hanwen_go_fuse_v2",
         importpath = "github.com/hanwen/go-fuse/v2",
+        patches = [
+            "@enkit//bazel/dependencies/com_github_hanwen_go_fuse_v2:direntrylist_offsets_and_testability.patch",
+            "@enkit//bazel/dependencies/com_github_hanwen_go_fuse_v2:notify_testability.patch",
+            "@enkit//bazel/dependencies/com_github_hanwen_go_fuse_v2:writeback_cache.patch",
+        ],
         sum = "h1:12OhD7CkXXQdvxG2osIdBQLdXh+nmLXY9unkUIe/xaU=",
         version = "v2.4.0",
     )
@@ -1113,6 +1132,12 @@ def go_repositories():
         importpath = "github.com/jmespath/go-jmespath",
         sum = "h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=",
         version = "v0.4.0",
+    )
+    go_repository(
+        name = "com_github_jmespath_go_jmespath_internal_testify",
+        importpath = "github.com/jmespath/go-jmespath/internal/testify",
+        sum = "h1:shLQSRRSCCPj3f2gpwzGwWFoC7ycTf1rcQZHOlsJ6N8=",
+        version = "v1.5.1",
     )
 
     go_repository(
@@ -2920,7 +2945,6 @@ def go_repositories():
         sum = "h1:k1MczvYDUvJBe93bYd7wrZLLUEcLZAuF824/I4e5Xr4=",
         version = "v0.1.1",
     )
-
     go_repository(
         name = "io_rsc_quote_v3",
         importpath = "rsc.io/quote/v3",
@@ -2933,6 +2957,7 @@ def go_repositories():
         sum = "h1:7uVkIFmeBqHfdjD+gZwtXXI+RODJ2Wc4O7MPEh/QiW4=",
         version = "v1.3.0",
     )
+
     go_repository(
         name = "net_starlark_go",
         importpath = "go.starlark.net",
@@ -3049,6 +3074,7 @@ def go_repositories():
     go_repository(
         name = "org_golang_x_oauth2",
         importpath = "golang.org/x/oauth2",
+        patches = ["//bazel/dependencies/org_golang_x_oauth2:injectable_clock.patch"],
         sum = "h1:zHCpF2Khkwy4mMB4bv0U37YtJdTGW8jI0glAApi0Kh8=",
         version = "v0.10.0",
     )

@@ -20,19 +20,25 @@ def stage_1():
     maybe(
         name = "io_bazel_rules_go",
         repo_rule = http_archive,
-        sha256 = "6b65cb7917b4d1709f9410ffe00ecf3e160edf674b78c54a894471320862184f",
+        patches = ["@enkit//bazel/dependencies/io_bazel_rules_go:tags_manual.patch"],
+        sha256 = "278b7ff5a826f3dc10f04feaf0b70d48b68748ccd512d7f98bf442077f043fe3",
         urls = [
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.39.0/rules_go-v0.39.0.zip",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
         ],
     )
 
     maybe(
         name = "bazel_gazelle",
-        sha256 = "727f3e4edd96ea20c29e8c2ca9e8d2af724d8c7778e7923a854b2c80952bc405",
         repo_rule = http_archive,
+        patches = [
+            "@enkit//bazel/dependencies/bazel_gazelle:dont_flatten_srcs.patch",
+            "@enkit//bazel/dependencies/bazel_gazelle:issue_1595.patch",
+        ],
+        sha256 = "29218f8e0cebe583643cbf93cae6f971be8a2484cdcfa1e45057658df8d54002",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.30.0/bazel-gazelle-v0.30.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.30.0/bazel-gazelle-v0.30.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.32.0/bazel-gazelle-v0.32.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.32.0/bazel-gazelle-v0.32.0.tar.gz",
         ],
     )
 
@@ -256,60 +262,6 @@ filegroup(
         executable = True,
     )
 
-    # TODO(scott): This overrides a dependency pulled in by rules_go with a
-    # newer version.
-    #
-    # To summarize, GCP proto Go code can come from one of three places:
-    # * github.com/googleapis/googleapis (this repo) that contains only protos;
-    #   Go code is generated during the build
-    # * google.golang.org/genproto, contains pre-generated Go source
-    # * cloud.google.com/go/*, one module per service, where each service
-    #   contains its own proto
-    #
-    # Previously, we replaced all genproto imports with generated code from
-    # googleapis. The open-source migration away from genproto to
-    # cloud.google.com/go modules complicates things a bit; we prefer the
-    # latter, but not every proto is covered by a new module. For these, we use
-    # googleapis; however, cloud.google.com/go modules without a proto aren't
-    # always compatible with the old version of googleapis that rules_go fetches
-    # for us.
-    #
-    # For this reason, a new-ish version of googleapis is fetched here, and we
-    # generate patches manually using the same process rules_go does so it will
-    # be compatible.
-    maybe(
-        repo_rule = http_archive,
-        name = "go_googleapis",
-        urls = [
-            "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/7a1cb3762d72b71a598f1f0e58b2fe153ef64322.zip",
-            "https://github.com/googleapis/googleapis/archive/7a1cb3762d72b71a598f1f0e58b2fe153ef64322.zip",
-        ],
-        sha256 = "b432902a28fadd6ce8fe07f38df4a67c94948f963f647b4596e2e184b98d07d4",
-        strip_prefix = "googleapis-7a1cb3762d72b71a598f1f0e58b2fe153ef64322",
-        # rules_go usually patches this for us; essentially, BUILD files must be
-        # patched in so that gazelle can be built, which auto-patches other
-        # dependencies (otherwise a chicken-and-egg problem ensues).
-        #
-        # Instructions for how to regen patches is below, but we should prefer
-        # dropping this dep if possible (after rules_go updates it or migrates
-        # away from it).
-        patches = [
-            # Delete previous BUILD files
-            # To generate this patch:
-            # * clone the source repo
-            # * run `find . -name BUILD.bazel -delete`
-            "@enkit//bazel/dependencies:googleapis/delete_build_files.patch",
-            # set gazelle directives; change workspace name
-            "@enkit//bazel/dependencies:googleapis/add_directives.patch",
-            # Add new BUILD files
-            # To generate this patch:
-            # * clone the source repo
-            # * run `gazelle -repo_root .`
-            "@enkit//bazel/dependencies:googleapis/generate_build_files.patch",
-        ],
-        patch_args = ["-E", "-p1"],
-    )
-
     maybe(
         name = "dropbear",
         repo_rule = http_archive,
@@ -325,8 +277,9 @@ filegroup(
 
     # Explicitly load Jsonnet here so that we control the version, instead of
     # rules_jsonnet and dependencies, which tend to use an old version.
-    http_archive(
+    maybe(
         name = "cpp_jsonnet",
+        repo_rule = http_archive,
         sha256 = "77bd269073807731f6b11ff8d7c03e9065aafb8e4d038935deb388325e52511b",
         strip_prefix = "jsonnet-0.20.0",
         urls = [
@@ -334,9 +287,72 @@ filegroup(
         ],
     )
 
+    # Required by buildbarn ecosystem
     http_archive(
         name = "com_github_bazelbuild_buildtools",
         sha256 = "42968f9134ba2c75c03bb271bd7bb062afb7da449f9b913c96e5be4ce890030a",
         strip_prefix = "buildtools-6.3.3",
         url = "https://github.com/bazelbuild/buildtools/archive/v6.3.3.tar.gz",
+    )
+
+    # Required by buildbarn ecosystem
+    maybe(
+        name = "googleapis",
+        repo_rule = http_archive,
+        sha256 = "361e26593b881e70286a28065859c941e25b96f9c48ba91127293d0a881152d6",
+        strip_prefix = "googleapis-a3770599794a8d319286df96f03343b6cd0e7f4f",
+        urls = ["https://github.com/googleapis/googleapis/archive/a3770599794a8d319286df96f03343b6cd0e7f4f.zip"],
+    )
+
+    # Required by buildbarn ecosystem
+    maybe(
+        name = "io_bazel_rules_jsonnet",
+        repo_rule = http_archive,
+        sha256 = "d20270872ba8d4c108edecc9581e2bb7f320afab71f8caa2f6394b5202e8a2c3",
+        strip_prefix = "rules_jsonnet-0.4.0",
+        urls = ["https://github.com/bazelbuild/rules_jsonnet/archive/0.4.0.tar.gz"],
+    )
+
+    # Required by buildbarn ecosystem
+    maybe(
+        name = "com_github_twbs_bootstrap",
+        repo_rule = http_archive,
+        build_file_content = """exports_files(["css/bootstrap.min.css", "js/bootstrap.min.js"])""",
+        sha256 = "395342b2974e3350560e65752d36aab6573652b11cc6cb5ef79a2e5e83ad64b1",
+        strip_prefix = "bootstrap-5.1.0-dist",
+        urls = ["https://github.com/twbs/bootstrap/releases/download/v5.1.0/bootstrap-5.1.0-dist.zip"],
+    )
+
+    # Required by buildbarn ecosystem
+    maybe(
+        name = "aspect_rules_js",
+        repo_rule = http_archive,
+        sha256 = "00e7b97b696af63812df0ca9e9dbd18579f3edd3ab9a56f227238b8405e4051c",
+        strip_prefix = "rules_js-1.23.0",
+        url = "https://github.com/aspect-build/rules_js/releases/download/v1.23.0/rules_js-v1.23.0.tar.gz",
+    )
+
+    # Required by buildbarn ecosystem
+    http_archive(
+        name = "rules_antlr",
+        patches = ["@enkit//bazel/dependencies/rules_antlr:antlr_4.10.patch"],
+        sha256 = "26e6a83c665cf6c1093b628b3a749071322f0f70305d12ede30909695ed85591",
+        strip_prefix = "rules_antlr-0.5.0",
+        urls = ["https://github.com/marcohu/rules_antlr/archive/0.5.0.tar.gz"],
+    )
+
+    # Required by buildbarn ecosystem
+    maybe(
+        name = "io_opentelemetry_proto",
+        repo_rule = http_archive,
+        build_file_content = """
+proto_library(
+    name = "common_proto",
+    srcs = ["opentelemetry/proto/common/v1/common.proto"],
+    visibility = ["//visibility:public"],
+)
+""",
+        sha256 = "464bc2b348e674a1a03142e403cbccb01be8655b6de0f8bfe733ea31fcd421be",
+        strip_prefix = "opentelemetry-proto-0.19.0",
+        urls = ["https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v0.19.0.tar.gz"],
     )

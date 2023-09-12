@@ -44,12 +44,12 @@ go_test(
         "//astore/rpc/astore",
         "//lib/errdiff",
         "//lib/testutil",
+        "@com_github_golang_protobuf//ptypes/wrappers",
         "@com_github_prashantv_gostub//:gostub",
         "@com_github_stretchr_testify//assert",
         "@com_google_cloud_go_datastore//:datastore",
         "@com_google_cloud_go_storage//:storage",
-        "@go_googleapis//google/datastore/v1:datastore_go_proto",
-        "@io_bazel_rules_go//proto/wkt:wrappers_go_proto",
+        "@org_golang_google_genproto//googleapis/datastore/v1:datastore",
     ],
 )
 

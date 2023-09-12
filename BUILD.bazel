@@ -47,6 +47,18 @@ gazelle(
 #
 # gazelle:resolve go kythe.io/kythe/go/platform/delimited @io_kythe//kythe/go/platform/delimited
 
+# Buildbarn gazelle resolve mappings
+# Buildbarn dependencies may need certain overrides; these mappings are copied
+# from BUILD.bazel in github.com/buildbarn/bb-remote-execution so that libraries
+# from that repo can build.
+
+# gazelle:resolve proto pkg/proto/configuration/cloud/aws/aws.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/cloud/aws:aws_proto
+# gazelle:resolve proto go pkg/proto/configuration/cloud/aws/aws.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/cloud/aws
+# gazelle:resolve proto proto google/rpc/code.proto @googleapis//google/rpc:code_proto
+# gazelle:resolve proto go google/rpc/code.proto @org_golang_google_genproto_googleapis_rpc//code
+# gazelle:resolve proto proto google/rpc/status.proto @googleapis//google/rpc:status_proto
+# gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status
+
 # gazelle:resolve go github.com/enfabrica/enkit/auth/server/assets/templates //auth/server/assets/templates
 
 exports_files(

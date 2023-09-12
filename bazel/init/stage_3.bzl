@@ -3,7 +3,12 @@
 See README.md for more information.
 """
 
+load("@aspect_rules_js//npm:npm_import.bzl", "npm_translate_lock")
+load("@com_github_bazelbuild_remote_apis//:repository_rules.bzl", "switched_rules_by_language")
 load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+load("@google_jsonnet_go//bazel:repositories.bzl", "jsonnet_go_repositories")
+load("@google_jsonnet_go//bazel:deps.bzl", "jsonnet_go_dependencies")
+load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_register_toolchains")
 load("@rules_python//python:pip.bzl", "pip_parse")
 load("@python3_8//:defs.bzl", "interpreter")
 
@@ -30,3 +35,24 @@ def stage_3():
     )
 
     grpc_extra_deps()
+
+    jsonnet_go_repositories()
+
+    jsonnet_go_dependencies()
+
+    # Begin buildbarn ecosystem dependencies
+    nodejs_register_toolchains(
+        name = "nodejs",
+        node_version = DEFAULT_NODE_VERSION,
+    )
+
+    npm_translate_lock(
+        name = "npm",
+        pnpm_lock = "@com_github_buildbarn_bb_storage//:pnpm-lock.yaml",
+    )
+
+    switched_rules_by_language(
+        name = "bazel_remote_apis_imports",
+        go = True,
+    )
+    # End buildbarn ecosystem dependencies

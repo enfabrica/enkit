@@ -11,7 +11,7 @@ go_library(
         "//lib/server",
         "@com_github_golang_glog//:glog",
         "@com_google_cloud_go_pubsub//:pubsub",
-        "@go_googleapis//google/devtools/build/v1:build_go_proto",
+        "@org_golang_google_genproto//googleapis/devtools/build/v1:build",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )
