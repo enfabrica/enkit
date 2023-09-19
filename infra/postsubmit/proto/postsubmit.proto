@@ -71,4 +71,9 @@ message Build {
   // buildbarn instance, but can be changed in order to target a non-prod
   // instance.
   string rbe_instance = 12;
+
+  // Docker image in which each step is performed. If not set, a default
+  // auto-updated version is used. This allows for testing specific images in
+  // some builds before deploying them more widely.
+  string container_image = 13;
 }
