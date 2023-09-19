@@ -87,6 +87,55 @@ review.
      gee rupdate
 ```
 
+## Environment variables
+
+`gee`'s behavior can be moderated by setting the following variables in your shell environment:
+
+* `GHUSER`: Your github username.
+
+* `GEE_DIR`: By default, gee will place all work directories in `~/gee`.  This variable can
+  be set to a different path to override this behavior.  `gee` will still create a repository
+  directory beneath `$GEE_DIR` (ie, `~/gee/internal`), so if you want to change the repository
+  directory as well, use the GEE_REPO and GEE_REPO_DIR environment variables.
+
+* `GEE_REPO_DIR`: By default, gee will place a repository's workdirs in a directory specified
+  by `${GEE_DIR}/${GEE_REPO}` where `GEE_DIR` defaults to `~/gee` and `GEE_REPO` defaults to `internal`.
+  The `GEE_REPO_DIR` can be set to specify a different directory.  However, if `GEE_REPO_DIR` is set,
+  you must also set the `GEE_REPO` environment variable.
+
+* `GEE_REPO`: By default, gee will attempt to guess which repository to use based on the current
+  working directory (ie. the `enkit` repo is inferred from `~/gee/enkit/master`).  To override this
+  behavior (or, if you are using `GEE_REPO_DIR` to use a non-standard directory structure), set
+  the `GEE_REPO` variable to the repository name (ie. `internal`, `enkit`, etc.).
+
+* `UPSTREAM`: The name of the github user hosting the specified repository.  By default, `enfabrica`.
+
+* `YESYESYES`: If set to a non-zero integer, will cause all yes/no prompts within `gee` to automatically
+  select "yes".
+
+* The following environment variables can be set to a curses color value to override gee's default
+  color scheme.  (The `gee colortest` command can be used to dump a color table and examples of the
+  current color scheme.)
+
+  * `GEE_COLOR_CMD_FG`
+  * `GEE_COLOR_CMD_BG`
+  * `GEE_COLOR_BANNER_FG`
+  * `GEE_COLOR_BANNER_BG`
+  * `GEE_COLOR_DBG_FG`
+  * `GEE_COLOR_DBG_BG`
+  * `GEE_COLOR_DIE_FG`
+  * `GEE_COLOR_DIE_BG`
+  * `GEE_COLOR_WARN_FG`
+  * `GEE_COLOR_WARN_BG`
+  * `GEE_COLOR_INFO_FG`
+  * `GEE_COLOR_INFO_BG`
+
+* `VERBOSE`: If set to a non-zero integer, will cause additional debug information to be logged.
+  For developer use only.
+
+See also: `gee help bash_setup` for more environment variables to help you customize the git-aware
+prompt that `gee bash_setup` makes available.
+
 ## Command Summary
 
 | Command | Summary |
