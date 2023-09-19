@@ -224,7 +224,7 @@ if [[ -z "${REPO}" ]]; then
   REPO=internal
 fi
 
-GEE_DIR="${HOME}/gee"
+GEE_DIR="${GEE_DIR:-"${HOME}/gee"}"
 REPO_DIR="${GEE_DIR}/${REPO}/"
 
 if (( "${TESTMODE}" )); then
