@@ -276,12 +276,12 @@ fi
 
 # Set GEE_REPO_DIR:
 GEE_DIR="${GEE_DIR:-"${HOME}/gee"}"
-GEE_REPO_DIR="${GEE_REPO_DIR:-"${GEE_DIR}/${REPO}/"}"
+GEE_REPO_DIR="${GEE_REPO_DIR:-"${GEE_DIR}/${REPO}"}"
 if (( "${TESTMODE}" )); then
   UPSTREAM="enfabrica"
   REPO="github-playground"
   GEE_DIR="${HOME}/testgee"
-  GEE_REPO_DIR="${GEE_DIR}/${REPO}/"
+  GEE_REPO_DIR="${GEE_DIR}/${REPO}"
 fi
 # Now that GEE_REPO_DIR is set, GEE_REPO_DIR should be used exclusively and GEE_DIR
 # should be ignored.
@@ -709,6 +709,8 @@ function _startup_checks() {
   fi
   GITDIR="$(readlink -f "${GITDIR}")"
   if [[ "${GITDIR}" != "${GEE_REPO_DIR}"/*/.git ]]; then
+    echo "GITDIR=${GITDIR}"
+    echo "GEE_REPO_DIR=${GEE_REPO_DIR}"
     if [[ "${SAFE_COMMANDS}" != *" ${COMMAND} "* ]]; then
       _fatal "${COMMAND} must be run from within a gee branch."
     fi
