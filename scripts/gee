@@ -5421,7 +5421,7 @@ function grg() {
 function _gee_completion_branches() {
   shift  # discard
   local REPO="${GEE_REPO:-}"
-  local GD="${GEE_DIR:-"${HOME}/gee}"}"
+  local GD="${GEE_DIR:-"${HOME}/gee"}"
   if [[ -z "${REPO}" ]]; then
     local DIR="$(realpath --relative-base="${GD}" "${PWD}")"
     if [[ -n "${DIR}" ]] && [[ "${DIR}" != "." ]] && [[ "${DIR}" != /* ]]; then
