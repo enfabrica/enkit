@@ -771,7 +771,8 @@ function _gh_authenticate() {
     local TOKEN=""
     read -rp "Paste your github authentication token here: " TOKEN
     _info "Trying to authenticate using your token..."
-    if ! _gh auth login -p ssh -h github.com --with-token --insecure-storage <<< "${TOKEN}"; then
+    # Note: the auth --insecure-storage flag is not supported on all versions of gh.
+    if ! _gh auth login -p ssh -h github.com --with-token <<< "${TOKEN}"; then
       _warn "\"gh auth login\" failed with exit code $?" ""
       echo ""
     fi
