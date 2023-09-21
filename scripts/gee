@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly VERSION="0.2.43"
+readonly VERSION="0.2.44"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -81,6 +81,55 @@ review.
 3. Recursively update a chain of branches:
 
      gee rupdate
+
+## Environment variables
+
+`gee`'s behavior can be moderated by setting the following variables in your shell environment:
+
+* `GHUSER`: Your github username.
+
+* `GEE_DIR`: By default, gee will place all work directories in `~/gee`.  This variable can
+  be set to a different path to override this behavior.  `gee` will still create a repository
+  directory beneath `$GEE_DIR` (ie, `~/gee/internal`), so if you want to change the repository
+  directory as well, use the GEE_REPO and GEE_REPO_DIR environment variables.
+
+* `GEE_REPO_DIR`: By default, gee will place a repository's workdirs in a directory specified
+  by `${GEE_DIR}/${GEE_REPO}` where `GEE_DIR` defaults to `~/gee` and `GEE_REPO` defaults to `internal`.
+  The `GEE_REPO_DIR` can be set to specify a different directory.  However, if `GEE_REPO_DIR` is set,
+  you must also set the `GEE_REPO` environment variable.
+
+* `GEE_REPO`: By default, gee will attempt to guess which repository to use based on the current
+  working directory (ie. the `enkit` repo is inferred from `~/gee/enkit/master`).  To override this
+  behavior (or, if you are using `GEE_REPO_DIR` to use a non-standard directory structure), set
+  the `GEE_REPO` variable to the repository name (ie. `internal`, `enkit`, etc.).
+
+* `UPSTREAM`: The name of the github user hosting the specified repository.  By default, `enfabrica`.
+
+* `YESYESYES`: If set to a non-zero integer, will cause all yes/no prompts within `gee` to automatically
+  select "yes".
+
+* The following environment variables can be set to a curses color value to override gee's default
+  color scheme.  (The `gee colortest` command can be used to dump a color table and examples of the
+  current color scheme.)
+
+  * `GEE_COLOR_CMD_FG`
+  * `GEE_COLOR_CMD_BG`
+  * `GEE_COLOR_BANNER_FG`
+  * `GEE_COLOR_BANNER_BG`
+  * `GEE_COLOR_DBG_FG`
+  * `GEE_COLOR_DBG_BG`
+  * `GEE_COLOR_DIE_FG`
+  * `GEE_COLOR_DIE_BG`
+  * `GEE_COLOR_WARN_FG`
+  * `GEE_COLOR_WARN_BG`
+  * `GEE_COLOR_INFO_FG`
+  * `GEE_COLOR_INFO_BG`
+
+* `VERBOSE`: If set to a non-zero integer, will cause additional debug information to be logged.
+  For developer use only.
+
+See also: `gee help bash_setup` for more environment variables to help you customize the git-aware
+prompt that `gee bash_setup` makes available.
 
 EOT
 then :; fi
@@ -190,7 +239,7 @@ DRYRUN="${DRYRUN:-0}"
 UPSTREAM="${UPSTREAM:-enfabrica}"
 TESTMODE="${TESTMODE:-0}"
 MAIN="" # Unknown, call _set_main to set.
-REPO="${REPO:-}"
+REPO="${REPO:-"${GEE_REPO:-}"}"
 PAGER="${PAGER:-less}"
 PARENTS_FILE_IS_LOADED=0
 PWD_CMD="$(command -v pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
@@ -204,17 +253,18 @@ done
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.
-  # Try the old directory layout:
-  if [[ "${PWD}" =~ ^${HOME}/([a-z0-9_-]+)/branches ]]; then
+  # Try GEE_DIR if set:
+  if [[ -n "${GEE_DIR}" ]] && [[ "${PWD}" =~ ^"${GEE_DIR}/\([a-zA-Z0-9_-]+)" ]]; then
     REPO="${BASH_REMATCH[1]}"
-  fi
-  # Try the new directory layout:
-  if [[ "${PWD}" =~ ^${HOME}/gee/([a-z0-9_-]+) ]]; then
-    REPO="${BASH_REMATCH[1]}"
-  fi
   # Try the test directory layout:
-  if [[ "${PWD}" =~ ^${HOME}/testgee/([a-z0-9_-]+) ]]; then
+  elif [[ "${PWD}" =~ ^${HOME}/testgee/([a-zA-Z0-9_-]+) ]]; then
     TESTMODE=1
+    REPO="${BASH_REMATCH[1]}"
+  # Try the new directory layout:
+  elif [[ "${PWD}" =~ ^${HOME}/gee/([a-zA-Z0-9_-]+) ]]; then
+    REPO="${BASH_REMATCH[1]}"
+  # Try the old directory layout:
+  elif [[ "${PWD}" =~ ^${HOME}/([a-z0-9_-]+)/branches ]]; then
     REPO="${BASH_REMATCH[1]}"
   fi
 fi
@@ -224,15 +274,17 @@ if [[ -z "${REPO}" ]]; then
   REPO=internal
 fi
 
-GEE_DIR="${HOME}/gee"
-REPO_DIR="${GEE_DIR}/${REPO}/"
-
+# Set GEE_REPO_DIR:
+GEE_DIR="${GEE_DIR:-"${HOME}/gee"}"
+GEE_REPO_DIR="${GEE_REPO_DIR:-"${GEE_DIR}/${REPO}"}"
 if (( "${TESTMODE}" )); then
   UPSTREAM="enfabrica"
   REPO="github-playground"
   GEE_DIR="${HOME}/testgee"
-  REPO_DIR="${GEE_DIR}/${REPO}/"
+  GEE_REPO_DIR="${GEE_DIR}/${REPO}"
 fi
+# Now that GEE_REPO_DIR is set, GEE_REPO_DIR should be used exclusively and GEE_DIR
+# should be ignored.
 
 function safe_tput() {
   if [[ -z "${TERM}" ]] || [[ "${TERM}" == "none" ]]; then
@@ -378,15 +430,15 @@ function _set_main() {
 
   # Try to guess the default branch by examining which branches exist on
   # the local filesystem.
-  if [[ -d "${REPO_DIR}/main" ]] && [[ -d "${REPO_DIR}/master" ]]; then
+  if [[ -d "${GEE_REPO_DIR}/main" ]] && [[ -d "${GEE_REPO_DIR}/master" ]]; then
     # oh no, the user has both main and master available.  Refuse to
     # guess and ask github.
     _warn "Confusing!  You have both \"main\" and \"master\" branches."
-  elif [[ -d "${REPO_DIR}/main" ]]; then
+  elif [[ -d "${GEE_REPO_DIR}/main" ]]; then
     MAIN=main
     return
   # Fall back to "master" if "main" doesn't exist:
-  elif [[ -d "${REPO_DIR}/master" ]]; then
+  elif [[ -d "${GEE_REPO_DIR}/master" ]]; then
     MAIN=master
     return
   fi
@@ -566,7 +618,7 @@ function _check_cwd() {
   # Check that we're in a directory beneath ~/gee.
   local DIR
   DIR="$("${PWD_CMD}")"
-  if ! [[ "$DIR" =~ ^"${GEE_DIR}"/[a-zA-Z0-9_-]+ ]]; then
+  if ! [[ "$DIR" =~ ^"${GEE_REPO_DIR}" ]]; then
     echo "${DIR}"
     _fatal "This command must be run from with a branch directory beneath ~/gee."
   fi
@@ -586,13 +638,13 @@ function _startup_checks() {
   local COMMAND="$1"
 
   # 1. Ensure that a gee repository exists.
-  if [[ ! -d "${GEE_DIR}/${REPO}" ]]; then
-    _info "Directory ${GEE_DIR}/${REPO} not found, run \"gee init\" to create."
+  if [[ ! -d "${GEE_REPO_DIR}" ]]; then
+    _info "Directory ${GEE_REPO_DIR} not found, run \"gee init\" to create."
     exit 1
   fi
   _set_main
-  if [[ ! -d "${GEE_DIR}/${REPO}/${MAIN}" ]]; then
-    _die "Directory ${GEE_DIR}/${REPO}/${MAIN} not found." \
+  if [[ ! -d "${GEE_REPO_DIR}/${MAIN}" ]]; then
+    _die "Directory ${GEE_REPO_DIR}/${MAIN} not found." \
       "Somehow your ${MAIN} branch got removed?"
     exit 1
   fi
@@ -650,18 +702,18 @@ function _startup_checks() {
     if [[ "${SAFE_COMMANDS}" != *" ${COMMAND} "* ]]; then
       _fatal "${COMMAND} must be run from within a gee branch."
     fi
-    cd "${GEE_DIR}/${REPO}/${MAIN}"
+    cd "${GEE_REPO_DIR}/${MAIN}"
     if ! GITDIR="$("${GIT}" rev-parse --git-common-dir 2>/dev/null )"; then
-      _fatal "Somehow, ${GEE_DIR}/${REPO}/${MAIN} is not a git repository."
+      _fatal "Somehow, ${GEE_REPO_DIR}/${MAIN} is not a git repository."
     fi
   fi
   GITDIR="$(readlink -f "${GITDIR}")"
-  if [[ "${GITDIR}" != "${GEE_DIR}"/*/.git ]]; then
+  if [[ "${GITDIR}" != "${GEE_REPO_DIR}"/*/.git ]]; then
     if [[ "${SAFE_COMMANDS}" != *" ${COMMAND} "* ]]; then
       _fatal "${COMMAND} must be run from within a gee branch."
     fi
-    _info "Switching to ${GEE_DIR}/${REPO}/${MAIN}"
-    cd "${GEE_DIR}/${REPO}/${MAIN}"
+    _info "Switching to ${GEE_REPO_DIR}/${MAIN}"
+    cd "${GEE_REPO_DIR}/${MAIN}"
   fi
 
   # Troubleshoot our environment before running (most) commands.
@@ -905,7 +957,7 @@ function _get_parent_branch() {
     return
   fi
 
-  _warn "Strangely, ${BRANCH} was missing from ${REPO_DIR}/.gee/parents."
+  _warn "Strangely, ${BRANCH} was missing from ${GEE_REPO_DIR}/.gee/parents."
 
   # The safest thing to do is to just set parent to $MAIN and move on.
   PARENTS["${BRANCH}"]="${MAIN}"
@@ -985,7 +1037,7 @@ function _update_branch_to_worktree() {
       WT=""
       BR=""
     fi
-  done < <(cd "${GEE_DIR}/${REPO}/${MAIN}"; "${GIT}" worktree list --porcelain ) \
+  done < <(cd "${GEE_REPO_DIR}/${MAIN}"; "${GIT}" worktree list --porcelain ) \
     || /bin/true
 }
 
@@ -1376,10 +1428,10 @@ function _local_branch_exists() {
 
   # branch exists, but let's double check that worktree is set up correctly:
   local BRDIR
-  BRDIR="${REPO_DIR}/${BRANCH}"
+  BRDIR="${GEE_REPO_DIR}/${BRANCH}"
   if ! [[ -d "${BRDIR}" ]]; then
     # try to fix worktree.
-    _git worktree add "${REPO_DIR}/${BRANCH}"
+    _git worktree add "${GEE_REPO_DIR}/${BRANCH}"
     _info "Created ${BRDIR}"
   fi
   _update_branch_to_worktree
@@ -1773,9 +1825,9 @@ function _checkout_or_die() {
   local BRANCH BRDIR
   BRANCH="$1"; shift
   # Do we already have a worktree?
-  BRDIR="${REPO_DIR}/${BRANCH}"
+  BRDIR="${GEE_REPO_DIR}/${BRANCH}"
   if ! [[ -d "${BRDIR}" ]]; then
-    _git worktree add "${REPO_DIR}/${BRANCH}"
+    _git worktree add "${GEE_REPO_DIR}/${BRANCH}"
     BRDIR="$(_get_branch_rootdir "${BRANCH}")"
     _info "Created ${BRDIR}"
   fi
@@ -1790,8 +1842,7 @@ function _checkout_or_die() {
 }
 
 function _in_gee_repo() {
-  # Return "main" if we are outside of a gee repo:
-  if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+ ]]; then
+  if [[ "${PWD}" =~ ^"${GEE_REPO_DIR}" ]]; then
     return "${TRUE}"
   else
     return "${FALSE}"
@@ -1799,8 +1850,7 @@ function _in_gee_repo() {
 }
 
 function _in_gee_branch() {
-  # Return "main" if we are outside of a gee repo:
-  if [[ "${PWD}" =~ ^"${HOME}"/gee/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+ ]]; then
+  if [[ "${PWD}" =~ ^"${GEE_REPO_DIR}"/[a-zA-Z0-9_-]+ ]]; then
     return "${TRUE}"
   else
     return "${FALSE}"
@@ -1911,10 +1961,10 @@ function _read_parents_file() {
   if (( PARENTS_FILE_IS_LOADED )); then
     return
   fi
-  local PATH="${REPO_DIR}/.gee/parents"
+  local PATH="${GEE_REPO_DIR}/.gee/parents"
   local KEY VALUE
-  if [[ ! -d "${REPO_DIR}/.gee" ]]; then
-    /usr/bin/mkdir "${REPO_DIR}/.gee"
+  if [[ ! -d "${GEE_REPO_DIR}/.gee" ]]; then
+    /usr/bin/mkdir "${GEE_REPO_DIR}/.gee"
   fi
   if [[ ! -f "${PATH}" ]]; then
     /usr/bin/touch "${PATH}"
@@ -1937,9 +1987,9 @@ function _write_parents_file() {
     _warn "Almost wrote empty parents file!"
     return
   fi
-  local PATH="${REPO_DIR}/.gee/parents"
-  if [[ ! -d "${REPO_DIR}/.gee" ]]; then
-    /usr/bin/mkdir "${REPO_DIR}/.gee"
+  local PATH="${GEE_REPO_DIR}/.gee/parents"
+  if [[ ! -d "${GEE_REPO_DIR}/.gee" ]]; then
+    /usr/bin/mkdir "${GEE_REPO_DIR}/.gee"
   fi
   local KEY VALUE MB
   for KEY in "${!PARENTS[@]}"; do
@@ -2201,12 +2251,7 @@ EOT
 
 function gee__init() {
   local R
-  R="${1:-"${REPO}"}"
-  REPO="${R}"
-  REPO_DIR="${GEE_DIR}/${REPO}/"
-  if (( "${TESTMODE}" )); then
-    REPO_DIR="${HOME}/testgee/${REPO}/"
-  fi
+  # REPO and GEE_REPO_DIR are already set.
 
   # ensure all tools are installed.
   _install_tools
@@ -2225,13 +2270,13 @@ function gee__init() {
   _gh config set git_protocol ssh
   _check_gh_auth
 
-  _info "Initializing ${REPO_DIR} for ${REPO}/${MAIN}"
+  _info "Initializing ${GEE_REPO_DIR} for ${REPO}/${MAIN}"
 
-  if [[ -d "${REPO_DIR}/${MAIN}" ]]; then
+  if [[ -d "${GEE_REPO_DIR}/${MAIN}" ]]; then
     _fatal \
-      "Initialized workspace already exists in ${REPO_DIR}"
+      "Initialized workspace already exists in ${GEE_REPO_DIR}"
   fi
-  _cmd mkdir -p "${REPO_DIR}/.gee"
+  _cmd mkdir -p "${GEE_REPO_DIR}/.gee"
   local URL UPSTREAM_URL
   URL="${GIT_AT_GITHUB}:${GHUSER}/${REPO}.git"
   UPSTREAM_URL="${GIT_AT_GITHUB}:${UPSTREAM}/${REPO}.git"
@@ -2250,8 +2295,8 @@ function gee__init() {
     --shallow-since "${OLDEST_COMMIT}" \
     --no-single-branch \
     "${URL}" \
-    "${REPO_DIR}/${MAIN}"
-  cd "${REPO_DIR}/${MAIN}"
+    "${GEE_REPO_DIR}/${MAIN}"
+  cd "${GEE_REPO_DIR}/${MAIN}"
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
   _git remote -v
@@ -2260,11 +2305,11 @@ function gee__init() {
   local OLD_MAIN="${MAIN}"
   unset MAIN
   _set_main_by_asking_github
-  cd "${REPO_DIR}"
+  cd "${GEE_REPO_DIR}"
   mv "${OLD_MAIN}" "${MAIN}"
   cd "${MAIN}"
 
-  _info "Created ${REPO_DIR}/${MAIN}"
+  _info "Created ${GEE_REPO_DIR}/${MAIN}"
 
   # by default, enable meld (guitool) and vimdiff (mergetool):
   gee__config default
@@ -2382,9 +2427,9 @@ function gee__make_branch() {
   fi
   _checkout_or_die "${CURRENT_BRANCH}"
 
-  local -a ARGS=( worktree add "${REPO_DIR}/${BRNAME}" )
+  local -a ARGS=( worktree add "${GEE_REPO_DIR}/${BRNAME}" )
   _git "${ARGS[@]}"
-  _info "Created ${REPO_DIR}/${BRNAME}"
+  _info "Created ${GEE_REPO_DIR}/${BRNAME}"
 
   _read_parents_file
   PARENTS["${BRNAME}"]="${CURRENT_BRANCH}"
@@ -3161,10 +3206,10 @@ function gee__lsbranches() {
 
   _set_main
   if ! _in_gee_repo; then
-    cd "${REPO_DIR}"
+    cd "${GEE_REPO_DIR}"
   fi
   if ! _in_gee_branch; then
-    cd "${REPO_DIR}/${MAIN}"
+    cd "${GEE_REPO_DIR}/${MAIN}"
   fi
 
   local -a branches;
@@ -3196,10 +3241,10 @@ function gee__cleanup() {
   _read_parents_file
 
   if ! _in_gee_repo; then
-    cd "${REPO_DIR}"
+    cd "${GEE_REPO_DIR}"
   fi
   if ! _in_gee_branch; then
-    cd "${REPO_DIR}/${MAIN}"
+    cd "${GEE_REPO_DIR}/${MAIN}"
   fi
 
   local -a branches;
@@ -4640,7 +4685,7 @@ function gee__gcd() {
   fi
 
   if ! _in_gee_branch; then
-    cd "${GEE_DIR}/${REPO}/${MAIN}"
+    cd "${GEE_REPO_DIR}/${MAIN}"
   fi
   if ! _in_gee_branch; then
     _die "Can't find ${REPO}/${MAIN} branch.  Something is very wrong here."
@@ -4661,7 +4706,7 @@ function gee__gcd() {
   if ! _local_branch_exists "${BRANCH}"; then
     if (( OPT_M == 1 )); then
       # branch from the main branch
-      cd "${GEE_DIR}/${REPO}/${MAIN}"
+      cd "${GEE_REPO_DIR}/${MAIN}"
       OPT_B=1
     fi
     if (( OPT_B == 1 )); then
@@ -4784,7 +4829,7 @@ function gee__bazelgc() {
        # Emit a list of all existing cache directories:
        readlink -f ~/.cache/bazel/*/????????????????????????????????;
        # Emit a list of all actively used cache directories:
-       readlink -f "${GEE_DIR}"/*/*/*/bazel-out \
+       readlink -f "${GEE_REPO_DIR}"/*/*/bazel-out \
          | sed 's/\/execroot\/.*\?\/bazel-out//';
                 ) | sort | uniq -c | awk '$1 == "1" {print $2}' )
   if [[ "${#EXPIRED[@]}" == 0 ]]; then
@@ -5029,9 +5074,9 @@ function gee__repair() {
 
   _git worktree prune
 
-  _info "Checking each directory in ${REPO_DIR}..."
+  _info "Checking each directory in ${GEE_REPO_DIR}..."
   local DIR BRANCH OBRANCH
-  for DIR in "${REPO_DIR}"/*; do
+  for DIR in "${GEE_REPO_DIR}"/*; do
     BRANCH="$(basename "${DIR}")"
     cd "${DIR}"
     if [[ ! -e ./.git ]]; then
@@ -5180,7 +5225,7 @@ function gee__restore_all_branches() {
   for RB in "${BRANCHES[@]}"; do
     local B BDIR
     B="$(basename "${RB}")"
-    BDIR="${REPO_DIR}/${B}"
+    BDIR="${GEE_REPO_DIR}/${B}"
     if [[ -d "${BDIR}" ]]; then
       _info "Branch ${B} already exists, skipping."
     else
@@ -5375,12 +5420,16 @@ function grg() {
 
 function _gee_completion_branches() {
   shift  # discard
-  local REPO=internal
-  local DIR="$(realpath --relative-base="${HOME}/gee" "${PWD}")"
-  if [[ -n "${DIR}" ]] && [[ "${DIR}" != "." ]] && [[ "${DIR}" != /* ]]; then
-    REPO="$(cut -d/ -f1 <<< "${DIR}")"
+  local REPO="${GEE_REPO:-}"
+  local GD="${GEE_DIR:-"${HOME}/gee"}"
+  if [[ -z "${REPO}" ]]; then
+    local DIR="$(realpath --relative-base="${GD}" "${PWD}")"
+    if [[ -n "${DIR}" ]] && [[ "${DIR}" != "." ]] && [[ "${DIR}" != /* ]]; then
+      REPO="$(cut -d/ -f1 <<< "${DIR}")"
+    fi
   fi
-  COMPREPLY=($(cd "${HOME}/gee/${REPO}"; compgen -f -X \\.* "$@"))
+  local GRD="${GEE_REPO_DIR:-"${GD}/${REPO:-internal}"}"
+  COMPREPLY=($(cd "${GRD}"; compgen -f -X \\.* "$@"))
 }
 
 END_OF_BASH_SETUP
