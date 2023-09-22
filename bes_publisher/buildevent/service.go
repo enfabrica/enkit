@@ -322,6 +322,19 @@ func (b *buildStream) maybePublish(event *bes.BuildEvent) error {
 		} else {
 			metricUnknownTargetType.WithLabelValues("unmatched_test_result").Inc()
 		}
+
+	case *bes.BuildEvent_Aborted:
+		// Look up the type of this target (see above handling in Completed) and
+		// stuff this as an attr for just this message.
+		eventID := event.GetId().GetTestSummary()
+		k := targetKey(eventID.GetLabel(), eventID.GetConfiguration().GetId())
+		targetType, ok := b.typeFromLabelAndConfiguration[k]
+		if ok {
+			extraAttrs["rule_type"] = targetType
+		} else {
+			metricUnknownTargetType.WithLabelValues("unmatched_aborted_result").Inc()
+		}
+
 	case *bes.BuildEvent_Finished:
 	case *bes.BuildEvent_BuildMetrics:
 	}
