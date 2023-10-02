@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly VERSION="0.2.44"
+readonly VERSION="0.2.45"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -250,6 +250,16 @@ declare -a ARGS_POSITIONAL=()  # for _parse_options(), below
 while ! "${PWD_CMD}" >/dev/null; do
   cd ..
 done
+
+# Normalize any paths that we get from the environment.  We perform some regex
+# matches using these paths, and spurious things like extra slashes can trip
+# things up.  "realpath -m" will convert "/foo////bar/bum/" to "/foo/bar/bum".
+if [[ -n "${GEE_DIR}" ]]; then
+  GEE_DIR="$(realpath -m "${GEE_DIR}")"
+fi
+if [[ -n "${GEE_REPO_DIR}" ]]; then
+  GEE_REPO_DIR="$(realpath -m "${GEE_REPO_DIR}")"
+fi
 
 if [[ -z "${REPO}" ]]; then
   # Examine the directory to see if we're in a repo already.

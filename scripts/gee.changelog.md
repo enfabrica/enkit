@@ -2,6 +2,11 @@
 
 ## Releases
 
+### 0.2.45
+
+* gee: add support for `GEE_DIR` and `GEE_REPO_DIR` environment variables (#974, #977)
+* gee: handle case where "master" and "main" branches both exist (#948)
+
 ### 0.2.43
 
 * gee setup: add support for BeyondCompare. (#945)
