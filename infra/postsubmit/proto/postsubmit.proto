@@ -76,4 +76,25 @@ message Build {
   // auto-updated version is used. This allows for testing specific images in
   // some builds before deploying them more widely.
   string container_image = 13;
+
+  // Optional steps/checkers that can be added for debugging postsubmit issues.
+  repeated DebugStep debug_steps = 14;
+}
+
+message DebugStep {
+  oneof step {
+    // Print the top N largest files under a particular subtree.
+    //
+    // Useful for debugging issues where the runner disk is filling up.
+    LargeFilePrinter large_file_printer = 1;
+  }
+}
+
+message LargeFilePrinter {
+  // Dir under which to print large files. Files will be either in this dir
+  // directly, or one of its children.
+  string base_dir = 1;
+
+  // Number of large files to print sizes for.
+  int32 top_n = 2;
 }
