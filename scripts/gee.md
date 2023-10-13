@@ -108,6 +108,9 @@ review.
   behavior (or, if you are using `GEE_REPO_DIR` to use a non-standard directory structure), set
   the `GEE_REPO` variable to the repository name (ie. `internal`, `enkit`, etc.).
 
+* `GEE_BUILDLOGS_PROJECT`: If you are using gcloud to store your presubmit testing logs, you can
+  override gee's default gcloud project by setting this environment variable.
+
 * `UPSTREAM`: The name of the github user hosting the specified repository.  By default, `enfabrica`.
 
 * `YESYESYES`: If set to a non-zero integer, will cause all yes/no prompts within `gee` to automatically
