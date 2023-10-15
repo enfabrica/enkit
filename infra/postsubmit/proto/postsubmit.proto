@@ -79,6 +79,17 @@ message Build {
 
   // Optional steps/checkers that can be added for debugging postsubmit issues.
   repeated DebugStep debug_steps = 14;
+
+  // Size of local scratch storage needed while the postsubmit is running.
+  //
+  // Generally speaking, builds shouldn't need local storage, as the bulk of the
+  // computation is happening remotely. However, some builds download large
+  // artifacts unavoidably, so this exists as a workaround for this specific
+  // use-case.
+  //
+  // If set to zero or not set, a default value will be chosen that is suitable
+  // for the common use case.
+  uint32 local_storage_size_gb = 15;
 }
 
 message DebugStep {
