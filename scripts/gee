@@ -1447,7 +1447,7 @@ function _local_branch_exists() {
   BRDIR="${GEE_REPO_DIR}/${BRANCH}"
   if ! [[ -d "${BRDIR}" ]]; then
     # try to fix worktree.
-    _git worktree add "${GEE_REPO_DIR}/${BRANCH}"
+    _git worktree add -f "${GEE_REPO_DIR}/${BRANCH}"
     _info "Created ${BRDIR}"
   fi
   _update_branch_to_worktree
@@ -1843,7 +1843,7 @@ function _checkout_or_die() {
   # Do we already have a worktree?
   BRDIR="${GEE_REPO_DIR}/${BRANCH}"
   if ! [[ -d "${BRDIR}" ]]; then
-    _git worktree add "${GEE_REPO_DIR}/${BRANCH}"
+    _git worktree add -f "${GEE_REPO_DIR}/${BRANCH}"
     BRDIR="$(_get_branch_rootdir "${BRANCH}")"
     _info "Created ${BRDIR}"
   fi
@@ -2443,7 +2443,7 @@ function gee__make_branch() {
   fi
   _checkout_or_die "${CURRENT_BRANCH}"
 
-  local -a ARGS=( worktree add "${GEE_REPO_DIR}/${BRNAME}" )
+  local -a ARGS=( worktree add -f "${GEE_REPO_DIR}/${BRNAME}" )
   _git "${ARGS[@]}"
   _info "Created ${GEE_REPO_DIR}/${BRNAME}"
 
@@ -2462,9 +2462,9 @@ function gee__make_branch() {
   # into this branch.
   if _remote_branch_exists origin "${BRNAME}"; then
     _checkout_or_die "${BRNAME}"
-    _git fetch origin "${BRNAME}"
+    _git fetch origin
     local -a COUNTS
-    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
+    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${MAIN}...origin/${CURRENT_BRANCH}")
     if [[ "${COUNTS[1]}" -gt 0 ]]; then
       _warn "Remote branch origin/${BRNAME} is ${COUNTS[1]} commit(s) ahead of master." \
             "Do you want to reset your local branch to be the same as origin/${BRNAME}?"
