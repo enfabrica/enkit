@@ -5589,10 +5589,12 @@ function __gee_prompt_set_colors() {
 function __gee_prompt_set_window_title() {
   local title="$1"
 
-  local ESC=$'\033'
-  local SLASH=$'\134'
-  # printf "${ESC}k${ESC}${SLASH}${ESC}k%s${ESC}${SLASH}" "$1"
-  printf "\\[\033k%s\033\\\\]" "$1"
+  # if window title is supported...
+  if [[ "${TERM}" == screen* ]] || [[ "${TERM}" == tmux* ]]; then
+    local ESC=$'\033'
+    local SLASH=$'\134'
+    printf "\\[\033k%s\033\\\\]" "$1"
+  fi
 }
 
 function gee_prompt_test_colors() {
