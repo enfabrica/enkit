@@ -103,6 +103,9 @@ review.
   behavior (or, if you are using `GEE_REPO_DIR` to use a non-standard directory structure), set
   the `GEE_REPO` variable to the repository name (ie. `internal`, `enkit`, etc.).
 
+* `GEE_BUILDLOGS_PROJECT`: If you are using gcloud to store your presubmit testing logs, you can
+  override gee's default gcloud project by setting this environment variable.
+
 * `UPSTREAM`: The name of the github user hosting the specified repository.  By default, `enfabrica`.
 
 * `YESYESYES`: If set to a non-zero integer, will cause all yes/no prompts within `gee` to automatically
@@ -172,6 +175,7 @@ then :; fi
 #
 # TODO(jonathan): Bash implementation is a prototype.  rewrite in golang?
 # TODO(jonathan): "git push -u" option is going to change soon.
+# TODO(jonathan): check/help the user authenticate to gcloud.
 
 set -E  # enables errtrace (allows ERR traps to be inherited by functions and subshells)
 set -e  # terminate script on any simple command failure.
@@ -209,6 +213,8 @@ declare -A PARENTS     # initialized by _load_parents_file
 declare -A MERGEBASES  # initialized by _load_parents_file
 declare -A BRANCH_TO_WORKTREE=()
 readonly GEE_LOG_FILE="${HOME}/gee.log"
+# GEE_BUILDLOGS_PROJECT is used by gcloud to access build logs:
+readonly GEE_BUILDLOGS_PROJECT="${GEE_BUILDLOGS_PROJECT:-cloud-build-290921}"
 readonly TRUE=0
 readonly FALSE=1
 readonly GEE_ON_ASTORE="test/gee"
@@ -4181,7 +4187,7 @@ function gee__pr_check() {
       local BUILD
       for BUILD in "${FAILED_BUILDS[@]}"; do
         _warn "Failed build: ${BUILD}"
-        gcloud builds log "${BUILD}" | grep -i -E "(failed:|error:|streaming build results to:)"
+        gcloud --project="${GEE_BUILDLOGS_PROJECT}" builds log "${BUILD}" | grep -i -E "(failed:|error:|streaming build results to:)"
       done
     fi
   fi
