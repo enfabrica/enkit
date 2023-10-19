@@ -2,6 +2,13 @@
 
 ## Releases
 
+### 0.2.46
+
+* gee bisect: a helpful utility for wrapping "git bisect" (#985).
+* gee mkbr: Use reset when restoring a branch from origin instead of rebase (#983).
+* gee: explicitly specify gcloud project when querying presubmit results (#981).
+* gee bash_setup: disable window title control sequence if not running screen/tmux (#980).
+
 ### 0.2.45
 
 * gee: add support for `GEE_DIR` and `GEE_REPO_DIR` environment variables (#974, #977)

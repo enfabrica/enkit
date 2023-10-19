@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.45
+gee version: 0.2.46
 
 gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
 tools  gee is an opinionated tool that implements a specific, simple, powerful
@@ -145,6 +145,7 @@ prompt that `gee bash_setup` makes available.
 | ------- | ------- |
 | <a href="#bash_setup">`bash_setup`</a> | Configure the bash environment for gee. |
 | <a href="#bazelgc">`bazelgc`</a> | Garbage collect your bazel cache. |
+| <a href="#bisect">`bisect`</a> | Find a commit that caused a command to fail. |
 | <a href="#cleanup">`cleanup`</a> | Automatically remove branches without local changes. |
 | <a href="#codeowners">`codeowners`</a> | Provide detailed information about required approvals for this PR. |
 | <a href="#commit">`commit`</a> | Commit all changes in this branch |
@@ -744,6 +745,23 @@ Usage: `gee bazelgc`
 
 Identifies a set of bazel cache directories that are no longer associated with
 any worktree (branch) that gee knows about, and offers to delete them.
+
+### bisect
+
+Usage: `gee bisect [command...]`
+
+This command wraps the `git bisect` command, and attempts to discover
+a commit that causes the provided command to transition from a success
+to a failure.  During this process, gee will create a special branch
+named `bisect_<branchname>` to perform the bisect operation in.
+
+gee will attempt to find a previous last good commit by testing a day, a
+week, a month, 3 months, and finally six months into the past.  Once
+a past good commit is found, the `git bisect` command will be used to
+identify the commit that caused a transition from a pass to a fail.
+
+gee assumes that the provided command will fail at the head revision.
+If this is not the case, the behavior of this command is undefined.
 
 ### diagnose
 
