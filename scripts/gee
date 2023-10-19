@@ -4937,7 +4937,10 @@ function gee__bisect() {
   CMD=( "$@" )
   local CUR_BRANCH BISECT_BRANCH
   CUR_BRANCH="$(_get_current_branch)"
-  BISECT_BRANCH="BISECT_${CUR_BRANCH}"
+  BISECT_BRANCH="BISECT_${CUR_BRANCH}_$$"
+  if _local_branch_exists "${BISECT_BRANCH}"; then
+    _fatal "Branch ${BISECT_BRANCH} already exists, cannot create it."
+  fi
   gee__mkbr "${BISECT_BRANCH}"
   _checkout_or_die "${BISECT_BRANCH}"
   _git reset --hard "${CUR_BRANCH}"
