@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	winio "github.com/Microsoft/go-winio"
+	"github.com/Microsoft/go-winio"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/config/directory"
 	"github.com/enfabrica/enkit/lib/kflags"
@@ -233,7 +233,7 @@ func SelectConnType(platform string, a SSHAgent) (net.Conn, error) {
 	if platform == "linux" {
 		return net.DialTimeout("unix", a.State.Socket, a.timeout)
 	} else if platform == "windows" {
-		return winio.DialPipe(a.State.Socket, a.timeout)
+		return winio.DialPipe(a.State.Socket, &a.timeout)
 	} else {
 		return nil, fmt.Errorf("%s is an unsupported platform", platform)
 	}
