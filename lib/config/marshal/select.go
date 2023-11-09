@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
 	"github.com/enfabrica/enkit/lib/multierror"
 )
 
@@ -119,7 +118,7 @@ func (fm FileMarshallers) UnmarshalDefault(path string, data []byte, def Marshal
 func (fm FileMarshallers) UnmarshalFilePrefix(prefix string, value interface{}) (string, error) {
 	var errs []error
 	for _, candidate := range fm {
-		name := prefix + "." + candidate.Extension()
+		name := filepath.ToSlash(prefix + "." + candidate.Extension())
 
 		data, err := ioutil.ReadFile(name)
 		if err != nil {
@@ -170,20 +169,22 @@ func (fm FileMarshallers) UnmarshalAsset(name string, assets map[string][]byte, 
 
 // MarshalFile invokes Marshal() to then save the content in a file.
 func (fm FileMarshallers) MarshalFile(path string, value interface{}) error {
-	data, err := fm.Marshal(path, value)
+	sanitizedPath := filepath.ToSlash(path)
+	data, err := fm.Marshal(sanitizedPath, value)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, data, 0660)
+	return ioutil.WriteFile(sanitizedPath, data, 0660)
 }
 
 // UnmarshalFile invokes Unarshal() to parse the content of a file.
 func (fm FileMarshallers) UnmarshalFile(path string, value interface{}) error {
-	data, err := ioutil.ReadFile(path)
+	sanitizedPath := filepath.ToSlash(path)
+	data, err := ioutil.ReadFile(sanitizedPath)
 	if err != nil {
 		return err
 	}
-	return fm.Unmarshal(path, data, value)
+	return fm.Unmarshal(sanitizedPath, data, value)
 }
 
 // Marshal will encode the 'value' object using the best encoder depending on the 'path' extension.
