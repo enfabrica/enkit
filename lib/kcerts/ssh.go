@@ -363,7 +363,6 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 	return agent.NewClient(conn).Add(agent.AddedKey{
 		PrivateKey:   privateKey.Raw(),
 		Certificate:  cert,
-		LifetimeSecs: uint32(ttl.Seconds()),
 	})
 }
 
