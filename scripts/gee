@@ -222,10 +222,10 @@ readonly GEE_BUILDLOGS_PROJECT="${GEE_BUILDLOGS_PROJECT:-cloud-build-290921}"
 readonly TRUE=0
 readonly FALSE=1
 readonly GEE_ON_ASTORE="test/gee"
-readonly GIT_PATHS=(/usr/enfabrica/bin/git ~/bin/git /usr/bin/git)
-readonly GH_PATHS=(/usr/enfabrica/bin/gh ~/bin/gh /usr/bin/gh)
-readonly JQ_PATHS=(/usr/enfabrica/bin/jq ~/bin/jq /usr/bin/jq)
-readonly ENKIT_PATHS=(/usr/enfabrica/bin/enkit ~/bin/enkit /opt/enfabrica/bin/enkit /usr/bin/enkit)
+readonly GIT_PATHS=(   /usr/enfabrica/bin/git   /enf_mounts/bin/git   ~/bin/git   /usr/bin/git)
+readonly GH_PATHS=(    /usr/enfabrica/bin/gh    /enf_mounts/bin/gh    ~/bin/gh    /usr/bin/gh)
+readonly JQ_PATHS=(    /usr/enfabrica/bin/jq    /enf_mounts/bin/jq    ~/bin/jq    /usr/bin/jq)
+readonly ENKIT_PATHS=( /usr/enfabrica/bin/enkit /enf_mounts/bin/enkit ~/bin/enkit /opt/enfabrica/bin/enkit /usr/bin/enkit)
 readonly -a SSHKEYFILES=("${HOME}/.ssh/id_ed25519" "${HOME}/.ssh/gee_github_ed25519")
 SSHKEYFILE="${SSHKEYFILES[0]}"  # default
 # Backwards compatibility: Use first keyfile that exists.
