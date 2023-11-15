@@ -1,12 +1,10 @@
 package kcerts
 
 import (
-	"runtime"
 	"bytes"
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
-	"net"
 	mathrand "math/rand"
 	"os"
 	"os/exec"
@@ -15,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"github.com/Microsoft/go-winio"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/config/directory"
 	"github.com/enfabrica/enkit/lib/kflags"
@@ -42,6 +39,7 @@ var (
 // FindSSHDir will find the users ssh directory based on $HOME. If $HOME/.ssh does not exist
 // it will attempt to create it.
 func FindSSHDir() (string, error) {
+	Test.DoSomething()
 	hDir, err := homedir.Dir()
 	if err != nil {
 		return "", fmt.Errorf("could not find the home directory: %w", err)
@@ -226,25 +224,12 @@ func (a SSHAgent) Kill() error {
 	return p.Kill()
 }
 
-// When talking to the SSH agent on linux machines, use unix sockets
-// while use named pipes for windows machines.
-// https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipes
-func SelectConnType(platform string, a SSHAgent) (net.Conn, error) {
-	if platform == "linux" {
-		return net.DialTimeout("unix", a.State.Socket, a.timeout)
-	} else if platform == "windows" {
-		return winio.DialPipe(a.State.Socket, &a.timeout)
-	} else {
-		return nil, fmt.Errorf("%s is an unsupported platform", platform)
-	}
-}
-
 func (a SSHAgent) Valid() error {
 	if a.State.Socket == "" {
 		return nil
 	}
 
-	conn, err := SelectConnType(runtime.GOOS, a)
+	conn, err := DialTimeout(a)
 	if err != nil {
 		return fmt.Errorf("invalid agent - could not connect - %w", err)
 	}
@@ -311,7 +296,7 @@ type AgentCert struct {
 
 // Principals returns a map where the keys are the CA's PKS and the certs identities are the values
 func (a SSHAgent) Principals() ([]AgentCert, error) {
-	conn, err := SelectConnType(runtime.GOOS, a)
+	conn, err := DialTimeout(a)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +330,7 @@ func (a SSHAgent) Principals() ([]AgentCert, error) {
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
 // Note that ed25519.PrivateKey should be passed by value.
 func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey) error {
-	conn, err := SelectConnType(runtime.GOOS, a)
+	conn, err := DialTimeout(a)
 	if err != nil {
 		return err
 	}
