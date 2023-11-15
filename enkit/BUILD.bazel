@@ -39,15 +39,6 @@ go_binary(
 )
 
 go_binary(
-    name = "enkit-darwin-amd64",
-    embed = [":enkit_lib"],
-    goarch = "amd64",
-    goos = "darwin",
-    static = "on",
-    visibility = ["//visibility:public"],
-)
-
-go_binary(
     name = "enkit-win-amd64",
     embed = [":enkit_lib"],
     goarch = "amd64",
@@ -61,7 +52,6 @@ astore_upload(
     file = "tools/enkit",
     targets = [
         ":enkit-linux-cgo-amd64",
-        ":enkit-darwin-amd64",
         ":enkit-win-amd64",
     ],
     visibility = ["//:__pkg__"],
