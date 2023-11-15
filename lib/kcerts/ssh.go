@@ -39,7 +39,6 @@ var (
 // FindSSHDir will find the users ssh directory based on $HOME. If $HOME/.ssh does not exist
 // it will attempt to create it.
 func FindSSHDir() (string, error) {
-	Test.DoSomething()
 	hDir, err := homedir.Dir()
 	if err != nil {
 		return "", fmt.Errorf("could not find the home directory: %w", err)

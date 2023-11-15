@@ -6,11 +6,11 @@ go_library(
         "cache.go",
         "certs.go",
         "keys.go",
-        "linux.go",
         "signer.go",
         "ssh.go",
+        "ssh_linux.go",
+        "ssh_windows.go",
         "types.go",
-        "windows.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/kcerts",
     visibility = ["//visibility:public"],
@@ -23,11 +23,21 @@ go_library(
         "//lib/logger",
         "//lib/multierror",
         "//lib/srand",
-        "@com_github_microsoft_go_winio//:go-winio",
         "@com_github_mitchellh_go_homedir//:go-homedir",
         "@org_golang_x_crypto//ssh",
         "@org_golang_x_crypto//ssh/agent",
-    ],
+    ] + select({
+        "@io_bazel_rules_go//go/platform:windows": [
+            "@com_github_microsoft_go_winio//:go-winio",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":kcerts",
+    visibility = ["//visibility:public"],
 )
 
 go_test(
@@ -46,10 +56,4 @@ go_test(
         "@com_github_stretchr_testify//assert",
         "@org_golang_x_crypto//ssh",
     ],
-)
-
-alias(
-    name = "go_default_library",
-    actual = ":kcerts",
-    visibility = ["//visibility:public"],
 )
