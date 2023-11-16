@@ -345,7 +345,7 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 
 	// BUG(INFRA-8631): Do not add LifetimeSecs to AddedKey because the lifetime of the cert
 	// is already embedded in the cert returned by the auth server. Adding LifetimeSecs
-	// again will cause the ssh-agent on Windows to experience and impersonation token error.
+	// again will cause the ssh-agent on Windows to experience an impersonation token error.
 	// This failure causes the ssh-agent on Windows to not respond back to enkit via RPC
 	// which triggers an obscure EOF error.
 	conn.SetDeadline(time.Now().Add(a.timeout))
