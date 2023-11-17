@@ -116,6 +116,10 @@ review.
 * `YESYESYES`: If set to a non-zero integer, will cause all yes/no prompts within `gee` to automatically
   select "yes".
 
+* `gee` looks in a few places to find the tools it needs, but if gee has a hard time finding the
+  right version of a tool, you can force `gee` to use a specific path by setting any or all
+  of the variables `GIT`, `JQ`, `GH`, and `ENKIT`.
+
 * The following environment variables can be set to a curses color value to override gee's default
   color scheme.  (The `gee colortest` command can be used to dump a color table and examples of the
   current color scheme.)

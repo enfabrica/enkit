@@ -111,6 +111,10 @@ review.
 * `YESYESYES`: If set to a non-zero integer, will cause all yes/no prompts within `gee` to automatically
   select "yes".
 
+* `gee` looks in a few places to find the tools it needs, but if gee has a hard time finding the
+  right version of a tool, you can force `gee` to use a specific path by setting any or all
+  of the variables `GIT`, `JQ`, `GH`, and `ENKIT`.
+
 * The following environment variables can be set to a curses color value to override gee's default
   color scheme.  (The `gee colortest` command can be used to dump a color table and examples of the
   current color scheme.)
@@ -218,9 +222,10 @@ readonly GEE_BUILDLOGS_PROJECT="${GEE_BUILDLOGS_PROJECT:-cloud-build-290921}"
 readonly TRUE=0
 readonly FALSE=1
 readonly GEE_ON_ASTORE="test/gee"
-readonly GIT=/usr/bin/git
-readonly GH=/usr/bin/gh
-readonly JQ=/usr/bin/jq
+readonly GIT_PATHS=(   /usr/enfabrica/bin/git   /enf_mounts/bin/git   ~/bin/git   /usr/bin/git)
+readonly GH_PATHS=(    /usr/enfabrica/bin/gh    /enf_mounts/bin/gh    ~/bin/gh    /usr/bin/gh)
+readonly JQ_PATHS=(    /usr/enfabrica/bin/jq    /enf_mounts/bin/jq    ~/bin/jq    /usr/bin/jq)
+readonly ENKIT_PATHS=( /usr/enfabrica/bin/enkit /enf_mounts/bin/enkit ~/bin/enkit /opt/enfabrica/bin/enkit /usr/bin/enkit)
 readonly -a SSHKEYFILES=("${HOME}/.ssh/id_ed25519" "${HOME}/.ssh/gee_github_ed25519")
 SSHKEYFILE="${SSHKEYFILES[0]}"  # default
 # Backwards compatibility: Use first keyfile that exists.
@@ -230,7 +235,6 @@ for f in "${SSHKEYFILES[@]}"; do
     break
   fi
 done
-readonly ENKIT=/opt/enfabrica/bin/enkit
 readonly GIT_AT_GITHUB="org-64667743@github.com"
 readonly NEWLINE=$'\n'
 readonly CLONE_DEPTH_MONTHS=3  # months of history to fetch
@@ -256,6 +260,28 @@ declare -a ARGS_POSITIONAL=()  # for _parse_options(), below
 while ! "${PWD_CMD}" >/dev/null; do
   cd ..
 done
+
+function _find_executable() {
+  local P
+  for P in "$@"; do
+    if [[ -x "${P}" ]]; then
+      echo "${P}"
+      return
+    fi
+  done
+  P="$(command -v "$(basename "$1")")"
+  if [[ -x "$P" ]]; then
+    echo "${P}"
+    return
+  fi
+  # don't fail, allow the repair flow to attempt to install missing tools:
+  printf >&2 "WARNING: missing tool: %s\n" "$(basename "$1")"
+  basename "$1"
+}
+readonly GIT="${GIT:-"$(_find_executable "${GIT_PATHS[@]}")"}"
+readonly GH="${GH:-"$(_find_executable "${GH_PATHS[@]}")"}"
+readonly JQ="${JQ:-"$(_find_executable "${JQ_PATHS[@]}")"}"
+readonly ENKIT="${ENKIT:-"$(_find_executable "${ENKIT_PATHS[@]}")"}"
 
 # Normalize any paths that we get from the environment.  We perform some regex
 # matches using these paths, and spurious things like extra slashes can trip
@@ -1359,7 +1385,8 @@ function _install_tools() {
       | sudo /usr/bin/tee /etc/apt/sources.list.d/githubcli-archive.list
     sudo /usr/bin/apt-get update || /bin/true  # ignore errors associated with stale repos.
     sudo /usr/bin/apt-get install gh
-    if [ ! -x ${GH} ]; then
+    GH="$(_find_executable "${GH_PATHS[@]}")"
+    if [ ! -x "${GH}" ]; then
       _fatal "Could not install gh."
     fi
   fi
@@ -1368,6 +1395,7 @@ function _install_tools() {
     _info "Installing missing tool: jq"
     sudo /usr/bin/apt-get update || /bin/true  # ignore errors associated with stale repos.
     sudo /usr/bin/apt-get install jq
+    JQ="$(_find_executable "${JQ_PATHS[@]}")"
     if [ ! -x "${JQ}" ]; then
       _fatal "Could not install jq."
     fi
@@ -4993,9 +5021,14 @@ function gee__diagnose() {
     set +e
     echo "-------- version information --------"
     echo "$(readlink -f "$0") version ${VERSION}"
+    echo "GIT=${GIT}"
     "${GIT}" --version
+    echo "GH=${GH}"
     "${GH}" --version
+    echo "JQ=${JQ}"
     "${JQ}" --version
+    echo "ENKIT=${ENKIT}"
+    "${ENKIT}" version
     echo "-------- env --------"
     printf "%q\n" "${USER}"
     printf "%q\n" "${PATH}"
