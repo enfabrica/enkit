@@ -4,15 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"io/ioutil"
-	mathrand "math/rand"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/config/directory"
 	"github.com/enfabrica/enkit/lib/kflags"
@@ -22,6 +13,15 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"io/ioutil"
+	mathrand "math/rand"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
@@ -334,25 +334,7 @@ func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey
 		return err
 	}
 	defer conn.Close()
-	cert, ok := publicKey.(*ssh.Certificate)
-	if !ok {
-		return fmt.Errorf("public key is not a valid ssh certificate")
-	}
-	ttl := SSHCertRemainingTTL(cert)
-	if ttl == InValidCertTimeDuration {
-		return fmt.Errorf("certificate is already expired or invalid, not adding")
-	}
-
-	// BUG(INFRA-8631): Do not add LifetimeSecs to AddedKey because the lifetime of the cert
-	// is already embedded in the cert returned by the auth server. Adding LifetimeSecs
-	// again will cause the ssh-agent on Windows to experience an impersonation token error.
-	// This failure causes the ssh-agent on Windows to not respond back to enkit via RPC
-	// which triggers an obscure EOF error.
-	conn.SetDeadline(time.Now().Add(a.timeout))
-	return agent.NewClient(conn).Add(agent.AddedKey{
-		PrivateKey:   privateKey.Raw(),
-		Certificate:  cert,
-	})
+	return AddKey(conn, a, privateKey, publicKey)
 }
 
 func (a SSHAgent) GetEnv() []string {

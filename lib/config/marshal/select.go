@@ -2,12 +2,12 @@ package marshal
 
 import (
 	"fmt"
+	"github.com/enfabrica/enkit/lib/multierror"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/enfabrica/enkit/lib/multierror"
 )
 
 // Use marshal.Toml to encode/decode from Toml format.
