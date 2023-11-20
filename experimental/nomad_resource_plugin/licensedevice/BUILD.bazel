@@ -6,6 +6,10 @@ go_library(
     importpath = "github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice",
     visibility = ["//visibility:public"],
     deps = [
+        "//experimental/nomad_resource_plugin/licensedevice/sqldb",
+        "//experimental/nomad_resource_plugin/licensedevice/types",
+        "//lib/str",
+        "@com_github_hashicorp_go_hclog//:go-hclog",
         "@com_github_hashicorp_nomad//plugins/base",
         "@com_github_hashicorp_nomad//plugins/device",
         "@com_github_hashicorp_nomad//plugins/shared/hclspec",
@@ -20,10 +24,15 @@ alias(
 
 go_test(
     name = "licensedevice_test",
-    srcs = ["plugin_test.go"],
+    srcs = [
+        "mock_test.go",
+        "plugin_test.go",
+    ],
     embed = [":licensedevice"],
     deps = [
+        "//experimental/nomad_resource_plugin/licensedevice/types",
         "@com_github_hashicorp_nomad//plugins/device",
         "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//mock",
     ],
 )
