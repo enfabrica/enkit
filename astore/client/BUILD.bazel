@@ -32,6 +32,15 @@ go_binary(
 )
 
 go_binary(
+    name = "astore-darwin-amd64",
+    embed = [":client_lib"],
+    goarch = "amd64",
+    goos = "darwin",
+    static = "on",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
     name = "astore-win-amd64",
     embed = [":client_lib"],
     goarch = "amd64",
@@ -45,6 +54,7 @@ astore_upload(
     file = "tools/astore",
     targets = [
         ":astore-linux-amd64",
+        ":astore-darwin-amd64",
         ":astore-win-amd64",
     ],
 )

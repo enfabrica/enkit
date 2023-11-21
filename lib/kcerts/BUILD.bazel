@@ -8,6 +8,7 @@ go_library(
         "keys.go",
         "signer.go",
         "ssh.go",
+        "ssh_darwin.go",
         "ssh_linux.go",
         "ssh_windows.go",
         "types.go",
