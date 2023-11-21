@@ -2,7 +2,10 @@ package types
 
 import (
 	"context"
+	"path/filepath"
 	"time"
+
+	"github.com/hashicorp/nomad/plugins/device"
 )
 
 type License struct {
@@ -34,8 +37,16 @@ type License struct {
 	UserProcess *string
 }
 
+func (l *License) MountInfo(root string) *device.Mount {
+	return &device.Mount{
+		HostPath: filepath.Join(root, l.Vendor, l.Feature, l.ID),
+		TaskPath: filepath.Join("/tmp/license_handles", l.Vendor, l.Feature, l.ID),
+		ReadOnly: true,
+	}
+}
+
 type Reserver interface {
-	Reserve(ctx context.Context, licenseID string, node string, user string) error
+	Reserve(ctx context.Context, licenseIDs []string, node string) ([]*License, error)
 
 	Use(ctx context.Context, licenseID string, node string, user string) error
 

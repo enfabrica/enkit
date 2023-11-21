@@ -5,6 +5,7 @@ go_library(
     srcs = ["types.go"],
     importpath = "github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/types",
     visibility = ["//visibility:public"],
+    deps = ["@com_github_hashicorp_nomad//plugins/device"],
 )
 
 alias(

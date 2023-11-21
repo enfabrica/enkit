@@ -26,9 +26,9 @@ type mockReserver struct {
 	mock.Mock
 }
 
-func (m *mockReserver) Reserve(ctx context.Context, licenseID string, node string, user string) error {
-	args := m.Called(ctx, licenseID, node, user)
-	return args.Error(0)
+func (m *mockReserver) Reserve(ctx context.Context, licenseIDs []string, node string) ([]*types.License, error) {
+	args := m.Called(ctx, licenseIDs, node)
+	return args.Get(0).([]*types.License), args.Error(1)
 }
 
 func (m *mockReserver) Use(ctx context.Context, licenseID string, node string, user string) error {

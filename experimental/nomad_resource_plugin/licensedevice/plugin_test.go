@@ -3,11 +3,14 @@ package licensedevice
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/hashicorp/nomad/plugins/device"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/types"
 	"github.com/enfabrica/enkit/lib/str"
@@ -55,6 +58,7 @@ func TestPluginFingerprint(t *testing.T) {
 
 	p := NewPlugin()
 	p.notifier = notifier
+	p.licenseHandleRoot = bazel.TestTmpDir()
 
 	notifyChan := make(chan struct{})
 	notifier.On("Chan").Return(notifyChan)
@@ -134,4 +138,53 @@ func TestPluginFingerprint(t *testing.T) {
 	}
 
 	assert.Equal(t, &device.FingerprintResponse{Error: fmt.Errorf("context canceled")}, got)
+}
+
+func TestReserve(t *testing.T) {
+	reserver := &mockReserver{}
+
+	p := NewPlugin()
+	p.nodeID = "client_a"
+	p.reserver = reserver
+	p.licenseHandleRoot = bazel.TestTmpDir()
+
+	reserver.On("Reserve", mock.Anything, []string{"aaaa", "bbbb"}, "client_a").Return([]*types.License{
+		{
+			ID:          "aaaa",
+			Vendor:      "vendor_a",
+			Feature:     "feature_1",
+			Status:      "RESERVED",
+			UserNode:    str.Pointer("client_a"),
+			UserProcess: nil,
+		},
+		{
+			ID:          "bbbb",
+			Vendor:      "vendor_b",
+			Feature:     "feature_2",
+			Status:      "RESERVED",
+			UserNode:    str.Pointer("client_a"),
+			UserProcess: nil,
+		},
+	}, nil)
+
+	got, gotErr := p.Reserve([]string{"aaaa", "bbbb"})
+
+	if !assert.NoError(t, gotErr) {
+		return
+	}
+
+	assert.Equal(t, &device.ContainerReservation{
+		Mounts: []*device.Mount{
+			{
+				HostPath: filepath.Join(bazel.TestTmpDir(), "vendor_a/feature_1/aaaa"),
+				TaskPath: "/tmp/license_handles/vendor_a/feature_1/aaaa",
+				ReadOnly: true,
+			},
+			{
+				HostPath: filepath.Join(bazel.TestTmpDir(), "vendor_b/feature_2/bbbb"),
+				TaskPath: "/tmp/license_handles/vendor_b/feature_2/bbbb",
+				ReadOnly: true,
+			},
+		},
+	}, got)
 }

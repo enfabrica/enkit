@@ -3,6 +3,9 @@ package licensedevice
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -19,13 +22,17 @@ import (
 type Plugin struct {
 	Log hclog.Logger
 
-	reserver types.Reserver
-	notifier types.Notifier
+	reserver          types.Reserver
+	notifier          types.Notifier
+	licenseHandleRoot string
+	nodeID            string
 }
 
 type Config struct {
-	DatabaseConnStr string `codec:"database_connection_string"`
-	TableName       string `codec:"database_table_name"`
+	DatabaseConnStr   string `codec:"database_connection_string"`
+	TableName         string `codec:"database_table_name"`
+	LicenseHandleRoot string `codec:"license_handle_root"`
+	NodeID            string `codec:"node_id"`
 }
 
 func NewPlugin() *Plugin {
@@ -49,6 +56,11 @@ func (p *Plugin) ConfigSchema() (*hclspec.Spec, error) {
 			hclspec.NewAttr("database_table_name", "string", true),
 			hclspec.NewLiteral(`"license_status"`),
 		),
+		"license_handle_root": hclspec.NewDefault(
+			hclspec.NewAttr("license_handle_root", "string", true),
+			hclspec.NewLiteral(`"/tmp/license_handles"`),
+		),
+		"node_id": hclspec.NewAttr("node_id", "string", true),
 	}), nil
 }
 
@@ -59,14 +71,27 @@ func (p *Plugin) SetConfig(c *base.Config) error {
 	}
 
 	rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	table, err := sqldb.OpenTable(rctx, config.DatabaseConnStr, config.TableName)
+	cancel()
 	if err != nil {
 		return fmt.Errorf("failed to open DB: %w", err)
 	}
 
+	p.nodeID = config.NodeID
+	p.licenseHandleRoot = config.LicenseHandleRoot
 	p.reserver = table
 	p.notifier = table
+
+	rctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	licenses, err := p.notifier.GetCurrent(rctx)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("failed to list available licenses")
+	}
+
+	if err := p.createLicenseHandleFiles(licenses); err != nil {
+		return fmt.Errorf("failed to create license handle files: %w", err)
+	}
 
 	return nil
 }
@@ -84,7 +109,18 @@ func (p *Plugin) Fingerprint(ctx context.Context) (<-chan *device.FingerprintRes
 }
 
 func (p *Plugin) Reserve(deviceIDs []string) (*device.ContainerReservation, error) {
-	return nil, fmt.Errorf("Reserve not implemented")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	licenses, err := p.reserver.Reserve(ctx, deviceIDs, p.nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reserve %v: %w", deviceIDs, err)
+	}
+
+	cr := &device.ContainerReservation{}
+	for _, l := range licenses {
+		cr.Mounts = append(cr.Mounts, l.MountInfo(p.licenseHandleRoot))
+	}
+	return cr, nil
 }
 
 func (p *Plugin) Stats(ctx context.Context, interval time.Duration) (<-chan *device.StatsResponse, error) {
@@ -169,4 +205,19 @@ func deviceGroupsFromLicenses(ls []*types.License) ([]*device.DeviceGroup, error
 	})
 
 	return groups, nil
+}
+
+func (p *Plugin) createLicenseHandleFiles(licenses []*types.License) error {
+	for _, license := range licenses {
+		path := license.MountInfo(p.licenseHandleRoot).HostPath
+		if err := os.MkdirAll(filepath.Dir(path), fs.FileMode(0666)); err != nil {
+			return fmt.Errorf("failed to create parent dir for license %+v: %w", license, err)
+		}
+		f, err := os.Create(path)
+		if err != nil {
+			return fmt.Errorf("failed to create handle file for license %+v: %w", license, err)
+		}
+		f.Close()
+	}
+	return nil
 }
