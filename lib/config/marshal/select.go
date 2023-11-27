@@ -118,6 +118,9 @@ func (fm FileMarshallers) UnmarshalDefault(path string, data []byte, def Marshal
 func (fm FileMarshallers) UnmarshalFilePrefix(prefix string, value interface{}) (string, error) {
 	var errs []error
 	for _, candidate := range fm {
+		// Linux uses / whereas Windows uses \ for paths.
+		// Standardize the file path to be the same format since openssh
+		// expects forward-slash-delimited paths.
 		name := filepath.ToSlash(prefix + "." + candidate.Extension())
 
 		data, err := ioutil.ReadFile(name)
