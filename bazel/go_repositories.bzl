@@ -716,8 +716,8 @@ def go_repositories():
     go_repository(
         name = "com_github_docker_docker",
         importpath = "github.com/docker/docker",
-        sum = "h1:Kd3Bh9V/rO+XpTP/BLqM+gx8z7+Yb0AA2Ibj+nNo4ek=",
-        version = "v23.0.4+incompatible",
+        sum = "h1:Wo6l37AuwP3JaMnZa226lzVXGA3F9Ig1seQen0cKYlM=",
+        version = "v24.0.7+incompatible",
     )
     go_repository(
         name = "com_github_docker_docker_credential_helpers",

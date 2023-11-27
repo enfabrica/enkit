@@ -48,13 +48,11 @@ func (l *License) MountInfo(root string) *device.Mount {
 type Reserver interface {
 	Reserve(ctx context.Context, licenseIDs []string, node string) ([]*License, error)
 
-	Use(ctx context.Context, licenseID string, node string, user string) error
-
-	Free(ctx context.Context, licenseID string, node string) error
+	UpdateInUse(ctx context.Context, licenses []*License) error
 }
 
 type Notifier interface {
 	GetCurrent(ctx context.Context) ([]*License, error)
 
-	Chan(ctx context.Context) <-chan struct{}
+	Chan(ctx context.Context) chan struct{}
 }
