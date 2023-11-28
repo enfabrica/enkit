@@ -4,17 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"io/ioutil"
-	mathrand "math/rand"
-	"net"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
-
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/config/directory"
 	"github.com/enfabrica/enkit/lib/kflags"
@@ -24,6 +13,15 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"io/ioutil"
+	mathrand "math/rand"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
@@ -230,7 +228,7 @@ func (a SSHAgent) Valid() error {
 		return nil
 	}
 
-	conn, err := net.DialTimeout("unix", a.State.Socket, a.timeout)
+	conn, err := DialTimeout(a)
 	if err != nil {
 		return fmt.Errorf("invalid agent - could not connect - %w", err)
 	}
@@ -297,7 +295,7 @@ type AgentCert struct {
 
 // Principals returns a map where the keys are the CA's PKS and the certs identities are the values
 func (a SSHAgent) Principals() ([]AgentCert, error) {
-	conn, err := net.DialTimeout("unix", a.State.Socket, a.timeout)
+	conn, err := DialTimeout(a)
 	if err != nil {
 		return nil, err
 	}
@@ -331,26 +329,12 @@ func (a SSHAgent) Principals() ([]AgentCert, error) {
 // At time of writing, this can be: *rsa.PrivateKey, *dsa.PrivateKey, ed25519.PrivateKey or *ecdsa.PrivateKey.
 // Note that ed25519.PrivateKey should be passed by value.
 func (a SSHAgent) AddCertificates(privateKey PrivateKey, publicKey ssh.PublicKey) error {
-	conn, err := net.DialTimeout("unix", a.State.Socket, a.timeout)
+	conn, err := DialTimeout(a)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	cert, ok := publicKey.(*ssh.Certificate)
-	if !ok {
-		return fmt.Errorf("public key is not a valid ssh certificate")
-	}
-	ttl := SSHCertRemainingTTL(cert)
-	if ttl == InValidCertTimeDuration {
-		return fmt.Errorf("certificate is already expired or invalid, not adding")
-	}
-
-	conn.SetDeadline(time.Now().Add(a.timeout))
-	return agent.NewClient(conn).Add(agent.AddedKey{
-		PrivateKey:   privateKey.Raw(),
-		Certificate:  cert,
-		LifetimeSecs: uint32(ttl.Seconds()),
-	})
+	return AddKey(conn, a, privateKey, publicKey)
 }
 
 func (a SSHAgent) GetEnv() []string {
