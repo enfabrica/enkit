@@ -135,9 +135,10 @@ review.
 * `VERBOSE`: If set to a non-zero integer, will cause additional debug information to be logged.
   For developer use only.
 
-* `GEE_ENABLE_KILL`: If set to any value other than 0, will cause gee to cancel
-  any running presubmit job when pushing a change to remote branch with an open
-  PR.  This is currently an experimental feature that is disabled by default.
+* `GEE_ENABLE_PRESUBMIT_CANCEL`: If set to any value other than 0, will cause
+  gee to cancel any running presubmit job when pushing a change to remote
+  branch with an open PR.  This is currently an experimental feature that is
+  disabled by default.
 
 See also: `gee help bash_setup` for more environment variables to help you customize the git-aware
 prompt that `gee bash_setup` makes available.
@@ -249,7 +250,7 @@ readonly PR_LIST_MAX_FETCH=300
 readonly YESYESYES="${YESYESYES:-0}"  # for testing: disables all interactivity.
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
-GEE_ENABLE_KILL="${GEE_ENABLE_KILL:-0}"
+GEE_ENABLE_PRESUBMIT_CANCEL="${GEE_ENABLE_PRESUBMIT_CANCEL:-0}"
 DRYRUN="${DRYRUN:-0}"
 UPSTREAM="${UPSTREAM:-enfabrica}"
 TESTMODE="${TESTMODE:-0}"
@@ -3467,10 +3468,10 @@ pr_checkout`, your commits will be pushed to your `origin` remote, and the
 remote PR branch.  To contribute your changes back to another user's PR branch,
 use the `gee pr_push` command.
 
-If the experimental GEE_ENABLE_KILL feature is enabled, then gee will check
-to see if pushing the current commit will invalidate a presubmit job in the
-`pending` state.  If this is the case, gee will kill the previous presubmit
-before pushing the changes and thus kicking off the new presubmit.
+If the experimental GEE_ENABLE_PRESUBMIT_CANCEL feature is enabled, then gee
+will check to see if pushing the current commit will invalidate a presubmit job
+in the `pending` state.  If this is the case, gee will kill the previous
+presubmit before pushing the changes and thus kicking off the new presubmit.
 
 Example:
 
@@ -3521,7 +3522,7 @@ function gee__commit() {
         fi
       fi
     fi
-    if [[ "${GEE_ENABLE_KILL}" != "0" ]]; then
+    if [[ "${GEE_ENABLE_PRESUBMIT_CANCEL}" != "0" ]]; then
       if _push_will_trigger_presubmit "${CURRENT_BRANCH}"; then
         # kill running presubmit job, if any exists:
         _cancel_pending_presubmit
