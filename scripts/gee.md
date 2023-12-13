@@ -140,6 +140,10 @@ review.
 * `VERBOSE`: If set to a non-zero integer, will cause additional debug information to be logged.
   For developer use only.
 
+* `GEE_ENABLE_KILL`: If set to any value other than 0, will cause gee to cancel
+  any running presubmit job when pushing a change to remote branch with an open
+  PR.  This is currently an experimental feature that is disabled by default.
+
 See also: `gee help bash_setup` for more environment variables to help you customize the git-aware
 prompt that `gee bash_setup` makes available.
 
@@ -481,6 +485,11 @@ Note that if you are working in a PR-associated branch created with `gee
 pr_checkout`, your commits will be pushed to your `origin` remote, and the
 remote PR branch.  To contribute your changes back to another user's PR branch,
 use the `gee pr_push` command.
+
+If the experimental GEE_ENABLE_KILL feature is enabled, then gee will check
+to see if pushing the current commit will invalidate a presubmit job in the
+`pending` state.  If this is the case, gee will kill the previous presubmit
+before pushing the changes and thus kicking off the new presubmit.
 
 Example:
 
