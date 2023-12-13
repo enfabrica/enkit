@@ -135,6 +135,10 @@ review.
 * `VERBOSE`: If set to a non-zero integer, will cause additional debug information to be logged.
   For developer use only.
 
+* `GEE_ENABLE_KILL`: If set to any value other than 0, will cause gee to cancel
+  any running presubmit job when pushing a change to remote branch with an open
+  PR.  This is currently an experimental feature that is disabled by default.
+
 See also: `gee help bash_setup` for more environment variables to help you customize the git-aware
 prompt that `gee bash_setup` makes available.
 
@@ -245,6 +249,7 @@ readonly PR_LIST_MAX_FETCH=300
 readonly YESYESYES="${YESYESYES:-0}"  # for testing: disables all interactivity.
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
+GEE_ENABLE_KILL="${GEE_ENABLE_KILL:-0}"
 DRYRUN="${DRYRUN:-0}"
 UPSTREAM="${UPSTREAM:-enfabrica}"
 TESTMODE="${TESTMODE:-0}"
@@ -3511,6 +3516,12 @@ function gee__commit() {
         fi
       fi
     fi
+    if [[ "${GEE_ENABLE_KILL}" != "0" ]]; then
+      if _push_will_trigger_presubmit "${CURRENT_BRANCH}"; then
+        # kill running presubmit job, if any exists:
+        _cancel_pending_presubmit
+      fi
+    fi
     # We always push upstream so that users have a backup in case they lose their
     # laptop:
     _push_to_origin "${CURRENT_BRANCH}"
@@ -4107,8 +4118,68 @@ this command will continue to report check status until all pending
 checks have completed.
 EOT
 
+function _get_presubmit_info() {
+  # Returns the status, gcloud id, and gcloud project of any running presubmit.
+  local -n S=$1  # first argument is a variable to assign to.
+  local -n I=$2
+  local -n P=$3
+  S="unknown"
+  I="unknown"
+  P="unknown"
+  local LINE
+  local -a FIELDS=()
+  while read -r -a FIELDS; do
+    if [[ "${FIELDS[0]}" == "internal-bazel-presubmit" ]]; then
+      S="${FIELDS[2]}"
+      if [[ "${FIELDS[4]}" =~ builds/([a-f0-9-]*)\?project= ]]; then
+        I="${BASH_REMATCH[1]}"
+      else
+        _warn "Could not parse build number from URL: ${FIELDS[4]}"
+        S=unknown
+      fi
+      if [[ "${FIELDS[1]}" =~ \((.+)\) ]]; then
+        P="${BASH_REMATCH[1]}"
+      else
+        _warn "Could not parse project name from ${FIELDS[1]}"
+        S=unknown
+      fi
+    fi
+  done < <(${GH} pr checks)
+  return 0
+}
+
+function _gh_builds_cancel() {
+  local ID="$1"
+  local PROJECT="$2"
+  _cmd gcloud builds cancel "${ID}" --project "${PROJECT}" >/dev/null
+}
+
+function _cancel_pending_presubmit() {
+  local STATUS ID PROJECT
+  _get_presubmit_info STATUS ID PROJECT
+  if [[ "${STATUS}" == "pending" ]]; then
+    _info "Killing previous pending presubmit job ${ID}."
+    _gh_builds_cancel "${ID}" "${PROJECT}"
+  fi
+}
+
+function _push_will_trigger_presubmit() {
+  local BR="$1"
+  local LOCALHEAD ORIGINHEAD
+  if ! _remote_branch_exists origin "${BR}"; then
+    return 0  # true
+  fi
+  LOCALHEAD="$(git rev-parse "${BR}")"
+  ORIGINHEAD="$(git rev-parse "origin/${BR}")"
+  if [[ "${LOCALHEAD}" == "${ORIGINHEAD}" ]]; then
+    return 1  # false
+  else
+    return 0  # true
+  fi
+}
+
 function _parse_gh_pr_checks() {
-  # Usage: _parse_gh__pr_checks COUNTS BUILDS "${LINES[@]}"
+  # Usage: _parse_gh_pr_checks COUNTS BUILDS "${LINES[@]}"
   # where:
   #   COUNTS is the name of the associative array to populate with counts of each result type.
   #   BUILDS is the name of the array to populate with the build identifiers of failed tests.
