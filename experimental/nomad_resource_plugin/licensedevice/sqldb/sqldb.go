@@ -17,8 +17,8 @@ func (t *Table) GetCurrent(ctx context.Context) ([]*types.License, error) {
 	return nil, fmt.Errorf("GetCurrent unimplemented")
 }
 
-func (t *Table) Reserve(ctx context.Context, licenseID string, node string, user string) error {
-	return fmt.Errorf("Reserve unimplemented")
+func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) ([]*types.License, error) {
+	return nil, fmt.Errorf("Reserve unimplemented")
 }
 
 func (t *Table) Use(ctx context.Context, licenseID string, node string, user string) error {
