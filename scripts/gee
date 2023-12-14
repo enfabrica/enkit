@@ -1,4 +1,6 @@
 #!/bin/bash
+# shellcheck disable=SC2034
+# (due to https://github.com/koalaman/shellcheck/issues/817)
 
 readonly VERSION="0.2.46"
 
