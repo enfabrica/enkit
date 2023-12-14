@@ -34,7 +34,7 @@ type GetModeOptions struct {
 
 	// Extra startup flags to pass to bazel.
 	// Those flags are appended after other common flags (but before
-        // subcommand flags), so should override any global flag.
+	// subcommand flags), so should override any global flag.
 	ExtraStartup []string
 }
 
@@ -64,7 +64,7 @@ func GetAffectedTargets(config *ppb.PresubmitConfig, mode GetMode, opts GetModeO
 		return nil, nil, err
 	}
 	excludeTags := config.GetExcludeTags()
-        includeTags := config.GetIncludeTags()
+	includeTags := config.GetIncludeTags()
 
 	// Open the bazel workspaces, using a temporary output_base. Since the
 	// temporary worktrees created above will have a different path on every
@@ -121,7 +121,7 @@ func GetAffectedTargets(config *ppb.PresubmitConfig, mode GetMode, opts GetModeO
 skipTarget:
 	for _, targetName := range diff {
 		target := result.EndQueryResult.Targets[targetName]
-		if target.ruleType() == "" {
+		if target.RuleType() == "" {
 			log.Debugf("Filtering non-rule target %q", targetName)
 			continue skipTarget
 		}
@@ -155,7 +155,7 @@ skipTarget:
 		}
 
 		changedRules = append(changedRules, target)
-		if strings.HasSuffix(target.ruleType(), "_test") {
+		if strings.HasSuffix(target.RuleType(), "_test") {
 			changedTests = append(changedTests, target)
 		}
 	}
@@ -195,7 +195,7 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		return nil, fmt.Errorf("end workspace: %w", err)
 	}
 
-        var errs []error
+	var errs []error
 	var result GetResult
 	log.Infof("Querying dependency graph for 'before' workspace...")
 	result.StartQueryResult, err = startWorkspace.Query(opt.Query, WithUnorderedOutput(), workspaceLogStart)

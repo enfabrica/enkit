@@ -12,14 +12,25 @@ import (
 	bpb "github.com/enfabrica/enkit/lib/bazel/proto"
 )
 
+var pseudoTargetAttributeName = "workspace_download_checksums"
+
 // Target wraps a build.proto Target message with some lazily computed
 // properties.
 type Target struct {
-	*bpb.Target
-
-	// Memoized hash of this target. If nil, the hash is not computed yet; use
-	// getHash() to fetch a computed hash.
+	// Name of the target (stringified bazel label)
+	name string
+	// If this target is a rule, the type of rule; otherwise, this is the empty
+	// string
+	ruleType string
+	// If this target has tags, this map holds all tags
+	tags map[string]struct{}
+	// Hash of this target's attributes only
+	shallowHash uint32
+	// Memoized hash of this target, including transitive target hashes. If nil,
+	// the hash is not computed yet; use getHash() to fetch a computed hash.
 	hash *uint32
+	// Target names of the direct dependencies for this target
+	depNames []string
 	// If this target is a rule with dependencies, direct dependency node pointers
 	// are stored here for easy traversal.
 	deps []*Target
@@ -27,77 +38,66 @@ type Target struct {
 
 type TargetHashes map[string]uint32
 
-// Name returns the name of a Target message, which is part of a pseudo-union
-// message (enum + one populated optional field).
-func (t *Target) Name() string {
-	switch t.Target.GetType() {
-	case bpb.Target_RULE:
-		return t.Target.GetRule().GetName()
-	case bpb.Target_SOURCE_FILE:
-		return t.Target.GetSourceFile().GetName()
-	case bpb.Target_GENERATED_FILE:
-		return t.Target.GetGeneratedFile().GetName()
-	case bpb.Target_PACKAGE_GROUP:
-		return t.Target.GetPackageGroup().GetName()
-	case bpb.Target_ENVIRONMENT_GROUP:
-		return t.Target.GetEnvironmentGroup().GetName()
+// Creates a Target object that holds computations based on the supplied target
+// proto message.
+func NewTarget(w *Workspace, t *bpb.Target) (*Target, error) {
+	shallow, err := shallowHash(w, t)
+	if err != nil {
+		return nil, err
 	}
-	// This shouldn't happen; check that all cases are covered.
-	panic(fmt.Sprintf("can't get name for type %q", t.Target.GetType()))
+
+	return &Target{
+		name:        extractName(t),
+		ruleType:    extractRuleType(t),
+		tags:        extractTags(t),
+		shallowHash: shallow,
+		depNames:    extractDepNames(t),
+	}, nil
 }
 
-func (t *Target) ruleType() string {
-	if t.Target.GetType() != bpb.Target_RULE {
-		return ""
+// Creates a Target object from the supplied proto message that represents an
+// external target. This target only has attributes based on the hashes used
+// during download of the external repository, to save time on hashing
+// third-party files that are unlikely to change often. These hashes are fetched
+// from the supplied set of workspace events.
+func NewExternalPseudoTarget(t *bpb.Target, eventMap map[string][]*bpb.WorkspaceEvent) (*Target, error) {
+	nameCopy := extractName(t)
+	lbl, err := labelFromString(nameCopy)
+	if err != nil {
+		return nil, err
 	}
-	return t.Target.GetRule().GetRuleClass()
+	if !lbl.isExternal() {
+		return nil, fmt.Errorf("target %q is not external", nameCopy)
+	}
+
+	lbl = lbl.toCoarseExternal()
+	events := eventMap[lbl.String()]
+
+	newTarget := &bpb.Target{
+		Type: bpb.Target_RULE.Enum(),
+		Rule: &bpb.Rule{
+			Name:      &nameCopy,
+			RuleInput: extractDepNames(t),
+			Attribute: []*bpb.Attribute{
+				{
+					Name:            &pseudoTargetAttributeName,
+					Type:            bpb.Attribute_STRING_LIST.Enum(),
+					StringListValue: extractChecksums(events),
+				},
+			},
+		},
+	}
+	return NewTarget(nil, newTarget)
 }
 
-func (t *Target) containsTag(tag string) bool {
-	attrList := t.Target.GetRule().GetAttribute()
-	for _, attr := range attrList {
-		if attr.GetName() != "tags" {
-			continue
-		}
-		if attr.GetType() != bpb.Attribute_STRING_LIST {
-			continue
-		}
-		for _, t := range attr.GetStringListValue() {
-			if t == tag {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// getHash returns the computed hash from this target, recursively evaluating
-// dependencies if they are not already hashed themselves.
-// This hash should change if:
-// * t is a source file, and the contents change
-// * t is a rule, and one of the following changes:
-//   - Its attributes, in a meaningful way (some attributes are unordered)
-//   - A hash of one of its direct dependencies
-//   - The Starlark code of the producing rule
-func (t *Target) getHash(w *Workspace) (uint32, error) {
-	if t.hash != nil {
-		return *t.hash, nil
-	}
-
+// Calculates a hash based on the attributes of this target only, including
+// attributes and source file contents.
+func shallowHash(w *Workspace, t *bpb.Target) (uint32, error) {
 	h := fnv.New32()
 
-	for _, dep := range t.deps {
-		hash, err := dep.getHash(w)
-		if err != nil {
-			// TODO(scott): Log this condition
-		} else {
-			fmt.Fprintf(h, "%d", hash)
-		}
-	}
-
-	switch t.Target.GetType() {
+	switch t.GetType() {
 	case bpb.Target_RULE:
-		attrList := t.Target.GetRule().GetAttribute()
+		attrList := t.GetRule().GetAttribute()
 		// Sort the attributes by name so they are added to the hash in a stable
 		// order
 		sort.Slice(attrList, func(i, j int) bool { return attrList[i].GetName() < attrList[j].GetName() })
@@ -105,7 +105,7 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 			fmt.Fprintf(h, "%s=%s", attr.GetName(), attrValue(attr))
 		}
 	case bpb.Target_SOURCE_FILE:
-		lbl, err := labelFromString(t.Target.GetSourceFile().GetName())
+		lbl, err := labelFromString(t.GetSourceFile().GetName())
 		if err != nil {
 			return 0, err
 		}
@@ -127,7 +127,7 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 				// format directories onto action commandlines; in these cases, the
 				// action doesn't depend on the directory's contents per se, but rather
 				// the directory name. Add the name to the hash and continue.
-				fmt.Fprintf(h, "%s", t.Name())
+				fmt.Fprintf(h, "%s", extractName(t))
 			} else {
 				return 0, err
 			}
@@ -143,6 +143,153 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 	case bpb.Target_ENVIRONMENT_GROUP:
 		return 0, fmt.Errorf("ENVIRONMENT_GROUP hashing not implemented")
 	}
+
+	return h.Sum32(), nil
+}
+
+func (t *Target) Name() string {
+	return t.name
+}
+
+func (t *Target) RuleType() string {
+	return t.ruleType
+}
+
+// ResolveDeps resolves each target name to the actual target object using the
+// supplied mapping.
+func (t *Target) ResolveDeps(others map[string]*Target) error {
+	for _, dep := range t.depNames {
+		other, ok := others[dep]
+		if !ok {
+			return fmt.Errorf("target %q has non-existent dep %q", t.name, dep)
+		}
+		t.deps = append(t.deps, other)
+	}
+	return nil
+}
+
+// Name returns the name of a Target message, which is part of a pseudo-union
+// message (enum + one populated optional field).
+func extractName(t *bpb.Target) string {
+	switch t.GetType() {
+	case bpb.Target_RULE:
+		return t.GetRule().GetName()
+	case bpb.Target_SOURCE_FILE:
+		return t.GetSourceFile().GetName()
+	case bpb.Target_GENERATED_FILE:
+		return t.GetGeneratedFile().GetName()
+	case bpb.Target_PACKAGE_GROUP:
+		return t.GetPackageGroup().GetName()
+	case bpb.Target_ENVIRONMENT_GROUP:
+		return t.GetEnvironmentGroup().GetName()
+	}
+	// This shouldn't happen; check that all cases are covered.
+	panic(fmt.Sprintf("can't get name for type %q", t.GetType()))
+}
+
+// extractRuleType returns a string representing the type of rule for the
+// supplied Target proto message.
+func extractRuleType(t *bpb.Target) string {
+	if t.GetType() != bpb.Target_RULE {
+		return ""
+	}
+	return t.GetRule().GetRuleClass()
+}
+
+// extractTags returns the set of tags present on supplied Target proto message.
+func extractTags(t *bpb.Target) map[string]struct{} {
+	tags := map[string]struct{}{}
+
+	attrList := t.GetRule().GetAttribute()
+	for _, attr := range attrList {
+		if attr.GetName() != "tags" {
+			continue
+		}
+		if attr.GetType() != bpb.Attribute_STRING_LIST {
+			continue
+		}
+		for _, t := range attr.GetStringListValue() {
+			tags[t] = struct{}{}
+		}
+	}
+	return tags
+}
+
+// extractTags returns the set of dependencies present on supplied Target proto
+// message, by stringified label.
+func extractDepNames(t *bpb.Target) []string {
+	switch t.GetType() {
+	case bpb.Target_RULE:
+		return t.GetRule().GetRuleInput()
+	case bpb.Target_GENERATED_FILE:
+		return []string{t.GetGeneratedFile().GetGeneratingRule()}
+	}
+	return nil
+}
+
+// extractChecksums returns a sorted list of download hashes from a set of
+// relevant workspace events.
+func extractChecksums(events []*bpb.WorkspaceEvent) []string {
+	var checksums []string
+	for _, event := range events {
+		switch e := event.GetEvent().(type) {
+		case *bpb.WorkspaceEvent_DownloadEvent:
+			if e.DownloadEvent.GetSha256() != "" {
+				checksums = append(checksums, e.DownloadEvent.GetSha256())
+			}
+			if e.DownloadEvent.GetIntegrity() != "" {
+				checksums = append(checksums, e.DownloadEvent.GetIntegrity())
+			}
+		case *bpb.WorkspaceEvent_DownloadAndExtractEvent:
+			if e.DownloadAndExtractEvent.GetSha256() != "" {
+				checksums = append(checksums, e.DownloadAndExtractEvent.GetSha256())
+			}
+			if e.DownloadAndExtractEvent.GetIntegrity() != "" {
+				checksums = append(checksums, e.DownloadAndExtractEvent.GetIntegrity())
+			}
+		case *bpb.WorkspaceEvent_ExecuteEvent:
+			if len(e.ExecuteEvent.GetArguments()) == 2 && e.ExecuteEvent.GetArguments()[0] == "echo" {
+				fmt.Printf("got checksum: %q\n", e.ExecuteEvent.GetArguments()[1])
+				checksums = append(checksums, e.ExecuteEvent.GetArguments()[1])
+			}
+		}
+	}
+	sort.Strings(checksums)
+	return checksums
+}
+
+func (t *Target) containsTag(tag string) bool {
+	_, ok := t.tags[tag]
+	return ok
+}
+
+// getHash returns the computed hash from this target, recursively evaluating
+// dependencies if they are not already hashed themselves.
+// This hash should change if:
+// * t is a source file, and the contents change (t.shallowHash should change)
+// * t is a rule, and one of the following changes:
+//   - Its attributes, in a meaningful way (some attributes are unordered -
+//     t.shallowHash should change)
+//   - A hash of one of its direct dependencies changes (getHash on an element
+//     of t.deps changes)
+//   - The Starlark code of the producing rule changes
+func (t *Target) getHash(w *Workspace) (uint32, error) {
+	if t.hash != nil {
+		return *t.hash, nil
+	}
+
+	h := fnv.New32()
+
+	for _, dep := range t.deps {
+		hash, err := dep.getHash(w)
+		if err != nil {
+			// TODO(scott): Log this condition
+		} else {
+			fmt.Fprintf(h, "%d", hash)
+		}
+	}
+
+	fmt.Fprintf(h, "%d", t.shallowHash)
 
 	hash := h.Sum32()
 	t.hash = &hash
@@ -245,10 +392,10 @@ func attrValue(attr *bpb.Attribute) string {
 		return ""
 	default:
 		// TODO: Determine how to handle these cases
-		//case bpb.Attribute_FILESET_ENTRY_LIST:
-		//case bpb.Attribute_UNKNOWN:
-		//case bpb.Attribute_SELECTOR_LIST:
-		//case bpb.Attribute_DEPRECATED_STRING_DICT_UNARY:
+		// case bpb.Attribute_FILESET_ENTRY_LIST:
+		// case bpb.Attribute_UNKNOWN:
+		// case bpb.Attribute_SELECTOR_LIST:
+		// case bpb.Attribute_DEPRECATED_STRING_DICT_UNARY:
 		panic(fmt.Sprintf("unsupported attribute type: %v", attr.GetType()))
 	}
 }
