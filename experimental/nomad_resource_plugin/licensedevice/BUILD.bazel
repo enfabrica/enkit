@@ -31,6 +31,7 @@ go_test(
     embed = [":licensedevice"],
     deps = [
         "//experimental/nomad_resource_plugin/licensedevice/types",
+        "//lib/str",
         "@com_github_hashicorp_nomad//plugins/device",
         "@com_github_stretchr_testify//assert",
         "@com_github_stretchr_testify//mock",
