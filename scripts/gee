@@ -3949,7 +3949,7 @@ function gee__pr_make() {
 
   local -a pr_vars
   mapfile -t pr_vars < \
-    <("${GH}" pr view --json number,state,isDraft --jq '.number, .state, .isDraft, .title')
+    <("${GH}" pr view --json number,state,isDraft,title --jq '.number, .state, .isDraft, .title')
   local NUMBER="${pr_vars[0]}"
   local STATE="${pr_vars[1]}"
   local IS_DRAFT="${pr_vars[2]}"
