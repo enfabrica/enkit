@@ -3953,7 +3953,7 @@ function gee__pr_make() {
   local NUMBER="${pr_vars[0]}"
   local STATE="${pr_vars[1]}"
   local IS_DRAFT="${pr_vars[2]}"
-  local TITLE="${pr_vars[@]:3}"
+  local TITLE="${pr_vars[*]:3}"
 
   if [[ "${STATE}" == "OPEN" ]]; then
     if [[ "${IS_DRAFT}" == "false" ]]; then
