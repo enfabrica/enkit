@@ -5,7 +5,11 @@ go_library(
     srcs = ["sqldb.go"],
     importpath = "github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/sqldb",
     visibility = ["//visibility:public"],
-    deps = ["//experimental/nomad_resource_plugin/licensedevice/types"],
+    deps = [
+        "//experimental/nomad_resource_plugin/licensedevice/types",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgxpool",
+    ],
 )
 
 alias(
