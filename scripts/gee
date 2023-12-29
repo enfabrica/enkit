@@ -3947,22 +3947,28 @@ function gee__pr_make() {
   _info "Destination branch: ${DEST_BRANCH}"
   _info "Merge base: ${MERGE_BASE}"
 
-  local STATE NUMBER TITLE
-  read -r STATE NUMBER TITLE < \
-    <( _get_pull_requests "${CURRENT_BRANCH}" | grep -v ^MERGED || :) \
-    || /bin/true  # don't fail if empty
+  local -a pr_vars
+  mapfile -t pr_vars < \
+    <("${GH}" pr view --json number,state,isDraft,title --jq '.number, .state, .isDraft, .title')
+  local NUMBER="${pr_vars[0]}"
+  local STATE="${pr_vars[1]}"
+  local IS_DRAFT="${pr_vars[2]}"
+  local TITLE="${pr_vars[*]:3}"
+
   if [[ "${STATE}" == "OPEN" ]]; then
-    _info "Open PR exists: #${NUMBER} \"${TITLE}\"" \
-          "Use \"gee commit\" to update existing PR."
-    _fatal Aborted.
-  elif [[ "${STATE}" == "DRAFT" ]]; then
-    _info "Draft PR exists: #${NUMBER} \"${TITLE}\""
-    if _confirm_default_yes "Do you want to mark this PR as ready for review? (Y/n)  "; then
-      _gh pr ready "${NUMBER}" || echo $?
+    if [[ "${IS_DRAFT}" == "false" ]]; then
+      _info "Open PR exists: #${NUMBER} \"${TITLE}\"" \
+            "Use \"gee commit\" to update existing PR."
       exit 0
     else
-      _info "Leaving PR #${NUMBER} as a draft."
-      exit 0
+      _info "Draft PR exists: #${NUMBER} \"${TITLE}\""
+      if _confirm_default_yes "Do you want to mark this PR as ready for review? (Y/n)  "; then
+        _gh pr ready "${NUMBER}" || echo $?
+        exit 0
+      else
+        _info "Leaving PR #${NUMBER} as a draft."
+        exit 0
+      fi
     fi
   fi
 
