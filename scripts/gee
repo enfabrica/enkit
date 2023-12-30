@@ -3733,10 +3733,13 @@ function gee__pr_push() {
 _register_help "pr_list" \
   "List outstanding PRs" \
   "lspr" "list_pr" "prls" <<'EOT'
-Usage: gee pr_list [<user>]
+Usage: gee pr_list [--email] [<user>]
 
 Lists information about PRs associated with the specified user (or yourself, if
 no user is specified).
+
+The `--email` option provides an alternative formatting for a list of open PRs, more
+suitable for pasting into an email.
 
 Example:
 
@@ -3763,6 +3766,12 @@ function gee__prls() { gee__pr_list "$@"; }
 function gee__pr_list() {
   _startup_checks "pr_list"
 
+  EMAIL_FORMAT=0
+  if [[ "$1" == "--email" ]]; then
+    EMAIL_FORMAT=1
+    shift
+  fi
+
   _check_gh_auth
   local WHO WHO_3RD_PERSON USER YOUR
   WHO="@me"
@@ -3775,6 +3784,21 @@ function gee__pr_list() {
     USER="$1"
     YOUR="their"
   fi
+
+  if [[ "${EMAIL_FORMAT}" == 1 ]]; then
+    local -a lines
+    _gh \
+      --repo "${UPSTREAM}/${REPO}" \
+      pr list \
+      -L "${PR_LIST_MAX_FETCH}" \
+      --author "${WHO}" \
+      --state open \
+      --json number,reviewDecision,mergeable,createdAt,isDraft,title \
+      --jq '.[] | "  https://github.com/enfabrica/internal/pull/\(.number)\n  \(.createdAt) \(.reviewDecision) draft=\(.isDraft)\n* \(.title)\n"' \
+      | tac
+    return
+  fi
+
   if _in_gee_branch; then
     _info "PRs associated with this branch:"
     _get_pull_requests

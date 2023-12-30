@@ -558,10 +558,13 @@ See also:
 
 Aliases: lspr list_pr prls
 
-Usage: `gee pr_list [<user>]`
+Usage: `gee pr_list [--email] [<user>]`
 
 Lists information about PRs associated with the specified user (or yourself, if
 no user is specified).
+
+The `--email` option provides an alternative formatting for a list of open PRs, more
+suitable for pasting into an email.
 
 Example:
 
