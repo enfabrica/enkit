@@ -5064,6 +5064,10 @@ function gee__bisect() {
   LAST_GOOD=""
   for WHEN in "yesterday" "last week" "last month" "3 months ago" "6 months ago"; do
     WHAT="$(git log --since="${WHEN}" --pretty=format:%H | tail -1)"
+    if [[ -z "${WHAT}" ]]; then
+      _info "No commits since ${WHEN}."
+      continue
+    fi
     _info "Checking commit from ${WHEN}: ${WHAT}"
     _git checkout "${WHAT}"
     if ( "${CMD[@]}" ); then
