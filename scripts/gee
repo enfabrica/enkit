@@ -3733,12 +3733,12 @@ function gee__pr_push() {
 _register_help "pr_list" \
   "List outstanding PRs" \
   "lspr" "list_pr" "prls" <<'EOT'
-Usage: gee pr_list [--email] [<user>]
+Usage: gee pr_list [--text] [<user>]
 
 Lists information about PRs associated with the specified user (or yourself, if
 no user is specified).
 
-The `--email` option provides an alternative formatting for a list of open PRs, more
+The `--text` option provides an alternative formatting for a list of open PRs, more
 suitable for pasting into an email.
 
 Example:
@@ -3759,6 +3759,25 @@ Example:
     PRs pending their review:
     #1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
 
+An example of using the "--text" option:
+
+    $ /home/jonathan/gee/enkit/gee_lspr_format/scripts/gee lspr --text
+    * #29644: Lorem ipsum dolor sit amet
+      2023-12-30 APPROVED Checks passed.
+      https://github.com/enfabrica/internal/pull/29644
+
+    * #29641: consectetur adipiscing elit
+      2023-12-30 REVIEW_REQUIRED DRAFT Checks passed.
+      https://github.com/enfabrica/internal/pull/29641
+
+    * #29640: sed do eiusmod tempor incididunt
+      2023-12-30 APPROVED Checks passed.
+      https://github.com/enfabrica/internal/pull/29640
+
+    * #29625: ut labore et dolor magna aliqua
+      2023-12-29 REVIEW_REQUIRED Checks passed.
+      https://github.com/enfabrica/internal/pull/29625
+
 EOT
 function gee__lspr() { gee__pr_list "$@"; }
 function gee__list_pr() { gee__pr_list "$@"; }
@@ -3766,9 +3785,9 @@ function gee__prls() { gee__pr_list "$@"; }
 function gee__pr_list() {
   _startup_checks "pr_list"
 
-  EMAIL_FORMAT=0
-  if [[ "$1" == "--email" ]]; then
-    EMAIL_FORMAT=1
+  TEXT_FORMAT=0
+  if [[ "$1" == "--text" ]]; then
+    TEXT_FORMAT=1
     shift
   fi
 
@@ -3785,17 +3804,54 @@ function gee__pr_list() {
     YOUR="their"
   fi
 
-  if [[ "${EMAIL_FORMAT}" == 1 ]]; then
-    local -a lines
-    _gh \
+  if [[ "${TEXT_FORMAT}" == 1 ]]; then
+    local -a lines=()
+    mapfile -t lines < <(gh \
       --repo "${UPSTREAM}/${REPO}" \
       pr list \
       -L "${PR_LIST_MAX_FETCH}" \
       --author "${WHO}" \
       --state open \
       --json number,reviewDecision,mergeable,createdAt,isDraft,title \
-      --jq '.[] | "  https://github.com/enfabrica/internal/pull/\(.number)\n  \(.createdAt) \(.reviewDecision) draft=\(.isDraft)\n* \(.title)\n"' \
-      | tac
+      --jq '.[] | .number, .reviewDecision, .mergeable, .createdAt, .isDraft, .title')
+    local line number reviewDecision mergeable createdAt isDraft title checks_rc status
+    local -a fields=()
+    local II=0
+    local SIZE="${#lines[@]}"
+    # cap output to first 20 PRs.  TODO(jonathan): make this configurable.
+    if [[ "${SIZE}" -gt 120 ]]; then SIZE=120; fi
+    while (( "$II" < "${SIZE}" )); do
+      number="${lines[$(( II + 0 ))]}"
+      reviewDecision="${lines[$(( II + 1 ))]}"
+      mergeable="${lines[$(( II + 2 ))]}"
+      createdAt="${lines[$(( II + 3 ))]}"
+      isDraft="${lines[$(( II + 4 ))]}"
+      title="${lines[$(( II + 5 ))]}"
+      II="$(( II + 6 ))"
+      status=""
+      if [[ "$isDraft" == "true" ]]; then
+        status+="DRAFT "
+      fi
+      checks_rc=0
+      if ! gh pr checks "${number}" 2>/dev/null >/dev/null; then
+        checks_rc=$?
+      fi
+      if [[ "$checks_rc" == 0 ]]; then
+        status+="Checks passed."
+      elif [[ "$checks_rc" == 8 ]]; then
+        status+="Checks pending."
+      elif [[ "$checks_rc" == 4 ]]; then
+        status+="Checks: auth failure."
+      elif [[ "$checks_rc" == 2 ]]; then
+        status+="Checks cancelled."
+      else
+        status+="CHECKS FAILED."
+      fi
+      echo "* #${number}: ${title}"
+      echo "  ${createdAt:0:10} ${reviewDecision} ${status}"
+      echo "  https://github.com/enfabrica/internal/pull/${number}"
+      echo ""
+    done
     return
   fi
 
