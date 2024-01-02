@@ -3832,17 +3832,18 @@ function gee__pr_list() {
       if [[ "$isDraft" == "true" ]]; then
         status+="DRAFT "
       fi
-      checks_rc=0
-      if ! gh pr checks "${number}" 2>/dev/null >/dev/null; then
-        checks_rc=$?
-      fi
-      if [[ "$checks_rc" == 0 ]]; then
+      local output checks_rc
+      set +e
+      "${GH}" pr checks "${number}" 2>/dev/null >/dev/null
+      checks_rc="$?"
+      set -e
+      if [[ "$checks_rc" -eq 0 ]]; then
         status+="Checks passed."
-      elif [[ "$checks_rc" == 8 ]]; then
+      elif [[ "$checks_rc" -eq 8 ]]; then
         status+="Checks pending."
-      elif [[ "$checks_rc" == 4 ]]; then
+      elif [[ "$checks_rc" -eq 4 ]]; then
         status+="Checks: auth failure."
-      elif [[ "$checks_rc" == 2 ]]; then
+      elif [[ "$checks_rc" -eq 2 ]]; then
         status+="Checks cancelled."
       else
         status+="CHECKS FAILED."
