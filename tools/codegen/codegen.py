@@ -262,7 +262,11 @@ def main(argv):
     for override in FLAGS.override:
         context.Override(override)
     context.FixToplevelNames()
-    for path in argv[1:]:
+    template_files = argv[1:]
+    if len(template_files) > 1 and FLAGS.output:
+        logging.error("You cannot specify --output files when multiple templates are present")
+        sys.exit(1)
+    for path in template_files:
         t = Template(context)
         t.LoadTemplate(path)
         if FLAGS.multigen_mode:
@@ -273,9 +277,9 @@ def main(argv):
                 subt = t.GetSubcontext(k)
                 subt.RenderToOutput(k)
         elif FLAGS.output:
-            for path in FLAGS.output:
-                logging.vlog(1, "Output = %r", path)
-                t.RenderToOutput(path)
+            for output in FLAGS.output:
+                logging.vlog(1, "Output = %r", output)
+                t.RenderToOutput(output)
         else:
             logging.vlog(1, "Output is inferred")
             t.RenderToOutput(t.InferOutputFile())
