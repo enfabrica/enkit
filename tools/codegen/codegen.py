@@ -240,7 +240,7 @@ class Template(data_loader.DataLoader):
         output = self.Render()
         if FLAGS.to_stdout:
             sys.stdout.write(output)
-            logging.info("Wrote %d bytes to stdout", len(output))
+            logging.vlog(1, "Wrote %d bytes to stdout", len(output))
         elif FLAGS.multigen_mode:
             if len(FLAGS.output) != 1:
                 logging.error("Only one output zip file can be specified in multimode.")
@@ -252,7 +252,7 @@ class Template(data_loader.DataLoader):
             with open(output_file, "w") as fd:
                 fd.write(output)
                 fd.close()
-            logging.vlog(2, "Wrote %d bytes to %r", len(output), output_file)
+            logging.vlog(1, "Wrote %d bytes to %r", len(output), output_file)
 
 
 def main(argv):
@@ -266,6 +266,7 @@ def main(argv):
         t = Template(context)
         t.LoadTemplate(path)
         if FLAGS.multigen_mode:
+            logging.vlog(1, "Is in multigen mode")
             for k in t.GetContextKeys():
                 if k.startswith("_"):
                     continue
@@ -273,8 +274,10 @@ def main(argv):
                 subt.RenderToOutput(k)
         elif FLAGS.output:
             for path in FLAGS.output:
+                logging.vlog(1, "Output = %r", path)
                 t.RenderToOutput(path)
         else:
+            logging.vlog(1, "Output is inferred")
             t.RenderToOutput(t.InferOutputFile())
 
 
