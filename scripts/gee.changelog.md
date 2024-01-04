@@ -2,6 +2,13 @@
 
 ## Releases
 
+### 0.2.47
+
+* gee lspr: add `--text` option (#1009).
+* gee: handle closed PRs that are also marked as drafts (#1008).
+* gee: add `GEE_ENABLE_PRESUBMIT_CANCEL` feature (#1001).
+* gee: allow override of default tool paths (#991).
+
 ### 0.2.46
 
 * gee bisect: a helpful utility for wrapping "git bisect" (#985).
