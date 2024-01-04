@@ -36,7 +36,11 @@ flags.DEFINE_string("schema", None, "JSON schema to check against.")
 flags.DEFINE_multi_string("output", None, "Output files to generate.")
 flags.DEFINE_boolean("to_stdout", False, "Writes all output to stdout.")
 flags.DEFINE_multi_string("incdir", [], "Paths to search for template files.")
-flags.DEFINE_boolean("multigen_mode", False, "Generates a zip file containing a file for each data context index.")
+flags.DEFINE_boolean(
+    "multigen_mode",
+    False,
+    "Generates a zip file containing a file for each data context index.",
+)
 
 
 class RaisedError(jinja2.TemplateError):
@@ -50,7 +54,9 @@ class RaiseExtension(jinja2.ext.Extension):
     def parse(self, parser):
         ln = next(parser.stream).lineno
         message = parser.parse_expression()
-        return jinja2.nodes.CallBlock(self.call_method("_raise", [message], lineno=ln), [], [], [], lineno=ln)
+        return jinja2.nodes.CallBlock(
+            self.call_method("_raise", [message], lineno=ln), [], [], [], lineno=ln
+        )
 
     def _raise(self, msg, caller):
         raise RaisedError(msg)
@@ -104,7 +110,13 @@ class Template(data_loader.DataLoader):
         super(Template, self).__init__()
         search_paths = ["."] + FLAGS.incdir
         self.env = jinja2.Environment(
-            extensions=["jinja2.ext.do", "jinja2.ext.loopcontrols", "jinja2.ext.debug", "jinja2_strcase.StrcaseExtension", RaiseExtension],
+            extensions=[
+                "jinja2.ext.do",
+                "jinja2.ext.loopcontrols",
+                "jinja2.ext.debug",
+                "jinja2_strcase.StrcaseExtension",
+                RaiseExtension,
+            ],
             loader=jinja2.FileSystemLoader(search_paths),
             keep_trailing_newline=True,
             autoescape=False,
@@ -119,11 +131,7 @@ class Template(data_loader.DataLoader):
                 "re_sub": re_sub_function,
             }
         )
-        self.env.filters.update(
-            {
-                "re_sub": re_sub_function,
-            }
-        )
+        self.env.filters.update({"re_sub": re_sub_function})
         self.context = {"_DATA": [], "_TEMPLATE": ""}
         self.template = None
         self.template_path = None
@@ -145,7 +153,7 @@ class Template(data_loader.DataLoader):
 
     def Override(self, override: str):
         k, v = override.split("=", 2)
-        self.context = _merge(self.context, {k: v })
+        self.context = _merge(self.context, {k: v})
 
     def LoadDataFile(self, path: str):
         # TODO(jonathan): support protobuffer?
