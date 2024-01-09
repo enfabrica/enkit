@@ -317,6 +317,10 @@ astore_package = repository_rule(
             doc = "Timeout for astore fetch operation, in seconds.",
             default = 10 * 60,
         ),
+        "patch_tool": attr.string(
+            default = "",
+            doc = "The patch utility to use (optional).",
+        ),
         "patch_args": attr.string_list(
             doc = "List of args to pass to patch tool",
         ),
