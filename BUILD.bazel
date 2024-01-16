@@ -83,8 +83,7 @@ multirun(
         "//staco:deploy",
         "//faketree:astore_push",
         "//flextape/server:astore_push",
-        # TODO(scott): Move the main to //flextape/client, delete this dir
-        "//manager/client:astore_push",
+        "//flextape/client/flextape_client:astore_push",
     ],
 )
 
