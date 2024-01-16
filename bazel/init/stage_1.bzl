@@ -192,6 +192,14 @@ def stage_1():
     )
 
     maybe(
+        name = "rules_oci",
+        repo_rule = http_archive,
+        sha256 = "58b7a175ee90c12583afeca388523adf6a4e5a0528f330b41c302b91a4d6fc06",
+        strip_prefix = "rules_oci-1.6.0",
+        url = "https://github.com/bazel-contrib/rules_oci/releases/download/v1.6.0/rules_oci-v1.6.0.tar.gz",
+    )
+
+    maybe(
         name = "com_google_googleapis",
         repo_rule = http_archive,
         urls = ["https://github.com/googleapis/googleapis/archive/10c88bb5c489c8ad1edb0e7f6a17cdd07147966e.zip"],
