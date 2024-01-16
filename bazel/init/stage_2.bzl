@@ -20,6 +20,7 @@ load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk", "go_register_toolchai
 load("@io_bazel_rules_jsonnet//jsonnet:jsonnet.bzl", "jsonnet_repositories")
 load("@rules_antlr//antlr:repositories.bzl", "rules_antlr_dependencies")
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
@@ -79,6 +80,8 @@ def stage_2():
     rules_docker_go_dependencies()
     rules_docker_python_dependencies()
     rules_docker_container_dependencies()
+
+    rules_oci_dependencies()
 
     container_pull(
         name = "golang_base",
