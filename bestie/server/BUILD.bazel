@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
 
 go_library(
     name = "server_lib",
@@ -46,10 +46,10 @@ pkg_tar(
     package_dir = "/enfabrica/bin",
 )
 
-container_image(
+oci_image(
     name = "bestie_image",
-    base = "@golang_base//image",
-    cmd = [
+    base = "@container_golang_base",
+    entrypoint = [
         "/enfabrica/bin/bestie",
     ],
     tars = [
@@ -57,12 +57,9 @@ container_image(
     ],
 )
 
-container_push(
+oci_push(
     name = "bestie_image_push",
-    format = "Docker",
     image = ":bestie_image",
-    registry = "gcr.io",
-    repository = "devops-284019/infra/bestie",
-    # TODO: Change this tag to "live"
-    tag = "testing",
+    remote_tags = ["latest"],
+    repository = "gcr.io/devops-284019/infra/bestie",
 )
