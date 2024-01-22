@@ -3,28 +3,37 @@ package commands
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	ppb "github.com/enfabrica/enkit/enkit/proto"
 	"github.com/enfabrica/enkit/lib/bazel"
+	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/git"
 	"github.com/enfabrica/enkit/lib/logger"
+	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
 type Root struct {
 	*cobra.Command
 	*client.BaseFlags
+
+	BuildBuddyApiKey string
+	BuildBuddyUrl    string
 }
 
 func New(base *client.BaseFlags) *Root {
 	root := NewRoot(base)
 
 	root.AddCommand(NewAffectedTargets(root).Command)
+	root.AddCommand(NewInvocations(root).Command)
 
 	return root
 }
@@ -40,7 +49,118 @@ func NewRoot(base *client.BaseFlags) *Root {
 		},
 		BaseFlags: base,
 	}
+
+	rc.PersistentFlags().StringVar(&rc.BuildBuddyApiKey, "buildbuddy-api-key", "", "build buddy api key used to bypass oauth2")
+	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
+
 	return rc
+}
+
+func (r *Root) BuildBuddyClient() (*bes.BuildBuddyClient, error) {
+	buddyUrl, err := url.Parse(r.BuildBuddyUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed parsing buildbuddy url: %w", err)
+	}
+	bc, err := bes.NewBuildBuddyClient(buddyUrl, r.BaseFlags, r.BuildBuddyApiKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed generating new buildbuddy client: %w", err)
+	}
+	return bc, nil
+}
+
+type Invocations struct {
+	*cobra.Command
+	root *Root
+
+	InvID string
+}
+
+func NewInvocations(root *Root) *Invocations {
+	command := &Invocations{
+		Command: &cobra.Command{
+			Use:     "invocations",
+			Short:   "Operations querying targets on a particular bazel invocation",
+			Aliases: []string{"inv", "invs"},
+		},
+		root: root,
+	}
+
+	command.PersistentFlags().StringVarP(&command.InvID, "invocation-id", "i", "", "Invocation ID of build to use")
+	command.MarkFlagRequired("invocation-id")
+
+	command.AddCommand(NewInvTargetsList(command).Command)
+
+	return command
+}
+
+type InvTargetsList struct {
+	*cobra.Command
+	root   *Root
+	parent *Invocations
+
+	StatusFilter []string
+}
+
+func NewInvTargetsList(parent *Invocations) *InvTargetsList {
+	command := &InvTargetsList{
+		Command: &cobra.Command{
+			Use:     "list-targets",
+			Short:   "List targets in invocation",
+			Aliases: []string{"lt"},
+		},
+		root:   parent.root,
+		parent: parent,
+
+		StatusFilter: nil,
+	}
+	command.Command.PreRunE = command.Check
+	command.Command.RunE = command.Run
+	command.Flags().StringSliceVar(&command.StatusFilter, "status-filter", nil, "If set, filter targets by criteria")
+
+	return command
+}
+
+func (c *InvTargetsList) Check(cmd *cobra.Command, args []string) error {
+	// Ensure invocation ID is set
+	if c.parent.InvID == "" {
+		return fmt.Errorf("--invocation-id must be set")
+	}
+	if c.StatusFilter != nil {
+		for _, s := range c.StatusFilter {
+			if _, ok := bespb.TestStatus_value[strings.ToUpper(s)]; !ok {
+				return fmt.Errorf("invalid status %q; valid statuses: [%s]", s, strings.Join(validStatuses(), " "))
+			}
+		}
+	}
+	return nil
+}
+
+func (c *InvTargetsList) Run(cmd *cobra.Command, args []string) error {
+	// Fetch invocation data
+	bb, err := c.root.BuildBuddyClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to BuildBuddy: %w", err)
+	}
+	events, err := bb.GetBuildEvents(cmd.Context(), c.parent.InvID)
+	if err != nil {
+		return fmt.Errorf("failed to get invocation with ID %q: %w", c.parent.InvID, err)
+	}
+	statuses, err := invocationStatusFromBuildEvents(events)
+	if err != nil {
+		return fmt.Errorf("failed to parse status of all targets: %w", err)
+	}
+	statuses = statuses.Filter(c.StatusFilter...)
+
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		if err := statuses.PrettyPrint(os.Stdout); err != nil {
+			return fmt.Errorf("failed to print target statuses: %w", err)
+		}
+	} else {
+		if err := statuses.Print(os.Stdout); err != nil {
+			return fmt.Errorf("failed to print target statuses: %w", err)
+		}
+	}
+	return nil
 }
 
 type AffectedTargets struct {
@@ -80,7 +200,7 @@ type AffectedTargetsList struct {
 
 	AffectedTargetsFile string
 	AffectedTestsFile   string
-	Parallel bool
+	Parallel            bool
 
 	bazel.GetModeOptions
 }
@@ -195,7 +315,7 @@ func (c *AffectedTargetsList) Run(cmd *cobra.Command, args []string) error {
 	c.End.RepoPath = filepath.Clean(filepath.Join(endTreePath, gitToBazelPath))
 
 	mode := bazel.ParallelQuery
-	if (!c.Parallel) {
+	if !c.Parallel {
 		if err := setCurrentOutputBaseAsDefault(gitRoot, &c.GetModeOptions, c.root.Log); err != nil {
 			c.root.Log.Warnf("Could not compute output_base of workspace %s: %s", gitRoot, err)
 		}
@@ -266,15 +386,15 @@ func defaultConfig() *ppb.PresubmitConfig {
 }
 
 // bazelGitRoot returns:
-// * The git worktree root path for the current bazel workspace. This is
-//   either:
+//   - The git worktree root path for the current bazel workspace. This is
+//     either:
 //   - the workspace from which `bazel run` was executed, if running under
 //     `bazel run`
 //   - the workspace containing the current working directory otherwise
-// * A relative path between the git worktree root and the bazel workspace root
-//   for the aforementioned bazel workspace. If the bazel workspace root and
-//   git worktree root are the same, this is the path `.`.
-// * An error of detection of the following fails:
+//   - A relative path between the git worktree root and the bazel workspace root
+//     for the aforementioned bazel workspace. If the bazel workspace root and
+//     git worktree root are the same, this is the path `.`.
+//   - An error of detection of the following fails:
 //   - current working directory
 //   - bazel workspace root
 //   - git workspace root

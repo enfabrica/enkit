@@ -28,8 +28,8 @@ go_binary(
 pkg_tar(
     name = "tar",
     srcs = [
-        ":monitor",
         "probes.toml",
+        ":monitor",
     ],
     package_dir = "/enfabrica/bin",
 )

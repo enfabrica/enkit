@@ -32,6 +32,7 @@ go_proto_library(
     visibility = [
         "//bes_publisher:__subpackages__",
         "//bestie:__subpackages__",
+        "//lib/bazel:__subpackages__",
         "//lib/bes:__subpackages__",
         "//lib/kbuildbarn:__subpackages__",
         "//third_party/buildbuddy/proto:__pkg__",
