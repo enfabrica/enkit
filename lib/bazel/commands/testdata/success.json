@@ -1,0 +1,2939 @@
+[
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 506000000
+    },
+    "buildEvent": {
+      "id": {
+        "started": {}
+      },
+      "children": [
+        {
+          "progress": {}
+        },
+        {
+          "unstructuredCommandLine": {}
+        },
+        {
+          "structuredCommandLine": {
+            "commandLineLabel": "original"
+          }
+        },
+        {
+          "structuredCommandLine": {
+            "commandLineLabel": "canonical"
+          }
+        },
+        {
+          "structuredCommandLine": {
+            "commandLineLabel": "tool"
+          }
+        },
+        {
+          "buildMetadata": {}
+        },
+        {
+          "optionsParsed": {}
+        },
+        {
+          "workspaceStatus": {}
+        },
+        {
+          "pattern": {
+            "pattern": [
+              "//lib/config/..."
+            ]
+          }
+        },
+        {
+          "buildFinished": {}
+        }
+      ],
+      "started": {
+        "uuid": "d31b1733-1226-45c4-bba8-939e613a8f1a",
+        "startTimeMillis": "1705951920711",
+        "buildToolVersion": "6.2.1",
+        "optionsDescription": "<REDACTED>",
+        "command": "test",
+        "workingDirectory": "/home/scott/dev/enkit",
+        "workspaceDirectory": "/home/scott/dev/enkit",
+        "serverPid": "75745"
+      }
+    },
+    "sequenceNumber": "1"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 506000000
+    },
+    "buildEvent": {
+      "id": {
+        "unstructuredCommandLine": {}
+      },
+      "unstructuredCommandLine": {}
+    },
+    "sequenceNumber": "2"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 506000000
+    },
+    "buildEvent": {
+      "id": {
+        "structuredCommandLine": {
+          "commandLineLabel": "tool"
+        }
+      },
+      "structuredCommandLine": {}
+    },
+    "sequenceNumber": "5"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 506000000
+    },
+    "buildEvent": {
+      "id": {
+        "buildMetadata": {}
+      },
+      "buildMetadata": {
+        "metadata": {
+          "ROLE": "interactive"
+        }
+      }
+    },
+    "sequenceNumber": "6"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 508000000
+    },
+    "buildEvent": {
+      "id": {
+        "pattern": {
+          "pattern": [
+            "//lib/config/..."
+          ]
+        }
+      },
+      "children": [
+        {
+          "targetConfigured": {
+            "label": "//lib/config/datastore:datastore"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/datastore:go_default_library"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/defcon:defcon"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/defcon:go_default_library"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/directory:directory"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/directory:directory_test"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/directory:go_default_library"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/identity:go_default_library"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/identity:identity"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/marshal:go_default_library"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/marshal:marshal"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/marshal:marshal_test"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/remote:go_default_library"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/remote:remote"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config/remote:remote_test"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config:config"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config:config_test"
+          }
+        },
+        {
+          "targetConfigured": {
+            "label": "//lib/config:go_default_library"
+          }
+        }
+      ],
+      "expanded": {}
+    },
+    "sequenceNumber": "8"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 509000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {}
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 1
+          }
+        },
+        {
+          "workspace": {}
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "9"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 514000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 1
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 2
+          }
+        },
+        {
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "11"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 514000000
+    },
+    "buildEvent": {
+      "id": {
+        "configuration": {
+          "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+        }
+      },
+      "configuration": {
+        "mnemonic": "k8-fastbuild",
+        "platformName": "k8",
+        "cpu": "k8",
+        "makeVariable": {
+          "BINDIR": "bazel-out/k8-fastbuild/bin",
+          "COMPILATION_MODE": "fastbuild",
+          "TARGET_CPU": "k8",
+          "GENDIR": "bazel-out/k8-fastbuild/bin"
+        }
+      }
+    },
+    "sequenceNumber": "12"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 2
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 3
+          }
+        },
+        {
+          "configuration": {
+            "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "13"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "configuration": {
+          "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+        }
+      },
+      "configuration": {
+        "mnemonic": "k8-fastbuild",
+        "platformName": "k8",
+        "cpu": "k8",
+        "makeVariable": {
+          "COMPILATION_MODE": "fastbuild",
+          "TARGET_CPU": "k8",
+          "GENDIR": "bazel-out/k8-fastbuild/bin",
+          "BINDIR": "bazel-out/k8-fastbuild/bin"
+        }
+      }
+    },
+    "sequenceNumber": "14"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/datastore:datastore"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/datastore:datastore",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "15"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/datastore:go_default_library"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/datastore:go_default_library",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "alias rule"
+      }
+    },
+    "sequenceNumber": "16"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/defcon:defcon"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/defcon:defcon",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "17"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/defcon:go_default_library"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/defcon:go_default_library",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "alias rule"
+      }
+    },
+    "sequenceNumber": "18"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/directory:directory"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/directory:directory",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "19"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/directory:directory_test"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/directory:directory_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_test rule",
+        "testSize": 2,
+        "tag": [
+          "no-remote-exec"
+        ]
+      }
+    },
+    "sequenceNumber": "20"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/directory:go_default_library"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/directory:go_default_library",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "alias rule"
+      }
+    },
+    "sequenceNumber": "21"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/identity:go_default_library"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/identity:go_default_library",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "alias rule"
+      }
+    },
+    "sequenceNumber": "22"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/identity:identity"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/identity:identity",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "23"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/marshal:go_default_library"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/marshal:go_default_library",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "alias rule"
+      }
+    },
+    "sequenceNumber": "24"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 516000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/marshal:marshal"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/marshal:marshal",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "25"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 516000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/marshal:marshal_test"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/marshal:marshal_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_test rule",
+        "testSize": 2
+      }
+    },
+    "sequenceNumber": "26"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 516000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/remote:go_default_library"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/remote:go_default_library",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "alias rule"
+      }
+    },
+    "sequenceNumber": "27"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 516000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/remote:remote"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/remote:remote",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "28"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 516000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config/remote:remote_test"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/remote:remote_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_test rule",
+        "testSize": 2
+      }
+    },
+    "sequenceNumber": "29"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 516000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config:config"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config:config",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "30"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 516000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config:config_test"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config:config_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_test rule",
+        "testSize": 2
+      }
+    },
+    "sequenceNumber": "31"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 516000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//lib/config:go_default_library"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config:go_default_library",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "alias rule"
+      }
+    },
+    "sequenceNumber": "32"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 599000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 3
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 4
+          }
+        },
+        {
+          "namedSet": {
+            "id": "0"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "33"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 599000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "0"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/datastore/datastore.a",
+            "digest": "89f497d0978ce68f8373fce15e3d3153616d031bac2901ec520e773dcd1ea410",
+            "length": "470126"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "34"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 599000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/datastore:datastore",
+          "configuration": {
+            "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "0"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/datastore/datastore.a",
+            "digest": "89f497d0978ce68f8373fce15e3d3153616d031bac2901ec520e773dcd1ea410",
+            "length": "470126"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "35"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 601000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 4
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 5
+          }
+        },
+        {
+          "namedSet": {
+            "id": "1"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "36"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 601000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "1"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/defcon/defcon.a",
+            "digest": "a8b02b0e64eeb5cda2fbb9f7659caafa32d58cb2c9da59f5b0c811d721abed01",
+            "length": "13432"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "37"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 601000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/defcon:defcon",
+          "configuration": {
+            "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "1"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/defcon/defcon.a",
+            "digest": "a8b02b0e64eeb5cda2fbb9f7659caafa32d58cb2c9da59f5b0c811d721abed01",
+            "length": "13432"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "38"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 602000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/datastore:go_default_library",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "0"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/datastore/datastore.a",
+            "digest": "89f497d0978ce68f8373fce15e3d3153616d031bac2901ec520e773dcd1ea410",
+            "length": "470126"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "39"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 602000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 5
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 6
+          }
+        },
+        {
+          "namedSet": {
+            "id": "2"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "40"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 602000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "2"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/directory/directory.a",
+            "digest": "0682259dd68c4c45f83f2d5fd7dcf0c7045a8c1a23d90062859156ab3813629f",
+            "length": "54440"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "41"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 602000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/defcon:go_default_library",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "1"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/defcon/defcon.a",
+            "digest": "a8b02b0e64eeb5cda2fbb9f7659caafa32d58cb2c9da59f5b0c811d721abed01",
+            "length": "13432"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "42"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 602000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/directory:directory",
+          "configuration": {
+            "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "2"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/directory/directory.a",
+            "digest": "0682259dd68c4c45f83f2d5fd7dcf0c7045a8c1a23d90062859156ab3813629f",
+            "length": "54440"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "43"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 6
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 7
+          }
+        },
+        {
+          "namedSet": {
+            "id": "3"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "44"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "3"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/identity/identity.a",
+            "digest": "aeef8adcd6387fe44314b633835cfd34fc169f8b6db35ec63ae031a428ed4c27",
+            "length": "65926"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "45"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/identity:identity",
+          "configuration": {
+            "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "3"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/identity/identity.a",
+            "digest": "aeef8adcd6387fe44314b633835cfd34fc169f8b6db35ec63ae031a428ed4c27",
+            "length": "65926"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "46"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/directory:go_default_library",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "2"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/directory/directory.a",
+            "digest": "0682259dd68c4c45f83f2d5fd7dcf0c7045a8c1a23d90062859156ab3813629f",
+            "length": "54440"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "47"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/identity:go_default_library",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "3"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/identity/identity.a",
+            "digest": "aeef8adcd6387fe44314b633835cfd34fc169f8b6db35ec63ae031a428ed4c27",
+            "length": "65926"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "48"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 7
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 8
+          }
+        },
+        {
+          "namedSet": {
+            "id": "4"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "49"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "4"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/marshal/marshal.a",
+            "digest": "deeca497b385f942e4aeab0610bb68a30ea95a56fe56ccaed17c27fffa9664ec",
+            "length": "224390"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "50"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/marshal:marshal",
+          "configuration": {
+            "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "4"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/marshal/marshal.a",
+            "digest": "deeca497b385f942e4aeab0610bb68a30ea95a56fe56ccaed17c27fffa9664ec",
+            "length": "224390"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "51"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/marshal:go_default_library",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "4"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/marshal/marshal.a",
+            "digest": "deeca497b385f942e4aeab0610bb68a30ea95a56fe56ccaed17c27fffa9664ec",
+            "length": "224390"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "52"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 8
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 9
+          }
+        },
+        {
+          "namedSet": {
+            "id": "5"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "53"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "5"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/remote/remote.a",
+            "digest": "1f1ce323fdd0ed0fa4eff22065e95276281a2340837e184276d5e118ea508c0e",
+            "length": "240282"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "54"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 603000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/remote:remote",
+          "configuration": {
+            "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "5"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/remote/remote.a",
+            "digest": "1f1ce323fdd0ed0fa4eff22065e95276281a2340837e184276d5e118ea508c0e",
+            "length": "240282"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "55"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 604000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/remote:go_default_library",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "5"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/remote/remote.a",
+            "digest": "1f1ce323fdd0ed0fa4eff22065e95276281a2340837e184276d5e118ea508c0e",
+            "length": "240282"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "56"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 604000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 9
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 10
+          }
+        },
+        {
+          "namedSet": {
+            "id": "6"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "57"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 604000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "6"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/config.a",
+            "digest": "a5eed9fe9ee07b8e2f92cae88f6607d9139ee2e1fcf17677506cac81bf69f62a",
+            "length": "100290"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "58"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 604000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config:config",
+          "configuration": {
+            "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "6"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/config.a",
+            "digest": "a5eed9fe9ee07b8e2f92cae88f6607d9139ee2e1fcf17677506cac81bf69f62a",
+            "length": "100290"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "59"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 604000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config:go_default_library",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "6"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/config.a",
+            "digest": "a5eed9fe9ee07b8e2f92cae88f6607d9139ee2e1fcf17677506cac81bf69f62a",
+            "length": "100290"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "60"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 633000000
+    },
+    "buildEvent": {
+      "id": {
+        "workspaceStatus": {}
+      },
+      "workspaceStatus": {
+        "item": [
+          {
+            "key": "BUILD_EMBED_LABEL"
+          },
+          {
+            "key": "BUILD_HOST",
+            "value": "workstation"
+          },
+          {
+            "key": "BUILD_TIMESTAMP",
+            "value": "1705951921"
+          },
+          {
+            "key": "BUILD_USER",
+            "value": "scott"
+          },
+          {
+            "key": "COMMIT_SHA",
+            "value": "56362c33166378840fbb2767ef35f0544658515d"
+          },
+          {
+            "key": "GIT_BRANCH",
+            "value": "bazel_targets_list"
+          },
+          {
+            "key": "STABLE_ENKIT_USER",
+            "value": "scott@enfabrica.net"
+          },
+          {
+            "key": "STABLE_GIT_AUTHOR",
+            "value": "scott@enfabrica.net"
+          },
+          {
+            "key": "STABLE_GIT_CHANGES"
+          },
+          {
+            "key": "STABLE_GIT_MASTER_AUTHOR",
+            "value": "scott@enfabrica.net"
+          },
+          {
+            "key": "STABLE_GIT_MASTER_DIFF",
+            "value": "lib/bazel/commands/BUILD.bazel lib/bazel/commands/commands.go lib/bazel/commands/target_list.go monitor/BUILD.bazel third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/BUILD.bazel"
+          },
+          {
+            "key": "STABLE_GIT_MASTER_DISTANCE",
+            "value": "1"
+          },
+          {
+            "key": "STABLE_GIT_MASTER_SHA",
+            "value": "f32a0618be9fe77beb83998d90156ef8eae2019d"
+          },
+          {
+            "key": "STABLE_GIT_ORIGIN_BRANCH",
+            "value": "origin/bazel_targets_list"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "61"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951923",
+      "nanos": 704000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 10
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 11
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "62"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951927",
+      "nanos": 672000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 11
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 12
+          }
+        },
+        {
+          "namedSet": {
+            "id": "7"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "63"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951927",
+      "nanos": 672000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "7"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/marshal/marshal_test_/marshal_test",
+            "digest": "3064bf0e150db3bf6c42e4527300b7b787b3668d1f6a78889aa025efcc333a5e",
+            "length": "4856077"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "64"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951927",
+      "nanos": 672000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/marshal:marshal_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "children": [
+        {
+          "testResult": {
+            "label": "//lib/config/marshal:marshal_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            },
+            "run": 1,
+            "shard": 1,
+            "attempt": 1
+          }
+        },
+        {
+          "testSummary": {
+            "label": "//lib/config/marshal:marshal_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "7"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/marshal/marshal_test_/marshal_test",
+            "digest": "3064bf0e150db3bf6c42e4527300b7b787b3668d1f6a78889aa025efcc333a5e",
+            "length": "4856077"
+          }
+        ],
+        "testTimeoutSeconds": "300"
+      }
+    },
+    "sequenceNumber": "65"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951957",
+      "nanos": 321000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 12
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 13
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "66"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951988",
+      "nanos": 735000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 13
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 14
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "67"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952020",
+      "nanos": 350000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 14
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 15
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "68"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952043",
+      "nanos": 961000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 15
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 16
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "69"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952044",
+      "nanos": 316000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 16
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 17
+          }
+        },
+        {
+          "namedSet": {
+            "id": "8"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "70"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952044",
+      "nanos": 316000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "8"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/directory/directory_test_/directory_test",
+            "digest": "9ac41cf59d481fcef36bdcdf87dc370cfc42f1d5645d5da6abf792d3ff436fb4",
+            "length": "4047085"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "71"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952044",
+      "nanos": 316000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/directory:directory_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "children": [
+        {
+          "testResult": {
+            "label": "//lib/config/directory:directory_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            },
+            "run": 1,
+            "shard": 1,
+            "attempt": 1
+          }
+        },
+        {
+          "testSummary": {
+            "label": "//lib/config/directory:directory_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "8"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/directory/directory_test_/directory_test",
+            "digest": "9ac41cf59d481fcef36bdcdf87dc370cfc42f1d5645d5da6abf792d3ff436fb4",
+            "length": "4047085"
+          }
+        ],
+        "tag": [
+          "no-remote-exec"
+        ],
+        "testTimeoutSeconds": "300"
+      }
+    },
+    "sequenceNumber": "72"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952044",
+      "nanos": 341000000
+    },
+    "buildEvent": {
+      "id": {
+        "testResult": {
+          "label": "//lib/config/directory:directory_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          },
+          "run": 1,
+          "shard": 1,
+          "attempt": 1
+        }
+      },
+      "testResult": {
+        "status": 1,
+        "testAttemptStartMillisEpoch": "1705952044318",
+        "testAttemptDurationMillis": "20",
+        "testActionOutput": [
+          {
+            "name": "test.log"
+          },
+          {
+            "name": "test.xml"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "73"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952044",
+      "nanos": 341000000
+    },
+    "buildEvent": {
+      "id": {
+        "testSummary": {
+          "label": "//lib/config/directory:directory_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "testSummary": {
+        "overallStatus": 1,
+        "totalRunCount": 1,
+        "runCount": 1,
+        "attemptCount": 1,
+        "passed": [
+          {}
+        ],
+        "firstStartTimeMillis": "1705952044318",
+        "lastStopTimeMillis": "1705952044338",
+        "totalRunDurationMillis": "20"
+      }
+    },
+    "sequenceNumber": "74"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952073",
+      "nanos": 376000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 17
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 18
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "75"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952100",
+      "nanos": 789000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 18
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 19
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "76"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952112",
+      "nanos": 847000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 19
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 20
+          }
+        },
+        {
+          "namedSet": {
+            "id": "9"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "77"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952112",
+      "nanos": 847000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "9"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/config_test_/config_test",
+            "digest": "d6f9a09e0b6ef89778ed558841981da4054ed7debf561a623f7413b01d0bafe6",
+            "length": "4905229"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "78"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952112",
+      "nanos": 847000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config:config_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "children": [
+        {
+          "testResult": {
+            "label": "//lib/config:config_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            },
+            "run": 1,
+            "shard": 1,
+            "attempt": 1
+          }
+        },
+        {
+          "testSummary": {
+            "label": "//lib/config:config_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "9"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/config_test_/config_test",
+            "digest": "d6f9a09e0b6ef89778ed558841981da4054ed7debf561a623f7413b01d0bafe6",
+            "length": "4905229"
+          }
+        ],
+        "testTimeoutSeconds": "300"
+      }
+    },
+    "sequenceNumber": "79"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952113",
+      "nanos": 375000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 20
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 21
+          }
+        },
+        {
+          "namedSet": {
+            "id": "10"
+          }
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "80"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952113",
+      "nanos": 375000000
+    },
+    "buildEvent": {
+      "id": {
+        "namedSet": {
+          "id": "10"
+        }
+      },
+      "namedSetOfFiles": {
+        "files": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/remote/remote_test_/remote_test",
+            "digest": "93044b700da076dfc3efc166ac222ecd141d69c622aeb292da99a3443b66255e",
+            "length": "4153677"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "81"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952113",
+      "nanos": 375000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//lib/config/remote:remote_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "children": [
+        {
+          "testResult": {
+            "label": "//lib/config/remote:remote_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            },
+            "run": 1,
+            "shard": 1,
+            "attempt": 1
+          }
+        },
+        {
+          "testSummary": {
+            "label": "//lib/config/remote:remote_test",
+            "configuration": {
+              "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+            }
+          }
+        }
+      ],
+      "completed": {
+        "success": true,
+        "outputGroup": [
+          {
+            "name": "default",
+            "fileSets": [
+              {
+                "id": "10"
+              }
+            ]
+          }
+        ],
+        "importantOutput": [
+          {
+            "pathPrefix": [
+              "bazel-out",
+              "k8-fastbuild",
+              "bin"
+            ],
+            "name": "lib/config/remote/remote_test_/remote_test",
+            "digest": "93044b700da076dfc3efc166ac222ecd141d69c622aeb292da99a3443b66255e",
+            "length": "4153677"
+          }
+        ],
+        "testTimeoutSeconds": "300"
+      }
+    },
+    "sequenceNumber": "82"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952113",
+      "nanos": 554000000
+    },
+    "buildEvent": {
+      "id": {
+        "testResult": {
+          "label": "//lib/config/marshal:marshal_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          },
+          "run": 1,
+          "shard": 1,
+          "attempt": 1
+        }
+      },
+      "testResult": {
+        "status": 1,
+        "testAttemptStartMillisEpoch": "1705951927673",
+        "testAttemptDurationMillis": "140",
+        "testActionOutput": [
+          {
+            "name": "test.log"
+          },
+          {
+            "name": "test.xml"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "83"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952113",
+      "nanos": 555000000
+    },
+    "buildEvent": {
+      "id": {
+        "testSummary": {
+          "label": "//lib/config/marshal:marshal_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "testSummary": {
+        "overallStatus": 1,
+        "totalRunCount": 1,
+        "runCount": 1,
+        "attemptCount": 1,
+        "passed": [
+          {}
+        ],
+        "firstStartTimeMillis": "1705951927673",
+        "lastStopTimeMillis": "1705951927813",
+        "totalRunDurationMillis": "140"
+      }
+    },
+    "sequenceNumber": "84"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 140000000
+    },
+    "buildEvent": {
+      "id": {
+        "testResult": {
+          "label": "//lib/config:config_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          },
+          "run": 1,
+          "shard": 1,
+          "attempt": 1
+        }
+      },
+      "testResult": {
+        "status": 1,
+        "testAttemptStartMillisEpoch": "1705952112848",
+        "testAttemptDurationMillis": "109",
+        "testActionOutput": [
+          {
+            "name": "test.log"
+          },
+          {
+            "name": "test.xml"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "85"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 140000000
+    },
+    "buildEvent": {
+      "id": {
+        "testSummary": {
+          "label": "//lib/config:config_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "testSummary": {
+        "overallStatus": 1,
+        "totalRunCount": 1,
+        "runCount": 1,
+        "attemptCount": 1,
+        "passed": [
+          {}
+        ],
+        "firstStartTimeMillis": "1705952112848",
+        "lastStopTimeMillis": "1705952112957",
+        "totalRunDurationMillis": "109"
+      }
+    },
+    "sequenceNumber": "86"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 782000000
+    },
+    "buildEvent": {
+      "id": {
+        "testResult": {
+          "label": "//lib/config/remote:remote_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          },
+          "run": 1,
+          "shard": 1,
+          "attempt": 1
+        }
+      },
+      "testResult": {
+        "status": 1,
+        "testAttemptStartMillisEpoch": "1705952113376",
+        "testAttemptDurationMillis": "114",
+        "testActionOutput": [
+          {
+            "name": "test.log"
+          },
+          {
+            "name": "test.xml"
+          }
+        ]
+      }
+    },
+    "sequenceNumber": "87"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 782000000
+    },
+    "buildEvent": {
+      "id": {
+        "testSummary": {
+          "label": "//lib/config/remote:remote_test",
+          "configuration": {
+            "id": "5ed1b81fd3336c29b5c9f3f8cc2d4e1dfc9a8cf49b97257708c8a1e539c9ddf3"
+          }
+        }
+      },
+      "testSummary": {
+        "overallStatus": 1,
+        "totalRunCount": 1,
+        "runCount": 1,
+        "attemptCount": 1,
+        "passed": [
+          {}
+        ],
+        "firstStartTimeMillis": "1705952113376",
+        "lastStopTimeMillis": "1705952113490",
+        "totalRunDurationMillis": "114"
+      }
+    },
+    "sequenceNumber": "88"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 804000000
+    },
+    "buildEvent": {
+      "id": {
+        "buildFinished": {}
+      },
+      "children": [
+        {
+          "buildToolLogs": {}
+        }
+      ],
+      "finished": {
+        "overallSuccess": true,
+        "exitCode": {
+          "name": "SUCCESS"
+        },
+        "finishTimeMillis": "1705952114787"
+      }
+    },
+    "sequenceNumber": "89"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 804000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 21
+        }
+      },
+      "children": [
+        {
+          "progress": {
+            "opaqueCount": 22
+          }
+        },
+        {
+          "buildMetrics": {}
+        }
+      ],
+      "progress": {}
+    },
+    "sequenceNumber": "90"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 804000000
+    },
+    "buildEvent": {
+      "id": {
+        "buildMetrics": {}
+      },
+      "buildMetrics": {
+        "actionSummary": {
+          "actionsCreated": "32",
+          "actionsCreatedNotIncludingAspects": "32",
+          "actionsExecuted": "24",
+          "actionData": [
+            {
+              "mnemonic": "GoCompilePkg",
+              "actionsExecuted": "12",
+              "firstStartedMs": "1705951921606",
+              "lastEndedMs": "1705952111350"
+            },
+            {
+              "mnemonic": "TestRunner",
+              "actionsExecuted": "4",
+              "firstStartedMs": "1705951927672",
+              "lastEndedMs": "1705952114783"
+            },
+            {
+              "mnemonic": "GoTestGenTest",
+              "actionsExecuted": "4",
+              "firstStartedMs": "1705951921606",
+              "lastEndedMs": "1705951925073"
+            },
+            {
+              "mnemonic": "GoLink",
+              "actionsExecuted": "3",
+              "firstStartedMs": "1705951925445",
+              "lastEndedMs": "1705952113375"
+            },
+            {
+              "mnemonic": "BazelWorkspaceStatusAction",
+              "actionsExecuted": "1",
+              "firstStartedMs": "1705951921599",
+              "lastEndedMs": "1705951921633"
+            }
+          ],
+          "runnerCount": [
+            {
+              "name": "total",
+              "count": 24
+            },
+            {
+              "name": "internal",
+              "count": 1
+            },
+            {
+              "name": "linux-sandbox",
+              "count": 1
+            },
+            {
+              "name": "remote",
+              "count": 22
+            }
+          ]
+        },
+        "memoryMetrics": {},
+        "targetMetrics": {
+          "targetsConfigured": "293",
+          "targetsConfiguredNotIncludingAspects": "293"
+        },
+        "packageMetrics": {},
+        "timingMetrics": {
+          "cpuTimeInMs": "3870",
+          "wallTimeInMs": "194070",
+          "analysisPhaseTimeInMs": "46"
+        },
+        "cumulativeMetrics": {
+          "numAnalyses": 95,
+          "numBuilds": 94
+        },
+        "artifactMetrics": {
+          "sourceArtifactsRead": {},
+          "outputArtifactsSeen": {
+            "sizeInBytes": "19381862",
+            "count": 50
+          },
+          "outputArtifactsFromActionCache": {
+            "sizeInBytes": "4047915",
+            "count": 9
+          },
+          "topLevelArtifacts": {
+            "sizeInBytes": "37093852",
+            "count": 19
+          }
+        },
+        "buildGraphMetrics": {
+          "actionLookupValueCount": 11460,
+          "actionLookupValueCountNotIncludingAspects": 11433,
+          "actionCount": 777,
+          "actionCountNotIncludingAspects": 776,
+          "inputFileConfiguredTargetCount": 10757,
+          "outputFileConfiguredTargetCount": 11,
+          "otherConfiguredTargetCount": 53,
+          "outputArtifactCount": 1449,
+          "postInvocationSkyframeNodeCount": 214177
+        }
+      }
+    },
+    "sequenceNumber": "91"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 804000000
+    },
+    "buildEvent": {
+      "id": {
+        "progress": {
+          "opaqueCount": 22
+        }
+      },
+      "lastMessage": true,
+      "progress": {}
+    },
+    "sequenceNumber": "93"
+  }
+]
