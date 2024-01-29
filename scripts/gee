@@ -5219,6 +5219,7 @@ function gee__diagnose() {
     for b in ~/gee/*/{main,master}; do
       echo "b=$b"
       cd "$b"
+      gh repo set-default --view
       git remote -v
       git worktree list --porcelain
     done
@@ -5367,6 +5368,18 @@ function gee__repair() {
     _fatal "Not in a gee repo directory, aborting further repairs."
   fi
 
+  _set_main
+  (
+    cd "${GEE_REPO_DIR}/${MAIN}"
+    local -a DEFAULT_REPO
+    mapfile -t DEFAULT_REPO < <( "${GH}" repo set-default --view )
+    if [[ "${DEFAULT_REPO[0]}" != "${UPSTREAM}/"* ]]; then
+      _warn "Looks like \"gh repo set-default\" got misconfigured to ${DEFAULT_REPO[0]}.  Fixing:"
+      _gh repo set-default "${UPSTREAM}/${REPO}"
+    fi
+    # note: this fix is currently redundant with _gee_fix_gh_resolved_base, but defense in depth.
+  )
+
   _git worktree prune
 
   _info "Checking each directory in ${GEE_REPO_DIR}..."
@@ -5383,6 +5396,7 @@ function gee__repair() {
     # Give user opportunity to abort in-progress rebase operations:
     if _is_rebase_in_progress; then
       _warn "Rebase in progress on branch ${OBRANCH}"
+      local -a STATUS
       mapfile -t STATUS < <( "${GIT}" status );
       _info "${STATUS[@]}"
       if _confirm_default_no "Do you want to abort this rebase operation now?"; then
