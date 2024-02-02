@@ -254,6 +254,17 @@ func (b *buildStream) updateAttrs(event *bes.BuildEvent) {
 			// Assume these are "interactive" builds, for backwards-compatibility
 			b.attrs["inv_type"] = "interactive"
 		}
+
+		// Take all keys prefixed with `build_tag:` and insert them as attributes,
+		// with the prefix `bt:` (which saves space, as PubSub subscription filters
+		// are character-limited)
+		for k, v := range payload.BuildMetadata.GetMetadata() {
+			if !strings.HasPrefix(k, "build_tag:") {
+				continue
+			}
+			tagName := "bt:" + strings.TrimPrefix(k, "build_tag:")
+			b.attrs[tagName] = v
+		}
 	case *bes.BuildEvent_Finished:
 		b.attrs["result"] = payload.Finished.GetExitCode().GetName()
 	}
