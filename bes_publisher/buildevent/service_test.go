@@ -97,7 +97,11 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 				&bes.BuildEvent{
 					Payload: &bes.BuildEvent_BuildMetadata{
 						BuildMetadata: &bes.BuildMetadata{
-							Metadata: map[string]string{"ROLE": "interactive"},
+							Metadata: map[string]string{
+								"ROLE":              "interactive",
+								"build_tag:foo":     "bar",
+								"not_build_tag:baz": "quux",
+							},
 						},
 					},
 				},
@@ -154,10 +158,11 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 					},
 				},
 				&pubsub.Message{
-					Data: []byte(`{"buildMetadata":{"metadata":{"ROLE":"interactive"}}}`),
+					Data: []byte(`{"buildMetadata":{"metadata":{"ROLE":"interactive","build_tag:foo":"bar","not_build_tag:baz":"quux"}}}`),
 					Attributes: map[string]string{
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
+						"bt:foo":   "bar",
 					},
 				},
 				&pubsub.Message{
@@ -165,6 +170,7 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 					Attributes: map[string]string{
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
+						"bt:foo":   "bar",
 					},
 				},
 				&pubsub.Message{
@@ -172,6 +178,7 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 					Attributes: map[string]string{
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
+						"bt:foo":   "bar",
 					},
 				},
 				&pubsub.Message{
@@ -180,6 +187,7 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
 						"result":   "SUCCESS",
+						"bt:foo":   "bar",
 					},
 				},
 				&pubsub.Message{
@@ -188,6 +196,7 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
 						"result":   "SUCCESS",
+						"bt:foo":   "bar",
 					},
 				},
 			},
