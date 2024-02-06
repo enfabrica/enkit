@@ -10,6 +10,7 @@ load("@google_jsonnet_go//bazel:repositories.bzl", "jsonnet_go_repositories")
 load("@google_jsonnet_go//bazel:deps.bzl", "jsonnet_go_dependencies")
 load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_register_toolchains")
 load("@rules_oci//oci:repositories.bzl", "LATEST_CRANE_VERSION", "oci_register_toolchains")
+load("@rules_oci//oci:pull.bzl", "oci_pull")
 load("@rules_python//python:pip.bzl", "pip_parse")
 load("@python3_8//:defs.bzl", "interpreter")
 
@@ -44,6 +45,13 @@ def stage_3():
     oci_register_toolchains(
         name = "oci",
         crane_version = LATEST_CRANE_VERSION,
+    )
+
+    oci_pull(
+        name = "golang_base",
+        digest = "sha256:75f63d4edd703030d4312dc7528a349ca34d48bec7bd754652b2d47e5a0b7873",
+        registry = "gcr.io",
+        repository = "distroless/base",
     )
 
     # Begin buildbarn ecosystem dependencies
