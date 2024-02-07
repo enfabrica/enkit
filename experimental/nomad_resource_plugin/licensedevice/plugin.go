@@ -3,9 +3,6 @@ package licensedevice
 import (
 	"context"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
@@ -14,6 +11,7 @@ import (
 	"github.com/hashicorp/nomad/plugins/device"
 	"github.com/hashicorp/nomad/plugins/shared/hclspec"
 
+	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/docker"
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/sqldb"
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/types"
 	"github.com/enfabrica/enkit/lib/str"
@@ -23,20 +21,28 @@ type Plugin struct {
 	Log hclog.Logger
 
 	reserver          types.Reserver
-	notifier          types.Notifier
+	globalUpdater     types.Notifier
+	localUpdater      types.Notifier
 	licenseHandleRoot string
 	nodeID            string
 }
 
 type Config struct {
-	DatabaseConnStr   string `codec:"database_connection_string"`
-	TableName         string `codec:"database_table_name"`
-	LicenseHandleRoot string `codec:"license_handle_root"`
-	NodeID            string `codec:"node_id"`
+	DatabaseConnStr string `codec:"database_connection_string"`
+	TableName       string `codec:"database_table_name"`
+	NodeID          string `codec:"node_id"`
 }
 
-func NewPlugin() *Plugin {
-	return &Plugin{}
+func NewPlugin(l hclog.Logger) *Plugin {
+	return &Plugin{Log: l}
+}
+
+func ConfiguredPlugin(l hclog.Logger, config *Config) (*Plugin, error) {
+	p := &Plugin{Log: l}
+	if err := p.configure(config); err != nil {
+		return nil, fmt.Errorf("failed to configure plugin: %w", err)
+	}
+	return p, nil
 }
 
 func (p *Plugin) PluginInfo() (*base.PluginInfoResponse, error) {
@@ -56,10 +62,6 @@ func (p *Plugin) ConfigSchema() (*hclspec.Spec, error) {
 			hclspec.NewAttr("database_table_name", "string", true),
 			hclspec.NewLiteral(`"license_status"`),
 		),
-		"license_handle_root": hclspec.NewDefault(
-			hclspec.NewAttr("license_handle_root", "string", true),
-			hclspec.NewLiteral(`"/tmp/license_handles"`),
-		),
 		"node_id": hclspec.NewAttr("node_id", "string", true),
 	}), nil
 }
@@ -70,38 +72,18 @@ func (p *Plugin) SetConfig(c *base.Config) error {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	table, err := sqldb.OpenTable(rctx, config.DatabaseConnStr, config.TableName)
-	cancel()
-	if err != nil {
-		return fmt.Errorf("failed to open DB: %w", err)
-	}
-
-	p.nodeID = config.NodeID
-	p.licenseHandleRoot = config.LicenseHandleRoot
-	p.reserver = table
-	p.notifier = table
-
-	rctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-	licenses, err := p.notifier.GetCurrent(rctx)
-	cancel()
-	if err != nil {
-		return fmt.Errorf("failed to list available licenses")
-	}
-
-	if err := p.createLicenseHandleFiles(licenses); err != nil {
-		return fmt.Errorf("failed to create license handle files: %w", err)
-	}
-
-	return nil
+	return p.configure(config)
 }
 
 func (p *Plugin) Fingerprint(ctx context.Context) (<-chan *device.FingerprintResponse, error) {
-	if p.notifier == nil {
+	p.Log.Info("Fingerprint() called")
+	if p.globalUpdater == nil {
 		return nil, fmt.Errorf("plugin is not configured: nil notifier")
 	}
 
-	notifyChan := p.notifier.Chan(ctx)
+	p.Log.Debug("acquiring global updates channel")
+	notifyChan := p.globalUpdater.Chan(ctx)
+	p.Log.Debug("acquired global updates channel")
 	resChan := make(chan *device.FingerprintResponse)
 	go p.fingerprintLoop(ctx, notifyChan, resChan)
 
@@ -109,6 +91,8 @@ func (p *Plugin) Fingerprint(ctx context.Context) (<-chan *device.FingerprintRes
 }
 
 func (p *Plugin) Reserve(deviceIDs []string) (*device.ContainerReservation, error) {
+	p.Log.Info("Reserve() called")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	licenses, err := p.reserver.Reserve(ctx, deviceIDs, p.nodeID)
@@ -127,7 +111,14 @@ func (p *Plugin) Stats(ctx context.Context, interval time.Duration) (<-chan *dev
 	return nil, fmt.Errorf("Stats not implemented")
 }
 
-func (p *Plugin) fingerprintLoop(ctx context.Context, notifyChan <-chan struct{}, resChan chan<- *device.FingerprintResponse) {
+func (p *Plugin) fingerprintLoop(ctx context.Context, notifyChan chan struct{}, resChan chan<- *device.FingerprintResponse) {
+	p.Log.Debug("starting fingerprint response loop")
+
+	// Ensure that an initial state is sent without having to wait for external
+	// state to change
+	go func() { notifyChan <- struct{}{} }()
+
+nextNotification:
 	for {
 		select {
 		case <-ctx.Done():
@@ -142,18 +133,86 @@ func (p *Plugin) fingerprintLoop(ctx context.Context, notifyChan <-chan struct{}
 		}
 
 		rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		licenses, err := p.notifier.GetCurrent(rctx)
+		p.Log.Debug("fetching global license state")
+		licenses, err := p.globalUpdater.GetCurrent(rctx)
+		p.Log.Debug("finished fetching global license state")
 		cancel()
 		if err != nil {
-			// TODO: metric, log
+			// TODO: metric
+			p.Log.Error("failed to get global license state", "error", err)
+			continue nextNotification
 		}
 
+		p.Log.Debug("parsing global license state")
 		groups, err := deviceGroupsFromLicenses(licenses)
+		p.Log.Debug("finished parsing global license state")
 		if err != nil {
-			// TODO: metric, log?
+			// TODO: metric
+			p.Log.Error("failed to parse global license state", "error", err)
+			continue nextNotification
 		}
 
+		p.Log.Info("sending fingerprint response")
 		resChan <- &device.FingerprintResponse{Devices: groups}
+	}
+}
+
+func (p *Plugin) configure(config *Config) error {
+	rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	table, err := sqldb.OpenTable(rctx, config.DatabaseConnStr, config.TableName, config.NodeID)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("failed to open DB: %w", err)
+	}
+
+	dockerClient, err := docker.NewClient(context.Background(), config.NodeID)
+	if err != nil {
+		return fmt.Errorf("failed to create local notifier: %w", err)
+	}
+
+	p.nodeID = config.NodeID
+	p.reserver = table
+	p.globalUpdater = table
+	p.localUpdater = dockerClient
+
+	go p.localUpdatesLoop(context.Background(), p.localUpdater.Chan(context.Background()))
+
+	return nil
+}
+
+func (p *Plugin) localUpdatesLoop(ctx context.Context, notifyChan <-chan struct{}) {
+	p.Log.Debug("starting local license use monitoring")
+
+nextNotification:
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case _, ok := <-notifyChan:
+			if !ok {
+				return
+			}
+
+			p.Log.Debug("got local license use update")
+
+			rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			licenses, err := p.localUpdater.GetCurrent(rctx)
+			cancel()
+			if err != nil {
+				// TODO: metric
+				p.Log.Error("failed to get local license state", "error", err)
+				continue nextNotification
+			}
+
+			rctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+			err = p.reserver.UpdateInUse(rctx, licenses)
+			cancel()
+			if err != nil {
+				// TODO: metric
+				p.Log.Error("failed to update global license state with in-use info", "error", err)
+				continue nextNotification
+			}
+		}
 	}
 }
 
@@ -205,19 +264,4 @@ func deviceGroupsFromLicenses(ls []*types.License) ([]*device.DeviceGroup, error
 	})
 
 	return groups, nil
-}
-
-func (p *Plugin) createLicenseHandleFiles(licenses []*types.License) error {
-	for _, license := range licenses {
-		path := license.MountInfo(p.licenseHandleRoot).HostPath
-		if err := os.MkdirAll(filepath.Dir(path), fs.FileMode(0666)); err != nil {
-			return fmt.Errorf("failed to create parent dir for license %+v: %w", license, err)
-		}
-		f, err := os.Create(path)
-		if err != nil {
-			return fmt.Errorf("failed to create handle file for license %+v: %w", license, err)
-		}
-		f.Close()
-	}
-	return nil
 }

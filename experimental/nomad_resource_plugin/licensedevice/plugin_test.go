@@ -57,7 +57,7 @@ func TestPluginFingerprint(t *testing.T) {
 	notifier := &mockNotifier{}
 
 	p := NewPlugin()
-	p.notifier = notifier
+	p.globalUpdater = notifier
 	p.licenseHandleRoot = bazel.TestTmpDir()
 
 	notifyChan := make(chan struct{})

@@ -40,5 +40,5 @@ CREATE TABLE IF NOT EXISTS license_state_log (
   previous_state TEXT NOT NULL,
   current_state TEXT NOT NULL,
   reason TEXT NOT NULL,
-  metadata JSONB,
+  metadata JSONB
 );

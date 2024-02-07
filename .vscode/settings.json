@@ -32,5 +32,17 @@
   },
   "go.useLanguageServer": true,
   "go.lintOnSave": "off",
-  "go.vetOnSave": "off"
+  "go.vetOnSave": "off",
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "server": "localhost",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "name": "cj_stage",
+      "database": "cj_stage",
+      "username": "postgres",
+      "password": ",FV-X{C<hs$T]v3S"
+    }
+  ]
 }

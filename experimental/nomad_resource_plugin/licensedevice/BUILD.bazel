@@ -6,6 +6,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice",
     visibility = ["//visibility:public"],
     deps = [
+        "//experimental/nomad_resource_plugin/licensedevice/docker",
         "//experimental/nomad_resource_plugin/licensedevice/sqldb",
         "//experimental/nomad_resource_plugin/licensedevice/types",
         "//lib/str",
