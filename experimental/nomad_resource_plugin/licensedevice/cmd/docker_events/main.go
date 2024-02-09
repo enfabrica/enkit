@@ -21,7 +21,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	c, err := docker.NewClient(ctx)
+	c, err := docker.NewClient(ctx, "fakeid")
 	exitIf(err)
 
 	eventsChan := c.Chan(ctx)
