@@ -101,9 +101,18 @@ func (p *Plugin) Reserve(deviceIDs []string) (*device.ContainerReservation, erro
 	}
 
 	cr := &device.ContainerReservation{}
+	//	for _, l := range licenses {
+	//		cr.Mounts = append(cr.Mounts, l.MountInfo(p.licenseHandleRoot))
+	//	}
+	var licenseString string
 	for _, l := range licenses {
-		cr.Mounts = append(cr.Mounts, l.MountInfo(p.licenseHandleRoot))
+		if licenseString != "" {
+			licenseString += ","
+		}
+		licenseString += l.ID
 	}
+	cr.Envs = make(map[string]string)
+	cr.Envs[docker.LicenseEnvVar] = licenseString
 	return cr, nil
 }
 

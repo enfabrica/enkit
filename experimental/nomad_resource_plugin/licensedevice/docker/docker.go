@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	licenseEnvVar = "LICENSEPLUGIN_RESERVED_IDS"
+	LicenseEnvVar = "LICENSEPLUGIN_RESERVED_IDS"
 )
 
 type Client struct {
@@ -62,7 +62,7 @@ func (c *Client) GetCurrent(ctx context.Context) ([]*types.License, error) {
 	nextEnv:
 		for _, env := range details.Config.Env {
 			kv := strings.SplitN(env, "=", 2)
-			if kv[0] != licenseEnvVar {
+			if kv[0] != LicenseEnvVar {
 				continue nextEnv
 			}
 

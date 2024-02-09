@@ -3,7 +3,6 @@ package licensedevice
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -182,17 +181,20 @@ func TestReserve(t *testing.T) {
 	}
 
 	assert.Equal(t, &device.ContainerReservation{
-		Mounts: []*device.Mount{
-			{
-				HostPath: filepath.Join(bazel.TestTmpDir(), "vendor_a/feature_1/aaaa"),
-				TaskPath: "/tmp/license_handles/vendor_a/feature_1/aaaa",
-				ReadOnly: true,
-			},
-			{
-				HostPath: filepath.Join(bazel.TestTmpDir(), "vendor_b/feature_2/bbbb"),
-				TaskPath: "/tmp/license_handles/vendor_b/feature_2/bbbb",
-				ReadOnly: true,
-			},
+		/*		Mounts: []*device.Mount{
+				{
+					HostPath: filepath.Join(bazel.TestTmpDir(), "vendor_a/feature_1/aaaa"),
+					TaskPath: "/tmp/license_handles/vendor_a/feature_1/aaaa",
+					ReadOnly: true,
+				},
+				{
+					HostPath: filepath.Join(bazel.TestTmpDir(), "vendor_b/feature_2/bbbb"),
+					TaskPath: "/tmp/license_handles/vendor_b/feature_2/bbbb",
+					ReadOnly: true,
+				},
+			}, */
+		Envs: map[string]string{
+			"LICENSEPLUGIN_RESERVED_IDS": "aaaa,bbbb",
 		},
 	}, got)
 }
