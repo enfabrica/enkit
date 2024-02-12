@@ -14,6 +14,8 @@ go_library(
         "@com_github_hashicorp_nomad//plugins/base",
         "@com_github_hashicorp_nomad//plugins/device",
         "@com_github_hashicorp_nomad//plugins/shared/hclspec",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
     ],
 )
 

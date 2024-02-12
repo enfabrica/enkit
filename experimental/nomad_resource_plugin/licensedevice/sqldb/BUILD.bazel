@@ -9,6 +9,8 @@ go_library(
         "//experimental/nomad_resource_plugin/licensedevice/types",
         "@com_github_jackc_pgx_v5//:pgx",
         "@com_github_jackc_pgx_v5//pgxpool",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
     ],
 )
 

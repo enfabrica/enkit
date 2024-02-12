@@ -3,15 +3,27 @@
 package main
 
 import (
+	"context"
+	"net/http"
 	"os"
 
+	"github.com/golang/glog"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/plugins"
 
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice"
+	"github.com/enfabrica/enkit/lib/metrics"
+	"github.com/enfabrica/enkit/lib/server"
 )
 
 func main() {
+	ctx := context.Background()
+	mux := http.NewServeMux()
+	metrics.AddHandler(mux, "/metrics")
+	// Since we may not get an environment variable (defaults Port to 6433),
+	// we may need to create a listener explicitly here.
+	go glog.Exit(server.Run(ctx, mux, nil, nil))
+
 	plugins.Serve(factory)
 }
 

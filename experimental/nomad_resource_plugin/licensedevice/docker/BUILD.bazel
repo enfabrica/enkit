@@ -16,6 +16,8 @@ go_library(
         "@com_github_docker_docker//api/types",
         "@com_github_docker_docker//api/types/events",
         "@com_github_docker_docker//client",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
     ],
 )
 

@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/types"
 )
@@ -25,6 +27,30 @@ const (
 	stateInUse    = "IN_USE"
 )
 
+var (
+	metricGetCurrentDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "licensedevice",
+		Subsystem: "sqldb",
+		Name:      "get_current_duration_seconds",
+		Help:      "GetCurrent execution time",
+	})
+	metricMyLicenses = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "licensedevice",
+		Subsystem: "sqldb",
+		Name:      "my_licenses",
+		Help:      "How many licenses do I currently have",
+	})
+	metricSqlFailCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "licensedevice",
+		Subsystem: "sqldb",
+		Name:      "sql_failiures",
+		Help:      "The number of times sql has errored in various sections of the code",
+	},
+		[]string{
+			"location",
+		})
+)
+
 type Table struct {
 	db        *pgxpool.Pool
 	tableName string
@@ -34,6 +60,7 @@ type Table struct {
 func OpenTable(ctx context.Context, connStr string, table string, nodeID string) (*Table, error) {
 	db, err := pgxpool.New(ctx, connStr)
 	if err != nil {
+		metricSqlFailCounter.WithLabelValues("OpenTable").Inc()
 		return nil, fmt.Errorf("failed to open connection to DB: %w", err)
 	}
 	return &Table{
@@ -44,8 +71,11 @@ func OpenTable(ctx context.Context, connStr string, table string, nodeID string)
 }
 
 func (t *Table) GetCurrent(ctx context.Context) ([]*types.License, error) {
+	startTime := time.Now()
+	defer metricGetCurrentDuration.Observe(float64(time.Now().Sub(startTime).Seconds()))
 	rows, err := t.db.Query(ctx, queryAllLicenses)
 	if err != nil {
+		metricSqlFailCounter.WithLabelValues("GetCurrentQueryAllLicenses").Inc()
 		return nil, fmt.Errorf("DB read for all licenses failed: %w", err)
 	}
 	defer rows.Close()
@@ -56,10 +86,12 @@ func (t *Table) GetCurrent(ctx context.Context) ([]*types.License, error) {
 		return l, err
 	})
 	if err != nil {
+		metricSqlFailCounter.WithLabelValues("GetCurrentCollectRows").Inc()
 		return nil, fmt.Errorf("error translating to types.License from DB row: %w", err)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
+		metricSqlFailCounter.WithLabelValues("GetCurrentReadAllLicensesAfterClose").Inc()
 		return nil, fmt.Errorf("DB read for all licenses failed after Close: %w", err)
 	}
 	return licenses, nil
@@ -68,6 +100,7 @@ func (t *Table) GetCurrent(ctx context.Context) ([]*types.License, error) {
 func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (ret []*types.License, retErr error) {
 	tx, err := t.db.Begin(ctx)
 	if err != nil {
+		metricSqlFailCounter.WithLabelValues("ReserveStart").Inc()
 		return nil, fmt.Errorf("failed to start DB transaction: %w", err)
 	}
 
@@ -84,6 +117,7 @@ func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (
 
 		if retErr != nil {
 			if err := tx.Rollback(shortCtx); err != nil {
+				metricSqlFailCounter.WithLabelValues("ReserveRollback").Inc()
 				// TODO(scott): log/metric
 			}
 			return
@@ -91,6 +125,7 @@ func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (
 
 		if err := tx.Commit(ctx); err != nil {
 			retErr = fmt.Errorf("failed to commit DB changes: %w", err)
+			metricSqlFailCounter.WithLabelValues("ReserveCommit").Inc()
 			ret = nil
 			// TODO(scott): log/metric
 		}
@@ -127,6 +162,7 @@ func (t *Table) UpdateInUse(ctx context.Context, licenses []*types.License) (ret
 
 		if retErr != nil {
 			if err := tx.Rollback(shortCtx); err != nil {
+				metricSqlFailCounter.WithLabelValues("UpdateInUseRollback").Inc()
 				// TODO(scott): log/metric
 			}
 			return
@@ -134,12 +170,14 @@ func (t *Table) UpdateInUse(ctx context.Context, licenses []*types.License) (ret
 
 		if err := tx.Commit(ctx); err != nil {
 			retErr = fmt.Errorf("failed to commit DB changes: %w", err)
+			metricSqlFailCounter.WithLabelValues("UpdateInUseCommit").Inc()
 			// TODO(scott): log/metric
 		}
 	}()
 
 	localLicenses, err := t.getLicenses(ctx, tx)
 	if err != nil {
+		metricSqlFailCounter.WithLabelValues("UpdateInUseGetLicense").Inc()
 		return fmt.Errorf("failed to get currently-used licenses for %q: %w", t.nodeID, err)
 	}
 
@@ -161,6 +199,7 @@ nextLicense:
 
 	_, err = t.updateLicenses(ctx, tx, licenses, "TODO: plumb reason")
 	if err != nil {
+		metricSqlFailCounter.WithLabelValues("UpdateInUseUpdateLicense").Inc()
 		return fmt.Errorf("failed to update license status: %w", err)
 	}
 
@@ -170,6 +209,7 @@ nextLicense:
 func (t *Table) getLicenses(ctx context.Context, tx pgx.Tx) ([]*types.License, error) {
 	rows, err := tx.Query(ctx, queryLocalLicenses, t.nodeID)
 	if err != nil {
+		metricSqlFailCounter.WithLabelValues("getLicensesQuery").Inc()
 		return nil, fmt.Errorf("DB read for local licenses failed: %w", err)
 	}
 	defer rows.Close()
@@ -178,11 +218,14 @@ func (t *Table) getLicenses(ctx context.Context, tx pgx.Tx) ([]*types.License, e
 		err := row.Scan(&l.ID, &l.Vendor, &l.Feature, &l.Status, &l.LastUpdateTime, &l.UserNode, &l.UserProcess)
 		return l, err
 	})
+	metricMyLicenses.Set(float64(len(licenses)))
 	if err != nil {
+		metricSqlFailCounter.WithLabelValues("getLicensesCollectRows").Inc()
 		return nil, fmt.Errorf("error translating to types.License from DB row: %w", err)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
+		metricSqlFailCounter.WithLabelValues("getLicensesClose").Inc()
 		return nil, fmt.Errorf("DB read for all licenses failed after Close: %w", err)
 	}
 	return licenses, nil
@@ -198,6 +241,7 @@ nextLicense:
 		row := tx.QueryRow(ctx, querySingleLicense, license.ID)
 		dbLicense := &types.License{}
 		if err := row.Scan(&dbLicense.ID, &dbLicense.Vendor, &dbLicense.Feature, &dbLicense.Status, &dbLicense.LastUpdateTime, &dbLicense.UserNode, &dbLicense.UserProcess); err != nil {
+			metricSqlFailCounter.WithLabelValues("updateLicensesScan").Inc()
 			return nil, fmt.Errorf("failed to get current state of license %q: %w", license.ID, err)
 		}
 
@@ -215,6 +259,7 @@ nextLicense:
 			license.UserProcess,
 		)
 		if err != nil {
+			metricSqlFailCounter.WithLabelValues("updateLicensesExec").Inc()
 			return nil, fmt.Errorf("failed to update row for license %q: %w", license.ID, err)
 		}
 		if tag.RowsAffected() != 1 {
@@ -233,11 +278,13 @@ nextLicense:
 			map[string]interface{}{},
 		)
 		if err != nil {
+			metricSqlFailCounter.WithLabelValues("updateLicensesExecAppend").Inc()
 			return nil, fmt.Errorf("failed to update license_state_log for license %q: %w", license.ID, err)
 		}
 
 		_, err = tx.Exec(ctx, notifyLicenseState)
 		if err != nil {
+			metricSqlFailCounter.WithLabelValues("updateLicensesNotify").Inc()
 			return nil, fmt.Errorf("failed to notify other plugins of update for license %q: %w", license.ID, err)
 		}
 
@@ -255,12 +302,14 @@ func (t *Table) Chan(ctx context.Context) chan struct{} {
 	conn, err := t.db.Acquire(ctx)
 	if err != nil {
 		// TODO(scott): error + metric
+		metricSqlFailCounter.WithLabelValues("ChanAcquireDb").Inc()
 		close(c)
 	}
 
 	_, err = conn.Exec(ctx, listenLicenseState)
 	if err != nil {
 		// TODO(scott): error + metric
+		metricSqlFailCounter.WithLabelValues("ChanlistenLicenseState").Inc()
 		close(c)
 	}
 
@@ -270,6 +319,7 @@ func (t *Table) Chan(ctx context.Context) chan struct{} {
 			_, err := conn.Conn().WaitForNotification(ctx)
 			if err != nil {
 				// TODO(scott): error + metric
+				metricSqlFailCounter.WithLabelValues("ChanWaitForNotification").Inc()
 				return
 			}
 			c <- struct{}{}
