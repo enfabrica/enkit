@@ -9,8 +9,35 @@ import (
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/client"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/types"
+)
+
+var (
+	metricGetCurrentDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "licensedevice",
+		Subsystem: "docker",
+		Name:      "get_current_duration_seconds",
+		Help:      "GetCurrent execution time",
+	})
+	metricMyLicenses = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "licensedevice",
+		Subsystem: "docker",
+		Name:      "my_licenses",
+		Help:      "How many licenses do I think I currently have",
+	})
+	metricDockerCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "licensedevice",
+		Subsystem: "docker",
+		Name:      "results",
+		Help:      "The number of times sql has succeeded or errored in various sections of the code",
+	},
+		[]string{
+			"location",
+			"outcome",
+		})
 )
 
 const (
@@ -28,6 +55,7 @@ type Client struct {
 func NewClient(ctx context.Context, nodeID string) (*Client, error) {
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
+		metricDockerCounter.WithLabelValues("NewClient", "error_new_client").Inc()
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
 	}
 
@@ -45,18 +73,24 @@ func NewClient(ctx context.Context, nodeID string) (*Client, error) {
 	}
 	go c.collectEvents(ctx)
 
+	metricDockerCounter.WithLabelValues("NewClient", "ok").Inc()
 	return c, nil
 }
 
 func (c *Client) GetCurrent(ctx context.Context) ([]*types.License, error) {
+	startTime := time.Now()
+	defer metricGetCurrentDuration.Observe(float64(time.Now().Sub(startTime).Seconds()))
+
 	inUse := []*types.License{}
 	containers, err := c.docker.ContainerList(ctx, dockertypes.ContainerListOptions{})
 	if err != nil {
+		metricDockerCounter.WithLabelValues("GetCurrent", "error_container_list").Inc()
 		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
 	for _, container := range containers {
 		details, err := c.docker.ContainerInspect(ctx, container.ID)
 		if err != nil {
+			metricDockerCounter.WithLabelValues("GetCurrent", "error_container_inspect").Inc()
 			return nil, fmt.Errorf("failed to inspect container %q: %w", container.ID, err)
 		}
 	nextEnv:
@@ -79,6 +113,8 @@ func (c *Client) GetCurrent(ctx context.Context) ([]*types.License, error) {
 			}
 		}
 	}
+	metricMyLicenses.Set(float64(len(inUse)))
+	metricDockerCounter.WithLabelValues("GetCurrent", "ok").Inc()
 	return inUse, nil
 }
 

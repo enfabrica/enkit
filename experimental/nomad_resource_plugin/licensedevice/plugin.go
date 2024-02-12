@@ -10,12 +10,25 @@ import (
 	"github.com/hashicorp/nomad/plugins/base"
 	"github.com/hashicorp/nomad/plugins/device"
 	"github.com/hashicorp/nomad/plugins/shared/hclspec"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/docker"
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/sqldb"
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/types"
 	"github.com/enfabrica/enkit/lib/str"
 )
+
+var metricPluginCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Namespace: "licensedevice",
+	Subsystem: "plugin",
+	Name:      "results",
+	Help:      "The number of times sql has succeeded or errored in various sections of the code",
+},
+	[]string{
+		"location",
+		"outcome",
+	})
 
 type Plugin struct {
 	Log hclog.Logger
@@ -40,6 +53,7 @@ func NewPlugin(l hclog.Logger) *Plugin {
 func ConfiguredPlugin(l hclog.Logger, config *Config) (*Plugin, error) {
 	p := &Plugin{Log: l}
 	if err := p.configure(config); err != nil {
+		metricPluginCounter.WithLabelValues("ConfiguredPlugin", "error_configure").Inc()
 		return nil, fmt.Errorf("failed to configure plugin: %w", err)
 	}
 	return p, nil
@@ -56,6 +70,7 @@ func (p *Plugin) PluginInfo() (*base.PluginInfoResponse, error) {
 }
 
 func (p *Plugin) ConfigSchema() (*hclspec.Spec, error) {
+	metricPluginCounter.WithLabelValues("ConfigSchema", "ok").Inc()
 	return hclspec.NewObject(map[string]*hclspec.Spec{
 		"database_connection_string": hclspec.NewAttr("database_connection_string", "string", true),
 		"database_table_name": hclspec.NewDefault(
@@ -69,15 +84,17 @@ func (p *Plugin) ConfigSchema() (*hclspec.Spec, error) {
 func (p *Plugin) SetConfig(c *base.Config) error {
 	config := &Config{}
 	if err := base.MsgPackDecode(c.PluginConfig, config); err != nil {
+		metricPluginCounter.WithLabelValues("SetConfig", "error_msgpackdecode").Inc()
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}
-
+	metricPluginCounter.WithLabelValues("SetConfig", "ok").Inc()
 	return p.configure(config)
 }
 
 func (p *Plugin) Fingerprint(ctx context.Context) (<-chan *device.FingerprintResponse, error) {
 	p.Log.Info("Fingerprint() called")
 	if p.globalUpdater == nil {
+		metricPluginCounter.WithLabelValues("Fingerprint", "error_global_updater").Inc()
 		return nil, fmt.Errorf("plugin is not configured: nil notifier")
 	}
 
@@ -86,7 +103,7 @@ func (p *Plugin) Fingerprint(ctx context.Context) (<-chan *device.FingerprintRes
 	p.Log.Debug("acquired global updates channel")
 	resChan := make(chan *device.FingerprintResponse)
 	go p.fingerprintLoop(ctx, notifyChan, resChan)
-
+	metricPluginCounter.WithLabelValues("Fingerprint", "ok").Inc()
 	return resChan, nil
 }
 
@@ -97,6 +114,7 @@ func (p *Plugin) Reserve(deviceIDs []string) (*device.ContainerReservation, erro
 	defer cancel()
 	licenses, err := p.reserver.Reserve(ctx, deviceIDs, p.nodeID)
 	if err != nil {
+		metricPluginCounter.WithLabelValues("Reserve", "error_reserve").Inc()
 		return nil, fmt.Errorf("failed to reserve %v: %w", deviceIDs, err)
 	}
 
@@ -113,6 +131,7 @@ func (p *Plugin) Reserve(deviceIDs []string) (*device.ContainerReservation, erro
 	}
 	cr.Envs = make(map[string]string)
 	cr.Envs[docker.LicenseEnvVar] = licenseString
+	metricPluginCounter.WithLabelValues("Reserve", "ok").Inc()
 	return cr, nil
 }
 
@@ -147,7 +166,7 @@ nextNotification:
 		p.Log.Debug("finished fetching global license state")
 		cancel()
 		if err != nil {
-			// TODO: metric
+			metricPluginCounter.WithLabelValues("fingerprintLoop", "error_global_updater_get_current").Inc()
 			p.Log.Error("failed to get global license state", "error", err)
 			continue nextNotification
 		}
@@ -156,7 +175,7 @@ nextNotification:
 		groups, err := deviceGroupsFromLicenses(licenses)
 		p.Log.Debug("finished parsing global license state")
 		if err != nil {
-			// TODO: metric
+			metricPluginCounter.WithLabelValues("fingerprintLoop", "error_device_groups_from_licenses").Inc()
 			p.Log.Error("failed to parse global license state", "error", err)
 			continue nextNotification
 		}
@@ -171,11 +190,13 @@ func (p *Plugin) configure(config *Config) error {
 	table, err := sqldb.OpenTable(rctx, config.DatabaseConnStr, config.TableName, config.NodeID)
 	cancel()
 	if err != nil {
+		metricPluginCounter.WithLabelValues("configure", "error_open_table").Inc()
 		return fmt.Errorf("failed to open DB: %w", err)
 	}
 
 	dockerClient, err := docker.NewClient(context.Background(), config.NodeID)
 	if err != nil {
+		metricPluginCounter.WithLabelValues("configure", "error_docker_newclient").Inc()
 		return fmt.Errorf("failed to create local notifier: %w", err)
 	}
 
@@ -208,7 +229,7 @@ nextNotification:
 			licenses, err := p.localUpdater.GetCurrent(rctx)
 			cancel()
 			if err != nil {
-				// TODO: metric
+				metricPluginCounter.WithLabelValues("localUpdatesLoop", "error_local_updater_get_current").Inc()
 				p.Log.Error("failed to get local license state", "error", err)
 				continue nextNotification
 			}
@@ -217,7 +238,7 @@ nextNotification:
 			err = p.reserver.UpdateInUse(rctx, licenses)
 			cancel()
 			if err != nil {
-				// TODO: metric
+				metricPluginCounter.WithLabelValues("localUpdatesLoop", "error_reserver_update_in_use").Inc()
 				p.Log.Error("failed to update global license state with in-use info", "error", err)
 				continue nextNotification
 			}
@@ -248,6 +269,7 @@ func deviceGroupsFromLicenses(ls []*types.License) ([]*device.DeviceGroup, error
 		case "FREE":
 			healthDesc = ""
 		default:
+			metricPluginCounter.WithLabelValues("deviceGroupsFromLicenses", "error_incorrect_status").Inc()
 			// TODO: error + metric
 		}
 

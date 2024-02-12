@@ -43,8 +43,8 @@ var (
 	metricSqlCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "licensedevice",
 		Subsystem: "sqldb",
-		Name:      "sql_failiures",
-		Help:      "The number of times sql has errored in various sections of the code",
+		Name:      "results",
+		Help:      "The number of times sql has succeeded or errored in various sections of the code",
 	},
 		[]string{
 			"location",
@@ -61,10 +61,10 @@ type Table struct {
 func OpenTable(ctx context.Context, connStr string, table string, nodeID string) (*Table, error) {
 	db, err := pgxpool.New(ctx, connStr)
 	if err != nil {
-		metricSqlCounter.WithLabelValues("open_table", "error_open_table").Inc()
+		metricSqlCounter.WithLabelValues("OpenTable", "error_open_table").Inc()
 		return nil, fmt.Errorf("failed to open connection to DB: %w", err)
 	}
-	metricSqlCounter.WithLabelValues("open_table", "ok").Inc()
+	metricSqlCounter.WithLabelValues("OpenTable", "ok").Inc()
 	return &Table{
 		db:        db,
 		tableName: table,
@@ -77,7 +77,7 @@ func (t *Table) GetCurrent(ctx context.Context) ([]*types.License, error) {
 	defer metricGetCurrentDuration.Observe(float64(time.Now().Sub(startTime).Seconds()))
 	rows, err := t.db.Query(ctx, queryAllLicenses)
 	if err != nil {
-		metricSqlCounter.WithLabelValues("get_current", "error_query_all_licenses").Inc()
+		metricSqlCounter.WithLabelValues("GetCurrent", "error_query_all_licenses").Inc()
 		return nil, fmt.Errorf("DB read for all licenses failed: %w", err)
 	}
 	defer rows.Close()
@@ -88,21 +88,22 @@ func (t *Table) GetCurrent(ctx context.Context) ([]*types.License, error) {
 		return l, err
 	})
 	if err != nil {
-		metricSqlCounter.WithLabelValues("get_current", "error_collect_rows").Inc()
+		metricSqlCounter.WithLabelValues("GetCurrent", "error_collect_rows").Inc()
 		return nil, fmt.Errorf("error translating to types.License from DB row: %w", err)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		metricSqlCounter.WithLabelValues("get_current", "error_close").Inc()
+		metricSqlCounter.WithLabelValues("GetCurrent", "error_close").Inc()
 		return nil, fmt.Errorf("DB read for all licenses failed after Close: %w", err)
 	}
+	metricSqlCounter.WithLabelValues("GetCurrent", "ok").Inc()
 	return licenses, nil
 }
 
 func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (ret []*types.License, retErr error) {
 	tx, err := t.db.Begin(ctx)
 	if err != nil {
-		metricSqlCounter.WithLabelValues("reserve", "error_db_begin").Inc()
+		metricSqlCounter.WithLabelValues("Reserve", "error_db_begin").Inc()
 		return nil, fmt.Errorf("failed to start DB transaction: %w", err)
 	}
 
@@ -119,7 +120,7 @@ func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (
 
 		if retErr != nil {
 			if err := tx.Rollback(shortCtx); err != nil {
-				metricSqlCounter.WithLabelValues("reserve", "error_rollback").Inc()
+				metricSqlCounter.WithLabelValues("Reserve", "error_rollback").Inc()
 				// TODO(scott): log/metric
 			}
 			return
@@ -127,11 +128,11 @@ func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (
 
 		if err := tx.Commit(ctx); err != nil {
 			retErr = fmt.Errorf("failed to commit DB changes: %w", err)
-			metricSqlCounter.WithLabelValues("reserve", "error_commit").Inc()
+			metricSqlCounter.WithLabelValues("Reserve", "error_commit").Inc()
 			ret = nil
 			// TODO(scott): log/metric
 		} else {
-			metricSqlCounter.WithLabelValues("reserve", "ok").Inc()
+			metricSqlCounter.WithLabelValues("Reserve", "ok").Inc()
 		}
 	}()
 
@@ -150,7 +151,7 @@ func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (
 func (t *Table) UpdateInUse(ctx context.Context, licenses []*types.License) (retErr error) {
 	tx, err := t.db.Begin(ctx)
 	if err != nil {
-		metricSqlCounter.WithLabelValues("update_in_use", "error_begin").Inc()
+		metricSqlCounter.WithLabelValues("UpdateInUse", "error_begin").Inc()
 		return fmt.Errorf("failed to start DB transaction: %w", err)
 	}
 
@@ -167,7 +168,7 @@ func (t *Table) UpdateInUse(ctx context.Context, licenses []*types.License) (ret
 
 		if retErr != nil {
 			if err := tx.Rollback(shortCtx); err != nil {
-				metricSqlCounter.WithLabelValues("update_in_use", "error_rollback").Inc()
+				metricSqlCounter.WithLabelValues("UpdateInUse", "error_rollback").Inc()
 				// TODO(scott): log/metric
 			}
 			return
@@ -175,14 +176,14 @@ func (t *Table) UpdateInUse(ctx context.Context, licenses []*types.License) (ret
 
 		if err := tx.Commit(ctx); err != nil {
 			retErr = fmt.Errorf("failed to commit DB changes: %w", err)
-			metricSqlCounter.WithLabelValues("update_in_use", "error_commit").Inc()
+			metricSqlCounter.WithLabelValues("UpdateInUse", "error_commit").Inc()
 			// TODO(scott): log/metric
 		}
 	}()
 
 	localLicenses, err := t.getLicenses(ctx, tx)
 	if err != nil {
-		metricSqlCounter.WithLabelValues("update_in_use", "error_get_licenses").Inc()
+		metricSqlCounter.WithLabelValues("UpdateInUse", "error_get_licenses").Inc()
 		return fmt.Errorf("failed to get currently-used licenses for %q: %w", t.nodeID, err)
 	}
 
@@ -204,17 +205,17 @@ nextLicense:
 
 	_, err = t.updateLicenses(ctx, tx, licenses, "TODO: plumb reason")
 	if err != nil {
-		metricSqlCounter.WithLabelValues("update_in_use", "error_update_licenses").Inc()
+		metricSqlCounter.WithLabelValues("UpdateInUse", "error_update_licenses").Inc()
 		return fmt.Errorf("failed to update license status: %w", err)
 	}
-	metricSqlCounter.WithLabelValues("update_in_use", "ok").Inc()
+	metricSqlCounter.WithLabelValues("UpdateInUse", "ok").Inc()
 	return nil
 }
 
 func (t *Table) getLicenses(ctx context.Context, tx pgx.Tx) ([]*types.License, error) {
 	rows, err := tx.Query(ctx, queryLocalLicenses, t.nodeID)
 	if err != nil {
-		metricSqlCounter.WithLabelValues("get_licenses", "error_query").Inc()
+		metricSqlCounter.WithLabelValues("getLicenses", "error_query").Inc()
 		return nil, fmt.Errorf("DB read for local licenses failed: %w", err)
 	}
 	defer rows.Close()
@@ -225,15 +226,15 @@ func (t *Table) getLicenses(ctx context.Context, tx pgx.Tx) ([]*types.License, e
 	})
 	metricMyLicenses.Set(float64(len(licenses)))
 	if err != nil {
-		metricSqlCounter.WithLabelValues("get_licenses", "error_collect_rows").Inc()
+		metricSqlCounter.WithLabelValues("getLicenses", "error_collect_rows").Inc()
 		return nil, fmt.Errorf("error translating to types.License from DB row: %w", err)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		metricSqlCounter.WithLabelValues("get_licenses", "error_close").Inc()
+		metricSqlCounter.WithLabelValues("getLicenses", "error_close").Inc()
 		return nil, fmt.Errorf("DB read for all licenses failed after Close: %w", err)
 	}
-	metricSqlCounter.WithLabelValues("get_licenses", "ok").Inc()
+	metricSqlCounter.WithLabelValues("getLicenses", "ok").Inc()
 	return licenses, nil
 }
 
@@ -247,7 +248,7 @@ nextLicense:
 		row := tx.QueryRow(ctx, querySingleLicense, license.ID)
 		dbLicense := &types.License{}
 		if err := row.Scan(&dbLicense.ID, &dbLicense.Vendor, &dbLicense.Feature, &dbLicense.Status, &dbLicense.LastUpdateTime, &dbLicense.UserNode, &dbLicense.UserProcess); err != nil {
-			metricSqlCounter.WithLabelValues("update_licenses", "error_scan").Inc()
+			metricSqlCounter.WithLabelValues("updateLicenses", "error_scan").Inc()
 			return nil, fmt.Errorf("failed to get current state of license %q: %w", license.ID, err)
 		}
 
@@ -265,11 +266,11 @@ nextLicense:
 			license.UserProcess,
 		)
 		if err != nil {
-			metricSqlCounter.WithLabelValues("update_licenses", "error_update_license_state").Inc()
+			metricSqlCounter.WithLabelValues("updateLicenses", "error_update_license_state").Inc()
 			return nil, fmt.Errorf("failed to update row for license %q: %w", license.ID, err)
 		}
 		if tag.RowsAffected() != 1 {
-			metricSqlCounter.WithLabelValues("update_licenses", "error_too_many_rows_affected").Inc()
+			metricSqlCounter.WithLabelValues("updateLicenses", "error_too_many_rows_affected").Inc()
 			return nil, fmt.Errorf("license reserve affected %d rows; expected exactly one row affected", tag.RowsAffected)
 		}
 
@@ -285,13 +286,13 @@ nextLicense:
 			map[string]interface{}{},
 		)
 		if err != nil {
-			metricSqlCounter.WithLabelValues("update_licenses", "error_exec_append_license_state_log").Inc()
+			metricSqlCounter.WithLabelValues("updateLicenses", "error_exec_append_license_state_log").Inc()
 			return nil, fmt.Errorf("failed to update license_state_log for license %q: %w", license.ID, err)
 		}
 
 		_, err = tx.Exec(ctx, notifyLicenseState)
 		if err != nil {
-			metricSqlCounter.WithLabelValues("update_licenses", "error_license_state_notify").Inc()
+			metricSqlCounter.WithLabelValues("updateLicenses", "error_license_state_notify").Inc()
 			return nil, fmt.Errorf("failed to notify other plugins of update for license %q: %w", license.ID, err)
 		}
 
@@ -300,7 +301,7 @@ nextLicense:
 		ret = append(ret, license)
 	}
 	fmt.Println("all updates successful")
-	metricSqlCounter.WithLabelValues("update_licenses", "ok").Inc()
+	metricSqlCounter.WithLabelValues("updateLicenses", "ok").Inc()
 	return ret, nil
 }
 
@@ -310,14 +311,14 @@ func (t *Table) Chan(ctx context.Context) chan struct{} {
 	conn, err := t.db.Acquire(ctx)
 	if err != nil {
 		// TODO(scott): error + metric
-		metricSqlCounter.WithLabelValues("chan", "error_acquire_db").Inc()
+		metricSqlCounter.WithLabelValues("Chan", "error_acquire_db").Inc()
 		close(c)
 	}
 
 	_, err = conn.Exec(ctx, listenLicenseState)
 	if err != nil {
 		// TODO(scott): error + metric
-		metricSqlCounter.WithLabelValues("chan", "error_exec_listen_license_state").Inc()
+		metricSqlCounter.WithLabelValues("Chan", "error_exec_listen_license_state").Inc()
 		close(c)
 	}
 
@@ -327,12 +328,12 @@ func (t *Table) Chan(ctx context.Context) chan struct{} {
 			_, err := conn.Conn().WaitForNotification(ctx)
 			if err != nil {
 				// TODO(scott): error + metric
-				metricSqlCounter.WithLabelValues("chan", "error_wait_for_notification").Inc()
+				metricSqlCounter.WithLabelValues("Chan", "error_wait_for_notification").Inc()
 				return
 			}
 			c <- struct{}{}
 		}
 	}()
-	metricSqlCounter.WithLabelValues("chan", "ok").Inc()
+	metricSqlCounter.WithLabelValues("Chan", "ok").Inc()
 	return c
 }
