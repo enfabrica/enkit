@@ -190,7 +190,12 @@ nextNotification:
 func (p *Plugin) configure(config *Config) error {
 	rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	if config.NodeID == "" {
-		config.NodeID = os.Hostname()
+		var err error
+		config.NodeID, err = os.Hostname()
+		if err != nil {
+			metricPluginCounter.WithLabelValues("configure", "error_no_nodeid").Inc()
+			return fmt.Errorf("no node id, hostname also failed: %w", err)
+		}
 	}
 	table, err := sqldb.OpenTable(rctx, config.DatabaseConnStr, config.TableName, config.NodeID)
 	cancel()
