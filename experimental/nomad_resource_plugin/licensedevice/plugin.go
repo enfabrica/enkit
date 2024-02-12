@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"sort"
 	"time"
 
@@ -188,6 +189,9 @@ nextNotification:
 
 func (p *Plugin) configure(config *Config) error {
 	rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if config.NodeID == "" {
+		config.NodeID = os.Hostname()
+	}
 	table, err := sqldb.OpenTable(rctx, config.DatabaseConnStr, config.TableName, config.NodeID)
 	cancel()
 	if err != nil {
