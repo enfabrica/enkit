@@ -64,7 +64,7 @@ func OpenTable(ctx context.Context, connStr string, table string, nodeID string)
 		metricSqlCounter.WithLabelValues("open_table", "error_open_table").Inc()
 		return nil, fmt.Errorf("failed to open connection to DB: %w", err)
 	}
-	metricSqlCounter.WithLabelValues("open_table", "success").Inc()
+	metricSqlCounter.WithLabelValues("open_table", "ok").Inc()
 	return &Table{
 		db:        db,
 		tableName: table,
@@ -131,7 +131,7 @@ func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (
 			ret = nil
 			// TODO(scott): log/metric
 		} else {
-			metricSqlCounter.WithLabelValues("reserve", "success").Inc()
+			metricSqlCounter.WithLabelValues("reserve", "ok").Inc()
 		}
 	}()
 
@@ -207,7 +207,7 @@ nextLicense:
 		metricSqlCounter.WithLabelValues("update_in_use", "error_update_licenses").Inc()
 		return fmt.Errorf("failed to update license status: %w", err)
 	}
-	metricSqlCounter.WithLabelValues("update_in_use", "success").Inc()
+	metricSqlCounter.WithLabelValues("update_in_use", "ok").Inc()
 	return nil
 }
 
@@ -233,7 +233,7 @@ func (t *Table) getLicenses(ctx context.Context, tx pgx.Tx) ([]*types.License, e
 		metricSqlCounter.WithLabelValues("get_licenses", "error_close").Inc()
 		return nil, fmt.Errorf("DB read for all licenses failed after Close: %w", err)
 	}
-	metricSqlCounter.WithLabelValues("get_licenses", "success").Inc()
+	metricSqlCounter.WithLabelValues("get_licenses", "ok").Inc()
 	return licenses, nil
 }
 
@@ -300,7 +300,7 @@ nextLicense:
 		ret = append(ret, license)
 	}
 	fmt.Println("all updates successful")
-	metricSqlCounter.WithLabelValues("update_licenses", "success").Inc()
+	metricSqlCounter.WithLabelValues("update_licenses", "ok").Inc()
 	return ret, nil
 }
 
@@ -333,6 +333,6 @@ func (t *Table) Chan(ctx context.Context) chan struct{} {
 			c <- struct{}{}
 		}
 	}()
-	metricSqlCounter.WithLabelValues("chan", "success").Inc()
+	metricSqlCounter.WithLabelValues("chan", "ok").Inc()
 	return c
 }
