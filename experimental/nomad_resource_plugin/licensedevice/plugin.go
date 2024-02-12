@@ -3,6 +3,7 @@ package licensedevice
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"time"
 
@@ -270,7 +271,7 @@ func deviceGroupsFromLicenses(ls []*types.License) ([]*device.DeviceGroup, error
 			healthDesc = ""
 		default:
 			metricPluginCounter.WithLabelValues("deviceGroupsFromLicenses", "error_incorrect_status").Inc()
-			// TODO: error + metric
+			slog.Error("Error, incorrect license state", "state", l.Status)
 		}
 
 		device := &device.Device{

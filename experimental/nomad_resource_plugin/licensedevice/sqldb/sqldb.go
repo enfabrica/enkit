@@ -3,6 +3,7 @@ package sqldb
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -121,7 +122,7 @@ func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (
 		if retErr != nil {
 			if err := tx.Rollback(shortCtx); err != nil {
 				metricSqlCounter.WithLabelValues("Reserve", "error_rollback").Inc()
-				// TODO(scott): log/metric
+				slog.Error("Error, failed to rollback", "original_error", retErr, "rollback_error", err)
 			}
 			return
 		}
@@ -129,8 +130,8 @@ func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (
 		if err := tx.Commit(ctx); err != nil {
 			retErr = fmt.Errorf("failed to commit DB changes: %w", err)
 			metricSqlCounter.WithLabelValues("Reserve", "error_commit").Inc()
+			slog.Error("Error, failed to commit", "commit_error", retErr)
 			ret = nil
-			// TODO(scott): log/metric
 		} else {
 			metricSqlCounter.WithLabelValues("Reserve", "ok").Inc()
 		}
@@ -169,7 +170,7 @@ func (t *Table) UpdateInUse(ctx context.Context, licenses []*types.License) (ret
 		if retErr != nil {
 			if err := tx.Rollback(shortCtx); err != nil {
 				metricSqlCounter.WithLabelValues("UpdateInUse", "error_rollback").Inc()
-				// TODO(scott): log/metric
+				slog.Error("Error, failed to rollback", "original_error", retErr, "rollback_error", err)
 			}
 			return
 		}
@@ -177,7 +178,7 @@ func (t *Table) UpdateInUse(ctx context.Context, licenses []*types.License) (ret
 		if err := tx.Commit(ctx); err != nil {
 			retErr = fmt.Errorf("failed to commit DB changes: %w", err)
 			metricSqlCounter.WithLabelValues("UpdateInUse", "error_commit").Inc()
-			// TODO(scott): log/metric
+			slog.Error("Error, failed to commit in UpdateInUse", "commit_error", retErr)
 		}
 	}()
 
@@ -310,14 +311,14 @@ func (t *Table) Chan(ctx context.Context) chan struct{} {
 
 	conn, err := t.db.Acquire(ctx)
 	if err != nil {
-		// TODO(scott): error + metric
+		slog.Error("Error, failed to db Acquire", "db_error", err)
 		metricSqlCounter.WithLabelValues("Chan", "error_acquire_db").Inc()
 		close(c)
 	}
 
 	_, err = conn.Exec(ctx, listenLicenseState)
 	if err != nil {
-		// TODO(scott): error + metric
+		slog.Error("Error, failed to listenLicenseState", "db_error", err)
 		metricSqlCounter.WithLabelValues("Chan", "error_exec_listen_license_state").Inc()
 		close(c)
 	}
@@ -327,7 +328,7 @@ func (t *Table) Chan(ctx context.Context) chan struct{} {
 		for {
 			_, err := conn.Conn().WaitForNotification(ctx)
 			if err != nil {
-				// TODO(scott): error + metric
+				slog.Error("Error, failed to WaitForNotification", "db_error", err)
 				metricSqlCounter.WithLabelValues("Chan", "error_wait_for_notification").Inc()
 				return
 			}
