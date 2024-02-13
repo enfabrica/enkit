@@ -1,3 +1,4 @@
+load("@//bazel:gcs.bzl", "gcs")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
@@ -13,6 +14,12 @@ go_library(
         "@com_github_hashicorp_go_hclog//:go-hclog",
         "@com_github_hashicorp_nomad//plugins",
     ],
+)
+
+gcs (
+    name = "upload",
+    srcs = [":nomad_license_plugin"],
+    gcs_bucket = "gs://enfabrica-cluster-prod-nomad-plugin"
 )
 
 go_binary(
