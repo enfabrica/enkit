@@ -4,6 +4,6 @@ def gcs(name, srcs, gcs_bucket="no_bucket", **kwargs):
         srcs = srcs,
         local = 1,
         outs = [name + ".released"],
-        cmd = "TMPDIR=/tmp gsutil cp $(SRCS) %s > $@" % (gcs_bucket),
+        cmd = "TMPDIR=/tmp gsutil cp $(SRCS) %s > $@; gsutil stat %s/`basename $(SRCS)`" % (gcs_bucket, gcs_bucket),
         **kwargs
         )
