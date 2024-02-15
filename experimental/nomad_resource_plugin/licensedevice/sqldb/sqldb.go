@@ -15,15 +15,15 @@ import (
 )
 
 const (
-	queryAllLicenses      = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state"
+	QueryAllLicenses      = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state"
 	queryLocalLicenses    = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state WHERE usage_state = 'IN_USE' AND reserved_by_node = $1"
 	querySingleLicense    = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state WHERE id = $1"
 	updateLicenseState    = "UPDATE license_state SET usage_state = $2, last_state_change = $3, reserved_by_node = $4, used_by_process = $5 WHERE id = $1"
 	appendLicenseStateLog = "INSERT INTO license_state_log (license_id, node, ts, previous_state, current_state, reason, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)"
 	listenLicenseState    = "LISTEN license_state_update_channel"
-	notifyLicenseState    = "NOTIFY license_state_update_channel"
+	NotifyLicenseState    = "NOTIFY license_state_update_channel"
 
-	stateFree     = "FREE"
+	StateFree     = "FREE"
 	stateReserved = "RESERVED"
 	stateInUse    = "IN_USE"
 )
@@ -76,7 +76,7 @@ func OpenTable(ctx context.Context, connStr string, table string, nodeID string)
 func (t *Table) GetCurrent(ctx context.Context) ([]*types.License, error) {
 	startTime := time.Now()
 	defer metricGetCurrentDuration.Observe(float64(time.Now().Sub(startTime).Seconds()))
-	rows, err := t.db.Query(ctx, queryAllLicenses)
+	rows, err := t.db.Query(ctx, QueryAllLicenses)
 	if err != nil {
 		metricSqlCounter.WithLabelValues("GetCurrent", "error_query_all_licenses").Inc()
 		return nil, fmt.Errorf("DB read for all licenses failed: %w", err)
@@ -291,7 +291,7 @@ nextLicense:
 			return nil, fmt.Errorf("failed to update license_state_log for license %q: %w", license.ID, err)
 		}
 
-		_, err = tx.Exec(ctx, notifyLicenseState)
+		_, err = tx.Exec(ctx, NotifyLicenseState)
 		if err != nil {
 			metricSqlCounter.WithLabelValues("updateLicenses", "error_license_state_notify").Inc()
 			return nil, fmt.Errorf("failed to notify other plugins of update for license %q: %w", license.ID, err)
