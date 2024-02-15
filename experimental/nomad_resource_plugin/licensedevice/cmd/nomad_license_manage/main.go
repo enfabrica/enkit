@@ -19,7 +19,7 @@ var (
 	runListAll  = flag.Bool("listall", false, "List all fields for the current licenses")
 	runAdd      = flag.Bool("add", false, "add a new license in the form <id> <vendor> <feature>")
 	runRemove   = flag.String("remove", "", "remove an existing license by <id>")
-	runShowLogs = flag.String("showlogs", "", "Show the logs from the license_state_log, with a count of how many to show")
+	runShowLogs = flag.Bool("showlogs", false, "Show the logs from the license_state_log. You must specify a count to show")
 )
 
 func main() {
@@ -99,8 +99,11 @@ func main() {
 		fmt.Println("Removed.")
 		return
 	}
-	if *runShowLogs != "" {
-		rows, err := db.Query(ctx, "select license_id, node, ts, previous_state, current_state, reason, metadata from license_state_log order by ts desc limit "+*runShowLogs)
+	if *runShowLogs {
+		if flag.Arg(0) == "" {
+			log.Fatal("You must specify a count of lines")
+		}
+		rows, err := db.Query(ctx, "select license_id, node, ts, previous_state, current_state, reason, metadata from license_state_log order by ts desc limit "+flag.Arg(0))
 		if err != nil {
 			log.Fatal("Error querying licenses:", err)
 		}
@@ -117,7 +120,8 @@ func main() {
 			log.Fatal("Error rows.Err for licenses:", err)
 		}
 		for _, l := range licenseLogs {
-			fmt.Println(l.ID, ",", l.Node, ",", l.TimeStamp, ",", l.PreviousState, ",", l.CurrentState, ",", l.Reason, ",", l.Metadata)
+			fmt.Printf("%v,%v,%v,%v,%v,%v,%v\n", l.ID, l.Node, l.TimeStamp, l.PreviousState, l.CurrentState, l.Reason, l.Metadata)
 		}
+		return
 	}
 }
