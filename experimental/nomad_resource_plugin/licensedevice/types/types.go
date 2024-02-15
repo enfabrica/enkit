@@ -37,6 +37,30 @@ type License struct {
 	UserProcess *string
 }
 
+type LicenseLog struct {
+	// Unique ID that corresponds to a particular license instance. This ID is
+	// only specific to this plugin, and doesn't hold relevance in other contexts.
+	ID string
+
+	// The node that is doing the change
+	Node string
+
+	// The timestamp the change was made
+	TimeStamp time.Time
+
+	// The previous state (see Status above)
+	PreviousState string
+
+	// The current state (see Status above)
+	CurrentState string
+
+	// The reason for doing the change
+	Reason string
+
+	// Metadata associated with the change
+	Metadata string
+}
+
 func (l *License) MountInfo(root string) *device.Mount {
 	return &device.Mount{
 		HostPath: filepath.Join(root, l.Vendor, l.Feature, l.ID),

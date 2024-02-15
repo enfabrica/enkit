@@ -14,11 +14,12 @@ import (
 )
 
 var (
-	connection = flag.String("connection", "postgresql://jrp_test:test@localhost:5432/cj_stage", "specify a connection")
-	runList    = flag.Bool("list", false, "List the current licenses")
-	runListAll = flag.Bool("listall", false, "List all fields for the current licenses")
-	runAdd     = flag.Bool("add", false, "add a new license in the form <id> <vendor> <feature>")
-	runRemove  = flag.String("remove", "", "remove an existing license by <id>")
+	connection  = flag.String("connection", "postgresql://jrp_test:test@localhost:5432/cj_stage", "specify a connection")
+	runList     = flag.Bool("list", false, "List the current licenses")
+	runListAll  = flag.Bool("listall", false, "List all fields for the current licenses")
+	runAdd      = flag.Bool("add", false, "add a new license in the form <id> <vendor> <feature>")
+	runRemove   = flag.String("remove", "", "remove an existing license by <id>")
+	runShowLogs = flag.String("showlogs", "", "Show the logs from the license_state_log, with a count of how many to show")
 )
 
 func main() {
@@ -97,5 +98,26 @@ func main() {
 		}
 		fmt.Println("Removed.")
 		return
+	}
+	if *runShowLogs != "" {
+		rows, err := db.Query(ctx, "select license_id, node, ts, previous_state, current_state, reason, metadata from license_state_log order by ts desc limit "+*runShowLogs)
+		if err != nil {
+			log.Fatal("Error querying licenses:", err)
+		}
+		licenseLogs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*types.LicenseLog, error) {
+			l := &types.LicenseLog{}
+			err := row.Scan(&l.ID, &l.Node, &l.TimeStamp, &l.PreviousState, &l.CurrentState, &l.Reason, &l.Metadata)
+			return l, err
+		})
+		if err != nil {
+			log.Fatal("Error collectrows for licenses:", err)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			log.Fatal("Error rows.Err for licenses:", err)
+		}
+		for _, l := range licenseLogs {
+			fmt.Println(l.ID, ",", l.Node, ",", l.TimeStamp, ",", l.PreviousState, ",", l.CurrentState, ",", l.Reason, ",", l.Metadata)
+		}
 	}
 }
