@@ -24,7 +24,7 @@ go_binary(
 sh_binary(
     name = "stat",
     srcs = ["gsutil_stat.sh"],
-#    args = ["$(location :nomad_license_plugin)"],
+    args = ["$(location :nomad_license_plugin)"],
     data = [":nomad_license_plugin"],
     visibility = ["//visibility:public"],
 )
@@ -32,6 +32,7 @@ sh_binary(
 sh_binary(
     name = "push",
     srcs = ["gsutil_push.sh"],
+    args = ["$(location :nomad_license_plugin)"],
     data = [":nomad_license_plugin"],
     visibility = ["//visibility:public"],
 )
