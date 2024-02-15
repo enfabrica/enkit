@@ -16,20 +16,23 @@ go_library(
     ],
 )
 
-gcs (
-    name = "upload",
-    srcs = [":nomad_license_plugin"],
-    gcs_bucket = "gs://enfabrica-cluster-prod-nomad-plugin"
-)
-
-gcs_stat (
-    name = "stat",
-    srcs = [":nomad_license_plugin"],
-    gcs_bucket = "gs://enfabrica-cluster-prod-nomad-plugin"
-)
-
 go_binary(
     name = "nomad_license_plugin",
     embed = [":nomad_license_plugin_lib"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "stat",
+    srcs = ["gsutil_stat.sh"],
+#    args = ["$(location :nomad_license_plugin)"],
+    data = [":nomad_license_plugin"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "push",
+    srcs = ["gsutil_push.sh"],
+    data = [":nomad_license_plugin"],
     visibility = ["//visibility:public"],
 )
