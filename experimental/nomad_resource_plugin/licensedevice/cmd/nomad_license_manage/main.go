@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	connection  = flag.String("connection", "postgresql://jrp_test:test@localhost:5432/cj_stage", "specify a connection")
+	connection  = flag.String("connection", "postgresql://cj_license_manager:<managerpassword>@localhost:5432/cjlicenses", "specify a connection")
 	runList     = flag.Bool("list", false, "List the current licenses")
 	runListAll  = flag.Bool("listall", false, "List all fields for the current licenses")
 	runAdd      = flag.Bool("add", false, "add a new license in the form <id> <vendor> <feature>")
