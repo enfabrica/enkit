@@ -3507,32 +3507,60 @@ function gee__commit() {
   else
     echo "Skipped \"git add --all\" because branch is home dir."
   fi
-  if _git_can_fail commit "$@"; then
+
+  local AMENDING=0
+  if printf "%s\0" "$@" | grep -qz "^--amend$"; then
+    _info "Amending previous commit."
+    AMENDING=1
     if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
       _git fetch
       local -a COUNTS
       read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
       if [[ "${COUNTS[1]}" -gt 0 ]]; then
-        _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
-        _warn "You must integrate upstream changes before pushing."
+        _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}." \
+              "You must integrate these changes before attempting to amend and force-push the head commit."
         if _confirm_default_yes "Do you want to pull upstream changes now? (Y/n)  "; then
           _git rebase --autostash "origin/${CURRENT_BRANCH}"
           _check_diff_for_merge_conflict_markers
         else
-          _warn "Skipping backup of branch to origin/${CURRENT_BRANCH}"
+          _fatal "Aborted commit --amend operation because origin is ahead of local branch."
           return 0
         fi
       fi
     fi
+  fi
+
+  if _git_can_fail commit "$@"; then
     if [[ "${GEE_ENABLE_PRESUBMIT_CANCEL}" != "0" ]]; then
       if _push_will_trigger_presubmit "${CURRENT_BRANCH}"; then
         # kill running presubmit job, if any exists:
         _cancel_pending_presubmit
       fi
     fi
-    # We always push upstream so that users have a backup in case they lose their
-    # laptop:
-    _push_to_origin "${CURRENT_BRANCH}"
+    if [[ "${AMENDING}" == 1 ]]; then
+      _push_to_origin "+${CURRENT_BRANCH}"  # force push is "safe" because we previously integrated.
+    else
+      if _remote_branch_exists origin "${CURRENT_BRANCH}"; then
+        _git fetch
+        local -a COUNTS
+        read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${CURRENT_BRANCH}...origin/${CURRENT_BRANCH}")
+        if [[ "${COUNTS[1]}" -gt 0 ]]; then
+          _warn "Remote branch origin/${CURRENT_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${CURRENT_BRANCH}."
+          _warn "You ought to integrate changes from origin before pushing."
+          if _confirm_default_yes "Do you want to pull changes from origin now? (Y/n)  "; then
+            _git rebase --autostash "origin/${CURRENT_BRANCH}"
+            _check_diff_for_merge_conflict_markers
+          else
+            _warn "Skipping push of branch to origin/${CURRENT_BRANCH}" \
+                  "Use \"git push -f\" if you know you want to overwrite the other changes in origin."
+            return 0
+          fi
+        fi
+      fi
+      # We always push upstream so that users have a backup in case they lose their
+      # laptop.  We should not need to force push here.
+      _push_to_origin "${CURRENT_BRANCH}"
+    fi
     _read_parents_file
     if [[ "${PARENTS[${CURRENT_BRANCH}]}" == upstream/refs/pull/*/head ]]; then
       _info "NOTE: This is a branch of another user's PR.  Your changes were pushed to *your* " \
