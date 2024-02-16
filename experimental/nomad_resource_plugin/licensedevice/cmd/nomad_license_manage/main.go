@@ -20,6 +20,7 @@ var (
 	runAdd      = flag.Bool("add", false, "add a new license in the form <id> <vendor> <feature>")
 	runRemove   = flag.String("remove", "", "remove an existing license by <id>")
 	runShowLogs = flag.Bool("showlogs", false, "Show the logs from the license_state_log. You must specify a count to show")
+	runFree     = flag.String("free", "", "Free a license by <id>")
 )
 
 func main() {
@@ -122,6 +123,28 @@ func main() {
 		for _, l := range licenseLogs {
 			fmt.Printf("%v,%v,%v,%v,%v,%v,%v\n", l.ID, l.Node, l.TimeStamp, l.PreviousState, l.CurrentState, l.Reason, l.Metadata)
 		}
+		return
+	}
+	if *runFree != "" {
+		bFoundId := false
+		for _, l := range licenses {
+			if l.ID == *runFree {
+				bFoundId = true
+			}
+		}
+		if !bFoundId {
+			log.Fatal("Can not find a license to remove named:", *runFree)
+		}
+		_, err = db.Exec(ctx, "update license_state set usage_state = $1, last_state_change = CURRENT_TIMESTAMP where id = $2",
+			sqldb.StateFree, *runFree)
+		if err != nil {
+			log.Fatal("Unable to update license_state:", err)
+		}
+		_, err = db.Exec(ctx, sqldb.NotifyLicenseState)
+		if err != nil {
+			log.Fatal("Unable to notify licensestate change:", err)
+		}
+		fmt.Println("Freed.")
 		return
 	}
 }
