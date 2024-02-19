@@ -4659,15 +4659,20 @@ function gee__pr_submit() {
         "merge conflicts: ${KIDS[*]}"
   if _confirm_default_yes "Rebase child branches now? (Y/n)  "; then
     local CHILD
+    _read_parents_file
     for CHILD in "${KIDS[@]}"; do
       _banner "Rebasing ${CHILD}"
-      # performs: git rebase --onto squashed_parent unsquashed_parent child
+      # First make sure that child contains all the commits from the unsquashed version of the parent:
+      _safer_rebase "${CHILD}" "${CURRENT_BRANCH}-unsquashed"
+      # Then rebase the current branch onto the squashed current branch, using only the commits
+      # not present in the unsquashed parent branch:
       _safer_rebase "${CHILD}" "${CURRENT_BRANCH}-unsquashed" "${CURRENT_BRANCH}"
+      # Simplify the tree.
+      PARENTS["${CHILD}"]="${MAIN}"
+      _info "Parent branch for \"${CHILD}\" has been set to \"${MAIN}\""
     done
+    _write_parents_file
   fi
-  # Because ${CURRENT_BRANCH} still exists and contains the squash-merged
-  # tree, there is no need to change the parentage of the branch tree
-  # (unlike gee__remove_branch, below).
 }
 
 ##########################################################################
