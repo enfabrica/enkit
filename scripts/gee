@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.47"
+readonly VERSION="0.2.48"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -4112,13 +4112,11 @@ function gee__pr_make() {
   TRIMMED="${BODYFILE}.trimmed"
   (
     cat <<'EndOfPrTemplate'
-# The first line should be the PR title.
-# For example: "scripts/gee: Add new PR template."
+# The first line should be the PR title.  For example: "scripts/gee: Add new PR template."
 
-# In this section, explain why the PR is necessary and what the PR desires to
-# achieve.  List any relevant Jira tickets.
+# Why?  What?  How?
 
-# In this section, describe what testing was done to validate your change.
+# What manual testing have you performed?
 Tested:
 
 # Having second thoughts?  Uncomment one of these two lines:
@@ -4126,6 +4124,20 @@ Tested:
 # ABORT   # To abort the creation of a PR.
 
 EndOfPrTemplate
+
+    local OWNERS=()
+    mapfile -t OWNERS < <(_print_codeowners | sed -e 's/@//g')
+    if [[ "${#OWNERS[@]}" -eq 0 ]]; then
+      printf "# This PR can be submitted with anyone's approval.\n"
+    elif [[ "${#OWNERS[@]}" -eq 1 ]]; then
+      printf "# This PR requires approval from at least one of these code owners:\n"
+      printf "#  * %s\n" "${OWNERS[@]}"
+    else
+      printf "# This PR requires approval from at least one code owner on each line:\n"
+      printf "#  * %s\n" "${OWNERS[@]}"
+    fi
+    printf "# Pick assignees:\n"
+    printf "ASSIGNEES: \n\n"
 
     if (( "${#PARENT_PRS[@]}" > 0 )); then
       printf "NOTE: this PR includes changes that are also in PR #%d.\n" "${PARENT_PRS[0]}"
@@ -4183,6 +4195,14 @@ EndOfPrTemplate
   # title when we eventually submit the PR:
   sed -i '1{d};2{/^$/d}' "${TRIMMED}"
 
+  local ASSIGNEES=()
+  mapfile -t ASSIGNEES < <(grep ^ASSIGNEES: "${TRIMMED}" | xargs -n1 | grep -v ^ASSIGNEES:)
+  if [[ "${#ASSIGNEES[@]}" == 0 ]]; then
+    _warn "Every PR must have one or more assignees.  Assigning to you for now."
+    ASSIGNEES=( "@me" )
+  fi
+  sed -i '/^ASSIGNEES:/d' "${TRIMMED}"
+
   _push_to_origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
   #  -R specifies the repo that we are pushing changes into.
@@ -4196,6 +4216,10 @@ EndOfPrTemplate
     -H "${GHUSER}:${CURRENT_BRANCH}"
     --body-file "${TRIMMED}"
   )
+  local A
+  for A in "${ASSIGNEES[@]}"; do
+    PR_ARGS+=(--assignee "${A}")
+  done
 
   local DRAFT=0
   if grep --quiet -E "^\s*DRAFT" "${TRIMMED}"; then
