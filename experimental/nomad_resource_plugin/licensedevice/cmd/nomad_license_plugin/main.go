@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/golang/glog"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/plugins"
 
@@ -22,8 +21,7 @@ func main() {
 	metrics.AddHandler(mux, "/metrics")
 	// Since we may not get an environment variable (defaults Port to 6433),
 	// we may need to create a listener explicitly here.
-	go glog.Exit(server.Run(ctx, mux, nil, nil))
-
+	go server.Run(ctx, mux, nil, nil)
 	plugins.Serve(factory)
 }
 
