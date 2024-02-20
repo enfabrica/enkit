@@ -2,10 +2,17 @@
 
 ## Releases
 
+### 0.2.48
+
+* gee pr_make: facilitate setting assignees for new PRs (#1024).
+* gee commit: improve `--amend` behavior (#1021).
+* gee: additional error checking for incorrect `gh repo set-default` configuration (#1017).
+
 ### 0.2.47
 
 * gee lspr: add `--text` option (#1009).
-* gee: handle closed PRs that are also marked as drafts (#1008).
+* gee bisect: handle empty sets of commits (#1008).
+* gee: handle closed PRs that are also marked as drafts (#1004).
 * gee: add `GEE_ENABLE_PRESUBMIT_CANCEL` feature (#1001).
 * gee: allow override of default tool paths (#991).
 

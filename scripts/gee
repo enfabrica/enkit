@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.47"
+readonly VERSION="0.2.48"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -4196,7 +4196,7 @@ EndOfPrTemplate
   sed -i '1{d};2{/^$/d}' "${TRIMMED}"
 
   local ASSIGNEES=()
-  mapfile -t ASSIGNEES < <(cat "${TRIMMED}" | grep ^ASSIGNEES: | xargs -n1 | grep -v ^ASSIGNEES:)
+  mapfile -t ASSIGNEES < <(grep ^ASSIGNEES: "${TRIMMED}" | xargs -n1 | grep -v ^ASSIGNEES:)
   if [[ "${#ASSIGNEES[@]}" == 0 ]]; then
     _warn "Every PR must have one or more assignees.  Assigning to you for now."
     ASSIGNEES=( "@me" )
