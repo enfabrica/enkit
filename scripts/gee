@@ -4202,6 +4202,7 @@ EndOfPrTemplate
     _warn "Every PR must have one or more assignees.  Assigning to you for now."
     ASSIGNEES=( "@me" )
   fi
+  sed -i '/^ASSIGNEES:/d' "${TRIMMED}"
 
   _push_to_origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
