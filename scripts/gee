@@ -4126,7 +4126,7 @@ Tested:
 EndOfPrTemplate
 
     local OWNERS=()
-    mapfile -t OWNERS < <(_print_codeowners)
+    mapfile -t OWNERS < <(_print_codeowners | sed -e 's/@//g')
     if [[ "${#OWNERS[@]}" -eq 0 ]]; then
       printf "# This PR can be submitted with anyone's approval.\n"
     elif [[ "${#OWNERS[@]}" -eq 1 ]]; then
@@ -4136,9 +4136,8 @@ EndOfPrTemplate
       printf "# This PR requires approval from at least one code owner on each line:\n"
       printf "#  * %s\n" "${OWNERS[@]}"
     fi
-    local UNIQUE_OWNERS="$(echo "${OWNERS[*]}" | xargs -n1 | sort -u | xargs | sed -e 's/@//g' )"
-    printf "# Reduce this set of assignees:\n"
-    printf "ASSIGNEES: ${UNIQUE_OWNERS}\n\n"
+    printf "# Pick assignees:\n"
+    printf "ASSIGNEES: \n\n"
 
     if (( "${#PARENT_PRS[@]}" > 0 )); then
       printf "NOTE: this PR includes changes that are also in PR #%d.\n" "${PARENT_PRS[0]}"
