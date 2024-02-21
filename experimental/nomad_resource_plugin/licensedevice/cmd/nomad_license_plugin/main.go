@@ -9,15 +9,12 @@ import (
 	"github.com/hashicorp/nomad/plugins"
 
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice"
+	"github.com/enfabrica/enkit/lib/metrics"
 )
 
 func main() {
-	// ctx := context.Background()
-	// mux := http.NewServeMux()
-	// metrics.AddHandler(mux, "/metrics")
-	// Since we may not get an environment variable (defaults Port to 6433),
-	// we may need to create a listener explicitly here.
-	// go server.Run(ctx, mux, nil, nil)
+	go metrics.StartServer("0.0.0.0:6434", "/metrics")
+
 	plugins.Serve(factory)
 }
 
