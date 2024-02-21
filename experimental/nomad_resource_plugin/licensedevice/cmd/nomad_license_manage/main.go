@@ -52,7 +52,18 @@ func main() {
 				fmt.Printf("License: %v, %v, %v\n", l.ID, l.Vendor, l.Feature)
 			}
 			if *runListAll {
-				fmt.Printf("License: %v, %v, %v, %v, %v, %v, %v\n", l.ID, l.Vendor, l.Feature, l.Status, l.LastUpdateTime, l.UserNode, l.UserProcess)
+				var usernode, userprocess string
+				if l.UserNode != nil {
+					usernode = *l.UserNode
+				} else {
+					usernode = "<nil>"
+				}
+				if l.UserProcess != nil {
+					userprocess = *l.UserProcess
+				} else {
+					userprocess = "<nil>"
+				}
+				fmt.Printf("License: %v, %v, %v, %v, %v, %v, %v\n", l.ID, l.Vendor, l.Feature, l.Status, l.LastUpdateTime, usernode, userprocess)
 			}
 		}
 		return
