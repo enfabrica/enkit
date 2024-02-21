@@ -204,7 +204,7 @@ nextLicense:
 		licenses = append(licenses, localLicense)
 	}
 
-	_, err = t.updateLicenses(ctx, tx, licenses, "detected free")
+	_, err = t.updateLicenses(ctx, tx, licenses, "detected in scan")
 	if err != nil {
 		metricSqlCounter.WithLabelValues("UpdateInUse", "error_update_licenses").Inc()
 		return fmt.Errorf("failed to update license status: %w", err)
