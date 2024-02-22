@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//experimental/nomad_resource_plugin/licensedevice/types",
+        "@com_github_hashicorp_go_hclog//:go-hclog",
         "@com_github_jackc_pgx_v5//:pgx",
         "@com_github_jackc_pgx_v5//pgxpool",
         "@com_github_prometheus_client_golang//prometheus",

@@ -3,7 +3,6 @@ package licensedevice
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"sort"
 	"time"
@@ -172,7 +171,7 @@ nextNotification:
 		}
 
 		p.Log.Debug("parsing global license state")
-		groups, err := deviceGroupsFromLicenses(licenses)
+		groups, err := deviceGroupsFromLicenses(p.Log, licenses)
 		p.Log.Debug("finished parsing global license state")
 		if err != nil {
 			metricPluginCounter.WithLabelValues("fingerprintLoop", "error_device_groups_from_licenses").Inc()
@@ -195,7 +194,7 @@ func (p *Plugin) configure(config *Config) error {
 			return fmt.Errorf("no node id, hostname also failed: %w", err)
 		}
 	}
-	table, err := sqldb.OpenTable(rctx, config.DatabaseConnStr, config.TableName, config.NodeID)
+	table, err := sqldb.OpenTable(rctx, config.DatabaseConnStr, config.TableName, config.NodeID, p.Log)
 	cancel()
 	if err != nil {
 		metricPluginCounter.WithLabelValues("configure", "error_open_table").Inc()
@@ -254,7 +253,7 @@ nextNotification:
 	}
 }
 
-func deviceGroupsFromLicenses(ls []*types.License) ([]*device.DeviceGroup, error) {
+func deviceGroupsFromLicenses(log hclog.Logger, ls []*types.License) ([]*device.DeviceGroup, error) {
 	deviceGroupMap := map[string]*device.DeviceGroup{}
 
 	for _, l := range ls {
@@ -278,7 +277,7 @@ func deviceGroupsFromLicenses(ls []*types.License) ([]*device.DeviceGroup, error
 			healthDesc = ""
 		default:
 			metricPluginCounter.WithLabelValues("deviceGroupsFromLicenses", "error_incorrect_status").Inc()
-			slog.Error("Error, incorrect license state", "state", l.Status)
+			log.Error("Error, incorrect license state", "state", l.Status)
 		}
 
 		device := &device.Device{
