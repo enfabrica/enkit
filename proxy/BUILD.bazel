@@ -34,10 +34,10 @@ pkg_tar(
 oci_image(
     name = "enproxy_image",
     base = "@golang_base",
+    entrypoint = ["/enproxy"],
     env = {
         "HOME": "/cache",
     },
-    entrypoint = ["/enproxy"],
     tars = [":enproxy_tarball"],
     visibility = ["//visibility:private"],
     # enproxy needs to cache certificates in a directory so they survive
@@ -62,7 +62,7 @@ oci_image(
 oci_push(
     name = "upload-enproxy-image",
     image = ":enproxy_image",
-    repository = "gcr.io/devops-284019/infra/enproxy",
     remote_tags = ["latest"],
+    repository = "gcr.io/devops-284019/infra/enproxy",
     visibility = ["//visibility:public"],
 )

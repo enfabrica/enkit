@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//experimental/nomad_resource_plugin/licensedevice/sqldb",
         "//experimental/nomad_resource_plugin/licensedevice/types",
-        "//experimental/nomad_resource_plugin/licensedevice",
         "@com_github_jackc_pgx_v5//:pgx",
         "@com_github_jackc_pgx_v5//pgxpool",
     ],

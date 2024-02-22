@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/plugins/device"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -47,8 +46,7 @@ func TestPluginIsNomadDevicePlugin(t *testing.T) {
 }
 
 func TestPluginFingerprintBeforeSetConfig(t *testing.T) {
-	l := hclog.NewNullLogger()
-	p := NewPlugin(l)
+	p := NewPlugin()
 	_, gotErr := p.Fingerprint(context.Background())
 
 	assert.Error(t, gotErr)
@@ -57,8 +55,7 @@ func TestPluginFingerprintBeforeSetConfig(t *testing.T) {
 func TestPluginFingerprint(t *testing.T) {
 	notifier := &mockNotifier{}
 
-	l := hclog.NewNullLogger()
-	p := NewPlugin(l)
+	p := NewPlugin()
 	p.globalUpdater = notifier
 	p.licenseHandleRoot = bazel.TestTmpDir()
 
@@ -149,8 +146,7 @@ func TestPluginFingerprint(t *testing.T) {
 func TestReserve(t *testing.T) {
 	reserver := &mockReserver{}
 
-	l := hclog.NewNullLogger()
-	p := NewPlugin(l)
+	p := NewPlugin()
 	p.nodeID = "client_a"
 	p.reserver = reserver
 	p.licenseHandleRoot = bazel.TestTmpDir()

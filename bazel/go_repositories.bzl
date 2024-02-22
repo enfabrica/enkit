@@ -792,6 +792,12 @@ def go_repositories():
         version = "v1.0.2",
     )
     go_repository(
+        name = "com_github_evanphx_go_hclog_slog",
+        importpath = "github.com/evanphx/go-hclog-slog",
+        sum = "h1:eRU+7+VeZHe2miMDty965PPFawKkInpeJysPRzGAwAI=",
+        version = "v0.0.0-20230905211129-6d31b63d6f09",
+    )
+    go_repository(
         name = "com_github_evanphx_json_patch",
         importpath = "github.com/evanphx/json-patch",
         sum = "h1:4onqiflcdA9EOZ4RxV643DvftH5pOlLGNtQ5lPWQu84=",
