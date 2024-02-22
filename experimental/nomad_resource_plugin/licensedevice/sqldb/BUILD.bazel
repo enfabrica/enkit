@@ -11,6 +11,7 @@ go_library(
         "@com_github_jackc_pgx_v5//pgxpool",
         "@com_github_prometheus_client_golang//prometheus",
         "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@org_golang_x_exp//slog",
     ],
 )
 

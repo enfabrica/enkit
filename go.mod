@@ -118,6 +118,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
+	github.com/evanphx/go-hclog-slog v0.0.0-20230905211129-6d31b63d6f09 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
 	github.com/go-git/go-billy/v5 v5.0.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect

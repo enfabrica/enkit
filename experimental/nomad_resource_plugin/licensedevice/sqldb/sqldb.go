@@ -3,13 +3,16 @@ package sqldb
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	// TODO(scott): Change this to "log/slog" after go-hclog-slog is updated to
+	// use the stdlib
+	"golang.org/x/exp/slog"
 
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/types"
 )

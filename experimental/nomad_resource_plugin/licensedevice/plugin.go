@@ -3,17 +3,19 @@ package licensedevice
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"sort"
 	"time"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/plugins/base"
 	"github.com/hashicorp/nomad/plugins/device"
 	"github.com/hashicorp/nomad/plugins/shared/hclspec"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	// TODO(scott): Change this to "log/slog" after go-hclog-slog is updated to
+	// use the stdlib
+	"golang.org/x/exp/slog"
 
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/docker"
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/sqldb"
@@ -33,8 +35,6 @@ var metricPluginCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	})
 
 type Plugin struct {
-	Log hclog.Logger
-
 	reserver          types.Reserver
 	globalUpdater     types.Notifier
 	localUpdater      types.Notifier
@@ -48,12 +48,12 @@ type Config struct {
 	NodeID          string `codec:"node_id"`
 }
 
-func NewPlugin(l hclog.Logger) *Plugin {
-	return &Plugin{Log: l}
+func NewPlugin() *Plugin {
+	return &Plugin{}
 }
 
-func ConfiguredPlugin(l hclog.Logger, config *Config) (*Plugin, error) {
-	p := &Plugin{Log: l}
+func ConfiguredPlugin(config *Config) (*Plugin, error) {
+	p := &Plugin{}
 	if err := p.configure(config); err != nil {
 		metricPluginCounter.WithLabelValues("ConfiguredPlugin", "error_configure").Inc()
 		return nil, fmt.Errorf("failed to configure plugin: %w", err)
@@ -94,15 +94,15 @@ func (p *Plugin) SetConfig(c *base.Config) error {
 }
 
 func (p *Plugin) Fingerprint(ctx context.Context) (<-chan *device.FingerprintResponse, error) {
-	p.Log.Info("Fingerprint() called")
+	slog.Info("Fingerprint() called")
 	if p.globalUpdater == nil {
 		metricPluginCounter.WithLabelValues("Fingerprint", "error_global_updater").Inc()
 		return nil, fmt.Errorf("plugin is not configured: nil notifier")
 	}
 
-	p.Log.Debug("acquiring global updates channel")
+	slog.Debug("acquiring global updates channel")
 	notifyChan := p.globalUpdater.Chan(ctx)
-	p.Log.Debug("acquired global updates channel")
+	slog.Debug("acquired global updates channel")
 	resChan := make(chan *device.FingerprintResponse)
 	go p.fingerprintLoop(ctx, notifyChan, resChan)
 	metricPluginCounter.WithLabelValues("Fingerprint", "ok").Inc()
@@ -110,7 +110,7 @@ func (p *Plugin) Fingerprint(ctx context.Context) (<-chan *device.FingerprintRes
 }
 
 func (p *Plugin) Reserve(deviceIDs []string) (*device.ContainerReservation, error) {
-	p.Log.Info("Reserve() called")
+	slog.Info("Reserve() called")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -140,7 +140,7 @@ func (p *Plugin) Stats(ctx context.Context, interval time.Duration) (<-chan *dev
 }
 
 func (p *Plugin) fingerprintLoop(ctx context.Context, notifyChan chan struct{}, resChan chan<- *device.FingerprintResponse) {
-	p.Log.Debug("starting fingerprint response loop")
+	slog.Debug("starting fingerprint response loop")
 
 	// Ensure that an initial state is sent without having to wait for external
 	// state to change
@@ -161,26 +161,26 @@ nextNotification:
 		}
 
 		rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		p.Log.Debug("fetching global license state")
+		slog.Debug("fetching global license state")
 		licenses, err := p.globalUpdater.GetCurrent(rctx)
-		p.Log.Debug("finished fetching global license state")
+		slog.Debug("finished fetching global license state")
 		cancel()
 		if err != nil {
 			metricPluginCounter.WithLabelValues("fingerprintLoop", "error_global_updater_get_current").Inc()
-			p.Log.Error("failed to get global license state", "error", err)
+			slog.Error("failed to get global license state", "error", err)
 			continue nextNotification
 		}
 
-		p.Log.Debug("parsing global license state")
+		slog.Debug("parsing global license state")
 		groups, err := deviceGroupsFromLicenses(licenses)
-		p.Log.Debug("finished parsing global license state")
+		slog.Debug("finished parsing global license state")
 		if err != nil {
 			metricPluginCounter.WithLabelValues("fingerprintLoop", "error_device_groups_from_licenses").Inc()
-			p.Log.Error("failed to parse global license state", "error", err)
+			slog.Error("failed to parse global license state", "error", err)
 			continue nextNotification
 		}
 
-		p.Log.Info("sending fingerprint response")
+		slog.Info("sending fingerprint response")
 		resChan <- &device.FingerprintResponse{Devices: groups}
 	}
 }
@@ -219,7 +219,7 @@ func (p *Plugin) configure(config *Config) error {
 }
 
 func (p *Plugin) localUpdatesLoop(ctx context.Context, notifyChan <-chan struct{}) {
-	p.Log.Debug("starting local license use monitoring")
+	slog.Debug("starting local license use monitoring")
 
 nextNotification:
 	for {
@@ -231,14 +231,14 @@ nextNotification:
 				return
 			}
 
-			p.Log.Debug("got local license use update")
+			slog.Debug("got local license use update")
 
 			rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			licenses, err := p.localUpdater.GetCurrent(rctx)
 			cancel()
 			if err != nil {
 				metricPluginCounter.WithLabelValues("localUpdatesLoop", "error_local_updater_get_current").Inc()
-				p.Log.Error("failed to get local license state", "error", err)
+				slog.Error("failed to get local license state", "error", err)
 				continue nextNotification
 			}
 
@@ -247,7 +247,7 @@ nextNotification:
 			cancel()
 			if err != nil {
 				metricPluginCounter.WithLabelValues("localUpdatesLoop", "error_reserver_update_in_use").Inc()
-				p.Log.Error("failed to update global license state with in-use info", "error", err)
+				slog.Error("failed to update global license state with in-use info", "error", err)
 				continue nextNotification
 			}
 		}

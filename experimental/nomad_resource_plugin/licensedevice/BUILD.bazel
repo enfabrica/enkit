@@ -10,12 +10,12 @@ go_library(
         "//experimental/nomad_resource_plugin/licensedevice/sqldb",
         "//experimental/nomad_resource_plugin/licensedevice/types",
         "//lib/str",
-        "@com_github_hashicorp_go_hclog//:go-hclog",
         "@com_github_hashicorp_nomad//plugins/base",
         "@com_github_hashicorp_nomad//plugins/device",
         "@com_github_hashicorp_nomad//plugins/shared/hclspec",
         "@com_github_prometheus_client_golang//prometheus",
         "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@org_golang_x_exp//slog",
     ],
 )
 
