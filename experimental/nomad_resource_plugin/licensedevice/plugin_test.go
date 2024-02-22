@@ -3,11 +3,11 @@ package licensedevice
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/plugins/device"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -47,7 +47,8 @@ func TestPluginIsNomadDevicePlugin(t *testing.T) {
 }
 
 func TestPluginFingerprintBeforeSetConfig(t *testing.T) {
-	p := NewPlugin()
+	l := hclog.NewNullLogger()
+	p := NewPlugin(l)
 	_, gotErr := p.Fingerprint(context.Background())
 
 	assert.Error(t, gotErr)
@@ -56,8 +57,9 @@ func TestPluginFingerprintBeforeSetConfig(t *testing.T) {
 func TestPluginFingerprint(t *testing.T) {
 	notifier := &mockNotifier{}
 
-	p := NewPlugin()
-	p.notifier = notifier
+	l := hclog.NewNullLogger()
+	p := NewPlugin(l)
+	p.globalUpdater = notifier
 	p.licenseHandleRoot = bazel.TestTmpDir()
 
 	notifyChan := make(chan struct{})
@@ -72,12 +74,16 @@ func TestPluginFingerprint(t *testing.T) {
 	}
 
 	for i := 0; i < 5; i++ {
-		notifyChan <- struct{}{}
-
 		var got *device.FingerprintResponse
+		// Drain the channel first to avoid test hang with make chan of 0 length
 		go func() {
 			got = <-gotChan
 		}()
+		// We automatically put up a fingerprint on initialization, so skip requesting a refresh once to account for it.
+		if i != 0 {
+			notifyChan <- struct{}{}
+		}
+
 		if !assert.EventuallyWithT(t, func(c *assert.CollectT) {
 			assert.NotNil(c, got)
 		}, 1*time.Second, 10*time.Millisecond, "never got license info") {
@@ -143,7 +149,8 @@ func TestPluginFingerprint(t *testing.T) {
 func TestReserve(t *testing.T) {
 	reserver := &mockReserver{}
 
-	p := NewPlugin()
+	l := hclog.NewNullLogger()
+	p := NewPlugin(l)
 	p.nodeID = "client_a"
 	p.reserver = reserver
 	p.licenseHandleRoot = bazel.TestTmpDir()
@@ -174,17 +181,8 @@ func TestReserve(t *testing.T) {
 	}
 
 	assert.Equal(t, &device.ContainerReservation{
-		Mounts: []*device.Mount{
-			{
-				HostPath: filepath.Join(bazel.TestTmpDir(), "vendor_a/feature_1/aaaa"),
-				TaskPath: "/tmp/license_handles/vendor_a/feature_1/aaaa",
-				ReadOnly: true,
-			},
-			{
-				HostPath: filepath.Join(bazel.TestTmpDir(), "vendor_b/feature_2/bbbb"),
-				TaskPath: "/tmp/license_handles/vendor_b/feature_2/bbbb",
-				ReadOnly: true,
-			},
+		Envs: map[string]string{
+			"LICENSEPLUGIN_RESERVED_IDS": "aaaa,bbbb",
 		},
 	}, got)
 }

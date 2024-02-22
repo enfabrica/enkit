@@ -37,6 +37,30 @@ type License struct {
 	UserProcess *string
 }
 
+type LicenseLog struct {
+	// Unique ID that corresponds to a particular license instance. This ID is
+	// only specific to this plugin, and doesn't hold relevance in other contexts.
+	ID string
+
+	// The node that is doing the change
+	Node string
+
+	// The timestamp the change was made
+	TimeStamp time.Time
+
+	// The previous state (see Status above)
+	PreviousState string
+
+	// The current state (see Status above)
+	CurrentState string
+
+	// The reason for doing the change
+	Reason string
+
+	// Metadata associated with the change
+	Metadata string
+}
+
 func (l *License) MountInfo(root string) *device.Mount {
 	return &device.Mount{
 		HostPath: filepath.Join(root, l.Vendor, l.Feature, l.ID),
@@ -48,13 +72,11 @@ func (l *License) MountInfo(root string) *device.Mount {
 type Reserver interface {
 	Reserve(ctx context.Context, licenseIDs []string, node string) ([]*License, error)
 
-	Use(ctx context.Context, licenseID string, node string, user string) error
-
-	Free(ctx context.Context, licenseID string, node string) error
+	UpdateInUse(ctx context.Context, licenses []*License) error
 }
 
 type Notifier interface {
 	GetCurrent(ctx context.Context) ([]*License, error)
 
-	Chan(ctx context.Context) <-chan struct{}
+	Chan(ctx context.Context) chan struct{}
 }

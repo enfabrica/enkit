@@ -1,0 +1,32 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+alias(
+    name = "go_default_library",
+    actual = ":docker",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "docker",
+    srcs = ["docker.go"],
+    importpath = "github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/docker",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//experimental/nomad_resource_plugin/licensedevice/types",
+        "@com_github_docker_docker//api/types",
+        "@com_github_docker_docker//api/types/events",
+        "@com_github_docker_docker//client",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
+    ],
+)
+
+go_test(
+    name = "docker_test",
+    srcs = ["docker_test.go"],
+    embed = [":docker"],
+    deps = [
+        "//experimental/nomad_resource_plugin/licensedevice/types",
+        "@com_github_stretchr_testify//assert",
+    ],
+)
