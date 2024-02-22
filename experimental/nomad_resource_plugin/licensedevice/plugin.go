@@ -121,9 +121,7 @@ func (p *Plugin) Reserve(deviceIDs []string) (*device.ContainerReservation, erro
 	}
 
 	cr := &device.ContainerReservation{}
-	//	for _, l := range licenses {
-	//		cr.Mounts = append(cr.Mounts, l.MountInfo(p.licenseHandleRoot))
-	//	}
+
 	var licenseString string
 	for _, l := range licenses {
 		if licenseString != "" {
