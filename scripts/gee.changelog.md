@@ -5,6 +5,7 @@
 ### 0.2.48
 
 * gee pr_make: facilitate setting assignees for new PRs (#1024).
+* gee: improve rebase --onto flow to reduce merge conflicts (#1022).
 * gee commit: improve `--amend` behavior (#1021).
 * gee: additional error checking for incorrect `gh repo set-default` configuration (#1017).
 
