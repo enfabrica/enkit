@@ -58,13 +58,8 @@ def _appengine_config_merge(ctx):
     return DefaultInfo(files = depset([outfile]))
 
 # Basic content of an app.yaml file for a python app.
-#
-# Uses python27 as it has the best support for static files with
-# no application defined. There's no python2.7 code at run time.
 DEFAULT_BASE = struct(
-    runtime = "python27",
-    api_version = 1,
-    threadsafe = True,
+    runtime = "python312",
 )
 
 # Basic handlers typically defined in an app.yaml file.
