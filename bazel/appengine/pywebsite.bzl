@@ -113,7 +113,7 @@ Starts a web server on localhost serving the specified app.yaml and root""",
     executable = True,
     attrs = dict({
         "runtime": attr.string(
-            default = "python27",
+            default = "python312",  # supported until 2028-10-02
             doc = "The AppEngine runtime to use",
         ),
     }, **APPENGINE_RUNNER_ATTRS),
