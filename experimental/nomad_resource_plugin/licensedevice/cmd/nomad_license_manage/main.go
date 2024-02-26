@@ -30,6 +30,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Error opening database: ", err)
 	}
+	defer db.Close()
+
 	rows, err := db.Query(ctx, sqldb.QueryAllLicenses)
 	if err != nil {
 		log.Fatal("Error querying licenses:", err)
