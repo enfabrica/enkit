@@ -31,6 +31,7 @@ func main() {
 		log.Fatal("Error opening database: ", err)
 	}
 	defer db.Close()
+	defer db.Reset() // If we don't do this, we seem to leak active connections.
 
 	rows, err := db.Query(ctx, sqldb.QueryAllLicenses)
 	if err != nil {
