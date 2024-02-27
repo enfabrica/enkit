@@ -5,6 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,7 +28,9 @@ var (
 
 func main() {
 	flag.Parse()
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	db, err := pgxpool.New(ctx, *connection)
 	if err != nil {
 		slog.Error("Error opening database: ", "error", err)
