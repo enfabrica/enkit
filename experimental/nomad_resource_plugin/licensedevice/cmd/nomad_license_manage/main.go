@@ -4,7 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,14 +28,21 @@ var (
 
 func main() {
 	flag.Parse()
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	db, err := pgxpool.New(ctx, *connection)
 	if err != nil {
-		log.Fatal("Error opening database: ", err)
+		slog.Error("Error opening database: ", "error", err)
+		return
 	}
+	defer db.Close()
+	defer db.Reset() // If we don't do this, we seem to leak active connections.
+
 	rows, err := db.Query(ctx, sqldb.QueryAllLicenses)
 	if err != nil {
-		log.Fatal("Error querying licenses:", err)
+		slog.Error("Error querying licenses", "error", err)
+		return
 	}
 	licenses, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*types.License, error) {
 		l := &types.License{}
@@ -40,11 +50,13 @@ func main() {
 		return l, err
 	})
 	if err != nil {
-		log.Fatal("Error collectrows for licenses:", err)
+		slog.Error("Error collectrows for licenses:", "error", err)
+		return
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		log.Fatal("Error rows.Err for licenses:", err)
+		slog.Error("Error rows.Err for licenses:", "error", err)
+		return
 	}
 	if *runList || *runListAll {
 		for _, l := range licenses {
@@ -70,21 +82,25 @@ func main() {
 	}
 	if *runAdd {
 		if flag.Arg(0) == "" || flag.Arg(1) == "" || flag.Arg(2) == "" {
-			log.Fatal("Arguments: -add <id> <vendor> <feature>")
+			slog.Error("Arguments: -add <id> <vendor> <feature>")
+			return
 		}
 		for _, l := range licenses {
 			if l.ID == flag.Arg(0) {
-				log.Fatal("Unable to add a license with the same ID as another: ", l.ID)
+				slog.Error("Unable to add a license with the same ID as another: ", "id", l.ID)
+				return
 			}
 		}
 		_, err = db.Exec(ctx, "insert into license_state (id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process) values ($1, $2, $3, $4, CURRENT_TIMESTAMP,$5, $6)",
 			flag.Arg(0), flag.Arg(1), flag.Arg(2), sqldb.StateFree, nil, nil)
 		if err != nil {
-			log.Fatal("Unable to insert into database:", err)
+			slog.Error("Unable to insert into database:", "error", err)
+			return
 		}
 		_, err = db.Exec(ctx, sqldb.NotifyLicenseState)
 		if err != nil {
-			log.Fatal("Unable to notify licensestate change:", err)
+			slog.Error("Unable to notify licensestate change:", "error", err)
+			return
 		}
 		fmt.Println("Added.")
 		return
@@ -97,27 +113,32 @@ func main() {
 			}
 		}
 		if !bFoundId {
-			log.Fatal("Can not find a license to remove named:", *runRemove)
+			slog.Error("Can not find a license to remove named:", "input", *runRemove)
+			return
 		}
 		_, err = db.Exec(ctx, "delete from license_state where id = $1",
 			*runRemove)
 		if err != nil {
-			log.Fatal("Unable to delete from database:", err)
+			slog.Error("Unable to delete from database:", "error", err)
+			return
 		}
 		_, err = db.Exec(ctx, sqldb.NotifyLicenseState)
 		if err != nil {
-			log.Fatal("Unable to notify licensestate change:", err)
+			slog.Error("Unable to notify licensestate change:", "error", err)
+			return
 		}
 		fmt.Println("Removed.")
 		return
 	}
 	if *runShowLogs {
 		if flag.Arg(0) == "" {
-			log.Fatal("You must specify a count of lines")
+			slog.Error("You must specify a count of lines")
+			return
 		}
 		rows, err := db.Query(ctx, "select license_id, node, ts, previous_state, current_state, reason, metadata from license_state_log order by ts desc limit "+flag.Arg(0))
 		if err != nil {
-			log.Fatal("Error querying licenses:", err)
+			slog.Error("Error querying licenses:", "error", err)
+			return
 		}
 		licenseLogs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*types.LicenseLog, error) {
 			l := &types.LicenseLog{}
@@ -125,11 +146,12 @@ func main() {
 			return l, err
 		})
 		if err != nil {
-			log.Fatal("Error collectrows for licenses:", err)
+			slog.Error("Error collectrows for licenses:", "error", err)
+			return
 		}
 		rows.Close()
 		if err := rows.Err(); err != nil {
-			log.Fatal("Error rows.Err for licenses:", err)
+			slog.Error("Error rows.Err for licenses:", "error", err)
 		}
 		for _, l := range licenseLogs {
 			fmt.Printf("%v,%v,%v,%v,%v,%v,%v\n", l.ID, l.Node, l.TimeStamp, l.PreviousState, l.CurrentState, l.Reason, l.Metadata)
@@ -144,16 +166,17 @@ func main() {
 			}
 		}
 		if !bFoundId {
-			log.Fatal("Can not find a license to remove named:", *runFree)
+			slog.Error("Can not find a license to remove named:", "license", *runFree)
+			return
 		}
 		_, err = db.Exec(ctx, "update license_state set usage_state = $1, last_state_change = CURRENT_TIMESTAMP where id = $2",
 			sqldb.StateFree, *runFree)
 		if err != nil {
-			log.Fatal("Unable to update license_state:", err)
+			slog.Error("Unable to update license_state:", "error", err)
 		}
 		_, err = db.Exec(ctx, sqldb.NotifyLicenseState)
 		if err != nil {
-			log.Fatal("Unable to notify licensestate change:", err)
+			slog.Error("Unable to notify licensestate change:", "error", err)
 		}
 		fmt.Println("Freed.")
 		return
