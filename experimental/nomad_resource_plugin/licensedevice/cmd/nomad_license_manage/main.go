@@ -166,7 +166,7 @@ func main() {
 			}
 		}
 		if !bFoundId {
-			slog.Error("Can not find a license to remove named:", "command", *runFree)
+			slog.Error("Can not find a license to remove named:", "license", *runFree)
 			return
 		}
 		_, err = db.Exec(ctx, "update license_state set usage_state = $1, last_state_change = CURRENT_TIMESTAMP where id = $2",
