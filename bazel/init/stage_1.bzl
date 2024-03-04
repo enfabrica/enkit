@@ -190,9 +190,9 @@ def stage_1():
     maybe(
         name = "com_google_googleapis",
         repo_rule = http_archive,
-        urls = ["https://github.com/googleapis/googleapis/archive/10c88bb5c489c8ad1edb0e7f6a17cdd07147966e.zip"],
-        strip_prefix = "googleapis-10c88bb5c489c8ad1edb0e7f6a17cdd07147966e",
-        sha256 = "e8b434794608a9af0c0721cfaeedebe37d3676a4ee9dbeed868e5e2982b5abcc",
+        urls = ["https://github.com/googleapis/googleapis/archive/f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6.zip"],
+        strip_prefix = "googleapis-f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6",
+        sha256 = "f8f615f7c21459cb9b6ec2efaf795c875cd4698d6a1814a0a30d1eb910903142",
     )
 
     maybe(
@@ -303,9 +303,9 @@ filegroup(
     maybe(
         name = "googleapis",
         repo_rule = http_archive,
-        sha256 = "361e26593b881e70286a28065859c941e25b96f9c48ba91127293d0a881152d6",
-        strip_prefix = "googleapis-a3770599794a8d319286df96f03343b6cd0e7f4f",
-        urls = ["https://github.com/googleapis/googleapis/archive/a3770599794a8d319286df96f03343b6cd0e7f4f.zip"],
+        urls = ["https://github.com/googleapis/googleapis/archive/f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6.zip"],
+        strip_prefix = "googleapis-f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6",
+        sha256 = "f8f615f7c21459cb9b6ec2efaf795c875cd4698d6a1814a0a30d1eb910903142",
     )
 
     # Required by buildbarn ecosystem

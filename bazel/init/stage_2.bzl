@@ -83,6 +83,7 @@ def stage_2():
     # Begin transitive deps required by deps of buildbarn ecosystem
     switched_rules_by_language(
         name = "com_google_googleapis_imports",
+        python = True,
     )
     jsonnet_repositories()
     rules_js_dependencies()
