@@ -60,23 +60,32 @@ func invocationStatusFromBuildEvents(events []*bespb.BuildEvent) (*invocation, e
 				isTest: event.GetConfigured().GetTestSize() != bespb.TestSize_UNKNOWN,
 			}
 
+		// BUG(INFRA-9875): For events below - aborted events can come in with
+		// various event ID types, so only switching on the event ID type is
+		// insufficient.
+
 		case *bespb.BuildEventId_TargetCompleted:
-			lbl := id.TargetCompleted.GetLabel()
-			// This is the final message for build-only targets; test targets will
-			// have an additional TestResult message with the status of the test.
-			//
-			// TODO(scott): This won't be true for `bazel build` commands - maybe we
-			// should track build and test status separately?
-			if !new.targets[lbl].isTest {
-				if event.GetCompleted().GetSuccess() {
-					new.targets[lbl].status = bespb.TestStatus_PASSED
-				} else {
-					new.targets[lbl].status = bespb.TestStatus_FAILED
+			switch event.Payload.(type) {
+			case *bespb.BuildEvent_Completed:
+				lbl := id.TargetCompleted.GetLabel()
+				// This is the final message for build-only targets; test targets will
+				// have an additional TestResult message with the status of the test.
+				//
+				// TODO(scott): This won't be true for `bazel build` commands - maybe we
+				// should track build and test status separately?
+				if !new.targets[lbl].isTest {
+					if event.GetCompleted().GetSuccess() {
+						new.targets[lbl].status = bespb.TestStatus_PASSED
+					} else {
+						new.targets[lbl].status = bespb.TestStatus_FAILED
+					}
 				}
+
+			case *bespb.BuildEvent_Aborted:
+				new.targets[id.TargetCompleted.GetLabel()].status = bespb.TestStatus_INCOMPLETE
 			}
 
 		case *bespb.BuildEventId_TestSummary:
-			// Aborted messages have a TestSummary ID message as well
 			switch payload := event.Payload.(type) {
 			case *bespb.BuildEvent_TestSummary:
 				status := payload.TestSummary.GetOverallStatus()
@@ -84,6 +93,12 @@ func invocationStatusFromBuildEvents(events []*bespb.BuildEvent) (*invocation, e
 
 			case *bespb.BuildEvent_Aborted:
 				new.targets[id.TestSummary.GetLabel()].status = bespb.TestStatus_INCOMPLETE
+			}
+
+		case *bespb.BuildEventId_TestResult:
+			switch event.Payload.(type) {
+			case *bespb.BuildEvent_Aborted:
+				new.targets[id.TestResult.GetLabel()].status = bespb.TestStatus_INCOMPLETE
 			}
 
 		case *bespb.BuildEventId_BuildFinished:

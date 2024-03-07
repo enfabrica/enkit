@@ -433,6 +433,87 @@
     "buildEvent": {
       "id": {
         "targetConfigured": {
+          "label": "//aborted/target:one"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/defcon:defcon",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "17"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//aborted/target:two"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/defcon:defcon",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "17"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
+          "label": "//aborted/target:three"
+        }
+      },
+      "children": [
+        {
+          "targetCompleted": {
+            "label": "//lib/config/defcon:defcon",
+            "configuration": {
+              "id": "6108004a910e0765fd3d37cdfbc0ce944f041291d9159cceeceb1098fd13dbc8"
+            }
+          }
+        }
+      ],
+      "configured": {
+        "targetKind": "go_library rule"
+      }
+    },
+    "sequenceNumber": "17"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705951921",
+      "nanos": 515000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetConfigured": {
           "label": "//lib/config/defcon:go_default_library"
         }
       },
@@ -2809,6 +2890,60 @@
       "progress": {}
     },
     "sequenceNumber": "90"
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 804000000
+    },
+    "buildEvent": {
+      "id": {
+        "targetCompleted": {
+          "label": "//aborted/target:one",
+          "configuration": {
+            "id": "21b427b178f78c36c58cf134e761d187d7378a810672608dc73f89003f699af1"
+          }
+        }
+      },
+      "aborted": {}
+    }
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 804000000
+    },
+    "buildEvent": {
+      "id": {
+        "testResult": {
+          "label": "//aborted/target:two",
+          "configuration": {
+            "id": "21b427b178f78c36c58cf134e761d187d7378a810672608dc73f89003f699af1"
+          },
+          "run": 1,
+          "shard": 1,
+          "attempt": 1
+        }
+      },
+      "aborted": {}
+    }
+  },
+  {
+    "eventTime": {
+      "seconds": "1705952114",
+      "nanos": 804000000
+    },
+    "buildEvent": {
+      "id": {
+        "testSummary": {
+          "label": "//aborted/target:three",
+          "configuration": {
+            "id": "21b427b178f78c36c58cf134e761d187d7378a810672608dc73f89003f699af1"
+          }
+        }
+      },
+      "aborted": {}
+    }
   },
   {
     "eventTime": {
