@@ -12,7 +12,7 @@ load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_r
 load("@rules_oci//oci:repositories.bzl", "LATEST_CRANE_VERSION", "oci_register_toolchains")
 load("@rules_oci//oci:pull.bzl", "oci_pull")
 load("@rules_python//python:pip.bzl", "pip_parse")
-load("@python3_8//:defs.bzl", "interpreter")
+load("@python3_11//:defs.bzl", "interpreter")
 
 def stage_3():
     """Stage 3 initialization for WORKSPACE.
