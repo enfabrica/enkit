@@ -1616,6 +1616,7 @@ function _interactive_conflict_resolution() {
             if [[ "${ST}" == "UD" ]]; then
               # Keep "your" change: deleting the file.
               yes d | "${GIT}" mergetool -- "${FILE}"
+              echo ""  # git mergetool above sometimes needs a newline here.
             else
               "${GIT}" checkout --theirs "${FILE}"  # during rebase, "theirs" is actually ours.
             fi
@@ -1628,6 +1629,7 @@ function _interactive_conflict_resolution() {
             if [[ "${ST}" == "DU" ]]; then
               # Keep "their" change: deleting the file.
               yes d | "${GIT}" mergetool -- "${FILE}"
+              echo ""  # git mergetool above sometimes needs a newline here.
             else
               "${GIT}" checkout --ours "${FILE}"  # during rebase, "ours" is actually theirs.
             fi
