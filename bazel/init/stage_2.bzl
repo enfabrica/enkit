@@ -18,6 +18,7 @@ load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_depende
 load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 
 def stage_2():
@@ -61,6 +62,9 @@ def stage_2():
 
     gazelle_dependencies(go_sdk = "go_sdk_1_21")
     go_embed_data_dependencies()
+
+    rules_proto_grpc_repos()
+    rules_proto_grpc_toolchains()
 
     rules_proto_dependencies()
     rules_proto_toolchains()
