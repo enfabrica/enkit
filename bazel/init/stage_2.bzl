@@ -36,8 +36,8 @@ def stage_2():
     py_repositories()
 
     python_register_toolchains(
-        name = "python3_8",
-        python_version = "3.8",
+        name = "python3_11",
+        python_version = "3.11",
         ignore_root_user_error = True,
     )
 
