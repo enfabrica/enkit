@@ -271,6 +271,14 @@ filegroup(
         ],
     )
 
+    maybe(
+        name = "rules_proto_grpc",
+        repo_rule = http_archive,
+        sha256 = "2a0860a336ae836b54671cbbe0710eec17c64ef70c4c5a88ccfd47ea6e3739bd",
+        urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/releases/download/4.6.0/rules_proto_grpc-4.6.0.tar.gz"],
+        strip_prefix = "rules_proto_grpc-4.6.0",
+    )
+
     # Explicitly load Jsonnet here so that we control the version, instead of
     # rules_jsonnet and dependencies, which tend to use an old version.
     maybe(
