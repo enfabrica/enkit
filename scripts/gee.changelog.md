@@ -2,6 +2,10 @@
 
 ## Releases
 
+### 0.2.49
+
+* gee up: fix resolution of updated/deleted merge conflicts (#1040).
+
 ### 0.2.48
 
 * gee pr_make: facilitate setting assignees for new PRs (#1024).

@@ -1,0 +1,96 @@
+Crashed Executable Name: /edatools/Cadence/Innovus-22.12-000/tools.lnx86/extraction/bin/64bit/emerge 
+
+crash_log.c: === Backtrace Information ==
+#1 /lib/x86_64-linux-gnu/libc.so.6(+0x43090) [0x7fe4db8b8090]
+#2 /edatools/Cadence/Innovus-22.12-000/tools.lnx86/extraction/bin/64bit/emerge(emerge_main+0x11d) [0x48b034]
+#3 /edatools/Cadence/Innovus-22.12-000/tools.lnx86/extraction/bin/64bit/emerge(main+0x37) [0x48aa8c]
+#4 /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0xf3) [0x7fe4db899083]
+#5 /edatools/Cadence/Innovus-22.12-000/tools.lnx86/extraction/bin/64bit/emerge() [0x48a91e]
+
+crash_log.c: CCLFile Settings 
+
+crash_log.c: Environment Variables 
+
+_=*47097*/edatools/Cadence/Innovus-22.12-000/tools.lnx86/extraction/bin/64bit/emerge
+ARMLMD_LICENSE_FILE=8224@ls.corp.enfabrica.net.
+BAZEL_NICE=0
+BAZEL_PROFILE=local-cache
+BRBIN=/home/jonathan/gee/enkit/gee_merge_deletion/bazel-bin
+BROOT=/home/jonathan/gee/enkit/gee_merge_deletion
+CDN_PERL=/edatools/Cadence/Innovus-22.12-000/tools.lnx86/perl/
+CDS_AUTO_64BIT=ALL
+CDS_INST_DIR=/edatools/Cadence/23.03.006
+CDS_LANG=en_US.UTF-8
+CDS_SET_LOCALE=C
+CDS_W3264_LIBPATH=/edatools/Cadence/Innovus-22.12-000/tools.lnx86/python-3.9.5/lib:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/openmpi-4.1.1/lib:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/zmq/lib//64bit:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/mesa3d/lib/64bit:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/lib/64bit:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/lib
+CHROMOTING_SSH_AUTH_SOCK=/tmp/chromoting.jonathan.ssh_auth_sock
+COLOR_ACTIVITY_STYLE=fg=white,bg=#BC3908,bold
+COLOR_CURRENT_STYLE=fg=black,bg=white,bold
+COLOR_STATUS_STYLE=fg=white,bg=#BC3908
+COMP_KEY=0
+COMP_POINT=0
+COMP_TYPE=0
+DISPLAY=
+DVTLMD_LICENSE_FILE=20000@ls.corp.enfabrica.net.
+DVT_HOME=/edatools/AMIQ/dvt-eclipse-21.1.53
+DVT_LICENSE_FILE=20000@ls.corp.enfabrica.net.
+FLEXLM_SERVER=ls.corp.enfabrica.net.
+GEE_BINARY=/home/jonathan/bin/gee
+GEE_PROMPT=[\!] \w\[\e[0K\e[0m\]\n$ 
+GHUSER=jonathan-enf
+GOPATH=/home/jonathan/go
+GOROOT=/home/jonathan/go
+HISTFILE=/home/jonathan/.bash_history.tmux18
+HISTFILESIZE=unlimited
+HOME=/home/jonathan
+HOST=build-00
+HOSTNAME=build-00
+INDAGO_PATH=/edatools/Cadence/indagoAgile-22.09.001/tools/bin
+INDAGO_ROOT=/edatools/Cadence/indagoAgile-22.09.001
+LANG=C
+LC_ALL=C
+LD_LIBRARY_PATH=/edatools/Cadence/Innovus-22.12-000/tools.lnx86/python-3.9.5/lib:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/openmpi-4.1.1/lib:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/zmq/lib//64bit:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/mesa3d/lib/64bit:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/lib/64bit:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/lib:/usr/lib/mesa-diverted/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu/mesa:/usr/lib/x86_64-linux-gnu/dri:/usr/lib/x86_64-linux-gnu/gallium-pipe
+LM_LICENSE_FILE=5280@ls.corp.enfabrica.net.
+OLDPWD=/home/jonathan/gee/enkit/master
+OPAL_PREFIX=/edatools/Cadence/Innovus-22.12-000/tools.lnx86/openmpi-4.1.1
+PARALLEL_DIR=/edatools/Cadence/Innovus-22.12-000/share/extraction/lib
+PATH=/edatools/Cadence/Innovus-22.12-000/bin:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/bin/64bit:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/bin:/edatools/Cadence/Innovus-22.12-000/tools.lnx86/python-3.9.5/bin:/home/jonathan/.poetry/bin:/home/jonathan/perl5/bin:/home/jonathan/bin:/home/jonathan/go/bin:/home/jonathan/neovim/bin:/home/jonathan/tmux:/home/jonathan/bin:/home/jonathan/.local/bin:/edatools/bin:/usr/local/share/verilator/bin:/edatools/Xilinx/Vivado/2021.2/bin:/edatools/Cadence/indagoAgile-22.09.001/tools/bin:/edatools/Cadence/23.03.006/tools/bin:/edatools/Cadence/JasperGold-22.06.001/bin:/edatools/Cadence/JasperGold-22.06.001/Linux64/bin:/edatools/Cadence/Vmanager-23.03.003/bin:/edatools/Cadence/Genus-22.12-000/bin:/edatools/Synopsys/vc-static/2020.03-SP2-7/bin:/edatools/Synopsys/verdi/2020.03-SP2-7/bin:/edatools/Synopsys/vc-ml/2019.06/mlplatform/bin:/edatools/Synopsys/fusion-compiler/2021.06-SP2/bin:/edatools/Synopsys/coretools/S-2021.09-SP2/bin:/edatools/TSMC/MC2_2017.11.00.r/bin:/edatools/ARM/socrates-1.6.2:/edatools/AMIQ/dvt-eclipse-21.1.53/bin:/opt/enfabrica/bin:/usr/local/sbin:/usr/local/bin:/usr/local/go/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PERL5LIB=/home/jonathan/perl5/lib/perl5
+PERL_LOCAL_LIB_ROOT=/home/jonathan/perl5
+PERL_MB_OPT=--install_base "/home/jonathan/perl5"
+PERL_MM_OPT=INSTALL_BASE=/home/jonathan/perl5
+PROMPT_COMMAND=my_gee_prompt_set_ps1
+PS1=\[kgee_merge_deletion\]\[[0;1;97;41m\](enk:gee_merge_deletion S=1)\[[0;30;41m\][\!] \w\[\e[0K\e[0m\]\n$ \[\e[0m\]
+PWD=/home/jonathan/gee/enkit/gee_merge_deletion
+SHELL=/bin/bash
+SHLVL=4
+SNPSLMD_LICENSE_FILE=27020@ls.corp.enfabrica.net.
+SPLX_EXEC_HOME=/edatools/Cadence/Innovus-22.12-000/tools.lnx86/extraction/bin/64bit
+SSH_AGENT_PID=0
+SSH_AUTH_SOCK=/home/jonathan/.config/enkit/agent
+TERM=screen-256color
+TERM_PROGRAM=tmux
+TERM_PROGRAM_VERSION=next-3.4
+TMUX=/tmp/tmux-3651626033/default,148,1
+TMUX_PANE=%440
+TSMC_LICENSE_FILE=27000@ls.corp.enfabrica.net.
+TZ=US/Pacific
+USER=jonathan
+VCS_HOME=/edatools/Synopsys/vcs/T-2022.06-SP1
+VC_STATIC_HOME=/edatools/Synopsys/vc-static/2020.03-SP2-7
+VERILATOR_ROOT=/usr/local/bin
+W3264_ENV=/home/jonathan/.kshrc
+W3264_STORED_HOSTNAME=build-00
+W3264_USER_LIBPATH=/usr/lib/mesa-diverted/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu/mesa:/usr/lib/x86_64-linux-gnu/dri:/usr/lib/x86_64-linux-gnu/gallium-pipe
+W3264_USER_PATH=/edatools/Cadence/Innovus-22.12-000/tools.lnx86/python-3.9.5/bin:/home/jonathan/.poetry/bin:/home/jonathan/perl5/bin:/home/jonathan/bin:/home/jonathan/go/bin:/home/jonathan/neovim/bin:/home/jonathan/tmux:/home/jonathan/bin:/home/jonathan/.local/bin:/edatools/bin:/usr/local/share/verilator/bin:/edatools/Xilinx/Vivado/2021.2/bin:/edatools/Cadence/indagoAgile-22.09.001/tools/bin:/edatools/Cadence/23.03.006/tools/bin:/edatools/Cadence/JasperGold-22.06.001/bin:/edatools/Cadence/JasperGold-22.06.001/Linux64/bin:/edatools/Cadence/Vmanager-23.03.003/bin:/edatools/Cadence/Innovus-22.12-000/bin:/edatools/Cadence/Genus-22.12-000/bin:/edatools/Synopsys/vc-static/2020.03-SP2-7/bin:/edatools/Synopsys/verdi/2020.03-SP2-7/bin:/edatools/Synopsys/vc-ml/2019.06/mlplatform/bin:/edatools/Synopsys/fusion-compiler/2021.06-SP2/bin:/edatools/Synopsys/coretools/S-2021.09-SP2/bin:/edatools/TSMC/MC2_2017.11.00.r/bin:/edatools/ARM/socrates-1.6.2:/edatools/AMIQ/dvt-eclipse-21.1.53/bin:/opt/enfabrica/bin:/usr/local/sbin:/usr/local/bin:/usr/local/go/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WINDOW=tmux18
+XCELIUM_PATH=/edatools/Cadence/23.03.006/tools/bin
+XILINXD_LICENSE_FILE=2100@ls.corp.enfabrica.net.
+XILINX_DOCNAV_PATH=/edatools/Xilinx/DocNav
+XILINX_VIVADO=/edatools/Xilinx/Vivado/2021.2
+debian_chroot=hw-dev-jonathan
+ps3264_osid=Ubuntu
+20.04
+w3264_osver=Ubuntu
+20
+A__z=F*COMP_KEY=F*COMP_POINT=F*COMP_TYPE="*SHLVL

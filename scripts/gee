@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.48"
+readonly VERSION="0.2.49"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -1563,10 +1563,10 @@ function _interactive_conflict_resolution() {
         # TODO(jonathan): do I have "us" and "them" backwards here?
         ?) DECODED_ST="" ;;  # The no-conflict case
         DD) DECODED_ST="Both deleted" ;;
-        AU) DECODED_ST="Added by us" ;;
-        UD) DECODED_ST="Deleted by them" ;;
-        UA) DECODED_ST="Added by them" ;;
-        DU) DECODED_ST="Deleted by us" ;;
+        AU) DECODED_ST="Added by them" ;;
+        UD) DECODED_ST="Deleted by us" ;;
+        UA) DECODED_ST="Added by us" ;;
+        DU) DECODED_ST="Deleted by them" ;;
         AA) DECODED_ST="Both added" ;;
         UU) DECODED_ST="Both modified" ;;
         *)  DECODED_ST="Bizarre!" ;;
@@ -1613,14 +1613,26 @@ function _interactive_conflict_resolution() {
           [Yy])
             _info "${FILE}: Keeping your version from ${FROM_DESC}"
             _info "${FILE}: Discarding their version from ${ONTO_DESC}"
-            "${GIT}" checkout --theirs "${FILE}"  # during rebase, "theirs" is actually ours.
+            if [[ "${ST}" == "UD" ]]; then
+              # Keep "your" change: deleting the file.
+              yes d | "${GIT}" mergetool -- "${FILE}"
+              echo ""  # git mergetool above sometimes needs a newline here.
+            else
+              "${GIT}" checkout --theirs "${FILE}"  # during rebase, "theirs" is actually ours.
+            fi
             DONE=1
             ;;
           [Tt])
             _info "${FILE}: Discarding your version from ${FROM_DESC}"
             _info "${FILE}: Keeping their version from ${ONTO_DESC}"
             _info "Keeping older ${FILE} from ${ONTO_DESC}"
-            "${GIT}" checkout --ours "${FILE}"  # during rebase, "ours" is actually theirs.
+            if [[ "${ST}" == "DU" ]]; then
+              # Keep "their" change: deleting the file.
+              yes d | "${GIT}" mergetool -- "${FILE}"
+              echo ""  # git mergetool above sometimes needs a newline here.
+            else
+              "${GIT}" checkout --ours "${FILE}"  # during rebase, "ours" is actually theirs.
+            fi
             DONE=1
             ;;
           [Mm])

@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.48
+gee version: 0.2.49
 
 gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
 tools  gee is an opinionated tool that implements a specific, simple, powerful
