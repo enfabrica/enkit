@@ -1,0 +1,319 @@
+syntax = "proto3";
+
+import "google/rpc/status.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "third_party/buildbuddy/proto/acl.proto";
+import "third_party/buildbuddy/proto/context.proto";
+import "third_party/buildbuddy/proto/trace.proto";
+
+package scheduler;
+
+message NodeAddress {
+  // The node's hostname. Must be reachable from the scheduler.
+  string host = 1;
+
+  // The node's port.
+  int32 port = 2;
+}
+
+message LeaseTaskRequest {
+  // The task for which to request a lease. If successful, a LeaseTaskResponse
+  // will be returned containing the serialized task and duration of the lease.
+  string task_id = 1;
+
+  // Indicates that the leased task has been completed and can be deleted.
+  // Mutually exclusive with `release`.
+  bool finalize = 2;
+
+  // DEPRECATED
+  // Indicates that the lease should be released without finalizing (deleting)
+  // the task.
+  // Mutually exclusive with `finalize`.
+  bool release = 3;
+
+  // ID of the executor making the request.
+  string executor_id = 4;
+
+  // Indicates that the leased task could not be run to completion and should
+  // be re-enqueued to be retried.
+  bool re_enqueue = 5;
+  // Optional description of why the task needs to be re-enqueued (may be
+  // visible to end user).
+  google.rpc.Status re_enqueue_reason = 6;
+
+  // Indicates whether the client supports lease reconnection.
+  //
+  // When set to true, and the client is attempting to lease a task that is in
+  // "reconnecting" state, the server will use the `reconnect_token` to validate
+  // the lease attempt. If the token is invalid, the server will return a
+  // NOT_FOUND error.
+  //
+  // Otherwise (if this field is false), the server will treat tasks in
+  // "reconnecting" state the same way that it treats unclaimed tasks. This
+  // behavior ensures backwards compatibility for older executors which don't
+  // support reconnection.
+  bool supports_reconnect = 7;
+
+  // The token issued by the server when initially establishing the lease. This
+  // should be set by the client when attempting to retry a disconnected lease.
+  string reconnect_token = 8;
+}
+
+message LeaseTaskResponse {
+  // The serialized task will be set in the *first* LeaseTaskResponse returned.
+  // from the server. Subsequent responses will *only* include a lease duration.
+  bytes serialized_task = 1;
+
+  // The remaining duration of this lease. To continue to hold the lease, the
+  // client *must* send another LeaseTaskRequest before time.Now() +
+  // lease_duration_seconds.
+  int64 lease_duration_seconds = 2;
+
+  // Whether or not the lease was closed cleanly.
+  bool closed_cleanly = 3;
+
+  // A token that may be used to retry the lease if it disconnects.
+  // DEPRECATED: updated executors will use the lease_id as the reconnect token.
+  string reconnect_token = 4;
+
+  // ID for this lease. The scheduler will ignore any mutation requests if the
+  // provided lease ID doesn't match the current lease ID.
+  string lease_id = 5;
+
+  // If true, indicates that the client may reclaim an existing lease by
+  // resending a LeaseTaskRequest with the same lease_id.
+  bool supports_reconnect = 6;
+}
+
+message TaskSize {
+  // The tasks's estimated memory usage.
+  int64 estimated_memory_bytes = 1;
+
+  // The task's estimated cpu usage.
+  int64 estimated_milli_cpu = 2;
+
+  // The task's estimated disk space requirement (beyond task inputs).
+  int64 estimated_free_disk_bytes = 3;
+}
+
+// Next ID: 9
+message SchedulingMetadata {
+  // Task size used for scheduling purposes, when the scheduler is deciding
+  // which executors (if any) may execute a task, and also when an executor is
+  // deciding which task to dequeue. Executors may see a different value of this
+  // field than what the scheduler sees, depending on measured_task_size. See
+  // documentation of that field for more info.
+  TaskSize task_size = 1;
+
+  // Task size measured from a previous task execution of a similar task, if
+  // such data is available.
+  //
+  // The scheduler may use this size to compute an adjusted `task_size` just
+  // before enqueueing a task onto an executor, but the adjusted size should not
+  // exceed the executor's limits.
+  TaskSize measured_task_size = 7;
+
+  // Task size computed via prediction model. This is only necessary when we
+  // a measured task size is not available.
+  //
+  // The scheduler may use this size to compute an adjusted `task_size` just
+  // before enqueueing a task onto an executor, but the adjusted size should not
+  // exceed the executor's limits.
+  TaskSize predicted_task_size = 8;
+
+  string os = 2;
+  string arch = 3;
+  string pool = 4;
+  // Group ID that owns the executors on which the task is to be executed.
+  // May be different from the Group ID of the user that issued the Execute
+  // request.
+  string executor_group_id = 5;
+  // Group ID of the user that issued the Execute request.
+  string task_group_id = 6;
+
+  // A signal to the executor that the size of this queued task should be
+  // tracked as part of the queued-or-assigned size metrics. This is necessary
+  // because tasks may be scheduled on multiple executors, but should only
+  // contributed to this system-wide metric once, so the scheduler must inform
+  // exactly one of the executors to perform the queued task size tracking.
+  // This is for metrics purposes only and shouldn't affect the behavior of the
+  // scheduler or the executor.
+  bool track_queued_task_size = 9;
+}
+
+message ScheduleTaskRequest {
+  string task_id = 1;
+  SchedulingMetadata metadata = 2;
+  bytes serialized_task = 3;
+}
+
+message ScheduleTaskResponse {
+  // Intentionally left blank.
+}
+
+message ReEnqueueTaskRequest {
+  string task_id = 1;
+  // Optional reason for the re-enqueue (may be visible to end-user).
+  string reason = 2;
+  // Lease ID of the claim on the task. The request will be ignored if the
+  // lease ID doesn't match the current lease ID.
+  string lease_id = 3;
+}
+
+message ReEnqueueTaskResponse {
+  // Intentionally left blank.
+}
+
+message EnqueueTaskReservationRequest {
+  string task_id = 1;
+  TaskSize task_size = 2;
+  SchedulingMetadata scheduling_metadata = 3;
+
+  // If set, enqueue the task reservation on the given executor instance if it
+  // is directly connected to the scheduler that receives this request.
+  //
+  // If unset, or if there is no such connected executor, select any directly
+  // connected executor suitable for running the task.
+  //
+  // Ex. "610a4cd4-3c0f-41bb-ad72-abe933837d58"
+  string executor_id = 4;
+
+  // If set, the executor client should wait this long before making the task
+  // available for scheduling. The server will set this field when re-enqueuing
+  // tasks that are currently in "reconnecting" state, so that the client which
+  // is trying to reconnect its lease can have a short grace period during which
+  // it can retry the lease.
+  google.protobuf.Duration delay = 5;
+
+  // Used to propagate trace information from the initial Execute request.
+  // Normally trace information is automatically propagated via RPC metadata but
+  // that doesn't work for streamed task reservations since there's one
+  // long-running streaming RPC from the executor to the scheduler.
+  trace.Metadata trace_metadata = 100;
+}
+
+message EnqueueTaskReservationResponse {
+  string task_id = 1;
+}
+
+message RegisterExecutorRequest {
+  ExecutionNode node = 1;
+}
+
+message ShuttingDownRequest {
+  // Task IDs that are in the executor queue.
+  repeated string task_id = 1;
+}
+
+message RegisterAndStreamWorkRequest {
+  // Only one of the fields should be sent. oneofs not used due to awkward Go
+  // APIs.
+
+  // Request to register the executor with the scheduler.
+  // This message should be sent immediately after establishing stream and be
+  // resent periodically as long as the executor should continue to receive task
+  // reservations.
+  RegisterExecutorRequest register_executor_request = 1;
+
+  // Response to a previous EnqueueTaskReservationRequest.
+  EnqueueTaskReservationResponse enqueue_task_reservation_response = 2;
+
+  // Notifications to the scheduler that this executor is going away.
+  ShuttingDownRequest shutting_down_request = 3;
+}
+
+message RegisterAndStreamWorkResponse {
+  // Request to enqueue a task reservation. A EnqueueTaskReservationResponse
+  // message will be sent to ack the task reservation.
+  EnqueueTaskReservationRequest enqueue_task_reservation_request = 3;
+}
+
+service Scheduler {
+  rpc RegisterAndStreamWork(stream RegisterAndStreamWorkRequest)
+      returns (stream RegisterAndStreamWorkResponse) {}
+
+  rpc LeaseTask(stream LeaseTaskRequest) returns (stream LeaseTaskResponse) {}
+
+  rpc ScheduleTask(ScheduleTaskRequest) returns (ScheduleTaskResponse) {}
+
+  rpc ReEnqueueTask(ReEnqueueTaskRequest) returns (ReEnqueueTaskResponse) {}
+
+  // Request to enqueue a task reservation for an existing task to a locally
+  // chosen executor.
+  rpc EnqueueTaskReservation(EnqueueTaskReservationRequest)
+      returns (EnqueueTaskReservationResponse) {}
+}
+
+message ExecutionNode {
+  // Remote execution node host.
+  // Ex. "10.52.6.5"
+  string host = 1;
+
+  // Remote execution node port.
+  // Ex. 1987
+  int32 port = 2 [deprecated = true];
+
+  // Assignable memory bytes in remote execution node.
+  // Ex. 26843545600
+  int64 assignable_memory_bytes = 3;
+
+  // Assignable cpu in remote execution node.
+  // Ex. 7000
+  int64 assignable_milli_cpu = 4;
+
+  // Remote execution node operating system.
+  // Ex. "linux".
+  string os = 5;
+
+  // Architecture of the remote execution node.
+  // Ex. "amd64"
+  string arch = 6;
+
+  // Remote execution pool that this node is assigned to.
+  // Ex. "buildbuddy-executors-us-west1-b"
+  string pool = 7;
+
+  // Version of the executor binary.
+  string version = 8;
+
+  // Unique ID that identifies this executor instance within a node pool. It is
+  // set once when the executor binary starts and preserved for the lifetime of
+  // the executor. Each executor generates its own ID on startup.
+  //
+  // Ex. "34c5cf7e-b3b1-4e20-b43c-3e196b30d983"
+  string executor_id = 9;
+
+  // ID of the host this executor is running on
+  //
+  // Ex. "8BiY6U0F"
+  string executor_host_id = 10;
+}
+
+message GetExecutionNodesRequest {
+  context.RequestContext request_context = 1;
+}
+
+message GetExecutionNodesResponse {
+  context.ResponseContext response_context = 1;
+
+  repeated Executor executor = 2;
+
+  message Executor {
+    ExecutionNode node = 1;
+
+    // Whether tasks will be routed to this node by default.
+    bool is_default = 2;
+  }
+
+  bool user_owned_executors_supported = 3;
+}
+
+// Persisted information about connected executors.
+message RegisteredExecutionNode {
+  ExecutionNode registration = 1;
+  string scheduler_host_port = 2;
+  string group_id = 3;
+  acl.ACL acl = 4;
+  google.protobuf.Timestamp last_ping_time = 5;
+}
