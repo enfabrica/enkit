@@ -312,28 +312,40 @@ nextLicense:
 func (t *Table) Chan(ctx context.Context) chan struct{} {
 	c := make(chan struct{})
 
-	conn, err := t.db.Acquire(ctx)
-	if err != nil {
-		slog.Error("Error, failed to db Acquire", "db_error", err)
-		metricSqlCounter.WithLabelValues("Chan", "error_acquire_db").Inc()
-		close(c)
-	}
-
-	_, err = conn.Exec(ctx, listenLicenseState)
-	if err != nil {
-		slog.Error("Error, failed to listenLicenseState", "db_error", err)
-		metricSqlCounter.WithLabelValues("Chan", "error_exec_listen_license_state").Inc()
-		close(c)
-	}
-
 	go func() {
-		defer conn.Release()
+		var err error
+		var conn *pgxpool.Conn = nil
 		for {
-			_, err := conn.Conn().WaitForNotification(ctx)
+			if conn == nil {
+				conn, err = t.db.Acquire(ctx)
+				if err != nil {
+					slog.Error("Error, failed to db Acquire", "db_error", err)
+					metricSqlCounter.WithLabelValues("Chan", "error_acquire_db").Inc()
+					if conn != nil {
+						conn.Release()
+						conn = nil
+					}
+					time.Sleep(time.Second * 10)
+					continue // try to acquire again
+				}
+
+				_, err = conn.Exec(ctx, listenLicenseState)
+				if err != nil {
+					slog.Error("Error, failed to listenLicenseState", "db_error", err)
+					metricSqlCounter.WithLabelValues("Chan", "error_exec_listen_license_state").Inc()
+					conn.Release()
+					conn = nil
+					time.Sleep(time.Second * 10)
+					continue // try to acquire again
+				}
+			}
+			_, err = conn.Conn().WaitForNotification(ctx)
 			if err != nil {
-				slog.Error("Error, failed to WaitForNotification", "db_error", err)
-				metricSqlCounter.WithLabelValues("Chan", "error_wait_for_notification").Inc()
-				return
+				metricSqlCounter.WithLabelValues("Chan", "retry_wait_for_notification").Inc()
+				conn.Release()
+				conn = nil
+				time.Sleep(time.Second * 5)
+				continue // try to acquire again
 			}
 			c <- struct{}{}
 		}
