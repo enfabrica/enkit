@@ -3,13 +3,12 @@ package outputs
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	faketreeexec "github.com/enfabrica/enkit/faketree/exec"
 	"github.com/enfabrica/enkit/lib/bes"
@@ -17,7 +16,6 @@ import (
 	"github.com/enfabrica/enkit/lib/karchive"
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	bbexec "github.com/enfabrica/enkit/lib/kbuildbarn/exec"
-	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/proxy/ptunnel"
 	tunnelexec "github.com/enfabrica/enkit/proxy/ptunnel/exec"
@@ -29,13 +27,18 @@ type Root struct {
 	*cobra.Command
 	*client.BaseFlags
 
-	OutputsRoot           string
-	BuildBuddyApiKey      string
-	BuildBuddyUrl         string
-	BuildbarnHost         string
-	BuildbarnTunnelTarget string
-	TunnelListenPort      int
-	GatewayProxy          string
+	BuildbarnClientAddress string
+	BuildbarnClientRoot    string
+	BuildbarnInstanceName  string
+	BuildBuddyApiKey       string
+	BuildBuddyUrl          string
+	OutputsRoot            string
+
+	// TODO(scott): These params are deprecated, and should be removed.
+	// BuildbarnHost         string
+	// BuildbarnTunnelTarget string
+	// TunnelListenPort      int
+	// GatewayProxy          string
 }
 
 func New(base *client.BaseFlags) (*Root, error) {
@@ -70,13 +73,18 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 	}
 	defaultOutputsRoot := filepath.Join(homeDir, "outputs")
 
-	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs-root", defaultOutputsRoot, "Root dir of mounted outputs")
+	rc.PersistentFlags().StringVar(&rc.BuildbarnClientAddress, "bbclientd-address", "", "If set, override any auto-discovery of the endpoint of the machine's local buildbarn client")
+	rc.PersistentFlags().StringVar(&rc.BuildbarnClientRoot, "bbclientd-root", "", "If set, override any auto-discovery of the root mount dir of the machine's local buildbarn client")
+	rc.PersistentFlags().StringVar(&rc.BuildbarnInstanceName, "buildbarn-instance", "", "If set, override any auto-discovery of the buildbarn instance name for artifacts")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
-	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
-	rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
-	rc.PersistentFlags().IntVar(&rc.TunnelListenPort, "tunnel-listen-port", 8001, "If a tunnel is required, this is the local port the tunnel listens on for connections")
-	rc.PersistentFlags().StringVar(&rc.GatewayProxy, "gateway-proxy", "", "If a tunnel is used, gateway proxy to tunnel through")
+	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs-root", defaultOutputsRoot, "Root dir of mounted outputs")
+
+	// TODO(scott): These flags are deprecated, and should be removed.
+	// rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
+	// rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
+	// rc.PersistentFlags().IntVar(&rc.TunnelListenPort, "tunnel-listen-port", 8001, "If a tunnel is required, this is the local port the tunnel listens on for connections")
+	// rc.PersistentFlags().StringVar(&rc.GatewayProxy, "gateway-proxy", "", "If a tunnel is used, gateway proxy to tunnel through")
 	return rc, nil
 }
 
@@ -155,9 +163,8 @@ func (c *Mount) maybeSetupTunnel(hostPort string, tunnelTarget string, tunnelPor
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	host, port, err := c.maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget, c.root.TunnelListenPort, c.root.GatewayProxy)
-	if err != nil {
-		return err
+	if err := os.MkdirAll(c.root.OutputsRoot, 0755); err != nil {
+		return fmt.Errorf("failed to create OutputsRoot %q: %w", c.root.OutputsRoot, err)
 	}
 	buddyUrl, err := url.Parse(c.root.BuildBuddyUrl)
 	if err != nil {
@@ -167,22 +174,21 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed generating new buildbuddy client: %w", err)
 	}
-	bbOpts := bbexec.NewClientOptions(
-		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
-		host,
-		port,
-		c.root.OutputsRoot,
-	)
-	_, err = bbexec.MaybeStartClient(bbOpts, 5*time.Second)
+	user, err := user.Current()
 	if err != nil {
-		return fmt.Errorf("failed to start bb_clientd: %w", err)
+		return fmt.Errorf("failed to look up the current user to namespace scratch dir: %w", err)
 	}
+	bbOpts := bbexec.NewClient(
+		c.root.BuildbarnInstanceName,
+		c.root.BuildbarnClientRoot,
+		user.Uid,
+	)
 	r, err := kbuildbarn.GenerateHardlinks(
 		context.Background(),
 		bc,
-		bbOpts.MountDir,
+		bbOpts.ScratchDir(),
+		c.root.BuildbarnInstanceName,
 		c.InvocationID,
-		host,
 		kbuildbarn.WithNamedSetOfFiles(),
 		kbuildbarn.WithTestResults(),
 	)
@@ -190,8 +196,8 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
 	scratchInvocationPath := filepath.Join(bbOpts.ScratchDir(), c.InvocationID)
-	if err := os.Mkdir(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("could not create scratch dir %w", err)
+	if err := os.MkdirAll(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("could not create scratch dir %q: %w", scratchInvocationPath, err)
 	}
 	var errs []error
 	if c.DryRun {
@@ -202,16 +208,16 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		for _, v := range r {
 			dir := filepath.Dir(v.Dest)
 			if err := os.MkdirAll(dir, 0777); err != nil && !os.IsExist(err) {
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("creating dir %q: %w", dir, err))
 				continue
 			}
 			if err := os.Link(v.Src, v.Dest); err != nil && !os.IsExist(err) {
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("creating hardlink %q -> %q: %w", v.Src, v.Dest, err))
 			}
 		}
 	}
 	if len(errs) != 0 {
-		return fmt.Errorf("error writing links to disk %w", multierror.New(errs))
+		return fmt.Errorf("error writing links to disk: %w", multierror.New(errs))
 	}
 	outputInvocationPath := filepath.Join(c.root.OutputsRoot, c.InvocationID)
 	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
@@ -240,12 +246,21 @@ func NewUnmount(root *Root) *Unmount {
 		root: root,
 	}
 	command.Command.RunE = command.Run
-	command.Flags().StringVarP(&command.Invocation, "invocation-id", "i", "", "invocation id to mount")
+	command.Flags().StringVarP(&command.Invocation, "invocation-id", "i", "", "invocation id to unmount")
 	return command
 }
 
 func (c *Unmount) Run(cmd *cobra.Command, args []string) error {
 	invoPath := filepath.Join(c.root.OutputsRoot, c.Invocation)
+	// Remove the hardlinks, to free up disk space
+	target, err := filepath.EvalSymlinks(invoPath)
+	if err != nil {
+		return fmt.Errorf("failed to find symlink target for path %q: %w", invoPath, err)
+	}
+	if err := os.RemoveAll(target); err != nil {
+		return fmt.Errorf("failed to delete hardlink forest from path %q: %w", target, err)
+	}
+	// Remove the original symlink
 	if err := os.Remove(invoPath); err != nil {
 		return fmt.Errorf("error removing %s: %v", invoPath, err)
 	}
@@ -375,22 +390,19 @@ func NewShutdown(root *Root) *Shutdown {
 }
 
 func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
-	bbOpts := bbexec.NewClientOptions(
-		c.root.Log,
-		"", // Buildbarn remote host/port does not matter
-		0,
-		c.root.OutputsRoot,
-	)
 	var errs []error
-	// MaybeStartClient is used here to bind a client handle to an existing process, so that we can kill it. It may start a process that will be then killed quickly, which is acceptable but not ideal.
-	bbClient, err := bbexec.MaybeStartClient(bbOpts, 5*time.Second)
+	// Delete the hardlink forests to potentially clean up space
+	user, err := user.Current()
 	if err != nil {
-		errs = append(errs, err)
+		return fmt.Errorf("failed to look up the current user to namespace scratch dir: %w", err)
 	}
-	if bbClient != nil {
-		if err := bbClient.Shutdown(); err != nil {
-			errs = append(errs, fmt.Errorf("error maybe? killing the process of existing bb_clientd %v", err))
-		}
+	bbOpts := bbexec.NewClient(
+		c.root.BuildbarnInstanceName,
+		c.root.BuildbarnClientRoot,
+		user.Uid,
+	)
+	if err := os.RemoveAll(bbOpts.ScratchDir()); err != nil {
+		return fmt.Errorf("error removing user's hardlink forests %q: %w", bbOpts.ScratchDir(), err)
 	}
 	if err := os.RemoveAll(c.root.OutputsRoot); err != nil {
 		errs = append(errs, err)
