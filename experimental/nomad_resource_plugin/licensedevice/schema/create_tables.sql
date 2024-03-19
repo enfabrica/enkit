@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS license_state (
 -- DROP TABLE IF EXISTS license_state_log
 CREATE TABLE IF NOT EXISTS license_state_log (
   id BIGSERIAL PRIMARY KEY,
-  license_id TEXT NOT NULL REFERENCES license_state(id),
+  license_id TEXT NOT NULL,
   node TEXT NOT NULL,
   ts TIMESTAMPTZ NOT NULL,
   previous_state TEXT NOT NULL,
