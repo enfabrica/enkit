@@ -17,25 +17,8 @@ proto_library(
 )
 
 proto_library(
-    name = "api_key_proto",
-    srcs = ["api_key.proto"],
-    deps = [
-        ":context_proto",
-    ],
-)
-
-proto_library(
     name = "cache_proto",
     srcs = ["cache.proto"],
-    deps = [
-        ":context_proto",
-        ":remote_execution_proto",
-        ":resource_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:field_mask_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@googleapis//google/rpc:status_proto",
-    ],
 )
 
 proto_library(
@@ -51,87 +34,12 @@ proto_library(
     srcs = ["invocation.proto"],
     deps = [
         ":acl_proto",
-        ":api_key_proto",
         ":cache_proto",
         ":context_proto",
-        ":invocation_status_proto",
-        ":stat_filter_proto",
-        ":target_proto",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_proto",
         "//third_party/bazel/src/main/protobuf:command_line_proto",
-        "//third_party/bazel/src/main/protobuf:option_filters_proto",
-        "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:timestamp_proto",
     ],
-)
-
-proto_library(
-    name = "invocation_status_proto",
-    srcs = ["invocation_status.proto"],
-)
-
-proto_library(
-    name = "remote_execution_proto",
-    srcs = [
-        "remote_execution.proto",
-    ],
-    deps = [
-        ":scheduler_proto",
-        ":semver_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
-        "@googleapis//google/api:annotations_proto",
-        "@googleapis//google/longrunning:operations_proto",
-        "@googleapis//google/rpc:status_proto",
-    ],
-)
-
-proto_library(
-    name = "resource_proto",
-    srcs = ["resource.proto"],
-    deps = [
-        ":remote_execution_proto",
-    ],
-)
-
-proto_library(
-    name = "scheduler_proto",
-    srcs = ["scheduler.proto"],
-    deps = [
-        ":acl_proto",
-        ":context_proto",
-        ":trace_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@googleapis//google/rpc:status_proto",
-    ],
-)
-
-proto_library(
-    name = "semver_proto",
-    srcs = ["semver.proto"],
-)
-
-proto_library(
-    name = "stat_filter_proto",
-    srcs = ["stat_filter.proto"],
-)
-
-proto_library(
-    name = "target_proto",
-    srcs = ["target.proto"],
-    deps = [
-        ":context_proto",
-        "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_proto",
-        "//third_party/buildbuddy/proto/api/v1:common_proto",
-    ],
-)
-
-proto_library(
-    name = "trace_proto",
-    srcs = ["trace.proto"],
 )
 
 proto_library(
@@ -146,28 +54,14 @@ go_proto_library(
     importpath = "github.com/enfabrica/enkit/third_party/buildbuddy/proto",
     protos = [
         ":acl_proto",
-        ":api_key_proto",
         ":cache_proto",
         ":context_proto",
         ":invocation_proto",
-        ":invocation_status_proto",
-        ":remote_execution_proto",
-        ":resource_proto",
-        ":scheduler_proto",
-        ":semver_proto",
-        ":stat_filter_proto",
-        ":target_proto",
-        ":trace_proto",
         ":user_id_proto",
-        "//third_party/buildbuddy/proto/api/v1:common_proto",
     ],
     deps = [
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
         "//third_party/bazel/src/main/protobuf:proto",
-        "@com_google_cloud_go_longrunning//autogen/longrunningpb",
-        "@org_golang_google_genproto_googleapis_api//annotations",
-        "@org_golang_google_genproto_googleapis_rpc//code",
-        "@org_golang_google_genproto_googleapis_rpc//status",
     ],
 )
 
@@ -182,14 +76,6 @@ py_proto_library(
 )
 
 py_proto_library(
-    name = "api_key_py_proto",
-    protos = [":api_key_proto"],
-    deps = [
-        ":context_py_proto",
-    ],
-)
-
-py_proto_library(
     name = "context_py_proto",
     protos = [":context_proto"],
     deps = [
@@ -200,12 +86,6 @@ py_proto_library(
 py_proto_library(
     name = "cache_py_proto",
     protos = [":cache_proto"],
-    deps = [
-        ":context_py_proto",
-        ":remote_execution_py_proto",
-        ":resource_py_proto",
-        "@googleapis//google/rpc:status_py_proto",
-    ],
 )
 
 py_proto_library(
@@ -213,77 +93,11 @@ py_proto_library(
     protos = [":invocation_proto"],
     deps = [
         ":acl_py_proto",
-        ":api_key_py_proto",
         ":cache_py_proto",
         ":context_py_proto",
-        ":invocation_status_py_proto",
-        ":stat_filter_py_proto",
-        ":target_py_proto",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_py_proto",
         "//third_party/bazel/src/main/protobuf:command_line_py_proto",
-        "//third_party/bazel/src/main/protobuf:option_filters_py_proto",
     ],
-)
-
-py_proto_library(
-    name = "invocation_status_py_proto",
-    protos = [":invocation_status_proto"],
-)
-
-py_proto_library(
-    name = "remote_execution_py_proto",
-    protos = [":remote_execution_proto"],
-    deps = [
-        ":scheduler_py_proto",
-        ":semver_py_proto",
-        "@googleapis//google/api:annotations_py_proto",
-        "@googleapis//google/longrunning:operations_py_proto",
-        "@googleapis//google/rpc:status_py_proto",
-    ],
-)
-
-py_proto_library(
-    name = "resource_py_proto",
-    protos = [":resource_proto"],
-    deps = [
-        ":remote_execution_py_proto",
-    ],
-)
-
-py_proto_library(
-    name = "scheduler_py_proto",
-    protos = [":scheduler_proto"],
-    deps = [
-        ":acl_py_proto",
-        ":context_py_proto",
-        ":trace_py_proto",
-        "@googleapis//google/rpc:status_py_proto",
-    ],
-)
-
-py_proto_library(
-    name = "semver_py_proto",
-    protos = [":semver_proto"],
-)
-
-py_proto_library(
-    name = "stat_filter_py_proto",
-    protos = [":stat_filter_proto"],
-)
-
-py_proto_library(
-    name = "target_py_proto",
-    protos = [":target_proto"],
-    deps = [
-        ":context_py_proto",
-        "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_py_proto",
-        "//third_party/buildbuddy/proto/api/v1:common_py_proto",
-    ],
-)
-
-py_proto_library(
-    name = "trace_py_proto",
-    protos = [":trace_proto"],
 )
 
 py_proto_library(

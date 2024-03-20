@@ -1,7 +1,0 @@
-syntax = "proto3";
-
-package trace;
-
-message Metadata {
-  map<string, string> entries = 1;
-}
