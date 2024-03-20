@@ -847,10 +847,25 @@ function _startup_checks() {
   fi
 }
 
+function _gh_auth_check() {
+  # Wrap gh auth check and return correct exit codes on failure,
+  # to work around https://github.com/cli/cli/issues/8845
+  local -a RESULT=()
+  if _read_cmd RESULT "${GH}" auth status; then
+    if [[ "${RESULT[1]}" =~ Failed ]]; then
+      return 1
+    else
+      return 0
+    fi
+  else
+    return 1
+  fi
+}
+
 function _gh_authenticate() {
   local TRIES=3
 
-  while ! _gh auth status; do
+  while ! _gh_auth_check; do
     if [[ "$TRIES" -eq 0 ]]; then
       _fatal "Failed to authenticate to github.  Join \"git help\" chatroom and ask for help?"
     fi
@@ -5043,7 +5058,8 @@ function gee__gcd() {
 _register_help "hello" "Check connectivity to github." <<'EOT'
 Usage: gee hello
 
-Verifies that the user can communicate with github using ssh.
+Verifies that the user can communicate with github using ssh and the
+github cli interface.
 
 For more information:
   https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh
@@ -5054,6 +5070,7 @@ function gee__hello() {
   if [[ -z "${_QUIET}" ]]; then
     _info "Hello, ${GHUSER}.  Connectivity to github is AOK."
   fi
+  _gh_authenticate
 }
 
 function gee__debug_error_reporting() {
