@@ -2,30 +2,18 @@ core.workflow(
     name = "default",
     origin = git.origin(
         url = "https://github.com/buildbuddy-io/buildbuddy",
-        ref = "9891dc69a036040d6e7eaab616d4a11186c311d5",  # v2.44.0
+        ref = "372b95b41a6ed82da632ee44ff0c48071c849c21",  # master as of 26Jan2022
     ),
     destination = git.github_pr_destination(
         url = "https://github.com/enfabrica/enkit",
         destination_ref = "master",
     ),
     origin_files = glob([
-        "proto/acl.proto",
-        "proto/api_key.proto",
-        "proto/cache.proto",
-        "proto/command_line.proto",
-        "proto/context.proto",
         "proto/invocation.proto",
-        "proto/invocation_status.proto",
-        "proto/option_filters.proto",
-        "proto/remote_execution.proto",
-        "proto/resource.proto",
-        "proto/scheduler.proto",
-        "proto/semver.proto",
-        "proto/stat_filter.proto",
-        "proto/target.proto",
-        "proto/trace.proto",
+        "proto/acl.proto",
+        "proto/cache.proto",
+        "proto/context.proto",
         "proto/user_id.proto",
-        "proto/api/v1/common.proto",
     ]),
     destination_files = glob(
         ["third_party/buildbuddy/**"],
