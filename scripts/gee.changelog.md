@@ -4,6 +4,7 @@
 
 ### 0.2.49
 
+* gee hello: also check and repair gh authentication (#XXXX).
 * gee up: fix resolution of updated/deleted merge conflicts (#1040).
 
 ### 0.2.48

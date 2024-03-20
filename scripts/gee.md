@@ -753,7 +753,8 @@ The "gcd" function also updates the following environment variables:
 
 Usage: `gee hello`
 
-Verifies that the user can communicate with github using ssh.
+Verifies that the user can communicate with github using ssh and the
+github cli interface.
 
 For more information:
   https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh
