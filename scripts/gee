@@ -4222,14 +4222,6 @@ EndOfPrTemplate
   # title when we eventually submit the PR:
   sed -i '1{d};2{/^$/d}' "${TRIMMED}"
 
-  local ASSIGNEES=()
-  mapfile -t ASSIGNEES < <(grep ^ASSIGNEES: "${TRIMMED}" | xargs -n1 | grep -v ^ASSIGNEES:)
-  if [[ "${#ASSIGNEES[@]}" == 0 ]]; then
-    _warn "Every PR must have one or more assignees.  Assigning to you for now."
-    ASSIGNEES=( "@me" )
-  fi
-  sed -i '/^ASSIGNEES:/d' "${TRIMMED}"
-
   _push_to_origin "${CURRENT_BRANCH}"
   # gh pr is arcane and confusing, but this works:
   #  -R specifies the repo that we are pushing changes into.
@@ -4243,17 +4235,25 @@ EndOfPrTemplate
     -H "${GHUSER}:${CURRENT_BRANCH}"
     --body-file "${TRIMMED}"
   )
-  local A
-  for A in "${ASSIGNEES[@]}"; do
-    PR_ARGS+=(--assignee "${A}")
-  done
-
   local DRAFT=0
   if grep --quiet -E "^\s*DRAFT" "${TRIMMED}"; then
     sed -i '/^\s*DRAFT/d' "${TRIMMED}"
     DRAFT=1
     PR_ARGS+=( --draft )
   fi
+
+  local ASSIGNEES=()
+  mapfile -t ASSIGNEES < <(grep ^ASSIGNEES: "${TRIMMED}" | xargs -n1 | grep -v ^ASSIGNEES:)
+  if [[ "${#ASSIGNEES[@]}" == 0 ]] && [[ "${DRAFT}" == 0 ]]; then
+    _warn "Every PR must have one or more assignees.  Assigning to you for now."
+    ASSIGNEES=( "@me" )
+  fi
+  sed -i '/^ASSIGNEES:/d' "${TRIMMED}"
+
+  local A
+  for A in "${ASSIGNEES[@]}"; do
+    PR_ARGS+=(--assignee "${A}")
+  done
 
   PR_ARGS+=( "$@" )
 
