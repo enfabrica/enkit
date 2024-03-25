@@ -87,14 +87,14 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 		{
 			desc: "normal build",
 			events: []*bes.BuildEvent{
-				&bes.BuildEvent{
+				{
 					Payload: &bes.BuildEvent_Started{
 						Started: &bes.BuildStarted{
 							Uuid: "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						},
 					},
 				},
-				&bes.BuildEvent{
+				{
 					Payload: &bes.BuildEvent_BuildMetadata{
 						BuildMetadata: &bes.BuildMetadata{
 							Metadata: map[string]string{
@@ -105,16 +105,16 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 						},
 					},
 				},
-				&bes.BuildEvent{
+				{
 					Payload: &bes.BuildEvent_WorkspaceStatus{
 						WorkspaceStatus: &bes.WorkspaceStatus{
 							Item: []*bes.WorkspaceStatus_Item{
-								&bes.WorkspaceStatus_Item{Key: "GIT_USER", Value: "jmcclane"},
+								{Key: "GIT_USER", Value: "jmcclane"},
 							},
 						},
 					},
 				},
-				&bes.BuildEvent{
+				{
 					Id: &bes.BuildEventId{
 						Id: &bes.BuildEventId_TestResult{
 							TestResult: &bes.BuildEventId_TestResultId{
@@ -130,7 +130,7 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 						},
 					},
 				},
-				&bes.BuildEvent{
+				{
 					Payload: &bes.BuildEvent_Finished{
 						Finished: &bes.BuildFinished{
 							ExitCode: &bes.BuildFinished_ExitCode{
@@ -140,7 +140,7 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 						},
 					},
 				},
-				&bes.BuildEvent{
+				{
 					Payload: &bes.BuildEvent_BuildMetrics{
 						BuildMetrics: &bes.BuildMetrics{
 							BuildGraphMetrics: &bes.BuildMetrics_BuildGraphMetrics{
@@ -151,52 +151,52 @@ func TestPublishBuildToolEventStream(t *testing.T) {
 				},
 			},
 			wantMessages: []*pubsub.Message{
-				&pubsub.Message{
+				{
 					Data: []byte(`{"started":{"uuid":"d9b5cec0-c1e6-428c-8674-a74194b27447"}}`),
 					Attributes: map[string]string{
 						"inv_id": "d9b5cec0-c1e6-428c-8674-a74194b27447",
 					},
 				},
-				&pubsub.Message{
+				{
 					Data: []byte(`{"buildMetadata":{"metadata":{"ROLE":"interactive","build_tag:foo":"bar","not_build_tag:baz":"quux"}}}`),
 					Attributes: map[string]string{
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
-						"bt:foo":   "bar",
+						"bt__foo":  "bar",
 					},
 				},
-				&pubsub.Message{
+				{
 					Data: []byte(`{"workspaceStatus":{"item":[{"key":"GIT_USER", "value":"jmcclane"}]}}`),
 					Attributes: map[string]string{
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
-						"bt:foo":   "bar",
+						"bt__foo":  "bar",
 					},
 				},
-				&pubsub.Message{
+				{
 					Data: []byte(`{"id":{"testResult":{"label":"//foo/bar:baz_test", "run":1}}, "testResult":{"status":"PASSED"}}`),
 					Attributes: map[string]string{
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
-						"bt:foo":   "bar",
+						"bt__foo":  "bar",
 					},
 				},
-				&pubsub.Message{
+				{
 					Data: []byte(`{"finished":{"exitCode":{"name":"SUCCESS"}}}`),
 					Attributes: map[string]string{
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
 						"result":   "SUCCESS",
-						"bt:foo":   "bar",
+						"bt__foo":  "bar",
 					},
 				},
-				&pubsub.Message{
+				{
 					Data: []byte(`{"buildMetrics":{"buildGraphMetrics":{"actionCount":3}}}`),
 					Attributes: map[string]string{
 						"inv_id":   "d9b5cec0-c1e6-428c-8674-a74194b27447",
 						"inv_type": "interactive",
 						"result":   "SUCCESS",
-						"bt:foo":   "bar",
+						"bt__foo":  "bar",
 					},
 				},
 			},
