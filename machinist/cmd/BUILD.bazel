@@ -27,6 +27,12 @@ go_cross_binary(
     target = ":cmd",
 )
 
+go_cross_binary(
+    name = "machinist_linux_arm",
+    platform = "@io_bazel_rules_go//go/toolchain:linux_arm64",
+    target = ":cmd",
+)
+
 astore_upload(
     name = "machinist_linux_push",
     file = "infra/dev_machine/machinist",
@@ -45,4 +51,10 @@ astore_upload(
         "no-presubmit",
     ],
     targets = [":cmd_windows"],
+)
+
+astore_upload(
+    name = "machinist_linux_arm_push",
+    file = "infra/dev_machine/machinist",
+    targets = [":machinist_linux_arm"],
 )
