@@ -4,6 +4,8 @@ See README.md for more information.
 """
 
 load("//bazel/meson:meson.bzl", "meson_register_toolchains")
+load("@aspect_gcc_toolchain//toolchain:repositories.bzl", "gcc_toolchain_dependencies")
+load("@aspect_gcc_toolchain//toolchain:defs.bzl", "ARCHS", "gcc_register_toolchain")
 load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
@@ -32,6 +34,15 @@ def stage_2():
       dependencies are in stage 2 because they depend on the existence of
       rules_python in a load statement, which is instantiated in stage 1.
     """
+
+    gcc_toolchain_dependencies()
+
+    gcc_register_toolchain(
+        name = "gcc_toolchain_x86_64",
+        sysroot_variant = "x86_64-X11",
+        target_arch = ARCHS.x86_64,
+        gcc_version = "10.3.0",
+    )
 
     py_repositories()
 

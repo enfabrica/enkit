@@ -158,6 +158,16 @@ def stage_1():
     )
 
     maybe(
+        name = "cython",
+        repo_rule = http_archive,
+        sha256 = "00f97476cef9fcd9a89f9d2a49be3b518e1a74b91f377fe08c97fcb44bc0f7d7",
+        strip_prefix = "cython-3.0.10",
+        urls = [
+            "https://github.com/cython/cython/archive/refs/tags/3.0.10.tar.gz",
+        ],
+    )
+
+    maybe(
         name = "com_github_grpc_grpc",
         repo_rule = http_archive,
         patch_args = ["-p1"],
@@ -277,6 +287,14 @@ filegroup(
         sha256 = "2a0860a336ae836b54671cbbe0710eec17c64ef70c4c5a88ccfd47ea6e3739bd",
         urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/releases/download/4.6.0/rules_proto_grpc-4.6.0.tar.gz"],
         strip_prefix = "rules_proto_grpc-4.6.0",
+    )
+
+    maybe(
+        name = "aspect_gcc_toolchain",
+        repo_rule = http_archive,
+        sha256 = "b741b99a06fd3289e38f2ed030839b0f4c5e66830bc9b7e6c9f3d08b897ac5b4",
+        urls = ["https://github.com/f0rmiga/gcc-toolchain/archive/4d27f294428dd3286ecea65b9ca9650ceeac37b6.tar.gz"],
+        strip_prefix = "gcc-toolchain-4d27f294428dd3286ecea65b9ca9650ceeac37b6",
     )
 
     # Explicitly load Jsonnet here so that we control the version, instead of
