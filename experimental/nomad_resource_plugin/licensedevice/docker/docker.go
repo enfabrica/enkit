@@ -111,11 +111,9 @@ func (c *Client) GetCurrent(ctx context.Context) ([]*types.License, error) {
 			ids := strings.Split(kv[1], ",")
 			for _, id := range ids {
 				inUse = append(inUse, &types.License{
-					ID:       id,
-					Status:   "IN_USE",
-					UserNode: &c.nodeID,
-					// TODO(scott): If the CJ job ID is added as a container label, we can
-					// fetch that and propagate it instead
+					ID:          id,
+					Status:      "IN_USE",
+					UserNode:    &c.nodeID,
 					UserProcess: &userProcess,
 				})
 			}
