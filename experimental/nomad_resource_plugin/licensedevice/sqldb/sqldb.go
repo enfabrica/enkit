@@ -18,14 +18,13 @@ import (
 )
 
 const (
-	QueryAllLicenses          = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state"
-	queryLocalLicenses        = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state WHERE usage_state = 'IN_USE' AND reserved_by_node = $1"
-	querySingleLicense        = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state WHERE id = $1"
-	updateLicenseState        = "UPDATE license_state SET usage_state = $2, last_state_change = $3, reserved_by_node = $4, used_by_process = $5 WHERE id = $1"
-	updateLicenseStateReserve = "UPDATE license_state SET usage_state = $2, last_state_change = $3, reserved_by_node = $4, used_by_process = $5 WHERE id = $1 and usage_state = 'FREE'"
-	appendLicenseStateLog     = "INSERT INTO license_state_log (license_id, node, ts, previous_state, current_state, reason, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)"
-	listenLicenseState        = "LISTEN license_state_update_channel"
-	NotifyLicenseState        = "NOTIFY license_state_update_channel"
+	QueryAllLicenses      = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state"
+	queryLocalLicenses    = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state WHERE usage_state = 'IN_USE' AND reserved_by_node = $1"
+	querySingleLicense    = "SELECT id, vendor, feature, usage_state, last_state_change, reserved_by_node, used_by_process FROM license_state WHERE id = $1"
+	updateLicenseState    = "UPDATE license_state SET usage_state = $2, last_state_change = $3, reserved_by_node = $4, used_by_process = $5 WHERE id = $1"
+	appendLicenseStateLog = "INSERT INTO license_state_log (license_id, node, ts, previous_state, current_state, reason, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)"
+	listenLicenseState    = "LISTEN license_state_update_channel"
+	NotifyLicenseState    = "NOTIFY license_state_update_channel"
 
 	StateFree     = "FREE"
 	stateReserved = "RESERVED"
@@ -150,7 +149,7 @@ func (t *Table) Reserve(ctx context.Context, licenseIDs []string, node string) (
 		})
 	}
 
-	return t.updateLicenses(ctx, tx, licenses, "Reserve() called on device plugin", true)
+	return t.updateLicenses(ctx, tx, licenses, "Reserve() called on device plugin")
 }
 
 func (t *Table) UpdateInUse(ctx context.Context, licenses []*types.License) (retErr error) {
@@ -208,7 +207,7 @@ nextLicense:
 		licenses = append(licenses, localLicense)
 	}
 
-	_, err = t.updateLicenses(ctx, tx, licenses, "detected in scan", false)
+	_, err = t.updateLicenses(ctx, tx, licenses, "detected in scan")
 	if err != nil {
 		metricSqlCounter.WithLabelValues("UpdateInUse", "error_update_licenses").Inc()
 		return fmt.Errorf("failed to update license status: %w", err)
@@ -243,7 +242,7 @@ func (t *Table) getLicenses(ctx context.Context, tx pgx.Tx) ([]*types.License, e
 	return licenses, nil
 }
 
-func (t *Table) updateLicenses(ctx context.Context, tx pgx.Tx, licenses []*types.License, reason string, reserve bool) ([]*types.License, error) {
+func (t *Table) updateLicenses(ctx context.Context, tx pgx.Tx, licenses []*types.License, reason string) ([]*types.License, error) {
 	ret := []*types.License{}
 
 	txTime := time.Now()
@@ -257,16 +256,13 @@ nextLicense:
 			return nil, fmt.Errorf("failed to get current state of license %q: %w", license.ID, err)
 		}
 
-		if !reserve && dbLicense.Status == license.Status {
+		if dbLicense.Status == license.Status {
 			continue nextLicense
 		}
-		query := updateLicenseState
-		if reserve {
-			query = updateLicenseStateReserve
-		}
+
 		tag, err := tx.Exec(
 			ctx,
-			query,
+			updateLicenseState,
 			license.ID,
 			license.Status,
 			txTime,
@@ -278,13 +274,8 @@ nextLicense:
 			return nil, fmt.Errorf("failed to update row for license %q: %w", license.ID, err)
 		}
 		if tag.RowsAffected() != 1 {
-			if reserve {
-				metricSqlCounter.WithLabelValues("updateLicenses", "attempted_to_reserve_in_use").Inc()
-				return nil, fmt.Errorf("Unable to reserve license %q", license.ID)
-			} else {
-				metricSqlCounter.WithLabelValues("updateLicenses", "error_too_many_rows_affected").Inc()
-				return nil, fmt.Errorf("license reserve affected %d rows; expected exactly one row affected", tag.RowsAffected)
-			}
+			metricSqlCounter.WithLabelValues("updateLicenses", "error_too_many_rows_affected").Inc()
+			return nil, fmt.Errorf("license reserve affected %d rows; expected exactly one row affected", tag.RowsAffected)
 		}
 
 		_, err = tx.Exec(
