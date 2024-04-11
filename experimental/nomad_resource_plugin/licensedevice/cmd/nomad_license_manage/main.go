@@ -7,7 +7,9 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,6 +26,7 @@ var (
 	runRemove   = flag.String("remove", "", "remove an existing license by <id>")
 	runShowLogs = flag.Bool("showlogs", false, "Show the logs from the license_state_log. You must specify a count to show")
 	runFree     = flag.String("free", "", "Free a license by <id>")
+	runReserve  = flag.String("reserve", "", "Test reserve a license by <id>[,<id>]")
 )
 
 func main() {
@@ -39,7 +42,7 @@ func main() {
 	defer db.Close()
 	defer db.Reset() // If we don't do this, we seem to leak active connections.
 
-	rows, err := db.Query(ctx, sqldb.QueryAllLicenses)
+	rows, err := db.Query(ctx, sqldb.QueryAllLicenses+" order by id")
 	if err != nil {
 		slog.Error("Error querying licenses", "error", err)
 		return
@@ -169,7 +172,7 @@ func main() {
 			slog.Error("Can not find a license to remove named:", "license", *runFree)
 			return
 		}
-		_, err = db.Exec(ctx, "update license_state set usage_state = $1, last_state_change = CURRENT_TIMESTAMP where id = $2",
+		_, err = db.Exec(ctx, "update license_state set usage_state = $1, last_state_change = CURRENT_TIMESTAMP, reserved_by_node = NULL, used_by_process = NULL where id = $2",
 			sqldb.StateFree, *runFree)
 		if err != nil {
 			slog.Error("Unable to update license_state:", "error", err)
@@ -179,6 +182,31 @@ func main() {
 			slog.Error("Unable to notify licensestate change:", "error", err)
 		}
 		fmt.Println("Freed.")
+		return
+	}
+	if *runReserve != "" {
+		reserveLicenses := strings.Split(*runReserve, ",")
+		foundIds := 0
+		for _, l := range licenses {
+			for _, lic := range reserveLicenses {
+				if l.ID == lic {
+					foundIds = foundIds + 1
+				}
+			}
+		}
+		if foundIds != len(reserveLicenses) {
+			slog.Error("Can not find all licenses named:", "license", *runReserve)
+			return
+		}
+		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		nodeid, _ := os.Hostname()
+		table, err := sqldb.OpenTable(rctx, *connection, "license_status", nodeid)
+		_, err = table.Reserve(rctx, reserveLicenses, nodeid)
+		cancel()
+		if err != nil {
+			slog.Error("Unable to reserve license:", "error", err)
+		}
+		fmt.Println("Reserved.")
 		return
 	}
 }

@@ -41,7 +41,8 @@ var (
 )
 
 const (
-	LicenseEnvVar = "LICENSEPLUGIN_RESERVED_IDS"
+	LicenseEnvVar  = "LICENSEPLUGIN_RESERVED_IDS"
+	NomadJobEnvVar = "NOMAD_JOB_ID"
 )
 
 type Client struct {
@@ -93,6 +94,13 @@ func (c *Client) GetCurrent(ctx context.Context) ([]*types.License, error) {
 			metricDockerCounter.WithLabelValues("GetCurrent", "error_container_inspect").Inc()
 			return nil, fmt.Errorf("failed to inspect container %q: %w", container.ID, err)
 		}
+		userProcess := container.ID
+		for _, env := range details.Config.Env {
+			kv := strings.SplitN(env, "=", 2)
+			if kv[0] == NomadJobEnvVar {
+				userProcess = kv[1]
+			}
+		}
 	nextEnv:
 		for _, env := range details.Config.Env {
 			kv := strings.SplitN(env, "=", 2)
@@ -103,12 +111,10 @@ func (c *Client) GetCurrent(ctx context.Context) ([]*types.License, error) {
 			ids := strings.Split(kv[1], ",")
 			for _, id := range ids {
 				inUse = append(inUse, &types.License{
-					ID:       id,
-					Status:   "IN_USE",
-					UserNode: &c.nodeID,
-					// TODO(scott): If the CJ job ID is added as a container label, we can
-					// fetch that and propagate it instead
-					UserProcess: &container.ID,
+					ID:          id,
+					Status:      "IN_USE",
+					UserNode:    &c.nodeID,
+					UserProcess: &userProcess,
 				})
 			}
 		}
