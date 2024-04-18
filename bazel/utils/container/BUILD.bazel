@@ -1,0 +1,62 @@
+load("@enkit_pip_deps//:requirements.bzl", "requirement")
+
+exports_files(["container_pusher.py"])
+
+genrule(
+    name = "stable_status",
+    outs = ["stable-status.txt"],
+    cmd = "cp bazel-out/stable-status.txt $@",
+    stamp = 1,
+)
+
+genrule(
+    name = "volatile_status",
+    outs = ["volatile-status.txt"],
+    cmd = "cp bazel-out/volatile-status.txt $@",
+    stamp = 1,
+)
+
+py_library(
+    name = "stamp",
+    srcs = ["stamp.py"],
+    data = [
+        ":stable_status",
+        ":volatile_status",
+    ],
+    deps = [
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_library(
+    name = "exceptions_lib",
+    srcs = ["exceptions.py"],
+    visibility = [
+        "//bazel/utils/container:__subpackages__",
+        "//bb_reporter:__subpackages__",
+        "//shims:__subpackages__",
+        "//proxy:__subpackages__",
+        "//bestie:__subpackages__",
+        "//infra:__subpackages__",
+        "//machinist:__subpackages__",
+        "//monitor:__subpackages__",
+    ],
+)
+
+py_binary(
+    name = "container_stamper",
+    srcs = ["container_stamper.py"],
+    deps = [
+        ":stamp",
+        requirement("absl-py"),
+    ],
+    visibility = [
+        "//bb_reporter:__subpackages__",
+        "//shims:__subpackages__",
+        "//proxy:__subpackages__",
+        "//bestie:__subpackages__",
+        "//infra:__subpackages__",
+        "//machinist:__subpackages__",
+        "//monitor:__subpackages__",
+    ],
+)
