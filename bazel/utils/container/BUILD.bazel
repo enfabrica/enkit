@@ -1,3 +1,6 @@
+# The directory internal/bazel/utils/container must exist in the internal
+# repo so that dynamically generated targets from the enkit repo can be 
+# referenced locally within the internal repo
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 
 exports_files(["container_pusher.py"])
