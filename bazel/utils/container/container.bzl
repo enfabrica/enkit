@@ -93,8 +93,11 @@ def nonhermetic_image_builder(*args, **kwargs):
         name = "{}_labels".format(name),
         outs = [output],
         srcs = [":{}".format(user_labels)],
-        tools = ["//bazel/utils/container:container_stamper"],
-        cmd = "$(location //bazel/utils/container:container_stamper) --user_labels $(location :{}) --output $(location {})".format(user_labels, output),
+        # The full repo path needs to be specified so that when this target is dynamically
+        # created in the internal repo, bazel refers to the container_stamper target in enkit
+        # instead of trying to find it under @enfabrica//bazel/utils/container
+        tools = ["@enkit//bazel/utils/container:container_stamper"],
+        cmd = "$(location @enkit//bazel/utils/container:container_stamper) --user_labels $(location :{}) --output $(location {})".format(user_labels, output),
     )
     kwargs.pop("image_path")
     kwargs.pop("namespace")
@@ -122,8 +125,8 @@ def container_image(*args, **kwargs):
         name = "{}_labels".format(name),
         outs = [output],
         srcs = [":{}".format(user_labels)],
-        tools = ["//bazel/utils/container:container_stamper"],
-        cmd = "$(location //bazel/utils/container:container_stamper) --user_labels $(location :{}) --output $(location {})".format(user_labels, output),
+        tools = ["@enkit//bazel/utils/container:container_stamper"],
+        cmd = "$(location @enkit//bazel/utils/container:container_stamper) --user_labels $(location :{}) --output $(location {})".format(user_labels, output),
     )
     kwargs["labels"] = ":{}_labels".format(name)
     oci_image(*args, **kwargs)
