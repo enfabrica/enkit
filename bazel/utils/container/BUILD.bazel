@@ -1,3 +1,6 @@
+# The directory internal/bazel/utils/container must exist in the internal
+# repo so that dynamically generated targets from the enkit repo can be 
+# referenced locally within the internal repo
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 
 exports_files(["container_pusher.py"])
@@ -50,13 +53,8 @@ py_binary(
         ":stamp",
         requirement("absl-py"),
     ],
+    # Allow the internal repo to access this target
     visibility = [
-        "//bb_reporter:__subpackages__",
-        "//shims:__subpackages__",
-        "//proxy:__subpackages__",
-        "//bestie:__subpackages__",
-        "//infra:__subpackages__",
-        "//machinist:__subpackages__",
-        "//monitor:__subpackages__",
+        "//visibility:public",
     ],
 )

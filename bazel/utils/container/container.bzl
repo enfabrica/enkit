@@ -73,6 +73,7 @@ _nonhermetic_image_builder = rule(
 
 def nonhermetic_image_builder(*args, **kwargs):
     name = kwargs.get("name")
+    tags = kwargs.get("tags", [])
     for repo in ["dev", "staging", "prod"]:
         container_repo(
             name = "{}_{}".format(name, repo),
@@ -81,6 +82,7 @@ def nonhermetic_image_builder(*args, **kwargs):
             namespace = kwargs.get("namespace"),
             region = kwargs.get("region", GCP_REGION),
             project = kwargs.get("project", GCP_PROJECT),
+            tags = tags,
         )
     output = "{}_labels.txt".format(name)
     user_labels = "{}_user_labels".format(name)
@@ -88,13 +90,18 @@ def nonhermetic_image_builder(*args, **kwargs):
         name = user_labels,
         output = "{}_user_labels.txt".format(name),
         content = "".join(["{}={}\n".format(k, v) for k, v in kwargs.get("labels", {}).items()]),
+        tags = tags,
     )
     native.genrule(
         name = "{}_labels".format(name),
         outs = [output],
         srcs = [":{}".format(user_labels)],
-        tools = ["//bazel/utils/container:container_stamper"],
-        cmd = "$(location //bazel/utils/container:container_stamper) --user_labels $(location :{}) --output $(location {})".format(user_labels, output),
+        # The full repo path needs to be specified so that when this target is dynamically
+        # created in the internal repo, bazel refers to the container_stamper target in enkit
+        # instead of trying to find it under @enfabrica//bazel/utils/container
+        tools = ["@enkit//bazel/utils/container:container_stamper"],
+        cmd = "$(location @enkit//bazel/utils/container:container_stamper) --user_labels $(location :{}) --output $(location {})".format(user_labels, output),
+        tags = tags,
     )
     kwargs.pop("image_path")
     kwargs.pop("namespace")
@@ -107,6 +114,7 @@ def nonhermetic_image_builder(*args, **kwargs):
 def container_image(*args, **kwargs):
     name = kwargs.get("name")
     output = "{}_labels.txt".format(name)
+    tags = kwargs.get("tags", [])
 
     # Always include user-defined container labels in addition to build metadata from bazel --stamp
     # https://bazel.build/docs/user-manual#workspace-status
@@ -117,13 +125,15 @@ def container_image(*args, **kwargs):
         name = user_labels,
         output = "{}_user_labels.txt".format(name),
         content = "".join(["{}={}\n".format(k, v) for k, v in kwargs.get("labels", {}).items()]),
+        tags = tags,
     )
     native.genrule(
         name = "{}_labels".format(name),
         outs = [output],
         srcs = [":{}".format(user_labels)],
-        tools = ["//bazel/utils/container:container_stamper"],
-        cmd = "$(location //bazel/utils/container:container_stamper) --user_labels $(location :{}) --output $(location {})".format(user_labels, output),
+        tools = ["@enkit//bazel/utils/container:container_stamper"],
+        cmd = "$(location @enkit//bazel/utils/container:container_stamper) --user_labels $(location :{}) --output $(location {})".format(user_labels, output),
+        tags = tags,
     )
     kwargs["labels"] = ":{}_labels".format(name)
     oci_image(*args, **kwargs)
@@ -137,6 +147,7 @@ def container_push(*args, **kwargs):
     region = kwargs.get("region", GCP_REGION)
     project = kwargs.get("project", GCP_PROJECT)
     image_path = kwargs.get("image_path")
+    tags = kwargs.get("tags", [])
     for repo in ["dev", "staging"]:
         container_repo(
             name = "{}_{}".format(target_basename, repo),
@@ -145,18 +156,21 @@ def container_push(*args, **kwargs):
             namespace = namespace,
             region = region,
             project = project,
+            tags = tags,
         )
         oci_push(
             name = "{}_{}_oci_push".format(target_basename, repo),
             image = kwargs.get("image"),
             remote_tags = kwargs.get("remote_tags"),
             repository_file = ":{}_{}".format(target_basename, repo),
+            tags = tags,
         )
     local_image_path = "{}/{}:latest".format(native.package_name(), target_basename)
     oci_tarball(
         name = "{}_tarball".format(target_basename),
         image = kwargs.get("image"),
         repo_tags = [local_image_path],
+        tags = tags,
     )
 
     py_binary(
@@ -185,6 +199,7 @@ def container_push(*args, **kwargs):
             requirement("absl-py"),
             requirement("docker"),
         ],
+        tags = tags,
     )
 
 GCP_REGION = "us-docker"
