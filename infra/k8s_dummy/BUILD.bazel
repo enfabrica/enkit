@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel/utils/container:container.bzl", "container_image", "container_push")
 
 go_library(
     name = "k8s_dummy_lib",
@@ -27,16 +27,17 @@ pkg_tar(
     package_dir = "/enfabrica/bin",
 )
 
-oci_image(
+container_image(
     name = "k8s_dummy_image",
     base = "@container_golang_base",
     entrypoint = ["/enfabrica/bin/k8s_dummy"],
     tars = [":k8s_dummy_tar"],
 )
 
-oci_push(
+container_push(
     name = "k8s_dummy_image_push",
     image = ":k8s_dummy_image",
+    image_path = "k8s_dummy",
+    namespace = "infra",
     remote_tags = ["latest"],
-    repository = "gcr.io/devops-284019/infra/k8s_dummy",
 )

@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel/utils/container:container.bzl", "container_image", "container_push")
 
 go_library(
     name = "proxy_lib",
@@ -31,7 +31,7 @@ pkg_tar(
     mode = "0755",
 )
 
-oci_image(
+container_image(
     name = "enproxy_image",
     base = "@golang_base",
     entrypoint = ["/enproxy"],
@@ -59,10 +59,11 @@ oci_image(
 #
 # WARNING: before doing so, make sure you have set all the desired
 # defaults as per instructions in the credentials/ directory.
-oci_push(
+container_push(
     name = "upload-enproxy-image",
     image = ":enproxy_image",
+    image_path = "enproxy",
+    namespace = "infra",
     remote_tags = ["latest"],
-    repository = "gcr.io/devops-284019/infra/enproxy",
     visibility = ["//visibility:public"],
 )
