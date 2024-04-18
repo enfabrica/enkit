@@ -133,13 +133,13 @@ resource "google_cloudbuild_trigger" "build-trigger" {
   
   build {
     step {
-      name = "gcr.io/devops-284019/developer:stable"
+      name = "us-docker.pkg.dev/enfabrica-container-images/infra-prod/developer@sha256:234a6f3523159b9b2d48f96367a160832cb44380743d7e84db78275ac061cb7f"
       entrypoint = "/usr/bin/bazelisk"
       args = ["build", "//..."]
       env = ["BAZEL_PROFILE=cloudbuild"]
     }
     step {
-      name = "gcr.io/devops-284019/developer:stable"
+      name = "us-docker.pkg.dev/enfabrica-container-images/infra-prod/developer@sha256:234a6f3523159b9b2d48f96367a160832cb44380743d7e84db78275ac061cb7f"
       entrypoint = "/usr/bin/bazelisk"
       args = ["test", "//..."]
       env = ["BAZEL_PROFILE=cloudbuild"]

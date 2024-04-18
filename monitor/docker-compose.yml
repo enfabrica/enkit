@@ -3,6 +3,6 @@ version: "3.3"
 services:
   monitor:
     network_mode: "host"
-    image: "gcr.io/devops-284019/infra/monitor:monitor-server"
+    image: "us-docker.pkg.dev/enfabrica-container-images/infra-prod/monitor@sha256:0247335422213e260471bf1ff92d741944014803e713fd3f1246cfbd908bf806"
     user: "nobody"
     restart: "unless-stopped"
