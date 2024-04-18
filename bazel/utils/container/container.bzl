@@ -175,8 +175,8 @@ def container_push(*args, **kwargs):
 
     py_binary(
         name = target_basename,
-        srcs = ["//bazel/utils/container:container_pusher.py"],
-        main = "//bazel/utils/container:container_pusher.py",
+        srcs = ["@enkit//bazel/utils/container:container_pusher.py"],
+        main = "@enkit//bazel/utils/container:container_pusher.py",
         data = [
             ":{}_dev_oci_push".format(target_basename),
             ":{}_staging_oci_push".format(target_basename),
@@ -195,7 +195,7 @@ def container_push(*args, **kwargs):
         },
         deps = [
             "@rules_python//python/runfiles",
-            "//bazel/utils/container:exceptions_lib",
+            "@enkit//bazel/utils/container:exceptions_lib",
             requirement("absl-py"),
             requirement("docker"),
         ],
