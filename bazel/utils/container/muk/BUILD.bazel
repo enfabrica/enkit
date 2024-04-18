@@ -1,0 +1,71 @@
+load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
+load("@enkit_pip_deps//:requirements.bzl", "requirement")
+load("@io_bazel_rules_jsonnet//jsonnet:jsonnet.bzl", "jsonnet_library", "jsonnet_to_json")
+
+py_binary(
+    name = "muk",
+    srcs = ["main.py"],
+    main = "main.py",
+    deps = [
+        ":muk_lib",
+        ":muk_py_proto",
+        requirement("absl-py"),
+        requirement("docker"),
+    ],
+)
+
+py_proto_library(
+    name = "muk_py_proto",
+    srcs = ["muk.proto"],
+)
+
+py_library(
+    name = "muk_lib",
+    srcs = ["muk.py"],
+    deps = [
+        ":muk_py_proto",
+        "//bazel/utils/container:exceptions_lib",
+        requirement("docker"),
+    ],
+)
+
+py_test(
+    name = "muk_test",
+    srcs = ["muk_test.py"],
+    data = glob(["testdata/*"]) + [
+        ":base_dev_config",
+    ],
+    deps = [
+        ":muk_lib",
+        "@rules_python//python/runfiles",
+        requirement("absl-py"),
+    ],
+)
+
+jsonnet_to_json(
+    name = "base_dev_config",
+    src = "base_dev.jsonnet",
+    outs = ["base_dev.json"],
+    deps = [
+        ":base",
+    ],
+)
+
+jsonnet_library(
+    name = "base",
+    srcs = ["base.libsonnet"],
+    deps = [
+        ":util",
+        ":packages",
+    ],
+)
+
+jsonnet_library(
+    name = "packages",
+    srcs = ["packages.libsonnet"],
+)
+
+jsonnet_library(
+    name = "util",
+    srcs = [":util.libsonnet"],
+)

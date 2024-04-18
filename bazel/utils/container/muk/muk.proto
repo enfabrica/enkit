@@ -1,0 +1,201 @@
+syntax = "proto3";
+
+package infra.dev_container.muk;
+
+message ImageBuild {
+  // Repository for which the newly-built image should be tagged.
+  // The tag suffix is added via the command-line, not in this field.
+  //
+  // Example: gcr.io/devops-284019/my/image
+  string repository = 1;
+
+  // Image on which this build is based. This should always be a full URL (so
+  // e.g. docker.io/library/ubuntu:tag instead of ubuntu:tag)
+  string base_image = 2;
+
+  // Files downloaded and made available at build-time inside the `/astore`
+  // directory.
+  //
+  // These files must be used by Actions below; `/astore` is removed at the end
+  // of the image build.
+  repeated AstoreFile astore_files = 3;
+
+  // Build actions for this image, performed in-order.
+  repeated Action actions = 4;
+
+  // Different distros use different tools to manage packages:
+  Distro distro = 5;
+
+  // User UID and GID
+  User user = 6;
+}
+
+message User {
+  // User ID to run as in the container during build-time.
+  // The default value is 0 which is the root user.
+  int32 uid = 1;
+  
+  // Group ID to run as in the container during build-time
+  // The default value is 0 which is the root group.
+  int32 gid = 2;
+}
+
+enum Distro {
+  UBUNTU = 0;
+  CENTOS = 1;
+}
+
+message AstoreFile {
+  // Name of the file in the container staging directory.
+  //
+  // Example: 'foo.txt' will be available for commands as `/astore/foo.txt`.
+  string filename = 1;
+  
+  // Path to the file in astore. This is not enforced, and is here to aid with
+  // documentation only.
+  string astore_path = 2;
+
+  // UID of the file in astore.
+  string uid = 3;
+}
+
+message Action {
+  // Actions are steps that are translated into Dockerfile line(s) (likely RUN
+  // steps).
+  //
+  // When choosing whether to implement a RUN as a `command` or as a new custom
+  // step added in this oneof below, consider that we don't need to add extra
+  // overhead for different types of commands, but it is useful in particular
+  // scenarios:
+  //
+  // 1. When the step is tough to get right: `apt install` of packages is an
+  // example - normally we do `apt install foo` on the commandline, but the best
+  // way in Dockerfiles is something like:
+  // * run apt with particular noninteractive environment vars
+  // * run apt update
+  // * add -y switch to apt install
+  // * clean up apt temp data when done
+  // ...which adds noise to each `apt install` line. In these cases, intent is
+  // best kept with a custom Action, letting the tool do the generation of the
+  // command.
+  //
+  // 2. When there are multiple ways to do it - adding apt repos is commonly
+  // done via `curl`ing some GPG key followed by writing to an apt repo list
+  // file - but where to store the key, curl flags, what list file (appending to
+  // the general file vs a dedicated file) varies. Having a custom action can
+  // ensure that there is one "right" way to enforce conventions.
+  //
+  // 3. Abstraction across multiple OS's (not yet seen with existing actions)
+  oneof action {
+    // Run an arbitrary command
+    Command command = 1;
+
+    // Install packages via apt. `apt update` is always run before this step,
+    // and cleanup of the apt cache is always performed afterwards.
+    AptInstall apt_install = 2;
+
+    // Add an architecture to Debian/Ubuntu-based package managers
+    // TODO(bbhuynh): Consider removing dpkg_add_arch; it offers litte value
+    // over the verbatim command
+    DpkgAddArch dpkg_add_arch = 3;
+
+    // Add an apt repo to a Debian/Ubuntu-based image
+    AptAddRepo apt_add_repo = 4;
+
+    // Add an apt PPA to a Debian/Ubuntu-based image
+    // TODO(bbhuynh): Consider removing apt_add_ppa; it offers litte value
+    // over the verbatim command
+    AptAddPpa apt_add_ppa = 5;
+
+    // Add repos for centos-based images
+    AddYumRepo add_yum_repo = 6;
+
+    // Always perform a 'yum update' before installing packages
+    // and 'yum clean all' afterwards
+    YumInstall yum_install = 7;
+  }
+}
+
+message Command {
+  // Command to run, as if put in a `RUN` directive in a Dockerfile
+  string command = 1;
+}
+
+message AptInstall {
+  // Packages to install via apt
+  repeated string packages = 1;
+}
+
+message YumInstall {
+  // Packages to install via yum
+  repeated string packages = 1;
+  // 'yum localinstall' a list of downloaded *.rpm
+  repeated string rpms = 2;
+}
+
+message AddYumRepo {
+  // Unique name of the centos-based repository 
+  string name = 1;
+  // URL to download the package 
+  string base_url = 2;
+  // Tells yum whether to use this repo or not
+  // URL to the GPG security key
+  optional string gpgkey = 3;
+}
+
+// Add an apt repository. These are present in sources.list files in the format:
+//
+//   deb [option=value option2=value1,value2] binary_url distribution component_1 component_2
+message AptAddRepo {
+  // Name of the repository to add. This name should be unique across all apt
+  // repos added.
+  string name = 1;
+
+  // URL for binary package downloads.
+  string binary_url = 2;
+
+  // Distribution that apt packages should be fetched for. This corresponds to a
+  // particular field of a sources.list entry (see above).
+  string distribution = 3;
+
+  // Optional list of components to fetch packages for. This corresponds to a
+  // particular set of fields of a sources.list entry (see above).
+  repeated string components = 4;
+
+  // Optional list of options for this repository. This is typically used to
+  // specify e.g. architecture, and if present is located in square brackets in
+  // an Ubuntu sources.list entry.
+  //
+  // Signing key options will get added by the tool, and should not be added here.
+  repeated AptRepoOption repo_options = 5;
+
+  // If set, will download and install an apt signing key specific to this
+  // repository.
+  AptSigningKey signing_key = 6;
+}
+
+message AptAddPpa {
+    // Name of the PPA, with `ppa:` prefix omitted. Example: `git-core/ppa`
+    string name = 1;
+}
+
+message AptRepoOption {
+  // Key of the repository option (example: `arch`)
+  string name = 1;
+
+  // Values for the option (example: `amd64`)
+  repeated string values = 2;
+}
+
+message AptSigningKey {
+  // Name of the apt key. Must be unique across all apt keys.
+  string name = 1;
+
+  // URL from which the key should be fetched.
+  string url = 2;
+}
+
+message DpkgAddArch {
+  // Architecture to add (e.g. "i386")
+  string architecture = 1;
+}
