@@ -12,6 +12,7 @@ py_binary(
         requirement("absl-py"),
         requirement("docker"),
     ],
+    visibility = ["//visibility:public"],
 )
 
 py_proto_library(
