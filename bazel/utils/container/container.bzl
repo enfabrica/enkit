@@ -4,6 +4,9 @@ load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary")
 
+GCP_REGION = "us-docker"
+GCP_PROJECT = "enfabrica-container-images"
+
 _IMAGE_BUILDER_SH = """\
 #!/bin/bash
 {tool} \\
@@ -29,6 +32,7 @@ def nonhermetic_image_builder_impl(ctx):
     direct_files = ctx.files.src + ctx.files.labels + ctx.files.dev_repo + ctx.files.staging_repo + ctx.files.prod_repo
     runfiles = ctx.runfiles(
         files = ctx.attr._tool[DefaultInfo].files.to_list() + direct_files,
+        transitive_files = ctx.attr._tool[DefaultInfo].default_runfiles.files,
     )
     return [
         DefaultInfo(
@@ -172,38 +176,100 @@ def container_push(*args, **kwargs):
         repo_tags = [local_image_path],
         tags = tags,
     )
-
-    py_binary(
+    container_pusher(
         name = target_basename,
-        srcs = ["@enkit//bazel/utils/container:container_pusher.py"],
-        main = "@enkit//bazel/utils/container:container_pusher.py",
-        data = [
-            ":{}_dev_oci_push".format(target_basename),
-            ":{}_staging_oci_push".format(target_basename),
-            ":{}_tarball".format(target_basename),
-        ],
-        env = {
-            "RUNFILES_ROOT": "enkit/{}".format(native.package_name()),
-            "DEV_PUSH_SCRIPT": "push_{}_dev_oci_push.sh".format(target_basename),
-            "STAGING_PUSH_SCRIPT": "push_{}_staging_oci_push.sh".format(target_basename),
-            "NAMESPACE": namespace,
-            "REGION": region,
-            "PROJECT": project,
-            "IMAGE_PATH": image_path,
-            "LOCAL_IMAGE_PATH": local_image_path,
-            "LOCAL_IMAGE_TARBALL": "{}_tarball/tarball.tar".format(target_basename),
-        },
-        deps = [
-            "@rules_python//python/runfiles",
-            "@enkit//bazel/utils/container:exceptions_lib",
-            requirement("absl-py"),
-            requirement("docker"),
-        ],
+        dev_script = ":{}_dev_oci_push".format(target_basename),
+        staging_script = ":{}_staging_oci_push".format(target_basename),
+        image_tarball = ":{}_tarball".format(target_basename),
+        namespace = namespace,
+        image_path = image_path,
         tags = tags,
     )
 
-GCP_REGION = "us-docker"
-GCP_PROJECT = "enfabrica-container-images"
+def container_pusher_impl(ctx):
+    script = ctx.actions.declare_file("{}_push_script.sh".format(ctx.attr.name))
+    body = """#!/bin/bash
+{} \\
+--dev_script {} \\
+--staging_script {} \\
+--image_tarball {} \\
+--namespace {} \\
+--image_path {} \\
+--project {} \\
+--region {} \\
+--v=1 \\
+$@
+""".format(
+    ctx.executable._tool.short_path,
+    ctx.file.dev_script.short_path,
+    ctx.file.staging_script.short_path,
+    ctx.file.image_tarball.short_path,
+    ctx.attr.namespace,
+    ctx.attr.image_path,
+    ctx.attr.project,
+    ctx.attr.region,
+)
+    ctx.actions.write(script, body)
+
+    direct_files = ctx.files.dev_script + ctx.files.staging_script + ctx.files.image_tarball
+    transitive_files = ctx.attr._tool[DefaultInfo].default_runfiles.files.to_list() + \
+        ctx.attr.dev_script[DefaultInfo].default_runfiles.files.to_list() + \
+        ctx.attr.staging_script[DefaultInfo].default_runfiles.files.to_list() + \
+        ctx.attr.image_tarball[DefaultInfo].default_runfiles.files.to_list()
+    runfiles = ctx.runfiles(
+        files = ctx.attr._tool[DefaultInfo].files.to_list() + direct_files,
+        transitive_files = depset(transitive_files),
+    )
+    return [
+        DefaultInfo(
+            runfiles = runfiles,
+            executable = script,
+        ),
+    ]
+
+container_pusher = rule(
+    implementation = container_pusher_impl,
+    executable = True,
+    attrs = {
+        "dev_script": attr.label(
+            doc = "Script returned by the oci_push rule to push images to the dev repo",
+            allow_single_file = [".sh"],
+            mandatory = True,
+        ),
+        "staging_script": attr.label(
+            doc = "Script returned by the oci_push rule to push images to the staging repo",
+            allow_single_file = [".sh"],
+            mandatory = True,
+        ),
+        "image_tarball": attr.label(
+            doc = "Image tarball returned by the oci_tarball rule to validate image tags",
+            allow_single_file = [".tar"],
+            mandatory = True,
+        ),
+        "namespace": attr.string(
+            doc = "Name of the image repo in Artifact Registry",
+            mandatory = True,
+        ),
+        "image_path": attr.string(
+            doc = "Path under the Artifact Registry repo name",
+            mandatory = True,
+        ),
+        "project": attr.string(
+            doc = "GCP project name",
+            default = GCP_PROJECT,
+        ),
+        "region": attr.string(
+            doc = "GCP region name",
+            default = GCP_REGION,
+        ),
+        "_tool": attr.label(
+            doc = "Container pusher binary",
+            default = "//bazel/utils/container:container_pusher",
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+)
 
 def _container_repo(ctx):
     repository = "{}.pkg.dev/{}/{}-{}/{}".format(

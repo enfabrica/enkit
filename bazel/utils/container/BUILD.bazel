@@ -34,16 +34,7 @@ py_library(
 py_library(
     name = "exceptions_lib",
     srcs = ["exceptions.py"],
-    visibility = [
-        "//bazel/utils/container:__subpackages__",
-        "//bb_reporter:__subpackages__",
-        "//shims:__subpackages__",
-        "//proxy:__subpackages__",
-        "//bestie:__subpackages__",
-        "//infra:__subpackages__",
-        "//machinist:__subpackages__",
-        "//monitor:__subpackages__",
-    ],
+    visibility = ["//visibility:public"],
 )
 
 py_binary(
@@ -54,6 +45,21 @@ py_binary(
         requirement("absl-py"),
     ],
     # Allow the internal repo to access this target
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
+py_binary( 
+    name = "container_pusher",
+    srcs = ["@enkit//bazel/utils/container:container_pusher.py"],
+    main = "@enkit//bazel/utils/container:container_pusher.py",
+    deps = [
+        "@rules_python//python/runfiles",
+        "@enkit//bazel/utils/container:exceptions_lib",
+        requirement("absl-py"),
+        requirement("docker"),
+    ],
     visibility = [
         "//visibility:public",
     ],
