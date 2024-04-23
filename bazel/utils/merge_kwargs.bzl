@@ -24,13 +24,13 @@ def merge_kwargs(d1, d2, limit = 5):
                     m[k] = list(d[k])
                     continue
 
-                if type(d[k]) == "dict":
-                    m[k] = dict(d[k])
+                if type(d[k]) != "dict":
+                    # neither list nor dict, must be scalar:
+                    m[k] = d[k]
                     continue
 
-                # type must be scalar:
-                m[k] = d[k]
-                continue
+                # Let the next if fill the dict by recursively expanding the values.
+                m[k] = {}
 
             if type(m[k]) == "dict":
                 expand_next.extend([(m[k], d[k], k2) for k2 in d[k]])
