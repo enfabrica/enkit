@@ -5195,17 +5195,19 @@ function gee__bazelgc() {
 ##########################################################################
 
 _register_help "bisect" "Find a commit that caused a command to fail." <<'EOT'
-Usage: gee bisect [command...]
+Usage: gee bisect [--good <commit-ish>] command...
 
 This command wraps the `git bisect` command, and attempts to discover
 a commit that causes the provided command to transition from a success
 to a failure.  During this process, gee will create a special branch
 named `bisect_<branchname>` to perform the bisect operation in.
 
-gee will attempt to find a previous last good commit by testing a day, a
-week, a month, 3 months, and finally six months into the past.  Once
-a past good commit is found, the `git bisect` command will be used to
-identify the commit that caused a transition from a pass to a fail.
+If "--good" is specified, gee will using the specified commit as the starting
+point for bisect (the first good commit, where the command is expected to
+succeed).  If "--good" is not used, gee will attempt to find a previous last
+good commit by testing a day, a week, a month, 3 months, and finally six months
+into the past.  Once a past good commit is found, the `git bisect` command will
+be used to identify the commit that caused a transition from a pass to a fail.
 
 gee assumes that the provided command will fail at the head revision.
 If this is not the case, the behavior of this command is undefined.
@@ -5213,7 +5215,12 @@ If this is not the case, the behavior of this command is undefined.
 EOT
 
 function gee__bisect() {
-  local CMD
+  local CMD LAST_GOOD
+  LAST_GOOD=""
+  if [[ "$1" == "--good" ]]; then
+    LAST_GOOD="$2"
+    shift; shift;
+  fi
   CMD=( "$@" )
   local CUR_BRANCH BISECT_BRANCH
   CUR_BRANCH="$(_get_current_branch)"
@@ -5227,27 +5234,32 @@ function gee__bisect() {
   _git bisect start
   _git bisect bad
 
-  local WHEN WHAT LAST_GOOD
-  LAST_GOOD=""
-  for WHEN in "yesterday" "last week" "last month" "3 months ago" "6 months ago"; do
-    WHAT="$(git log --since="${WHEN}" --pretty=format:%H | tail -1)"
-    if [[ -z "${WHAT}" ]]; then
-      _info "No commits since ${WHEN}."
-      continue
+  if [[ "${LAST_GOOD}" == "" ]]; then
+    local WHEN WHAT
+    LAST_GOOD=""
+    for WHEN in "yesterday" "last week" "last month" "3 months ago" "6 months ago"; do
+      WHAT="$(git log --since="${WHEN}" --pretty=format:%H | tail -1)"
+      if [[ -z "${WHAT}" ]]; then
+        _info "No commits since ${WHEN}."
+        continue
+      fi
+      _info "Checking commit from ${WHEN}: ${WHAT}"
+      _git checkout "${WHAT}"
+      if ( "${CMD[@]}" ); then
+        LAST_GOOD="${WHAT}"
+        _info "... passed: ${WHAT}"
+        _git bisect good
+        break
+      else
+        _info "... failed: ${WHAT}"
+      fi
+    done
+    if [[ -z "${LAST_GOOD}" ]]; then
+      _die "Could not find a commit within the past 6 months that passes."
     fi
-    _info "Checking commit from ${WHEN}: ${WHAT}"
-    _git checkout "${WHAT}"
-    if ( "${CMD[@]}" ); then
-      LAST_GOOD="${WHAT}"
-      _info "... passed: ${WHAT}"
-      _git bisect good
-      break
-    else
-      _info "... failed: ${WHAT}"
-    fi
-  done
-  if [[ -z "${LAST_GOOD}" ]]; then
-    _die "Could not find a commit within the past 6 months that passes."
+  else
+    _info "Assuming a known good commit: ${LAST_GOOD}"
+    _git bisect good "${LAST_GOOD}"
   fi
   _git bisect run "${CMD[@]}"
   _git checkout HEAD

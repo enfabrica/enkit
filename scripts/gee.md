@@ -785,17 +785,19 @@ any worktree (branch) that gee knows about, and offers to delete them.
 
 ### bisect
 
-Usage: `gee bisect [command...]`
+Usage: `gee bisect [--good <commit-ish>] command...`
 
 This command wraps the `git bisect` command, and attempts to discover
 a commit that causes the provided command to transition from a success
 to a failure.  During this process, gee will create a special branch
 named `bisect_<branchname>` to perform the bisect operation in.
 
-gee will attempt to find a previous last good commit by testing a day, a
-week, a month, 3 months, and finally six months into the past.  Once
-a past good commit is found, the `git bisect` command will be used to
-identify the commit that caused a transition from a pass to a fail.
+If "--good" is specified, gee will using the specified commit as the starting
+point for bisect (the first good commit, where the command is expected to
+succeed).  If "--good" is not used, gee will attempt to find a previous last
+good commit by testing a day, a week, a month, 3 months, and finally six months
+into the past.  Once a past good commit is found, the `git bisect` command will
+be used to identify the commit that caused a transition from a pass to a fail.
 
 gee assumes that the provided command will fail at the head revision.
 If this is not the case, the behavior of this command is undefined.
