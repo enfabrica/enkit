@@ -182,9 +182,9 @@ def stage_1():
     maybe(
         name = "rules_oci",
         repo_rule = http_archive,
-        strip_prefix = "rules_oci-1.7.2",
-        url = "https://github.com/bazel-contrib/rules_oci/releases/download/v1.7.2/rules_oci-v1.7.2.tar.gz",
-        sha256 = "cf6b8be82cde30daef18a09519d75269650317e40d917c8633cf8e3ab5645ea5",
+        strip_prefix = "rules_oci-1.7.5",
+        url = "https://github.com/bazel-contrib/rules_oci/releases/download/v1.7.5/rules_oci-v1.7.5.tar.gz",
+        sha256 = "56d5499025d67a6b86b2e6ebae5232c72104ae682b5a21287770bd3bf0661abf",
     )
 
     maybe(
