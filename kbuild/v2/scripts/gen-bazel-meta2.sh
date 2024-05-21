@@ -3,8 +3,6 @@
 # This script generates kernel version variables for bazel
 #
 # Inputs
-# - a flat directory containing the kernel .debs
-# - a space separated list of kernel flavours
 # - The astore root where artifacts are stored
 # - a directory to store astore meta data files
 # - kernel label for creating bazel variable names
@@ -14,19 +12,19 @@ set -e
 LIB_SH="$(dirname $(realpath $0))/lib.sh"
 . $LIB_SH
 
-OUTPUT_DEB_ROOT="$(realpath $1)"
-ARCH="$2"
-FLAVOUR="$3"
-ASTORE_ROOT="$4"
-ASTORE_META_DIR="$5"
-KERNEL_LABEL="$6"
+KERNEL_BUILD_DIR="$(realpath $1)"
+KRELEASE_DIR="$(realpath $2)"
+ARCH="$3"
+FLAVOUR="$4"
+ASTORE_ROOT="$5"
+ASTORE_META_DIR="$6"
+KERNEL_LABEL="$7"
+
+kernel_version="$(cat ${KERNEL_BUILD_DIR}/install/build/enf-kernel-version.txt)"
 
 bazel_kernel_file="${ASTORE_META_DIR}/kernel-${ARCH}-${FLAVOUR}.version.bzl"
 rm -f "$bazel_kernel_file"
 touch "$bazel_kernel_file"
-
-# This script only handles one flavour at a time now.
-KERNEL_FLAVOURS="$FLAVOUR"
 
 get_sha256() {
     local astore_meta="$1"
@@ -51,26 +49,21 @@ get_uid() {
 gen_artifact_desc() {
     local artifact="$1"
     local kernel_version="$2"
-    local flavour="$3"
-    local astore_file="$4"
-    # Note the leading "/", which is different from how the files are
-    # uploaded.
-    local astore_path="/${ASTORE_ROOT}/${flavour}/${astore_file}"
-    local astore_meta="${ASTORE_META_DIR}/${astore_file}-${kernel_version}.json"
+    local astore_file="$3"
+    local astore_path="$4"
+    local kernel_label="$5"
+
+    local astore_meta="${ASTORE_META_DIR}/${astore_file}.json"
     if [ ! -r "$astore_meta" ] ; then
         echo "ERROR: Unable to read astore meta file: $astore_meta"
         exit 1
     fi
 
-    # Upcase arch and flavour
-    local arch="$(echo -n $ARCH | tr [:lower:] [:upper:])"
-    local FLAVOUR="$(echo -n $flavour | tr [:lower:] [:upper:])"
-
     local sha256=$(get_sha256 "$astore_meta")
     local uid=$(get_uid "$astore_meta")
 
     cat <<EOF >> "$bazel_kernel_file"
-${artifact}_${KERNEL_LABEL}_${arch}_${FLAVOUR} = {
+${artifact}_${kernel_label} = {
     "package":     "enf-${kernel_version}",
     "arch":        "$ARCH",
     "sha256":      "$sha256",
@@ -82,23 +75,18 @@ EOF
 
 }
 
-gen_deb_flavours() {
-    for f in $KERNEL_FLAVOURS ; do
-        local kernel_version="$(deb_get_kernel_version $OUTPUT_DEB_ROOT $f)"
+astore_file="kernel-tree-image-${ARCH}-${FLAVOUR}.tar.gz"
+# Note the leading "/", which is different from how the files are
+# uploaded.
+astore_path="/${ASTORE_ROOT}/${ARCH}/${FLAVOUR}/${astore_file}"
 
-        ## build-headers.tar.gz
-        local astore_file="build-headers.tar.gz"
-        gen_artifact_desc "KERNEL_TREE" $kernel_version $f $astore_file
+# translate ARCH to bazel speak if necessary
+if [ "$ARCH" = "arm64" ] ; then
+    ARCH="aarch64"
+fi
 
-        ## vmlinuz-modules.tar.gz
-        local astore_file="vmlinuz-modules.tar.gz"
-        gen_artifact_desc "KERNEL_BIN" $kernel_version $f $astore_file
+upper_arch="$(echo $ARCH | tr '[:lower:]' '[:upper:]')"
+upper_flavour="$(echo $FLAVOUR | tr '[:lower:]' '[:upper:]')"
+kernel_label="${KERNEL_LABEL}_${upper_arch}_${upper_flavour}"
 
-        ## deb-artifacts.tar.gz
-        local astore_file="deb-artifacts.tar.gz"
-        gen_artifact_desc "KERNEL_DEB" $kernel_version $f $astore_file
-
-    done
-}
-
-gen_deb_flavours
+gen_artifact_desc "KERNEL_TREE_IMAGE" $kernel_version $astore_file $astore_path $kernel_label

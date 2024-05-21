@@ -8,13 +8,13 @@
 
 set -e
 
-KERNEL_DIR="$(realpath $1)"
+KERNEL_SRC_DIR="$(realpath $1)"
 KERNEL_REPO="$2"
 KERNEL_BRANCH="$3"
 KERNEL_VERSION="$4"
 
 make_version() {
-    cd "$KERNEL_DIR"
+    cd "$KERNEL_SRC_DIR"
 
     # Construct a dynamic local kernel version string based on the current
     # unix epoch and the HEAD git commit hash.
@@ -29,8 +29,8 @@ make_version() {
     echo "$version" > "$KERNEL_VERSION"
 }
 
-if [ -z "$KERNEL_DIR" ] ; then
-    echo "ERROR: kernel build directory is not defined"
+if [ -z "$KERNEL_SRC_DIR" ] ; then
+    echo "ERROR: kernel src build directory is not defined"
     exit 1
 fi
 
@@ -44,19 +44,19 @@ if [ -z "$KERNEL_BRANCH" ] ; then
     exit 1
 fi
 
-# clean kernel build dir
+# clean kernel src build dir
 if [ "$RT_CLEAN_BUILD" = "yes" ] ; then
-    rm -rf "$KERNEL_DIR" "$KERNEL_VERSION"
+    rm -rf "$KERNEL_SRC_DIR" "$KERNEL_VERSION"
 fi
 
-if [ -d "$KERNEL_DIR" -a -r "$KERNEL_VERSION" ] ; then
+if [ -d "$KERNEL_SRC_DIR" -a -r "$KERNEL_VERSION" ] ; then
     # skip cloning the kernel repo.
     exit 0
 fi
 
-mkdir -p "$KERNEL_DIR"
+mkdir -p "$KERNEL_SRC_DIR"
 
 # Shallow clone the kernel tree and branch
-git clone --depth 1 --branch "$KERNEL_BRANCH" "$KERNEL_REPO" "$KERNEL_DIR"
+git clone --depth 1 --branch "$KERNEL_BRANCH" "$KERNEL_REPO" "$KERNEL_SRC_DIR"
 
 make_version

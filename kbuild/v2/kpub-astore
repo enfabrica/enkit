@@ -6,6 +6,8 @@ set -e
 
 TOOL_PATH="$(dirname $(realpath $0))"
 SCRIPT_PATH="${TOOL_PATH}/scripts"
+LIB_SH="${SCRIPT_PATH}/lib.sh"
+. $LIB_SH
 
 # KERNEL_REPO: enf-linux kernel repo
 DEFAULT_KERNEL_REPO="git@github.com:enfabrica/linux.git"
@@ -13,8 +15,8 @@ DEFAULT_KERNEL_REPO="git@github.com:enfabrica/linux.git"
 # KERNEL_BRANCH: enf-linux kernel branch to build
 DEFAULT_KERNEL_BRANCH="enf/impish-19.19"
 
-# KERNEL_FLAVOURS: space separated list of kernel flavours to build
-DEFAULT_KERNEL_FLAVOURS="generic"
+# KERNEL_SPECS: space separated list of kernel flavours to build
+DEFAULT_KERNEL_SPECS="amd64,generic arm64,emulator"
 
 # BUILD_ROOT -- scratch space to perform the build
 DEFAULT_BUILD_ROOT="${HOME}/scratch/kernel-builder"
@@ -41,7 +43,7 @@ DEFAULT_VERBOSE="no"
 
 RT_KERNEL_REPO="${ENF_KERNEL_REPO:-${DEFAULT_KERNEL_REPO}}"
 RT_KERNEL_BRANCH="${ENF_KERNEL_BRANCH:-${DEFAULT_KERNEL_BRANCH}}"
-RT_KERNEL_FLAVOURS="${ENF_KERNEL_FLAVOURS:-${DEFAULT_KERNEL_FLAVOURS}}"
+RT_KERNEL_SPECS="${ENF_KERNEL_SPECS:-${DEFAULT_KERNEL_SPECS}}"
 RT_BUILD_ROOT="${ENF_BUILD_ROOT:-${DEFAULT_BUILD_ROOT}}"
 RT_ENKIT="${ENF_ENKIT:-${DEFAULT_ENKIT}}"
 RT_ASTORE_ROOT="${ENF_ASTORE_ROOT:-${DEFAULT_ASTORE_ROOT}}"
@@ -67,14 +69,14 @@ OPTIONS:
 
 		The default is "$DEFAULT_KERNEL_BRANCH".
 
-    -f flavours
+    -s kernel specs
 
-		A space separated list of kernel flavours
-		(configurations) to build.  See
-		debian.master/rules.d/amd64.mk in the kernel
+		A space separated list of kernel specs
+		(configurations) to build.  Takes the form <ARCH>,<FLAVOUR>.
+		See debian.master/rules.d/<arch>.mk in the kernel
 		repo for a list of available flavours.
 
-		The default is "$DEFAULT_KERNEL_FLAVOURS".
+		The default is "$DEFAULT_KERNEL_SPECS".
 
     -o output build directory
 
@@ -125,7 +127,7 @@ The above options can also be set via environment variables:
 
 ENF_KERNEL_REPO:      (current_value: ${ENF_KERNEL_REPO:-unset})
 ENF_KERNEL_BRANCH:    (current_value: ${ENF_KERNEL_BRANCH:-unset})
-ENF_KERNEL_FLAVOURS:  (current_value: ${ENF_KERNEL_FLAVOURS:-unset})
+ENF_KERNEL_SPECS:     (current_value: ${ENF_KERNEL_SPECS:-unset})
 ENF_KERNEL_LABEL:     (current_value: ${ENF_KERNEL_LABEL:-unset})
 ENF_BUILD_ROOT:	      (current_value: ${ENF_BUILD_ROOT:-unset})
 ENF_ENKIT:            (current_value: ${ENF_ENKIT:-unset})
@@ -137,7 +139,7 @@ EOF
 }
 
 # Command line argument override any environment variables
-while getopts hvpr:b:f:o:e:a:l: opt ; do
+while getopts hvpr:b:s:o:e:a:l: opt ; do
     case $opt in
         r)
             RT_KERNEL_REPO=$OPTARG
@@ -145,8 +147,8 @@ while getopts hvpr:b:f:o:e:a:l: opt ; do
         b)
             RT_KERNEL_BRANCH=$OPTARG
             ;;
-        f)
-            RT_KERNEL_FLAVOURS=$OPTARG
+        s)
+            RT_KERNEL_SPECS=$OPTARG
             ;;
         o)
             RT_BUILD_ROOT=$OPTARG
@@ -179,7 +181,7 @@ done
 shift `expr $OPTIND - 1`
 
 echo "Using configuration:"
-for var in RT_KERNEL_REPO RT_KERNEL_BRANCH RT_KERNEL_FLAVOURS RT_KERNEL_LABEL \
+for var in RT_KERNEL_REPO RT_KERNEL_BRANCH RT_KERNEL_SPECS RT_KERNEL_LABEL \
        RT_BUILD_ROOT RT_ENKIT RT_ASTORE_ROOT RT_CLEAN_BUILD RT_VERBOSE; do
     printf "%-20s:   %s\n" "$var" "$(eval echo -n \$$var)"
 done
@@ -204,50 +206,57 @@ fi
 
 # These directories and files are intermediate build artifacts used by
 # the scripts.
-KBUILD_DIR="$RT_BUILD_ROOT/build"
-KERNEL_DIR="${KBUILD_DIR}/enf-linux"
-KERNEL_VERSION="${RT_BUILD_ROOT}/kernel-version.txt"
-OUTPUT_DEB_DIR="$RT_BUILD_ROOT/deb"
-OUTPUT_REPO_DIR="$RT_BUILD_ROOT/repo"
-OUTPUT_BAZEL_ARCHIVE_DIR="$RT_BUILD_ROOT/bazel-archive"
-OUTPUT_APT_ARCHIVE_DIR="$RT_BUILD_ROOT/deb-archive"
-OUTPUT_ASTORE_META_DIR="$RT_BUILD_ROOT/astore-meta"
 
-mkdir -p "$KERNEL_DIR" "$OUTPUT_ASTORE_META_DIR"
+KERNEL_SRC_DIR="${RT_BUILD_ROOT}/ksrc"
+KERNEL_VERSION="${RT_BUILD_ROOT}/kernel-version.txt"
+ASTORE_META_DIR="$RT_BUILD_ROOT/astore-meta"
+
+KBUILD_DIR="$RT_BUILD_ROOT/build"
+
+KERNEL_BUILD_DIR="${KBUILD_DIR}/kbuild"
+OUTPUT_KRELEASE_DIR="$RT_BUILD_ROOT/krelease"
+
+mkdir -p "$KERNEL_SRC_DIR" "$ASTORE_META_DIR"
 
 # Initialize the build area and clone the kernel repo
-$RUN ${SCRIPT_PATH}/init-build.sh "$KERNEL_DIR" "$RT_KERNEL_REPO" "$RT_KERNEL_BRANCH" "$KERNEL_VERSION"
+$RUN ${SCRIPT_PATH}/init-build.sh "$KERNEL_SRC_DIR" "$RT_KERNEL_REPO" "$RT_KERNEL_BRANCH" "$KERNEL_VERSION"
 
-# Builds the .deb kernel packages for all flavours
-$RUN ${SCRIPT_PATH}/build-debs.sh "$KERNEL_DIR" "$KERNEL_VERSION" "$RT_KERNEL_FLAVOURS" "$OUTPUT_DEB_DIR"
+for spec in $RT_KERNEL_SPECS ; do
+    arch=$(get_arch $spec)
+    flavour=$(get_flavour $spec)
 
-# Creates a portable Debian APT repository for each flavour
-$RUN ${SCRIPT_PATH}/repo-deb.sh "$OUTPUT_DEB_DIR" "$RT_KERNEL_FLAVOURS" "$OUTPUT_REPO_DIR"
+    case "$arch" in
+        amd64)
+            $RUN ${SCRIPT_PATH}/amd64-build-publish.sh \
+                 "$arch" "$flavour"  \
+                 "$KERNEL_SRC_DIR"   \
+                 "$KERNEL_VERSION"   \
+                 "$RT_BUILD_ROOT"    \
+                 "$RT_KERNEL_LABEL"  \
+                 "$ASTORE_BASE"      \
+                 "$ASTORE_META_DIR"
+            ;;
+        arm64)
+            $RUN ${SCRIPT_PATH}/arm64-build-publish.sh \
+                 "$arch" "$flavour"  \
+                 "$KERNEL_SRC_DIR"   \
+                 "$KERNEL_VERSION"   \
+                 "$RT_BUILD_ROOT"    \
+                 "$RT_KERNEL_LABEL"  \
+                 "$ASTORE_BASE"      \
+                 "$ASTORE_META_DIR"
+            ;;
+        *)
+            echo "Error: unsupported architecture: $arch"
+            exit 1
+    esac
 
-# Creates a bazel ready tarball for building kernel modules
-$RUN ${SCRIPT_PATH}/archive-bazel-deb.sh "$OUTPUT_DEB_DIR" "$RT_KERNEL_FLAVOURS" "$OUTPUT_BAZEL_ARCHIVE_DIR"
+done
 
-# Creates a tarball of a Debian APT repository for each flavour
-$RUN ${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$RT_KERNEL_FLAVOURS" "$OUTPUT_APT_ARCHIVE_DIR"
-
-# Uploads the bazel ready tarball for each flavour
-$RUN ${SCRIPT_PATH}/upload-deb.sh \
-     "$OUTPUT_DEB_DIR"            \
-     "$OUTPUT_BAZEL_ARCHIVE_DIR"  \
-     "$OUTPUT_APT_ARCHIVE_DIR"    \
-     "$RT_KERNEL_FLAVOURS"        \
-     "$ASTORE_BASE"               \
-     "$OUTPUT_ASTORE_META_DIR"
-
-# Generate Bazel include file from upload meta-data files
-$RUN ${SCRIPT_PATH}/gen-bazel-meta.sh    \
-     "$OUTPUT_DEB_DIR"                   \
-     "$RT_KERNEL_FLAVOURS"               \
-     "$ASTORE_BASE"                      \
-     "$OUTPUT_ASTORE_META_DIR"           \
-     "$RT_KERNEL_LABEL"
+rm -f "${ASTORE_META_DIR}/kernel.version.bzl"
+cat "${ASTORE_META_DIR}"/*.bzl > "${ASTORE_META_DIR}/kernel.version.bzl"
 
 echo
 echo "SUCCESS: All Done."
 echo "Copy the following file to the internal repo,  in internal-repo/bazel/kernel.version.bzl"
-echo "${OUTPUT_ASTORE_META_DIR}/kernel.version.bzl"
+echo "${ASTORE_META_DIR}/kernel.version.bzl"

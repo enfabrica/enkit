@@ -18,11 +18,13 @@ LIB_SH="$(dirname $(realpath $0))/lib.sh"
 INPUT_DEB_ROOT="$(realpath $1)"
 INPUT_BAZEL_ARCHIVE_ROOT="$(realpath $2)"
 INPUT_DEB_ARCHIVE_ROOT="$(realpath $3)"
-KERNEL_FLAVOURS="$4"
-ASTORE_ROOT="$5"
-ASTORE_META_DIR="$6"
+ARCH="$4"
+FLAVOUR="$5"
+ASTORE_ROOT="$6"
+ASTORE_META_DIR="$7"
 
-ARCH=amd64
+# This script only handles one flavour at a time now.
+KERNEL_FLAVOURS="$FLAVOUR"
 
 DEB_VERSION=$(get_deb_version $INPUT_DEB_ROOT)
 if [ -z "$DEB_VERSION" ] ; then
@@ -41,7 +43,6 @@ clean_up()
     rm -rf $DEB_TMPDIR
 }
 trap clean_up EXIT
-
 
 kernel_tag() {
     local flavour=$1
@@ -114,7 +115,7 @@ upload_kernel_image_modules() {
 for f in $KERNEL_FLAVOURS ; do
     kernel_version="$(deb_get_kernel_version $INPUT_DEB_ROOT $f)"
 
-    upload_bazel_archive $f        $kernel_version
-    upload_deb_archive $f          $kernel_version
+    upload_bazel_archive        $f $kernel_version
+    upload_deb_archive          $f $kernel_version
     upload_kernel_image_modules $f $kernel_version
 done

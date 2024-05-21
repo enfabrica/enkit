@@ -4,7 +4,8 @@
 #
 # Inputs:
 # - a flat directory containing the kernel .debs
-# - a space separated list of kernel flavours
+# - CPU architecture
+# - kernel flavour
 # - an output directory to place the generated bazel archive
 
 set -e
@@ -13,16 +14,18 @@ LIB_SH="$(dirname $(realpath $0))/lib.sh"
 . $LIB_SH
 
 INPUT_DEB_ROOT="$(realpath $1)"
-KERNEL_FLAVOURS="$2"
-OUTPUT_ARCHIVE_ROOT="$(realpath $3)"
+ARCH="$2"
+FLAVOUR="$3"
+OUTPUT_ARCHIVE_ROOT="$4"
+
+# This script only handles one flavour at a time now.
+KERNEL_FLAVOURS="$FLAVOUR"
 
 INSTALL_TEMPLATE="$(dirname $(realpath $0))/../template/install-bazel.sh"
 if [ ! -r "$INSTALL_TEMPLATE" ] ; then
     echo "ERROR: unable to find bazel install script template: $INSTALL_TEMPLATE"
     exit 1
 fi
-
-ARCH=amd64
 
 KERNEL_BASE=$(get_kernel_base $INPUT_DEB_ROOT)
 if [ -z "$KERNEL_BASE" ] ; then
