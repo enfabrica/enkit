@@ -12,6 +12,16 @@ def _kernel_modules(ctx):
     if not ctx.attr.archs:
         fail(location(ctx) + "rule must specify one or more architectures in 'arch'")
 
+    data_dependencies = ctx.attr.cross_compiler_data
+    tool_runfiles = []
+    for data in data_dependencies:
+        tool_runfiles += data[DefaultInfo].default_runfiles.files.to_list()
+
+    cross_compiler = ""
+    if ctx.attr.cross_compiler != None:
+        # cross compiler string expected to end with "-gcc".  strip that off
+        cross_compiler = ctx.attr.cross_compiler[DefaultInfo].files.to_list()[0].path[:-4]
+
     ki = ctx.attr.kernel[KernelTreeInfo]
     bundled = []
     for arch in ctx.attr.archs:
@@ -74,6 +84,8 @@ def _kernel_modules(ctx):
         extra = []
         if arch != "host":
             extra.append("ARCH=" + arch)
+        if cross_compiler != "":
+            extra.append("CROSS_COMPILE=$PWD/{}-".format(cross_compiler))
         if ctx.attr.extra:
             extra += ctx.attr.extra
 
@@ -134,6 +146,9 @@ def _kernel_modules(ctx):
             outputs = outputs,
             inputs = inputs,
             use_default_shell_env = True,
+            tools =
+                tool_runfiles +
+                [data[DefaultInfo].files_to_run for data in data_dependencies],
         )
 
         bundled.append(KernelModulesInfo(
@@ -228,15 +243,23 @@ Available format values are:
             allow_files = True,
             doc = "The list of files that constitute this module. Generally a glob for all .c and .h files. If you use **/* with glob, we recommend excluding the patterns defined by BUILD_LEFTOVERS.",
         ),
+        "cross_compiler": attr.label(
+            doc = "Label for cross compiler to use.",
+            mandatory = False,
+            allow_single_file = True,
+            default = None,
+            cfg = "exec",
+            executable = True,
+        ),
+        "cross_compiler_data": attr.label_list(
+            doc = "Files needed only during build/compile time by the cross compiler. May list file or rule targets.",
+            mandatory = False,
+            allow_files = True,
+            cfg = "exec",
+            default = [],
+        ),
     },
 )
-
-def _normalize_kernel(kernel):
-    """Ensures a kernel string points to a repository rule, with bazel @ syntax."""
-    if not kernel.startswith("@"):
-        kernel = "@" + kernel
-
-    return kernel
 
 def _kernel_modules_bundle(ctx):
     modules = []
@@ -303,6 +326,62 @@ expanded in its list of modules.""",
 
 BUILD_LEFTOVERS = ["**/.*.cmd", "**/*.a", "**/*.o", "**/*.ko", "**/*.order", "**/*.symvers", "**/*.mod", "**/*.mod.c", "**/*.mod.o"]
 
+def kernel_spec(kernel_tree, arch, flavour, cross_compiler = None, cross_compiler_data = []):
+    """Construct a kernel specification, consisting of:
+    - kernel_tree: A label to external kernel source tree
+    - arch: The CPU architecture for the kernel
+    - flavour: The specific kernel configuration for an architecture
+    - optional cross compiler info
+    """
+
+    return {
+        "kernel_tree": kernel_tree,
+        "arch": arch,
+        "flavour": flavour,
+        "cross_compiler": cross_compiler,
+        "cross_compiler_data": cross_compiler_data,
+    }
+
+def _normalize_kernel(kernel):
+    """Deconstruct a kernel_spec into a kernel tree label and CPU architecture.
+    Also ensures a kernel string points to a repository rule, with bazel @ syntax."""
+
+    kernel_tree = kernel.get("kernel_tree")
+    if kernel_tree == None:
+        fail("Kernel spec does not contain 'kernel_tree'")
+
+    arch = kernel.get("arch")
+    if arch == None:
+        fail("Kernel spec does not contain 'arch'")
+
+    flavour = kernel.get("flavour")
+    if flavour == None:
+        fail("Kernel spec does not contain 'flavour'")
+
+    cross_compiler = kernel.get("cross_compiler")
+    cross_compiler_data = kernel.get("cross_compiler_data")
+
+    if cross_compiler != None and cross_compiler_data == None:
+        fail("Kernel spec contains 'cross_compiler', but does not contain 'cross_compiler_data'")
+
+    if not kernel_tree.startswith("@"):
+        kernel_tree = "@" + kernel_tree
+
+    # kernel_tree_label: used to specify precise kernel build area for
+    # the module.
+    #
+    # KernelTreeInfo providers have labels of the form:
+    # <kernel_tree>//:<arch>-<flavour>-ktree
+    kernel_tree_label = "{}//:{}-{}-ktree".format(kernel_tree, arch, flavour)
+
+    # kernel_tree_string: a flat string that can be used to create other labels
+    kernel_tree_string = "{}-{}-{}".format(kernel_tree, arch, flavour)
+
+    if arch == "amd64":
+        arch = "host"
+
+    return (kernel_tree_label, kernel_tree_string, arch, cross_compiler, cross_compiler_data)
+
 def _kernel_module_targets(*args, **kwargs):
     """Common kernel module target setup."""
 
@@ -318,18 +397,25 @@ def _kernel_module_targets(*args, **kwargs):
         kernels.append(kwargs.pop("kernel"))
 
     if len(kernels) == 1:
-        kwargs["kernel"] = _normalize_kernel(kernels.pop())
+        (kernel_tree_label, unused, arch, cross_compiler, cross_compiler_data) = _normalize_kernel(kernels.pop())
+        kwargs["kernel"] = kernel_tree_label
+        kwargs["archs"] = [arch]
+        kwargs["cross_compiler"] = cross_compiler
+        kwargs["cross_compiler_data"] = cross_compiler_data
         return kernel_modules_rule(*args, **kwargs)
 
     targets = []
     original = kwargs["name"]
     for kernel in kernels:
-        kernel = _normalize_kernel(kernel)
-        name = kernel[1:] + "-" + original
+        (kernel_tree_label, kernel_tree_string, arch, cross_compiler, cross_compiler_data) = _normalize_kernel(kernel)
+        name = kernel_tree_string[1:] + "-" + original
         targets.append(":" + name)
 
         kwargs["name"] = name
-        kwargs["kernel"] = kernel
+        kwargs["kernel"] = kernel_tree_label
+        kwargs["archs"] = [arch]
+        kwargs["cross_compiler"] = cross_compiler
+        kwargs["cross_compiler_data"] = cross_compiler_data
         kernel_modules_rule(*args, **kwargs)
 
     # This creates a target with the name chosen by the user that
@@ -357,10 +443,11 @@ def kernel_module(*args, **kwargs):
             name ensuring it has a '.ko' suffix.
       makefile: string, name of the makefile to build the module. If not specified, kernel_module
             assumes it is just called Makefile.
-      kernel: a label, indicating the kernel_tree to build the module against. kernel_module ensures
-            the label starts with an '@', as per bazel convention.
-      kernels: list of kernel (same as above). kernel_module will instantiate multiple
-            kernel_module_rule, one per kernel, and ensure they all build in parallel.
+      kernel: a kernel specification, indicating the kernel source tree, CPU architecture,
+            and kernel configuration to build the module against.  Use kernel_spec() to create
+            a kernel specification.
+      kernels: list of kernel specifications (same as above). kernel_module will instantiate multiple
+            kernel_module_rule, one per kernel spec, and ensure they all build in parallel.
     """
 
     if "makefile" not in kwargs:
