@@ -10,6 +10,7 @@ a kernel_tree on its own is not expected to be hermetic.
         "package": "A string indicating which package this kernel is coming from. For example, 'centos-kernel-5.3.0-1'.",
         "root": "Bazel directory containing the root of the kernel tree. This is generally the location of the top level BUILD.bazel file. For example, external/@centos-kernel-5.3.0-1.",
         "build": "Relative path of subdirectory to enter to build a kernel module. It is generally the 'build' parameter passed to the kernel_tree rule. For example, lib/modules/centos-kernel-5.3.0-1/build.",
+        "arch": "CPU architecture the tree is prepared for",
     },
 )
 
