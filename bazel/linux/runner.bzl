@@ -1,4 +1,4 @@
-load("//bazel/linux:providers.bzl", "KernelImageInfo", "RootfsImageInfo", "RuntimeBundleInfo", "RuntimeInfo")
+load("//bazel/linux:providers.bzl", "KernelImageInfo", "RootfsImageInfo", "RuntimeBundleInfo", "RuntimeInfo", "BootRamImageInfo")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:files.bzl", "files_to_dir")
@@ -12,6 +12,12 @@ def create_runner_attrs(template_init_default):
             mandatory = True,
             providers = [DefaultInfo, KernelImageInfo],
             doc = "The kernel image that will be used to execute this test. A string like @stefano-s-favourite-kernel-image, referencing a kernel_image(name = 'stefano-s-favourite-kernel-image', ...",
+        ),
+       "bootram_image": attr.label(
+            doc = "A target defining the bootram image (used with aarch64 qemu).",
+            allow_single_file = True,
+            mandatory = False,
+            providers = [DefaultInfo, BootRamImageInfo],
         ),
         "rootfs_image": attr.label(
             mandatory = False,
@@ -218,6 +224,13 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
         post = "cd {dest}; cp -L %s ./init.sh" % (shell.quote(init.short_path)),
     )
     outside_runfiles = torun.outside_runfiles.merge(ctx.runfiles([runtime_root, ki.image]))
+    bootram_image = ""
+    if ki.arch == "aarch64":
+       # for aarch64 need a image that should be loaded into bootram which is where execution starts
+       if ctx.attr.bootram_image and ctx.attr.bootram_image[BootRamImageInfo].arch == ki.arch:
+          bootram_info = ctx.attr.bootram_image[BootRamImageInfo]
+          bootram_image = bootram_info.image.short_path
+          outside_runfiles = outside_runfiles.merge(ctx.runfiles([bootram_info.image]))
     if runfiles:
       outside_runfiles = outside_runfiles.merge(runfiles)
 
@@ -232,10 +245,12 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
         "cleanups": "\n".join(torun.commands.cleanup),
         "checks": "\n".join(torun.commands.check),
         "kernel": ki.image.short_path,
+        "bootram_image": bootram_image,
         "rootfs": rootfs,
         "init": init.short_path,
         "runtime": runtime_root.short_path,
 	"wrapper_flags": shell.array_literal(ctx.attr.wrapper_flags),
+	"arch": ki.arch,
     }, **extra)
 
     subs["code"] = code.format(**subs)
