@@ -1,4 +1,4 @@
-load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "KernelModulesInfo", "KernelTreeInfo", "RootfsImageInfo", "RuntimeBundleInfo")
+load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "KernelModulesInfo", "KernelTreeInfo", "RootfsImageInfo", "RuntimeBundleInfo", "BootRamImageInfo")
 load("//bazel/linux/platforms:defs.bzl", "kernel_aarch64_transition", "kernel_aarch64_constraints")
 load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible", "is_module")
 load("//bazel/linux:test.bzl", "kunit_test")
@@ -609,3 +609,41 @@ def kernel_test(name, kernel_image, module, **kwargs):
 
     # Use the UML runner for the legacy tests
     kunit_test(name, kernel_image, module, runner = kernel_uml_run, **kwargs)
+
+def _bootram_image(ctx):
+    return [DefaultInfo(files = depset([ctx.file.image])), BootRamImageInfo(
+        image = ctx.file.image,
+        arch = ctx.attr.arch,
+    )]
+
+bootram_image = rule(
+    doc = """Defines a new bootram image.
+
+This rule exports a file that represents a bootram image so as to launch
+qemu acf machine.  This images is loaded into bootram while
+rest of the image (kernel, rootfs, devicetree) are loaded into DRAM.  On qemu launch
+it starts from BOOTRAM image which does some minimal stuff and jumps to bootloader
+in DRAM which continues rest of the boot
+
+Example:
+
+    bootram_image(
+        # This image file.
+        image = "bootram-img",
+        # Architecture of this image file.
+        arch = "aarch64",
+    )
+""",
+    implementation = _bootram_image,
+    attrs = {
+        "arch": attr.string(
+            doc = "Architecture this image was built for. Will only accept moudules for this arch.",
+            default = "host",
+        ),
+        "image": attr.label(
+            mandatory = True,
+            allow_single_file = True,
+            doc = "File containing the bootram image.",
+        ),
+    },
+)
