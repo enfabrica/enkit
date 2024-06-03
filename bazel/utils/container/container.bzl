@@ -120,7 +120,10 @@ def container_image(*args, **kwargs):
     output = "{}_labels.txt".format(name)
     tags = kwargs.get("tags", [])
 
-    # Remove once oci_pull doesn't have auth errors anymore
+    # The 'image' field in oci_pull does not need the //image target
+    # while the container_pull rule does. Modify this wrapper script
+    # to insert the //image target when using container_pull.
+    # Remove once oci_pull doesn't have auth errors anymore.
     if kwargs.get("base", "").startswith("@"):
         kwargs["base"] = "{}//image".format(kwargs.get("base"))
 
