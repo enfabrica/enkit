@@ -188,6 +188,18 @@ def stage_1():
     )
 
     maybe(
+        name = "io_bazel_rules_docker",
+        repo_rule = http_archive,
+        sha256 = "27d53c1d646fc9537a70427ad7b034734d08a9c38924cc6357cc973fed300820",
+        strip_prefix = "rules_docker-0.24.0",
+        urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.24.0/rules_docker-v0.24.0.tar.gz"],
+        patches = [
+            "@enkit//bazel/dependencies:rules_docker_no_init_go.patch",
+        ],
+        patch_args = ["-p1"],
+    )
+
+    maybe(
         name = "com_google_googleapis",
         repo_rule = http_archive,
         urls = ["https://github.com/googleapis/googleapis/archive/f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6.zip"],
