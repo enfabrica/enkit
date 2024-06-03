@@ -11,6 +11,7 @@ load("@google_jsonnet_go//bazel:deps.bzl", "jsonnet_go_dependencies")
 load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_register_toolchains")
 load("@rules_oci//oci:repositories.bzl", "LATEST_CRANE_VERSION", "oci_register_toolchains")
 load("@rules_oci//oci:pull.bzl", "oci_pull")
+load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
 load("@rules_proto_grpc//python:repositories.bzl", rules_proto_grpc_python_repos = "python_repos")
 load("@rules_python//python:pip.bzl", "pip_parse")
 load("@python3_8//:defs.bzl", "interpreter")
@@ -50,7 +51,7 @@ def stage_3():
         crane_version = LATEST_CRANE_VERSION,
     )
 
-    oci_pull(
+    container_pull(
         name = "golang_base",
         digest = "sha256:a4eefd667af74c5a1c5efe895a42f7748808e7f5cbc284e0e5f1517b79721ccb",
         registry = "us-docker.pkg.dev",
