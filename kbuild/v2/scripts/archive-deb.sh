@@ -15,8 +15,12 @@ LIB_SH="$(dirname $(realpath $0))/lib.sh"
 
 INPUT_DEB_ROOT="$(realpath $1)"
 INPUT_REPO_ROOT="$(realpath $2)"
-KERNEL_FLAVOURS="$3"
-OUTPUT_ARCHIVE_ROOT="$(realpath $4)"
+ARCH="$3"
+FLAVOUR="$4"
+OUTPUT_ARCHIVE_ROOT="$5"
+
+# This script only handles one flavour at a time now.
+KERNEL_FLAVOURS="$FLAVOUR"
 
 INSTALL_TEMPLATE="$(dirname $(realpath $0))/../template/install-deb.sh"
 if [ ! -r "$INSTALL_TEMPLATE" ] ; then
@@ -24,7 +28,6 @@ if [ ! -r "$INSTALL_TEMPLATE" ] ; then
     exit 1
 fi
 
-ARCH=amd64
 DIST=focal
 COMP=main
 
