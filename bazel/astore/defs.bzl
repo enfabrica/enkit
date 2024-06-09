@@ -146,7 +146,7 @@ def _astore_download(ctx):
 
     sha_command = ":"
     if ctx.attr.digest:
-        sha_command = "echo \"{digest}\" {path} | sha256sum --check -".format(digest=ctx.attr.digest, path=output.path)
+        sha_command = "echo \"{digest}\" {path} | sha256sum --check -".format(digest = ctx.attr.digest, path = output.path)
 
     to_run = """\
 set -uo pipefail
@@ -168,7 +168,7 @@ echo "===================================================" 1>&2
 echo "ERROR: Could not successfully complete astore download in {attempts} attempts - giving up" 1>&2
 echo "Scroll up to see the problems." 1>&2
 exit 1
-""".format(command=command, sha_command=sha_command, sleep=ctx.attr.sleep, attempts=ctx.attr.attempts)
+""".format(command = command, sha_command = sha_command, sleep = ctx.attr.sleep, attempts = ctx.attr.attempts)
 
     ctx.actions.run_shell(
         command = to_run,
@@ -234,7 +234,7 @@ With this rule, you can easily download
 files from an artifact store.""",
 )
 
-def _astore_download_and_verify(rctx, dest, uid, digest, timeout, attempts=10, sleep=1):
+def _astore_download_and_verify(rctx, dest, uid, digest, timeout, attempts = 10, sleep = 1):
     # Download by UID to destination
     enkit_args = [
         "enkit",
@@ -250,7 +250,7 @@ def _astore_download_and_verify(rctx, dest, uid, digest, timeout, attempts=10, s
     succeeded = False
     errors = []
     for attempt in range(attempts):
-        rctx.report_progress("attempt #{attempt}, fetching...".format(attempt=attempt + 1))
+        rctx.report_progress("attempt #{attempt}, fetching...".format(attempt = attempt + 1))
         res = rctx.execute(enkit_args, timeout = timeout)
         if not res.return_code:
             succeeded = True
@@ -259,17 +259,19 @@ def _astore_download_and_verify(rctx, dest, uid, digest, timeout, attempts=10, s
         message = "Command: '{}'\nStdout:\n{}\nStderr:\n{}\n".format(" ".join([str(arg) for arg in enkit_args]), res.stdout, res.stderr)
         errors.append(message)
 
-        rctx.report_progress("attempt #{attempt} FAILED, sleeping for {sleep}s...\n{message}".format(
-            attempt=attempt + 1,
-            sleep=sleep,
-            message=message)
+        rctx.report_progress(
+            "attempt #{attempt} FAILED, sleeping for {sleep}s...\n{message}".format(
+                attempt = attempt + 1,
+                sleep = sleep,
+                message = message,
+            ),
         )
         rctx.execute(["sleep", str(sleep)])
 
     if not succeeded:
         fail("astore download failed after {attempts} attempts - GIVING UP. Here's the output of each run:\n{messages}".format(
-            attempts=attempts,
-            messages="\n".join(["Attempt {idx} failed with:\n{error}".format(idx=idx + 1, error=error)  for idx, error in enumerate(errors)]),
+            attempts = attempts,
+            messages = "\n".join(["Attempt {idx} failed with:\n{error}".format(idx = idx + 1, error = error) for idx, error in enumerate(errors)]),
         ))
 
     # Check digest of downloaded file
@@ -317,7 +319,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
     if hasattr(rctx.attr, "timeout"):
         timeout = rctx.attr.timeout
 
-    _astore_download_and_verify(rctx, f, uid, digest, timeout, attempts=attempts, sleep=sleep)
+    _astore_download_and_verify(rctx, f, uid, digest, timeout, attempts = attempts, sleep = sleep)
 
     rctx.extract(
         archive = f,
@@ -337,7 +339,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
 # //enkit/linux/defs.bzl, which uses "sha256" as the attribute name instead of
 # "digest".
 def _astore_download_and_extract_impl(rctx):
-    astore_download_and_extract(rctx, rctx.attr.digest, rctx.attr.strip_prefix, timeout=rctx.attr.timeout, attempts=rctx.attr.attempts, sleep=rctx.attr.sleep)
+    astore_download_and_extract(rctx, rctx.attr.digest, rctx.attr.strip_prefix, timeout = rctx.attr.timeout, attempts = rctx.attr.attempts, sleep = rctx.attr.sleep)
 
 astore_package = repository_rule(
     implementation = _astore_download_and_extract_impl,
@@ -390,7 +392,7 @@ astore_package = repository_rule(
 def _astore_file_impl(rctx):
     f = rctx.path(rctx.attr.path.split("/")[-1])
 
-    _astore_download_and_verify(rctx, f, rctx.attr.uid, rctx.attr.digest, rctx.attr.timeout, attempts=rctx.attr.attempts, sleep=rctx.attr.sleep)
+    _astore_download_and_verify(rctx, f, rctx.attr.uid, rctx.attr.digest, rctx.attr.timeout, attempts = rctx.attr.attempts, sleep = rctx.attr.sleep)
 
     # Fix permissions on downloaded file.
     #
