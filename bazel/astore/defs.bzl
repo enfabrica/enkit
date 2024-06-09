@@ -144,10 +144,34 @@ def _astore_download(ctx):
         # # * we might spend lots of disk/network caching astore artifacts
         # #   remotely
 
+    sha_command = ":"
     if ctx.attr.digest:
-        command += " && (echo \"%s\" %s | sha256sum --check -)" % (ctx.attr.digest, output.path)
+        sha_command = "echo \"{digest}\" {path} | sha256sum --check -".format(digest=ctx.attr.digest, path=output.path)
+
+    to_run = """\
+set -uo pipefail
+for attempt in $(seq {attempts}); do
+  {command} && {{
+    {sha_command} || {{
+      echo "invalid SHA - rejected package - use sha256sum and update the 'digest' attribute" 1>&2
+      echo "Download command: '{command}'" 1>&2
+      exit 2
+    }}
+    exit 0
+  }}
+
+  echo "= Attempt #$attempt to run '{command}' failed - retrying in {sleep}s" 1>&2
+  sleep {sleep}
+done
+
+echo "===================================================" 1>&2
+echo "ERROR: Could not successfully complete astore download in {attempts} attempts - giving up" 1>&2
+echo "Scroll up to see the problems." 1>&2
+exit 1
+""".format(command=command, sha_command=sha_command, sleep=ctx.attr.sleep, attempts=ctx.attr.attempts)
+
     ctx.actions.run_shell(
-        command = command,
+        command = to_run,
         tools = [ctx.executable._astore_client],
         outputs = [output],
         execution_requirements = execution_requirements,
@@ -171,6 +195,14 @@ astore_download = rule(
         ),
         "arch": attr.string(
             doc = "Architecture to download the file for.",
+        ),
+        "attempts": attr.int(
+            doc = "If the download fails, retry up to this many times.",
+            default = 10,
+        ),
+        "sleep": attr.int(
+            doc = "In between failed attempts, wait this long before retrying, in seconds.",
+            default = 1,
         ),
         "timeout": attr.int(
             doc = "Timeout for astore download operation, in seconds.",
