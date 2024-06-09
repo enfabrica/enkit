@@ -158,8 +158,6 @@ def _astore_download(ctx):
         runfiles = ctx.runfiles([output]),
     )]
 
-# TODO: add an optional "uid" attribute to this rule
-# TODO: add an optional "digest" attribute to this rule
 astore_download = rule(
     implementation = _astore_download,
     attrs = {
