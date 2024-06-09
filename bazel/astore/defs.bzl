@@ -202,7 +202,7 @@ With this rule, you can easily download
 files from an artifact store.""",
 )
 
-def _astore_download_and_verify(rctx, dest, uid, digest, timeout):
+def _astore_download_and_verify(rctx, dest, uid, digest, timeout, attempts=10, sleep=1):
     # Download by UID to destination
     enkit_args = [
         "enkit",
@@ -214,12 +214,30 @@ def _astore_download_and_verify(rctx, dest, uid, digest, timeout):
         dest,
         "--overwrite",
     ]
-    res = rctx.execute(enkit_args, timeout = timeout)
-    if res.return_code:
-        fail("Astore download failed\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
-            enkit_args,
-            res.stdout,
-            res.stderr,
+
+    succeeded = False
+    errors = []
+    for attempt in range(attempts):
+        rctx.report_progress("attempt #{attempt}, fetching...".format(attempt=attempt + 1))
+        res = rctx.execute(enkit_args, timeout = timeout)
+        if not res.return_code:
+            succeeded = True
+            break
+
+        message = "Command: '{}'\nStdout:\n{}\nStderr:\n{}\n".format(" ".join([str(arg) for arg in enkit_args]), res.stdout, res.stderr)
+        errors.append(message)
+
+        rctx.report_progress("attempt #{attempt} FAILED, sleeping for {sleep}s...\n{message}".format(
+            attempt=attempt + 1,
+            sleep=sleep,
+            message=message)
+        )
+        rctx.execute(["sleep", str(sleep)])
+
+    if not succeeded:
+        fail("astore download failed after {attempts} attempts - GIVING UP. Here's the output of each run:\n{messages}".format(
+            attempts=attempts,
+            messages="\n".join(["Attempt {idx} failed with:\n{error}".format(idx=idx + 1, error=error)  for idx, error in enumerate(errors)]),
         ))
 
     # Check digest of downloaded file
@@ -247,7 +265,7 @@ def _astore_download_and_verify(rctx, dest, uid, digest, timeout):
     # digest.
     rctx.execute(["echo", digest], timeout = 10)
 
-def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None, timeout = 10 * 60):
+def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None, timeout = 10 * 60, attempts = 10, sleep = 1):
     """Fetch and extract a package from astore.
 
     This method downloads a package stored as an archive in astore, verifies
@@ -267,7 +285,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
     if hasattr(rctx.attr, "timeout"):
         timeout = rctx.attr.timeout
 
-    _astore_download_and_verify(rctx, f, uid, digest, timeout)
+    _astore_download_and_verify(rctx, f, uid, digest, timeout, attempts=attempts, sleep=sleep)
 
     rctx.extract(
         archive = f,
@@ -287,10 +305,11 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
 # //enkit/linux/defs.bzl, which uses "sha256" as the attribute name instead of
 # "digest".
 def _astore_download_and_extract_impl(rctx):
-    astore_download_and_extract(rctx, rctx.attr.digest, rctx.attr.strip_prefix)
+    astore_download_and_extract(rctx, rctx.attr.digest, rctx.attr.strip_prefix, timeout=rctx.attr.timeout, attempts=rctx.attr.attempts, sleep=rctx.attr.sleep)
 
 astore_package = repository_rule(
     implementation = _astore_download_and_extract_impl,
+    doc = "Downloads and extracts a file from astore.",
     attrs = {
         "build": attr.label(
             doc = "An optional BUILD file to copy in the unpacked tree.",
@@ -312,8 +331,16 @@ astore_package = repository_rule(
             doc = "Optional path prefix to strip out of the archive.",
         ),
         "timeout": attr.int(
-            doc = "Timeout for astore fetch operation, in seconds.",
+            doc = "Timeout for one attempt at an astore fetch operation, in seconds.",
             default = 10 * 60,
+        ),
+        "attempts": attr.int(
+            doc = "If the download fails, retry up to this many times.",
+            default = 10,
+        ),
+        "sleep": attr.int(
+            doc = "In between failed attempts, wait this long before retrying, in seconds.",
+            default = 1,
         ),
         "patch_tool": attr.string(
             default = "",
@@ -331,7 +358,7 @@ astore_package = repository_rule(
 def _astore_file_impl(rctx):
     f = rctx.path(rctx.attr.path.split("/")[-1])
 
-    _astore_download_and_verify(rctx, f, rctx.attr.uid, rctx.attr.digest, 10 * 60)
+    _astore_download_and_verify(rctx, f, rctx.attr.uid, rctx.attr.digest, rctx.attr.timeout, attempts=rctx.attr.attempts, sleep=rctx.attr.sleep)
 
     # Fix permissions on downloaded file.
     #
@@ -350,8 +377,21 @@ def _astore_file_impl(rctx):
     rctx.file("BUILD.bazel", content = 'exports_files(glob(["**/*"]))', executable = False)
 
 astore_file = repository_rule(
+    doc = "Downloads a file from astore without unpacking, provides it exports_files.",
     implementation = _astore_file_impl,
     attrs = {
+        "timeout": attr.int(
+            doc = "Timeout for one attempt at an astore fetch operation, in seconds.",
+            default = 10 * 60,
+        ),
+        "attempts": attr.int(
+            doc = "If the download fails, retry up to this many times.",
+            default = 10,
+        ),
+        "sleep": attr.int(
+            doc = "In between failed attempts, wait this long before retrying, in seconds.",
+            default = 1,
+        ),
         "path": attr.string(
             doc = "Path to the object in astore",
             mandatory = True,
