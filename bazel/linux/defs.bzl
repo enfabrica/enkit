@@ -327,6 +327,17 @@ def _normalize_kernel(kernel_tree_label):
 
     return (kernel_tree_label, kernel_tree_string, arch)
 
+# TODO: remove tags; see INFRA-1516
+#
+# Setting these tags prevents platform targets from being built by
+# pre/postsubmit.  The targets are still built when non-tagged
+# targets use a transition to build them.
+PLATFORM_NO_BUILD_TAGS = [
+    "manual",
+    "no-postsubmit",
+    "no-presubmit",
+]
+
 def _gen_module_rule(arch, *args, **kwargs):
     if arch == "host":
         kernel_modules_rule(*args, **kwargs)
@@ -343,10 +354,17 @@ def _gen_module_rule(arch, *args, **kwargs):
     arch_module_name = original + "-" + arch
     kwargs["name"] = arch_module_name
 
+    # Skip non-transitioned targets for CI
+    tags = kwargs.get("tags", [])
+    tags += PLATFORM_NO_BUILD_TAGS
+    kwargs["tags"] = tags
+
     # put down original module rule
     kernel_modules_rule(*args, **kwargs)
 
-    # add a transition with the original name
+    # Add a transition with the original name
+    #
+    # These target will be built by CI.
     kernel_aarch64_transition(
         name = original,
         target = ":" + arch_module_name,
