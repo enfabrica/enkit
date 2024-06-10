@@ -142,8 +142,8 @@ review.
 
 * `GEE_ENABLE_PRESUBMIT_CANCEL`: If set to any value other than 0, will cause
   gee to cancel any running presubmit job when pushing a change to remote
-  branch with an open PR.  This is currently an experimental feature that is
-  disabled by default.
+  branch with an open PR.  Setting to 0 will disable this functionality.  This
+  feature is no longer experimental and now defaults to enabled.
 
 See also: `gee help bash_setup` for more environment variables to help you customize the git-aware
 prompt that `gee bash_setup` makes available.
@@ -175,6 +175,7 @@ prompt that `gee bash_setup` makes available.
 | <a href="#make_branch">`make_branch`</a> | Create a new child branch based on the current branch. |
 | <a href="#migrate_default_branch">`migrate_default_branch`</a> | Migrate to a new default branch. |
 | <a href="#pack">`pack`</a> | Exports all unsubmitted changes in this branch as a pack file. |
+| <a href="#pr_cancel">`pr_cancel`</a> | Cancels any running gcloud builds associated with this branch. |
 | <a href="#pr_checkout">`pr_checkout`</a> | Create a client containing someone's pull request. |
 | <a href="#pr_check">`pr_check`</a> | Checks the status of presubmit tests for a PR. |
 | <a href="#pr_edit">`pr_edit`</a> | Edit an existing pull request. |
@@ -492,7 +493,7 @@ pr_checkout`, your commits will be pushed to your `origin` remote, and the
 remote PR branch.  To contribute your changes back to another user's PR branch,
 use the `gee pr_push` command.
 
-If the experimental GEE_ENABLE_PRESUBMIT_CANCEL feature is enabled, then gee
+Unless GEE_ENABLE_PRESUBMIT_CANCEL feature is disabled, gee
 will check to see if pushing the current commit will invalidate a presubmit job
 in the `pending` state.  If this is the case, gee will kill the previous
 presubmit before pushing the changes and thus kicking off the new presubmit.
@@ -640,6 +641,16 @@ to your PR description will cause the PR to be marked as a draft.  Adding the
 token "ABORT" will cause gee to abort the creation of your PR.
 
 Uses the same options as "gh pr create".
+
+### pr_cancel
+
+Aliases: cancel cancel_pr
+
+Usage: `gee pr_cancel`
+
+Cancels any pending (status = QUEUED or WORKING) gcloud builds jobs
+associated with this branch.  This command can be used to cancel
+a set of presubmits that were triggered by a change to this branch.
 
 ### pr_check
 
