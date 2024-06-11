@@ -3574,6 +3574,7 @@ function gee__commit() {
     if [[ "${GEE_ENABLE_PRESUBMIT_CANCEL}" != "0" ]]; then
       if _push_will_trigger_presubmit "${CURRENT_BRANCH}"; then
         # kill running presubmit job, if any exists:
+        _info "Killing any previous presubmit jobs."
         gee__pr_cancel
       fi
     fi
