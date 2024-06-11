@@ -139,8 +139,8 @@ review.
 
 * `GEE_ENABLE_PRESUBMIT_CANCEL`: If set to any value other than 0, will cause
   gee to cancel any running presubmit job when pushing a change to remote
-  branch with an open PR.  This is currently an experimental feature that is
-  disabled by default.
+  branch with an open PR.  Setting to 0 will disable this functionality.  This
+  feature is no longer experimental and now defaults to enabled.
 
 See also: `gee help bash_setup` for more environment variables to help you customize the git-aware
 prompt that `gee bash_setup` makes available.
@@ -252,7 +252,7 @@ readonly PR_LIST_MAX_FETCH=300
 readonly YESYESYES="${YESYESYES:-0}"  # for testing: disables all interactivity.
 GHUSER="${GHUSER:-}"  # can be set by _startup_checks
 VERBOSE="${VERBOSE:-1}"
-GEE_ENABLE_PRESUBMIT_CANCEL="${GEE_ENABLE_PRESUBMIT_CANCEL:-0}"
+GEE_ENABLE_PRESUBMIT_CANCEL="${GEE_ENABLE_PRESUBMIT_CANCEL:-1}"
 DRYRUN="${DRYRUN:-0}"
 UPSTREAM="${UPSTREAM:-enfabrica}"
 TESTMODE="${TESTMODE:-0}"
@@ -3510,7 +3510,7 @@ pr_checkout`, your commits will be pushed to your `origin` remote, and the
 remote PR branch.  To contribute your changes back to another user's PR branch,
 use the `gee pr_push` command.
 
-If the experimental GEE_ENABLE_PRESUBMIT_CANCEL feature is enabled, then gee
+Unless GEE_ENABLE_PRESUBMIT_CANCEL feature is disabled, gee
 will check to see if pushing the current commit will invalidate a presubmit job
 in the `pending` state.  If this is the case, gee will kill the previous
 presubmit before pushing the changes and thus kicking off the new presubmit.
@@ -3574,7 +3574,8 @@ function gee__commit() {
     if [[ "${GEE_ENABLE_PRESUBMIT_CANCEL}" != "0" ]]; then
       if _push_will_trigger_presubmit "${CURRENT_BRANCH}"; then
         # kill running presubmit job, if any exists:
-        _cancel_pending_presubmit
+        _info "Killing any previous presubmit jobs."
+        gee__pr_cancel
       fi
     fi
     if [[ "${AMENDING}" == 1 ]]; then
@@ -4292,6 +4293,42 @@ EndOfPrTemplate
 }
 
 ##########################################################################
+# pr_cancel command
+##########################################################################
+
+_register_help "pr_cancel" \
+  "Cancels any running gcloud builds associated with this branch." \
+  "cancel" "cancel_pr" <<'EOT'
+Usage: gee pr_cancel
+
+Cancels any pending (status = QUEUED or WORKING) gcloud builds jobs
+associated with this branch.  This command can be used to cancel
+a set of presubmits that were triggered by a change to this branch.
+EOT
+
+function gee__pr_cancel() {
+  local BR
+  local -a FIELDS=()
+  local COUNT
+  local FILTER
+  COUNT=0
+  BR="$(_get_current_branch)"
+  FILTER="substitutions.BRANCH_NAME=${BR}"  # filter by branch name
+  FILTER+=" AND substitutions._HEAD_REPO_URL:${GHUSER}"  # and filter by github username
+  FILTER+=" AND substitutions.TRIGGER_NAME:presubmit"
+  FILTER+=" AND (status=\"WORKING\" OR status=\"QUEUED\")"  # and by job status
+  while read -r -a FIELDS; do
+    local ID="${FIELDS[1]}"
+    _cmd gcloud --project "${GEE_BUILDLOGS_PROJECT}" builds cancel "${ID}" | head -n 1
+    COUNT=$((COUNT + 1))
+  done < <(_cmd gcloud --project="${GEE_BUILDLOGS_PROJECT}" builds list \
+              --format=yaml \
+              --filter="${FILTER}" \
+              | grep ^id:)
+  _info "Killed ${COUNT} job(s)."
+}
+
+##########################################################################
 # pr_check command
 ##########################################################################
 
@@ -4304,51 +4341,6 @@ Returns the state of presubmit checks.  If the --wait option is provided,
 this command will continue to report check status until all pending
 checks have completed.
 EOT
-
-function _get_presubmit_info() {
-  # Returns the status, gcloud id, and gcloud project of any running presubmit.
-  local -n S=$1  # first argument is a variable to assign to.
-  local -n I=$2
-  local -n P=$3
-  S="unknown"
-  I="unknown"
-  P="unknown"
-  local LINE
-  local -a FIELDS=()
-  while read -r -a FIELDS; do
-    if [[ "${FIELDS[0]}" == "internal-bazel-presubmit" ]]; then
-      S="${FIELDS[2]}"
-      if [[ "${FIELDS[4]}" =~ builds/([a-f0-9-]*)\?project= ]]; then
-        I="${BASH_REMATCH[1]}"
-      else
-        _warn "Could not parse build number from URL: ${FIELDS[4]}"
-        S=unknown
-      fi
-      if [[ "${FIELDS[1]}" =~ \((.+)\) ]]; then
-        P="${BASH_REMATCH[1]}"
-      else
-        _warn "Could not parse project name from ${FIELDS[1]}"
-        S=unknown
-      fi
-    fi
-  done < <(${GH} pr checks)
-  return 0
-}
-
-function _gh_builds_cancel() {
-  local ID="$1"
-  local PROJECT="$2"
-  _cmd gcloud builds cancel "${ID}" --project "${PROJECT}" >/dev/null
-}
-
-function _cancel_pending_presubmit() {
-  local STATUS ID PROJECT
-  _get_presubmit_info STATUS ID PROJECT
-  if [[ "${STATUS}" == "pending" ]]; then
-    _info "Killing previous pending presubmit job ${ID}."
-    _gh_builds_cancel "${ID}" "${PROJECT}"
-  fi
-}
 
 function _push_will_trigger_presubmit() {
   local BR="$1"
