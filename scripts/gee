@@ -4315,6 +4315,7 @@ function gee__pr_cancel() {
   BR="$(_get_current_branch)"
   FILTER="substitutions.BRANCH_NAME=${BR}"  # filter by branch name
   FILTER+=" AND substitutions._HEAD_REPO_URL:${GHUSER}"  # and filter by github username
+  FILTER+=" AND substitutions.TRIGGER_NAME:presubmit"
   FILTER+=" AND (status=\"WORKING\" OR status=\"QUEUED\")"  # and by job status
   while read -r -a FIELDS; do
     local ID="${FIELDS[1]}"
