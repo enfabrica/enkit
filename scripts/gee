@@ -4306,16 +4306,22 @@ a set of presubmits that were triggered by a change to this branch.
 EOT
 
 function gee__pr_cancel() {
-  local BR="$(_get_current_branch)"
+  local BR
   local -a FIELDS=()
-  local COUNT=0
+  local COUNT
+  local FILTER
+  COUNT=0
+  BR="$(_get_current_branch)"
+  FILTER="substitutions.BRANCH_NAME=${BR}"  # filter by branch name
+  FILTER+=" AND substitutions._HEAD_REPO_URL:${GHUSER}"  # and filter by github username
+  FILTER+=" AND (status=\"WORKING\" OR status=\"QUEUED\")"  # and by job status
   while read -r -a FIELDS; do
     local ID="${FIELDS[1]}"
     _cmd gcloud --project "${GEE_BUILDLOGS_PROJECT}" builds cancel "${ID}" | head -n 1
     COUNT=$((COUNT + 1))
   done < <(_cmd gcloud --project="${GEE_BUILDLOGS_PROJECT}" builds list \
               --format=yaml \
-              --filter="substitutions.BRANCH_NAME=${BR} AND (status=\"WORKING\" OR status=\"QUEUED\")" \
+              --filter="${FILTER}" \
               | grep ^id:)
   _info "Killed ${COUNT} job(s)."
 }
