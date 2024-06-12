@@ -73,7 +73,7 @@ def generate_dockerfile(build_def: mpb.ImageBuild, buf: io.TextIOBase, labels=No
             "RUN apt-get autoclean -y\n",
             'RUN rm -rf /var/cache/apt/* /var/lib/apt/lists/* "${HOME}/.cache" /tmp/*\n',
         ]
-    elif build_def.distro == mpb.Distro.CENTOS:
+    elif build_def.distro == mpb.Distro.CENTOS or build_def.distro == mpb.Distro.ROCKY:
         body += [
             "RUN yum clean all\n",
             "RUN rm -rf ${HOME}/.cache /tmp/*\n",

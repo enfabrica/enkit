@@ -43,6 +43,7 @@ message User {
 enum Distro {
   UBUNTU = 0;
   CENTOS = 1;
+  ROCKY = 3;
 }
 
 message AstoreFile {
