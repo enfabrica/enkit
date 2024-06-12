@@ -355,9 +355,8 @@ def _gen_module_rule(arch, *args, **kwargs):
     kwargs["name"] = arch_module_name
 
     # Skip non-transitioned targets for CI
-    tags = kwargs.get("tags", [])
-    tags += PLATFORM_NO_BUILD_TAGS
-    kwargs["tags"] = tags
+    original_tags = kwargs.get("tags", [])
+    kwargs["tags"] = original_tags + PLATFORM_NO_BUILD_TAGS
 
     # put down original module rule
     kernel_modules_rule(*args, **kwargs)
@@ -368,6 +367,8 @@ def _gen_module_rule(arch, *args, **kwargs):
     kernel_aarch64_transition(
         name = original,
         target = ":" + arch_module_name,
+        tags = original_tags,
+        visibility = kwargs["visibility"],
     )
 
 def _kernel_module_targets(*args, **kwargs):
