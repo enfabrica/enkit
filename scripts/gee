@@ -542,13 +542,13 @@ function _check_ssh_agent() {
   # Check that the ssh-agent is loaded and reachable.
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
     _warn "SSH_AUTH_SOCK is not set."
-    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+    _info "Consider adding to your .bashrc: eval \"\$(${ENKIT} agent print)\""
     if _confirm_default_no \
       "Would you like gee to append this line to your .bashrc file now? (y/N)  "
     then
-      printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+      printf "eval \"\$(%s agent print)\"\n" "${ENKIT}" >> ~/.bashrc
     fi
-    eval "$(enkit agent print)"
+    eval "$("${ENKIT}" agent print)"
     if [[ -z "${SSH_AUTH_SOCK}" ]]; then
       _fatal "Something is wrong with enkit's ssh agent."
     fi
@@ -825,13 +825,13 @@ function _startup_checks() {
     fi
   elif (( RC == 2 )); then
     _warn "Could not connect to ssh-agent."
-    _info "Consider adding \"eval \`enkit agent print\`\" to your .bashrc"
+    _info "Consider adding to your .bashrc file: eval \"\$(${ENKIT} agent print)\""
     if _confirm_default_no \
       "Would you like gee to append this line to your .bashrc file now? (y/N)  "
     then
-      printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+      printf "eval \"\$(%s agent print)\"\n" "${ENKIT}" >> ~/.bashrc
     fi
-    eval "$(enkit agent print)"
+    eval "$(${ENKIT} agent print)"
   fi
 
   set +e
@@ -901,13 +901,13 @@ function _ssh_enroll() {
   # Enroll the user for ssh access to github by creating and uploading a keyfile.
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
     _warn "No ssh-agent is running."
-    _info "Please add \"eval \`enkit agent print\`\" to your .bashrc"
+    _info "Please add to your .bashrc: eval \"\$(${ENKIT} agent print)\""
     if _confirm_default_no \
       "Would you like gee to append this line to your .bashrc file now? (y/N)  "
     then
-      printf "eval \`enkit agent print\`\n" >> ~/.bashrc
+      printf "eval \"\$(%s agent print)\"\n" "${ENKIT}" >> ~/.bashrc
     fi
-    eval "$(enkit agent print)"
+    eval "$(${ENKIT} agent print)"
   fi
   if [[ -z "${SSH_AUTH_SOCK}" ]]; then
     _fatal "gee requires ssh-agent to be running.  Fix and retry."
