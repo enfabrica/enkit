@@ -165,7 +165,7 @@ InputFiles = provider(
     fields = {
         "direct": "List of all the direct input files of a rule",
         "all": "List of all the input files of a rule and its dependencies",
-    }
+    },
 )
 
 def _inputs_aspect(target, ctx):
@@ -181,6 +181,7 @@ def _inputs_aspect(target, ctx):
     files = ctx.rule.files
     for attr in dir(files):
         locfiles = getattr(files, attr, [])
+
         # ctx.rule.files by  contract is a struct, with each attribute
         # being a list, except for to_json and to_proto. Skip the two methods.
         # Anything else that's not iterable will cause a crash.
@@ -342,7 +343,9 @@ def _export_and_run_impl(ctx):
         target_label = ctx.attr.inputs.label
 
     if not input_files and (not ctx.attr.target or package(ctx.attr.target.label) == package(attrs.noop.label)):
-        fail(location(ctx) + "A target must be supplied via flags - check '//" + ctx.build_file_path + "' for details")
+        # No targets specified; warn the user since this is probably an error,
+        # but shouldn't be allowed to fail to stay bazel-cquery clean
+        print("WARNING: no targets supplied to", package(ctx.label) + ". A target must be supplied via flags - check '//" + ctx.build_file_path + "' for details")
 
     tdi = None
     if ctx.attr.target and package(ctx.attr.target.label) != package(attrs.noop.label):
@@ -351,32 +354,36 @@ def _export_and_run_impl(ctx):
 
         tdi = ctx.attr.target[DefaultInfo]
         target_label = ctx.attr.target.label
+        pkg = package(target_label)
         input_files = tdi.files.to_list()
+    else:
+        # No targets specified; provide sane no-op defaults for generated script
+        pkg = ""
 
     runfiles = ctx.runfiles()
     target_opts = attrs.target_opts
     target_exec = ""
     if hasattr(tdi, "files_to_run") and hasattr(tdi.files_to_run, "executable") and tdi.files_to_run.executable:
-      no_execute = False
-      target_exec = tdi.files_to_run.executable.short_path
-      target_runfiles = tdi.default_runfiles
+        no_execute = False
+        target_exec = tdi.files_to_run.executable.short_path
+        target_runfiles = tdi.default_runfiles
 
-      runfiles = runfiles.merge(ctx.runfiles(files = [tdi.files_to_run.executable]))
-      runfiles = runfiles.merge(target_runfiles)
-      if attrs.alldeps:
-          runfiles = runfiles.merge(ctx.runfiles(files = input_files))
+        runfiles = runfiles.merge(ctx.runfiles(files = [tdi.files_to_run.executable]))
+        runfiles = runfiles.merge(target_runfiles)
+        if attrs.alldeps:
+            runfiles = runfiles.merge(ctx.runfiles(files = input_files))
 
-      if has_wrapper:
-          wrapper_exec = ctx.attr.wrapper[DefaultInfo].files_to_run.executable
-          wrapper_runfiles = ctx.attr.wrapper[DefaultInfo].default_runfiles
-          runfiles = runfiles.merge(wrapper_runfiles)
-          runfiles = runfiles.merge(ctx.runfiles(files = [wrapper_exec]))
+        if has_wrapper:
+            wrapper_exec = ctx.attr.wrapper[DefaultInfo].files_to_run.executable
+            wrapper_runfiles = ctx.attr.wrapper[DefaultInfo].default_runfiles
+            runfiles = runfiles.merge(wrapper_runfiles)
+            runfiles = runfiles.merge(ctx.runfiles(files = [wrapper_exec]))
 
-          target_opts = attrs.wrapper_opts + ["--", target_exec] + target_opts
-          target_exec = wrapper_exec.short_path
+            target_opts = attrs.wrapper_opts + ["--", target_exec] + target_opts
+            target_exec = wrapper_exec.short_path
     else:
-      no_execute = True
-      runfiles = runfiles.merge(ctx.runfiles(files = input_files))
+        no_execute = True
+        runfiles = runfiles.merge(ctx.runfiles(files = input_files))
 
     include = ctx.outputs.include
     ctx.actions.write(include, "\n".join([ctx.workspace_name + "/" + f.short_path for f in runfiles.files.to_list()]))
@@ -384,7 +391,7 @@ def _export_and_run_impl(ctx):
     subs = dict(
         include = shell.quote(include.short_path),
         destdir = shell.quote(attrs.destdir),
-        target = shell.quote(package(target_label)),
+        target = shell.quote(pkg),
         target_opts = shell.array_literal(target_opts),
         executable = shell.quote(target_exec),
         no_execute = (no_execute and "true") or "",
