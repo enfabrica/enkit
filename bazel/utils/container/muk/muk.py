@@ -62,7 +62,7 @@ def generate_dockerfile(build_def: mpb.ImageBuild, buf: io.TextIOBase, labels=No
         # TODO(scott): If we have non-astore files to add, they will end up
         # in the astore dir
         "COPY . /astore\n",
-    ] + [_run_cmd_from_action(a) for a in build_def.actions]
+    ] + [_run_cmd_from_action(a, build_def) for a in build_def.actions]
 
     if build_def.HasField("user"):
         body += [f"USER {build_def.user.uid}:{build_def.user.gid}\n"]
@@ -96,7 +96,7 @@ def _apt_repo_option_format(option: mpb.AptRepoOption) -> str:
     return f"{option.name}={values_str}"
 
 
-def _run_cmd_from_action(action: mpb.Action) -> str:
+def _run_cmd_from_action(action: mpb.Action, build_def: mpb.ImageBuild) -> str:
     # TODO: Replace with match/case after moving to Python 3.10+
     if action.WhichOneof("action") == "command":
         return f"RUN {action.command.command}\n"
@@ -152,12 +152,20 @@ RUN DEBIAN_FRONTEND='noninteractive' TZ=UTC apt-get update && \\
         return cmd
     elif action.WhichOneof("action") == "yum_install":
         yum_install = action.yum_install
-        run_cmd = """\
+        if build_def.distro == mpb.Distro.ROCKY:
+            run_cmd = """\
 RUN TZ=UTC yum update -y && \\
     TZ=UTC yum install --allowerasing --enablerepo=devel -y \\
     {}""".format(
             " \\\n    ".join(yum_install.packages)
-        )
+            )
+        else:
+            run_cmd = """\
+RUN TZ=UTC yum update -y && \\
+    TZ=UTC yum install -y \\
+    {}""".format(
+            " \\\n    ".join(yum_install.packages)
+            )
         if len(yum_install.rpms):
             run_cmd += """ && \\
     yum localinstall -y \\
