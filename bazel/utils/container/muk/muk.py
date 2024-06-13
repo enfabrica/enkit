@@ -154,7 +154,7 @@ RUN DEBIAN_FRONTEND='noninteractive' TZ=UTC apt-get update && \\
         yum_install = action.yum_install
         run_cmd = """\
 RUN TZ=UTC yum update -y && \\
-    TZ=UTC yum install -y \\
+    TZ=UTC yum install --allowerasing --enablerepo=devel -y \\
     {}""".format(
             " \\\n    ".join(yum_install.packages)
         )
