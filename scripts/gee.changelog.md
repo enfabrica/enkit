@@ -2,9 +2,16 @@
 
 ## Releases
 
+### 0.2.50
+
+* gee commit: cancels invalidates presubmits, on by default. (#1067)
+* gee find: only search the bazel symlinks if primary search fails.  (#1064)
+* gee bisect: add `--good` option. (#1057)
+* gee pr_make: don't auto-assign @me if PR is a draft. (#1045)
+
 ### 0.2.49
 
-* gee hello: also check and repair gh authentication (#XXXX).
+* gee hello: also check and repair gh authentication (#1042).
 * gee up: fix resolution of updated/deleted merge conflicts (#1040).
 
 ### 0.2.48
