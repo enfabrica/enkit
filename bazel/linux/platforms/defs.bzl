@@ -13,7 +13,7 @@ def _kernel_aarch64_transition_impl(settings, attr):
     }
 
 # A transition to the kernel_aarch64 platform
-_kernel_aarch64_transition = transition(
+kernel_aarch64_target = transition(
     implementation = _kernel_aarch64_transition_impl,
     inputs = [],
     outputs = [
@@ -36,7 +36,7 @@ def _kernel_module_passthrough(ctx):
 kernel_aarch64_transition = rule(
     implementation = _kernel_module_passthrough,
     attrs = {
-        "target": attr.label(cfg = _kernel_aarch64_transition),
+        "target": attr.label(cfg = kernel_aarch64_target),
         "_allowlist_function_transition": attr.label(
             doc = "bazel magic that allows transitions to work",
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
