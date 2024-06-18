@@ -19,6 +19,9 @@ DEFAULT_ARCH="amd64"
 # Default kernel flavour
 DEFAULT_FLAVOUR="generic"
 
+# Default quiet
+DEFAULT_QUIET="no"
+
 # The following ENF_ variables provide an external API and can be set
 # before running this script:
 
@@ -30,6 +33,9 @@ RT_ARCH="${ENF_ARCH:-${DEFAULT_ARCH}}"
 
 # Kernel flavour
 RT_FLAVOUR="${ENF_FLAVOUR:-${DEFAULT_FLAVOUR}}"
+
+# Quiet Build
+RT_QUIET="${ENF_QUIET:-${DEFAULT_QUIET}}"
 
 usage() {
     cat <<EOF
@@ -57,6 +63,13 @@ OPTIONS:
 
         The default is "$DEFAULT_FLAVOUR".
 
+    -q quiet
+
+        Reduce the verbosity of the kernel build.
+
+        The default is a medium noisy build.
+
+
 ENVIRONMENT VARIABLES
 
 Some options can also be set via environment variables:
@@ -64,6 +77,7 @@ Some options can also be set via environment variables:
 ENF_VERSION_SUFFIX:  (current_value: ${ENF_VERSION_SUFFIX:-unset})
 ENF_ARCH:            (current_value: ${ENF_ARCH:-unset})
 ENF_FLAVOUR:         (current_value: ${ENF_FLAVOUR:-unset})
+ENF_QUIET:           (current_value: ${ENF_QUIET:-unset})
 
 In all cases, the command line arguments take precedence.
 
@@ -71,7 +85,7 @@ EOF
 }
 
 # Command line argument override any environment variables
-while getopts hcv:a:f:b: opt ; do
+while getopts hqv:a:f:b: opt ; do
     case $opt in
         v)
             RT_VERSION_SUFFIX=$OPTARG
@@ -81,6 +95,9 @@ while getopts hcv:a:f:b: opt ; do
             ;;
         f)
             RT_FLAVOUR=$OPTARG
+            ;;
+        q)
+            RT_QUIET="yes"
             ;;
         h)
             usage
@@ -169,8 +186,15 @@ esac
 
 NPROC=$(( $(nproc) / 4 ))
 
+if [ "$RT_QUIET" = "yes" ] ; then
+    QUIET="-s"
+else
+    QUIET=""
+fi
+
+
 echo "Building kernel spec: ${RT_ARCH}-${RT_FLAVOUR}"
-make -s \
+make $QUIET \
      O="$build_dir" \
      -j $NPROC \
      $arch_args \

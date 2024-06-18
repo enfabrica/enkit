@@ -54,7 +54,7 @@ rsync -a "${KERNEL_SRC_DIR}/" "$ksrc_dir"
 # directly for setting up a development kernel area for bazel...
 
 cd "$ksrc_dir"
-${SCRIPT_PATH}/build-kernel-tree.sh -v "$kernel_version_suffix" -a "$ARCH" -f "$FLAVOUR"
+${SCRIPT_PATH}/build-kernel-tree.sh -q -v "$kernel_version_suffix" -a "$ARCH" -f "$FLAVOUR"
 
 # above script creates sibling dirs of $ksrc_dir named "boot" and
 # "install" and an installer script.
