@@ -2,11 +2,15 @@
 # standard libraries
 import os
 import logging as log
+import json
 
 # third party libraries
 import docker
 from absl import app, flags
 from rules_python.python.runfiles import runfiles
+
+# enfabrica libraries
+from bazel.utils.container.exceptions import UnofficialBuildException
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("dev_script", None, "Script returned by the oci_push rule to push images to the dev repo")
@@ -30,9 +34,12 @@ flags.mark_flag_as_required("region")
 
 
 def validate_image(docker_client, tarball):
+    log.info(f"Validating image {tarball}")
     with open(tarball, "rb") as fd:
         image = docker_client.images.load(fd)[0]
-        if not image.labels.get("OFFICIAL_BUILD"):
+        # Docker labels convert values to strings
+        # The Docker python SDK does not convert data types from labels
+        if image.labels.get("OFFICIAL_BUILD", "False") == "False":
             raise UnofficialBuildException(image.id)
 
 
@@ -40,7 +47,18 @@ def promote_image(docker_client, staging_image_path, region, project, namespace,
     staging_image = docker_client.images.pull(staging_image_path)
     prod_image_path = "{}.pkg.dev/{}/{}-prod/{}".format(region, project, namespace, suffix)
     staging_image.tag(prod_image_path)
-    docker_client.images.push(prod_image_path)
+
+    # The Docker SDK returns a string iterator that 
+    # needs to be manually parsed.
+    # https://docker-py.readthedocs.io/en/stable/images.html#docker.models.images.ImageCollection.push
+    line = ""
+    for char in docker_client.images.push(prod_image_path):
+        line += char
+        if char == "\n":
+            digest = json.loads(line).get("aux", {}).get("Digest", "")
+            if digest:
+                log.info(f"Promoted image: {prod_image_path}@{digest}")
+            line = ""
 
 
 def container_pusher(docker_client, official, clean_build_check, promote):

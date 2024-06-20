@@ -15,8 +15,7 @@ _IMAGE_BUILDER_SH = """\
     --dev_repo={dev_repo} \\
     --staging_repo={staging_repo} \\
     --prod_repo={prod_repo} \\
-    --v=1 \\
-    $@
+    --v=4 "$@"
 """
 
 def nonhermetic_image_builder_impl(ctx):
