@@ -37,9 +37,9 @@ message PollResponse {
 // Client sends a file to the server, as a result of processing an ActionUpload.
 message UploadRequest {
   // required in the first request only.
-  string key = 1;  
+  string key = 1;
   // optional. If it is provided, it is processed in the first request only.
-  int32 total = 2; 
+  int32 total = 2;
 
   bytes data = 3;
 }
@@ -53,6 +53,23 @@ message DownloadRequest {
 message DownloadResponse {
   bytes data = 1;
 }
+
+message ControlPlaneStateRequest {
+
+}
+
+// StaticMachine is a singular machine usually pushed from the controlplane. It represents an immutable object
+// scraped from the network
+message ControlPlaneStaticMachine {
+  string name = 1;
+  repeated string ips = 2;
+  repeated string tags = 3;
+}
+
+message ControlPlaneStateResponse {
+  repeated ControlPlaneStaticMachine machines = 1;
+}
+
 
 // Controller is the service that workers will connect to to register themselves,
 // and poll for actions to perform.
@@ -68,4 +85,9 @@ service Controller {
   rpc Upload(stream UploadRequest) returns (UploadResponse) {}
   // The client will invoke Download when the server requests the client to upload a file.
   rpc Download(DownloadRequest) returns (stream DownloadResponse) {}
+}
+
+// ControlPlaneExporter exports the static configuration scraped from the machinist controlplane.
+service ControlPlaneExporter {
+  rpc FetchState(ControlPlaneStateRequest) returns (stream ControlPlaneStateResponse) {}
 }
