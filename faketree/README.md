@@ -67,7 +67,7 @@ for the command being run.
 
 Will run the bash command in an environment where (in order of flags):
 
-  * `/etc/hsots` has been replaced by the file we created named `etc_hosts`
+  * `/etc/hosts` has been replaced by the file we created named `etc_hosts`
     (shows a single file override)
   * `/proc/sys/kernel/hostname` has been replaced by the file `proc_sys_kernel_hostname
     (shows a proc file override). Note that `--proc --mount :/proc:type=proc` is
