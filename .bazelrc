@@ -15,6 +15,21 @@ test --test_output=errors
 build --incompatible_strict_action_env
 run --incompatible_strict_action_env
 
+# TODO(INFRA-4384): Remove this flag once all dependencies are compatible with
+# the new platforms repo for constraints.
+build --noincompatible_use_platforms_repo_for_constraints
+
+# BUG(INFRA-4263): These flags are needed in order to use C++ toolchain
+# resolution with a hermetic toolchain, rather than letting bazel resolve the
+# toolchain to the one on the host.
+# See https://github.com/f0rmiga/gcc-toolchain/issues/88
+build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+build --incompatible_enable_cc_toolchain_resolution
+# See https://github.com/f0rmiga/gcc-toolchain/issues/85; without this flag,
+# moving to a hermetic C++ toolchain increases C++ build times by ~40%. With
+# this flag, the extra overhead is reduced (but not entirely eliminated)
+build --experimental_reuse_sandbox_directories
+
 # Load any settings specific to the current user.
 # .bazelrc.user should appear in .gitignore so that settings are not shared with team members
 # This needs to be last statement in this
@@ -23,7 +38,3 @@ run --incompatible_strict_action_env
 # (Note that we use .bazelrc.user so the file appears next to .bazelrc in directory listing,
 # rather than user.bazelrc as suggested in the Bazel docs)
 try-import %workspace%/.bazelrc.user
-
-# TODO(INFRA-4384): Remove this flag once all dependencies are compatible with
-# the new platforms repo for constraints.
-build --noincompatible_use_platforms_repo_for_constraints
