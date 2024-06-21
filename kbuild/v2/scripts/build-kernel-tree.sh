@@ -22,6 +22,9 @@ DEFAULT_FLAVOUR="generic"
 # Default quiet
 DEFAULT_QUIET="no"
 
+# Default clean
+DEFAULT_CLEAN="no"
+
 # The following ENF_ variables provide an external API and can be set
 # before running this script:
 
@@ -36,6 +39,9 @@ RT_FLAVOUR="${ENF_FLAVOUR:-${DEFAULT_FLAVOUR}}"
 
 # Quiet Build
 RT_QUIET="${ENF_QUIET:-${DEFAULT_QUIET}}"
+
+# Clean Build
+RT_CLEAN="${ENF_CLEAN:-${DEFAULT_CLEAN}}"
 
 usage() {
     cat <<EOF
@@ -63,6 +69,13 @@ OPTIONS:
 
         The default is "$DEFAULT_FLAVOUR".
 
+    -c clean build
+
+        Clean the build area and rebuild everything, including the
+        kernel config.
+
+        The default is to reuse any existing build artifacts.
+
     -q quiet
 
         Reduce the verbosity of the kernel build.
@@ -78,6 +91,7 @@ ENF_VERSION_SUFFIX:  (current_value: ${ENF_VERSION_SUFFIX:-unset})
 ENF_ARCH:            (current_value: ${ENF_ARCH:-unset})
 ENF_FLAVOUR:         (current_value: ${ENF_FLAVOUR:-unset})
 ENF_QUIET:           (current_value: ${ENF_QUIET:-unset})
+ENF_CLEAN:           (current_value: ${ENF_CLEAN:-unset})
 
 In all cases, the command line arguments take precedence.
 
@@ -85,7 +99,7 @@ EOF
 }
 
 # Command line argument override any environment variables
-while getopts hqv:a:f:b: opt ; do
+while getopts hqcv:a:f:b: opt ; do
     case $opt in
         v)
             RT_VERSION_SUFFIX=$OPTARG
@@ -98,6 +112,9 @@ while getopts hqv:a:f:b: opt ; do
             ;;
         q)
             RT_QUIET="yes"
+            ;;
+        c)
+            RT_CLEAN="yes"
             ;;
         h)
             usage
@@ -146,27 +163,42 @@ function gen_kernel_version() {
     echo -n "$kernel_version"
 }
 
-# Generate configs
-fakeroot debian/rules clean
-fakeroot debian/rules genconfigs arch="$RT_ARCH"
+# The output build directory must be a sibling of the current source directory.
+parent_dir="$(dirname $PWD)"
+build_dir="${parent_dir}/install/build"
+
+if [ ! -d "$build_dir" ] ; then
+    # Assume clean build if output directory does not exist.
+    RT_CLEAN="yes"
+fi
 
 kconfig="CONFIGS/${RT_ARCH}-config.flavour.${RT_FLAVOUR}"
+
+if [ "$RT_CLEAN" = "yes" ] ; then
+    # clean build directory
+    rm -rf $build_dir
+    mkdir -p $build_dir
+
+    # Generate configs
+    fakeroot debian/rules clean
+    fakeroot debian/rules genconfigs arch="$RT_ARCH"
+
+    if [ ! -r "$kconfig" ] ; then
+        echo "ERROR: Unable to find kernel config for arch-flavour: ${RT_ARCH}-${RT_FLAVOUR}"
+        exit 1
+    fi
+
+    # setup kernel config file
+    cp "$kconfig" "${build_dir}/.config"
+fi
+
 if [ ! -r "$kconfig" ] ; then
     echo "ERROR: Unable to find kernel config for arch-flavour: ${RT_ARCH}-${RT_FLAVOUR}"
     exit 1
 fi
 
-# The output build directory must be a sibling of the current source directory.
-parent_dir="$(dirname $PWD)"
-build_dir="${parent_dir}/install/build"
-rm -rf $build_dir
-mkdir -p $build_dir
-
 kernel_version="$(gen_kernel_version $RT_VERSION_SUFFIX $RT_FLAVOUR)"
 echo "$kernel_version" > "${build_dir}/enf-kernel-version.txt"
-
-# setup kernel config file
-cp "$kconfig" "${build_dir}/.config"
 
 case "$RT_ARCH" in
     arm64)
@@ -212,14 +244,6 @@ cat <<EOF > "${build_dir}/Makefile"
 include ./source/Makefile
 EOF
 
-# remove a bunch of unneeded stuff from build directory
-PATTERNS=".*.cmd *.a *.o *.d *.ko *.order *.mod *.mod.c *.mod.o *.log"
-for p in $PATTERNS ; do
-    find "$build_dir" -name $p -type f -exec rm -f {} +
-done
-
-# TODO: remove even more stuff from the "source" and "build" directory
-
 # Create bazel installer script
 install_script="${parent_dir}/install-${kernel_version}.sh"
 cat <<EOF > "$install_script"
@@ -233,5 +257,6 @@ chmod +x $install_script
 
 # Move kernel image into boot directory
 boot_dir="${parent_dir}/boot"
+rm -rf "$boot_dir"
 mkdir -p "$boot_dir"
 cp "${build_dir}/$output_image" "${boot_dir}/vmlinuz-${kernel_version}"
