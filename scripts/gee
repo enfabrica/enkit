@@ -3070,6 +3070,11 @@ function _add_parent_branches_to_chain() {
   local B="$1"
   if _contains_element "${B}" "${CHAIN[@]}"; then return; fi
   if [[ "${B}" == "upstream/"* ]]; then return; fi
+
+  # If we find a branch that has itself as a parent also
+  # exit the recursion
+  if [[ "${B}" == "$(_get_parent_branch "${B}")" ]]; then return; fi
+
   _add_parent_branches_to_chain "$(_get_parent_branch "${B}")"
   if (( "${#CHAIN[@]}" > 500 )); then
     _info "CHAIN: ${CHAIN[*]}"
