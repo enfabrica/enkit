@@ -31,6 +31,7 @@ func NewAgentCommand(bf *client.BaseFlags) *cobra.Command {
 	// Note the following is intended to be user friendly, identities here are cert principals
 	c.AddCommand(NewRunAgentCommand(c, flags))
 	c.AddCommand(NewPrintCommand(c, flags))
+	c.AddCommand(NewCshPrintCommand(c, flags))
 	c.AddCommand(NewListAgentCommand(flags))
 	return c
 }
@@ -118,4 +119,24 @@ func NewPrintCommand(parent *cobra.Command, flags *AgentCommandFlags) *cobra.Com
 		},
 	}
 	return c
+}
+
+func NewCshPrintCommand(parent *cobra.Command, flags *AgentCommandFlags) *cobra.Command {
+        c := &cobra.Command{
+                Use: "csh",
+                Short: "Prints out the enkit agent as if you ran ssh-agent -c, compatible with c-shells",
+                RunE: func(cmd *cobra.Command, args []string) error {
+                        agent, err := kcerts.PrepareSSHAgent(flags.Base.Local, kcerts.WithLogging(flags.Base.Log), kcerts.WithFlags(flags.Agent))
+                        if err != nil {
+                            return err
+                        }
+                        defer agent.Close()
+                        fmt.Printf("setenv SSH_AUTH_SOCK %s;\n", agent.State.Socket)
+                        if agent.State.PID != 0 {
+                            fmt.Printf("setenv SSH_AGENT_PID %d;\necho Agent pid %d;\n", agent.State.PID, agent.State.PID)
+                        }
+                        return nil
+                },
+        }
+        return c
 }
