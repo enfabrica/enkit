@@ -180,6 +180,15 @@ def qemu_test(
             qemu_binary = qemu_binary,
         ),
     )
+
+    if "tags" in kwargs and "broken" in kwargs["tags"]:
+        for key in kwargs["tags"]:
+            if key.startswith("ticket:"):
+                print("SKIPPED: {} is known to fail ({})".format(name, key[7:]))
+                return
+        fail("Tests marked 'broken' must reference a Jira ticket, ex. 'ticket:LOL-1337'")
+        return
+
     exec_test(name = name, dep = runner, **kwargs)
 
 def kunit_test(
