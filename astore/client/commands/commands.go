@@ -58,10 +58,7 @@ func NewRoot(base *client.BaseFlags) *Root {
 			Short:         "Push, pull, and publish build artifacts",
 			SilenceUsage:  true,
 			SilenceErrors: true,
-			Example: `  $ astore login carlo@enfabrica.net
-        To obtain credentials to store/retrieve artifacts.
-
-  $ astore upload build.out
+			Example: `  $ astore upload build.out
         To upload a file in the artifact repository.
 
   $ astore upload build.out@experiments/builds/
