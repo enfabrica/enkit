@@ -192,7 +192,7 @@ def diff_test_suite(name, files, subdir = "expected", **kwargs):
     many diff_test targets.  This macro replaces those diff_tests, forces the placement
     of the expected data files to be consistent, and implements a consistent test naming.
 
-    All generated diff_test rules will be named "<filename>-diff_test".
+    All generated diff_test rules will be named "<name>-<filename>-diff_test".
 
     "diff_test_suite" should not be confused with "multi_diff_test" which is a specialized
     rule for implementing a difference test against the complete set of all files produced
@@ -209,8 +209,8 @@ def diff_test_suite(name, files, subdir = "expected", **kwargs):
     """
     [
         diff_test(
-            name = "%s-diff_test" % f,
-            expected = "%s/%s" % (subdir, f),
+            name = "%s-%s-diff_test" % (name, f.replace(":", "")),
+            expected = "%s/%s" % (subdir, f.replace(":", "")),
             actual = f,
             **kwargs
         )
@@ -218,7 +218,7 @@ def diff_test_suite(name, files, subdir = "expected", **kwargs):
     ]
     native.test_suite(
         name = name,
-        tests = ["%s-diff_test" % f for f in files],
+        tests = ["%s-%s-diff_test" % (name, f.replace(":", "")) for f in files],
     )
 
 def _extract_file_impl(ctx):
