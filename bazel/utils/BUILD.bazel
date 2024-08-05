@@ -1,5 +1,5 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("//bazel/utils:diff_test.bzl", "diff_test")
+load("//bazel/utils:diff_test.bzl", "diff_test", "extract_file")
 load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
 load("//bazel/utils:files.bzl", "write_to_file")
@@ -97,6 +97,24 @@ sh_test(
     name = "exec_test_test",
     srcs = ["echo-argv_test_check.sh"],
     data = [":echo-argv_test"],
+)
+
+# Validate the extract_file test:
+filegroup(
+    name = "abc",
+    srcs = ["testdata/a.txt", "testdata/b.txt", "testdata/c.txt"],
+)
+
+extract_file(
+    name = "a",
+    target = ":abc",
+    path = "bazel/utils/testdata/a.txt",
+)
+
+diff_test(
+    name = "a-diff_test",
+    actual = ":a",
+    expected = "testdata/a.expected.txt",
 )
 
 #### Support targets
