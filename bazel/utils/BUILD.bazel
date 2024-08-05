@@ -1,5 +1,5 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("//bazel/utils:diff_test.bzl", "diff_test", "extract_file")
+load("//bazel/utils:diff_test.bzl", "diff_test", "extract_file", "diff_test_suite")
 load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
 load("//bazel/utils:files.bzl", "write_to_file")
@@ -115,6 +115,15 @@ diff_test(
     name = "a-diff_test",
     actual = ":a",
     expected = "testdata/a.expected.txt",
+)
+
+# Exercise the diff_test_suite rule:
+diff_test_suite(
+    name = "diff_tests",
+    files = [
+      "escape_and_join1.actual",
+      ":a",
+    ],
 )
 
 #### Support targets
