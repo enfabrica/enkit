@@ -1,4 +1,29 @@
-"""A set of rules to compare generated output against an expected data file."""
+"""A set of rules to compare generated output against an expected data file.
+
+Quick Start:
+
+1. For a given rule ":foo" that generates a "foo.txt" file, create
+a diff_test rule:
+
+    diff_test(
+        name = "foo-diff_test",
+        actual = ":foo",
+        expected = "expected/foo.txt",
+    )
+
+2. Use "touch" to create an empty expected data file:
+
+    touch expected/foo.txt
+
+3. Run the diff_test rule to update the empty expected data file:
+
+    bazel run :foo-diff_test -- --update_goldens
+
+4. Manually inspect the updated `expected/foo.txt` file to ensure
+   that is correct.  From now on, the `:foo-diff_test` rule will
+   fail if the generated `foo.txt` ever changes in a way that does
+   not match the expected `expected/foo.txt`
+"""
 
 def _zipdiff_test_impl(ctx):
     # Note: in python format strings, {{ and }} render as { and }.
@@ -133,6 +158,10 @@ diff_test = rule(
       Alternately, consider using the provided `update_goldens` python script
       as a quick way to identify and regenerate a large number of expected data
       files at once.
+
+      If your generating rule produces multiple files, consider using the
+      provided `extract_file` rule to winnow your depset down to a single
+      file.
     """,
     implementation = _diff_test_impl,
     attrs = {
@@ -154,4 +183,68 @@ diff_test = rule(
         ),
     },
     test = True,
+)
+
+def diff_test_suite(name, files, subdir = "expected", **kwargs):
+    """diff_test_suite is a macro for quickly instantiating multiple diff_test rules.
+
+    A common design pattern in our BUILD files is to use a list comprehension to implement
+    many diff_test targets.  This macro replaces those diff_tests, forces the placement
+    of the expected data files to be consistent, and implements a consistent test naming.
+
+    All generated diff_test rules will be named "<name>-<filename>-diff_test".
+
+    "diff_test_suite" should not be confused with "multi_diff_test" which is a specialized
+    rule for implementing a difference test against the complete set of all files produced
+    by one or more bazel targets.
+
+    Arguments:
+      name: name of the generated test suite.
+      files: a list of generated file targets to test.
+      subdir: a subdirectory beneath the current directory where expected data files are
+        populated.  This must be a subdirectory beneath the directory containing the
+        current BUILD file, and that directory must not contain a BUILD file of its
+        own.  Defaults to "expected".
+      kwargs: additional keyword arguments to pass to all diff_tests.
+    """
+    [
+        diff_test(
+            name = "%s-%s-diff_test" % (name, f.replace(":", "")),
+            expected = "%s/%s" % (subdir, f.replace(":", "")),
+            actual = f,
+            **kwargs
+        )
+        for f in files
+    ]
+    native.test_suite(
+        name = name,
+        tests = ["%s-%s-diff_test" % (name, f.replace(":", "")) for f in files],
+    )
+
+def _extract_file_impl(ctx):
+    selected_file = None
+    for f in ctx.files.target:
+        if f.path == ctx.attr.path or f.short_path == ctx.attr.path:
+            selected_file = f
+    if selected_file == None:
+        fail("%s: %s not found in %r" % (ctx.attr.name, ctx.attr.path, [x.short_path for x in ctx.files.target]))
+    return [DefaultInfo(files = depset([selected_file]))]
+
+extract_file = rule(
+    doc = """
+      Filters the depset provided by a target down to a single file, indicated by a path.
+
+      This rule will fail if a matching file is not found.
+    """,
+    implementation = _extract_file_impl,
+    attrs = {
+        "target": attr.label(
+            doc = "A label indicating a depset of one or more files.",
+            mandatory = True,
+        ),
+        "path": attr.string(
+            doc = "The path to the file to extract from the depset.",
+            mandatory = True,
+        ),
+    }
 )
