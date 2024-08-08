@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 #
 # To learn more about status commands, read:
 #    https://docs.bazel.build/versions/main/user-manual.html#workspace_status
@@ -17,6 +17,8 @@
 echo "STABLE_ENKIT_USER $(sed -e 's@.*"\(.*\)"@\1@' < ~/.config/enkit/identity/default.toml 2>/dev/null || echo $USER)"
 
 # Prints out current branch
+# FIXME(isaac): This is empty when we're in a detached head (as in the enkit release playbook)
+# and breaks everything downstream that depends on GIT_BRANCH
 GIT_BRANCH="$(git branch --show-current)"
 echo GIT_BRANCH "$GIT_BRANCH"
 
