@@ -1,4 +1,5 @@
 load("//bazel/utils:files.bzl", "write_to_file")
+load("//bazel/dive:dive.bzl", "oci_dive")
 load("@enkit//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
@@ -113,6 +114,9 @@ def nonhermetic_image_builder(*args, **kwargs):
     kwargs["staging_repo"] = "{}_staging".format(name)
     kwargs["prod_repo"] = "{}_prod".format(name)
     _nonhermetic_image_builder(*args, **kwargs)
+
+def container_dive(*args, **kwargs):
+    oci_dive(*args, **kwargs)
 
 def container_image(*args, **kwargs):
     name = kwargs.get("name")
