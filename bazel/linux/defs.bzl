@@ -386,9 +386,12 @@ def _kernel_module_targets(*args, **kwargs):
         kernels.append(kwargs.pop("kernel"))
 
     if len(kernels) == 1:
-        (kernel_tree_label, unused, arch) = _normalize_kernel(kernels.pop())
+        kernel = kernels.pop()
+        (kernel_tree_label, unused, arch) = _normalize_kernel(kernel)
         kwargs["kernel"] = kernel_tree_label
-        _gen_module_rule(arch, *args, **kwargs)
+        formatted_deps = [dep.format(kernel_name = kernel) for dep in kwargs["deps"]]
+        my_kwargs = dict(kwargs, deps=formatted_deps)
+        _gen_module_rule(arch, *args, **my_kwargs)
         return
 
     targets = []
@@ -400,7 +403,9 @@ def _kernel_module_targets(*args, **kwargs):
 
         kwargs["name"] = name
         kwargs["kernel"] = kernel_tree_label
-        _gen_module_rule(arch, *args, **kwargs)
+        formatted_deps = [dep.format(kernel_name = kernel) for dep in kwargs["deps"]]
+        my_kwargs = dict(kwargs, deps=formatted_deps)
+        _gen_module_rule(arch, *args, **my_kwargs)
 
     # This creates a target with the name chosen by the user that
     # builds all the modules for all the requested kernels at once.
@@ -431,6 +436,9 @@ def kernel_module(*args, **kwargs):
             and kernel configuration to build the module against.
       kernels: list of kernel trees (same as above). kernel_module will instantiate multiple
             kernel_module_rule, one per kernel spec, and ensure they all build in parallel.
+      deps: the usual meaning, but with a twist: {kernel_name} can be added to any label, and
+            the kernel name will be interpolated into it there. This allows dependencies on other
+            `kernel_module` invocations without depending on the whole bundle.
     """
 
     if "makefile" not in kwargs:
