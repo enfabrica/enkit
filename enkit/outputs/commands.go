@@ -3,21 +3,17 @@ package outputs
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	faketreeexec "github.com/enfabrica/enkit/faketree/exec"
 	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/karchive"
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
-	bbexec "github.com/enfabrica/enkit/lib/kbuildbarn/exec"
-	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
 	"github.com/enfabrica/enkit/proxy/ptunnel"
 	tunnelexec "github.com/enfabrica/enkit/proxy/ptunnel/exec"
@@ -64,11 +60,7 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 		BaseFlags: base,
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect $HOME: %w", err)
-	}
-	defaultOutputsRoot := filepath.Join(homeDir, "outputs")
+	defaultOutputsRoot := "/enf_mounts/buildbarn/scratch"
 
 	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs-root", defaultOutputsRoot, "Root dir of mounted outputs")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
@@ -155,10 +147,6 @@ func (c *Mount) maybeSetupTunnel(hostPort string, tunnelTarget string, tunnelPor
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	host, port, err := c.maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget, c.root.TunnelListenPort, c.root.GatewayProxy)
-	if err != nil {
-		return err
-	}
 	buddyUrl, err := url.Parse(c.root.BuildBuddyUrl)
 	if err != nil {
 		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
@@ -167,29 +155,19 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed generating new buildbuddy client: %w", err)
 	}
-	bbOpts := bbexec.NewClientOptions(
-		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
-		host,
-		port,
-		c.root.OutputsRoot,
-	)
-	_, err = bbexec.MaybeStartClient(bbOpts, 5*time.Second)
-	if err != nil {
-		return fmt.Errorf("failed to start bb_clientd: %w", err)
-	}
 	r, err := kbuildbarn.GenerateHardlinks(
 		context.Background(),
 		bc,
-		bbOpts.MountDir,
+		"/enf_mounts/buildbarn",
 		c.InvocationID,
-		host,
 		kbuildbarn.WithNamedSetOfFiles(),
 		kbuildbarn.WithTestResults(),
 	)
 	if err != nil {
 		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
-	scratchInvocationPath := filepath.Join(bbOpts.ScratchDir(), c.InvocationID)
+
+	scratchInvocationPath := filepath.Join("/enf_mounts/buildbarn/scratch", c.InvocationID)
 	if err := os.Mkdir(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("could not create scratch dir %w", err)
 	}
@@ -217,7 +195,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputInvocationPath, err)
 	}
-	fmt.Printf("Outputs mounted in: ~/outputs/%s \n", c.InvocationID)
+	fmt.Printf("Outputs mounted in: /enf_mounts/buildbarn/scratch/%s \n", c.InvocationID)
 	return nil
 }
 
@@ -246,7 +224,7 @@ func NewUnmount(root *Root) *Unmount {
 
 func (c *Unmount) Run(cmd *cobra.Command, args []string) error {
 	invoPath := filepath.Join(c.root.OutputsRoot, c.Invocation)
-	if err := os.Remove(invoPath); err != nil {
+	if err := os.RemoveAll(invoPath); err != nil {
 		return fmt.Errorf("error removing %s: %v", invoPath, err)
 	}
 	return nil
@@ -375,23 +353,7 @@ func NewShutdown(root *Root) *Shutdown {
 }
 
 func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
-	bbOpts := bbexec.NewClientOptions(
-		c.root.Log,
-		"", // Buildbarn remote host/port does not matter
-		0,
-		c.root.OutputsRoot,
-	)
 	var errs []error
-	// MaybeStartClient is used here to bind a client handle to an existing process, so that we can kill it. It may start a process that will be then killed quickly, which is acceptable but not ideal.
-	bbClient, err := bbexec.MaybeStartClient(bbOpts, 5*time.Second)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if bbClient != nil {
-		if err := bbClient.Shutdown(); err != nil {
-			errs = append(errs, fmt.Errorf("error maybe? killing the process of existing bb_clientd %v", err))
-		}
-	}
 	if err := os.RemoveAll(c.root.OutputsRoot); err != nil {
 		errs = append(errs, err)
 		c.root.Log.Errorf("error removing output root %s %v", c.root.OutputsRoot, err)
