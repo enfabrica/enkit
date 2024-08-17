@@ -21,11 +21,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	DefaultOutputsRoot = "/enf_mounts/buildbarn/scratch"
+)
+        
+
 type Root struct {
 	*cobra.Command
 	*client.BaseFlags
 
-	OutputsRoot           string
 	BuildBuddyApiKey      string
 	BuildBuddyUrl         string
 	BuildbarnHost         string
@@ -60,9 +64,6 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 		BaseFlags: base,
 	}
 
-	defaultOutputsRoot := "/enf_mounts/buildbarn/scratch"
-
-	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs-root", defaultOutputsRoot, "Root dir of mounted outputs")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
 	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
@@ -191,11 +192,11 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if len(errs) != 0 {
 		return fmt.Errorf("error writing links to disk %w", multierror.New(errs))
 	}
-	outputInvocationPath := filepath.Join(c.root.OutputsRoot, c.InvocationID)
+	outputInvocationPath := filepath.Join(DefaultOutputsRoot, c.InvocationID)
 	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputInvocationPath, err)
 	}
-	fmt.Printf("Outputs mounted in: /enf_mounts/buildbarn/scratch/%s \n", c.InvocationID)
+	fmt.Printf("Outputs mounted in: %s/%s \n", DefaultOutputsRoot, c.InvocationID)
 	return nil
 }
 
@@ -223,7 +224,7 @@ func NewUnmount(root *Root) *Unmount {
 }
 
 func (c *Unmount) Run(cmd *cobra.Command, args []string) error {
-	invoPath := filepath.Join(c.root.OutputsRoot, c.Invocation)
+	invoPath := filepath.Join(DefaultOutputsRoot, c.Invocation)
 	if err := os.RemoveAll(invoPath); err != nil {
 		return fmt.Errorf("error removing %s: %v", invoPath, err)
 	}
@@ -354,11 +355,11 @@ func NewShutdown(root *Root) *Shutdown {
 
 func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
 	var errs []error
-	if err := os.RemoveAll(c.root.OutputsRoot); err != nil {
+	if err := os.RemoveAll(DefaultOutputsRoot); err != nil {
 		errs = append(errs, err)
-		c.root.Log.Errorf("error removing output root %s %v", c.root.OutputsRoot, err)
+		c.root.Log.Errorf("error removing output root %s %v", DefaultOutputsRoot, err)
 		return multierror.New(errs)
 	}
-	fmt.Printf("Successfully deleted output root at %s \n", c.root.OutputsRoot)
+	fmt.Printf("Successfully deleted output root at %s \n", DefaultOutputsRoot)
 	return nil
 }
