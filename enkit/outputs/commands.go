@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// These directories are bb_clientd mounts that we assume are already present on the host.
 const (
 	DefaultOutputsRoot = "/enf_mounts/buildbarn/scratch"
         DefaultMountDir = "/enf_mounts/buildbarn"
