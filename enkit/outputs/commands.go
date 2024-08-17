@@ -3,6 +3,7 @@ package outputs
 import (
 	"context"
 	"fmt"
+        "io/ioutil"
 	"net"
 	"net/url"
 	"os"
@@ -355,12 +356,22 @@ func NewShutdown(root *Root) *Shutdown {
 }
 
 func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
-	var errs []error
-	if err := os.RemoveAll(DefaultOutputsRoot); err != nil {
-		errs = append(errs, err)
-		c.root.Log.Errorf("error removing output root %s %v", DefaultOutputsRoot, err)
-		return multierror.New(errs)
-	}
-	fmt.Printf("Successfully deleted output root at %s \n", DefaultOutputsRoot)
-	return nil
+        dir := DefaultOutputsRoot
+
+        files, err := ioutil.ReadDir(dir)
+        if err != nil {
+            return fmt.Errorf("Error reading directory:", err)
+        }
+
+        for _, file := range files {
+            if file.IsDir() {
+                subDir := filepath.Join(dir, file.Name())
+
+                err := os.RemoveAll(subDir)
+                if err != nil {
+                    return fmt.Errorf("Error removing subdirectory: %s, %v", subDir, err)
+                }
+            }
+        }
+        return nil
 }
