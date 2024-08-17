@@ -23,6 +23,7 @@ import (
 
 const (
 	DefaultOutputsRoot = "/enf_mounts/buildbarn/scratch"
+        DefaultMountDir = "/enf_mounts/buildbarn"
 )
         
 
@@ -159,7 +160,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	r, err := kbuildbarn.GenerateHardlinks(
 		context.Background(),
 		bc,
-		"/enf_mounts/buildbarn",
+                DefaultMountDir,
 		c.InvocationID,
 		kbuildbarn.WithNamedSetOfFiles(),
 		kbuildbarn.WithTestResults(),
@@ -168,7 +169,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
 
-	scratchInvocationPath := filepath.Join("/enf_mounts/buildbarn/scratch", c.InvocationID)
+	scratchInvocationPath := filepath.Join(DefaultOutputsRoot, c.InvocationID)
 	if err := os.Mkdir(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("could not create scratch dir %w", err)
 	}
