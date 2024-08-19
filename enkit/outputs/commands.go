@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
         "io/ioutil"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	faketreeexec "github.com/enfabrica/enkit/faketree/exec"
 	"github.com/enfabrica/enkit/lib/bes"
@@ -16,8 +14,6 @@ import (
 	"github.com/enfabrica/enkit/lib/karchive"
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
 	"github.com/enfabrica/enkit/lib/multierror"
-	"github.com/enfabrica/enkit/proxy/ptunnel"
-	tunnelexec "github.com/enfabrica/enkit/proxy/ptunnel/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -35,10 +31,6 @@ type Root struct {
 
 	BuildBuddyApiKey      string
 	BuildBuddyUrl         string
-	BuildbarnHost         string
-	BuildbarnTunnelTarget string
-	TunnelListenPort      int
-	GatewayProxy          string
 }
 
 func New(base *client.BaseFlags) (*Root, error) {
@@ -69,10 +61,6 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
-	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
-	rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
-	rc.PersistentFlags().IntVar(&rc.TunnelListenPort, "tunnel-listen-port", 8001, "If a tunnel is required, this is the local port the tunnel listens on for connections")
-	rc.PersistentFlags().StringVar(&rc.GatewayProxy, "gateway-proxy", "", "If a tunnel is used, gateway proxy to tunnel through")
 	return rc, nil
 }
 
@@ -100,54 +88,6 @@ func NewMount(root *Root) *Mount {
 
 	command.Command.RunE = command.Run
 	return command
-}
-
-// maybeSetupTunnel takes a "host:port" string and starts a background tunnel
-// if necessary. It returns a host and port that
-// clients should connect to, which could either be the original host/port if no
-// tunnel was necessary, or a modified host/port if a tunnel was necessary.
-//
-// There are three possible scenarios:
-//
-//  1. Target is on the local network. No tunnel needed, and the host and port
-//     remain unchanged.
-//  2. Target is not on the local network, but the gateway is running a
-//     persistent tunnel. No tunnel needs to be created, but the dial address
-//     should be that of the gateway's tunnel, rather than the original target
-//     port. This is detected by determining whether the resolved IP is the same
-//     as the gateway IP. In this case, return the tunnel port, not the original
-//     port.
-//  3. Target is not on the local network, and a tunnel is required. Start the
-//     tunnel, and then return the port the tunnel is listening on.
-func (c *Mount) maybeSetupTunnel(hostPort string, tunnelTarget string, tunnelPort int, gatewayProxy string) (string, int, error) {
-	host, port, err := net.SplitHostPort(hostPort)
-	if err != nil {
-		return "", 0, fmt.Errorf("can't split %q into host+port: %w", hostPort, err)
-	}
-	parsedPort, err := strconv.ParseInt(port, 10, 32)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to parse port %q: %w", port, err)
-	}
-	tunnelType, err := ptunnel.TunnelTypeForHost(host)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to determine if tunnel is required for %q: %w", host, err)
-	}
-	switch tunnelType {
-	default:
-		return "", 0, fmt.Errorf("unhandled tunnel type: %v", tunnelType)
-	case ptunnel.TunnelTypeNone:
-		c.root.Log.Debugf("No tunnel needed; connecting directly to %q", hostPort)
-		return host, int(parsedPort), nil
-	case ptunnel.TunnelTypePersistent:
-		c.root.Log.Debugf("Connecting to %q via gateway tunnel on port %d", host, tunnelPort)
-		return host, tunnelPort, nil
-	case ptunnel.TunnelTypeLocal:
-		c.root.Log.Debugf("Starting a tunnel for %q on port %d", hostPort, tunnelPort)
-		if err := tunnelexec.NewBackgroundTunnel(tunnelTarget, int(parsedPort), tunnelPort, gatewayProxy); err != nil {
-			return "", 0, fmt.Errorf("failed to start tunnel to %q: %w", hostPort, err)
-		}
-		return host, tunnelPort, nil
-	}
 }
 
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
@@ -194,10 +134,6 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	}
 	if len(errs) != 0 {
 		return fmt.Errorf("error writing links to disk %w", multierror.New(errs))
-	}
-	outputInvocationPath := filepath.Join(DefaultOutputsRoot, c.InvocationID)
-	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputInvocationPath, err)
 	}
 	fmt.Printf("Outputs mounted in: %s/%s \n", DefaultOutputsRoot, c.InvocationID)
 	return nil
