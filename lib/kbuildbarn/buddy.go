@@ -10,7 +10,7 @@ import (
 	bespb "github.com/enfabrica/enkit/third_party/bazel/buildeventstream"
 )
 
-type FilterOption func(event *bespb.BuildEvent, baseName, invocation, clusterName string) HardlinkList
+type FilterOption func(event *bespb.BuildEvent, baseName, invocation string) HardlinkList
 
 func outputDirForTest(label string, run int32, attempt int32) string {
 	components := strings.Split(label, "//")
@@ -26,7 +26,7 @@ func outputDirForTest(label string, run int32, attempt int32) string {
 }
 
 func WithTestResults() FilterOption {
-	return func(event *bespb.BuildEvent, baseName, invocation, clusterName string) HardlinkList {
+	return func(event *bespb.BuildEvent, baseName, invocation string) HardlinkList {
 		testResult := event.GetTestResult()
 		if testResult != nil {
 			// Files that are typically in a test.outputs subdirectory come to this
@@ -46,7 +46,6 @@ func WithTestResults() FilterOption {
 					event.GetId().GetTestResult().GetShard(),
 				),
 				invocation,
-				clusterName,
 			)
 		}
 		return nil
@@ -54,16 +53,16 @@ func WithTestResults() FilterOption {
 }
 
 func WithNamedSetOfFiles() FilterOption {
-	return func(event *bespb.BuildEvent, baseName, invocation, clusterName string) HardlinkList {
+	return func(event *bespb.BuildEvent, baseName, invocation string) HardlinkList {
 		nsof := event.GetNamedSetOfFiles()
 		if nsof != nil {
-			return GenerateLinksForFiles(nsof.Files, baseName, "", invocation, clusterName)
+			return GenerateLinksForFiles(nsof.Files, baseName, "", invocation)
 		}
 		return nil
 	}
 }
 
-func GenerateHardlinks(ctx context.Context, client *bes.BuildBuddyClient, baseName, invocation, clusterName string, options ...FilterOption) (HardlinkList, error) {
+func GenerateHardlinks(ctx context.Context, client *bes.BuildBuddyClient, baseName, invocation string, options ...FilterOption) (HardlinkList, error) {
 	result, err := client.GetBuildEvents(ctx, invocation)
 	if err != nil {
 		return nil, err
@@ -71,7 +70,7 @@ func GenerateHardlinks(ctx context.Context, client *bes.BuildBuddyClient, baseNa
 	var parsedResults []HardlinkList
 	for _, event := range result {
 		for _, fOpt := range options {
-			parsedResults = append(parsedResults, fOpt(event, baseName, invocation, clusterName))
+			parsedResults = append(parsedResults, fOpt(event, baseName, invocation))
 		}
 	}
 	return MergeLists(parsedResults...), nil
