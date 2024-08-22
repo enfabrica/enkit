@@ -4817,44 +4817,63 @@ EOT
 
 function _remove_a_branch() {
   local BR="$1"
+  local STATE
 
   _banner "Deleting ${BR}"
-  _checkout_or_die "${BR}"
-  _set_main
-  local -a  counts=()
-  read -r -a counts < <("${GIT}" rev-list --left-right --count "${MAIN}...${BR}")
-  if (( counts[1] != 0 )); then
-    _warn "Branch \"${BR}\" is ${counts[1]} commit(s) ahead of ${MAIN}."
-    _confirm_or_exit "Are you sure you want to force-remove branch ${BR}? (y/N) "
-    _info "As you wish."
-  fi
-  if [[ -n "$("${GIT}" status --porcelain)" ]]; then
-    _warn "Branch \"${BR}\" contains uncommitted changes."
-    _confirm_or_exit "Are you sure you want to force-remove branch ${BR}? (y/N) "
-    _info "Whatever you say, boss."
+  # if a local branch exists, or if the worktree directory exists:
+  if "${GIT}" show-ref --quiet "refs/heads/${BR}" || [[ -d "${GEE_REPO_DIR}/${BR}" ]]; then
+    _checkout_or_die "${BR}"
+    _set_main
+
+    # Check if branch is clean
+    STATE=CLEAN
+    local -a  counts=()
+    read -r -a counts < <("${GIT}" rev-list --left-right --count "${MAIN}...${BR}")
+    if (( counts[1] != 0 )); then
+      _warn "Branch \"${BR}\" is ${counts[1]} commit(s) ahead of ${MAIN}."
+      STATE=UNCLEAN
+    fi
+    if [[ -n "$("${GIT}" status --porcelain)" ]]; then
+      _warn "Branch \"${BR}\" contains uncommitted changes."
+      STATE=UNCLEAN
+    fi
+    if [[ "${STATE}" != "CLEAN" ]]; then
+      if _confirm_default_no "Are you sure you want to force-remove branch ${BR}? (y/N) "; then
+        _info "By your command."
+      else
+        _info "Skipping."
+        return 0
+      fi
+    fi
+
+    local SHA
+    SHA="$("${GIT}" reflog | head -n 1 | awk '{print $1}' )"
+
+    # delete the bazel cache associated with this worktree
+    if [[ -h ./bazel-out ]] && readlink -qf ./bazel-out; then
+      local BAZELCACHE
+      BAZELCACHE="$(readlink -f ./bazel-out)"
+      BAZELCACHE="${BAZELCACHE%/execroot/*/bazel-out}"
+      _info "Removing linked bazel cache directory \"${BAZELCACHE}\""
+      chmod -R u+w "${BAZELCACHE}"
+      rm -rf "${BAZELCACHE}"
+    fi
+
+    _checkout_or_die "${MAIN}"
+    # --force is required for git v2.17.1, or the remove operation will always fail.
+    _git worktree remove --force "${BR}"
+    _git branch -D "${BR}"
+
+    _info "Deleted local branch ${BR}.  To undo: gee make_branch ${BR} ${SHA}"
+  else
+    _warn "Local branch \"${BR}\" not found: skipped."
   fi
 
-  local SHA
-  SHA="$("${GIT}" reflog | head -n 1 | awk '{print $1}' )"
-
-  # delete the bazel cache associated with this worktree
-  if [[ -h ./bazel-out ]] && readlink -qf ./bazel-out; then
-    local BAZELCACHE
-    BAZELCACHE="$(readlink -f ./bazel-out)"
-    BAZELCACHE="${BAZELCACHE%/execroot/*/bazel-out}"
-    _info "Removing linked bazel cache directory \"${BAZELCACHE}\""
-    chmod -R u+w "${BAZELCACHE}"
-    rm -rf "${BAZELCACHE}"
-  fi
-
-  _checkout_or_die "${MAIN}"
-  # --force is required for git v2.17.1, or the remove operation will always fail.
-  _git worktree remove --force "${BR}"
-  _git branch -D "${BR}"
   if _remote_branch_exists origin "${BR}"; then
     _git_can_fail push --quiet origin --delete "${BR}" | cat
+    _info "Deleted remote branch origin/${BR}"
   else
-    _info "Not deleting remote branch ${BR}: was never created."
+    _info "Remote branch origin/${BR} not found: skipped."
   fi
 
   # Remove branch from parents file, and fix up children's parents.
@@ -4870,8 +4889,6 @@ function _remove_a_branch() {
     fi
   done
   _write_parents_file
-
-  _info "Deleted ${BR}.  To undo: gee make_branch ${BR} ${SHA}"
 }
 
 function gee__rmbr() { gee__remove_branch "$@"; }
