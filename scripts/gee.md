@@ -111,6 +111,10 @@ review.
 * `GEE_BUILDLOGS_PROJECT`: If you are using gcloud to store your presubmit testing logs, you can
   override gee's default gcloud project by setting this environment variable.
 
+* `GEE_PR_BASE`: Sets the name of the default upstream branch that you want to integrate your
+  PRs to.  If unspecified, defaults to "master", but can be used to mark PRs are being
+  destined for integration into branches like "master_b0", for example.
+
 * `UPSTREAM`: The name of the github user hosting the specified repository.  By default, `enfabrica`.
 
 * `YESYESYES`: If set to a non-zero integer, will cause all yes/no prompts within `gee` to automatically
@@ -640,6 +644,16 @@ edit a PR description file before the PR is created.
 If you have any second thoughts during this process: Adding the token "DRAFT"
 to your PR description will cause the PR to be marked as a draft.  Adding the
 token "ABORT" will cause gee to abort the creation of your PR.
+
+By default, `pr_make` creates a PR that targets upstream/master as the branch
+for the PR to merge into.  However, this branch can be changed in two ways:
+
+* The `GEE_PR_BASE` environment variable can be used to specify the name of the
+  upstream branch to merge into.
+
+* The `--base <branchname>` argument can be added to the command line to
+  explicitly specify the name of the upstream branch to target.  This value
+  will override the value in `GEE_PR_BASE`, if set.
 
 Uses the same options as "gh pr create".
 
