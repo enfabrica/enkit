@@ -83,6 +83,7 @@ def main(argv):
         # push container image to the staging repo
         if FLAGS.official:
             repo = muk.get_repo(FLAGS.staging_repo)
+            # FIXME(isaac): why does this sha seem incorrect?
             log.info(f"Pushing {image.id} to {repo}:{FLAGS.image_tag}")
             if FLAGS.clean_build_check:
                 muk.validate_image(image)

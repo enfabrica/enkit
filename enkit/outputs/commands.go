@@ -3,39 +3,34 @@ package outputs
 import (
 	"context"
 	"fmt"
-	"log"
-	"net"
+        "io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
-	"time"
 
 	faketreeexec "github.com/enfabrica/enkit/faketree/exec"
 	"github.com/enfabrica/enkit/lib/bes"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/karchive"
 	"github.com/enfabrica/enkit/lib/kbuildbarn"
-	bbexec "github.com/enfabrica/enkit/lib/kbuildbarn/exec"
-	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/lib/multierror"
-	"github.com/enfabrica/enkit/proxy/ptunnel"
-	tunnelexec "github.com/enfabrica/enkit/proxy/ptunnel/exec"
 
 	"github.com/spf13/cobra"
 )
+
+// These directories are bb_clientd mounts that we assume are already present on the host.
+const (
+	DefaultOutputsRoot = "/enf_mounts/buildbarn/scratch"
+        DefaultMountDir = "/enf_mounts/buildbarn"
+)
+        
 
 type Root struct {
 	*cobra.Command
 	*client.BaseFlags
 
-	OutputsRoot           string
 	BuildBuddyApiKey      string
 	BuildBuddyUrl         string
-	BuildbarnHost         string
-	BuildbarnTunnelTarget string
-	TunnelListenPort      int
-	GatewayProxy          string
 }
 
 func New(base *client.BaseFlags) (*Root, error) {
@@ -64,19 +59,8 @@ func NewRoot(base *client.BaseFlags) (*Root, error) {
 		BaseFlags: base,
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect $HOME: %w", err)
-	}
-	defaultOutputsRoot := filepath.Join(homeDir, "outputs")
-
-	rc.PersistentFlags().StringVar(&rc.OutputsRoot, "outputs-root", defaultOutputsRoot, "Root dir of mounted outputs")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyApiKey, "api-key", "", "build buddy api key used to bypass oauth2")
 	rc.PersistentFlags().StringVar(&rc.BuildBuddyUrl, "buildbuddy-url", "", "build buddy url instance")
-	rc.PersistentFlags().StringVar(&rc.BuildbarnHost, "buildbarn-host", "", "host:port of BuildBarn instance")
-	rc.PersistentFlags().StringVar(&rc.BuildbarnTunnelTarget, "buildbarn-tunnel-target", "", "If a tunnel is required, this is the endpoint that should be tunnelled to")
-	rc.PersistentFlags().IntVar(&rc.TunnelListenPort, "tunnel-listen-port", 8001, "If a tunnel is required, this is the local port the tunnel listens on for connections")
-	rc.PersistentFlags().StringVar(&rc.GatewayProxy, "gateway-proxy", "", "If a tunnel is used, gateway proxy to tunnel through")
 	return rc, nil
 }
 
@@ -106,59 +90,7 @@ func NewMount(root *Root) *Mount {
 	return command
 }
 
-// maybeSetupTunnel takes a "host:port" string and starts a background tunnel
-// if necessary. It returns a host and port that
-// clients should connect to, which could either be the original host/port if no
-// tunnel was necessary, or a modified host/port if a tunnel was necessary.
-//
-// There are three possible scenarios:
-//
-//  1. Target is on the local network. No tunnel needed, and the host and port
-//     remain unchanged.
-//  2. Target is not on the local network, but the gateway is running a
-//     persistent tunnel. No tunnel needs to be created, but the dial address
-//     should be that of the gateway's tunnel, rather than the original target
-//     port. This is detected by determining whether the resolved IP is the same
-//     as the gateway IP. In this case, return the tunnel port, not the original
-//     port.
-//  3. Target is not on the local network, and a tunnel is required. Start the
-//     tunnel, and then return the port the tunnel is listening on.
-func (c *Mount) maybeSetupTunnel(hostPort string, tunnelTarget string, tunnelPort int, gatewayProxy string) (string, int, error) {
-	host, port, err := net.SplitHostPort(hostPort)
-	if err != nil {
-		return "", 0, fmt.Errorf("can't split %q into host+port: %w", hostPort, err)
-	}
-	parsedPort, err := strconv.ParseInt(port, 10, 32)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to parse port %q: %w", port, err)
-	}
-	tunnelType, err := ptunnel.TunnelTypeForHost(host)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to determine if tunnel is required for %q: %w", host, err)
-	}
-	switch tunnelType {
-	default:
-		return "", 0, fmt.Errorf("unhandled tunnel type: %v", tunnelType)
-	case ptunnel.TunnelTypeNone:
-		c.root.Log.Debugf("No tunnel needed; connecting directly to %q", hostPort)
-		return host, int(parsedPort), nil
-	case ptunnel.TunnelTypePersistent:
-		c.root.Log.Debugf("Connecting to %q via gateway tunnel on port %d", host, tunnelPort)
-		return host, tunnelPort, nil
-	case ptunnel.TunnelTypeLocal:
-		c.root.Log.Debugf("Starting a tunnel for %q on port %d", hostPort, tunnelPort)
-		if err := tunnelexec.NewBackgroundTunnel(tunnelTarget, int(parsedPort), tunnelPort, gatewayProxy); err != nil {
-			return "", 0, fmt.Errorf("failed to start tunnel to %q: %w", hostPort, err)
-		}
-		return host, tunnelPort, nil
-	}
-}
-
 func (c *Mount) Run(cmd *cobra.Command, args []string) error {
-	host, port, err := c.maybeSetupTunnel(c.root.BuildbarnHost, c.root.BuildbarnTunnelTarget, c.root.TunnelListenPort, c.root.GatewayProxy)
-	if err != nil {
-		return err
-	}
 	buddyUrl, err := url.Parse(c.root.BuildBuddyUrl)
 	if err != nil {
 		return fmt.Errorf("failed parsing buildbuddy url: %w", err)
@@ -167,29 +99,19 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed generating new buildbuddy client: %w", err)
 	}
-	bbOpts := bbexec.NewClientOptions(
-		&logger.DefaultLogger{Printer: log.Printf}, // TODO: pipe this logger everywhere
-		host,
-		port,
-		c.root.OutputsRoot,
-	)
-	_, err = bbexec.MaybeStartClient(bbOpts, 5*time.Second)
-	if err != nil {
-		return fmt.Errorf("failed to start bb_clientd: %w", err)
-	}
 	r, err := kbuildbarn.GenerateHardlinks(
 		context.Background(),
 		bc,
-		bbOpts.MountDir,
+                DefaultMountDir,
 		c.InvocationID,
-		host,
 		kbuildbarn.WithNamedSetOfFiles(),
 		kbuildbarn.WithTestResults(),
 	)
 	if err != nil {
 		return fmt.Errorf("hard links could not be generated: %w", err)
 	}
-	scratchInvocationPath := filepath.Join(bbOpts.ScratchDir(), c.InvocationID)
+
+	scratchInvocationPath := filepath.Join(DefaultOutputsRoot, c.InvocationID)
 	if err := os.Mkdir(scratchInvocationPath, 0777); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("could not create scratch dir %w", err)
 	}
@@ -213,11 +135,7 @@ func (c *Mount) Run(cmd *cobra.Command, args []string) error {
 	if len(errs) != 0 {
 		return fmt.Errorf("error writing links to disk %w", multierror.New(errs))
 	}
-	outputInvocationPath := filepath.Join(c.root.OutputsRoot, c.InvocationID)
-	if err := os.Symlink(scratchInvocationPath, outputInvocationPath); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("error symlinking from %s to %s: %w", scratchInvocationPath, outputInvocationPath, err)
-	}
-	fmt.Printf("Outputs mounted in: ~/outputs/%s \n", c.InvocationID)
+	fmt.Printf("Outputs mounted in: %s/%s \n", DefaultOutputsRoot, c.InvocationID)
 	return nil
 }
 
@@ -245,8 +163,8 @@ func NewUnmount(root *Root) *Unmount {
 }
 
 func (c *Unmount) Run(cmd *cobra.Command, args []string) error {
-	invoPath := filepath.Join(c.root.OutputsRoot, c.Invocation)
-	if err := os.Remove(invoPath); err != nil {
+	invoPath := filepath.Join(DefaultOutputsRoot, c.Invocation)
+	if err := os.RemoveAll(invoPath); err != nil {
 		return fmt.Errorf("error removing %s: %v", invoPath, err)
 	}
 	return nil
@@ -375,28 +293,22 @@ func NewShutdown(root *Root) *Shutdown {
 }
 
 func (c *Shutdown) Run(cmd *cobra.Command, args []string) error {
-	bbOpts := bbexec.NewClientOptions(
-		c.root.Log,
-		"", // Buildbarn remote host/port does not matter
-		0,
-		c.root.OutputsRoot,
-	)
-	var errs []error
-	// MaybeStartClient is used here to bind a client handle to an existing process, so that we can kill it. It may start a process that will be then killed quickly, which is acceptable but not ideal.
-	bbClient, err := bbexec.MaybeStartClient(bbOpts, 5*time.Second)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if bbClient != nil {
-		if err := bbClient.Shutdown(); err != nil {
-			errs = append(errs, fmt.Errorf("error maybe? killing the process of existing bb_clientd %v", err))
-		}
-	}
-	if err := os.RemoveAll(c.root.OutputsRoot); err != nil {
-		errs = append(errs, err)
-		c.root.Log.Errorf("error removing output root %s %v", c.root.OutputsRoot, err)
-		return multierror.New(errs)
-	}
-	fmt.Printf("Successfully deleted output root at %s \n", c.root.OutputsRoot)
-	return nil
+        dir := DefaultOutputsRoot
+
+        files, err := ioutil.ReadDir(dir)
+        if err != nil {
+            return fmt.Errorf("Error reading directory:", err)
+        }
+
+        for _, file := range files {
+            if file.IsDir() {
+                subDir := filepath.Join(dir, file.Name())
+
+                err := os.RemoveAll(subDir)
+                if err != nil {
+                    return fmt.Errorf("Error removing subdirectory: %s, %v", subDir, err)
+                }
+            }
+        }
+        return nil
 }
