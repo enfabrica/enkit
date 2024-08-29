@@ -185,6 +185,40 @@ diff_test = rule(
     test = True,
 )
 
+def md5sum_diff_test(name, srcs, expected = None, **kwargs):
+    """md5sum_diff_test is a diff_test that diffs the md5 checksums
+    of a set of files.  This is useful in situations where the files
+    themselves are too large to keep in source control.
+
+    The md5sum value can be updated by the "update_golden" tool, just like
+    ordinary `diff_test`s.  Just like `diff_test`, the expected data
+    file must exist.
+
+    Arguments:
+    * name: The name of the diff_test to generate.
+    * srcs: The generated source files to check (the "actual" files).
+    * expected: The file containing the md5 checksum(s).  If omitted, the
+          default filename (name + ".md5sum") will be used instead.
+    """
+    if not expected:
+        expected = name + ".md5sum"
+    out = expected + "-out"
+    cmd = "/usr/bin/md5sum $(SRCS) > $@"
+    native.genrule(
+        name = name + "-gen",
+        srcs = srcs,
+        outs = [out],
+        cmd = cmd,
+        tools = [],
+    )
+    diff_test(
+        name = name,
+        actual = out,
+        expected = expected,
+        **kwargs,
+    )
+
+
 def diff_test_suite(name, files, subdir = "expected", **kwargs):
     """diff_test_suite is a macro for quickly instantiating multiple diff_test rules.
 
