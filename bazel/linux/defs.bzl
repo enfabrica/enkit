@@ -23,19 +23,20 @@ def _kernel_modules(ctx):
         kdeps.extend(get_compatible(ctx, ki.arch, ki.package, d))
 
     for d in ctx.attr.deps:
-        inputs.extend(d.files.to_list())
-
         if not is_module(d):
             if CcInfo in d:
                 inputs += d[CcInfo].compilation_context.headers.to_list()
                 includes += d[CcInfo].compilation_context.includes.to_list()
                 quote_includes += d[CcInfo].compilation_context.quote_includes.to_list()
+
+            inputs.extend(d.files.to_list())
         else:
             mods = get_compatible(ctx, ki.arch, ki.package, d)
 
             kdeps.extend(mods)
             for mod in mods:
                 extra_symbols.extend([f for f in mod.files if f.extension == "symvers"])
+                inputs.extend(mod.files)
 
     outputs = []
     message = ""
