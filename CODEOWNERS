@@ -1,4 +1,3 @@
 *.sh @jonathan-enf @ccontavalli @ahungrynacho @mhallmark
 /scripts @jonathan-enf @ccontavalli @mhallmark
-allocation_manager/ @kjw-enf @ccontavalli @moksh-enf
-
+allocation_manager/ @kjw-enf @ccontavalli @moksh-enf @roivanov
