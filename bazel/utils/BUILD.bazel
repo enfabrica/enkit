@@ -1,5 +1,5 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("//bazel/utils:diff_test.bzl", "diff_test", "extract_file", "diff_test_suite")
+load("//bazel/utils:diff_test.bzl", "diff_test", "extract_file", "md5sum_diff_test", "diff_test_suite")
 load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
 load("//bazel/utils:files.bzl", "write_to_file")
@@ -123,6 +123,16 @@ diff_test_suite(
     files = [
       "escape_and_join1.actual",
       ":a",
+    ],
+)
+
+# Exercise the md5sum_diff_test rule:
+md5sum_diff_test(
+    name = "md5sum_diff_test_test",
+    srcs = [
+      "escape_and_join1.actual",
+      ":a",
+      "testdata/a.expected.txt",
     ],
 )
 
