@@ -1,0 +1,3 @@
+2ebec47b84f22f0acc2812627aec97b0  bazel-out/k8-fastbuild/bin/bazel/utils/escape_and_join1.actual
+60b725f10c9c85c70d97880dfe8191b3  bazel/utils/testdata/a.txt
+60b725f10c9c85c70d97880dfe8191b3  bazel/utils/testdata/a.expected.txt
