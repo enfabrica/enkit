@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	apb "github.com/enfabrica/enkit/auth/proto"
+        remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config/identity"
 	"github.com/enfabrica/enkit/lib/kauth"
@@ -11,8 +12,13 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/spf13/cobra"
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/grpclog"
+        "google.golang.org/grpc/metadata"
 	"math/rand"
 	"time"
+        "context"
+        "os"
 )
 
 type Login struct {
@@ -55,6 +61,24 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 	login.agent.Register(&kcobra.FlagSet{login.Flags()}, "")
 
 	return login
+}
+
+func tokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
+    return func(
+        ctx context.Context,
+        method string,
+        req interface{},
+        reply interface{},
+        cc *grpc.ClientConn,
+        invoker grpc.UnaryInvoker,
+        opts ...grpc.CallOption,
+    ) error {
+        md := metadata.Pairs("authorization", "Bearer "+token)
+        ctxWithToken := metadata.NewOutgoingContext(ctx, md)
+        grpclog.Infof("Called Interceptor!")
+
+        return invoker(ctxWithToken, method, req, reply, cc, opts...)
+    }
 }
 
 func (l *Login) Run(cmd *cobra.Command, args []string) error {
@@ -115,6 +139,25 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("could not mark identity as default - %w", err)
 		}
 	}
+
+        // TODO(isaac): wrap below in a function and call via defer
+        // will that still execute if the user ctrl-c's ?
+        grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
+        grpc.EnableTracing = true
+        conn, err = grpc.Dial("localhost:8981", grpc.WithInsecure(), grpc.WithUnaryInterceptor(tokenAuthInterceptor(enCreds.Token)))
+        if err != nil {
+            return fmt.Errorf("fail to dial: %w", err)
+        }
+        //defer conn.Close()
+
+        client := remoteexecution.NewContentAddressableStorageClient(conn)
+        resp, err := client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{})
+
+        if err != nil {
+            return fmt.Errorf("failed :(: %w", err)
+        }
+
+        fmt.Println(resp)
 
 	return nil
 }
