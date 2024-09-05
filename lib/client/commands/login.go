@@ -150,8 +150,14 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
         }
         //defer conn.Close()
 
+        digests := []*remoteexecution.Digest{
+            {Hash: "013ad2661e3240ec6e0c8f79eb14944f599e04aeffa78d90873a6d679297746c", SizeBytes: 22733},
+//            {Hash: "abcdef12345", SizeBytes: 12345},
+        }
+
         client := remoteexecution.NewContentAddressableStorageClient(conn)
-        resp, err := client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{})
+        resp, err := client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{InstanceName: "buildbarn_prod", BlobDigests: digests})
+//        resp, err := client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{})
 
         if err != nil {
             return fmt.Errorf("failed :(: %w", err)
