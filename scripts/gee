@@ -5202,6 +5202,8 @@ function gee__copy() {
   _git checkout "${CURRENT_BRANCH}"
   _git merge --no-ff "${COPY_BRANCH}" -m "gee: Copy to ${DEST}: ${SRCS[*]}"
 
+  _git branch -d "${COPY_BRANCH}"
+
   _info "Copied ${SRCS[*]} to ${DEST}"
 }
 
