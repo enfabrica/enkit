@@ -5156,7 +5156,6 @@ function gee__copy() {
   local DEST="${@: -1}"
   local -a SRCS=( "$@" )
   unset SRCS[-1]  # remove last element from list
-  printf "srcs: %q\n" "${SRCS}"
 
   local DEST_IS="dir"
 
