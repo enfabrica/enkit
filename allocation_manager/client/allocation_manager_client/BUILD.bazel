@@ -1,0 +1,30 @@
+load("//bazel/astore:defs.bzl", "astore_upload")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "allocation_manager_client_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/enfabrica/enkit/allocation_manager/client/allocation_manager_client",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//allocation_manager/client",
+        "//allocation_manager/proto:go_default_library",
+        "@com_github_google_uuid//:uuid",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "allocation_manager_client",
+    embed = [":allocation_manager_client_lib"],
+    visibility = ["//visibility:public"],
+)
+
+astore_upload(
+    name = "astore_push",
+    file = "infra/allocation_manager/allocation_manager_client",
+    targets = [
+        ":allocation_manager_client",
+    ],
+    visibility = ["//:__pkg__"],
+)
