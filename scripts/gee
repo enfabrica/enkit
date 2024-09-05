@@ -5168,6 +5168,7 @@ function gee__copy() {
     _die "You must commit these changes before using the copy operation."
   fi
 
+  # Determine if we are copying to a file or a directory.
   if [[ "${#SRCS[@]}" -gt 1 ]]; then
     if [[ -f "${DEST}" ]]; then
       DEST_IS="file"
@@ -5188,6 +5189,7 @@ function gee__copy() {
     fi
   fi
 
+  # Make the destination directory, if necessary.
   if [[ "${DEST_IS}" == "dir" ]] && [[ ! -d "${DEST}" ]]; then
     _cmd mkdir -p "${DEST}"
   fi
@@ -5197,10 +5199,7 @@ function gee__copy() {
   COPY_BRANCH="_GEE_TEMP_${CURRENT_BRANCH}"
   _git checkout -b "${COPY_BRANCH}"
 
-  local SRC
-  for SRC in "${SRCS[@]}"; do
-    _git mv -f "${SRC}" "${DEST}"
-  done
+  _git mv -v -f "${SRCS[@]}" "${DEST}"
   _git commit -m "gee: Moved to ${DEST}: ${SRCS[*]}"
 
   _git checkout HEAD~ "${SRCS[@]}"
