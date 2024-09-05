@@ -94,6 +94,9 @@ def _kernel_modules(ctx):
     if extra_symbols:
         extra.append("KBUILD_EXTRA_SYMBOLS=\"%s\"" % (extra_symbols))
 
+    extra.append('BAZEL_BIN_DIR="%s"' % ctx.bin_dir.path)
+    extra.append('BAZEL_GEN_DIR="%s"' % ctx.genfiles_dir.path)
+
     if ctx.attr.silent:
         silent = "-s"
     else:
