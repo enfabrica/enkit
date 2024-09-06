@@ -72,6 +72,8 @@ func TokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
         invoker grpc.UnaryInvoker,
         opts ...grpc.CallOption,
     ) error {
+        // TODO(isaac): This is a little non-standard - perhaps we should make these
+        // constants somewhere in the enkit codebase?
         md := metadata.Pairs("cookie", "Creds="+token)
         ctxWithToken := metadata.NewOutgoingContext(ctx, md)
 
@@ -113,7 +115,7 @@ func AuthenticateBbclientd(token string) error {
         var err error
 
         bbclientd_address := "localhost:8981"
-        conn, err = grpc.Dial(bbclientd_address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)))
+        conn, err = grpc.Dial(bbclientd_address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)), grpc.WithTimeout(5 * time.Second))
         if err != nil {
             return fmt.Errorf("fail to dial: %w", err)
         }
