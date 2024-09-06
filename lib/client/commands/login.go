@@ -111,7 +111,9 @@ func AuthenticateBbclientd(token string) error {
 //        grpc.EnableTracing = true
         var conn *grpc.ClientConn
         var err error
-        conn, err = grpc.Dial("localhost:8981", grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)))
+
+        bbclientd_address := "localhost:8981"
+        conn, err = grpc.Dial(bbclientd_address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)))
         if err != nil {
             return fmt.Errorf("fail to dial: %w", err)
         }
