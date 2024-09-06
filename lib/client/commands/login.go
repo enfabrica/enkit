@@ -156,7 +156,7 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
         }
 
         client := remoteexecution.NewContentAddressableStorageClient(conn)
-        resp, err := client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{InstanceName: "buildbarn_prod", BlobDigests: digests})
+        resp, err := client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{BlobDigests: digests})
 //        resp, err := client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{})
 
         if err != nil {
