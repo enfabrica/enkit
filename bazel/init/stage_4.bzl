@@ -34,4 +34,3 @@ def stage_4():
         registry = "us-docker.pkg.dev",
         repository = "enfabrica-container-images/third-party-prod/distroless/base/golang",
     )
-
