@@ -7,7 +7,7 @@ go_library(
     visibility = [
         "//allocation_manager/client/allocation_manager_client:__pkg__",
     ],
-    deps = ["//allocation_manager/proto:go_default_library"],
+    deps = ["//allocation_manager/proto"],
 )
 
 go_test(
@@ -15,7 +15,7 @@ go_test(
     srcs = ["client_test.go"],
     embed = [":client"],
     deps = [
-        "//allocation_manager/proto:go_default_library",
+        "//flextape/proto:go_default_library",
         "//lib/errdiff",
         "@com_github_stretchr_testify//assert",
         "@org_golang_google_grpc//:go_default_library",

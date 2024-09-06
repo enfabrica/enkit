@@ -10,7 +10,6 @@ go_library(
     deps = [
         "//allocation_manager/proto",
         "//allocation_manager/service",
-        "//lib/metrics",
         "//lib/server",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext",

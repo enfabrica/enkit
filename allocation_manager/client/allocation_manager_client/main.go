@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"gopkg.in/yaml.v3" // package "yaml"
+
 	"github.com/enfabrica/enkit/allocation_manager/client"
 	apb "github.com/enfabrica/enkit/allocation_manager/proto"
 
@@ -23,6 +25,15 @@ var (
 	purpose = flag.String("purpose", "", "What this reservation is for (TODO: test target?)")
 )
 
+type YamlTopology struct {
+	Name string `yaml:"name"`
+	//	Nodes ... `yaml: nodes`
+	//	Devices ... `yaml: devices`
+	//	Interfaces ... `yaml: interfaces`
+	NetworkConfig string `yaml:"network_config"`
+	// Links ... `yaml: links`
+}
+
 func main() {
 	// This argument handling is a bit unorthodox, but must be compatible with the
 	// commandline issued by bazel rules.
@@ -34,7 +45,7 @@ func main() {
 		os.Exit(1)
 	}
 	host, port := args[0], args[1]
-	name, configName := args[2], args[3]
+	name, configName := args[2], args[3] // TODO: extract 'name' from the loaded/parsed config
 	cmd, args := args[4], args[5:]
 
 	user, err := user.Current()
@@ -46,16 +57,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open %s: %s\n", configName, err)
 	}
-	var configBytes []byte
-	_, err = fh.Read(configBytes)
+	configBytes := make([]byte, 1024000)
+	count, err := fh.Read(configBytes)
 	if err != nil {
 		log.Fatalf("Failed to read %s: %s\n", configName, err)
 	}
+	var parsedTopology YamlTopology
+	err = yaml.Unmarshal(configBytes[:count], &parsedTopology)
+	if err != nil {
+		log.Fatalf("cannot unmarshal data: %v\n", err)
+	}
+	fmt.Println(parsedTopology)
 	config := string(configBytes)
 
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("Connection failed: %s \n", err)
+		log.Fatalf("Connection failed: %s\n", err)
 	}
 	defer conn.Close()
 
