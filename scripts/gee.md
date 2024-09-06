@@ -159,6 +159,7 @@ prompt that `gee bash_setup` makes available.
 | <a href="#codeowners">`codeowners`</a> | Provide detailed information about required approvals for this PR. |
 | <a href="#commit">`commit`</a> | Commit all changes in this branch |
 | <a href="#config">`config`</a> | Set various configuration options. |
+| <a href="#copy">`copy`</a> | Copy files (preserving history). |
 | <a href="#create_ssh_key">`create_ssh_key`</a> | Create and enroll an ssh key. |
 | <a href="#diagnose">`diagnose`</a> | Capture diagnostics about your repository. |
 | <a href="#diff">`diff`</a> | Differences in this branch. |
@@ -784,6 +785,29 @@ This command will attempt to re-enroll you for ssh access to github.
 Normally, "gee init" will ensure that you have ssh access.  This command
 is only available if something else has gone wrong requiring that keys
 be updated.
+
+### copy
+
+Aliases: cp
+
+Usage: `gee copy <files...> <destination>`
+
+Creates a copy of one or more files, preserving git history.  (Just
+copying a file using cp will cause git to assume a new file, and
+not preserve history.)
+
+This operation will create a new commit containing the copy operation.
+All files being copied should be "clean" (committed, not staged) for
+this to work correctly.
+
+Destination may either be a filename or a directory.  When copying
+more than one file, destination must be a directory.
+
+Examples:
+
+    gee copy foo.txt bar.txt
+    mkdir bardir
+    gee copy foo.txt bar.txt bardir/
 
 ### share
 
