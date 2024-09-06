@@ -30,4 +30,3 @@ stage_3()
 load("//bazel/init:stage_4.bzl", "stage_4")
 
 stage_4()
-
