@@ -13,12 +13,10 @@ import (
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/spf13/cobra"
         "google.golang.org/grpc"
-        "google.golang.org/grpc/grpclog"
         "google.golang.org/grpc/metadata"
 	"math/rand"
 	"time"
         "context"
-        "os"
 )
 
 type Login struct {
@@ -63,7 +61,8 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 	return login
 }
 
-func tokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
+// Adds our auth headers to our requests
+func TokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
     return func(
         ctx context.Context,
         method string,
@@ -73,12 +72,62 @@ func tokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
         invoker grpc.UnaryInvoker,
         opts ...grpc.CallOption,
     ) error {
-        md := metadata.Pairs("authorization", "Bearer "+token)
+        md := metadata.Pairs("cookie", "Creds="+token)
         ctxWithToken := metadata.NewOutgoingContext(ctx, md)
-        grpclog.Infof("Called Interceptor!")
 
         return invoker(ctxWithToken, method, req, reply, cc, opts...)
     }
+}
+
+// AuthenticateBbclientd auths our CAS mounts
+//
+// bb_clientd mounts CAS as a fuse filesystem.
+// It also runs a grpc enpoint that acts as a
+// proxy for our build cluster backend.
+//
+// It authenticates the fuse filesystem by
+// intercepting credentials that come from requests
+// from the RBE client (bazel). Those credentials
+// are reused when a user wants to read a file from CAS
+// (testslogs from failed builds, etc..).
+//
+// The issue with this auth setup is that users must do
+// an initial bazel invocation to "seed" the credentials
+// before they're able to use the CAS mounts. This is a poor
+// user experience.
+//
+// To get around this we're sending a dummy rpc request through
+// the proxy at `enkit login` so that bbclientd is automatically
+// authenticated on user login for the day.
+//
+// A less hacky approach would be to add proper credentials helper support
+// for bb_clientd so auth happens when the daemon starts up. Upstream has already
+// indicated they'd be happy to accept this contribution. If we're able to land that
+// feature (or someone else does) then this code can be removed.
+//
+// The ticket for cred helper support in bb_clientd: ENGPROD-355
+func AuthenticateBbclientd(token string) error {
+//        grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
+//        grpc.EnableTracing = true
+        var conn *grpc.ClientConn
+        var err error
+        conn, err = grpc.Dial("localhost:8981", grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)))
+        if err != nil {
+            return fmt.Errorf("fail to dial: %w", err)
+        }
+
+        // The FindMissingBlobs RPC is used by the client to ask the server which blobs it is missing
+        // so it can upload them. We just send an abritrary digest (to which the server should respond
+        // that it doesn't have it). Note that we don't really care about the response here unless it's an
+        // error.
+        digests := []*remoteexecution.Digest{
+            {Hash: "013ad2661e3240ec6e0c8f79eb14944f599e04aeffa78d90873a6d679297746c", SizeBytes: 22733},
+        }
+
+        client := remoteexecution.NewContentAddressableStorageClient(conn)
+        _, err = client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{BlobDigests: digests})
+
+        return err
 }
 
 func (l *Login) Run(cmd *cobra.Command, args []string) error {
@@ -140,30 +189,12 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-        // TODO(isaac): wrap below in a function and call via defer
-        // will that still execute if the user ctrl-c's ?
-        grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
-        grpc.EnableTracing = true
-        conn, err = grpc.Dial("localhost:8981", grpc.WithInsecure(), grpc.WithUnaryInterceptor(tokenAuthInterceptor(enCreds.Token)))
-        if err != nil {
-            return fmt.Errorf("fail to dial: %w", err)
-        }
-        //defer conn.Close()
-
-        digests := []*remoteexecution.Digest{
-            {Hash: "013ad2661e3240ec6e0c8f79eb14944f599e04aeffa78d90873a6d679297746c", SizeBytes: 22733},
-//            {Hash: "abcdef12345", SizeBytes: 12345},
-        }
-
-        client := remoteexecution.NewContentAddressableStorageClient(conn)
-        resp, err := client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{BlobDigests: digests})
-//        resp, err := client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{})
+        // Reuse the token to authenticate our bbclientd CAS mounts
+        err = AuthenticateBbclientd(enCreds.Token)
 
         if err != nil {
-            return fmt.Errorf("failed :(: %w", err)
+            return fmt.Errorf("bb_clientd auth failed: %w", err)
         }
-
-        fmt.Println(resp)
 
 	return nil
 }
