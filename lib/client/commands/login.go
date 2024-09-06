@@ -30,9 +30,10 @@ type Login struct {
 	agent     *kcerts.SSHAgentFlags
 	populator kflags.Populator
 
-        Debug       bool
-	NoDefault   bool
-	MinWaitTime time.Duration
+        BbclientdAddress string
+        Debug            bool
+	NoDefault        bool
+	MinWaitTime      time.Duration
 }
 
 // NewLogin creates a new Login command.
@@ -58,6 +59,8 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 	}
 	login.Command.RunE = login.Run
 
+        login.Flags().StringVar(&login.BbclientdAddress, "bbclientd-address", "localhost:8981", "bbcliend address")
+        login.Flags().MarkHidden("bbclientd-address")
         login.Flags().BoolVarP(&login.Debug, "debug", "d", false, "Print extra debugging information. Mostly useful for development")
 	login.Flags().BoolVarP(&login.NoDefault, "no-default", "n", false, "Do not mark this identity as the default identity to use")
 	login.Flags().DurationVar(&login.MinWaitTime, "min-wait-time", 10*time.Second, "Wait at least this long in between failed attempts to retrieve a token")
@@ -113,7 +116,7 @@ func TokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
 // feature (or someone else does) then this code can be removed.
 //
 // The ticket for cred helper support in bb_clientd: ENGPROD-355
-func AuthenticateBbclientd(token string, debug bool) {
+func AuthenticateBbclientd(address string, token string, debug bool) {
         if debug {
             grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
             grpc.EnableTracing = true
@@ -121,8 +124,7 @@ func AuthenticateBbclientd(token string, debug bool) {
         var conn *grpc.ClientConn
         var err error
 
-        bbclientd_address := "localhost:8981"
-        conn, err = grpc.Dial(bbclientd_address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)), grpc.WithTimeout(2 * time.Second))
+        conn, err = grpc.Dial(address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)), grpc.WithTimeout(2 * time.Second))
         if err != nil {
             if debug {
                 log.Fatal("fail to dial: %w", err)
@@ -208,7 +210,7 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 	}
 
         // Reuse the token to authenticate our bbclientd CAS mounts
-        AuthenticateBbclientd(enCreds.Token, l.Debug)
+        AuthenticateBbclientd(l.BbclientdAddress, enCreds.Token, l.Debug)
 
 	return nil
 }
