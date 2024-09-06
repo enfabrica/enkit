@@ -13,10 +13,13 @@ import (
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/spf13/cobra"
         "google.golang.org/grpc"
+        "google.golang.org/grpc/grpclog"
         "google.golang.org/grpc/metadata"
 	"math/rand"
 	"time"
         "context"
+        "os"
+        "log"
 )
 
 type Login struct {
@@ -27,6 +30,7 @@ type Login struct {
 	agent     *kcerts.SSHAgentFlags
 	populator kflags.Populator
 
+        Debug       bool
 	NoDefault   bool
 	MinWaitTime time.Duration
 }
@@ -54,6 +58,7 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 	}
 	login.Command.RunE = login.Run
 
+        login.Flags().BoolVarP(&login.Debug, "debug", "d", false, "Print extra debugging information. Mostly useful for development")
 	login.Flags().BoolVarP(&login.NoDefault, "no-default", "n", false, "Do not mark this identity as the default identity to use")
 	login.Flags().DurationVar(&login.MinWaitTime, "min-wait-time", 10*time.Second, "Wait at least this long in between failed attempts to retrieve a token")
 	login.agent.Register(&kcobra.FlagSet{login.Flags()}, "")
@@ -108,16 +113,23 @@ func TokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
 // feature (or someone else does) then this code can be removed.
 //
 // The ticket for cred helper support in bb_clientd: ENGPROD-355
-func AuthenticateBbclientd(token string) error {
-//        grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
-//        grpc.EnableTracing = true
+func AuthenticateBbclientd(token string, debug bool) {
+        if debug {
+            grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
+            grpc.EnableTracing = true
+        }
         var conn *grpc.ClientConn
         var err error
 
         bbclientd_address := "localhost:8981"
         conn, err = grpc.Dial(bbclientd_address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)), grpc.WithTimeout(2 * time.Second))
         if err != nil {
-            return fmt.Errorf("fail to dial: %w", err)
+            if debug {
+                log.Fatal("fail to dial: %w", err)
+            }
+            
+            // continuing if we fail here will cause a crash.
+            return
         }
 
         // The FindMissingBlobs RPC is used by the client to ask the server which blobs it is missing
@@ -131,7 +143,9 @@ func AuthenticateBbclientd(token string) error {
         client := remoteexecution.NewContentAddressableStorageClient(conn)
         _, err = client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{BlobDigests: digests})
 
-        return err
+        if err != nil && debug {
+            log.Fatal("bbclientd auth failed: %w", err)
+        }
 }
 
 func (l *Login) Run(cmd *cobra.Command, args []string) error {
@@ -194,11 +208,7 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 	}
 
         // Reuse the token to authenticate our bbclientd CAS mounts
-        err = AuthenticateBbclientd(enCreds.Token)
-
-        if err != nil {
-            return fmt.Errorf("bb_clientd auth failed: %w", err)
-        }
+        AuthenticateBbclientd(enCreds.Token, l.Debug)
 
 	return nil
 }
