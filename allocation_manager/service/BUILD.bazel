@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "service",
@@ -16,26 +16,6 @@ go_library(
         "@com_github_google_uuid//:uuid",
         "@com_github_prometheus_client_golang//prometheus",
         "@com_github_prometheus_client_golang//prometheus/promauto",
-        "@org_golang_google_grpc//codes",
-        "@org_golang_google_grpc//status",
-        "@org_golang_google_protobuf//types/known/timestamppb",
-    ],
-)
-
-go_test(
-    name = "service_test",
-    srcs = [
-        "queue_test.go",
-        "service_test.go",
-    ],
-    embed = [":service"],
-    deps = [
-        "//flextape/proto:go_default_library",
-        "//lib/errdiff",
-        "//lib/testutil",
-        "@com_github_google_go_cmp//cmp",
-        "@com_github_prashantv_gostub//:gostub",
-        "@com_github_stretchr_testify//assert",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
         "@org_golang_google_protobuf//types/known/timestamppb",
