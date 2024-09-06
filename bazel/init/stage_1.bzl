@@ -18,6 +18,22 @@ def stage_1():
     way of forcing a dependency upgrade underneath e.g. io_bazel_rules_go.
     """
     maybe(
+        name = "aspect_bazel_lib",
+        repo_rule = http_archive,
+        sha256 = "688354ee6beeba7194243d73eb0992b9a12e8edeeeec5b6544f4b531a3112237",
+        strip_prefix = "bazel-lib-2.8.1",
+        url = "https://github.com/aspect-build/bazel-lib/releases/download/v2.8.1/bazel-lib-v2.8.1.tar.gz",
+    )
+
+    maybe(
+        name = "rules_distroless",
+        repo_rule = http_archive,
+        sha256 = "8a3440067453ad211f3b34d4a8f68f65663dc5fd6d7834bf81eecf0526785381",
+        strip_prefix = "rules_distroless-0.3.6",
+        url = "https://github.com/GoogleContainerTools/rules_distroless/releases/download/v0.3.6/rules_distroless-v0.3.6.tar.gz",
+    )
+
+    maybe(
         name = "io_bazel_rules_go",
         repo_rule = http_archive,
         patches = ["@enkit//bazel/dependencies/io_bazel_rules_go:tags_manual.patch"],
