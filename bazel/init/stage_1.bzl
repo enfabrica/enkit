@@ -28,6 +28,8 @@ def stage_1():
     maybe(
         name = "rules_distroless",
         repo_rule = http_archive,
+        patches = ["@enkit//bazel/dependencies:rules_distroless.patch"],
+        patch_args = ["-p1"],
         sha256 = "8a3440067453ad211f3b34d4a8f68f65663dc5fd6d7834bf81eecf0526785381",
         strip_prefix = "rules_distroless-0.3.6",
         url = "https://github.com/GoogleContainerTools/rules_distroless/releases/download/v0.3.6/rules_distroless-v0.3.6.tar.gz",
