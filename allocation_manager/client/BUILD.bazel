@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "client",
+    srcs = ["client.go"],
+    importpath = "github.com/enfabrica/enkit/allocation_manager/client",
+    visibility = [
+        "//allocation_manager/client/allocation_manager_client:__pkg__",
+    ],
+    deps = ["//allocation_manager/proto"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":client",
+    visibility = ["//visibility:public"],
+)

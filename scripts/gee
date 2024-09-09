@@ -5126,6 +5126,94 @@ function gee__create_ssh_key() {
 }
 
 ##########################################################################
+# copy command
+##########################################################################
+
+_register_help "copy" "Copy files (preserving history)." "cp" <<'EOT'
+Usage: gee copy <files...> <destination>
+
+Creates a copy of one or more files, preserving git history.  (Just
+copying a file using cp will cause git to assume a new file, and
+not preserve history.)
+
+This operation will create a new commit containing the copy operation.
+All files being copied should be "clean" (committed, not staged) for
+this to work correctly.
+
+Destination may either be a filename or a directory.  When copying
+more than one file, destination must be a directory.
+
+Examples:
+
+    gee copy foo.txt bar.txt
+    mkdir bardir
+    gee copy foo.txt bar.txt bardir/
+EOT
+function gee__cp() { gee__copy "$@"; }
+function gee__copy() {
+  _startup_checks "copy"
+
+  local -a DESTS=( "${@: -1}" )
+  local DEST="${DESTS[0]}"
+  local -a SRCS=( "$@" )
+  unset "SRCS[-1]"  # remove last element from list
+
+  local DEST_IS="dir"
+
+  # Check that all source files are clean.
+  local STATUS
+  STATUS="$(git status --porcelain "${SRCS[@]}")"
+  if [[ "${STATUS}" ]]; then
+    _warn "The following files have uncommitted changes:" "${STATUS}"
+    _die "You must commit these changes before using the copy operation."
+  fi
+
+  # Determine if we are copying to a file or a directory.
+  if [[ "${#SRCS[@]}" -gt 1 ]]; then
+    if [[ -f "${DEST}" ]]; then
+      DEST_IS="file"
+      _die "Multiple sources defined, but destination is a file."
+    else
+      DEST_IS="dir"
+    fi
+  else
+    if [[ -f "${DEST}" ]]; then
+      DEST_IS="file"
+      _warn "Destination exists: ${DEST}"
+    elif [[ -d "${DEST}" ]]; then
+      DEST_IS="dir"
+    elif [[ "${DEST}" == */ ]]; then
+      DEST_IS="dir"
+    else
+      DEST_IS="file"
+    fi
+  fi
+
+  # Make the destination directory, if necessary.
+  if [[ "${DEST_IS}" == "dir" ]] && [[ ! -d "${DEST}" ]]; then
+    _cmd mkdir -p "${DEST}"
+  fi
+
+  local CURRENT_BRANCH COPY_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  COPY_BRANCH="_GEE_TEMP_${CURRENT_BRANCH}"
+  _git checkout -b "${COPY_BRANCH}"
+
+  _git mv -v -f "${SRCS[@]}" "${DEST}"
+  _git commit -m "gee: Moved to ${DEST}: ${SRCS[*]}"
+
+  _git checkout HEAD~ "${SRCS[@]}"
+  _git commit -m "gee: Restored ${SRCS[*]}"
+
+  _git checkout "${CURRENT_BRANCH}"
+  _git merge --no-ff "${COPY_BRANCH}" -m "gee: Copy to ${DEST}: ${SRCS[*]}"
+
+  _git branch -d -f "${COPY_BRANCH}"
+
+  _info "Copied ${SRCS[*]} to ${DEST}"
+}
+
+##########################################################################
 # share command
 ##########################################################################
 

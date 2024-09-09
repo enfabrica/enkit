@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	apb "github.com/enfabrica/enkit/auth/proto"
+        remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config/identity"
 	"github.com/enfabrica/enkit/lib/kauth"
@@ -11,8 +12,14 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/spf13/cobra"
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/grpclog"
+        "google.golang.org/grpc/metadata"
 	"math/rand"
 	"time"
+        "context"
+        "os"
+        "log"
 )
 
 type Login struct {
@@ -23,8 +30,10 @@ type Login struct {
 	agent     *kcerts.SSHAgentFlags
 	populator kflags.Populator
 
-	NoDefault   bool
-	MinWaitTime time.Duration
+        BbclientdAddress string
+        Debug            bool
+	NoDefault        bool
+	MinWaitTime      time.Duration
 }
 
 // NewLogin creates a new Login command.
@@ -50,11 +59,95 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 	}
 	login.Command.RunE = login.Run
 
+        login.Flags().StringVar(&login.BbclientdAddress, "bbclientd-address", "localhost:8981", "bbcliend address")
+        login.Flags().MarkHidden("bbclientd-address")
+        login.Flags().BoolVarP(&login.Debug, "debug", "d", false, "Print extra debugging information. Mostly useful for development")
 	login.Flags().BoolVarP(&login.NoDefault, "no-default", "n", false, "Do not mark this identity as the default identity to use")
 	login.Flags().DurationVar(&login.MinWaitTime, "min-wait-time", 10*time.Second, "Wait at least this long in between failed attempts to retrieve a token")
 	login.agent.Register(&kcobra.FlagSet{login.Flags()}, "")
 
 	return login
+}
+
+// Adds our auth headers to our requests
+func TokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
+    return func(
+        ctx context.Context,
+        method string,
+        req interface{},
+        reply interface{},
+        cc *grpc.ClientConn,
+        invoker grpc.UnaryInvoker,
+        opts ...grpc.CallOption,
+    ) error {
+        // TODO(isaac): This is a little non-standard - perhaps we should make these
+        // constants somewhere in the enkit codebase?
+        md := metadata.Pairs("cookie", "Creds="+token)
+        ctxWithToken := metadata.NewOutgoingContext(ctx, md)
+
+        return invoker(ctxWithToken, method, req, reply, cc, opts...)
+    }
+}
+
+// AuthenticateBbclientd auths our CAS mounts
+//
+// bb_clientd mounts CAS as a fuse filesystem.
+// It also runs a grpc enpoint that acts as a
+// proxy for our build cluster backend.
+//
+// It authenticates the fuse filesystem by
+// intercepting credentials that come from requests
+// from the RBE client (bazel). Those credentials
+// are reused when a user wants to read a file from CAS
+// (testslogs from failed builds, etc..).
+//
+// The issue with this auth setup is that users must do
+// an initial bazel invocation to "seed" the credentials
+// before they're able to use the CAS mounts. This is a poor
+// user experience.
+//
+// To get around this we're sending a dummy rpc request through
+// the proxy at `enkit login` so that bbclientd is automatically
+// authenticated on user login for the day.
+//
+// A less hacky approach would be to add proper credentials helper support
+// for bb_clientd so auth happens when the daemon starts up. Upstream has already
+// indicated they'd be happy to accept this contribution. If we're able to land that
+// feature (or someone else does) then this code can be removed.
+//
+// The ticket for cred helper support in bb_clientd: ENGPROD-355
+func AuthenticateBbclientd(address string, token string, debug bool) {
+        if debug {
+            grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
+            grpc.EnableTracing = true
+        }
+        var conn *grpc.ClientConn
+        var err error
+
+        conn, err = grpc.Dial(address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)), grpc.WithTimeout(2 * time.Second))
+        if err != nil {
+            if debug {
+                log.Fatal("fail to dial: %w", err)
+            }
+            
+            // continuing if we fail here will cause a crash.
+            return
+        }
+
+        // The FindMissingBlobs RPC is used by the client to ask the server which blobs it is missing
+        // so it can upload them. We just send an abritrary digest (to which the server should respond
+        // that it doesn't have it). Note that we don't really care about the response here unless it's an
+        // error.
+        digests := []*remoteexecution.Digest{
+            {Hash: "013ad2661e3240ec6e0c8f79eb14944f599e04aeffa78d90873a6d679297746c", SizeBytes: 22733},
+        }
+
+        client := remoteexecution.NewContentAddressableStorageClient(conn)
+        _, err = client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{BlobDigests: digests})
+
+        if err != nil && debug {
+            log.Fatal("bbclientd auth failed: %w", err)
+        }
 }
 
 func (l *Login) Run(cmd *cobra.Command, args []string) error {
@@ -115,6 +208,9 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("could not mark identity as default - %w", err)
 		}
 	}
+
+        // Reuse the token to authenticate our bbclientd CAS mounts
+        AuthenticateBbclientd(l.BbclientdAddress, enCreds.Token, l.Debug)
 
 	return nil
 }
