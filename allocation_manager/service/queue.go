@@ -1,7 +1,9 @@
 package service
 
 import (
+	"fmt"
 	"sort"
+	"time"
 )
 
 // invocationQueue is a simple queue of invocations.
@@ -16,19 +18,69 @@ import (
 // only a single thread can access the queue at any given time.
 type invocationQueue []*invocation
 
+// all requests go into a global queue
+var InvocationQueue invocationQueue
+
+// Position represents a relative position within the queue.
+//
+// For example, if this is the 2rd element in the queue, Position will be 3.
+//
+// Given the QueueID of an element its Position can be computed in O(0) by
+// subtracting the QueueID of the first element currently in the queue.
+type Position uint32
+
+// QueueID is a monotonically increasing number representing the absolute
+// position of the item in the queue from when the queue was last emptied.
+//
+// If the element is reordered, so to be dequeued earlier, its QueueID
+// will be changed accordingly.
+type QueueID uint64
+
 // Enqueue adds an item to the queue.
 //
-// During addition, an appropriate QueueID is assigned.
+// During addition, a QueueID is assigned. The invocation is placed at the back of the queue.
+//
+// Returns the 1-based index the invocation was queued at.
 func (iq *invocationQueue) Enqueue(x *invocation) Position {
+	// TODO: metrics
+	// defer iq.updateMetrics()
+	// TODO: prioritizer
+	// iq.prioritizer.OnEnqueue(x)
+	// u.queue.Sort(u.prioritizer.Sorter())
 	position := Position(len(*iq))
 	offset := QueueID(1)
 	if len(*iq) > 0 {
 		offset = (*iq)[0].QueueID
 	}
-
 	x.QueueID = offset + QueueID(position)
 	(*iq) = append(*iq, x)
 	return position
+}
+
+// Promote tries to turn queued requests into allocations.
+func (iq *invocationQueue) Promote(units map[string]*unit) {
+	// TODO: metrics
+	// defer iq.updateMetrics()
+	for _, inv := range *iq {
+		matches, err := Matchmaker(units, inv, false)
+		if err != nil {
+			// TODO log.Warnf()
+			fmt.Printf("Promote() is ignoring Matchmaker err=%v\n", err)
+		}
+		// TODO: store all possible matches, then optimize across the matches x requests matrix
+		if len(inv.Topologies) == len(matches) {
+			iq.Forget(inv.ID)
+			for _, m := range matches {
+				u := m[0]
+				if !u.Allocate(inv) {
+					fmt.Printf("Allocate failed? u.name=%v\n", u.Topology.GetName())
+				}
+			}
+		}
+		// TODO: prioritizer
+		// u.prioritizer.OnDequeue(invocation)
+		// u.prioritizer.OnAllocate(invocation)
+	}
 }
 
 // Dequeue removes an item from the queue.
@@ -38,7 +90,6 @@ func (iq *invocationQueue) Dequeue() *invocation {
 	if len(*iq) <= 0 {
 		return nil
 	}
-
 	retval := (*iq)[0]
 	(*iq) = (*iq)[1:len(*iq)]
 	retval.QueueID = 0
@@ -68,28 +119,6 @@ type Filter func(pos Position, inv *invocation) bool
 // should continue, false if it should stop.
 type Walker func(pos Position, inv *invocation) bool
 
-// Filter removes the elements based on the filter callback provided.
-//
-// If the filter returns true, the element is removed, otherwise it is preserved.
-//
-// Returns the number of elements removed, and update the QueueID of elements
-// as necessary.
-func (iq *invocationQueue) Filter(filter Filter) int {
-	newQueue := []*invocation{}
-	count := 0
-	for pos, inv := range *iq {
-		if filter(Position(pos+1), inv) {
-			count += 1
-			continue
-		}
-
-		inv.QueueID -= QueueID(count)
-		newQueue = append(newQueue, inv)
-	}
-	(*iq) = newQueue
-	return count
-}
-
 // Walk invokes the walker function for each element of the queue.
 //
 // If the walker returns false, the walk is interrupted.
@@ -104,6 +133,45 @@ func (iq *invocationQueue) Walk(walker Walker) (*invocation, Position) {
 		}
 	}
 	return nil, 0
+}
+
+// Get returns the invocation and 1-based index position for an invocation id.
+// If the invocation id is not found, (nil, 0) is returned instead.
+func (iq *invocationQueue) Get(invID string) (*invocation, Position) {
+	return iq.Walk(func(pos Position, inv *invocation) bool {
+		return inv.ID != invID
+	})
+}
+
+// Position returns the Position of an invocation in the queue.
+//
+// If the invocation is not queued, returns the 0 Position.
+func (iq *invocationQueue) Position(inv *invocation) Position {
+	if len(*iq) <= 0 || inv.QueueID == 0 {
+		return 0
+	}
+	return Position(1 + inv.QueueID - (*iq)[0].QueueID)
+}
+
+// Filter removes the elements based on the filter callback provided.
+//
+// If the filter returns true, the element is removed, otherwise it is preserved.
+// Updates the QueueID of elements as they are filtered out/removed from the queue.
+//
+// Returns the number of elements removed.
+func (iq *invocationQueue) Filter(filter Filter) int {
+	newQueue := []*invocation{}
+	count := 0
+	for pos, inv := range *iq {
+		if filter(Position(pos+1), inv) {
+			count += 1
+			continue
+		}
+		inv.QueueID -= QueueID(count)
+		newQueue = append(newQueue, inv)
+	}
+	(*iq) = newQueue
+	return count
 }
 
 // Forget removes the specified invocation ID from the queue.
@@ -123,12 +191,20 @@ func (iq *invocationQueue) Forget(invID string) *invocation {
 	return retinv
 }
 
-// Get returns the invocation and position corresponding to an invocation id.
-//
-// In case the invocation id is not found, (nil, 0) is returned instead.
-func (iq *invocationQueue) Get(invID string) (*invocation, Position) {
-	return iq.Walk(func(pos Position, inv *invocation) bool {
-		return inv.ID != invID
+// ExpireQueued removes all queued invocations that have not checked in since
+// `expiry`.
+func (iq *invocationQueue) ExpireQueued(expiry time.Time) {
+	// TODO: metrics
+	// defer iq.updateMetrics()
+	iq.Filter(func(pos Position, inv *invocation) bool {
+		if inv.LastCheckin.After(expiry) {
+			return false
+		}
+		// TODO: prioritizer
+		// iq.prioritizer.OnDequeue(inv)
+		// TODO: metrics
+		// metricReleaseReason.WithLabelValues("queued_expired").Inc()
+		return true
 	})
 }
 
@@ -155,15 +231,4 @@ func (iq *invocationQueue) Sort(p Sorter) {
 		return
 	}
 	sort.Stable(&sorter{invocationQueue: iq, sort: p})
-}
-
-// Position returns the Position of an invocation in the queue.
-//
-// If the invocation is not queued, returns the 0 Position.
-func (iq *invocationQueue) Position(inv *invocation) Position {
-	if len(*iq) <= 0 || inv.QueueID == 0 {
-		return 0
-	}
-
-	return Position(1 + inv.QueueID - (*iq)[0].QueueID)
 }
