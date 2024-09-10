@@ -135,10 +135,11 @@ func TestForget(t *testing.T) {
 	var iNil *invocation
 	u.Allocate(inv)
 	// precondition
-	assert.NotEqual(t, iNil, u.GetInvocation("idX"), "u.Forget(\"idX\") before")
+	assert.NotEqual(t, iNil, u.GetInvocation("idX"), "before u.Forget")
 	// test
-	u.Forget("idX")
-	assert.Equal(t, iNil, u.GetInvocation("idX"), "u.Forget(\"idX\") after")
+	assert.Equal(t, 1, u.Forget("idX"), "u.Forget")
+	assert.Equal(t, iNil, u.GetInvocation("idX"), "after u.Forget")
+	assert.Equal(t, 0, u.Forget("idX"), "u.Forget second try")
 }
 
 // TODO: test u.GetStats

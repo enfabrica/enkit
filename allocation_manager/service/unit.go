@@ -126,6 +126,7 @@ func (u *unit) Forget(invID string) int {
 	*/
 	if u.Invocation != nil && invID == u.Invocation.ID {
 		u.Invocation = nil
+		count += 1
 	}
 	return count
 }
