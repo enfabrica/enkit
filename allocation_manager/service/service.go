@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -298,7 +297,6 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 		}
 		InvocationQueue.Enqueue(inv)
 		if s.currentState == stateRunning {
-			log.Fatalln("Not Yet Implemented")
 			InvocationQueue.Promote(s.units) // run asap so we can tell the user whether they're allocated or queued below
 		}
 	}
