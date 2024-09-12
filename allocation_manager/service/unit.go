@@ -62,7 +62,7 @@ func (u *unit) Allocate(inv *invocation) bool {
 		return false
 	}
 	// u.prioritizer.OnAllocate(inv)
-	logger.Go.Infof("Allocate %s to %s\n", u.Topology.Name, inv.ID)
+	logger.Go.Infof("unit.Allocate %s to %s\n", u.Topology.Name, inv.ID)
 	u.Invocation = inv
 	return true
 }
@@ -109,7 +109,6 @@ func (u *unit) ExpireAllocations(expiry time.Time) {
 // the queue.
 func (u *unit) Forget(invID string) int {
 	defer u.updateMetrics()
-	count := 0
 	/*
 		newAllocations := map[string]*invocation{}
 		for k, v := range u.allocations {
@@ -127,10 +126,11 @@ func (u *unit) Forget(invID string) int {
 		u.allocations = newAllocations
 	*/
 	if u.Invocation != nil && invID == u.Invocation.ID {
+		logger.Go.Infof("unit.Forget(%v)", u.Invocation.ID)
 		u.Invocation = nil
-		count += 1
+		return 1
 	}
-	return count
+	return 0
 }
 
 // GetStats returns a Stats message for this Unit.

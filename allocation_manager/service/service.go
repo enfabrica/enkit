@@ -219,6 +219,7 @@ func (s *Service) janitor() {
 		// u.ExpireQueued(queueExpiry)  // TODO queue
 		// u.Promote()  // TODO queue
 	}
+	InvocationQueue.Promote(s.units)
 }
 
 func updateJanitorMetrics(startTime time.Time) {
@@ -322,21 +323,21 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 		return nil, status.Errorf(codes.InvalidArgument, "requests must have exactly one topology (for now)")
 	}
 	inv := &invocation{Topologies: req.Invocation.GetTopologies()} // Matchmaker only uses the topos
-	matches, err := Matchmaker(s.units, inv, true)
-	if err != nil {
-		return nil, err
-	}
-	if !matches.Found() {
-		// TODO make error more verbose
-		return nil, status.Errorf(codes.InvalidArgument, "results: %s . "+
-			" impossible to match against inventory. This is a permanent failure, not"+
-			" an availability failure.", matches.ToString(len(s.units)))
-	} // else ==
-	// Enqueue it
 	invocationID := invMsg.GetId()
+	// Enqueue it
 	if invocationID == "" {
+		// only check first time:
+		matches, err := Matchmaker(s.units, inv, true)
+		if err != nil {
+			return nil, err
+		}
+		if !matches.Found() {
+			// TODO make error more verbose
+			return nil, status.Errorf(codes.InvalidArgument, "results: %s . "+
+				" impossible to match against inventory. This is a permanent failure, not"+
+				" an availability failure.", matches.ToString(len(s.units)))
+		}
 		// This is the first AllocationRequest. Generate an ID and queue it.
-		var err error
 		invocationID, err = generateRandomID()
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to generate invocation_id: %v", err)
@@ -353,6 +354,7 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 			InvocationQueue.Promote(s.units) // run asap so we can tell the user whether they're allocated or queued below
 		}
 	}
+	// Update LastCheckin
 	topos := []*apb.Topology{}
 	for _, u := range s.units {
 		if inv := u.GetInvocation(invocationID); inv != nil {
@@ -361,7 +363,7 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 			break // TODO: for bundles, remove this break
 		}
 	}
-	// Invocation is allocated
+	// Invocation was already allocated (theoretically a duplicate request)
 	if len(topos) > 0 {
 		return &apb.AllocateResponse{
 			ResponseType: &apb.AllocateResponse_Allocated{
@@ -376,6 +378,7 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 	// Invocation is queued
 	if inv, pos := InvocationQueue.Get(invocationID); inv != nil {
 		inv.LastCheckin = timeNow()
+		logger.Go.Infof("Queued(%s)", invocationID)
 		return &apb.AllocateResponse{
 			ResponseType: &apb.AllocateResponse_Queued{
 				Queued: &apb.Queued{

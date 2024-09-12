@@ -31,6 +31,10 @@ func newRunningService() Service {
 	return newService(stateRunning)
 }
 
+func newStartingService() Service {
+	return newService(stateStarting)
+}
+
 // Test Allocate, Refresh, Release sequence
 // TODO: rewrite after Matchmaker handles yaml
 func TestServiceAllocate(t *testing.T) {
@@ -113,10 +117,10 @@ func TestServiceAllocateQueued(t *testing.T) {
 	assert.Equal(t, (*apb.Allocated)(nil), allocateResponse.GetAllocated(), "second allocateResponse.GetAllocated")
 	assert.NotEqualf(t, nil, s.units["unitA"].Invocation, "s.units[\"unitA\"].Invocation: %v", s.units["unitA"].Invocation)
 	assert.Equal(t, true, s.units["unitA"].IsAllocated(), "s.units[\"unitA\"].IsAllocated")
-	return
 	assert.NotEqualf(t, (*apb.Queued)(nil), allocateResponse.GetQueued(), "second allocateResponse.GetQueued: %v", allocateResponse.GetQueued())
 	assert.Equal(t, int64(111), allocateResponse.GetQueued().GetNextPollTime().GetSeconds(), "second allocateResponse.GetQueued.GetNextPollTime")
 	secondInv.Id = allocateResponse.GetQueued().GetId()
+	assert.NotEqualf(t, secondInv.Id, firstInv.Id, "validate first != second ID")
 	// Release
 	timeNow = func() time.Time { return time.Unix(20, 0) }
 	releaseResponse, err := s.Release(ctx, &apb.ReleaseRequest{
@@ -124,7 +128,10 @@ func TestServiceAllocateQueued(t *testing.T) {
 	})
 	assert.Equalf(t, nil, err, "Release returned error: %v", err)
 	assert.NotEqualf(t, (*apb.ReleaseResponse)(nil), releaseResponse, "releaseResponse: %v", releaseResponse)
+	assert.Equal(t, false, s.units["unitA"].IsAllocated(), "s.units[\"unitA\"].IsAllocated")
 	// empty proto, nothing else to check
+	// Trigger janitor run, to promote our Queued request
+	s.janitor()
 	// retry second Allocate
 	timeNow = func() time.Time { return time.Unix(11, 0) }
 	allocateResponse, err = s.Allocate(ctx, &apb.AllocateRequest{
@@ -135,7 +142,7 @@ func TestServiceAllocateQueued(t *testing.T) {
 	assert.Equal(t, (*apb.Queued)(nil), allocateResponse.GetQueued(), "repeat second allocateResponse.GetQueued")
 	assert.NotEqualf(t, (*apb.Allocated)(nil), allocateResponse.GetAllocated(), "repeat second allocateResponse.GetAllocated: %v", allocateResponse.GetAllocated())
 	assert.NotEqualf(t, "", allocateResponse.GetAllocated().GetId(), "repeat second allocateResponse.GetAllocated.GetId: %v", allocateResponse.GetAllocated().GetId())
-	assert.Equal(t, int64(210), allocateResponse.GetAllocated().GetRefreshDeadline().GetSeconds(), "repeat second allocateResponse.GetAllocated.GetRefreshDeadline")
+	assert.Equal(t, int64(211), allocateResponse.GetAllocated().GetRefreshDeadline().GetSeconds(), "repeat second allocateResponse.GetAllocated.GetRefreshDeadline")
 	assert.Equal(t, "unitA", allocateResponse.GetAllocated().GetTopologies()[0].GetName(), "allocateResponse.GetAllocated.GetTopologies[0].GetName")
 	// stop; skip testing Release
 	// only test that Allocate(unitA) -> Queued -> Allocate(id)... works
@@ -161,6 +168,29 @@ func TestImpossibleAllocate(t *testing.T) {
 
 // Test Startup
 func TestServiceStartup(t *testing.T) {
+	/*
+		defer restoreTimeNow()
+		timeNow = func() time.Time { return time.Unix(10, 0) }
+		s := newStartingService()
+		ctx := context.Background()
+		// Allocate during startup -> Queued
+		topos := []*apb.Topology{}
+		topo := &apb.Topology{Name: "unitA"}
+		topos = append(topos, topo)
+		inv := &apb.Invocation{Topologies: topos}
+		allocateResponse, err := s.Allocate(ctx, &apb.AllocateRequest{
+			Invocation: inv,
+		})
+		assert.Equalf(t, nil, err, "Allocate returned error: %v", err)
+		assert.NotEqualf(t, (*apb.AllocateResponse)(nil), allocateResponse, "allocateResponse: %v", allocateResponse)
+		assert.Equal(t, (*apb.Queued)(nil), allocateResponse.GetQueued(), "allocateResponse.GetQueued")
+		assert.NotEqualf(t, (*apb.Allocated)(nil), allocateResponse.GetAllocated(), "allocateResponse.GetAllocated: %v", allocateResponse.GetAllocated())
+		assert.NotEqualf(t, "", allocateResponse.GetAllocated().GetId(), "allocateResponse.GetAllocated.GetId: %v", allocateResponse.GetAllocated().GetId())
+		assert.Equal(t, int64(210), allocateResponse.GetAllocated().GetRefreshDeadline().GetSeconds(), "allocateResponse.GetAllocated.GetRefreshDeadline")
+		assert.NotEqualf(t, nil, s.units["unitA"].Invocation, "s.units[\"unitA\"]: %v", s.units["unitA"].Invocation)
+		// Capture ID before moving on to Refresh
+		inv.Id = allocateResponse.GetAllocated().GetId()
+	*/
 }
 
 // timeouts from queue
