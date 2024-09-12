@@ -363,7 +363,7 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 			break // TODO: for bundles, remove this break
 		}
 	}
-	// Invocation was already allocated (theoretically a duplicate request)
+	// Invocation was already allocated (i.e. by janitor())
 	if len(topos) > 0 {
 		return &apb.AllocateResponse{
 			ResponseType: &apb.AllocateResponse_Allocated{
