@@ -42,10 +42,9 @@ func TestServiceAllocate(t *testing.T) {
 	timeNow = func() time.Time { return time.Unix(10, 0) }
 	s := newRunningService()
 	ctx := context.Background()
+	topos := []*apb.Topology{{Name: "unitA"}}
+
 	// Allocate
-	topos := []*apb.Topology{}
-	topo := &apb.Topology{Name: "unitA"}
-	topos = append(topos, topo)
 	inv := &apb.Invocation{Topologies: topos}
 	allocateResponse, err := s.Allocate(ctx, &apb.AllocateRequest{
 		Invocation: inv,
@@ -56,9 +55,10 @@ func TestServiceAllocate(t *testing.T) {
 	assert.NotEqualf(t, (*apb.Allocated)(nil), allocateResponse.GetAllocated(), "allocateResponse.GetAllocated: %v", allocateResponse.GetAllocated())
 	assert.NotEqualf(t, "", allocateResponse.GetAllocated().GetId(), "allocateResponse.GetAllocated.GetId: %v", allocateResponse.GetAllocated().GetId())
 	assert.Equal(t, int64(210), allocateResponse.GetAllocated().GetRefreshDeadline().GetSeconds(), "allocateResponse.GetAllocated.GetRefreshDeadline")
-	assert.NotEqualf(t, nil, s.units["unitA"].Invocation, "s.units[\"unitA\"]: %v", s.units["unitA"].Invocation)
+	assert.NotEqualf(t, (*invocation)(nil), s.units["unitA"].Invocation, "s.units[\"unitA\"]: %v", s.units["unitA"].Invocation)
 	// Capture ID before moving on to Refresh
 	inv.Id = allocateResponse.GetAllocated().GetId()
+
 	// Refresh
 	timeNow = func() time.Time { return time.Unix(20, 0) }
 	refreshResponse, err := s.Refresh(ctx, &apb.RefreshRequest{
@@ -69,6 +69,7 @@ func TestServiceAllocate(t *testing.T) {
 	assert.NotEqualf(t, (*apb.RefreshResponse)(nil), refreshResponse, "refreshResponse: %v", refreshResponse)
 	assert.Equal(t, inv.Id, refreshResponse.GetId(), "refreshResponse")
 	assert.Equal(t, int64(220), refreshResponse.GetRefreshDeadline().GetSeconds(), "refreshResponse.GetRefreshDeadline")
+
 	// Release
 	releaseResponse, err := s.Release(ctx, &apb.ReleaseRequest{
 		Id: inv.Id,
@@ -84,10 +85,9 @@ func TestServiceAllocateQueued(t *testing.T) {
 	defer restoreTimeNow()
 	s := newRunningService()
 	ctx := context.Background()
+	topos := []*apb.Topology{{Name: "unitA"}}
+
 	// Allocate
-	topos := []*apb.Topology{}
-	topo := &apb.Topology{Name: "unitA"}
-	topos = append(topos, topo)
 	firstInv := &apb.Invocation{Topologies: topos}
 	timeNow = func() time.Time { return time.Unix(10, 0) }
 	allocateResponse, err := s.Allocate(ctx, &apb.AllocateRequest{
@@ -101,10 +101,11 @@ func TestServiceAllocateQueued(t *testing.T) {
 	assert.Equal(t, int64(210), allocateResponse.GetAllocated().GetRefreshDeadline().GetSeconds(), "allocateResponse.GetAllocated.GetRefreshDeadline")
 	assert.Equal(t, "unitA", allocateResponse.GetAllocated().GetTopologies()[0].GetName(), "allocateResponse.GetAllocated.GetTopologies[0].GetName")
 	// post condition of the first Allocate, precondition of the second Allocate
-	assert.NotEqualf(t, nil, s.units["unitA"].Invocation, "s.units[\"unitA\"]: %v", s.units["unitA"].Invocation)
+	assert.NotEqualf(t, (*invocation)(nil), s.units["unitA"].Invocation, "s.units[\"unitA\"]: %v", s.units["unitA"].Invocation)
 	assert.Equal(t, true, s.units["unitA"].IsAllocated(), "s.units[\"unitA\"].IsAllocated")
 	// Capture ID before moving on
 	firstInv.Id = allocateResponse.GetAllocated().GetId()
+
 	secondInv := &apb.Invocation{Topologies: topos}
 	// precondition, because I made a stupid mistake with pointers
 	assert.Equal(t, "", secondInv.Id, "secondInv.Id")
@@ -115,12 +116,13 @@ func TestServiceAllocateQueued(t *testing.T) {
 	assert.Equalf(t, nil, err, "second Allocate returned error: %v", err)
 	assert.NotEqualf(t, (*apb.AllocateResponse)(nil), allocateResponse, "second allocateResponse: %v", allocateResponse)
 	assert.Equal(t, (*apb.Allocated)(nil), allocateResponse.GetAllocated(), "second allocateResponse.GetAllocated")
-	assert.NotEqualf(t, nil, s.units["unitA"].Invocation, "s.units[\"unitA\"].Invocation: %v", s.units["unitA"].Invocation)
+	assert.NotEqualf(t, (*invocation)(nil), s.units["unitA"].Invocation, "s.units[\"unitA\"].Invocation: %v", s.units["unitA"].Invocation)
 	assert.Equal(t, true, s.units["unitA"].IsAllocated(), "s.units[\"unitA\"].IsAllocated")
 	assert.NotEqualf(t, (*apb.Queued)(nil), allocateResponse.GetQueued(), "second allocateResponse.GetQueued: %v", allocateResponse.GetQueued())
 	assert.Equal(t, int64(111), allocateResponse.GetQueued().GetNextPollTime().GetSeconds(), "second allocateResponse.GetQueued.GetNextPollTime")
 	secondInv.Id = allocateResponse.GetQueued().GetId()
 	assert.NotEqualf(t, secondInv.Id, firstInv.Id, "validate first != second ID")
+
 	// Release
 	timeNow = func() time.Time { return time.Unix(20, 0) }
 	releaseResponse, err := s.Release(ctx, &apb.ReleaseRequest{
@@ -130,8 +132,10 @@ func TestServiceAllocateQueued(t *testing.T) {
 	assert.NotEqualf(t, (*apb.ReleaseResponse)(nil), releaseResponse, "releaseResponse: %v", releaseResponse)
 	assert.Equal(t, false, s.units["unitA"].IsAllocated(), "s.units[\"unitA\"].IsAllocated")
 	// empty proto, nothing else to check
+
 	// Trigger janitor run, to promote our Queued request
 	s.janitor()
+
 	// retry second Allocate
 	timeNow = func() time.Time { return time.Unix(11, 0) }
 	allocateResponse, err = s.Allocate(ctx, &apb.AllocateRequest{
@@ -152,10 +156,9 @@ func TestServiceAllocateQueued(t *testing.T) {
 func TestImpossibleAllocate(t *testing.T) {
 	s := newRunningService()
 	ctx := context.Background()
+	topos := []*apb.Topology{{Name: "nonesuch"}}
+
 	// Allocate
-	topos := []*apb.Topology{}
-	topo := &apb.Topology{Name: "nonesuch"}
-	topos = append(topos, topo)
 	inv := &apb.Invocation{Topologies: topos}
 	allocateResponse, err := s.Allocate(ctx, &apb.AllocateRequest{
 		Invocation: inv,
@@ -166,33 +169,61 @@ func TestImpossibleAllocate(t *testing.T) {
 	assert.Equal(t, (*apb.AllocateResponse)(nil), allocateResponse, "allocateResponse")
 }
 
-// Test Startup
-func TestServiceStartup(t *testing.T) {
-	/*
-		defer restoreTimeNow()
-		timeNow = func() time.Time { return time.Unix(10, 0) }
-		s := newStartingService()
-		ctx := context.Background()
-		// Allocate during startup -> Queued
-		topos := []*apb.Topology{}
-		topo := &apb.Topology{Name: "unitA"}
-		topos = append(topos, topo)
-		inv := &apb.Invocation{Topologies: topos}
-		allocateResponse, err := s.Allocate(ctx, &apb.AllocateRequest{
-			Invocation: inv,
-		})
-		assert.Equalf(t, nil, err, "Allocate returned error: %v", err)
-		assert.NotEqualf(t, (*apb.AllocateResponse)(nil), allocateResponse, "allocateResponse: %v", allocateResponse)
-		assert.Equal(t, (*apb.Queued)(nil), allocateResponse.GetQueued(), "allocateResponse.GetQueued")
-		assert.NotEqualf(t, (*apb.Allocated)(nil), allocateResponse.GetAllocated(), "allocateResponse.GetAllocated: %v", allocateResponse.GetAllocated())
-		assert.NotEqualf(t, "", allocateResponse.GetAllocated().GetId(), "allocateResponse.GetAllocated.GetId: %v", allocateResponse.GetAllocated().GetId())
-		assert.Equal(t, int64(210), allocateResponse.GetAllocated().GetRefreshDeadline().GetSeconds(), "allocateResponse.GetAllocated.GetRefreshDeadline")
-		assert.NotEqualf(t, nil, s.units["unitA"].Invocation, "s.units[\"unitA\"]: %v", s.units["unitA"].Invocation)
-		// Capture ID before moving on to Refresh
-		inv.Id = allocateResponse.GetAllocated().GetId()
-	*/
-}
-
 // timeouts from queue
 // timeouts from unit (eviction?)
 // evictions ?!?
+
+// Test Startup; Refresh
+func TestServiceStartingRefresh(t *testing.T) {
+	defer restoreTimeNow()
+	timeNow = func() time.Time { return time.Unix(10, 0) }
+	s := newStartingService()
+	ctx := context.Background()
+	topos := []*apb.Topology{{Name: "unitA"}}
+
+	// Refresh during startup -> Adopted (Allocated)
+	inv := &apb.Invocation{Topologies: topos, Id: "kjw"}
+	refreshResponse, err := s.Refresh(ctx, &apb.RefreshRequest{
+		Invocation: inv,
+		Allocated:  []*apb.Topology{{Name: "unitA"}},
+	})
+	assert.Equalf(t, nil, err, "Refresh returned error: %v", err)
+	assert.NotEqualf(t, (*apb.RefreshResponse)(nil), refreshResponse, "refreshResponse: %v", refreshResponse)
+	assert.Equal(t, "kjw", refreshResponse.GetId(), "refreshResponse.GetID")
+	assert.Equal(t, int64(210), refreshResponse.GetRefreshDeadline().GetSeconds(), "refreshResponse.GetRefreshDeadline")
+	// only way to know what happened is to inspect s.units
+	assert.NotEqualf(t, (*invocation)(nil), s.units["unitA"].Invocation, "s.units[\"unitA\"].Invocation: %v", s.units["unitA"].Invocation)
+	assert.Equal(t, true, s.units["unitA"].IsAllocated(), "s.units[\"unitA\"].IsAllocated")
+}
+
+// Test Startup; Allocate
+func TestServiceStartingFirstAllocate(t *testing.T) {
+	defer restoreTimeNow()
+	timeNow = func() time.Time { return time.Unix(10, 0) }
+	s := newStartingService()
+	ctx := context.Background()
+	topos := []*apb.Topology{{Name: "unitA"}}
+
+	// Allocate; first time should only Queue
+	inv := &apb.Invocation{Topologies: topos} // first time; no ID
+	allocateResponse, err := s.Allocate(ctx, &apb.AllocateRequest{
+		Invocation: inv,
+	})
+	assert.Equalf(t, nil, err, "Allocate returned error: %v", err)
+	assert.NotEqualf(t, (*apb.AllocateResponse)(nil), allocateResponse, "allocateResponse: %v", allocateResponse)
+	assert.NotEqualf(t, (*apb.Queued)(nil), allocateResponse.GetQueued(), "allocateResponse.GetQueued")
+	assert.Equal(t, int64(110), allocateResponse.GetQueued().GetNextPollTime().GetSeconds(), "second allocateResponse.GetQueued.GetNextPollTime")
+	assert.Equal(t, (*invocation)(nil), s.units["unitA"].Invocation, "s.units[\"unitA\"].Invocation")
+
+	// Allocate; second attempt should also Queue
+	timeNow = func() time.Time { return time.Unix(11, 0) }
+	inv = &apb.Invocation{Topologies: topos, Id: "kjw"} // second request; with id
+	allocateResponse, err = s.Allocate(ctx, &apb.AllocateRequest{
+		Invocation: inv,
+	})
+	assert.Equalf(t, nil, err, "Allocate returned error: %v", err)
+	assert.NotEqualf(t, (*apb.AllocateResponse)(nil), allocateResponse, "allocateResponse: %v", allocateResponse)
+	assert.NotEqualf(t, (*apb.Queued)(nil), allocateResponse.GetQueued(), "allocateResponse.GetQueued")
+	assert.Equal(t, int64(111), allocateResponse.GetQueued().GetNextPollTime().GetSeconds(), "second allocateResponse.GetQueued.GetNextPollTime")
+	assert.Equal(t, (*invocation)(nil), s.units["unitA"].Invocation, "s.units[\"unitA\"].Invocation")
+}

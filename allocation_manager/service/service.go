@@ -396,6 +396,7 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 	}
 	// This invocation was previously queued before the server restart; add it
 	// back to the queue.
+	// TODO: add to front of queue
 	inv = &invocation{
 		ID:          invocationID,
 		Owner:       invMsg.GetOwner(),
