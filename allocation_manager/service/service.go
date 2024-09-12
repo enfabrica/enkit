@@ -60,8 +60,8 @@ type Service struct {
 // UnitsFromConfig given a Config proto during startup, store unit topologies
 func UnitsFromConfig(config *apb.Config) (map[string]*unit, error) {
 	failure := 0
-	names := make(map[string]bool)
-	units := make(map[string]*unit)
+	names := map[string]bool{}
+	units := map[string]*unit{}
 	for _, uMsg := range config.GetUnits() {
 		// config := uMsg.GetTopology().GetConfig()
 		// TODO: parse yaml, pull unique name out of config
@@ -233,30 +233,82 @@ func updateMetrics(method string, err *error, startTime time.Time) {
 	metricRequestDuration.WithLabelValues(method, code.String()).Observe(d.Seconds())
 }
 
+// TODO: move to topology.go
+type Match struct {
+	Topology *apb.Topology // yes, duplicate from invocation, but pointers are cheap. this makes iterating easier.
+	Units    []*unit
+	// bitmap bitmap.Bitmap
+}
+
+func (m *Match) Found() bool {
+	return len(m.Units) > 0
+}
+
+type Matched struct {
+	matches    []*Match // fixed size array; same size as invocation.Topologies
+	invocation *invocation
+}
+
+// TODO: feels not quite right style wise
+func NewMatched(inv *invocation) *Matched {
+	return &Matched{
+		invocation: inv,
+		matches:    make([]*Match, len(inv.Topologies)), // n.b. fixed size array
+	}
+}
+
+func (md *Matched) Found() bool {
+	count := 0
+	for _, match := range md.matches {
+		// TODO: use bitmaps
+		if match.Found() {
+			count += 1
+		}
+	}
+	return len(md.matches) == count
+}
+
+func (md *Matched) ToString(nu int) string {
+	details := []string{}
+	for _, m := range md.matches {
+		details = append(details, fmt.Sprintf("%d", len(m.Units)))
+	}
+	return fmt.Sprintf("%d topologies + %d units = %v matches", len(md.invocation.Topologies), nu, details)
+}
+
 // Matchmaker returns [n][_]*unit containing plausible matches
 // n: index corresponding to the invocation topologies
 // _: if all=false, len is 0 (nomatch) or 1 (match). if all=true, len is uint
-func Matchmaker(units map[string]*unit, inv *invocation, all bool) ([][]*unit, error) {
+func Matchmaker(units map[string]*unit, inv *invocation, all bool) (*Matched, error) {
 	topos := inv.Topologies
-	matches := make([][]*unit, len(topos))
-	for n, t := range topos { // yes, premature bundle code, but doesn't seem to hurt
-		newMatches := []*unit{}
+	md := NewMatched(inv)
+	matches := 0
+	for nt, t := range topos { // yes, premature bundle code, but doesn't seem to hurt
+		m := &Match{Topology: t, Units: []*unit{}}
+		md.matches[nt] = m
+		// newBitmap := bitmap.Bitmap{} probably https://github.com/RoaringBitmap/roaring
 		for _, u := range units {
 			// if unit is taken, skip
-			// if !all && !u.IsAllocated { append... }
+			if false == all && u.IsAllocated() {
+				continue
+			}
+			// TODO: make the topology a struct so I can abstract matching away
 			if u.Topology.GetName() == t.GetName() { // PROTOTYPE ONLY
-				newMatches = append(newMatches, u)
-				if all {
+				// set bit _ in the bitmap
+				m.Units = append(m.Units, u)
+				if !all { // simplify: first match for speed
 					break
 				}
 			}
 		}
-		matches[n] = append(matches[n], newMatches...)
+		if len(m.Units) > 0 {
+			matches += 1
+		}
 	}
-	if all != true && len(matches) < len(topos) {
-		return matches, fmt.Errorf("wanted %d, got %d topologies", len(topos), len(matches))
-	}
-	return matches, nil
+	// units -> slice, not map
+	logger.Go.Infof("%v results: %s", inv.ID, md.ToString(len(units)))
+	// maybe we need a matchmaker struct
+	return md, nil
 }
 
 // Allocate validates invocation request is satisfiable, then queues it.
@@ -274,10 +326,11 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 	if err != nil {
 		return nil, err
 	}
-	if len(invMsg.GetTopologies()) != len(matches) {
-		return nil, status.Errorf(codes.InvalidArgument, "you want %d topologies got %d,"+
+	if !matches.Found() {
+		// TODO make error more verbose
+		return nil, status.Errorf(codes.InvalidArgument, "results: %s . "+
 			" impossible to match against inventory. This is a permanent failure, not"+
-			" an availability failure.", len(invMsg.GetTopologies()), len(matches))
+			" an availability failure.", matches.ToString(len(s.units)))
 	} // else ==
 	// Enqueue it
 	invocationID := invMsg.GetId()
@@ -300,7 +353,7 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 			InvocationQueue.Promote(s.units) // run asap so we can tell the user whether they're allocated or queued below
 		}
 	}
-	topos := make([]*apb.Topology, 0)
+	topos := []*apb.Topology{}
 	for _, u := range s.units {
 		if inv := u.GetInvocation(invocationID); inv != nil {
 			inv.LastCheckin = timeNow()

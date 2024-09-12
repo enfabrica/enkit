@@ -145,7 +145,7 @@ func TestSwap(t *testing.T) {
 // TODO: upgrade this after Matchmaker() is finished
 func TestPromote(t *testing.T) {
 	// setup
-	units := make(map[string]*unit)
+	units := map[string]*unit{}
 	units["name"] = &unit{Topology: apb.Topology{Name: "name"}}
 	units["nameB"] = &unit{Topology: apb.Topology{Name: "nameB"}}
 	units["nameC"] = &unit{Topology: apb.Topology{Name: "nameC"}}

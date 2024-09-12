@@ -32,11 +32,14 @@ go_test(
     name = "service_test",
     srcs = [
         "queue_test.go",
+        "service_test.go",
         "unit_test.go",
     ],
     embed = [":service"],
     deps = [
         "//allocation_manager/proto",
         "@com_github_stretchr_testify//assert",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
 )

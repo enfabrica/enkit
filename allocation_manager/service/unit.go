@@ -7,6 +7,7 @@ import (
 	"time"
 
 	apb "github.com/enfabrica/enkit/allocation_manager/proto"
+	"github.com/enfabrica/enkit/lib/logger"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -61,6 +62,7 @@ func (u *unit) Allocate(inv *invocation) bool {
 		return false
 	}
 	// u.prioritizer.OnAllocate(inv)
+	logger.Go.Infof("Allocate %s to %s\n", u.Topology.Name, inv.ID)
 	u.Invocation = inv
 	return true
 }
