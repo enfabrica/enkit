@@ -183,12 +183,12 @@ def stage_1():
         patches = [
             "@enkit//bazel/dependencies/boringssl:0001-ignore-pedantic-warnings-and-move-hrss-polynomial-declarations-under-x64-flag.patch",
         ],
-	sha256 = "534fa658bd845fd974b50b10f444d392dfd0d93768c4a51b61263fd37d851c40",
-	strip_prefix = "boringssl-b9232f9e27e5668bc0414879dcdedb2a59ea75f2",
-	urls = [
-                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
-                "https://github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
-            ],
+        sha256 = "534fa658bd845fd974b50b10f444d392dfd0d93768c4a51b61263fd37d851c40",
+        strip_prefix = "boringssl-b9232f9e27e5668bc0414879dcdedb2a59ea75f2",
+        urls = [
+            "https://storage.googleapis.com/grpc-bazel-mirror/github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
+            "https://github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
+        ],
     )
 
     maybe(
