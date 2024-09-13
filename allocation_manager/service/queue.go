@@ -1,9 +1,10 @@
 package service
 
 import (
-	"fmt"
 	"sort"
 	"time"
+
+	"github.com/enfabrica/enkit/lib/logger"
 )
 
 // invocationQueue is a simple queue of invocations.
@@ -62,18 +63,24 @@ func (iq *invocationQueue) Promote(units map[string]*unit) {
 	// TODO: metrics
 	// defer iq.updateMetrics()
 	for _, inv := range *iq {
-		matches, err := Matchmaker(units, inv, false)
+		matched, err := Matchmaker(units, inv, false)
 		if err != nil {
-			// TODO log.Warnf()
-			fmt.Printf("Promote() is ignoring Matchmaker err=%v\n", err)
+			logger.Go.Warnf("Promote() is ignoring Matchmaker err=%v\n", err)
+			continue // short circuit
 		}
-		// TODO: store all possible matches, then optimize across the matches x requests matrix
-		if len(inv.Topologies) == len(matches) {
-			iq.Forget(inv.ID)
-			for _, m := range matches {
-				u := m[0]
+		// TODO: optimize across the matches x requests matrix after bitmap implemented
+		if matched.Found() {
+			iq.Forget(inv.ID) // dequeue
+			// associate units with invocation
+			for _, m := range matched.matches {
+				// Matchmaker should only give one one unit:
+				if len(m.Units) != 1 {
+					logger.Go.Errorf("Error: len(m) want 1, got %d", len(m.Units))
+					break
+				}
+				u := m.Units[0]
 				if !u.Allocate(inv) {
-					fmt.Printf("Allocate failed? u.name=%v\n", u.Topology.GetName())
+					logger.Go.Errorf("Allocate not supposed to fail! u.Topology.name=%v\n", u.Topology.GetName())
 				}
 			}
 		}
