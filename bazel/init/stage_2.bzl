@@ -84,6 +84,11 @@ def stage_2():
     rules_pkg_dependencies()
     multirun_dependencies()
 
+    # IMPORTANT: grpc_deps() pulls in boringssl as a WORKSPACE dependency. In order to apply patches
+    # to boringssl, we define boringssl BEFORE grpc_deps is invoked - that way, our version will be picked
+    # over the default one.
+    # You must manually update boringssl when grpc is updated. If ARM support is added upstream, we may
+    # be able to remove the patches and the work here.
     grpc_deps()
 
     rules_docker_dependencies()
