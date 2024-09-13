@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 from enum import Enum, auto
 
 class State(Enum):
@@ -12,9 +12,14 @@ class Resource:
         self.name = name or 'randomize name her'
 
 
+class Machine(Resource):
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+
+
 class Pool:
-    def __init__(self) -> None:
-        self.pool = []
+    def __init__(self, data: List[Resource] = None) -> None:
+        self.pool = data or []
 
     def append(self, r: Resource) -> None:
         self.pool.append(r)
@@ -39,7 +44,7 @@ class Pool:
 
         return False
 
-    def reserve(self, kindof) -> Resource:
+    def allocate(self, kindof) -> Resource:
         for each in self.pool:
             if each.state == State.FREE and isinstance(each, kindof):
                 each.state = State.RESERVED
@@ -48,20 +53,39 @@ class Pool:
         return None
 
 
-def test_one():
+def test_simple_resource_abc():
     pool = Pool().extend([Resource(), Resource()])
 
     assert pool.len() == 2
 
     assert Resource() in pool
     
-    a = pool.reserve(Resource)
+    a = pool.allocate(Resource)
     assert isinstance(a, Resource)
     print(a)
 
-    b = pool.reserve(Resource)
+    b = pool.allocate(Resource)
     assert isinstance(b, Resource)
     print(b)
 
-    c = pool.reserve(Resource)
+    c = pool.allocate(Resource)
     assert c is None
+
+def test_machine():
+    pool = Pool([Resource(), Machine('server2'), Machine('server1')])
+
+    a = pool.allocate(Resource)
+    assert isinstance(a, Resource)
+    assert not isinstance(a, Machine)
+    print(a)
+
+    b = pool.allocate(Machine)
+    assert isinstance(b, Machine)
+    print(b)
+
+    c = pool.allocate(Machine)
+    assert isinstance(c, Machine)
+    print(c)
+
+    d = pool.allocate(Machine)
+    assert d is None
