@@ -7,6 +7,10 @@ class State(Enum):
 
 
 class Resource:
+    """Allocatable resource
+
+    TODO: add fair-share resource allocation
+    """
     def __init__(self, name: str = '') -> None:
         self.state = State.FREE
         self.name = name or 'randomize name her'
@@ -20,6 +24,11 @@ class Resource:
 
 
 class Machine(Resource):
+    """Machine class
+
+    Args:
+        Resource (_type_): _description_
+    """
     def __init__(self, name: str) -> None:
         super().__init__(name)
 
@@ -132,3 +141,7 @@ def test_machine_with_cpu():
 
     d = pool.allocate(Machine)
     assert d is None
+
+    f = [x for x in [a, b] if len(x.child) == 4][0]
+    assert isinstance(f, Machine)
+    assert len(f.child) == 4
