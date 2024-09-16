@@ -14,7 +14,7 @@ index 65e0cdc2e..0d0593b50 100644
      # Modern build environments should be able to set this to use atomic
      # operations for reference counting rather than locks. However, it's
 diff --git a/src/crypto/hrss/asm/poly_rq_mul.S b/src/crypto/hrss/asm/poly_rq_mul.S
-index c37d7d0b4..59acffd89 100644
+index c37d7d0b4..0e2cf0620 100644
 --- a/src/crypto/hrss/asm/poly_rq_mul.S
 +++ b/src/crypto/hrss/asm/poly_rq_mul.S
 @@ -12,7 +12,8 @@
@@ -22,8 +22,8 @@ index c37d7d0b4..59acffd89 100644
  // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -#if !defined(OPENSSL_NO_ASM) && !defined(OPENSSL_SMALL) && defined(__linux__)
-+// Code change to move the declarations under defined(OPENSSL_X86_64) was picked up from origin/master-with-bazel branch.
-+#if !defined(OPENSSL_NO_ASM) && !defined(OPENSSL_SMALL) && defined(__linux__) && defined(OPENSSL_X86_64)
++// Code change to move the declarations under defined(__x86_64__) was picked up from origin/master-with-bazel branch.
++#if !defined(OPENSSL_NO_ASM) && !defined(OPENSSL_SMALL) && defined(__linux__) && defined(__x86_64__)
  
  #if defined(BORINGSSL_PREFIX)
  #include <boringssl_prefix_symbols_asm.h>
