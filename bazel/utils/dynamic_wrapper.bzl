@@ -5,7 +5,7 @@ load("@bazel_skylib//lib:shell.bzl", "shell")
 load("//bazel/utils:messaging.bzl", "fileowner")
 load("//bazel/utils:messaging.bzl", "package")
 
-def _cc_dynamic_wrapper_impl(ctx):
+def _dynamic_wrapper_impl(ctx):
     template = """#!/bin/bash
 export LD_LIBRARY_PATH={ldpaths}:$LD_LIBRARY_PATH
 DEBUG=${{DEBUG:-{debug}}}
@@ -15,7 +15,16 @@ test -z "$DEBUG" || {{
   echo "===== running {run} $@ ======="
   echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 }}
-exec {run} "$@"
+
+[[ "$PWD" =~ [.]runfiles/ ]] || {{
+  echo "You must run this script from within the runfiles directory" 1>&2
+  echo "of the target being run - all paths used are relative." 1>&2
+  echo "The easiest way is to use "bazel run". Good luck." 1>&2
+  exit 254
+}}
+
+{prepare}
+{env} exec {run} {flags} "$@"
 """
     run = ""
     targets = ctx.attr.deps
@@ -44,7 +53,7 @@ exec {run} "$@"
             # Why not use CcInfo or info provided through providers?
             #
             # Unfortunately, libraries and binaries can be brought in via
-            # rules_foreign_cc or custom rules that either don't provide
+            # rules_foreign or custom rules that either don't provide
             # the provider, or don't fill it enough to be useful.
             #
             # Both bazel native C/C++ rules and those rules, however,
@@ -62,19 +71,24 @@ exec {run} "$@"
                 print("LIBRARY", fileowner(f))
             dirs[paths.dirname(f.short_path)] = True
 
-    ctx.actions.write(ctx.outputs.out, template.format(
+    out = ctx.actions.declare_file(ctx.attr.name)
+
+    ctx.actions.write(out, template.format(
         debug = ctx.attr.debug or "",
         target = package(ctx.label),
+        env = " ".join(["%s=%s" % (k, v) for k, v in ctx.attr.env.items()]),
         run = run,
+        flags = ctx.attr.flags,
+        prepare = ctx.attr.prepare,
         ldpaths = "\"${PWD}\"/" + ":\"${PWD}\"/".join([shell.quote(d) for d in dirs]),
     ), is_executable = True)
 
-    return [DefaultInfo(executable = ctx.outputs.out, runfiles = runfiles)]
+    return [DefaultInfo(executable = out, runfiles = runfiles)]
 
-_cc_dynamic_wrapper = rule(
+_dynamic_wrapper = rule(
     doc = """Creates a wrapper to set LD_LIBRARY_PATH with all dependent .so libraries.
 
-When using rules_foreign_cc or dynamic libraries, the generated binaries
+When using rules_foreign or dynamic libraries, the generated binaries
 are often not runnable outside of `bazel run`, or even within `bazel run`
 without first setting LD_LIBRARY_PATH correctly so the linker can find
 the dependent .so files.
@@ -83,16 +97,16 @@ This rules goes through all the dependencies of a generated binary and
 creates a shell wrapper that sets LD_LIBRARY_PATH correctly before execing
 the binary itself.
 
-Generally, you would use this rule through its macro, cc_dynamic_wrapper.
+Generally, you would use this rule through its macro, dynamic_wrapper.
 
 In its simplest form, you can use it as:
 
-    cc_dynamic_wrapper(
+    dynamic_wrapper(
         name = "shell-wrapper", # an executable `shell-wrapper` is created.
-        bin = ":label_of_your_cc_binary",
+        bin = ":label_of_your_binary",
     )
 
-Which will walk the dependencies of `:label_of_your_cc_binary`, look for
+Which will walk the dependencies of `:label_of_your_binary`, look for
 .so files and generate a `shell-wrapper` executable script with the proper
 LD_LIBRARY_PATH environment variables set.
 
@@ -108,12 +122,12 @@ The rule has a few convenient features:
    by adding command line arguments. The `run` string is copied as
    is in the generated wrapper, with no escaping.
 
-   For example, let's say you have a target built with `rules_foreign_cc`
+   For example, let's say you have a target built with `rules_foreign`
    named "@rdma-core//:rdma-core", that includes **multiple** binaries,
-   like `ib_send_lat` or `perftest`. You can use `cc_dynamic_wrapper`
+   like `ib_send_lat` or `perftest`. You can use `dynamic_wrapper`
    to create a single executable as:
 
-       cc_dynamic_wrapper(
+       dynamic_wrapper(
            name = "ib_send_lat",
            run = "./rdma-core/bin/ib_send_lat",
            deps = ["@rdma-core//:rdma-core"],
@@ -123,7 +137,7 @@ The rule has a few convenient features:
    allow you to run an arbitrary command (or a shell) with the correct
    environment. For example, if you define a target like:
    
-       cc_dynamic_wrapper(
+       dynamic_wrapper(
            name = "rdma-wrapper",
            deps = ["@rdma-core//:rdma-core"],
        )
@@ -150,16 +164,23 @@ The generated wrapper has a few feature available at run time:
    so you can use `bazel run :wrapper-target -- /etc/hosts` for
    example.
 
+3. If you need to set environment variables or arguments so that
+   the binary can find the proper directories for things like
+   dynamic .so modules or similar, you can use the `flags` or `env`
+   attribute.
+
 IMPORTANT: this rule does not use CcInfo or other metadata carried by bazel
 with the target. Instead, it looks for any .so file or any file containing
 `.so.` as part of the name, and adds the corresponding path to LD_LIBRARY_PATH.
 On one side, this allows the rule to work across binaries built natively with
-cc_binary/cc_library rules, binaries built with rules_foreign_cc, or imported
+cc_binary/cc_library rules, binaries built with rules_foreign, or imported
 binaries via filegroup() or cc_import - as long as the target brings in the .so
-files it needs at run time. Beware that this can cause extra paths added to
-LD_LIBRARY_PATH.
+files it needs at run time. On the other side, this can cause extra paths added
+to LD_LIBRARY_PATH - or even introduce security risks if your binary has data
+dependencies on 3rd party directories potentially containing untrusted .so
+files.
 """,
-    implementation = _cc_dynamic_wrapper_impl,
+    implementation = _dynamic_wrapper_impl,
     executable = True,
     attrs = {
         "bin": attr.label(
@@ -175,18 +196,31 @@ arbitrary shell command with arguments, it is not escaped by the rule.
 It is subject to location expansion, so it can contain $(location ...)
 and similar patterns.""",
         ),
+        "flags": attr.string(
+            doc = """\
+Additional arguments to pass to the run command by default.
+This is useful to hard code, for example, paths where .so dlopen modules could be found.
+This is copied without any escaping on the command line of the tool, it will be expanded
+and processed by the shell as any snippet of script.""",
+        ),
+        "env": attr.string_dict(
+            doc = """\
+Additional environment variables to pass to the binary.
+This is useful to hard code, for example, file search paths or similar.""",
+        ),
+        "prepare": attr.string(
+            doc = "Arbitrary commands copied verbatim in the generated wrapper to allow running arbitrary steps to prepare the binary.",
+        ),
         "deps": attr.label_list(
             allow_files = True,
             doc = "Arbitrary deps to add to the runfiles. Any .so file found will cause the corresponding directory to be added to LD_LIBRARY_PATH.",
         ),
-        "out": attr.output(mandatory = True, doc = "Name of the output shell wrapper"),
         "debug": attr.bool(
             doc = "If set to true, will print bazel debug information and mark DEBUG=true by default in the generated wrapper",
         ),
     },
 )
 
-def cc_dynamic_wrapper(name, *args, **kwargs):
-    kwargs.setdefault("out", name)
+def dynamic_wrapper(name, *args, **kwargs):
     kwargs.setdefault("name", name)
-    return _cc_dynamic_wrapper(*args, **kwargs)
+    return _dynamic_wrapper(*args, **kwargs)

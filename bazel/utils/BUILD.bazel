@@ -179,18 +179,35 @@ cc_binary(
 )
 
 #### Actual tests
-load("//bazel/utils:cc_dynamic_wrapper.bzl", "cc_dynamic_wrapper")
+load("//bazel/utils:dynamic_wrapper.bzl", "dynamic_wrapper")
 
-cc_dynamic_wrapper(
+dynamic_wrapper(
     name = "dynamic-test",
     bin = ":hello-dynamic",
 )
 
-cc_dynamic_wrapper(
+dynamic_wrapper(
     name = "dynamic-test-false",
     bin = ":hello-dynamic",
-    debug = True,
     run = "/bin/false",
+)
+
+dynamic_wrapper(
+    name = "dynamic-test-fails-argv",
+    bin = ":hello-dynamic",
+    flags = "this-will-cause-binary-to-error-1",
+)
+
+dynamic_wrapper(
+    name = "dynamic-test-succeed-env",
+    env = {"TEST_ENV_PROPAGATION": "43"},
+    flags = "this-will-cause-binary-to-error-1",
+)
+
+dynamic_wrapper(
+    name = "dynamic-test-fails-env",
+    env = {"TEST_ENV_PROPAGATION": "42"},
+    flags = "this-will-cause-binary-to-error-1",
 )
 
 # Verifies that the generated wrapper is executable without error.
@@ -198,6 +215,28 @@ exec_test(
     name = "dynamic-wrapper_test",
     dep = ":dynamic-test",
     must_fail = False,
+)
+
+# An extra argv should cause the test to fail.
+exec_test(
+    name = "dynamic-wrapper-fails-argv_test",
+    dep = ":dynamic-test-fails-argv",
+    must_fail = True,
+)
+
+# The dynamic test binary checks environment variables.
+# If a magic values is present, it fails. If not, it succeeds.
+# Use that to check environment variable propagation.
+exec_test(
+    name = "dynamic-wrapper-fails-env_test",
+    dep = ":dynamic-test-fails-env",
+    must_fail = True,
+)
+
+exec_test(
+    name = "dynamic-wrapper-succeed-env_test",
+    dep = ":dynamic-test-succeed-env",
+    must_fail = True,
 )
 
 # The same wrapper as above is now running /bin/false, error status is propagated.
