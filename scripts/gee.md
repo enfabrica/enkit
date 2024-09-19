@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.50
+gee version: 0.2.51
 
 gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
 tools  gee is an opinionated tool that implements a specific, simple, powerful
@@ -110,10 +110,6 @@ review.
 
 * `GEE_BUILDLOGS_PROJECT`: If you are using gcloud to store your presubmit testing logs, you can
   override gee's default gcloud project by setting this environment variable.
-
-* `GEE_PR_BASE`: Sets the name of the default upstream branch that you want to integrate your
-  PRs to.  If unspecified, defaults to "master", but can be used to mark PRs are being
-  destined for integration into branches like "master_b0", for example.
 
 * `UPSTREAM`: The name of the github user hosting the specified repository.  By default, `enfabrica`.
 
@@ -645,15 +641,10 @@ If you have any second thoughts during this process: Adding the token "DRAFT"
 to your PR description will cause the PR to be marked as a draft.  Adding the
 token "ABORT" will cause gee to abort the creation of your PR.
 
-By default, `pr_make` creates a PR that targets upstream/master as the branch
-for the PR to merge into.  However, this branch can be changed in two ways:
-
-* The `GEE_PR_BASE` environment variable can be used to specify the name of the
-  upstream branch to merge into.
-
-* The `--base <branchname>` argument can be added to the command line to
-  explicitly specify the name of the upstream branch to target.  This value
-  will override the value in `GEE_PR_BASE`, if set.
+`pr_make` will look at the recursive parentage of the current branch  until
+it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
+will be used as the "base" branch for the PR to be merged into.  This "base"
+branch can be overriden useing the "--base <branchname>" flag.
 
 Uses the same options as "gh pr create".
 
@@ -737,7 +728,7 @@ out as formatting rules are highly project specific.
 
 ### gcd
 
-Usage: `gcd [-b] [-m] <branch>[/<path>]`
+Usage: `gcd [-b] [-m] [-B <parent>] <branch>[/<path>]`
 
 Print the path to an equivalent directory in another worktree (branch).
 This command is meant to be invoked from the "gcd" bash function, which
@@ -756,6 +747,8 @@ Options:
   exist.  The new branch is a child of the current branch.
 * "-m" causes gee to create a new branch if the specified branch doesn't
   exist.  The new branch is a child of the master (or main) branch.
+* "-B <parent>" causes gee to create a new branch if the specified branch
+  doesn't exist.  The new branch is a child of the specified parent branch.
 
 If only "<branch>" is specified, "gcd" will change directory to the same
 relative directory in another branch.  If "<branch>/<path>" is specified,
@@ -774,6 +767,10 @@ For example:
     # now in branch4/foo, a child branch of branch3.
     gcd -m new_feature
     # now in new_feature/foo, a child branch of master.
+
+To create a new branch of a non-standard upstream master:
+
+    gcd -B upstream/master_a0 my_a0_feature_branch
 
 The "gcd" function also updates the following environment variables:
 

@@ -1,6 +1,15 @@
 #!/bin/bash
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
+#
+# TODO(jonathan):
+#   * allow branches to be created as clones of any upstream branch, not just master
+#   * keep track of the upstream branch in the parents file.
+#   * recursive updates always halt when either an upstream branch is reached,
+#     or a branch is marked as its own parent.
+#   * update all legacy parents files so that upstream/master is the parent of master.
+#   * support --base flag in gee mkbr
+# TODO(jonathan): allow creation of branches whose parent is a non-standard upstream branch
 
 readonly VERSION="0.2.51"
 
@@ -107,10 +116,6 @@ review.
 
 * `GEE_BUILDLOGS_PROJECT`: If you are using gcloud to store your presubmit testing logs, you can
   override gee's default gcloud project by setting this environment variable.
-
-* `GEE_PR_BASE`: Sets the name of the default upstream branch that you want to integrate your
-  PRs to.  If unspecified, defaults to "master", but can be used to mark PRs are being
-  destined for integration into branches like "master_b0", for example.
 
 * `UPSTREAM`: The name of the github user hosting the specified repository.  By default, `enfabrica`.
 
@@ -263,7 +268,6 @@ TESTMODE="${TESTMODE:-0}"
 MAIN="" # Unknown, call _set_main to set.
 REPO="${REPO:-"${GEE_REPO:-}"}"
 PAGER="${PAGER:-less}"
-GEE_PR_BASE="${GEE_PR_BASE:-""}"  # branch to merge PRs into.
 PARENTS_FILE_IS_LOADED=0
 PWD_CMD="$(command -v pwd)"  # dev: /usr/bin/pwd, fpga-dev: /bin/pwd  :-(
 declare -A FLAGS=()  # for _parse_options(), below
@@ -1823,34 +1827,21 @@ function _safer_rebase() {
   CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
   cd "${CHILD_DIR}"
   local PARENT_HEAD
-  if [[ "${PARENT}" == "upstream/"* ]]; then
-    PARENT_HEAD="$(git ls-remote upstream "${PARENT#upstream/}" | awk '{print $1}')"
+  if [[ "${PARENT}" == */* ]]; then
+    # make sure remote is up to date:
+    _git fetch "${PARENT%%/*}"
+    PARENT_HEAD="$(git ls-remote "${PARENT%%/*}" "${PARENT#upstream/}" | awk '{print $1}')"
   else
     PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
   fi
 
   # Use rebase for local parent branches, or pull for remote parent branches.
   local -a GITCMD=()
-  if [[ "${PARENT}" == "upstream/"* ]]; then
-    if [[ -n "${ONTO}" ]]; then
-      # TODO(jonathan): figure out the right way to split this into git
-      # fetch/rebase steps, so --onto can work -- though we are unlikely
-      # to ever need this (squash-merge from a fork of another's PR?).
-      #
-      # I wonder what I'm doing wrong?  Naively:
-      # $ git fetch upstream
-      # $ git rebase upstream/pull/1234/head
-      # fatal: invalid upstream 'upstream/pull/1234/head'
-      _die "git pull --rebase does not support --onto"
-    fi
-    GITCMD+=( pull --rebase --autostash upstream "${PARENT#upstream/}" )
-  else
-    GITCMD+=( rebase --autostash )
-    if [[ -n "${ONTO}" ]]; then
-      GITCMD+=(--onto "${ONTO}")
-    fi
-    GITCMD+=( "${PARENT}" "${CHILD}" )
+  GITCMD+=( rebase --autostash )
+  if [[ -n "${ONTO}" ]]; then
+    GITCMD+=(--onto "${ONTO}")
   fi
+  GITCMD+=( "${PARENT}" "${CHILD}" )
 
   _checkout_or_die "${CHILD}"
   if ! _git "${GITCMD[@]}"; then
@@ -2059,6 +2050,9 @@ function _read_parents_file() {
     MERGEBASES["${BRANCH}"]="${MERGEBASE}"
   done < "${PATH}" \
     || /bin/true
+  # Hack: fixup the parent for the special branch "master":
+  PARENTS["master"]="upstream/master"
+  MERGEBASES["master"]=""
   PARENTS_FILE_IS_LOADED=1
 }
 
@@ -2505,41 +2499,46 @@ function gee__make_branch() {
   SHA="$1"
 
   _set_main
-  CURRENT_BRANCH="$(_get_current_branch)"
-  if [[ -z "${CURRENT_BRANCH}" ]]; then
-    CURRENT_BRANCH="${MAIN}"
+  if [[ -z "${SHA}" ]]; then
+    SHA="$(_get_current_branch)"
+    if [[ -z "${SHA}" ]]; then
+      SHA="upstream/${MAIN}"
+    fi
   fi
-  _checkout_or_die "${CURRENT_BRANCH}"
 
-  local -a ARGS=( worktree add -f "${GEE_REPO_DIR}/${BRNAME}" )
+  if [[ "${SHA}" == "upstream/"* ]]; then
+    _git fetch upstream
+  fi
+
+  local -a ARGS=( worktree add -b "${BRNAME}" -f "${GEE_REPO_DIR}/${BRNAME}" "${SHA}")
   _git "${ARGS[@]}"
   _info "Created ${GEE_REPO_DIR}/${BRNAME}"
 
   _read_parents_file
-  PARENTS["${BRNAME}"]="${CURRENT_BRANCH}"
+  PARENTS["${BRNAME}"]="${SHA}"
   _write_parents_file
-
-  if [[ -n "${SHA}" ]]; then
-    _info "Setting HEAD of branch \"${BRNAME}\" to \"${SHA}\""
-    _checkout_or_die "${BRNAME}"
-    git reset --hard "${SHA}"
-  fi
 
   # If the user has created a branch whose name matches an
   # existing branch in their existing repo, pull those changes
   # into this branch.
+  _git fetch origin
   if _remote_branch_exists origin "${BRNAME}"; then
     _checkout_or_die "${BRNAME}"
-    _git fetch origin
     local -a COUNTS
-    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${MAIN}...origin/${CURRENT_BRANCH}")
+    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "HEAD...origin/${CURRENT_BRANCH}")
     if [[ "${COUNTS[1]}" -gt 0 ]]; then
-      _warn "Remote branch origin/${BRNAME} is ${COUNTS[1]} commit(s) ahead of master." \
-            "Do you want to reset your local branch to be the same as origin/${BRNAME}?"
-      if _confirm_default_yes "Reset ${BRNAME} to match origin/${BRNAME}?  (Y/n)  "; then
-        _git reset --hard "origin/${BRNAME}"
+      if [[ "${COUNTS[0]}" -eq 0 ]]; then
+        _warn "Remote branch origin/${BRNAME} is ${COUNTS[1]} commit(s) ahead of master." \
+              "Do you want to reset your local branch to be the same as origin/${BRNAME}?"
+        if _confirm_default_yes "Reset ${BRNAME} to match origin/${BRNAME}?  (Y/n)  "; then
+          _git reset --hard "origin/${BRNAME}"
+        else
+          _warn "Commits from origin/${BRNAME} were not imported." \
+                "You probably want to run \"gee update\" in branch ${BRNAME}."
+        fi
       else
-        _warn "Commits from origin/${BRNAME} were not imported." \
+        _warn "Local branch has ${COUNTS[0]} commits that are not in origin." \
+              "Origin has ${COUNTS[1]} commits that are not in the local branch." \
               "You probably want to run \"gee update\" in branch ${BRNAME}."
       fi
     else
@@ -3072,18 +3071,22 @@ function _add_parent_branches_to_chain() {
   # any parent is earlier than any child.  Recursive searching
   # for parent branches ultimately stops when we reach an
   # upstream branch.
+  #
+  # Recursive list of branches halts at:
+  # * any branch whose parent is in upstream.
   local B="$1"
   if _contains_element "${B}" "${CHAIN[@]}"; then return; fi
+
+  # If the current branch is upstr
   if [[ "${B}" == "upstream/"* ]]; then return; fi
 
-  # If we find a branch that has itself as a parent also
-  # exit the recursion
-  if [[ "${B}" == "$(_get_parent_branch "${B}")" ]]; then return; fi
+  local P="$(_get_parent_branch "${B}")"
+  # if parent branch is the current branch, stop.
+  if [[ "${P}" == "${B}" ]]; then return; fi
 
-  _add_parent_branches_to_chain "$(_get_parent_branch "${B}")"
-  if (( "${#CHAIN[@]}" > 500 )); then
-    _info "CHAIN: ${CHAIN[*]}"
-    _die "_add_parent_branches_to_chain recursed too deeply."
+  # Keep recursing until we reach a branch whose parent is remote:
+  if [[ "${P}" != */* ]]; then
+    _add_parent_branches_to_chain "${P}"
   fi
   CHAIN+=( "${B}" )
 }
@@ -3121,6 +3124,11 @@ function gee__rupdate() {
           "${UNCOMMITTED[@]}" \
           "Commit branch ${B} and try again."
       fi
+    fi
+
+    # if parent is a remote, make sure remote is up to date.
+    if [[ "${PARENT_BRANCH}" == */* ]]; then
+      _git fetch "${PARENT_BRANCH%%/*}"
     fi
 
     # Rebase from PREVIOUS_B onto B
@@ -4081,15 +4089,10 @@ If you have any second thoughts during this process: Adding the token "DRAFT"
 to your PR description will cause the PR to be marked as a draft.  Adding the
 token "ABORT" will cause gee to abort the creation of your PR.
 
-By default, `pr_make` creates a PR that targets upstream/master as the branch
-for the PR to merge into.  However, this branch can be changed in two ways:
-
-* The `GEE_PR_BASE` environment variable can be used to specify the name of the
-  upstream branch to merge into.
-
-* The `--base <branchname>` argument can be added to the command line to
-  explicitly specify the name of the upstream branch to target.  This value
-  will override the value in `GEE_PR_BASE`, if set.
+`pr_make` will look at the recursive parentage of the current branch  until
+it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
+will be used as the "base" branch for the PR to be merged into.  This "base"
+branch can be overriden useing the "--base <branchname>" flag.
 
 Uses the same options as "gh pr create".
 EOT
@@ -4106,16 +4109,14 @@ function gee__pr_make() {
 
   _check_cwd
   _check_gh_auth
-  local DEST_BRANCH CURRENT_BRANCH MERGE_BASE NUM_COMMITS
+  local DEST_BRANCH CURRENT_BRANCH NUM_COMMITS
   _git fetch upstream
   _read_parents_file
   _set_main
   DEST_BRANCH="upstream/${MAIN}"
   CURRENT_BRANCH="$(_get_current_branch)"
-  MERGE_BASE="$("${GIT}" merge-base "${DEST_BRANCH}" "${CURRENT_BRANCH}")"
   _info "Current branch: ${CURRENT_BRANCH}"
   _info "Destination branch: ${DEST_BRANCH}"
-  _info "Merge base: ${MERGE_BASE}"
 
   local -a pr_vars
   mapfile -t pr_vars < \
@@ -4289,12 +4290,13 @@ EndOfPrTemplate
     PR_ARGS+=(--assignee "${A}")
   done
 
-  if [[ -n "${GEE_PR_BASE}" ]]; then
-    if [[ "$*" == *"--base"* ]]; then
-      _info "GEE_PR_BASE ignored due to use of --base switch on the command line."
-    else
-      PR_ARGS+=(--base "${GEE_PR_BASE}")
-    fi
+  if [[ "$*" != *"--base"* ]]; then
+    # base was not specified, so we have to look at tree to find it.
+    local -a CHAIN=()
+    _add_parent_branches_to_chain "${CURRENT_BRANCH}"
+    local FIRST_PARENT="${CHAIN[0]}"
+    local UPSTREAM_PARENT="$(_get_parent_branch "${FIRST_PARENT}")"
+    PR_ARGS+=(--base "${UPSTREAM_PARENT#*/}")
   fi
 
   PR_ARGS+=( "$@" )
@@ -4973,7 +4975,7 @@ function gee__fix() {
 # TODO(jonathan): Maybe "change_branch" (chb? cbr? chbr?) is a better name.
 
 _register_help "gcd" "Change directory to another branch." <<'EOT'
-Usage: gcd [-b] [-m] <branch>[/<path>]
+Usage: gcd [-b] [-m] [-B <parent>] <branch>[/<path>]
 
 Print the path to an equivalent directory in another worktree (branch).
 This command is meant to be invoked from the "gcd" bash function, which
@@ -4992,6 +4994,8 @@ Options:
   exist.  The new branch is a child of the current branch.
 * "-m" causes gee to create a new branch if the specified branch doesn't
   exist.  The new branch is a child of the master (or main) branch.
+* "-B <parent>" causes gee to create a new branch if the specified branch
+  doesn't exist.  The new branch is a child of the specified parent branch.
 
 If only "<branch>" is specified, "gcd" will change directory to the same
 relative directory in another branch.  If "<branch>/<path>" is specified,
@@ -5011,6 +5015,10 @@ For example:
     gcd -m new_feature
     # now in new_feature/foo, a child branch of master.
 
+To create a new branch of a non-standard upstream master:
+
+    gcd -B upstream/master_a0 my_a0_feature_branch
+
 The "gcd" function also updates the following environment variables:
 
 * BROOT always contains the path to the root directory of the current branch.
@@ -5019,12 +5027,18 @@ The "gcd" function also updates the following environment variables:
 EOT
 
 function gee__gcd() {
-  local TARGET BRANCH REL_PATH OPT_B
+  local TARGET BRANCH REL_PATH OPT_B OPT_M PARENT
   OPT_B=0
   OPT_M=0
+  PARENT=""
   while [[ "$1" == "-"* ]]; do
     if [[ "$1" == "-b" ]]; then
       OPT_B=1
+      shift
+    elif [[ "$1" == "-B" ]]; then
+      OPT_B=1
+      PARENT="$2"
+      shift
       shift
     elif [[ "$1" == "-m" ]]; then
       OPT_M=1
@@ -5038,9 +5052,6 @@ function gee__gcd() {
   done
   TARGET="$1"
   _set_main
-  if [[ -z "${TARGET}" ]]; then
-    TARGET="${MAIN}"
-  fi
 
   if ! _in_gee_branch; then
     cd "${GEE_REPO_DIR}/${MAIN}"
@@ -5063,12 +5074,14 @@ function gee__gcd() {
   # check whether BRANCH exists:
   if ! _local_branch_exists "${BRANCH}"; then
     if (( OPT_M == 1 )); then
-      # branch from the main branch
-      cd "${GEE_REPO_DIR}/${MAIN}"
+      PARENT="upstream/${MAIN}"
       OPT_B=1
     fi
     if (( OPT_B == 1 )); then
-      gee__mkbr "${BRANCH}" >&2
+      if [[ -z "${PARENT}" ]]; then
+        PARENT="$(_get_current_branch)"
+      fi
+      gee__mkbr "${BRANCH}" "${PARENT}" >&2
       if ! _local_branch_exists "${BRANCH}"; then
         _fatal "Branch \"${REPO}/${BRANCH}\" could not be created."
       fi
