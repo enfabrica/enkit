@@ -235,15 +235,31 @@ Valid configuration options are:
 
 Aliases: mkbr
 
-Usage: `gee make_branch <branch-name> [<commit-ish>]`
+Usage: `gee make_branch <branch-name> [<parent-branch>]`
 Aliases: mkbr
 
-Create a new branch based on the current branch.  The new branch will be located in the
+Create a new branch based.  The new branch will be located in the
 directory:
   ~/gee/<repo>/<branch-name>
 
-If <commit-ish> is provided, sets the HEAD of the newly created branch to that
-revision.
+If the parent branch is not specified, the current branch is used as the parent
+branch.  An arbitrary upstream branch may be specified as the parent branch
+(ie. `upstream/master_a0`).
+
+Note that if the parent branch is a non-master upstream branch, any PR created
+from this branch (or a child of this branch) will use that non-master branch
+as the base branch to merge into.
+
+If a matching branch exists in origin (ie, if `origin/<branch-name>` exists),
+gee will ask the user if they want to integrate commits from origin into the
+current branch.
+
+For example:
+
+    cd $(gee gcd bar)
+    gee make_branch foo  # foo is a child branch of the current branch, bar
+    gee make_branch based_on_master upstream/master
+    gee make_branch based_on_fork_a0 upstream/fork_a0
 
 ### log
 
