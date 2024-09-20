@@ -1387,8 +1387,8 @@ function _git_rev_list_counts() {
   if [[ "${P}" == upstream/refs/pull/*/head ]]; then
     "${GIT}" fetch upstream "${P#upstream/refs/}" >/dev/null 2>&1
     P=FETCH_HEAD
-  elif [[ "${P}" == upstream/* ]]; then
-    "${GIT}" fetch upstream "${P#upstream}" >/dev/null 2>&1
+  elif [[ "${P}" == */* ]]; then
+    "${GIT}" fetch "${P%%/*}" "${P#upstream}" >/dev/null 2>&1
     P=FETCH_HEAD
   fi
   "${GIT}" rev-list --left-right --count "${B}...${P}" || /bin/true
@@ -4099,8 +4099,7 @@ token "ABORT" will cause gee to abort the creation of your PR.
 
 `pr_make` will look at the recursive parentage of the current branch  until
 it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
-will be used as the "base" branch for the PR to be merged into.  This "base"
-branch can be overriden useing the "--base <branchname>" flag.
+will be used as the "base" branch for the PR to be merged into.
 
 Uses the same options as "gh pr create".
 EOT
@@ -4120,11 +4119,24 @@ function gee__pr_make() {
   local DEST_BRANCH CURRENT_BRANCH NUM_COMMITS
   _git fetch upstream
   _read_parents_file
-  _set_main
-  DEST_BRANCH="upstream/${MAIN}"
+
   CURRENT_BRANCH="$(_get_current_branch)"
   _info "Current branch: ${CURRENT_BRANCH}"
+
+  local -a CHAIN=()
+  _add_parent_branches_to_chain "${CURRENT_BRANCH}"
+  local FIRST_PARENT="${CHAIN[0]}"
+  local UPSTREAM_PARENT="$(_get_parent_branch "${FIRST_PARENT}")"
+  DEST_BRANCH="${UPSTREAM_PARENT}"
   _info "Destination branch: ${DEST_BRANCH}"
+
+  if [[ "${DEST_BRANCH}" == */pull/* ]]; then
+    _warn "This branch was created from a pull request (${DEST_BRANCH})." \
+          "To create a pull request, you need to change the parent of this branch" \
+          "to indicate the upstream branch you want to merge into.  For example:" \
+          "    gee set_parent upstream/master"
+    _fatal "Refusing to create a PR until parent branch is updated."
+  fi
 
   local -a pr_vars
   mapfile -t pr_vars < \
@@ -4215,9 +4227,9 @@ EndOfPrTemplate
       printf "      easier to read.\n\n"
     fi
     printf "\n# The following files were modified in this PR:\n"
-    "${GIT}" diff --name-only "${PARENT}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
+    "${GIT}" diff --name-only "${DEST_BRANCH}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
     printf "#\n# Here is your commit log:\n"
-    "${GIT}" log --reverse "${PARENT}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
+    "${GIT}" log --reverse "${DEST_BRANCH}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
 
     # TODO(jonathan): add support for specifying tags and reviewers in the
     #                 PR description.
@@ -4277,6 +4289,7 @@ EndOfPrTemplate
     --title "${TITLE}"
     -H "${GHUSER}:${CURRENT_BRANCH}"
     --body-file "${TRIMMED}"
+    --base "${UPSTREAM_PARENT#*/}"
   )
   local DRAFT=0
   if grep --quiet -E "^\s*DRAFT" "${TRIMMED}"; then
@@ -4297,15 +4310,6 @@ EndOfPrTemplate
   for A in "${ASSIGNEES[@]}"; do
     PR_ARGS+=(--assignee "${A}")
   done
-
-  if [[ "$*" != *"--base"* ]]; then
-    # base was not specified, so we have to look at tree to find it.
-    local -a CHAIN=()
-    _add_parent_branches_to_chain "${CURRENT_BRANCH}"
-    local FIRST_PARENT="${CHAIN[0]}"
-    local UPSTREAM_PARENT="$(_get_parent_branch "${FIRST_PARENT}")"
-    PR_ARGS+=(--base "${UPSTREAM_PARENT#*/}")
-  fi
 
   PR_ARGS+=( "$@" )
 
@@ -4573,10 +4577,11 @@ function gee__pr_submit() {
   # Check the status of the PR.
   local -a pr_vars=()
   mapfile -t pr_vars < \
-    <("${GH}" pr view --json number,state,isDraft --jq '.number, .state, .isDraft')
+    <("${GH}" pr view --json number,state,isDraft,baseRefName --jq '.number, .state, .isDraft, .baseRefName')
   local pr_number="${pr_vars[0]}"
   local pr_state="${pr_vars[1]}"
   local pr_is_draft="${pr_vars[2]}"
+  local pr_base="${pr_vars[3]}"
   if [[ "${pr_state}" == "MERGED" ]]; then
     _fatal "Associated PR #${pr_number} has already been merged."
   fi
@@ -4621,10 +4626,9 @@ function gee__pr_submit() {
   fi
 
   # Get some information about this PR before we merge.
-  _set_main
   local MERGEBASE
-  MERGEBASE="$( "${GIT}" merge-base "upstream/${MAIN}" "origin/${CURRENT_BRANCH}" )"
-  _info "Merge base: ${MERGEBASE}"
+  MERGEBASE="$( "${GIT}" merge-base "upstream/${pr_base}" "origin/${CURRENT_BRANCH}" )"
+  _info "Merging into ${pr_base}, Merge base: ${MERGEBASE}"
   local -a COMMITS
   mapfile -t COMMITS < <( "${GIT}" log --pretty=oneline "${MERGEBASE}"..HEAD | awk '{print $1}' )
   local -a FILES
@@ -4658,7 +4662,7 @@ function gee__pr_submit() {
     --repo "${UPSTREAM}/${REPO}" \
     "${FROM_BRANCH}"
   rm "${BODYFILE}"
-  _update_main
+  _git fetch upstream
 
   # This check is of low value (gr pr merge is reliable), and occasionally
   # reports false negatives (ie. if two PRs changed the same file, but
@@ -4676,7 +4680,7 @@ function gee__pr_submit() {
 
   # Reset this branch to now contain the squash-merged commit:
   _checkout_or_die "${CURRENT_BRANCH}"  # make sure we're in the right branch.
-  _git checkout -B "${CURRENT_BRANCH}" "upstream/${MAIN}"
+  _git checkout -B "${CURRENT_BRANCH}" "upstream/${pr_base}"
   _push_to_origin "+${CURRENT_BRANCH}"
 
   # After a squash merge, we have a potential problem for child (and
@@ -5082,6 +5086,7 @@ function gee__gcd() {
   # check whether BRANCH exists:
   if ! _local_branch_exists "${BRANCH}"; then
     if (( OPT_M == 1 )); then
+      # option -m is equivalent to "-B upstream/master"
       PARENT="upstream/${MAIN}"
       OPT_B=1
     fi

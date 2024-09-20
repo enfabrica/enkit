@@ -659,8 +659,7 @@ token "ABORT" will cause gee to abort the creation of your PR.
 
 `pr_make` will look at the recursive parentage of the current branch  until
 it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
-will be used as the "base" branch for the PR to be merged into.  This "base"
-branch can be overriden useing the "--base <branchname>" flag.
+will be used as the "base" branch for the PR to be merged into.
 
 Uses the same options as "gh pr create".
 
