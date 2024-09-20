@@ -1,7 +1,7 @@
 load("//bazel/utils:files.bzl", "write_to_file")
 load("//bazel/dive:dive.bzl", "oci_dive")
 load("@enkit//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary")
 
@@ -127,8 +127,8 @@ def container_image(*args, **kwargs):
     # while the container_pull rule does. Modify this wrapper script
     # to insert the //image target when using container_pull.
     # Remove once oci_pull doesn't have auth errors anymore.
-    if kwargs.get("base", "").startswith("@"):
-        kwargs["base"] = "{}//image".format(kwargs.get("base"))
+    #if kwargs.get("base", "").startswith("@"):
+    #    kwargs["base"] = "{}//image".format(kwargs.get("base"))
 
     # Always include user-defined container labels in addition to build metadata from bazel --stamp
     # https://bazel.build/docs/user-manual#workspace-status
@@ -153,7 +153,7 @@ def container_image(*args, **kwargs):
     oci_image(*args, **kwargs)
 
 def container_tarball(*args, **kwargs):
-    oci_tarball(*args, **kwargs)
+    oci_load(*args, **kwargs)
 
 def container_push(*args, **kwargs):
     target_basename = kwargs.get("name")
@@ -181,17 +181,22 @@ def container_push(*args, **kwargs):
             tags = tags,
         )
     local_image_path = "{}/{}:latest".format(native.package_name(), target_basename)
-    oci_tarball(
-        name = "{}_tarball".format(target_basename),
-        image = kwargs.get("image"),
-        repo_tags = [local_image_path],
-        tags = tags,
-    )
+#    oci_load(
+#        name = "{}_tarball".format(target_basename),
+#        image = kwargs.get("image"),
+#        repo_tags = [local_image_path],
+#        tags = tags,
+#    )
+#    native.filegroup(
+#        name = "{}.tar".format(target_basename),
+#        srcs = [":{}_tarball".format(target_basename)],
+#        output_group = "tarball",
+#    )
     container_pusher(
         name = target_basename,
         dev_script = ":{}_dev_oci_push".format(target_basename),
         staging_script = ":{}_staging_oci_push".format(target_basename),
-        image_tarball = ":{}_tarball".format(target_basename),
+        image_tarball = kwargs.get("image"),
         namespace = namespace,
         image_path = image_path,
         tags = tags,
@@ -253,7 +258,7 @@ container_pusher = rule(
             mandatory = True,
         ),
         "image_tarball": attr.label(
-            doc = "Image tarball returned by the oci_tarball rule to validate image tags",
+            doc = "Image tarball returned by the oci_load rule to validate image tags",
             allow_single_file = [".tar"],
             mandatory = True,
         ),
@@ -320,3 +325,154 @@ container_repo = rule(
         ),
     },
 )
+
+def container_bootstrap_rule_impl(ctx):
+    outfile = ctx.actions.declare_file("%s.tar" % ctx.attr.name)
+    args = ctx.actions.args()
+    args.add(ctx.attr.arch)
+    args.add(",".join(ctx.attr.components))
+    args.add(ctx.attr.distro)
+    args.add(ctx.attr.mirror)
+    args.add(outfile)
+    args.add(ctx.file.bootstrap_tar)
+
+    ctx.actions.run(
+        executable = ctx.executable.bootstrap_script,
+        inputs = [ctx.file.bootstrap_tar],
+        outputs = [outfile],
+        arguments = [args],
+    )
+
+    return [
+        DefaultInfo(files = depset([outfile])),
+    ]
+
+
+bootstrap_attrs = {
+    "bootstrap_script": attr.label(
+        doc = "Script that executes the bootstrap tool",
+        allow_single_file = [".sh"],
+        executable = True,
+        cfg = "exec",
+        default = "@enkit//bazel/utils/container:bootstrap_ubuntu.sh",
+    ),
+    "distro": attr.string(
+        doc = "Ubuntu Linux distro to bootstrap the container",
+        values = [
+            "bionic",
+            "focal",
+            "jammy",
+            "noble",
+        ],
+        mandatory = True,
+    ),
+    "components": attr.string_list(
+        doc = "Components of the repo found under /etc/apt/sources.list",
+        default = [
+            "main",
+            "restricted",
+            "universe",
+            "multiverse",
+        ],
+    ),
+    "mirror": attr.string(
+        doc = """
+URL to https://snapshot.ubuntu.com/ubuntu/<snapshot-time>. By default, use the latest snapshot.
+Generate new timestamps with: date -u +"%Y%m%dT%H%M%SZ"
+""",
+        default = "https://snapshot.ubuntu.com/ubuntu",
+    ),
+    "arch": attr.string(
+        doc = "CPU architecture",
+        values = [
+            "amd64",
+            "arm64",
+        ],
+        default = "amd64",
+    ),
+}
+
+container_bootstrap_rule = rule(
+    implementation = container_bootstrap_rule_impl,
+    attrs = bootstrap_attrs | {
+        "bootstrap_tar": attr.label(
+            doc = "Merged tarballs generated from debootstrap with deb pkgs",
+            allow_single_file = [".tar"],
+            mandatory = True,
+        )
+    }
+)
+
+def ubuntu_pkg_rule_impl(ctx):
+    outfile = ctx.actions.declare_file("%s.tar" % ctx.attr.name)
+    args = ctx.actions.args()
+    args.add(ctx.attr.arch)
+    args.add(",".join(ctx.attr.components))
+    args.add(ctx.attr.pkg)
+    args.add(ctx.attr.distro)
+    args.add(ctx.attr.mirror)
+    args.add(outfile)
+
+    ctx.actions.run(
+        executable = ctx.executable.bootstrap_script,
+        outputs = [outfile],
+        arguments = [args],
+    )
+
+    return [
+        DefaultInfo(files = depset([outfile])),
+    ]
+
+ubuntu_pkg_rule = rule(
+    implementation = ubuntu_pkg_rule_impl,
+    attrs = bootstrap_attrs | {
+        "pkg": attr.string(
+            doc = "Name of the package to download",
+            mandatory = True,
+        )
+    }
+)
+
+def image_bootstrap_rule_impl(ctx):
+    outfile = ctx.actions.declare_file("%s.tar" % ctx.attr.name)
+    args = ctx.actions.args()
+    args.add(outfile)
+    args.add_all(ctx.files.pkgs)
+
+    ctx.actions.run(
+        executable = ctx.executable.bootstrap_script,
+        inputs = ctx.files.pkgs,
+        outputs = [outfile],
+        arguments = [args],
+    )
+    return [
+        DefaultInfo(files = depset([outfile])),
+    ]
+
+image_bootstrap_rule = rule(
+    implementation = image_bootstrap_rule_impl,
+    attrs = {
+        "bootstrap_script": attr.label(
+            doc = "Script that executes the bootstrap tool",
+            allow_single_file = [".sh"],
+            executable = True,
+            cfg = "exec",
+            default = "@enkit//bazel/utils/container:bootstrap_ubuntu_image.sh",
+        ),
+        "pkgs": attr.label_list(
+            doc = "List of ubuntu_pkg targets to install",
+            allow_files = [".tar"],
+            mandatory = True,
+        )
+    }
+)
+
+def ubuntu_image_bootstrap(*args, **kwargs):
+    return image_bootstrap_rule(*args, **kwargs)
+
+def ubuntu_container_bootstrap(*args, **kwargs):
+    return container_bootstrap_rule(*args, **kwargs)
+
+def ubuntu_pkg(*args, **kwargs):
+    kwargs["bootstrap_script"] = "@enkit//bazel/utils/container:ubuntu_pkg.sh"
+    return ubuntu_pkg_rule(*args, **kwargs)
