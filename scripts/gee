@@ -3088,7 +3088,8 @@ function _add_parent_branches_to_chain() {
   # If the current branch is upstr
   if [[ "${B}" == "upstream/"* ]]; then return; fi
 
-  local P="$(_get_parent_branch "${B}")"
+  local P
+  P="$(_get_parent_branch "${B}")"
   # if parent branch is the current branch, stop.
   if [[ "${P}" == "${B}" ]]; then return; fi
 
@@ -4116,7 +4117,7 @@ function gee__pr_make() {
 
   _check_cwd
   _check_gh_auth
-  local DEST_BRANCH CURRENT_BRANCH NUM_COMMITS
+  local DEST_BRANCH CURRENT_BRANCH NUM_COMMITS FIRST_PARENT UPSTREAM_PARENT
   _git fetch upstream
   _read_parents_file
 
@@ -4125,8 +4126,8 @@ function gee__pr_make() {
 
   local -a CHAIN=()
   _add_parent_branches_to_chain "${CURRENT_BRANCH}"
-  local FIRST_PARENT="${CHAIN[0]}"
-  local UPSTREAM_PARENT="$(_get_parent_branch "${FIRST_PARENT}")"
+  FIRST_PARENT="${CHAIN[0]}"
+  UPSTREAM_PARENT="$(_get_parent_branch "${FIRST_PARENT}")"
   DEST_BRANCH="${UPSTREAM_PARENT}"
   _info "Destination branch: ${DEST_BRANCH}"
 
