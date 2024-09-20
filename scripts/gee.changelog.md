@@ -2,6 +2,15 @@
 
 ## Releases
 
+### 0.2.51
+
+* `gee pr_make`: Allow branches to be created from arbitrary upstream base branches.
+* `gee copy`: Added "copy" command to facilitate copying files while preserving history. (#1093)
+* `gee rmbr`: When removing multiple branches, remove remaining branches even if one branch removal fails. (#1087)
+* `gee`: Allow explicit paths for enkit (#358)
+* `gee rupdate`: Exit recursion when a branch has itself as a parent (#1075)
+* `gee commit`: Improve output when cancelling running gcloud jobs.  #(1068)
+
 ### 0.2.50
 
 * gee commit: cancels invalidates presubmits, on by default. (#1067)
