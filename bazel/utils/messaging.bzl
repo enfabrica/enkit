@@ -54,7 +54,7 @@ def fileowner(fileobject):
     """
     owner = fileobject.owner
     if owner:
-        package = package(owner)
+        pname = package(owner)
     else:
-        package = "<unknown package>"
-    return "file '{file}' from '{package}'".format(file = fileobject.short_path, package = package)
+        pname = "<unknown package>"
+    return "file '{file}' from '{pname}'".format(file = fileobject.short_path, pname = pname)
