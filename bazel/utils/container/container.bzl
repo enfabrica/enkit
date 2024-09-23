@@ -334,11 +334,11 @@ def container_bootstrap_rule_impl(ctx):
     args.add(ctx.attr.distro)
     args.add(ctx.attr.mirror)
     args.add(outfile)
-    args.add(ctx.file.bootstrap_tar)
+    args.add_all(ctx.files.pkgs)
 
     ctx.actions.run(
         executable = ctx.executable.bootstrap_script,
-        inputs = [ctx.file.bootstrap_tar],
+        inputs = ctx.files.pkgs,
         outputs = [outfile],
         arguments = [args],
     )
@@ -395,9 +395,9 @@ Generate new timestamps with: date -u +"%Y%m%dT%H%M%SZ"
 container_bootstrap_rule = rule(
     implementation = container_bootstrap_rule_impl,
     attrs = bootstrap_attrs | {
-        "bootstrap_tar": attr.label(
-            doc = "Merged tarballs generated from debootstrap with deb pkgs",
-            allow_single_file = [".tar"],
+        "pkgs": attr.label_list(
+            doc = "List of ubuntu_pkg targets to install",
+            allow_files = [".tar"],
             mandatory = True,
         )
     }

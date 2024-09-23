@@ -13,25 +13,25 @@ tmp_root=$(mktemp -d)
 log="$tmp_root/debootstrap/debootstrap.log"
 echo "Created tmp directory $tmp_root"
 echo ""
-pid="$$"
+pid=""
 cleanup() {
     if [ -e $log ]; then
         sudo cat $log
     fi
     echo "Cleaning up tmp directory $tmp_root"
     echo ""
+    # The bazel parent process does not have
+    # permission to kill a child process running as sudo.
+    # Manually kill the sudo child process so that
+    # when a user sends CTRL+C, the child process is killed.
+    if [ -n "$pid" ]; then
+        echo "Killing PID $pid"
+        echo ""
+        sudo kill --signal SIGKILL $pid
+    fi
     sudo rm -rf $tmp_root
 }
 trap cleanup EXIT
-
-# kill_pid() {
-#     echo "Killing PID $pid"
-#     echo ""
-#     # Since debootstrap is executed with sudo, it must be killed with sudo
-#     # since bazel does not run with root permissions.
-#     sudo kill -s SIGKILL $pid
-# }
-# trap kill_pid SIGINT
 
 echo "Downloading $pkg for Ubuntu $distro-$arch from $mirror"
 echo ""
@@ -39,10 +39,25 @@ echo ""
 # debootstrap must be run as the root user
 sudo debootstrap \
     --verbose \
-    --make-tarball=$(realpath $outfile) \
+    --download-only \
+    --variant="minbase" \
     --arch=$arch \
     --components=$comp \
-    --include=$pkg $distro $tmp_root $mirror
+    --include=$pkg $distro $tmp_root $mirror &
+pid="$!"
+wait $pid
+
+echo "Packages debs from $tmp_root/var/cache/apt/archives"
+echo ""
+sudo tar -cf $outfile -C "$tmp_root/var/cache/apt/archives" . &
+pid="$!"
+wait $pid
+
 # Change back the ownership or else bazel
 # will complain that the file was never created.
-sudo chown $USER:$USER $outfile
+sudo chown $USER:$USER $outfile &
+pid="$!"
+wait $pid
+
+# Reset the PID if all commands gracefully exit
+pid=""
