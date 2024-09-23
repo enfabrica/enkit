@@ -3,6 +3,7 @@
 See README.md for more information.
 """
 
+load("@rules_distroless//distroless:toolchains.bzl", "distroless_register_toolchains")
 load("@aspect_rules_js//npm:npm_import.bzl", "npm_translate_lock")
 load("@com_github_bazelbuild_remote_apis//:repository_rules.bzl", "switched_rules_by_language")
 load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
@@ -24,6 +25,8 @@ def stage_3():
     * A transitive load statement that references a repository that doesn't
       exist until stage 2 completes
     """
+
+    distroless_register_toolchains()
 
     pip_parse(
         name = "enkit_pip_deps",

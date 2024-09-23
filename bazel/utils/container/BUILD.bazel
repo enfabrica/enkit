@@ -1,5 +1,5 @@
 # The directory internal/bazel/utils/container must exist in the internal
-# repo so that dynamically generated targets from the enkit repo can be 
+# repo so that dynamically generated targets from the enkit repo can be
 # referenced locally within the internal repo
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 
@@ -40,27 +40,27 @@ py_library(
 py_binary(
     name = "container_stamper",
     srcs = ["container_stamper.py"],
-    deps = [
-        ":stamp",
-        requirement("absl-py"),
-    ],
     # Allow the internal repo to access this target
     visibility = [
         "//visibility:public",
     ],
+    deps = [
+        ":stamp",
+        requirement("absl-py"),
+    ],
 )
 
-py_binary( 
+py_binary(
     name = "container_pusher",
     srcs = ["@enkit//bazel/utils/container:container_pusher.py"],
     main = "@enkit//bazel/utils/container:container_pusher.py",
-    deps = [
-        "@rules_python//python/runfiles",
-        "@enkit//bazel/utils/container:exceptions_lib",
-        requirement("absl-py"),
-        requirement("docker"),
-    ],
     visibility = [
         "//visibility:public",
+    ],
+    deps = [
+        "@enkit//bazel/utils/container:exceptions_lib",
+        "@rules_python//python/runfiles",
+        requirement("absl-py"),
+        requirement("docker"),
     ],
 )
