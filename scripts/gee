@@ -2433,20 +2433,25 @@ function gee__config() {
         "/usr/bin/meld \"\$LOCAL\" \"\$REMOTE\""
       ;;
     enable_bcompare)
-      _info "Setting BeyondCompare as the default GUI diff and merge tool."
-      _git config --global merge.guitool bc
-      _git config --global diff.guitool bc
-      _git config --global mergetool.bc.trustExitCode true
-      _git config --global difftool.bc.trustExitCode true
       if ! command -v bcompare > /dev/null; then
-        _warn "bcompare is not currently installed."
+        _error "bcompare is not currently installed."
         _info \
           "To install BeyondCompare:" \
           "" \
-          "  wget https://www.scootersoftware.com/files/bcompare-4.4.6.27483_amd64.deb" \
+          "  wget https://www.scootersoftware.com/files/bcompare-5.0.2.30045_amd64.deb" \
           "  sudo apt install poppler-utils" \
-          "  sudo dpkg -i ./bcompare-4.4.6.27483_amd64.deb" \
-          "  which bcompare  # ensure tool is installed"
+          "  sudo dpkg -i ./bcompare-5.0.2.30045_amd64.deb" \
+          "  which bcompare  # ensure tool is installed" \
+          "" \
+          "Install bcompare and try again."
+        _fatal "bcompare not installed."
+      else
+        _info "Setting BeyondCompare as the default GUI diff and merge tool."
+        # Note "bc" selects a wrapper for beyondcompare that is distributed with git.
+        _git config --global merge.guitool bc
+        _git config --global diff.guitool bc
+        _git config --global mergetool.bc.trustExitCode true
+        _git config --global difftool.bc.trustExitCode true
       fi
       ;;
     enable_emacs)

@@ -4,7 +4,8 @@
 
 ### 0.2.51
 
-* `gee pr_make`: Allow branches to be created from arbitrary upstream base branches.
+* `gee pr_make`: Allow branches to be created from arbitrary upstream base branches. (#1088)
+* `gee config`: Update to bcompare5.  (#1102)
 * `gee copy`: Added "copy" command to facilitate copying files while preserving history. (#1093)
 * `gee rmbr`: When removing multiple branches, remove remaining branches even if one branch removal fails. (#1087)
 * `gee`: Allow explicit paths for enkit (#358)
