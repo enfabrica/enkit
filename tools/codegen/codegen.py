@@ -104,8 +104,10 @@ def _merge(a, b, path=None):
         raise TypeError(f"Could not merge type {type(a)!r} with type {type(b)!r}.")
     return a
 
-def tostderr_filter(text):
-    sys.stderr.write(f"{text}\n")
+def log_filter(text):
+    # TODO(jonathan): find a way to annotate this log message with the template
+    # file and line number.
+    logging.info(f"LOGGED: {text}")
     return ''
 
 class Template(data_loader.DataLoader):
@@ -136,7 +138,7 @@ class Template(data_loader.DataLoader):
         )
         self.env.filters.update({
             "re_sub": re_sub_function,
-            "tostderr": tostderr_filter,
+            "log": log_filter,
         })
         self.context = {"_DATA": [], "_TEMPLATE": ""}
         self.template = None
