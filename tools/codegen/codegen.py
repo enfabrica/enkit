@@ -104,6 +104,9 @@ def _merge(a, b, path=None):
         raise TypeError(f"Could not merge type {type(a)!r} with type {type(b)!r}.")
     return a
 
+def tostderr_filter(text):
+    sys.stderr.write(f"{text}\n")
+    return ''
 
 class Template(data_loader.DataLoader):
     def __init__(self, other=None):
@@ -131,7 +134,10 @@ class Template(data_loader.DataLoader):
                 "re_sub": re_sub_function,
             }
         )
-        self.env.filters.update({"re_sub": re_sub_function})
+        self.env.filters.update({
+            "re_sub": re_sub_function,
+            "tostderr": tostderr_filter,
+        })
         self.context = {"_DATA": [], "_TEMPLATE": ""}
         self.template = None
         self.template_path = None
