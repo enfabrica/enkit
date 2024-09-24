@@ -12,6 +12,7 @@
 #  https://jinja.palletsprojects.com/en/3.1.x/
 
 # standard libraries
+import inspect
 import json
 import os
 import re
@@ -105,9 +106,18 @@ def _merge(a, b, path=None):
     return a
 
 def log_filter(text):
-    # TODO(jonathan): find a way to annotate this log message with the template
-    # file and line number.
-    logging.info(f"LOGGED: {text}")
+    for frameinfo in inspect.stack():
+        template = frameinfo.frame.f_globals.get("__jinja_template__")
+        if template is not None:
+            break
+    lineno = 0
+    filename = "?"
+    if template is not None:
+        filename = template.filename
+        lineno = template.get_corresponding_lineno(inspect.currentframe().f_back.f_lineno)
+        logging.info(f"{filename}:{lineno}: {text}")
+    else:
+        logging.info(f"unknown source: {text}")
     return ''
 
 class Template(data_loader.DataLoader):
