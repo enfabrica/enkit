@@ -31,7 +31,7 @@ cleanup() {
     fi
     sudo rm -rf $tmp_root
 }
-trap cleanup EXIT
+trap cleanup EXIT SIGINT SIGTERM
 
 echo "Downloading $pkg for Ubuntu $distro-$arch from $mirror"
 echo ""
@@ -39,8 +39,8 @@ echo ""
 # debootstrap must be run as the root user
 sudo debootstrap \
     --verbose \
+    --variant=minbase \
     --download-only \
-    --variant="minbase" \
     --arch=$arch \
     --components=$comp \
     --include=$pkg $distro $tmp_root $mirror &

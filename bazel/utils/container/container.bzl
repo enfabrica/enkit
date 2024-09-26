@@ -334,11 +334,12 @@ def container_bootstrap_rule_impl(ctx):
     args.add(ctx.attr.distro)
     args.add(ctx.attr.mirror)
     args.add(outfile)
+    args.add(ctx.executable.chroot_script)
     args.add_all(ctx.files.pkgs)
 
     ctx.actions.run(
         executable = ctx.executable.bootstrap_script,
-        inputs = ctx.files.pkgs,
+        inputs = ctx.files.pkgs + [ctx.executable.chroot_script],
         outputs = [outfile],
         arguments = [args],
     )
@@ -386,6 +387,7 @@ Generate new timestamps with: date -u +"%Y%m%dT%H%M%SZ"
         doc = "CPU architecture",
         values = [
             "amd64",
+            "i386",
             "arm64",
         ],
         default = "amd64",
@@ -399,7 +401,14 @@ container_bootstrap_rule = rule(
             doc = "List of ubuntu_pkg targets to install",
             allow_files = [".tar"],
             mandatory = True,
-        )
+        ),
+        "chroot_script": attr.label(
+            doc = "Script that executes via chroot in the bootstrap env",
+            allow_single_file = [".sh"],
+            executable = True,
+            cfg = "exec",
+            default = "@enkit//bazel/utils/container:chroot_ubuntu.sh",
+        ),
     }
 )
 
@@ -433,46 +442,20 @@ ubuntu_pkg_rule = rule(
     }
 )
 
-def image_bootstrap_rule_impl(ctx):
-    outfile = ctx.actions.declare_file("%s.tar" % ctx.attr.name)
-    args = ctx.actions.args()
-    args.add(outfile)
-    args.add_all(ctx.files.pkgs)
-
-    ctx.actions.run(
-        executable = ctx.executable.bootstrap_script,
-        inputs = ctx.files.pkgs,
-        outputs = [outfile],
-        arguments = [args],
-    )
-    return [
-        DefaultInfo(files = depset([outfile])),
-    ]
-
-image_bootstrap_rule = rule(
-    implementation = image_bootstrap_rule_impl,
-    attrs = {
-        "bootstrap_script": attr.label(
-            doc = "Script that executes the bootstrap tool",
-            allow_single_file = [".sh"],
-            executable = True,
-            cfg = "exec",
-            default = "@enkit//bazel/utils/container:bootstrap_ubuntu_image.sh",
-        ),
-        "pkgs": attr.label_list(
-            doc = "List of ubuntu_pkg targets to install",
-            allow_files = [".tar"],
-            mandatory = True,
-        )
-    }
-)
-
-def ubuntu_image_bootstrap(*args, **kwargs):
-    return image_bootstrap_rule(*args, **kwargs)
-
-def ubuntu_container_bootstrap(*args, **kwargs):
+def ubuntu_bootstrap(*args, **kwargs):
+    reformatted_targets = []
+    for p in kwargs.get("pkgs", []):
+        if p.endswith(":i386"):
+            reformatted_targets += [p.removesuffix(":i386")]
+        else:
+            reformatted_targets += [p]
+    kwargs["pkgs"] = reformatted_targets
     return container_bootstrap_rule(*args, **kwargs)
 
 def ubuntu_pkg(*args, **kwargs):
     kwargs["bootstrap_script"] = "@enkit//bazel/utils/container:ubuntu_pkg.sh"
+    # When installing 32-bit packages, the package name convention is to suffix
+    # the package name with :i386. However, colons are not allowed as target names in bazel.
+    if kwargs.get("name", "").endswith(":i386"):
+        kwargs["name"] = kwargs.get("name", "").removesuffix(":i386")
     return ubuntu_pkg_rule(*args, **kwargs)
