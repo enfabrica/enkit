@@ -18,6 +18,8 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/prototext"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -73,6 +75,8 @@ func main() {
 	//	fe := frontend.New(template, s)
 
 	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
 	//	metrics.AddHandler(mux, "/metrics")
 	//	mux.Handle("/queue", fe)
 
