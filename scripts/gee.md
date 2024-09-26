@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.50
+gee version: 0.2.51
 
 gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
 tools  gee is an opinionated tool that implements a specific, simple, powerful
@@ -235,15 +235,31 @@ Valid configuration options are:
 
 Aliases: mkbr
 
-Usage: `gee make_branch <branch-name> [<commit-ish>]`
+Usage: `gee make_branch <branch-name> [<parent-branch>]`
 Aliases: mkbr
 
-Create a new branch based on the current branch.  The new branch will be located in the
+Create a new branch based.  The new branch will be located in the
 directory:
   ~/gee/<repo>/<branch-name>
 
-If <commit-ish> is provided, sets the HEAD of the newly created branch to that
-revision.
+If the parent branch is not specified, the current branch is used as the parent
+branch.  An arbitrary upstream branch may be specified as the parent branch
+(ie. `upstream/master_a0`).
+
+Note that if the parent branch is a non-master upstream branch, any PR created
+from this branch (or a child of this branch) will use that non-master branch
+as the base branch to merge into.
+
+If a matching branch exists in origin (ie, if `origin/<branch-name>` exists),
+gee will ask the user if they want to integrate commits from origin into the
+current branch.
+
+For example:
+
+    cd $(gee gcd bar)
+    gee make_branch foo  # foo is a child branch of the current branch, bar
+    gee make_branch based_on_master upstream/master
+    gee make_branch based_on_fork_a0 upstream/fork_a0
 
 ### log
 
@@ -641,6 +657,10 @@ If you have any second thoughts during this process: Adding the token "DRAFT"
 to your PR description will cause the PR to be marked as a draft.  Adding the
 token "ABORT" will cause gee to abort the creation of your PR.
 
+`pr_make` will look at the recursive parentage of the current branch  until
+it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
+will be used as the "base" branch for the PR to be merged into.
+
 Uses the same options as "gh pr create".
 
 ### pr_cancel
@@ -723,7 +743,7 @@ out as formatting rules are highly project specific.
 
 ### gcd
 
-Usage: `gcd [-b] [-m] <branch>[/<path>]`
+Usage: `gcd [-b] [-m] [-B <parent>] <branch>[/<path>]`
 
 Print the path to an equivalent directory in another worktree (branch).
 This command is meant to be invoked from the "gcd" bash function, which
@@ -742,6 +762,8 @@ Options:
   exist.  The new branch is a child of the current branch.
 * "-m" causes gee to create a new branch if the specified branch doesn't
   exist.  The new branch is a child of the master (or main) branch.
+* "-B <parent>" causes gee to create a new branch if the specified branch
+  doesn't exist.  The new branch is a child of the specified parent branch.
 
 If only "<branch>" is specified, "gcd" will change directory to the same
 relative directory in another branch.  If "<branch>/<path>" is specified,
@@ -760,6 +782,10 @@ For example:
     # now in branch4/foo, a child branch of branch3.
     gcd -m new_feature
     # now in new_feature/foo, a child branch of master.
+
+To create a new branch of a non-standard upstream master:
+
+    gcd -B upstream/master_a0 my_a0_feature_branch
 
 The "gcd" function also updates the following environment variables:
 

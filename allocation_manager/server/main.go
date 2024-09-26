@@ -8,6 +8,7 @@ import (
 	//"html/template"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 
 	//	"github.com/enfabrica/enkit/allocation_manager/frontend"
@@ -80,5 +81,9 @@ func main() {
 	//	metrics.AddHandler(mux, "/metrics")
 	//	mux.Handle("/queue", fe)
 
-	exitIf(server.Run(ctx, mux, grpcs, nil))
+  // port from https://docs.google.com/document/d/1ZtmR60B-pBRlTQSw_aqaujUOWe6tD6TTNbNj7VdZHAY/edit
+  lis, err := net.Listen("tcp", ":6435")
+	exitIf(err)
+
+	exitIf(server.Run(ctx, mux, grpcs, lis))
 }
