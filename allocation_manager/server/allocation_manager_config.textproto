@@ -9,12 +9,38 @@ server {
 units {
 topology: {
   name: "a"
-  config: "a"
+  config:
+"name: a\n"
+"nodes:\n"
+" node01:\n"
+"  hostname: nc-gpu-01.rdu\n"
+"GPUs:\n"
+" GPU0:\n"
+"  Name: NVIDIA RTX A4000\n"
+"  vram: 16\n"
+"  bus-id: \"0:41:00.0\"\n"
+" GPU1:\n"
+"  Name: Quadro RTX 4000\n"
+"  vram: 8\n"
+"  bus-id: \"0:81:00.0\"\n"
   }
 }
 units {
 topology: {
   name: "b"
-  config: "b"
+  config:
+"name: b\n"
+"nodes:\n"
+" node01:\n"
+"  hostname: nc-gpu-02.rdu\n"
+"GPUs:\n"
+" GPU0:\n"
+"  Name: Quadro RTX 4000\n"
+"  vram: 8\n"
+"  bus-id: \"0:46:00.0\"\n"
+" GPU1:\n"
+"  Name: NVIDIA RTX A4000\n"
+"  vram: 16\n"
+"  bus-id: \"0:C5:00.0\"\n"
   }
 }
