@@ -448,6 +448,7 @@ func (s *Service) Refresh(ctx context.Context, req *apb.RefreshRequest) (retRes 
 	if invID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invocation.id must be set")
 	}
+	logger.Go.Infof("Refresh(%s)", invID)
 	unitInvoc := u.GetInvocation(invID)
 	if unitInvoc == nil {
 		if s.currentState == stateRunning {

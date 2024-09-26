@@ -100,6 +100,7 @@ func (u *unit) ExpireAllocations(expiry time.Time) {
 	if u.Invocation != nil && !u.Invocation.LastCheckin.After(expiry) {
 		// u.prioritizer.OnRelease(v)
 		// metricLicenseReleaseReason.WithLabelValues("allocated_expired").Inc()
+		logger.Go.Infof("unit.ExpireAllocations %v", u.Invocation.ID)
 		u.Invocation = nil
 		// move health to unknown?
 	}
