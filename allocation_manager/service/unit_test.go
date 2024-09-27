@@ -153,6 +153,9 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, a.Topology.Name, "Unit Name 2")
 	a.DoOperation("allocate")
 	a.DoOperation("release")
+	u.DoOperation("allocate")
+	a.DoOperation("allocate")
+	a.DoOperation("release")
 
 	// fmt.Printf("metrics:", a.Metrics)
 	assert.True(t, false)

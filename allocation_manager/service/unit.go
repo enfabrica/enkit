@@ -55,7 +55,7 @@ unitCounter = prometheus.NewCounterVec(
 		Name: "unit_operations_total",
 		Help: "Total number of operations performed on units",
 	},
-	[]string{"unit", "operation"},
+	[]string{"kind", "unit", "operation"},
 )
 )
 
@@ -67,8 +67,11 @@ func init() {
 func (u unit) DoOperation(operationName string) {
 	// name := u.name
 	name := u.Topology.Name
-	unitCounter.With(prometheus.Labels{"unit": name, "operation": operationName}).Inc()
-	fmt.Printf("Operation '%s' performed on unit: %s\n", operationName, name)
+	unitCounter.With(prometheus.Labels{
+		"kind": fmt.Sprintf("%T", u),
+		"unit": name,
+		"operation": operationName}).Inc()
+	fmt.Printf("Operation '%s' performed on unit: %s %T\n", operationName, name, u)
 	// fmt.Println("Counter:", unitCounter.Counter)
 }
 
