@@ -9,7 +9,7 @@ go_library(
     deps = [
         "//allocation_manager/client",
         "//allocation_manager/proto",
-        "@in_gopkg_yaml_v3//:yaml_v3",
+        "//allocation_manager/topology",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )

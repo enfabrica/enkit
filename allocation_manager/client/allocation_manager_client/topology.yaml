@@ -1,2 +1,3 @@
-name: name
-network_config: network_config
+name: a
+nodes:
+GPUs:

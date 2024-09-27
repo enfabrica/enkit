@@ -10,6 +10,7 @@ go_library(
     deps = [
         "//allocation_manager/proto",
         "//allocation_manager/service",
+        "//allocation_manager/topology",
         "//lib/server",
         "@com_github_prometheus_client_golang//prometheus/promhttp",
         "@org_golang_google_grpc//:go_default_library",
@@ -17,17 +18,23 @@ go_library(
     ],
 )
 
-go_binary(
-    name = "allocation_manager",
-    embed = [":server_lib"],
-    visibility = ["//visibility:public"],
-)
-
 astore_upload(
     name = "astore_push",
     file = "infra/allocation_manager/server",
     targets = [
-        ":allocation_manager",
+        ":server",
     ],
     visibility = ["//:__pkg__"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":server_lib",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
+    name = "server",
+    embed = [":server_lib"],
+    visibility = ["//visibility:public"],
 )
