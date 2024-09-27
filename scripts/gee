@@ -3506,13 +3506,21 @@ EOT
 
 function gee__get_parent() {
   _startup_checks "get_parent"
-
   _check_cwd
-  local BRANCH
-  BRANCH="${1:-$(_get_current_branch)}"
+
+  local BRANCH PARENT
   _read_parents_file
-  PARENT="$(_get_parent_branch "${BRANCH}")"
-  echo "${PARENT} is the parent branch of ${BRANCH}"
+  if [[ "$1" == "--upstream" ]]; then
+    shift
+    BRANCH="${1:-$(_get_current_branch)}"
+    PARENT="$(_get_upstream_parent "${BRANCH}")"
+    echo "${PARENT} is the ultimate upstream base branch of ${BRANCH}"
+  else
+    BRANCH="${1:-$(_get_current_branch)}"
+    PARENT="$(_get_parent_branch "${BRANCH}")"
+    echo "${PARENT} is the parent branch of ${BRANCH}"
+  fi
+
 }
 
 ##########################################################################
