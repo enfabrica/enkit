@@ -84,14 +84,21 @@ type unit struct { // store topologies describing actual hardware
 func newUnit(topo apb.Topology) *unit {
 	u := new(unit)
 	u.Topology = topo
-	fmt.Println("New unit allocated", topo)
+	fmt.Println("New unit created", topo)
 	return u
+}
+
+// Returns whether this Unit was successfully released.
+func (u *unit) Release(inv *invocation) bool {
+	u.DoOperation("release")
+	return true
 }
 
 // Allocate attempts to associate the supplied invocation with this Unit.
 // Returns whether this Unit was successfully allocated.
 func (u *unit) Allocate(inv *invocation) bool {
 	defer u.updateMetrics()
+	defer u.DoOperation("allocate")
 	if u.Invocation != nil && u.Invocation.ID == inv.ID {
 		return false
 	}

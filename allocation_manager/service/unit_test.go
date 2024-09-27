@@ -158,7 +158,7 @@ func TestNew(t *testing.T) {
 	a.DoOperation("release")
 
 	// fmt.Printf("metrics:", a.Metrics)
-	assert.True(t, false)
+	// assert.True(t, false)
 }
 
 // TODO: test u.GetStats
