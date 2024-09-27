@@ -12,10 +12,10 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/enfabrica/enkit/allocation_manager/topology"
 	//	"github.com/enfabrica/enkit/allocation_manager/frontend"
 	apb "github.com/enfabrica/enkit/allocation_manager/proto"
 	"github.com/enfabrica/enkit/allocation_manager/service"
+	"github.com/enfabrica/enkit/allocation_manager/topology"
 
 	//"github.com/enfabrica/enkit/lib/metrics"
 	"github.com/enfabrica/enkit/lib/server"
