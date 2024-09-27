@@ -197,6 +197,7 @@ def stage_1():
         patch_args = ["-p1"],
         patches = [
             "@enkit//bazel/dependencies/grpc:no_remote_tag.patch",
+            "@enkit//bazel/dependencies/grpc:use_hermetic_py_headers.patch",
         ],
         sha256 = "e18b16f7976aab9a36c14c38180f042bb0fd196b75c9fd6a20a2b5f934876ad6",
         strip_prefix = "grpc-1.45.2",
