@@ -5,11 +5,14 @@ package service
 import (
 	"strings"
 	"time"
+	"fmt"
 
 	apb "github.com/enfabrica/enkit/allocation_manager/proto"
 	"github.com/enfabrica/enkit/lib/logger"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -46,12 +49,40 @@ metricLicenseReleaseReason = promauto.NewCounterVec(prometheus.CounterOpts{
 	},
 )
 */
+
+unitCounter = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "unit_operations_total",
+		Help: "Total number of operations performed on units",
+	},
+	[]string{"unit", "operation"},
 )
+)
+
+func init() {
+	fmt.Println("In init")
+	prometheus.MustRegister(unitCounter)
+}
+
+func (u unit) DoOperation(operationName string) {
+	// name := u.name
+	name := u.Topology.Name
+	unitCounter.With(prometheus.Labels{"unit": name, "operation": operationName}).Inc()
+	fmt.Printf("Operation '%s' performed on unit: %s\n", operationName, name)
+	// fmt.Println("Counter:", unitCounter.Counter)
+}
 
 type unit struct { // store topologies describing actual hardware
 	Health     apb.Health   // Health status of hardware
 	Topology   apb.Topology // hardware actual configuration
 	Invocation *invocation  // request for a Unit allocation
+}
+
+func newUnit(topo apb.Topology) *unit {
+	u := new(unit)
+	u.Topology = topo
+	fmt.Println("New unit allocated", topo)
+	return u
 }
 
 // Allocate attempts to associate the supplied invocation with this Unit.

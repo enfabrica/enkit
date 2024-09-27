@@ -142,4 +142,20 @@ func TestForget(t *testing.T) {
 	assert.Equal(t, 0, u.Forget("idX"), "u.Forget second try")
 }
 
+func TestNew(t *testing.T) {
+	u := unitA()
+	assert.Equal(t, u.Topology.Name, "Unit Name")
+
+	topo := apb.Topology{
+		Name: "Unit Name 2", Config: "Unit Config",
+	}
+	a := newUnit(topo)
+	assert.Equal(t, a.Topology.Name, "Unit Name 2")
+	a.DoOperation("allocate")
+	a.DoOperation("release")
+
+	// fmt.Printf("metrics:", a.Metrics)
+	assert.True(t, false)
+}
+
 // TODO: test u.GetStats
