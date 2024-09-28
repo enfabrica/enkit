@@ -1,14 +1,22 @@
 #!/bin/bash
-
 readonly pkg_dir="$1"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export DEBIAN_FRONTEND="noninteractive"
 export DEBCONF_NONINTERACTIVE_SEEN="true"
-export LANGUAGE="en_US.UTF-8"
-export LC_ALL="en_US.UTF-8"
-export LANG="en_US.UTF-8"
 
 dpkg --add-architecture i386
-yes | dpkg --unpack --skip-same-version --recursive $pkg_dir
-yes | dpkg --install --force-configure-any --skip-same-version --recursive $pkg_dir
 apt-get update
+yes | dpkg --unpack \
+    --force-depends \
+    --no-force-conflicts \
+    --skip-same-version \
+    --no-force-downgrade \
+    --recursive $pkg_dir
+yes | dpkg --install \
+    --force-depends \
+    --no-force-conflicts \
+    --skip-same-version \
+    --refuse-downgrade \
+    --no-force-configure-any \
+    --recursive $pkg_dir
 apt --yes --fix-broken install
