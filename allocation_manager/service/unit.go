@@ -81,7 +81,7 @@ type unit struct { // store topologies describing actual hardware
 	Invocation *invocation  // request for a Unit allocation
 }
 
-func newUnit(topo apb.Topology) *unit {
+func NewUnit(topo apb.Topology) *unit {
 	u := new(unit)
 	u.Topology = topo
 	fmt.Println("New unit created", topo)

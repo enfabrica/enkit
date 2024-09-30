@@ -149,7 +149,7 @@ func TestNew(t *testing.T) {
 	topo := apb.Topology{
 		Name: "Unit Name 2", Config: "Unit Config",
 	}
-	a := newUnit(topo)
+	a := NewUnit(topo)
 	assert.Equal(t, a.Topology.Name, "Unit Name 2")
 	a.DoOperation("allocate")
 	a.DoOperation("release")
