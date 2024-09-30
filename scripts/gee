@@ -2182,6 +2182,24 @@ function _check_pr_description() {
   return 0
 }
 
+# Walks the list of parents of the current branch and returns the first
+# upstream parent (the upstream branch these changes will eventually be merged
+# into).
+function _get_upstream_parent() {
+  _read_parents_file
+
+  local CURRENT_BRANCH
+  CURRENT_BRANCH="$1"
+
+  local -a CHAIN=()
+  _add_parent_branches_to_chain "${CURRENT_BRANCH}"
+
+  local FIRST_PARENT UPSTREAM_PARENT
+  FIRST_PARENT="${CHAIN[0]}"
+  UPSTREAM_PARENT="$(_get_parent_branch "${FIRST_PARENT}")"
+  echo "${UPSTREAM_PARENT}"
+}
+
 # _print_codeowners prints a codeowners report for the opened files
 # in this branch.  It also annotates each user with their associated
 # review state (ie, COMMENTED, APPROVED) if available.  Note that
@@ -2202,10 +2220,13 @@ function _print_codeowners() {
       | cat
   )
 
+  local UPSTREAM_PARENT CURRENT_BRANCH
+  CURRENT_BRANCH="$(_get_current_branch)"
+  UPSTREAM_PARENT="$(_get_upstream_parent "${CURRENT_BRANCH}")"
   local FILES=()
   mapfile -t FILES < <(
     (
-      "${GIT}" diff --name-only "${MAIN}...HEAD";
+      "${GIT}" diff --name-only "${UPSTREAM_PARENT}...HEAD";
       "${GIT}" diff --name-only;
     ) | sort -u; /bin/true )
   if [[ "${#FILES[@]}" -eq 0 ]]; then
@@ -3485,13 +3506,21 @@ EOT
 
 function gee__get_parent() {
   _startup_checks "get_parent"
-
   _check_cwd
-  local BRANCH
-  BRANCH="${1:-$(_get_current_branch)}"
+
+  local BRANCH PARENT
   _read_parents_file
-  PARENT="$(_get_parent_branch "${BRANCH}")"
-  echo "${PARENT} is the parent branch of ${BRANCH}"
+  if [[ "$1" == "--upstream" ]]; then
+    shift
+    BRANCH="${1:-$(_get_current_branch)}"
+    PARENT="$(_get_upstream_parent "${BRANCH}")"
+    echo "${PARENT} is the ultimate upstream base branch of ${BRANCH}"
+  else
+    BRANCH="${1:-$(_get_current_branch)}"
+    PARENT="$(_get_parent_branch "${BRANCH}")"
+    echo "${PARENT} is the parent branch of ${BRANCH}"
+  fi
+
 }
 
 ##########################################################################
@@ -4129,11 +4158,8 @@ function gee__pr_make() {
   CURRENT_BRANCH="$(_get_current_branch)"
   _info "Current branch: ${CURRENT_BRANCH}"
 
-  local -a CHAIN=()
-  _add_parent_branches_to_chain "${CURRENT_BRANCH}"
-  FIRST_PARENT="${CHAIN[0]}"
-  UPSTREAM_PARENT="$(_get_parent_branch "${FIRST_PARENT}")"
-  DEST_BRANCH="${UPSTREAM_PARENT}"
+  local DEST_BRANCH
+  DEST_BRANCH="$(_get_upstream_parent "${CURRENT_BRANCH}")"
   _info "Destination branch: ${DEST_BRANCH}"
 
   if [[ "${DEST_BRANCH}" == */pull/* ]]; then
