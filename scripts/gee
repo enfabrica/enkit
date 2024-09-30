@@ -4151,7 +4151,7 @@ function gee__pr_make() {
 
   _check_cwd
   _check_gh_auth
-  local DEST_BRANCH CURRENT_BRANCH NUM_COMMITS FIRST_PARENT UPSTREAM_PARENT
+  local DEST_BRANCH CURRENT_BRANCH NUM_COMMITS FIRST_PARENT
   _git fetch upstream
   _read_parents_file
 
@@ -4258,6 +4258,7 @@ EndOfPrTemplate
       printf "      Review and submit that PR first, so that this PR will be\n"
       printf "      easier to read.\n\n"
     fi
+    printf "\n# Targeting destination branch %s\n" "${DEST_BRANCH}"
     printf "\n# The following files were modified in this PR:\n"
     "${GIT}" diff --name-only "${DEST_BRANCH}...${CURRENT_BRANCH}" | sed 's/^/# /' | cat
     printf "#\n# Here is your commit log:\n"
@@ -4321,7 +4322,7 @@ EndOfPrTemplate
     --title "${TITLE}"
     -H "${GHUSER}:${CURRENT_BRANCH}"
     --body-file "${TRIMMED}"
-    --base "${UPSTREAM_PARENT#*/}"
+    --base "${DEST_BRANCH#*/}"
   )
   local DRAFT=0
   if grep --quiet -E "^\s*DRAFT" "${TRIMMED}"; then
