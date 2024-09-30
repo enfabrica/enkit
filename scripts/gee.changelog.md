@@ -4,6 +4,7 @@
 
 ### 0.2.51
 
+* `gee codeowners`: Fix codeowners to work with non-standard base branches.  (#1116)
 * `gee pr_make`: Allow branches to be created from arbitrary upstream base branches. (#1088)
 * `gee config`: Update to bcompare5.  (#1102)
 * `gee copy`: Added "copy" command to facilitate copying files while preserving history. (#1093)
