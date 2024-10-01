@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"os/user"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 
 var (
 	timeout = flag.Duration("timeout", 7200*time.Second, "Max time waiting in queue")
-	purpose = flag.String("purpose", "", "What this reservation is for (TODO: test target?)")
+	purpose = flag.String("purpose", "", "What this reservation is for")
 )
 
 func main() {
@@ -29,53 +30,47 @@ func main() {
 	// commandline issued by bazel rules.
 	flag.Parse()
 	args := flag.Args()
-	if len(args) < 6 {
-		fmt.Fprintln(os.Stderr, "Usage: $0 [flags] host port config_name config_filename cmd args")
+	if len(args) < 4 {
+		fmt.Fprintln(os.Stderr, "Usage: $0 [flags] host port config_filenames cmd [flags and args...]")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 	host, port := args[0], args[1]
-	configName := args[2]
+	configFilenames := args[2]
 	cmd, args := args[3], args[4:]
-
 	user, err := user.Current()
 	if err != nil {
 		log.Fatalf("Failed to get username: %s\n", err)
 	}
-
-	fh, err := os.Open(configName)
-	if err != nil {
-		log.Fatalf("Failed to open %s: %s\n", configName, err)
+	var names []string
+	var configstrs []string
+	for _, fn := range strings.Split(configFilenames, ",") {
+		fh, err := os.Open(fn)
+		defer fh.Close()
+		if err != nil {
+			log.Fatalf("Failed to open %s: %s\n", fn, err)
+		}
+		configBytes := make([]byte, 1024000) // topology limited to 1MB
+		count, err := fh.Read(configBytes)
+		if err != nil {
+			log.Fatalf("Failed to read %s: %s\n", fn, err)
+		}
+		parsedTopology, err := topology.ParseYaml(configBytes[:count])
+		if err != nil {
+			log.Fatalf("cannot unmarshal data: %v\n", err)
+		}
+		names = append(names, parsedTopology.Name) // use the parsed yaml request for only the name.
+		fmt.Printf("Requesting unit name %s\n", parsedTopology.Name)
+		configstrs = append(configstrs, string(configBytes))
 	}
-	configBytes := make([]byte, 1024000)
-	count, err := fh.Read(configBytes)
-	if err != nil {
-		log.Fatalf("Failed to read %s: %s\n", configName, err)
-	}
-	parsedTopology, err := topology.ParseYaml(configBytes[:count])
-	if err != nil {
-		log.Fatalf("cannot unmarshal data: %v\n", err)
-	}
-	fmt.Println(parsedTopology)
-	name := parsedTopology.Name // It's true, we don't use the yaml for anything but the name.
-	config := string(configBytes)
 
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("Connection failed: %s\n", err)
 	}
 	defer conn.Close()
-
-	/*
-		id, err := uuid.NewRandom()
-		if err != nil {
-			log.Fatalf("failed to generate job ID: %w", err)
-		}
-	*/
-
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
-
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func(cancelFunc func()) {
@@ -83,9 +78,8 @@ func main() {
 		log.Printf("Allocation Manager client caught signal %v; killing job...", sig)
 		cancel()
 	}(cancel)
-
-	// func New(client apb.AllocationClient, name, config, username, purpose string) *AllocationClient {
-	c := client.New(apb.NewAllocationManagerClient(conn), name, config, user.Username, *purpose) //, id.String())
+	fmt.Printf("names=%v, configstrs=%v\n", names, configstrs)
+	c := client.New(apb.NewAllocationManagerClient(conn), names, configstrs, user.Username, *purpose)
 	err = c.Guard(ctx, cmd, args...)
 	if err != nil {
 		log.Fatal(err)
