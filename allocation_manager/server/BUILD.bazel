@@ -5,30 +5,29 @@ go_library(
     name = "server_lib",
     srcs = ["main.go"],
     embedsrcs = glob(["templates/*.tmpl"]),  # keep
-    importpath = "github.com/enfabrica/enkit/flextape/server",
+    importpath = "github.com/enfabrica/enkit/allocation_manager/server",
     visibility = ["//visibility:private"],
     deps = [
-        "//flextape/frontend",
-        "//flextape/proto:go_default_library",
-        "//flextape/service",
-        "//lib/metrics",
+        "//allocation_manager/proto",
+        "//allocation_manager/service",
         "//lib/server",
+        "@com_github_prometheus_client_golang//prometheus/promhttp",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext",
     ],
 )
 
 go_binary(
-    name = "flextape",
+    name = "allocation_manager",
     embed = [":server_lib"],
     visibility = ["//visibility:public"],
 )
 
 astore_upload(
     name = "astore_push",
-    file = "infra/flextape/flextape_server",
+    file = "infra/allocation_manager/server",
     targets = [
-        ":flextape",
+        ":allocation_manager",
     ],
     visibility = ["//:__pkg__"],
 )

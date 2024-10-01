@@ -4,6 +4,8 @@ See README.md for more information.
 """
 
 load("//bazel/meson:meson.bzl", "meson_register_toolchains")
+load("@aspect_bazel_lib//lib:repositories.bzl", "aspect_bazel_lib_dependencies", "aspect_bazel_lib_register_toolchains")
+load("@rules_distroless//distroless:dependencies.bzl", "distroless_dependencies")
 load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
@@ -37,6 +39,11 @@ def stage_2():
       rules_python in a load statement, which is instantiated in stage 1.
     """
 
+    aspect_bazel_lib_dependencies()
+    aspect_bazel_lib_register_toolchains()
+
+    distroless_dependencies()
+
     py_repositories()
 
     python_register_toolchains(
@@ -44,6 +51,12 @@ def stage_2():
         python_version = "3.8",
         ignore_root_user_error = True,
     )
+
+    # Workaround for a bug where rules_python doesn't register
+    # the python c toolchain ("py cc").
+    # see https://github.com/bazelbuild/rules_python/issues/1669
+    # and https://rules-python.readthedocs.io/en/latest/toolchains.html#python-c-toolchain-type
+    native.register_toolchains("@python3_8_toolchains//:all")
 
     # SDKs that can be used to build Go code. We need:
     # * the most recent version we can support
@@ -77,6 +90,11 @@ def stage_2():
     rules_pkg_dependencies()
     multirun_dependencies()
 
+    # IMPORTANT: grpc_deps() pulls in boringssl as a WORKSPACE dependency. In order to apply patches
+    # to boringssl, we define boringssl BEFORE grpc_deps is invoked - that way, our version will be picked
+    # over the default one.
+    # You must manually update boringssl when grpc is updated. If ARM support is added upstream, we may
+    # be able to remove the patches and the work here.
     grpc_deps()
 
     rules_docker_dependencies()
