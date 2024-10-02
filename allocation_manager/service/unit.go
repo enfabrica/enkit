@@ -95,7 +95,6 @@ func NewUnit(topo apb.Topology) *unit {
 // Returns whether this Unit was successfully allocated.
 func (u *unit) Allocate(inv *invocation) bool {
 	defer u.updateMetrics()
-
 	if u.Invocation != nil && u.Invocation.ID == inv.ID {
 		return false
 	}
@@ -136,12 +135,12 @@ func (u *unit) GetInvocation(invID string) *invocation {
 // checked in since `expiry`.
 func (u *unit) ExpireAllocations(expiry time.Time) {
 	defer u.updateMetrics()
-	defer u.DoOperation("Expire")
 	if u.Invocation != nil && !u.Invocation.LastCheckin.After(expiry) {
 		// u.prioritizer.OnRelease(v)
 		// metricLicenseReleaseReason.WithLabelValues("allocated_expired").Inc()
 		logger.Go.Infof("unit.ExpireAllocations %v", u.Invocation.ID)
 		u.Invocation = nil
+		u.DoOperation("Expire")
 		// move health to unknown?
 	}
 }
@@ -150,7 +149,6 @@ func (u *unit) ExpireAllocations(expiry time.Time) {
 // the queue.
 func (u *unit) Forget(invID string) int {
 	defer u.updateMetrics()
-	defer u.DoOperation("Forget")
 
 	/*
 		newAllocations := map[string]*invocation{}
@@ -171,6 +169,7 @@ func (u *unit) Forget(invID string) int {
 	if u.Invocation != nil && invID == u.Invocation.ID {
 		logger.Go.Infof("unit.Forget(%v)", u.Invocation.ID)
 		u.Invocation = nil
+		u.DoOperation("Forget")
 		return 1
 	}
 	return 0
