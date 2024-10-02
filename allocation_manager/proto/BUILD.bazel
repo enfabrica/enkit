@@ -33,6 +33,16 @@ py_proto_library(
     deps = ["@com_google_protobuf//:protobuf_python"],
 )
 
+# 2024-09 kjw broken! """ #error "C++ versions less than C++14 are not supported." """
+#load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_grpc_library")
+#py_grpc_library(
+#    name = "allocation_manager_py_grpc",
+#    srcs = [
+#        ":allocation_manager_proto",
+#    ],
+#    deps = [":allocation_manager_py_proto"],
+#)
+
 proto_library(
     name = "proto_proto",
     srcs = [
