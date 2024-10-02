@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -318,30 +317,13 @@ func (c *Client) Upload(files []FileToUpload, o UploadOptions) ([]*apb.Artifact,
 }
 
 func Download(ctx context.Context, f func(int64) io.WriteCloser, url string) error {
-	// import (
-	// 	"context"
-	// 	"net"
-	// 	"net/http"
-	// )
-	// source https://particleflux.codes/bits/golang/http-client-force-ipv4/
-	myDialer := net.Dialer{}
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		return myDialer.DialContext(ctx, "tcp4", addr)
-	}
-
-	client := http.Client{
-		Transport: transport,
-	}
-
+	client := &http.Client{}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		fmt.Println("Failed in NewRequestWithContext")
 		return err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Failed in Do")
 		return err
 	}
 	defer resp.Body.Close()
