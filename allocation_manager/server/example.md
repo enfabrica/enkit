@@ -14,12 +14,12 @@ Scrape metrics:
 
 ```sh
 $ curl -s http://localhost:6435/metrics
-....
+...
 # HELP allocation_manager_unit_operations_total Total number of operations performed on units
 # TYPE allocation_manager_unit_operations_total counter
-allocation_manager_unit_operations_total{kind="service.unit",operation="release",unit="a"} 6
-allocation_manager_unit_operations_total{kind="service.unit",operation="release",unit="b"} 6
-allocation_manager_unit_operations_total{kind="service.unit",operation="release",unit="back-to-back-nc-gpu-11-12"} 6
+allocation_manager_unit_operations_total{operation="Expire",unit="a"} 23
+allocation_manager_unit_operations_total{operation="Expire",unit="b"} 23
+allocation_manager_unit_operations_total{operation="Expire",unit="back-to-back-nc-gpu-11-12"} 23
 ```
 
 # just use it

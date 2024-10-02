@@ -151,12 +151,18 @@ func TestNew(t *testing.T) {
 	}
 	a := NewUnit(topo)
 	assert.Equal(t, a.Topology.Name, "Unit Name 2")
-	a.DoOperation("allocate")
-	a.DoOperation("release")
-	u.DoOperation("allocate")
-	a.DoOperation("allocate")
-	a.DoOperation("release")
+	_, inv1 := invX()
+	a.Allocate(inv1)
+	a.Forget(inv1.ID)
 
+	_, inv2 := invX()
+	u.Allocate(inv2)
+
+	_, inv3 := invX()
+	a.Allocate(inv3)
+	a.Forget(inv3.ID)
+
+	// TODO(roivanov): add prometheus metrics checks
 	// fmt.Printf("metrics:", a.Metrics)
 	// assert.True(t, false)
 }
