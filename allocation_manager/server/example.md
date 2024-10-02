@@ -3,38 +3,23 @@
 # compile your own version
 cd allocation_manager/server
 
-bazel build :allocation_manager && \
+bazel build :server && \
 
-../../bazel-bin/allocation_manager/server/allocation_manager_/allocation_manager --service_config=allocation_manager_config.textproto
+../../bazel-bin/allocation_manager/server/server_/server --service_config=allocation_manager_config.textproto >out.log
 
 Send process to background by pressing ctrl-z followed by bg. Or start it in background with
 the `&` added to the end of command.
-
-Optionally, have example allocation code in `main`:
-
-```go
-	topo := apb.Topology{
-		Name: "Unit Name 2", Config: "Unit Config",
-	}
-	a := service.NewUnit(topo)
-
-	a.DoOperation("allocate")
-	a.DoOperation("release")
-	a.DoOperation("allocate")
-	a.DoOperation("release")
-	a.DoOperation("allocate")
-
-```
 
 Scrape metrics:
 
 ```sh
 $ curl -s http://localhost:6435/metrics
 ....
-# HELP unit_operations_total Total number of operations performed on units
-# TYPE unit_operations_total counter
-unit_operations_total{kind="service.unit",operation="allocate",unit="Unit Name 2"} 3
-unit_operations_total{kind="service.unit",operation="release",unit="Unit Name 2"} 2
+# HELP allocation_manager_unit_operations_total Total number of operations performed on units
+# TYPE allocation_manager_unit_operations_total counter
+allocation_manager_unit_operations_total{kind="service.unit",operation="release",unit="a"} 6
+allocation_manager_unit_operations_total{kind="service.unit",operation="release",unit="b"} 6
+allocation_manager_unit_operations_total{kind="service.unit",operation="release",unit="back-to-back-nc-gpu-11-12"} 6
 ```
 
 # just use it
