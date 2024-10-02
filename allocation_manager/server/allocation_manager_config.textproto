@@ -44,3 +44,45 @@ topology: {
 "  busid: \"0:C5:00.0\"\n"
   }
 }
+units {  # from systest/config/topologies/back-to-back-nc-gpu-11-12.yaml
+topology: {
+  name: "back-to-back-nc-gpu-11-12"
+  config:
+"name: back-to-back-nc-gpu-11-12\n"
+"nodes:\n"
+" nc-gpu-11:\n"
+"  hostname: nc-gpu-11\n"
+" nc-gpu-12:\n"
+"  hostname: nc-gpu-12\n"
+"links:\n"
+"  - node_a: nc-gpu-11\n"
+"    node_a_ifname: eth2\n"
+"    node_b: nc-gpu-12\n"
+"    node_b_ifname: eth2\n"
+# nc-gpu-11 only:
+#"GPUs:\n"
+#" GPU0:\n"
+#"  name: Quadro RTX 4000\n"
+#"  vram: 8\n"
+#"  busid: \"0:01:00.0\"\n"
+#" GPU1:\n"
+#"  name: NVIDIA A100-PCIE-40GB\n"
+#"  vram: 40\n"
+#"  busid: \"0:81:00.0\"\n"
+  }
+}
+#units {
+#topology: {
+#  name: "nc-gpu-12.rdu"
+#  config:
+#"name: nc-gpu-12.rdu\n"
+#"nodes:\n"
+#" node01:\n"
+#"  hostname: nc-gpu-12.rdu\n"
+#"GPUs:\n"
+#" GPU0:\n"
+#"  name: Quadro RTX 4000\n"
+#"  vram: 8\n"
+#"  busid: \"0:01:00.0\"\n"
+#  }
+#}
