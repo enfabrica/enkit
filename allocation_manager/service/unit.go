@@ -55,7 +55,11 @@ unitCounter = prometheus.NewCounterVec(
 		Name: "allocation_manager_unit_operations_total",
 		Help: "Total number of operations performed on units",
 	},
-	[]string{"kind", "unit", "operation"},
+	[]string{
+		// "kind", // so far all resources are Topology, no need for a kind
+		"unit",
+		"operation",
+	},
 )
 )
 
@@ -67,7 +71,7 @@ func (u unit) DoOperation(operationName string) {
 	// name := u.name
 	name := u.Topology.Name
 	unitCounter.With(prometheus.Labels{
-		"kind": fmt.Sprintf("%T", u),
+		// "kind": fmt.Sprintf("%T", u),
 		"unit": name,
 		"operation": operationName}).Inc()
 	fmt.Printf("Operation '%s' performed on unit: %s %T\n", operationName, name, u)
@@ -98,7 +102,7 @@ func (u *unit) Allocate(inv *invocation) bool {
 	// u.prioritizer.OnAllocate(inv)
 	logger.Go.Infof("unit.Allocate %s to %s\n", u.Topology.Name, inv.ID)
 	u.Invocation = inv
-	u.DoOperation("allocate")
+	u.DoOperation("Allocate")
 	return true
 }
 
@@ -132,7 +136,7 @@ func (u *unit) GetInvocation(invID string) *invocation {
 // checked in since `expiry`.
 func (u *unit) ExpireAllocations(expiry time.Time) {
 	defer u.updateMetrics()
-	defer u.DoOperation("release")
+	defer u.DoOperation("Expire")
 	if u.Invocation != nil && !u.Invocation.LastCheckin.After(expiry) {
 		// u.prioritizer.OnRelease(v)
 		// metricLicenseReleaseReason.WithLabelValues("allocated_expired").Inc()
@@ -146,7 +150,7 @@ func (u *unit) ExpireAllocations(expiry time.Time) {
 // the queue.
 func (u *unit) Forget(invID string) int {
 	defer u.updateMetrics()
-	defer u.DoOperation("release")
+	defer u.DoOperation("Forget")
 
 	/*
 		newAllocations := map[string]*invocation{}
