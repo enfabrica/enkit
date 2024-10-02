@@ -149,7 +149,6 @@ func (u *unit) ExpireAllocations(expiry time.Time) {
 // the queue.
 func (u *unit) Forget(invID string) int {
 	defer u.updateMetrics()
-
 	/*
 		newAllocations := map[string]*invocation{}
 		for k, v := range u.allocations {
