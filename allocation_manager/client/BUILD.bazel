@@ -7,7 +7,10 @@ go_library(
     visibility = [
         "//allocation_manager/client/allocation_manager_client:__pkg__",
     ],
-    deps = ["//allocation_manager/proto"],
+    deps = [
+        "//allocation_manager/proto",
+        "//allocation_manager/topology",
+        ],
 )
 
 alias(

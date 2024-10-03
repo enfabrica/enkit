@@ -45,23 +45,14 @@ func main() {
 	var names []string
 	var configstrs []string
 	for _, fn := range strings.Split(configFilenames, ",") {
-		fh, err := os.Open(fn)
-		defer fh.Close()
-		if err != nil {
-			log.Fatalf("Failed to open %s: %s\n", fn, err)
-		}
-		configBytes := make([]byte, 1024000) // topology limited to 1MB
-		count, err := fh.Read(configBytes)
-		if err != nil {
-			log.Fatalf("Failed to read %s: %s\n", fn, err)
-		}
-		parsedTopology, err := topology.ParseYaml(configBytes[:count])
-		if err != nil {
-			log.Fatalf("cannot unmarshal data: %v\n", err)
-		}
+    bytes, err := os.ReadFile(fn)
+    if err != nil {
+      log.Fatalf("failed os.ReadFile(%s): %v", fn, err)
+    }
+    parsedTopology, err := topology.ParseYaml(bytes)
 		names = append(names, parsedTopology.Name) // use the parsed yaml request for only the name.
 		fmt.Printf("Requesting unit name %s\n", parsedTopology.Name)
-		configstrs = append(configstrs, string(configBytes))
+		configstrs = append(configstrs, string(bytes))
 	}
 
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())

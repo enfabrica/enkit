@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"sync/atomic"
 	"time"
 
 	apb "github.com/enfabrica/enkit/allocation_manager/proto"
+	"github.com/enfabrica/enkit/allocation_manager/topology"
 )
 
 var runCommand = func(ctx context.Context, result chan error, cmd string, args ...string) {
@@ -61,24 +61,38 @@ func (c *AllocationClient) Guard(ctx context.Context, cmd string, args ...string
 	jobResult := make(chan error)
 	go c.refresh(ctx)
 	var tempfiles []string
+	userTopology, err := topology.LoadYaml(os.Getenv("TESTFRAMEWORK_TOPOLOGY"))
+	if err != nil {
+		return err
+	}
 	for _, topo := range c.allocated {
 		fh, err := os.CreateTemp("", "topology-*.yaml")
 		if err != nil {
-			return fmt.Errorf("failed to create temp file: %v", err)
+			return err
 		}
 		defer fh.Close()
-		// how to deal with multiple topology files?
-		bytes_written, err := fh.Write([]byte(topo.GetConfig()))
+		// TODO: merge userTopology with c.allocated, write to temp files
+		parsedTopology, err := topology.ParseYaml([]byte(topo.GetConfig()))
 		if err != nil {
-			return fmt.Errorf("failed Write() to temp file %s: %v", fh.Name(), err)
+			return err
 		}
-		if bytes_written != len(topo.GetConfig()) {
-			return fmt.Errorf("failed to write to temp file; fh.Write()=%d want %d", fh.Name(), bytes_written, len(topo.GetConfig()))
+		fmt.Printf("parsedTopology: %v\n", parsedTopology)
+		mergedTopology := userTopology // plus parsedTopology
+		if err != nil {
+			return err
+		}
+		err = topology.WriteYaml(fh, mergedTopology)
+		if err != nil {
+			return err
 		}
 		tempfiles = append(tempfiles, fh.Name())
 	}
-	topologies := "--topologies=" + strings.Join(tempfiles, ",")
-	args = append([]string{topologies}, args...) // prepend --topologies=
+	// TODO: how to deal with multiple topology files?
+	if 1 != len(tempfiles) {
+		fmt.Printf("want 1, got %d topologies from server request: %v", len(tempfiles), tempfiles)
+	}
+	// replace user request with the merged topology files
+	os.Setenv("TESTFRAMEWORK_TOPOLOGY", tempfiles[0])
 	go runCommand(ctx, jobResult, cmd, args...)
 	defer c.release(3 * time.Second)
 	select {
