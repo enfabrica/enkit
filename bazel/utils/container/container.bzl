@@ -733,6 +733,11 @@ ubuntu_base_rule = rule(
 
 def ubuntu_base(*args, **kwargs):
     kwargs["bootstrap_script"] = "@enkit//bazel/utils/container:ubuntu_base.sh"
+    # The debootstrap package is not installed on deployed containers yet so
+    # any ubuntu_base, ubuntu_bootstrap, or ubuntu_pkg target will fail.
+    # After a new container is built and deployed with the debootstrap target,
+    # remove the no-presubmit tag.
+    kwargs["tags"] = kwargs.get("tags", []) + ["no-presubmit"]
     return ubuntu_base_rule(*args, **kwargs)
 
 def ubuntu_bootstrap(*args, **kwargs):
@@ -743,6 +748,7 @@ def ubuntu_bootstrap(*args, **kwargs):
         else:
             reformatted_targets += [p]
     kwargs["pkgs"] = reformatted_targets
+    kwargs["tags"] = kwargs.get("tags", []) + ["no-presubmit"]
     return container_bootstrap_rule(*args, **kwargs)
 
 def ubuntu_pkg(*args, **kwargs):
@@ -752,4 +758,5 @@ def ubuntu_pkg(*args, **kwargs):
     if kwargs.get("arch", "") == "i386":
         kwargs["name"] = kwargs.get("name", "").removesuffix(":i386")
         kwargs["pkg"] = kwargs.get("pkg", "").removesuffix(":i386")
+    kwargs["tags"] = kwargs.get("tags", []) + ["no-presubmit"]
     return ubuntu_pkg_rule(*args, **kwargs)
