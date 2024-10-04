@@ -92,15 +92,25 @@ template_tool = attr.label(
 def expand_template_binary_impl(ctx):
     output = ctx.actions.declare_file(ctx.attr.output)
     ctx.actions.expand_template(
+        is_executable = ctx.attr.executable,
         template = ctx.file.template,
         output = output,
         substitutions = ctx.attr.substitutions,
     )
-    return [DefaultInfo(files = depset([output]))]
+    return [
+        DefaultInfo(
+            files = depset([output]),
+            executable = output if ctx.attr.executable else None,
+        )
+    ]
 
 expand_template_binary = rule(
     implementation = expand_template_binary_impl,
     attrs = {
+        "executable": attr.bool(
+            doc = "Make the generated file executable",
+            default = False,
+        ),
         "template": attr.label(
             doc = "Template file interpretted by the expand_template bazel action",
             allow_single_file = True,
