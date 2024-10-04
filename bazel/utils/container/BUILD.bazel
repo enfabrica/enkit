@@ -8,6 +8,7 @@ exports_files([
     "bootstrap_ubuntu.sh",
     "bootstrap_ubuntu_image.sh",
     "ubuntu_pkg.sh",
+    "ubuntu_base.sh",
     "prepostinstall_ubuntu.sh",
     "install_ubuntu.sh",
 ])

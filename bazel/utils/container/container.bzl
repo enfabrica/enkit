@@ -541,10 +541,7 @@ container_repo = rule(
 def container_bootstrap_rule_impl(ctx):
     outfile = ctx.actions.declare_file("%s.tar" % ctx.attr.name)
     args = ctx.actions.args()
-    args.add(ctx.attr.arch)
-    args.add(",".join(ctx.attr.components))
-    args.add(ctx.attr.distro)
-    args.add(ctx.attr.mirror)
+    args.add(ctx.file.base_image)
     args.add(outfile)
     args.add(ctx.executable.preinstall_script)
     args.add(ctx.executable.install_script)
@@ -557,6 +554,7 @@ def container_bootstrap_rule_impl(ctx):
         ctx.executable.preinstall_script,
         ctx.executable.install_script,
         ctx.executable.postinstall_script,
+        ctx.file.base_image,
     ]
 
     ctx.actions.run(
@@ -577,7 +575,7 @@ bootstrap_attrs = {
         allow_single_file = [".sh"],
         executable = True,
         cfg = "exec",
-        default = "@enkit//bazel/utils/container:bootstrap_ubuntu.sh",
+        mandatory = True,
     ),
     "distro": attr.string(
         doc = "Ubuntu Linux distro to bootstrap the container",
@@ -618,7 +616,19 @@ Generate new timestamps with: date -u +"%Y%m%dT%H%M%SZ"
 
 container_bootstrap_rule = rule(
     implementation = container_bootstrap_rule_impl,
-    attrs = bootstrap_attrs | {
+    attrs = {
+        "bootstrap_script": attr.label(
+            doc = "Script that executes the bootstrap tool",
+            allow_single_file = [".sh"],
+            executable = True,
+            cfg = "exec",
+            default = "@enkit//bazel/utils/container:bootstrap_ubuntu.sh",
+        ),
+        "base_image": attr.label(
+            doc = "Tarball of a debootstrap directory",
+            allow_single_file = [".tar", "tar.gz"],
+            mandatory = True,
+        ),
         "pkgs": attr.label_list(
             doc = "List of ubuntu_pkg targets to install",
             allow_files = [".tar"],
@@ -689,6 +699,41 @@ ubuntu_pkg_rule = rule(
         ),
     }
 )
+
+def ubuntu_base_rule_impl(ctx):
+    outfile = ctx.actions.declare_file("%s.tar" % ctx.attr.name)
+    args = ctx.actions.args()
+    args.add(ctx.attr.arch)
+    args.add(",".join(ctx.attr.components))
+    args.add(ctx.attr.distro)
+    args.add(ctx.attr.mirror)
+    args.add(outfile)
+    args.add_all(ctx.attr.pkgs)
+
+    ctx.actions.run(
+        executable = ctx.executable.bootstrap_script,
+        outputs = [outfile],
+        arguments = [args],
+    )
+
+    return [
+        DefaultInfo(files = depset([outfile])),
+    ]
+
+
+ubuntu_base_rule = rule(
+    implementation = ubuntu_base_rule_impl,
+    attrs = bootstrap_attrs | {
+        "pkgs": attr.string_list(
+            doc = "List of packages to include in the base image",
+            default = ["curl", "wget", "software-properties-common"]
+        ),
+    }, 
+)
+
+def ubuntu_base(*args, **kwargs):
+    kwargs["bootstrap_script"] = "@enkit//bazel/utils/container:ubuntu_base.sh"
+    return ubuntu_base_rule(*args, **kwargs)
 
 def ubuntu_bootstrap(*args, **kwargs):
     reformatted_targets = []

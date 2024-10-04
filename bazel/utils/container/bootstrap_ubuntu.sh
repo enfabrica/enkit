@@ -2,17 +2,14 @@
 set -o pipefail -o errexit -o errtrace
 USER=$(whoami)
 
-readonly arch="$1"
-readonly comp="$2"
-readonly distro="$3"
-readonly mirror="$4"
-readonly outfile="$5"
-readonly preinstall_sh="$6"
-readonly install_sh="$7"
-readonly postinstall_sh="$8"
-readonly exclude_pkgs="$9"
-readonly tarballs="${10}"
-readonly pkgs="${@:11}"
+readonly base_image="$1"
+readonly outfile="$2"
+readonly preinstall_sh="$3"
+readonly install_sh="$4"
+readonly postinstall_sh="$5"
+readonly exclude_pkgs="$6"
+readonly tarballs="$7"
+readonly pkgs="${@:8}"
 
 tmp_root=$(mktemp -d)
 log="$tmp_root/debootstrap/debootstrap.log"
@@ -36,13 +33,9 @@ cleanup() {
 }
 trap cleanup EXIT ERR SIGINT SIGTERM
 
-echo "Bootstrapping $distro-$arch using $mirror"
+echo "Unpacking base image $base_image into $tmp_root"
 echo ""
-sudo debootstrap \
-    --verbose \
-    --arch=$arch \
-    --components=$comp \
-    $distro $tmp_root $mirror
+sudo tar -xf $base_image -C $tmp_root
 
 echo "Unpacking $tarballs into $tmp_root"
 echo""
@@ -114,7 +107,11 @@ sudo chroot $tmp_root "/tmp/$(basename $postinstall_sh)"
 # Exclude the /tmp directory because this contains all downloaded *.deb files
 echo "Packaging bootstrap directory $tmp_root to $outfile"
 echo ""
-sudo tar --exclude="./tmp" --exclude="./dev" --exclude="./proc" --exclude="./run" -zcf $outfile -C $tmp_root .
+sudo tar --exclude="./tmp" \
+    --exclude="./dev" \
+    --exclude="./proc" \
+    --exclude="./run" \
+    --use-compress-program="zstd" -cf $outfile -C $tmp_root .
 # Change ownership of outfile so that bazel doesn't complain about missing output
 sudo chown $USER:$USER $outfile
 
