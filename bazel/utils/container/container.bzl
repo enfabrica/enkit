@@ -546,13 +546,22 @@ def container_bootstrap_rule_impl(ctx):
     args.add(ctx.attr.distro)
     args.add(ctx.attr.mirror)
     args.add(outfile)
-    args.add(ctx.executable.chroot_script)
+    args.add(ctx.executable.preinstall_script)
+    args.add(ctx.executable.install_script)
+    args.add(ctx.executable.postinstall_script)
     args.add(",".join(ctx.attr.exclude_pkgs))
+    args.add(",".join([f.path for f in ctx.files.tars]))
     args.add_all(ctx.files.pkgs)
+
+    inputs = ctx.files.pkgs + ctx.files.tars + [
+        ctx.executable.preinstall_script,
+        ctx.executable.install_script,
+        ctx.executable.postinstall_script,
+    ]
 
     ctx.actions.run(
         executable = ctx.executable.bootstrap_script,
-        inputs = ctx.files.pkgs + [ctx.executable.chroot_script],
+        inputs = inputs,
         outputs = [outfile],
         arguments = [args],
     )
@@ -615,15 +624,33 @@ container_bootstrap_rule = rule(
             allow_files = [".tar"],
             mandatory = True,
         ),
-        "chroot_script": attr.label(
+        "install_script": attr.label(
             doc = "Script that executes via chroot in the bootstrap env",
             allow_single_file = [".sh"],
             executable = True,
             cfg = "exec",
-            default = "@enkit//bazel/utils/container:chroot_ubuntu.sh",
+            default = "@enkit//bazel/utils/container:install_ubuntu.sh",
+        ),
+        "preinstall_script": attr.label(
+            doc = "Script that executes via chroot in the bootstrap env before the install script",
+            allow_single_file = [".sh"],
+            executable = True,
+            cfg = "exec",
+            default = "@enkit//bazel/utils/container:prepostinstall_ubuntu.sh",
+        ),
+        "postinstall_script": attr.label(
+            doc = "Script that executes via chroot in the bootstrap env after the install script",
+            allow_single_file = [".sh"],
+            executable = True,
+            cfg = "exec",
+            default = "@enkit//bazel/utils/container:prepostinstall_ubuntu.sh",
         ),
         "exclude_pkgs": attr.string_list(
             doc = "List of packages to not install",
+        ),
+        "tars": attr.label_list(
+            doc = "List of tarballs to extract into the debootstrap environment",
+            allow_files = [".tar", ".tar.gz"],
         ),
     }
 )

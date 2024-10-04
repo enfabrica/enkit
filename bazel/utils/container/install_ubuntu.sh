@@ -1,4 +1,5 @@
 #!/bin/bash
+
 readonly pkg_dir="$1"
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export DEBIAN_FRONTEND="noninteractive"
@@ -11,12 +12,14 @@ yes | dpkg --unpack \
     --no-force-conflicts \
     --skip-same-version \
     --no-force-downgrade \
+    --no-debsig \
     --recursive $pkg_dir
 yes | dpkg --install \
     --force-depends \
     --no-force-conflicts \
     --skip-same-version \
     --refuse-downgrade \
-    --no-force-configure-any \
+    --force-configure-any \
+    --no-debsig \
     --recursive $pkg_dir
-apt --yes --fix-broken install
+apt-get install --yes --fix-broken

@@ -8,7 +8,8 @@ exports_files([
     "bootstrap_ubuntu.sh",
     "bootstrap_ubuntu_image.sh",
     "ubuntu_pkg.sh",
-    "chroot_ubuntu.sh",
+    "prepostinstall_ubuntu.sh",
+    "install_ubuntu.sh",
 ])
 
 genrule(
