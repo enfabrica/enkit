@@ -10,7 +10,7 @@ load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 load("@google_jsonnet_go//bazel:repositories.bzl", "jsonnet_go_repositories")
 load("@google_jsonnet_go//bazel:deps.bzl", "jsonnet_go_dependencies")
 load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_register_toolchains")
-load("@rules_oci//oci:repositories.bzl", "oci_register_toolchains")
+load("@rules_oci//oci:repositories.bzl", "LATEST_CRANE_VERSION", "oci_register_toolchains")
 load("@rules_oci//oci:pull.bzl", "oci_pull")
 #load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
 load("@rules_proto_grpc//python:repositories.bzl", rules_proto_grpc_python_repos = "python_repos")
@@ -49,7 +49,10 @@ def stage_3():
 
     jsonnet_go_dependencies()
 
-    oci_register_toolchains(name = "oci")
+    oci_register_toolchains(
+        name = "oci",
+        crane_version = LATEST_CRANE_VERSION,
+    )
 
     # Begin buildbarn ecosystem dependencies
     nodejs_register_toolchains(

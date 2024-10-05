@@ -21,14 +21,14 @@ def stage_4():
 
     npm_repositories()
 
-    oci_pull(
+    container_pull(
         name = "container_golang_base",
         digest = "sha256:a4eefd667af74c5a1c5efe895a42f7748808e7f5cbc284e0e5f1517b79721ccb",
         registry = "us-docker.pkg.dev",
         repository = "enfabrica-container-images/third-party-prod/distroless/base/golang",
     )
 
-    oci_pull(
+    container_pull(
         name = "golang_base",
         digest = "sha256:a4eefd667af74c5a1c5efe895a42f7748808e7f5cbc284e0e5f1517b79721ccb",
         registry = "us-docker.pkg.dev",
