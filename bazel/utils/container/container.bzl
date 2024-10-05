@@ -1,7 +1,7 @@
 load("//bazel/utils:files.bzl", "write_to_file")
 load("//bazel/dive:dive.bzl", "oci_dive")
 load("@enkit//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary")
 
@@ -339,8 +339,8 @@ def container_image(*args, **kwargs):
     # while the container_pull rule does. Modify this wrapper script
     # to insert the //image target when using container_pull.
     # Remove once oci_pull doesn't have auth errors anymore.
-    #if kwargs.get("base", "").startswith("@"):
-    #    kwargs["base"] = "{}//image".format(kwargs.get("base"))
+    if kwargs.get("base", "").startswith("@"):
+        kwargs["base"] = "{}//image".format(kwargs.get("base"))
 
     # Always include user-defined container labels in addition to build metadata from bazel --stamp
     # https://bazel.build/docs/user-manual#workspace-status
@@ -365,7 +365,7 @@ def container_image(*args, **kwargs):
     oci_image(*args, **kwargs)
 
 def container_tarball(*args, **kwargs):
-    oci_load(*args, **kwargs)
+    oci_tarball(*args, **kwargs)
 
 def container_push(*args, **kwargs):
     target_basename = kwargs.get("name")
@@ -393,22 +393,22 @@ def container_push(*args, **kwargs):
             tags = tags,
         )
     local_image_path = "{}/{}:latest".format(native.package_name(), target_basename)
-#    oci_load(
-#        name = "{}_tarball".format(target_basename),
-#        image = kwargs.get("image"),
-#        repo_tags = [local_image_path],
-#        tags = tags,
-#    )
-#    native.filegroup(
-#        name = "{}.tar".format(target_basename),
-#        srcs = [":{}_tarball".format(target_basename)],
-#        output_group = "tarball",
-#    )
+    oci_tarball(
+        name = "{}_tarball".format(target_basename),
+        image = kwargs.get("image"),
+        repo_tags = [local_image_path],
+        tags = tags,
+    )
+    native.filegroup(
+        name = "{}.tar".format(target_basename),
+        srcs = [":{}_tarball".format(target_basename)],
+        output_group = "tarball",
+    )
     container_pusher(
         name = target_basename,
         dev_script = ":{}_dev_oci_push".format(target_basename),
         staging_script = ":{}_staging_oci_push".format(target_basename),
-        image_tarball = kwargs.get("image"),
+        image_tarball = ":{}_tarball".format(target_basename),
         namespace = namespace,
         image_path = image_path,
         tags = tags,
@@ -470,7 +470,7 @@ container_pusher = rule(
             mandatory = True,
         ),
         "image_tarball": attr.label(
-            doc = "Image tarball returned by the oci_load rule to validate image tags",
+            doc = "Image tarball returned by the oci_tarball rule to validate image tags",
             allow_single_file = [".tar"],
             mandatory = True,
         ),
