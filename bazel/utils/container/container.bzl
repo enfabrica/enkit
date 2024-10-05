@@ -399,11 +399,6 @@ def container_push(*args, **kwargs):
         repo_tags = [local_image_path],
         tags = tags,
     )
-    native.filegroup(
-        name = "{}.tar".format(target_basename),
-        srcs = [":{}_tarball".format(target_basename)],
-        output_group = "tarball",
-    )
     container_pusher(
         name = target_basename,
         dev_script = ":{}_dev_oci_push".format(target_basename),
