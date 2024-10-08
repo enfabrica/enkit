@@ -736,22 +736,10 @@ def ubuntu_base(*args, **kwargs):
     return ubuntu_base_rule(*args, **kwargs)
 
 def ubuntu_bootstrap(*args, **kwargs):
-    reformatted_targets = []
-    for p in kwargs.get("pkgs", []):
-        if p.endswith(":i386"):
-            reformatted_targets += [p.removesuffix(":i386")]
-        else:
-            reformatted_targets += [p]
-    kwargs["pkgs"] = reformatted_targets
     kwargs["tags"] = kwargs.get("tags", []) + ["no-presubmit"]
     return container_bootstrap_rule(*args, **kwargs)
 
 def ubuntu_pkg(*args, **kwargs):
     kwargs["bootstrap_script"] = "@enkit//bazel/utils/container:ubuntu_pkg.sh"
-    # When installing 32-bit packages, the package name convention is to suffix
-    # the package name with :i386. However, colons are not allowed as target names in bazel.
-    if kwargs.get("arch", "") == "i386":
-        kwargs["name"] = kwargs.get("name", "").removesuffix(":i386")
-        kwargs["pkg"] = kwargs.get("pkg", "").removesuffix(":i386")
     kwargs["tags"] = kwargs.get("tags", []) + ["no-presubmit"]
     return ubuntu_pkg_rule(*args, **kwargs)

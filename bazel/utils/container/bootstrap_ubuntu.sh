@@ -110,8 +110,7 @@ echo ""
 sudo tar --exclude="./tmp" \
     --exclude="./dev" \
     --exclude="./proc" \
-    --exclude="./run" \
-    --use-compress-program="zstd" -cf $outfile -C $tmp_root .
+    --exclude="./run" -cf $outfile -C $tmp_root .
 # Change ownership of outfile so that bazel doesn't complain about missing output
 sudo chown $USER:$USER $outfile
 

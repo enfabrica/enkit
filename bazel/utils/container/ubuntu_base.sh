@@ -35,7 +35,7 @@ sudo chroot $tmp_root /usr/bin/apt-get install --yes $pkgs
 
 echo "Packaging bootstrap directory $tmp_root to $outfile"
 echo ""
-sudo tar --use-compress-program="zstd" -cf $outfile -C $tmp_root .
+sudo tar -cf $outfile -C $tmp_root .
 # Change ownership of outfile so that bazel doesn't complain about missing output
 sudo chown $USER:$USER $outfile
 
