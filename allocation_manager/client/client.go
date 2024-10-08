@@ -65,6 +65,10 @@ func (c *AllocationClient) Guard(ctx context.Context, cmd string, args ...string
 	if err != nil {
 		return err
 	}
+	userYaml, err := os.ReadFile(os.Getenv("TESTFRAMEWORK_TOPOLOGY"))  // TODO temp hack
+	if err != nil {
+		return err
+	}
 	for _, topo := range c.allocated {
 		fh, err := os.CreateTemp("", "topology-*.yaml")
 		if err != nil {
@@ -82,18 +86,22 @@ func (c *AllocationClient) Guard(ctx context.Context, cmd string, args ...string
 			return err
 		}
 		//err = topology.WriteYaml(fh, mergedTopology)
-		mergedTopology = mergedTopology // TODO temphack
-    fh.Write([]byte(topo.GetConfig()))  // TODO temp hack; spit out same thing
+		userTopology = userTopology // TODO temp hack
+		mergedTopology = mergedTopology // TODO temp hack
+    n, err := fh.Write(userYaml)  // TODO temp hack; spit out same thing
+    fmt.Printf("Wrote %d bytes to %s\n", n, fh.Name())
 		if err != nil {
 			return err
 		}
 		tempfiles = append(tempfiles, fh.Name())
+		fh.Close()
 	}
 	// TODO: how to deal with multiple topology files?
 	if 1 != len(tempfiles) {
-		fmt.Printf("want 1, got %d topologies from server request: %v", len(tempfiles), tempfiles)
+		return fmt.Errorf("want 1, got %d topologies from server request: %v", len(tempfiles), tempfiles)
 	}
 	// replace user request with the merged topology files
+	fmt.Printf("replace TESTFRAMEWORK_TOPOLOGY=%s\n", tempfiles[0])
 	os.Setenv("TESTFRAMEWORK_TOPOLOGY", tempfiles[0])
 	go runCommand(ctx, jobResult, cmd, args...)
 	defer c.release(3 * time.Second)
