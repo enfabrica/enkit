@@ -71,7 +71,7 @@ func (c *AllocationClient) Guard(ctx context.Context, cmd string, args ...string
 			return err
 		}
 		defer fh.Close()
-		// TODO: merge userTopology with c.allocated, write to temp files
+		// TODO: merge userTopology with c.allocated, before write to temp files
 		parsedTopology, err := topology.ParseYaml([]byte(topo.GetConfig()))
 		if err != nil {
 			return err
@@ -81,7 +81,9 @@ func (c *AllocationClient) Guard(ctx context.Context, cmd string, args ...string
 		if err != nil {
 			return err
 		}
-		err = topology.WriteYaml(fh, mergedTopology)
+		//err = topology.WriteYaml(fh, mergedTopology)
+		mergedTopology = mergedTopology // TODO temphack
+    fh.Write([]byte(topo.GetConfig()))  // TODO temp hack; spit out same thing
 		if err != nil {
 			return err
 		}
