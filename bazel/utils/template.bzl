@@ -88,3 +88,42 @@ template_tool = attr.label(
     executable = True,
     allow_single_file = True,
 )
+
+def expand_template_binary_impl(ctx):
+    output = ctx.actions.declare_file(ctx.attr.output)
+    ctx.actions.expand_template(
+        is_executable = ctx.attr.executable,
+        template = ctx.file.template,
+        output = output,
+        substitutions = ctx.attr.substitutions,
+    )
+    return [
+        DefaultInfo(
+            files = depset([output]),
+            executable = output if ctx.attr.executable else None,
+        )
+    ]
+
+expand_template_binary = rule(
+    implementation = expand_template_binary_impl,
+    attrs = {
+        "executable": attr.bool(
+            doc = "Make the generated file executable",
+            default = False,
+        ),
+        "template": attr.label(
+            doc = "Template file interpretted by the expand_template bazel action",
+            allow_single_file = True,
+            mandatory = True,
+        ),
+        "substitutions": attr.string_dict(
+            doc = "Keys are '{{key}}' and values are plain strings",
+            mandatory = True,
+        ),
+        "output": attr.string(
+            doc = "Name of the output file",
+            mandatory = True,
+        ),
+    }
+)
+
