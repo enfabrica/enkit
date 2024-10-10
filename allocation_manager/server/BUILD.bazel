@@ -34,7 +34,7 @@ alias(
 )
 
 go_binary(
-    name = "server",
+    name = "allocation_manager_server",
     embed = [":server_lib"],
     visibility = ["//visibility:public"],
 )
