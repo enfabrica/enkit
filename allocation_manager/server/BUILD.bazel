@@ -22,7 +22,7 @@ astore_upload(
     name = "astore_push",
     file = "infra/allocation_manager/server",
     targets = [
-        ":server",
+        ":allocation_manager_server",
     ],
     visibility = ["//:__pkg__"],
 )
