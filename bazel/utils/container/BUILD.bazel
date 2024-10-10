@@ -3,7 +3,14 @@
 # referenced locally within the internal repo
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 
-exports_files(["container_pusher.py"])
+exports_files([
+    "container_pusher.py",
+    "bootstrap_ubuntu.sh",
+    "ubuntu_pkg.sh",
+    "ubuntu_base.sh",
+    "prepostinstall_ubuntu.sh",
+    "install_ubuntu.sh",
+])
 
 genrule(
     name = "stable_status",

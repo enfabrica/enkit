@@ -173,7 +173,7 @@ func SystemArch() string {
 func NewDownload(root *Root) *Download {
 	command := &Download{
 		Command: &cobra.Command{
-			Use:     "download",
+			Use:     "download <path|uid>...",
 			Short:   "Downloads an artifact",
 			Aliases: []string{"down", "get", "pull", "fetch"},
 		},
