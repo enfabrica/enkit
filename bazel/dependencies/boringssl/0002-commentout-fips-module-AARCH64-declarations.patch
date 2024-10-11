@@ -1,0 +1,130 @@
+diff --git a/src/crypto/chacha/internal.h b/src/crypto/chacha/internal.h
+index 1435e3b01..dd4fd9f0f 100644
+--- a/src/crypto/chacha/internal.h
++++ b/src/crypto/chacha/internal.h
+@@ -28,8 +28,12 @@ void CRYPTO_hchacha20(uint8_t out[32], const uint8_t key[32],
+                       const uint8_t nonce[16]);
+ 
+ #if !defined(OPENSSL_NO_ASM) &&                         \
+-    (defined(OPENSSL_X86) || defined(OPENSSL_X86_64) || \
+-     defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64))
++    (defined(OPENSSL_X86) || defined(OPENSSL_X86_64))
++/*
++ * TODO(naketi): Commenting out ARM and AARCH64 condition,
++ * will enable if needed
++ * defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64))
++ */
+ #define CHACHA20_ASM
+ 
+ // ChaCha20_ctr32 is defined in asm/chacha-*.pl.
+diff --git a/src/crypto/fipsmodule/aes/internal.h b/src/crypto/fipsmodule/aes/internal.h
+index 5b8069550..673949dc9 100644
+--- a/src/crypto/fipsmodule/aes/internal.h
++++ b/src/crypto/fipsmodule/aes/internal.h
+@@ -44,9 +44,14 @@ OPENSSL_INLINE int vpaes_capable(void) {
+ }
+ 
+ #elif defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)
++
++/*
++ * TODO(naketi): Commenting out ARM and AARCH64 condition,
++ * will enable if needed
+ #define HWAES
+ 
+ OPENSSL_INLINE int hwaes_capable(void) { return CRYPTO_is_ARMv8_AES_capable(); }
++*/
+ 
+ #if defined(OPENSSL_ARM)
+ #define BSAES
+@@ -56,12 +61,16 @@ OPENSSL_INLINE int bsaes_capable(void) { return CRYPTO_is_NEON_capable(); }
+ OPENSSL_INLINE int vpaes_capable(void) { return CRYPTO_is_NEON_capable(); }
+ #endif
+ 
++/*
++ * TODO(naketi): Commenting out ARM and AARCH64 condition,
++ * will enable if needed
+ #if defined(OPENSSL_AARCH64)
+ #define VPAES
+ #define VPAES_CBC
+ #define VPAES_CTR32
+ OPENSSL_INLINE int vpaes_capable(void) { return CRYPTO_is_NEON_capable(); }
+ #endif
++*/
+ 
+ #elif defined(OPENSSL_PPC64LE)
+ #define HWAES
+diff --git a/src/crypto/fipsmodule/bn/internal.h b/src/crypto/fipsmodule/bn/internal.h
+index cab9a81f9..bb57cf481 100644
+--- a/src/crypto/fipsmodule/bn/internal.h
++++ b/src/crypto/fipsmodule/bn/internal.h
+@@ -345,8 +345,12 @@ int bn_rand_secret_range(BIGNUM *r, int *out_is_uniform, BN_ULONG min_inclusive,
+                          const BIGNUM *max_exclusive);
+ 
+ #if !defined(OPENSSL_NO_ASM) &&                         \
+-    (defined(OPENSSL_X86) || defined(OPENSSL_X86_64) || \
+-     defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64))
++    (defined(OPENSSL_X86) || defined(OPENSSL_X86_64))
++/*
++ * TODO(naketi): Commenting out ARM and AARCH64 condition,
++ * will enable if needed
++ * defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64))
++ */
+ #define OPENSSL_BN_ASM_MONT
+ // bn_mul_mont writes |ap| * |bp| mod |np| to |rp|, each |num| words
+ // long. Inputs and outputs are in Montgomery form. |n0| is a pointer to the
+diff --git a/src/crypto/fipsmodule/modes/internal.h b/src/crypto/fipsmodule/modes/internal.h
+index 2fea5585f..f06cbff9e 100644
+--- a/src/crypto/fipsmodule/modes/internal.h
++++ b/src/crypto/fipsmodule/modes/internal.h
+@@ -283,6 +283,9 @@ size_t aesni_gcm_decrypt(const uint8_t *in, uint8_t *out, size_t len,
+ #define GHASH_ASM_X86
+ #endif  // OPENSSL_X86
+ 
++/*
++ * TODO(naketi): Commenting out ARM and AARCH64 condition,
++ * will enable if needed
+ #elif defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)
+ #define GHASH_ASM_ARM
+ #define GCM_FUNCREF
+@@ -303,6 +306,7 @@ void gcm_gmult_neon(uint64_t Xi[2], const u128 Htable[16]);
+ void gcm_ghash_neon(uint64_t Xi[2], const u128 Htable[16], const uint8_t *inp,
+                     size_t len);
+ 
++*/
+ #elif defined(OPENSSL_PPC64LE)
+ #define GHASH_ASM_PPC64LE
+ #define GCM_FUNCREF
+diff --git a/src/crypto/fipsmodule/sha/internal.h b/src/crypto/fipsmodule/sha/internal.h
+index cc9091495..3d7b297f7 100644
+--- a/src/crypto/fipsmodule/sha/internal.h
++++ b/src/crypto/fipsmodule/sha/internal.h
+@@ -24,8 +24,12 @@ extern "C" {
+ 
+ #if defined(OPENSSL_PPC64LE) ||                          \
+     (!defined(OPENSSL_NO_ASM) &&                         \
+-     (defined(OPENSSL_X86) || defined(OPENSSL_X86_64) || \
+-      defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)))
++     (defined(OPENSSL_X86) || defined(OPENSSL_X86_64)))
++/*
++ * TODO(naketi): Commenting out ARM and AARCH64 condition,
++ * will enable if needed
++ * defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)))
++ */
+ // POWER has an intrinsics-based implementation of SHA-1 and thus the functions
+ // normally defined in assembly are available even with |OPENSSL_NO_ASM| in
+ // this case.
+@@ -35,8 +39,12 @@ void sha1_block_data_order(uint32_t *state, const uint8_t *in,
+ #endif
+ 
+ #if !defined(OPENSSL_NO_ASM) &&                         \
+-    (defined(OPENSSL_X86) || defined(OPENSSL_X86_64) || \
+-     defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64))
++    (defined(OPENSSL_X86) || defined(OPENSSL_X86_64))
++/*
++ * TODO(naketi): Commenting out ARM and AARCH64 condition,
++ * will enable if needed
++ * defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64))
++ */
+ #define SHA256_ASM
+ #define SHA512_ASM
+ void sha256_block_data_order(uint32_t *state, const uint8_t *in,
