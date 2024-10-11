@@ -19,6 +19,218 @@ _IMAGE_BUILDER_SH = """\
     --v=4 "$@"
 """
 
+_EXCLUDE_BASE_PKGS = [
+    "adduser",
+    "apt",
+    "apt-utils",
+    "base-files",
+    "base-passwd",
+    "bash",
+    "binutils",
+    "binutils-common",
+    "binutils-x86-64-linux-gnu",
+    "bsdutils",
+    "bzip2",
+    "ca-certificates",
+    "console-setup",
+    "console-setup-linux",
+    "coreutils",
+    "cron",
+    "dash",
+    "dbus",
+    "debconf",
+    "debconf-i18n",
+    "debianutils",
+    "diffutils",
+    "distro-info-data",
+    "dmsetup",
+    "dpkg",
+    "e2fsprogs",
+    "eject",
+    "fdisk",
+    "file",
+    "findutils",
+    "gcc-10-base",
+    "gir1.2-glib-2.0",
+    "gpgv",
+    "grep",
+    "gzip",
+    "hostname",
+    "init",
+    "init-system-helpers",
+    "iproute2",
+    "iputils-ping",
+    "isc-dhcp-client",
+    "isc-dhcp-common",
+    "kbd",
+    "keyboard-configuration",
+    "kmod",
+    "less",
+    "libacl1",
+    "libapparmor1",
+    "libapt-pkg6.0",
+    "libargon2-1",
+    "libatm1",
+    "libattr1",
+    "libaudit1",
+    "libaudit-common",
+    "libbinutils",
+    "libblkid1",
+    "libbsd0",
+    "libbz2-1.0",
+    "libc6",
+    "libcap2",
+    "libcap2-bin",
+    "libcap-ng0",
+    "libc-bin",
+    "libcom-err2",
+    "libcrypt1",
+    "libcryptsetup12",
+    "libctf0",
+    "libctf-nobfd0",
+    "libdb5.3",
+    "libdbus-1-3",
+    "libdebconfclient0",
+    "libdevmapper1.02.1",
+    "libdns-export1109",
+    "libelf1",
+    "libestr0",
+    "libexpat1",
+    "libext2fs2",
+    "libfastjson4",
+    "libfdisk1",
+    "libffi7",
+    "libfribidi0",
+    "libgcc1",
+    "libgcc-s1",
+    "libgcrypt20",
+    "libgirepository-1.0-1",
+    "libglib2.0-0",
+    "libglib2.0-data",
+    "libgmp10",
+    "libgnutls30",
+    "libgpg-error0",
+    "libhogweed5",
+    "libicu66",
+    "libidn2-0",
+    "libip4tc2",
+    "libisc-export1105",
+    "libjson-c4",
+    "libkmod2",
+    "liblocale-gettext-perl",
+    "liblz4-1",
+    "liblzma5",
+    "libmagic1",
+    "libmagic-mgc",
+    "libmnl0",
+    "libmount1",
+    "libmpdec2",
+    "libncurses6",
+    "libncursesw6",
+    "libnetplan0",
+    "libnettle7",
+    "libnewt0.52",
+    "libnss-systemd",
+    "libp11-kit0",
+    "libpam0g",
+    "libpam-cap",
+    "libpam-modules",
+    "libpam-modules-bin",
+    "libpam-runtime",
+    "libpam-systemd",
+    "libpcre2-8-0",
+    "libpcre3",
+    "libpopt0",
+    "libprocps8",
+    "libpython3.8-minimal",
+    "libpython3.8-stdlib",
+    "libpython3-stdlib",
+    "libreadline8",
+    "libseccomp2",
+    "libselinux1",
+    "libsemanage1",
+    "libsemanage-common",
+    "libsepol1",
+    "libslang2",
+    "libsmartcols1",
+    "libsodium23",
+    "libsqlite3-0",
+    "libss2",
+    "libssl1.1",
+    "libstdc++6",
+    "libsystemd0",
+    "libtasn1-6",
+    "libtext-charwidth-perl",
+    "libtext-iconv-perl",
+    "libtext-wrapi18n-perl",
+    "libtinfo6",
+    "libudev1",
+    "libunistring2",
+    "libuuid1",
+    "libxml2",
+    "libxtables12",
+    "libyaml-0-2",
+    "libzstd1",
+    "locales",
+    "login",
+    "logrotate",
+    "logsave",
+    "lsb-base",
+    "lsb-release",
+    "mawk",
+    "mime-support",
+    "mount",
+    "ncurses-base",
+    "ncurses-bin",
+    "netbase",
+    "netcat-openbsd",
+    "netplan.io",
+    "networkd-dispatcher",
+    "openssl",
+    "passwd",
+    "perl-base",
+    "procps",
+    "python3",
+    "python3.8",
+    "python3.8-minimal",
+    "python3-cffi-backend",
+    "python3-dbus",
+    "python3-gi",
+    "python3-minimal",
+    "python3-nacl",
+    "python3-netifaces",
+    "python3-pkg-resources",
+    "python3-pymacaroons",
+    "python3-six",
+    "python3-yaml",
+    "readline-common",
+    "rsyslog",
+    "sed",
+    "sensible-utils",
+    "shared-mime-info",
+    "sudo",
+    "systemd",
+    "systemd-sysv",
+    "systemd-timesyncd",
+    "sysvinit-utils",
+    "tar",
+    "tzdata",
+    "ubuntu-advantage-tools",
+    "ubuntu-keyring",
+    "ubuntu-minimal",
+    "ucf",
+    "udev",
+    "util-linux",
+    "vim-common",
+    "vim-tiny",
+    "whiptail",
+    "xdg-user-dirs",
+    "xkb-data",
+    "xxd",
+    "xz-utils",
+    "zlib1g",
+]
+
 def nonhermetic_image_builder_impl(ctx):
     script = ctx.actions.declare_file("{}_run.sh".format(ctx.attr.name))
     ctx.actions.write(script, _IMAGE_BUILDER_SH.format(
@@ -320,3 +532,214 @@ container_repo = rule(
         ),
     },
 )
+
+def container_bootstrap_rule_impl(ctx):
+    outfile = ctx.actions.declare_file("%s.tar" % ctx.attr.name)
+    args = ctx.actions.args()
+    args.add(ctx.file.base_image)
+    args.add(outfile)
+    args.add(ctx.executable.preinstall_script)
+    args.add(ctx.executable.install_script)
+    args.add(ctx.executable.postinstall_script)
+    args.add(",".join(ctx.attr.exclude_pkgs))
+    args.add(",".join([f.path for f in ctx.files.tars]))
+    args.add_all(ctx.files.pkgs)
+
+    inputs = ctx.files.pkgs + ctx.files.tars + [
+        ctx.executable.preinstall_script,
+        ctx.executable.install_script,
+        ctx.executable.postinstall_script,
+        ctx.file.base_image,
+    ]
+
+    ctx.actions.run(
+        executable = ctx.executable.bootstrap_script,
+        inputs = inputs,
+        outputs = [outfile],
+        arguments = [args],
+    )
+
+    return [
+        DefaultInfo(files = depset([outfile])),
+    ]
+
+
+bootstrap_attrs = {
+    "bootstrap_script": attr.label(
+        doc = "Script that executes the bootstrap tool",
+        allow_single_file = [".sh"],
+        executable = True,
+        cfg = "exec",
+        mandatory = True,
+    ),
+    "distro": attr.string(
+        doc = "Ubuntu Linux distro to bootstrap the container",
+        values = [
+            "bionic",
+            "focal",
+            "jammy",
+            "noble",
+        ],
+        mandatory = True,
+    ),
+    "components": attr.string_list(
+        doc = "Components of the repo found under /etc/apt/sources.list",
+        default = [
+            "main",
+            "restricted",
+            "universe",
+            "multiverse",
+        ],
+    ),
+    "mirror": attr.string(
+        doc = """
+URL to https://snapshot.ubuntu.com/ubuntu/<snapshot-time>. By default, use the latest snapshot.
+Generate new timestamps with: date -u +"%Y%m%dT%H%M%SZ"
+""",
+        default = "https://snapshot.ubuntu.com/ubuntu",
+    ),
+    "arch": attr.string(
+        doc = "CPU architecture",
+        values = [
+            "amd64",
+            "i386",
+            "arm64",
+        ],
+        default = "amd64",
+    ),
+}
+
+container_bootstrap_rule = rule(
+    implementation = container_bootstrap_rule_impl,
+    attrs = {
+        "bootstrap_script": attr.label(
+            doc = "Script that executes the bootstrap tool",
+            allow_single_file = [".sh"],
+            executable = True,
+            cfg = "exec",
+            default = "@enkit//bazel/utils/container:bootstrap_ubuntu.sh",
+        ),
+        "base_image": attr.label(
+            doc = "Tarball of a debootstrap directory",
+            allow_single_file = [".tar", "tar.gz"],
+            mandatory = True,
+        ),
+        "pkgs": attr.label_list(
+            doc = "List of ubuntu_pkg targets to install",
+            allow_files = [".tar"],
+            mandatory = True,
+        ),
+        "install_script": attr.label(
+            doc = "Script that executes via chroot in the bootstrap env",
+            allow_single_file = [".sh"],
+            executable = True,
+            cfg = "exec",
+            default = "@enkit//bazel/utils/container:install_ubuntu.sh",
+        ),
+        "preinstall_script": attr.label(
+            doc = "Script that executes via chroot in the bootstrap env before the install script",
+            allow_single_file = [".sh"],
+            executable = True,
+            cfg = "exec",
+            default = "@enkit//bazel/utils/container:prepostinstall_ubuntu.sh",
+        ),
+        "postinstall_script": attr.label(
+            doc = "Script that executes via chroot in the bootstrap env after the install script",
+            allow_single_file = [".sh"],
+            executable = True,
+            cfg = "exec",
+            default = "@enkit//bazel/utils/container:prepostinstall_ubuntu.sh",
+        ),
+        "exclude_pkgs": attr.string_list(
+            doc = "List of packages to not install",
+        ),
+        "tars": attr.label_list(
+            doc = "List of tarballs to extract into the debootstrap environment",
+            allow_files = [".tar", ".tar.gz"],
+        ),
+    }
+)
+
+def ubuntu_pkg_rule_impl(ctx):
+    outfile = ctx.actions.declare_file("%s.tar" % ctx.attr.name)
+    args = ctx.actions.args()
+    args.add(ctx.attr.arch)
+    args.add(",".join(ctx.attr.components))
+    args.add(ctx.attr.pkg)
+    args.add(ctx.attr.distro)
+    args.add(ctx.attr.mirror)
+    args.add(",".join(ctx.attr.exclude_pkgs))
+    args.add(outfile)
+
+    ctx.actions.run(
+        executable = ctx.executable.bootstrap_script,
+        outputs = [outfile],
+        arguments = [args],
+    )
+
+    return [
+        DefaultInfo(files = depset([outfile])),
+    ]
+
+ubuntu_pkg_rule = rule(
+    implementation = ubuntu_pkg_rule_impl,
+    attrs = bootstrap_attrs | {
+        "pkg": attr.string(
+            doc = "Name of the package to download",
+            mandatory = True,
+        ),
+        "exclude_pkgs": attr.string_list(
+            doc = "List of packages to not download",
+            default = _EXCLUDE_BASE_PKGS, 
+        ),
+    }
+)
+
+def ubuntu_base_rule_impl(ctx):
+    outfile = ctx.actions.declare_file("%s.tar" % ctx.attr.name)
+    args = ctx.actions.args()
+    args.add(ctx.attr.arch)
+    args.add(",".join(ctx.attr.components))
+    args.add(ctx.attr.distro)
+    args.add(ctx.attr.mirror)
+    args.add(outfile)
+    args.add_all(ctx.attr.pkgs)
+
+    ctx.actions.run(
+        executable = ctx.executable.bootstrap_script,
+        outputs = [outfile],
+        arguments = [args],
+    )
+
+    return [
+        DefaultInfo(files = depset([outfile])),
+    ]
+
+
+ubuntu_base_rule = rule(
+    implementation = ubuntu_base_rule_impl,
+    attrs = bootstrap_attrs | {
+        "pkgs": attr.string_list(
+            doc = "List of packages to include in the base image",
+            default = ["curl", "wget", "software-properties-common"]
+        ),
+    }, 
+)
+
+def ubuntu_base(*args, **kwargs):
+    kwargs["bootstrap_script"] = "@enkit//bazel/utils/container:ubuntu_base.sh"
+    # The debootstrap package is not installed on deployed containers yet so
+    # any ubuntu_base, ubuntu_bootstrap, or ubuntu_pkg target will fail.
+    # After a new container is built and deployed with the debootstrap target,
+    # remove the no-presubmit tag.
+    kwargs["tags"] = kwargs.get("tags", []) + ["no-presubmit"]
+    return ubuntu_base_rule(*args, **kwargs)
+
+def ubuntu_bootstrap(*args, **kwargs):
+    kwargs["tags"] = kwargs.get("tags", []) + ["no-presubmit"]
+    return container_bootstrap_rule(*args, **kwargs)
+
+def ubuntu_pkg(*args, **kwargs):
+    kwargs["bootstrap_script"] = "@enkit//bazel/utils/container:ubuntu_pkg.sh"
+    kwargs["tags"] = kwargs.get("tags", []) + ["no-presubmit"]
+    return ubuntu_pkg_rule(*args, **kwargs)
