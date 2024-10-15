@@ -2416,17 +2416,22 @@ Usage: gee config <option>
 Valid configuration options are:
 
 * "default": Reset to default settings.
-* "enable_vim": Set "vimdiff" as your merge tool.
-* "enable_emacs": Set "emacs" as your merge tool.
-* "enable_vscode": Set "vscode" as your GUI merge tool.
-* "enable_meld": Set "meld" as your GUI merge tool.
-* "enable_bcompare": Set "BeyondCompare" as your GUI merge tool.
+* "enable_vim": Set "vimdiff" as your diff/merge tool.
+* "enable_nvim": Set "nvimdiff" as your diff/merge tool.
+* "enable_emacs": Set "emacs" as your diff/merge tool.
+* "enable_vscode": Set "vscode" as your GUI diff/merge tool.
+* "enable_meld": Set "meld" as your GUI diff/merge tool.
+* "enable_bcompare": Set "BeyondCompare" as your GUI diff/merge tool.
 EOT
 function gee__config() {
   _git config --global rerere.enabled true
   case "$1" in
     default)
-      gee__config enable_vim
+      if command -v nvim >/dev/null; then
+        gee__config enable_nvim
+      else
+        gee__config enable_vim
+      fi
       gee__config enable_meld
       ;;
     enable_vim)
@@ -2437,6 +2442,15 @@ function gee__config() {
       _git config --global diff.difftool vimdiff
       _git config --global difftool.vimdiff.cmd \
         "vimdiff \"\$LOCAL\" \"\$REMOTE\""
+      ;;
+    enable_nvim)
+      _info "Setting vimdiff as the default text-based diff and merge tool."
+      _git config --global merge.tool nvimdiff
+      _git config --global merge.conflictstyle diff3
+      _git config --global mergetool.prompt false
+      _git config --global diff.difftool nvimdiff
+      _git config --global difftool.nvimdiff.cmd \
+        "nvim -d \"\$LOCAL\" \"\$REMOTE\""
       ;;
     enable_vscode)
       _info "Setting vscode as the default GUI diff and merge tool."
@@ -2481,7 +2495,14 @@ function gee__config() {
       _fatal "enable_emacs: not yet supported."
       ;;
     *)
-      _info "Valid options include:" \ default \ enable_vim \ enable_emacs \ enable_vscode
+      _info "Valid options include:" \
+           default \
+           enable_bcompare \
+           enable_emacs \
+           enable_meld \
+           enable_nvim \
+           enable_vim \
+           enable_vscode
       _fatal "Unknown configuration directive."
       ;;
   esac
@@ -2756,23 +2777,27 @@ function gee__grep() {
 # vimdiff command
 ##########################################################################
 
-_register_help "vimdiff" "Runs vimdiff to compare changes in a file." <<'EOT'
-Usage: gee vimdiff <filename>
+_register_help "difftool" "Runs the difftool to compare changes in a file." <<'EOT'
+Usage: gee difftool <filename>
 
-Invokes vimdiff to show and edit the changes to a specific file in the current
+Invokes difftool to show and edit the changes to a specific file in the current
 branch, versus the version in the parent branch.  This can be useful to clean
 up local changes, especially after resolving merge conflicts.
 
 If installed, neovim will be used.  Otherwise, gee will fallback to vim.
 
 When working in a branch created with `pr_checkout`, the parent branch isn't
-a local worktree, and so vimdiff will produce an error and fail.
+a local worktree, and so difftool will produce an error and fail.
 
 Example of use:
 
-    gee vimdiff BUILD.bazel
+    gee difftool BUILD.bazel
+
+See also: the "gee config" command can be used to select between different
+supported diff/merge tools.
 
 EOT
+function gee__difftool() { gee__vimdiff "$@"; }
 function gee__vimdiff() {
   _startup_checks "vimdiff"
   _check_cwd
@@ -2783,7 +2808,7 @@ function gee__vimdiff() {
 
   local FILENAME="$1"
   if [[ -z "${FILENAME}" ]]; then
-    _fatal "vimdiff requires a filename argument."
+    _fatal "gee difftool requires a filename argument."
   elif [[ ! -e "${FILENAME}" ]]; then
     _fatal "File \"${FILENAME}\" does not exist."
   fi
@@ -2796,19 +2821,11 @@ function gee__vimdiff() {
   local PARENT_BRANCH PARENT_ROOT_DIR
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
-  # branches created with "gee pr_checkout" need special handling:
-  if [[ "${PARENT_BRANCH}" == upstream/* ]]; then
-    _fatal "gee vimdiff doesn't support pr_checkout-created branches yet."
-  fi
-  PARENT_ROOT_DIR="$(_get_branch_rootdir "${PARENT_BRANCH}")"
 
-  if command -v nvim >/dev/null; then
-    _cmd nvim -d "${PARENT_ROOT_DIR}/${RELPATH}" "${BRANCH_ROOT_DIR}/${RELPATH}"
-  elif command -v vimdiff >/dev/null; then
-    _cmd vimdiff "${PARENT_ROOT_DIR}/${RELPATH}" "${BRANCH_ROOT_DIR}/${RELPATH}"
-  else
-    _fatal "Neither nvim nor vimdiff seem to be installed."
-  fi
+  local DIFFTOOL
+  DIFFTOOL="$(${GIT} config --global --get diff.difftool)"
+
+  _git difftool -t "${DIFFTOOL}" "${PARENT_BRANCH}" -- "${FILENAME}"
 }
 
 ##########################################################################
