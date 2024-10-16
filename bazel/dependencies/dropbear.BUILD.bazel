@@ -8,7 +8,12 @@ configure_make(
     configure_options = [
         "--enable-static",
         "--enable-bundled-libtom",
-    ],
+    ] + select({
+        "@//bazel/platforms:e1_gnu_build" : [
+		    "--host=aarch64-none-linux-gnu",
+		],
+        "//conditions:default" : []
+	}),
     # By default `targets` would be ["", "install"], meaning it would run
     # `make ""` and `make "install"`.
     #
