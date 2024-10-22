@@ -1,0 +1,19 @@
+load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
+
+filegroup(name = "libz_all", srcs = glob(["**"]), visibility = ["//visibility:public"])
+
+configure_make(
+    name = "libz",
+    env = {
+        "CHOST":"arm",
+        "CFLAGS":"-fPIC",
+        "CXXFLAGS":"-fPIC",
+        "LDFLAGS":"--sysroot=external/gcc-13-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc"
+    },
+    lib_source = ":libz_all",
+    configure_options = [],
+    targets = ["", "install"],
+    out_static_libs = ["libz.a"],
+    out_shared_libs = ["libz.so"],
+    visibility = ["//visibility:public"],
+)
