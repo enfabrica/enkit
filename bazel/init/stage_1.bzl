@@ -285,6 +285,7 @@ filegroup(
         url = "https://github.com/bazelbuild/rules_foreign_cc/archive/816905a078773405803e86635def78b61d2f782d.tar.gz",
         patches = [
             "@enkit//bazel/dependencies:rules_foreign_cc_export_functions.patch",
+            "@enkit//bazel/dependencies:rules_foreign_cc_module_linker_flags.patch",
         ],
         patch_args = ["-p1"],
     )
