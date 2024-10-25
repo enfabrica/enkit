@@ -181,7 +181,7 @@ def stage_1():
         repo_rule = http_archive,
         patch_args = ["-p1"],
         patches = [
-            "@enkit//bazel/dependencies/boringssl:0001-ignore-pedantic-warnings-and-move-hrss-polynomial-declarations-under-x64-flag.patch",
+            "@enkit//bazel/dependencies/boringssl:0001-move-hrss-polynomial-declarations-under-x64-flag.patch",
             "@enkit//bazel/dependencies/boringssl:0002-commentout-fips-module-AARCH64-declarations.patch",
         ],
         sha256 = "534fa658bd845fd974b50b10f444d392dfd0d93768c4a51b61263fd37d851c40",
