@@ -19,13 +19,7 @@ filegroup(
 # libzlib.(a|so), which is incompatible with other foreign_cc builds.
 cmake(
     name = "libz", 
-    env = select({
-        "@//bazel/platforms:e1_gnu_build" : {
-            "CHOST": "arm",
-            "LDFLAGS": "-fuse-ld=gold",
-        },
-        "//conditions:default" : {}
-    }),
+    env = {},
     cache_entries = {
         "CMAKE_C_FLAGS": "${CMAKE_C_FLAGS:-} -fPIC",
         "CMAKE_CXX_FLAGS": "${CMAKE_CXX_FLAGS:-} -fPIC",
