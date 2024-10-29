@@ -308,6 +308,16 @@ filegroup(
     )
 
     maybe(
+        name = "libz",
+        repo_rule = http_archive,
+        build_file = "@enkit//bazel/dependencies:libz.BUILD.bazel",
+        sha256 = "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
+        strip_prefix = "zlib-1.2.11",
+        # Original file: https://zlib.net/fossils/zlib-1.2.11.tar.gz
+        urls = ["https://astore.corp.enfabrica.net/d/mirror/zlib/zlib-1.2.11.tar.gz?u=giqzp6y6me76syf7jrgwtevqxgdhswdu"]
+    )
+
+    maybe(
         name = "dropbear",
         repo_rule = http_archive,
         build_file = "@enkit//bazel/dependencies:dropbear.BUILD.bazel",
