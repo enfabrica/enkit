@@ -31,6 +31,13 @@ configure_make(
         "dropbearkey",
     ],
     visibility = ["//visibility:public"],
+    deps = select({
+        "@//bazel/platforms:e1_gnu_build": [
+            "@libz//:libz",
+        ],
+        # Use the system libz on other platforms.
+        "//conditions:default": [],
+    }),
 )
 
 
