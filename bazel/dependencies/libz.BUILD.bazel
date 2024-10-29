@@ -27,7 +27,6 @@ cmake(
     lib_source = ":libz_all",
     generate_args = [],
     targets = ["", "install"],
-    build_args = ["--parallel $$(nproc)"],
     out_static_libs = ["libz.a"],
     out_shared_libs = ["libz.so"],
     includes = ["."],
