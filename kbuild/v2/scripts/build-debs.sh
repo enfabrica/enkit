@@ -44,6 +44,7 @@ fi
 mkdir -p "$BUILD_DIR" "$OUTPUT_DEB_DIR"
 
 ksrc_dir="${BUILD_DIR}/source"
+echo "${KERNEL_SRC_DIR}/" "$ksrc_dir"
 rsync -a "${KERNEL_SRC_DIR}/" "$ksrc_dir"
 
 cd "$ksrc_dir"

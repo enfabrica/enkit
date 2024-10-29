@@ -141,7 +141,7 @@ for var in RT_VERSION_SUFFIX RT_ARCH RT_FLAVOUR ; do
 done
 
 # Create a kernel version string
-function gen_kernel_version() {
+gen_kernel_version() {
     local suffix="$1"
     local flavour="$2"
 
@@ -199,6 +199,8 @@ fi
 
 kernel_version="$(gen_kernel_version $RT_VERSION_SUFFIX $RT_FLAVOUR)"
 echo "$kernel_version" > "${build_dir}/enf-kernel-version.txt"
+
+echo "****** $RT_ARCH ******"
 
 case "$RT_ARCH" in
     arm64)

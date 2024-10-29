@@ -10,6 +10,7 @@ def _kernel_modules(ctx):
     modules = ctx.attr.modules
     srcdir = ctx.file.makefile.dirname
 
+    print("BUILD issued : %s: %s" % (ctx.label, ctx.attr.kernel))
     ki = ctx.attr.kernel[KernelTreeInfo]
     bundled = []
 
@@ -72,19 +73,7 @@ def _kernel_modules(ctx):
 
     extra = []
     tools = []
-    if ki.arch != "host":
-        arch = ki.arch
-        # map aarch64 to arm64.  The kernel uses arm64, bazel uses aarch64. sigh.
-        if arch == "aarch64":
-            arch = "arm64"
-        extra.append("ARCH=" + arch)
-
-        toolchain = ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"].cc
-        tools = toolchain.all_files
-
-        # The compiler ends in "gcc", which we strip off to obtain the compiler prefix.
-        compiler_prefix = toolchain.compiler_executable[:-3]
-        extra.append("CROSS_COMPILE=$PWD/{}".format(compiler_prefix))
+    print("THIS :: ki: " + str(ki))
 
     if ctx.attr.extra:
         extra += ctx.attr.extra
@@ -343,6 +332,11 @@ PLATFORM_NO_BUILD_TAGS = [
 ]
 
 def _gen_module_rule(arch, *args, **kwargs):
+
+    print("Arch %s, kwargs %s" % (arch, kwargs))
+    kernel_modules_rule(*args, **kwargs)
+    return
+
     if arch == "host":
         kernel_modules_rule(*args, **kwargs)
         return

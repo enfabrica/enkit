@@ -225,6 +225,8 @@ for spec in $RT_KERNEL_SPECS ; do
     arch=$(get_arch $spec)
     flavour=$(get_flavour $spec)
 
+    echo "Building $arch :: $flavour"
+
     case "$arch" in
         amd64)
             $RUN ${SCRIPT_PATH}/amd64-build-publish.sh \

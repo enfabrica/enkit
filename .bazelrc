@@ -26,4 +26,4 @@ try-import %workspace%/.bazelrc.user
 
 # TODO(INFRA-4384): Remove this flag once all dependencies are compatible with
 # the new platforms repo for constraints.
-build --noincompatible_use_platforms_repo_for_constraints
+# build --noincompatible_use_platforms_repo_for_constraints

@@ -31,22 +31,3 @@ ${SCRIPT_PATH}/build-kernel-release.sh \
      "$ARCH"             \
      "$FLAVOUR"          \
      "$OUTPUT_KRELEASE_DIR"
-
-# Uploads the bazel ready kernel build tarballs
-${SCRIPT_PATH}/upload-kernel-build.sh \
-     "$KERNEL_BUILD_DIR"          \
-     "$OUTPUT_KRELEASE_DIR"       \
-     "$ARCH"                      \
-     "$FLAVOUR"                   \
-     "$ASTORE_BASE"               \
-     "$ASTORE_META_DIR"
-
-# Generate Bazel include file from upload meta-data files
-${SCRIPT_PATH}/gen-bazel-meta2.sh \
-     "$KERNEL_BUILD_DIR"          \
-     "$OUTPUT_KRELEASE_DIR"       \
-     "$ARCH"                      \
-     "$FLAVOUR"                   \
-     "$ASTORE_BASE"               \
-     "$ASTORE_META_DIR"           \
-     "$ASTORE_LABEL"

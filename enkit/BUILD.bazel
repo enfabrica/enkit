@@ -16,6 +16,16 @@ go_binary(
 )
 
 go_binary(
+    name = "enkit-linux-arm64",
+    embed = [":enkit_lib"],
+    goarch = "arm64",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
     name = "enkit-linux-amd64",
     embed = [":enkit_lib"],
     goarch = "amd64",
