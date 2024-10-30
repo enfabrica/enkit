@@ -140,6 +140,22 @@ md5sum_diff_test(
     ],
 )
 
+genrule(
+    name = "test_archive.tgz",
+    outs = ["test_archive.tgz"],
+    srcs = [
+        "escape_and_join1.actual",
+        "testdata/a.expected.txt",
+    ],
+    cmd_bash = "tar -zcf $@ --dereference $(SRCS)",
+)
+
+md5sum_diff_test(
+    name = "md5sum_diff_test_archive_test",
+    srcs = [":test_archive.tgz"],
+)
+
+
 #### Support targets
 filegroup(
     name = "remote-deps",

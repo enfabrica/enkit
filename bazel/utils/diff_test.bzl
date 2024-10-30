@@ -201,6 +201,11 @@ def md5sum_diff_test(name, srcs, expected = None, **kwargs):
     `diff_test` rule that compares the calculated checksums against a file
     containing the expected checksums.
 
+    Archive files (tar, tar.gz, tgz) files get special handling.  Instead
+    of creating a checksum for the entire archive (which contains metadata
+    such as uid or mtime that we don't care about), this rule creates
+    checksums for each file within the archive.
+
     Args:
         name: The name of the diff_test to generate.
         srcs: The generated source files to check (the "actual" files).
@@ -210,7 +215,19 @@ def md5sum_diff_test(name, srcs, expected = None, **kwargs):
     if not expected:
         expected = name + ".md5sum"
     out = expected + "-out"
-    cmd = "/usr/bin/md5sum $(SRCS) > $@"
+    cmd = """
+      for t in $(SRCS); do
+        if [[ "$$t" == *.tgz ]] || [[ "$$t" == *.tar.gz ]]; then
+          echo "$$t contents:"
+          tar --to-command=/usr/bin/md5sum -xvzf "$$t" | paste - -
+        elif [[ "$$t" == *.tar ]]; then
+          echo "$$t contents:"
+          tar --to-command=/usr/bin/md5sum -xvf "$$t" | paste - -
+        else
+          /usr/bin/md5sum "$$t"
+        fi
+      done > $@
+    """
     native.genrule(
         name = name + "-gen",
         srcs = srcs,
