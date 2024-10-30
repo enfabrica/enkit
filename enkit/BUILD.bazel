@@ -48,6 +48,15 @@ go_binary(
 )
 
 go_binary(
+    name = "enkit-linux-arm64",
+    embed = [":enkit_lib"],
+    goarch = "arm64",
+    goos = "linux",
+    static = "on",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
     name = "enkit-win-amd64",
     embed = [":enkit_lib"],
     goarch = "amd64",
@@ -56,11 +65,14 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
+# To make these artifacts publicly available to download via curl,
+# use this command: enkit astore public add
 astore_upload(
     name = "deploy",
     file = "tools/enkit",
     targets = [
         ":enkit-linux-cgo-amd64",
+        ":enkit-linux-arm64",
         ":enkit-darwin-amd64",
         ":enkit-win-amd64",
     ],
