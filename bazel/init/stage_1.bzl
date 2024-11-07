@@ -181,7 +181,8 @@ def stage_1():
         repo_rule = http_archive,
         patch_args = ["-p1"],
         patches = [
-            "@enkit//bazel/dependencies/boringssl:0001-ignore-pedantic-warnings-and-move-hrss-polynomial-declarations-under-x64-flag.patch",
+            "@enkit//bazel/dependencies/boringssl:0001-move-hrss-polynomial-declarations-under-x64-flag.patch",
+            "@enkit//bazel/dependencies/boringssl:0002-commentout-fips-module-AARCH64-declarations.patch",
         ],
         sha256 = "534fa658bd845fd974b50b10f444d392dfd0d93768c4a51b61263fd37d851c40",
         strip_prefix = "boringssl-b9232f9e27e5668bc0414879dcdedb2a59ea75f2",
@@ -284,6 +285,7 @@ filegroup(
         url = "https://github.com/bazelbuild/rules_foreign_cc/archive/816905a078773405803e86635def78b61d2f782d.tar.gz",
         patches = [
             "@enkit//bazel/dependencies:rules_foreign_cc_export_functions.patch",
+            "@enkit//bazel/dependencies:rules_foreign_cc_module_linker_flags.patch",
         ],
         patch_args = ["-p1"],
     )
@@ -303,6 +305,16 @@ filegroup(
         sha256 = "47be8fa1067a8c498a67888b6f32386b9504b70e1da13afe869e6f06139805c9",
         urls = ["https://astore.corp.enfabrica.net/d/bazel/workspace_deps/astore/v1?u=7hfw4dsxxobamx5uyvvwmnj8tpxj7yub"],
         executable = True,
+    )
+
+    maybe(
+        name = "libz",
+        repo_rule = http_archive,
+        build_file = "@enkit//bazel/dependencies:libz.BUILD.bazel",
+        sha256 = "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
+        strip_prefix = "zlib-1.2.11",
+        # Original file: https://zlib.net/fossils/zlib-1.2.11.tar.gz
+        urls = ["https://astore.corp.enfabrica.net/d/mirror/zlib/zlib-1.2.11.tar.gz?u=giqzp6y6me76syf7jrgwtevqxgdhswdu"]
     )
 
     maybe(

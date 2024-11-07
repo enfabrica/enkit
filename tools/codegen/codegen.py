@@ -12,6 +12,7 @@
 #  https://jinja.palletsprojects.com/en/3.1.x/
 
 # standard libraries
+import inspect
 import json
 import os
 import re
@@ -104,6 +105,20 @@ def _merge(a, b, path=None):
         raise TypeError(f"Could not merge type {type(a)!r} with type {type(b)!r}.")
     return a
 
+def log_filter(text):
+    for frameinfo in inspect.stack():
+        template = frameinfo.frame.f_globals.get("__jinja_template__")
+        if template is not None:
+            break
+    lineno = 0
+    filename = "?"
+    if template is not None:
+        filename = template.filename
+        lineno = template.get_corresponding_lineno(inspect.currentframe().f_back.f_lineno)
+        logging.info(f"{filename}:{lineno}: {text}")
+    else:
+        logging.info(f"unknown source: {text}")
+    return ''
 
 class Template(data_loader.DataLoader):
     def __init__(self, other=None):
@@ -131,7 +146,10 @@ class Template(data_loader.DataLoader):
                 "re_sub": re_sub_function,
             }
         )
-        self.env.filters.update({"re_sub": re_sub_function})
+        self.env.filters.update({
+            "re_sub": re_sub_function,
+            "log": log_filter,
+        })
         self.context = {"_DATA": [], "_TEMPLATE": ""}
         self.template = None
         self.template_path = None

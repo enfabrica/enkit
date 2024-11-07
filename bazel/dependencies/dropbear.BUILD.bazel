@@ -8,7 +8,12 @@ configure_make(
     configure_options = [
         "--enable-static",
         "--enable-bundled-libtom",
-    ],
+    ] + select({
+        "@//bazel/platforms:e1_gnu_build": [
+            "--host=aarch64-none-linux-gnu",
+        ],
+        "//conditions:default": [],
+    }),
     # By default `targets` would be ["", "install"], meaning it would run
     # `make ""` and `make "install"`.
     #
@@ -16,16 +21,23 @@ configure_make(
     # setup the privileges correctly that don't work in an RBE environment.
     # Instead, run the few commands in postfix_script to install the
     # binaries correctly.
-	targets = [""],
-	postfix_script = "; ".join([
-	    "mkdir -p ${INSTALLDIR}/bin",
-	    "cp dropbear dropbearkey ${INSTALLDIR}/bin",
-	]),
+    targets = [""],
+    postfix_script = "; ".join([
+        "mkdir -p ${INSTALLDIR}/bin",
+        "cp dropbear dropbearkey ${INSTALLDIR}/bin",
+    ]),
     out_binaries = [
         "dropbear",
         "dropbearkey",
     ],
     visibility = ["//visibility:public"],
+    deps = select({
+        "@//bazel/platforms:e1_gnu_build": [
+            "@libz//:libz",
+        ],
+        # Use the system libz on other platforms.
+        "//conditions:default": [],
+    }),
 )
 
 

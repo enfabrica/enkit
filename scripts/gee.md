@@ -163,6 +163,7 @@ prompt that `gee bash_setup` makes available.
 | <a href="#create_ssh_key">`create_ssh_key`</a> | Create and enroll an ssh key. |
 | <a href="#diagnose">`diagnose`</a> | Capture diagnostics about your repository. |
 | <a href="#diff">`diff`</a> | Differences in this branch. |
+| <a href="#difftool">`difftool`</a> | Runs the difftool to compare changes in a file. |
 | <a href="#find">`find`</a> | Finds a file by name in the current branch. |
 | <a href="#fix">`fix`</a> | Run automatic code formatters over changed files only. |
 | <a href="#gcd">`gcd`</a> | Change directory to another branch. |
@@ -200,7 +201,6 @@ prompt that `gee bash_setup` makes available.
 | <a href="#update">`update`</a> | integrate changes from parent into this branch. |
 | <a href="#upgrade">`upgrade`</a> | Upgrade the gee tool. |
 | <a href="#version">`version`</a> | Print tool version information. |
-| <a href="#vimdiff">`vimdiff`</a> | Runs vimdiff to compare changes in a file. |
 | <a href="#whatsout">`whatsout`</a> | List locally changed files in this branch. |
 
 ## Commands
@@ -225,11 +225,12 @@ Usage: `gee config <option>`
 Valid configuration options are:
 
 * "default": Reset to default settings.
-* "enable_vim": Set "vimdiff" as your merge tool.
-* "enable_emacs": Set "emacs" as your merge tool.
-* "enable_vscode": Set "vscode" as your GUI merge tool.
-* "enable_meld": Set "meld" as your GUI merge tool.
-* "enable_bcompare": Set "BeyondCompare" as your GUI merge tool.
+* "enable_vim": Set "vimdiff" as your diff/merge tool.
+* "enable_nvim": Set "nvimdiff" as your diff/merge tool.
+* "enable_emacs": Set "emacs" as your diff/merge tool.
+* "enable_vscode": Set "vscode" as your GUI diff/merge tool.
+* "enable_meld": Set "meld" as your GUI diff/merge tool.
+* "enable_bcompare": Set "BeyondCompare" as your GUI diff/merge tool.
 
 ### make_branch
 
@@ -327,22 +328,25 @@ Example of use:
 
     grg -l fdst
 
-### vimdiff
+### difftool
 
-Usage: `gee vimdiff <filename>`
+Usage: `gee difftool <filename>`
 
-Invokes vimdiff to show and edit the changes to a specific file in the current
+Invokes difftool to show and edit the changes to a specific file in the current
 branch, versus the version in the parent branch.  This can be useful to clean
 up local changes, especially after resolving merge conflicts.
 
 If installed, neovim will be used.  Otherwise, gee will fallback to vim.
 
 When working in a branch created with `pr_checkout`, the parent branch isn't
-a local worktree, and so vimdiff will produce an error and fail.
+a local worktree, and so difftool will produce an error and fail.
 
 Example of use:
 
-    gee vimdiff BUILD.bazel
+    gee difftool BUILD.bazel
+
+See also: the "gee config" command can be used to select between different
+supported diff/merge tools.
 
 ### pack
 
