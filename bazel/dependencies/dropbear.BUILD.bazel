@@ -6,7 +6,7 @@ configure_make(
     name = "binaries",
     lib_source = ":all",
     configure_options = [
-        "--enable-static",
+        "--disable-static",
         "--enable-bundled-libtom",
     ] + select({
         "@//bazel/platforms:e1_gnu_build": [
