@@ -6,6 +6,12 @@ configure_make(
     name = "binaries",
     lib_source = ":all",
     configure_options = [
+        "--disable-lastlog",
+        "--disable-utmp",
+        "--disable-utmpx",
+        "--disable-wtmp",
+        "--disable-wtmpx",
+        "--disable-loginfunc",
         "--disable-static",
         "--enable-bundled-libtom",
     ] + select({
