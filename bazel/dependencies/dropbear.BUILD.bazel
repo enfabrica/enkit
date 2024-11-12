@@ -6,7 +6,13 @@ configure_make(
     name = "binaries",
     lib_source = ":all",
     configure_options = [
-        "--enable-static",
+        "--disable-lastlog",
+        "--disable-utmp",
+        "--disable-utmpx",
+        "--disable-wtmp",
+        "--disable-wtmpx",
+        "--disable-loginfunc",
+        "--disable-static",
         "--enable-bundled-libtom",
     ] + select({
         "@//bazel/platforms:e1_gnu_build": [
