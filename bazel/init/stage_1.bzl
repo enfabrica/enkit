@@ -130,14 +130,6 @@ def stage_1():
     )
 
     maybe(
-        name = "com_google_googletest",
-        repo_rule = http_archive,
-        sha256 = "f179ec217f9b3b3f3c6e8b02d3e7eda997b49e4ce26d6b235c9053bec9c0bf9f",
-        strip_prefix = "googletest-1.15.2",
-        url = "https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip",
-    )
-
-    maybe(
         name = "com_google_absl",
         repo_rule = http_archive,
         sha256 = "51d676b6846440210da48899e4df618a357e6e44ecde7106f1e44ea16ae8adc7",
