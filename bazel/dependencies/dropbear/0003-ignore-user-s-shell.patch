@@ -1,0 +1,70 @@
+From 5f1f84301d82f08b7cd7b280422aebb4586df4da Mon Sep 17 00:00:00 2001
+From: Greg Inozemtsev <greg@enfabrica.net>
+Date: Thu, 14 Nov 2024 18:12:10 +0000
+Subject: [PATCH 3/3] ignore user's shell
+
+---
+ src/runopts.h     | 1 +
+ src/svr-auth.c    | 3 +++
+ src/svr-runopts.c | 5 +++++
+ 3 files changed, 9 insertions(+)
+
+diff --git a/src/runopts.h b/src/runopts.h
+index 317d540..f128682 100644
+--- a/src/runopts.h
++++ b/src/runopts.h
+@@ -95,6 +95,7 @@ typedef struct svr_runopts {
+ 	int domotd;
+ #endif
+ 	int norootlogin;
++	int ignoreshell;
+ 
+ #ifdef HAVE_GETGROUPLIST
+ 	/* restrict_group is the group name if group restriction was enabled,
+diff --git a/src/svr-auth.c b/src/svr-auth.c
+index 3f91f9c..ba83f38 100644
+--- a/src/svr-auth.c
++++ b/src/svr-auth.c
+@@ -246,6 +246,9 @@ static int checkusername(const char *username, unsigned int userlen) {
+ 	if (ses.authstate.username == NULL) {
+ 		/* first request */
+ 		fill_passwd(username);
++		if (svr_opts.ignoreshell) {
++			ses.authstate.pw_shell[0] = '\0';
++		}
+ 		ses.authstate.username = m_strdup(username);
+ 	} else {
+ 		/* check username hasn't changed */
+diff --git a/src/svr-runopts.c b/src/svr-runopts.c
+index 2540e8f..6e17084 100644
+--- a/src/svr-runopts.c
++++ b/src/svr-runopts.c
+@@ -100,6 +100,7 @@ static void printhelp(const char * progname) {
+ 					"		(default port is %s if none specified)\n"
+ 					"-P PidFile	Create pid file PidFile\n"
+ 					"		(default %s)\n"
++					"-S        	Ignore user's shell and use /bin/sh\n"
+ #ifdef SO_BINDTODEVICE
+ 					"-l <interface>\n"
+ 					"		interface to bind on\n"
+@@ -163,6 +164,7 @@ void svr_getopts(int argc, char ** argv) {
+ 	svr_opts.forced_command = NULL;
+ 	svr_opts.forkbg = 1;
+ 	svr_opts.norootlogin = 0;
++	svr_opts.ignoreshell = 0;
+ #ifdef HAVE_GETGROUPLIST
+ 	svr_opts.restrict_group = NULL;
+ 	svr_opts.restrict_group_gid = 0;
+@@ -276,6 +278,9 @@ void svr_getopts(int argc, char ** argv) {
+ 				case 'P':
+ 					next = &svr_opts.pidfile;
+ 					break;
++				case 'S':
++					svr_opts.ignoreshell = 1;
++					break;
+ #ifdef SO_BINDTODEVICE
+ 				case 'l':
+ 					next = &svr_opts.interface;
+-- 
+2.47.0
+

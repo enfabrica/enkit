@@ -327,6 +327,7 @@ filegroup(
         patches = [
             "@enkit//bazel/dependencies/dropbear:0001-allow-blank-password.patch",
             "@enkit//bazel/dependencies/dropbear:0002-override-authorized-keys.patch",
+            "@enkit//bazel/dependencies/dropbear:0003-ignore-user-s-shell.patch",
         ],
         patch_args = ["-p1"],
     )
