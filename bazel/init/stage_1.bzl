@@ -321,13 +321,14 @@ filegroup(
         name = "dropbear",
         repo_rule = http_archive,
         build_file = "@enkit//bazel/dependencies:dropbear.BUILD.bazel",
-        sha256 = "e02c5c36eb53bfcd3f417c6e40703a50ec790a1a772269ea156a2ccef14998d2",
-        urls = ["https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2022.83.tar.gz"],
-        strip_prefix = "dropbear-DROPBEAR_2022.83",
+        sha256 = "d16285f0233a2400a84affa0235e34a71c660908079c639fdef889c2e90c9f5f",
+        urls = ["https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2024.86.tar.gz"],
+        strip_prefix = "dropbear-DROPBEAR_2024.86",
         patches = [
-            "@enkit//bazel/dependencies/dropbear:0000-allow-blank-password.patch",
-            "@enkit//bazel/dependencies/dropbear:0001-override-authorized-keys.patch",
+            "@enkit//bazel/dependencies/dropbear:0001-allow-blank-password.patch",
+            "@enkit//bazel/dependencies/dropbear:0002-override-authorized-keys.patch",
         ],
+        patch_args = ["-p1"],
     )
 
     maybe(
