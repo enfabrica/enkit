@@ -12,7 +12,6 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/client/commands",
     visibility = ["//visibility:public"],
     deps = [
-        ":go_rbe",
         "//auth/proto",
         "//lib/client",
         "//lib/config/identity",
@@ -21,6 +20,7 @@ go_library(
         "//lib/kflags",
         "//lib/kflags/kcobra",
         "//lib/retry",
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:execution",
         "@com_github_spf13_cobra//:cobra",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//grpclog",

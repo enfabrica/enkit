@@ -13,10 +13,9 @@ go_embed_data(
 go_library(
     name = "configs",
     srcs = [
-        "empty.go",
         ":embedded-configs",  # keep
     ],
-    importpath = "github.com/enfabrica/enkit/astore/server/configs",
+    importpath = "github.com/enfabrica/enkit/astore/server/configs",  # keep
     visibility = ["//visibility:public"],
 )
 
