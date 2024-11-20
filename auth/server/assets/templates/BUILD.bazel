@@ -18,9 +18,7 @@ qtpl_go_library(
 
 go_library(
     name = "templates",
-    srcs = ["empty.go"],
     embed = [":templates_qtpl"],  # keep
-    importpath = "github.com/enfabrica/enkit/auth/server/assets/templates",
     visibility = ["//visibility:public"],
 )
 
