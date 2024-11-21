@@ -31,7 +31,7 @@ sudo debootstrap \
     $distro $tmp_root $mirror
 
 sudo chroot $tmp_root /usr/bin/apt-get update
-sudo chroot $tmp_root /usr/bin/apt-get install --yes $pkgs
+sudo chroot $tmp_root /usr/bin/apt-get install --yes --quiet --no-install-recommends $pkgs
 
 echo "Packaging bootstrap directory $tmp_root to $outfile"
 echo ""
