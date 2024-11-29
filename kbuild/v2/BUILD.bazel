@@ -1,0 +1,23 @@
+load("@//bazel:shellutils.bzl", "shellcheck_test")
+
+shellcheck_test(
+    name = "shellcheck_test",
+    extra_args = [
+        # SC2086: Double quote to prevent globbing and word splitting.
+        # SC2034: pkg_name appears unused. Verify use (or export if used externally).
+        # SC2046: Quote this to prevent word splitting.
+        # SC2006: Use $(...) notation instead of legacy backticked `...`.
+        # SC2003: expr is antiquated. Consider rewriting this using $((..)), ${} or [[ ]].
+        # SC1090: Can't follow non-constant source. Use a directive to specify location.
+        # SC2230: which is non-standard. Use builtin 'command -v' instead.
+        # SC2039: In POSIX sh, 'local' is undefined.
+        # SC2155: Declare and assign separately to avoid masking return values.
+        # SC2002: Useless cat. Consider 'cmd < file | ..' or 'cmd file | ..' instead.
+        # SC2166: Prefer [ p ] && [ q ] as [ p -a q ] is not well defined.
+        # SC2060: Quote parameters to tr to prevent glob expansion.
+        # SC2038: Use -print0/-0 or -exec + to allow for non-alphanumeric filenames.
+        "-e",
+        "SC2086,SC2034,SC2046,SC2006,SC2003,SC1090,SC2230,SC2039,SC2155,SC2002,SC2166,SC2060,SC2038",
+    ],
+    srcs = glob(["scripts/*.sh"]) + glob(["template/*.sh"]) + ["kpub-astore"],
+)
