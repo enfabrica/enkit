@@ -1,0 +1,6 @@
+load("@//bazel:shellutils.bzl", "shellcheck_test")
+
+shellcheck_test(
+    name = "build-kernel-tree_test",
+    srcs = ["build-kernel-tree.sh"],
+)
