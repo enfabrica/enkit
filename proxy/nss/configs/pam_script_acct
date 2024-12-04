@@ -37,6 +37,12 @@ test "$AUTOUSER_GID" != "$AUTOUSER_UID" || {
   groupadd --gid "$AUTOUSER_GID" "$AUTOUSER_NAME"
   trap "delgroup --only-if-empty \"$AUTOUSER_NAME\"; logger \"autouser - group $AUTOUSER_NAME, attempted removal\"; exit 1" EXIT
 }
+
+if "! -d /home/pete"; then
+  logger -p auth.info "autouser pam - adding home dir for $AUTOUSER_NAME $AUTOUSER_GID - vars" "$(printenv|grep AUTOUSER)" &>/dev/null || true
+  groupmod "$AUTOUSER_NAME" -d "/opt/home/pete" -m  &> /tmp/error-dir.log
+fi
+
 logger -p auth.info "autouser pam - adding user $AUTOUSER_NAME $AUTOUSER_UID - vars" "$(printenv|grep AUTOUSER)" &>/dev/null || true
 useradd --uid "$AUTOUSER_UID" --gid "$AUTOUSER_GID" -m -s "$AUTOUSER_SHELL" "$AUTOUSER_NAME" &> /tmp/error.log
 trap - EXIT
