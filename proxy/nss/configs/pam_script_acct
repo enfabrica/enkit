@@ -40,7 +40,7 @@ test "$AUTOUSER_GID" != "$AUTOUSER_UID" || {
 
 if "! -d /home/pete"; then
   logger -p auth.info "autouser pam - adding home dir for $AUTOUSER_NAME $AUTOUSER_GID - vars" "$(printenv|grep AUTOUSER)" &>/dev/null || true
-  groupmod "$AUTOUSER_NAME" -d "/home/pete" -m  &> /tmp/error-dir.log
+  usermod "pete" -d "/home/pete" -m  &> /tmp/error-dir.log
 fi
 
 logger -p auth.info "autouser pam - adding user $AUTOUSER_NAME $AUTOUSER_UID - vars" "$(printenv|grep AUTOUSER)" &>/dev/null || true
