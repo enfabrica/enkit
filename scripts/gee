@@ -5096,6 +5096,9 @@ function gee__gcd() {
     fi
   done
   TARGET="$1"
+  if [[ "${TARGET}" == "" ]]; then
+    _fatal "gcd: target branch argument not specified."
+  fi
   _set_main
 
   if ! _in_gee_branch; then
