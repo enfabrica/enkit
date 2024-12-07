@@ -3295,11 +3295,11 @@ function _get_parent_head_commit() {
     # make sure remote is up to date:
     _git fetch "${PARENT%%/*}"
     READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" ls-remote "${PARENT%%/*}" "${PARENT#upstream/}"
-    WORDS=( ${OUTPUT[0]} )
+    read -r -a WORDS <<< "${OUTPUT[0]}"
     _PARENT_HEAD="${WORDS[0]}"
   else
     READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" show-ref "refs/heads/${PARENT}"
-    WORDS=( ${OUTPUT[0]} )
+    read -r -a WORDS <<< "${OUTPUT[0]}"
     _PARENT_HEAD="${WORDS[0]}"
   fi
   printf -v "${VARNAME}" '%s' "${_PARENT_HEAD}"
