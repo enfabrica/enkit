@@ -1337,6 +1337,10 @@ function _read_cmd() {
       fi
     fi
     set -e
+    if [[ "${READ_CMD_ECHO}" == 1 ]]; then
+      local VAR_ITEMS="${VAR}[@]"
+      printf >&2 "%s\n" "${!VAR_ITEMS}"
+    fi
     return "${RC}"
   else
     local C
@@ -1818,21 +1822,14 @@ function _safer_rebase() {
   CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
   cd "${CHILD_DIR}"
   local PARENT_HEAD
-  if [[ "${PARENT}" == */* ]]; then
-    # make sure remote is up to date:
-    _git fetch "${PARENT%%/*}"
-    PARENT_HEAD="$(git ls-remote "${PARENT%%/*}" "${PARENT#upstream/}" | awk '{print $1}')"
-  else
-    PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
-  fi
+  _get_parent_head_commit PARENT_HEAD "${PARENT}"
 
-  # Use rebase for local parent branches, or pull for remote parent branches.
   local -a GITCMD=()
   GITCMD+=( rebase --autostash )
   if [[ -n "${ONTO}" ]]; then
     GITCMD+=(--onto "${ONTO}")
   fi
-  GITCMD+=( "${PARENT}" "${CHILD}" )
+  GITCMD+=( "${PARENT_HEAD}" "${CHILD}" )
 
   _checkout_or_die "${CHILD}"
   if ! _git "${GITCMD[@]}"; then
@@ -3284,6 +3281,30 @@ Usage: gee whatsout
 Reports which files in this branch differ from parent branch.
 EOT
 
+# _get_parent_head_commit <varname> <parent>
+#
+# Sets the value of indirect variable <varname> to the commit associated with
+# the <parent> reference specifier.
+function _get_parent_head_commit() {
+  local VARNAME="$1"; shift
+  local PARENT="$1"; shift
+  local _PARENT_HEAD
+  local -a OUTPUT=()
+  local -a WORDS=()
+  if [[ "${PARENT}" == */* ]]; then
+    # make sure remote is up to date:
+    _git fetch "${PARENT%%/*}"
+    READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" ls-remote "${PARENT%%/*}" "${PARENT#upstream/}"
+    read -r -a WORDS <<< "${OUTPUT[0]}"
+    _PARENT_HEAD="${WORDS[0]}"
+  else
+    READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" show-ref "refs/heads/${PARENT}"
+    read -r -a WORDS <<< "${OUTPUT[0]}"
+    _PARENT_HEAD="${WORDS[0]}"
+  fi
+  printf -v "${VARNAME}" '%s' "${_PARENT_HEAD}"
+}
+
 function gee__whatsout() {
   _startup_checks "whatsout"
 
@@ -3292,7 +3313,9 @@ function gee__whatsout() {
   BRANCH="$(_get_current_branch)"
   _read_parents_file
   PARENT="$(_get_parent_branch "${BRANCH}")"
-  _git diff --name-only "${PARENT}...${BRANCH}"
+  local PARENT_HEAD
+  _get_parent_head_commit PARENT_HEAD "${PARENT}"
+  _git diff --name-only "${PARENT_HEAD}...${BRANCH}"
   if _branch_has_unstaged_changes; then
     _info "Note: This branch contains uncommitted changes."
   fi
