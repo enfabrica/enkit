@@ -3315,7 +3315,7 @@ function gee__whatsout() {
   PARENT="$(_get_parent_branch "${BRANCH}")"
   local PARENT_HEAD
   _get_parent_head_commit PARENT_HEAD "${PARENT}"
-  _git diff --name-only "${PARENT_HEAD}..${BRANCH}"
+  _git diff --name-only "${PARENT_HEAD}...${BRANCH}"
   if _branch_has_unstaged_changes; then
     _info "Note: This branch contains uncommitted changes."
   fi
