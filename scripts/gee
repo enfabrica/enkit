@@ -3283,8 +3283,13 @@ EOT
 
 # _get_parent_head_commit <varname> <parent>
 #
-# Sets the value of indirect variable <varname> to the commit associated with
-# the <parent> reference specifier.
+# git sometimes makes it hard for some commands to refer to branches in
+# remote repos.  This function takes any refspec that looks like it
+# refers to a remote repo and turns that into a commit id.  Otherwise,
+# it leaves it alone.
+#
+# Sets the value of indirect variable <varname> to a commit, local branch, or
+# local tag name associated with the <parent> reference specification.
 function _get_parent_head_commit() {
   local VARNAME="$1"; shift
   local PARENT="$1"; shift
@@ -3298,7 +3303,10 @@ function _get_parent_head_commit() {
     read -r -a WORDS <<< "${OUTPUT[0]}"
     _PARENT_HEAD="${WORDS[0]}"
   else
-    READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" show-ref "refs/heads/${PARENT}"
+    # Note: git show-ref "refs/heads/${PARENTS}" is the conventional wisdom
+    # solution, which doesn't work for tags.  Instead, git rev-list works for
+    # both branches and tags.
+    READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" rev-list -n 1 "${PARENT}"
     read -r -a WORDS <<< "${OUTPUT[0]}"
     _PARENT_HEAD="${WORDS[0]}"
   fi
