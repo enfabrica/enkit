@@ -6177,7 +6177,7 @@ function gee_prompt_update_git_info() {
 
   local assigned=""
   local assigned_count
-  assigned_count="$(gh pr list --search "assignee:@me" 2>/dev/null | wc -l)"
+  assigned_count="$(gh pr list --search "assignee:@me" 2>/dev/null | grep -v "^no pull requests" | wc -l)"
   if [[ "${assigned_count}" > 0 ]]; then
     assigned=", ASSIGNED_PRs=${assigned_count}"
   fi
