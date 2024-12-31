@@ -3964,12 +3964,19 @@ function _new_pr_list() {
   TEMPLATE+='{{tablerow "URL" "Title" "Author" "Created" "Status" }}'
   TEMPLATE+='{{tablerow "---" "-----" "------" "-------" "------" }}'
   TEMPLATE+='{{range .}}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ $status := "" }}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ $color := "reset" }}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ if ne .reviewDecision "REVIEW_REQUIRED" }}{{ $status = .reviewDecision }}{{ end }}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ range .statusCheckRollup}}{{if eq .status "IN_PROGRESS"}}{{ $status = "check pending" }}{{end}}{{end}}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{ $color = "red+b:black" }}{{end}}{{end}}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{if eq $status "APPROVED"}}{{ $color = "blue+b:black" }}{{end}}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|truncate 40|autocolor $color) (.author.login|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
   TEMPLATE+='{{end}}'
   gh pr list --search "${SEARCH}" --json "${JSON}" --template "${TEMPLATE}"
@@ -3981,15 +3988,23 @@ function _new_pr_list_with_merging_info() {
   JSON="number,url,author,reviewDecision,title,state,baseRefName,headRefName,createdAt,statusCheckRollup"
   # golang templates are complex but useful:
   TEMPLATE=''
+  # shellcheck disable=SC2016
   TEMPLATE+='{{tablerow "URL" "Title" "From Branch" "To" "Created" "Status" }}'
   TEMPLATE+='{{tablerow "---" "-----" "-----------" "--" "-------" "------" }}'
   TEMPLATE+='{{range .}}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ $status := "" }}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ $color := "reset" }}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ if ne .reviewDecision "REVIEW_REQUIRED" }}{{ $status = .reviewDecision }}{{ end }}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ range .statusCheckRollup}}{{if eq .status "IN_PROGRESS"}}{{ $status = "check pending" }}{{end}}{{end}}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{ $color = "red+b:black" }}{{end}}{{end}}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{if eq $status "APPROVED"}}{{ $color = "blue+b:black" }}{{end}}'
+  # shellcheck disable=SC2016
   TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|truncate 40|autocolor $color) (.headRefName|autocolor $color) (.baseRefName|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
   TEMPLATE+='{{end}}'
   gh pr list --search "${SEARCH}" --json "${JSON}" --template "${TEMPLATE}"
