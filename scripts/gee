@@ -3970,7 +3970,7 @@ function _new_pr_list() {
   TEMPLATE+='{{ range .statusCheckRollup}}{{if eq .status "IN_PROGRESS"}}{{ $status = "check pending" }}{{end}}{{end}}'
   TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{ $color = "red+b:black" }}{{end}}{{end}}'
   TEMPLATE+='{{if eq $status "APPROVED"}}{{ $color = "blue+b:black" }}{{end}}'
-  TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|autocolor $color) (.author.login|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
+  TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|truncate 40|autocolor $color) (.author.login|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
   TEMPLATE+='{{end}}'
   gh pr list --search "${SEARCH}" --json "${JSON}" --template "${TEMPLATE}"
 }
@@ -3990,7 +3990,7 @@ function _new_pr_list_with_merging_info() {
   TEMPLATE+='{{ range .statusCheckRollup}}{{if eq .status "IN_PROGRESS"}}{{ $status = "check pending" }}{{end}}{{end}}'
   TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{ $color = "red+b:black" }}{{end}}{{end}}'
   TEMPLATE+='{{if eq $status "APPROVED"}}{{ $color = "blue+b:black" }}{{end}}'
-  TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|autocolor $color) (.headRefName|autocolor $color) (.baseRefName|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
+  TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|truncate 40|autocolor $color) (.headRefName|autocolor $color) (.baseRefName|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
   TEMPLATE+='{{end}}'
   gh pr list --search "${SEARCH}" --json "${JSON}" --template "${TEMPLATE}"
 }
