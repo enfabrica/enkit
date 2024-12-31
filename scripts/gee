@@ -3958,17 +3958,39 @@ EOT
 function _new_pr_list() {
   local SEARCH="$1"; shift
   local JSON TEMPLATE
-  JSON="url,author,reviewDecision,title,state,createdAt,statusCheckRollup"
+  JSON="number,url,author,reviewDecision,title,state,baseRefName,headRefName,createdAt,statusCheckRollup"
   # golang templates are complex but useful:
   TEMPLATE=''
   TEMPLATE+='{{tablerow "URL" "Title" "Author" "Created" "Status" }}'
   TEMPLATE+='{{tablerow "---" "-----" "------" "-------" "------" }}'
   TEMPLATE+='{{range .}}'
   TEMPLATE+='{{ $status := "" }}'
+  TEMPLATE+='{{ $color := "reset" }}'
   TEMPLATE+='{{ if ne .reviewDecision "REVIEW_REQUIRED" }}{{ $status = .reviewDecision }}{{ end }}'
   TEMPLATE+='{{ range .statusCheckRollup}}{{if eq .status "IN_PROGRESS"}}{{ $status = "check pending" }}{{end}}{{end}}'
-  TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{end}}{{end}}'
-  TEMPLATE+='{{tablerow .url .title .author.login (timeago .createdAt) $status}}'
+  TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{ $color = "red+b:black" }}{{end}}{{end}}'
+  TEMPLATE+='{{if eq $status "APPROVED"}}{{ $color = "blue+b:black" }}{{end}}'
+  TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|autocolor $color) (.author.login|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
+  TEMPLATE+='{{end}}'
+  gh pr list --search "${SEARCH}" --json "${JSON}" --template "${TEMPLATE}"
+}
+
+function _new_pr_list_with_merging_info() {
+  local SEARCH="$1"; shift
+  local JSON TEMPLATE
+  JSON="number,url,author,reviewDecision,title,state,baseRefName,headRefName,createdAt,statusCheckRollup"
+  # golang templates are complex but useful:
+  TEMPLATE=''
+  TEMPLATE+='{{tablerow "URL" "Title" "From Branch" "To" "Created" "Status" }}'
+  TEMPLATE+='{{tablerow "---" "-----" "-----------" "--" "-------" "------" }}'
+  TEMPLATE+='{{range .}}'
+  TEMPLATE+='{{ $status := "" }}'
+  TEMPLATE+='{{ $color := "reset" }}'
+  TEMPLATE+='{{ if ne .reviewDecision "REVIEW_REQUIRED" }}{{ $status = .reviewDecision }}{{ end }}'
+  TEMPLATE+='{{ range .statusCheckRollup}}{{if eq .status "IN_PROGRESS"}}{{ $status = "check pending" }}{{end}}{{end}}'
+  TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{ $color = "red+b:black" }}{{end}}{{end}}'
+  TEMPLATE+='{{if eq $status "APPROVED"}}{{ $color = "blue+b:black" }}{{end}}'
+  TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|autocolor $color) (.headRefName|autocolor $color) (.baseRefName|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
   TEMPLATE+='{{end}}'
   gh pr list --search "${SEARCH}" --json "${JSON}" --template "${TEMPLATE}"
 }
@@ -4051,7 +4073,7 @@ function gee__pr_list() {
   fi
 
   _info "Open PRs authored by ${WHO_3RD_PERSON}:"
-  _new_pr_list "author:@me"
+  _new_pr_list_with_merging_info "author:@me"
   echo ""
 
   _info "PRs assigned to ${WHO_3RD_PERSON}:"
