@@ -3913,6 +3913,7 @@ _register_help "pr_list" \
   "lspr" "list_pr" "prls" <<'EOT'
 Usage: gee pr_list [--text] [<user>]
 
+
 Lists information about PRs associated with the specified user (or yourself, if
 no user is specified).
 
@@ -3922,9 +3923,6 @@ suitable for pasting into an email.
 Example:
 
     $ gee lspr jonathan-enf
-    PRs associated with this branch:
-    OPEN 1181 codegen tool
-
     Open PRs authored by jonathan-enf:
     #1205   REVIEW_REQUIRED Fix libsystemc build file error.
     #1181   REVIEW_REQUIRED codegen tool
@@ -3957,6 +3955,24 @@ An example of using the "--text" option:
       https://github.com/enfabrica/internal/pull/29625
 
 EOT
+function _new_pr_list() {
+  local SEARCH="$1"; shift
+  local JSON TEMPLATE
+  JSON="url,author,reviewDecision,title,state,createdAt,statusCheckRollup"
+  # golang templates are complex but useful:
+  TEMPLATE=''
+  TEMPLATE+='{{tablerow "URL" "Title" "Author" "Created" "Status" }}'
+  TEMPLATE+='{{tablerow "---" "-----" "------" "-------" "------" }}'
+  TEMPLATE+='{{range .}}'
+  TEMPLATE+='{{ $status := "" }}'
+  TEMPLATE+='{{ if ne .reviewDecision "REVIEW_REQUIRED" }}{{ $status = .reviewDecision }}{{ end }}'
+  TEMPLATE+='{{ range .statusCheckRollup}}{{if eq .status "IN_PROGRESS"}}{{ $status = "check pending" }}{{end}}{{end}}'
+  TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{end}}{{end}}'
+  TEMPLATE+='{{tablerow .url .title .author.login (timeago .createdAt) $status}}'
+  TEMPLATE+='{{end}}'
+  gh pr list --search "${SEARCH}" --json "${JSON}" --template "${TEMPLATE}"
+}
+
 function gee__lspr() { gee__pr_list "$@"; }
 function gee__list_pr() { gee__pr_list "$@"; }
 function gee__prls() { gee__pr_list "$@"; }
@@ -4034,53 +4050,13 @@ function gee__pr_list() {
     return
   fi
 
-  if _in_gee_branch; then
-    _info "PRs associated with this branch:"
-    _get_pull_requests
-    echo ""
-  fi
-
   _info "Open PRs authored by ${WHO_3RD_PERSON}:"
-  ( printf "PR\tbranch\treview\ttitle\n" ; \
-    printf "==\t======\t======\t=====\n" ; \
-   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
-    -L "${PR_LIST_MAX_FETCH}" \
-    --author "${WHO}" \
-    --state open \
-    --json number,reviewDecision,headRefName,title \
-    --jq '.[] | "#\(.number)\t\(.headRefName)\t\(.reviewDecision)\t\(.title)"' \
-    ) | column -t -s $'\t'
+  _new_pr_list "author:@me"
   echo ""
 
   _info "PRs assigned to ${WHO_3RD_PERSON}:"
-  local -a JQSCRIPT=(
-    '.[]'
-    ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
-  )
-  ( printf "PR\tauthor\tcreated\ttitle\n" ; \
-    printf "==\t======\t=======\t=====\n" ; \
-   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
-    -L "${PR_LIST_MAX_FETCH}" \
-    --assignee "@me" \
-    --json number,author,headRefName,createdAt,state,title,reviewDecision,reviewRequests \
-    --jq "${JQSCRIPT[*]}" \
-    ) | column -t -s $'\t'
+  _new_pr_list "assignee:@me"
   echo ""
-
-  _info "PRs pending ${YOUR} review:"
-  local -a JQSCRIPT=(
-    '.[]'
-    ' | select( .reviewDecision == "REVIEW_REQUIRED" )'
-    ' | select( .reviewRequests[]? | contains({"login":"'"${USER}"'"}))'
-    ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
-  )
-  ( printf "PR\tauthor\tcreated\ttitle\n" ; \
-    printf "==\t======\t=======\t=====\n" ; \
-   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
-    -L "${PR_LIST_MAX_FETCH}" \
-    --json number,author,headRefName,createdAt,state,title,reviewDecision,reviewRequests \
-    --jq "${JQSCRIPT[*]}" \
-    ) | column -t -s $'\t'
 }
 
 ##########################################################################
@@ -6199,9 +6175,16 @@ function gee_prompt_update_git_info() {
     stash_depth=" S=${stash_depth}"
   fi
 
-  GEE_PROMPT_INFO="$(printf "(%s%s%s%s%s%s)" \
+  local assigned=""
+  local assigned_count
+  assigned_count="$(gh pr list --search "assignee:@me" 2>/dev/null | wc -l)"
+  if [[ "${assigned_count}" > 0 ]]; then
+    assigned=", ASSIGNED_PRs=${assigned_count}"
+  fi
+
+  GEE_PROMPT_INFO="$(printf "(%s%s%s%s%s%s%s)" \
     "${repo}" "${branch}" "${complete_mode}" \
-    "${changes}" "${cached}" "${stash_depth}")"
+    "${changes}" "${cached}" "${stash_depth}" "${assigned}" )"
 }
 
 function gee_prompt_git_info() {
