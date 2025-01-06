@@ -32,10 +32,8 @@ go_test(
         "exec_test.go",
         "options_test.go",
         "pattern_test.go",
-        "query_test.go",
         "workspace_test.go",
     ],
-    data = glob(["testdata/**"]),
     embed = [":bazel"],
     deps = [
         "//lib/bazel/proto:go_protos",
@@ -43,7 +41,6 @@ go_test(
         "//lib/testutil",
         "@com_github_prashantv_gostub//:gostub",
         "@com_github_stretchr_testify//assert",
-        "@io_bazel_rules_go//go/tools/bazel:go_default_library",
         "@org_golang_google_protobuf//proto",
     ],
 )

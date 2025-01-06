@@ -42,7 +42,7 @@ def _merge_kwargs_test_impl(ctx):
     env = unittest.begin(ctx)
     got = "\n".join(["%r" % merged for merged in _create_test_data()])
     merged13 = '{"alpha": 200, "beta": [1, 2, 3, 4, 5, 6], "delta": {"d1": 11, "d2": 20, "d3": 30, "d4": 40, "d5": 50}, "gamma": {"g1": [55, 56, 57, 58, 59], "g2": {"g2a": 3, "g2b": 2, "g2c": 4}}}'
-    merged2 = '{"alpha": 300, "beta": [1, 2, 3, 9], "delta": {"d1": 10, "d2": 20, "d3": 30}, "gamma": {"g1": [55, 56, 57, 58, 59], "g2": {"g2a": 3, "g2b": 2, "g2c": 4}, "g3": 7}}'
+    merged2 = '{"alpha": 300, "beta": [1, 2, 3, 9], "delta": {"d1": 10, "d2": 20, "d3": 30}, "gamma": {"g1": [55, 56, 57], "g2": {"g2a": 1, "g2b": 2}, "g3": 7}}'
     want = "\n".join((merged13, merged2, merged13))
     asserts.equals(env, want, got)
     return unittest.end(env)

@@ -1,3 +1,3 @@
-*.sh @jonathan-enf @ccontavalli @ahungrynacho @minor-fixes @aaahrens
-/scripts @jonathan-enf @ccontavalli @minor-fixes @george-enf
-
+*.sh @jonathan-enf @ccontavalli @ahungrynacho @mhallmark
+/scripts @jonathan-enf @ccontavalli @mhallmark
+allocation_manager/ @kjw-enf @ccontavalli @moksh-enf @roivanov

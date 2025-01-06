@@ -2,6 +2,44 @@
 
 ## Releases
 
+### 0.2.51
+* `gee pr_make`: Darn, fixed a typo that I missed before.  (#1118)
+* `gee codeowners`: Fix codeowners to work with non-standard base branches.  (#1116)
+* `gee pr_make`: Allow branches to be created from arbitrary upstream base branches. (#1088)
+* `gee config`: Update to bcompare5.  (#1102)
+* `gee copy`: Added "copy" command to facilitate copying files while preserving history. (#1093)
+* `gee rmbr`: When removing multiple branches, remove remaining branches even if one branch removal fails. (#1087)
+* `gee`: Allow explicit paths for enkit (#358)
+* `gee rupdate`: Exit recursion when a branch has itself as a parent (#1075)
+* `gee commit`: Improve output when cancelling running gcloud jobs.  #(1068)
+
+### 0.2.50
+
+* gee commit: cancels invalidates presubmits, on by default. (#1067)
+* gee find: only search the bazel symlinks if primary search fails.  (#1064)
+* gee bisect: add `--good` option. (#1057)
+* gee pr_make: don't auto-assign @me if PR is a draft. (#1045)
+
+### 0.2.49
+
+* gee hello: also check and repair gh authentication (#1042).
+* gee up: fix resolution of updated/deleted merge conflicts (#1040).
+
+### 0.2.48
+
+* gee pr_make: facilitate setting assignees for new PRs (#1024).
+* gee: improve rebase --onto flow to reduce merge conflicts (#1022).
+* gee commit: improve `--amend` behavior (#1021).
+* gee: additional error checking for incorrect `gh repo set-default` configuration (#1017).
+
+### 0.2.47
+
+* gee lspr: add `--text` option (#1009).
+* gee bisect: handle empty sets of commits (#1008).
+* gee: handle closed PRs that are also marked as drafts (#1004).
+* gee: add `GEE_ENABLE_PRESUBMIT_CANCEL` feature (#1001).
+* gee: allow override of default tool paths (#991).
+
 ### 0.2.46
 
 * gee bisect: a helpful utility for wrapping "git bisect" (#985).

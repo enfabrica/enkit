@@ -1,0 +1,38 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "nomad_license_plugin_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/cmd/nomad_license_plugin",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//experimental/nomad_resource_plugin/licensedevice",
+        "//lib/metrics",
+        "@com_github_evanphx_go_hclog_slog//hclogslog",
+        "@com_github_hashicorp_go_hclog//:go-hclog",
+        "@com_github_hashicorp_nomad//plugins",
+        "@org_golang_x_exp//slog",
+    ],
+)
+
+go_binary(
+    name = "nomad_license_plugin",
+    embed = [":nomad_license_plugin_lib"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "stat",
+    srcs = ["gsutil_stat.sh"],
+    args = ["$(location :nomad_license_plugin)"],
+    data = [":nomad_license_plugin"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "push",
+    srcs = ["gsutil_push.sh"],
+    args = ["$(location :nomad_license_plugin)"],
+    data = [":nomad_license_plugin"],
+    visibility = ["//visibility:public"],
+)

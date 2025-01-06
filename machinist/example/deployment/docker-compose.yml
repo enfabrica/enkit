@@ -2,7 +2,7 @@ version: '3'
 
 services:
   controlplane:
-    image: gcr.io/devops-284019/infra/machinist/controlplane:latest
+    image: us-docker.pkg.dev/enfabrica-container-images/infra-prod/machinist/controlplane@sha256:eee5285a2127f8409ee3cabb48f351b29b3aac5ebf1f9af1cfe5d9436a3ee137
     command:
       - "--state=/enfabrica/dns.state.json"
       - "--dns-port=4455"

@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel/utils/container:container.bzl", "container_image", "container_push")
 
 go_library(
     name = "bb_reporter_lib",
@@ -31,8 +31,8 @@ pkg_tar(
 
 container_image(
     name = "bb_reporter_image",
-    base = "@golang_base//image",
-    cmd = [
+    base = "@container_golang_base",
+    entrypoint = [
         "/enfabrica/bin/bb_reporter",
     ],
     tars = [
@@ -42,9 +42,8 @@ container_image(
 
 container_push(
     name = "bb_reporter_image_push",
-    format = "Docker",
     image = ":bb_reporter_image",
-    registry = "gcr.io",
-    repository = "devops-284019/infra/services/bb_reporter",
-    tag = "testing",
+    image_path = "services/bb_reporter",
+    namespace = "infra",
+    remote_tags = ["latest"],
 )

@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel/utils/container:container.bzl", "container_image", "container_push")
 
 go_library(
     name = "proxy_lib",
@@ -23,13 +23,23 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
+pkg_tar(
+    name = "enproxy_tarball",
+    srcs = [
+        ":enproxy",
+    ],
+    mode = "0755",
+)
+
 container_image(
-    name = "enproxy-base",
-    base = "@go_image_base//image",
+    name = "enproxy_image",
+    base = "@golang_base",
+    entrypoint = ["/enproxy"],
     env = {
         "HOME": "/cache",
     },
-
+    tars = [":enproxy_tarball"],
+    visibility = ["//visibility:private"],
     # enproxy needs to cache certificates in a directory so they survive
     # across restarts.
     #
@@ -38,17 +48,10 @@ container_image(
     # up in a restart loop of the proxy without the cache, we'd quickly
     # exhaust this limit, and won't be able to get new certificates until
     # the rate limit grants more quota.
-    volumes = [
-        "/cache",
-        "/config",
-    ],
-)
-
-go_image(
-    name = "enproxy-image",
-    base = ":enproxy-base",
-    binary = ":enproxy",
-    visibility = ["//visibility:private"],
+    #
+    #TODO(bbhuynh): The volumes field is not supported in oci_image so
+    # update docker-compose files to start enproxy with volumes at runtime
+    # in the internal repo.
 )
 
 # To release a new version of enproxy, run:
@@ -58,10 +61,9 @@ go_image(
 # defaults as per instructions in the credentials/ directory.
 container_push(
     name = "upload-enproxy-image",
-    format = "Docker",
-    image = ":enproxy-image",
-    registry = "gcr.io",
-    repository = "devops-284019/infra/enproxy",
-    tag = "latest",
+    image = ":enproxy_image",
+    image_path = "enproxy",
+    namespace = "infra",
+    remote_tags = ["latest"],
     visibility = ["//visibility:public"],
 )

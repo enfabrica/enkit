@@ -1,0 +1,21 @@
+load("//bazel/linux/platforms:defs.bzl", "kernel_aarch64_constraints")
+
+# Constraint setting based on GCC version
+constraint_setting(name = "gcc_version")
+
+# A specific constraint value, limiting GCC to version 13
+constraint_value(
+    name = "gcc_13",
+    constraint_setting = ":gcc_version",
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
+platform(
+    name = "kernel_aarch64",
+    constraint_values = kernel_aarch64_constraints,
+    visibility = [
+        "//visibility:public",
+    ],
+)

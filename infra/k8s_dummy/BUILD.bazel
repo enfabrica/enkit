@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel/utils/container:container.bzl", "container_image", "container_push")
 
 go_library(
     name = "k8s_dummy_lib",
@@ -29,21 +29,15 @@ pkg_tar(
 
 container_image(
     name = "k8s_dummy_image",
-    base = "@golang_base//image",
-    cmd = [
-        "/enfabrica/bin/k8s_dummy",
-    ],
-    tars = [
-        ":k8s_dummy_tar",
-    ],
+    base = "@container_golang_base",
+    entrypoint = ["/enfabrica/bin/k8s_dummy"],
+    tars = [":k8s_dummy_tar"],
 )
 
 container_push(
     name = "k8s_dummy_image_push",
-    format = "Docker",
     image = ":k8s_dummy_image",
-    registry = "gcr.io",
-    repository = "devops-284019/infra/k8s_dummy",
-    # TODO: Change this tag to "live"
-    tag = "testing",
+    image_path = "k8s_dummy",
+    namespace = "infra",
+    remote_tags = ["latest"],
 )

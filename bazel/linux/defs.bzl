@@ -1,4 +1,5 @@
 load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "KernelModulesInfo", "KernelTreeInfo", "RootfsImageInfo", "RuntimeBundleInfo")
+load("//bazel/linux/platforms:defs.bzl", "kernel_aarch64_transition", "kernel_aarch64_constraints")
 load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible", "is_module")
 load("//bazel/linux:test.bzl", "kunit_test")
 load("//bazel/linux:uml.bzl", "kernel_uml_run")
@@ -9,141 +10,156 @@ def _kernel_modules(ctx):
     modules = ctx.attr.modules
     srcdir = ctx.file.makefile.dirname
 
-    if not ctx.attr.archs:
-        fail(location(ctx) + "rule must specify one or more architectures in 'arch'")
-
     ki = ctx.attr.kernel[KernelTreeInfo]
     bundled = []
-    for arch in ctx.attr.archs:
-        inputs = ctx.files.srcs + ctx.files.kernel
-        includes = []
-        quote_includes = []
-        extra_symbols = []
 
-        kdeps = []
-        for d in ctx.attr.kdeps:
-            kdeps.extend(get_compatible(ctx, arch, ki.package, d))
+    inputs = ctx.files.srcs + ctx.files.kernel
+    includes = []
+    quote_includes = []
+    extra_symbols = []
 
-        for d in ctx.attr.deps:
+    kdeps = []
+    for d in ctx.attr.kdeps:
+        kdeps.extend(get_compatible(ctx, ki.arch, ki.package, d))
+
+    for d in ctx.attr.deps:
+        if not is_module(d):
+            if CcInfo in d:
+                inputs += d[CcInfo].compilation_context.headers.to_list()
+                includes += d[CcInfo].compilation_context.includes.to_list()
+                quote_includes += d[CcInfo].compilation_context.quote_includes.to_list()
+
             inputs.extend(d.files.to_list())
-
-            if not is_module(d):
-                if CcInfo in d:
-                    inputs += d[CcInfo].compilation_context.headers.to_list()
-                    includes += d[CcInfo].compilation_context.includes.to_list()
-                    quote_includes += d[CcInfo].compilation_context.quote_includes.to_list()
-            else:
-                mods = get_compatible(ctx, arch, ki.package, d)
-
-                kdeps.extend(mods)
-                for mod in mods:
-                    extra_symbols.extend([f for f in mod.files if f.extension == "symvers"])
-
-        outputs = []
-        message = ""
-        copy_command = ""
-        for m in modules:
-            message += "kernel: compiling %s for arch:%s kernel:%s" % (m, arch, ki.package)
-
-            # ctx.attr.name is $kernel-$original_bazel_rule_name
-            outfile = "{kernel}/{name}/{arch}/{module}".format(
-                kernel = ki.name,
-                name = ctx.attr.name.removeprefix(ki.name + "-"),
-                arch = arch,
-                module = m,
-            )
-
-            output = ctx.actions.declare_file(outfile)
-            outputs += [output]
-            copy_command += "cp {src_dir}/{module} {output_long} && ".format(
-                src_dir = srcdir,
-                module = m,
-                output_long = output.path,
-            )
-
-            output = ctx.actions.declare_file(outfile + ".symvers")
-            outputs += [output]
-            copy_command += "cp {src_dir}/Module.symvers {output_long} && ".format(
-                src_dir = srcdir,
-                output_long = output.path,
-            )
-        copy_command += "true"
-
-        kernel_build_dir = "{kr}/{kb}".format(kr = ki.root, kb = ki.build)
-
-        extra = []
-        if arch != "host":
-            extra.append("ARCH=" + arch)
-        if ctx.attr.extra:
-            extra += ctx.attr.extra
-
-        extra_symbols = " ".join(["$PWD/" + e.path for e in extra_symbols])
-
-        if extra_symbols:
-            extra.append("KBUILD_EXTRA_SYMBOLS=\"%s\"" % (extra_symbols))
-
-        if ctx.attr.silent:
-            silent = "-s"
         else:
-            silent = ""
+            mods = get_compatible(ctx, ki.arch, ki.package, d)
 
-        if ctx.attr.jobs == -1:
-            jobs = "-j$(nproc)"
-        else:
-            jobs = "-j%d" % ctx.attr.jobs
+            kdeps.extend(mods)
+            for mod in mods:
+                extra_symbols.extend([f for f in mod.files if f.extension == "symvers"])
+                inputs.extend(mod.files)
 
-        make_args = ctx.attr.make_format_str.format(
+    outputs = []
+    message = ""
+    copy_command = ""
+    for m in modules:
+        message += "kernel: compiling %s for arch:%s kernel:%s" % (m, ki.arch, ki.package)
+
+        # ctx.attr.name is $kernel-$original_bazel_rule_name
+        outfile = "{kernel}/{name}/{arch}/{module}".format(
+            kernel = ki.name,
+            name = ctx.attr.name.removeprefix(ki.name + "-"),
+            arch = ki.arch,
+            module = m,
+        )
+
+        output = ctx.actions.declare_file(outfile)
+        outputs += [output]
+        copy_command += "cp {src_dir}/{module} {output_long} && ".format(
             src_dir = srcdir,
-            kernel_build_dir = kernel_build_dir,
-            modules = " ".join(modules),
+            module = m,
+            output_long = output.path,
         )
 
-        compilation_mode = ctx.var["COMPILATION_MODE"]
-        if compilation_mode == "fastbuild":
-            cflags = "-g"
-        elif compilation_mode == "opt":
-            cflags = ""
-        elif compilation_mode == "dbg":
-            cflags = "-g -O1 -fno-inline"
-        else:
-            fail("compilation mode '{compilation_mode}' not supported".format(
-                compilation_mode = compilation_mode,
-            ))
-
-        # Force GCC to produce colored output
-        cflags += " -fdiagnostics-color=always"
-
-        for include in depset(includes).to_list():
-            cflags += " -I $PWD/%s" % include
-
-        for include in depset(quote_includes).to_list():
-            cflags += " -iquote $PWD/%s" % include
-
-        extra.append("EXTRA_CFLAGS+=\"%s\"" % cflags)
-
-        ctx.actions.run_shell(
-            mnemonic = "KernelBuild",
-            progress_message = message,
-            command = "make {silent} {jobs} {make_args} {extra_args} && {copy_command}".format(
-                silent = silent,
-                jobs = jobs,
-                make_args = make_args,
-                extra_args = " ".join(extra),
-                copy_command = copy_command,
-            ),
-            outputs = outputs,
-            inputs = inputs,
-            use_default_shell_env = True,
+        output = ctx.actions.declare_file(outfile + ".symvers")
+        outputs += [output]
+        copy_command += "cp {src_dir}/Module.symvers {output_long} && ".format(
+            src_dir = srcdir,
+            output_long = output.path,
         )
+    copy_command += "true"
 
-        bundled.append(KernelModulesInfo(
-            label = ctx.label,
-            arch = arch,
-            package = ki.package,
-            files = outputs,
-            kdeps = kdeps,
-            setup = ctx.attr.setup,
+    kernel_build_dir = "{kr}/{kb}".format(kr = ki.root, kb = ki.build)
+
+    extra = []
+    tools = []
+    if ki.arch != "host":
+        arch = ki.arch
+        # map aarch64 to arm64.  The kernel uses arm64, bazel uses aarch64. sigh.
+        if arch == "aarch64":
+            arch = "arm64"
+        extra.append("ARCH=" + arch)
+
+        toolchain = ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"].cc
+        tools = toolchain.all_files
+
+        # The compiler ends in "gcc", which we strip off to obtain the compiler prefix.
+        compiler_prefix = toolchain.compiler_executable[:-3]
+        extra.append("CROSS_COMPILE=$PWD/{}".format(compiler_prefix))
+
+    if ctx.attr.extra:
+        extra += ctx.attr.extra
+
+    extra_symbols = " ".join(["$PWD/" + e.path for e in extra_symbols])
+
+    if extra_symbols:
+        extra.append("KBUILD_EXTRA_SYMBOLS=\"%s\"" % (extra_symbols))
+
+    extra.append('BAZEL_BIN_DIR="%s"' % ctx.bin_dir.path)
+    extra.append('BAZEL_GEN_DIR="%s"' % ctx.genfiles_dir.path)
+
+    if ctx.attr.silent:
+        silent = "-s"
+    else:
+        silent = ""
+
+    if ctx.attr.jobs == -1:
+        jobs = "-j$(nproc)"
+    else:
+        jobs = "-j%d" % ctx.attr.jobs
+
+    make_args = ctx.attr.make_format_str.format(
+        src_dir = srcdir,
+        kernel_build_dir = kernel_build_dir,
+        modules = " ".join(modules),
+    )
+
+    compilation_mode = ctx.var["COMPILATION_MODE"]
+    if compilation_mode == "fastbuild":
+        cflags = "-g"
+    elif compilation_mode == "opt":
+        cflags = ""
+    elif compilation_mode == "dbg":
+        cflags = "-g -O1 -fno-inline"
+    else:
+        fail("compilation mode '{compilation_mode}' not supported".format(
+            compilation_mode = compilation_mode,
         ))
+
+    # Force GCC to produce colored output
+    cflags += " -fdiagnostics-color=always"
+
+    for include in depset(includes).to_list():
+        cflags += " -I $PWD/%s" % include
+
+    for include in depset(quote_includes).to_list():
+        cflags += " -iquote $PWD/%s" % include
+
+    extra.append("EXTRA_CFLAGS+=\"%s\"" % cflags)
+
+    ctx.actions.run_shell(
+        mnemonic = "KernelBuild",
+        progress_message = message,
+        command = "EXT_BUILD_ROOT=$PWD make {silent} {jobs} {make_args} {extra_args} && {copy_command}".format(
+            silent = silent,
+            jobs = jobs,
+            make_args = make_args,
+            extra_args = " ".join(extra),
+            copy_command = copy_command,
+        ),
+        outputs = outputs,
+        inputs = inputs,
+        use_default_shell_env = True,
+        tools = tools,
+    )
+
+    bundled.append(KernelModulesInfo(
+        label = ctx.label,
+        arch = ki.arch,
+        package = ki.package,
+        files = outputs,
+        kdeps = kdeps,
+        setup = ctx.attr.setup,
+    ))
 
     return [
         DefaultInfo(
@@ -176,10 +192,6 @@ whatever you do when not debugging flaky builds.
             mandatory = True,
             providers = [DefaultInfo, KernelTreeInfo],
             doc = "The kernel to build this module against. A string like @carlo-s-favourite-kernel, referencing a kernel_tree_version(name = 'carlo-s-favourite-kernel', ...",
-        ),
-        "archs": attr.string_list(
-            default = ["host"],
-            doc = "The set of architectures supported by this module. Only the architectures needed will be built",
         ),
         "makefile": attr.label(
             mandatory = True,
@@ -229,14 +241,10 @@ Available format values are:
             doc = "The list of files that constitute this module. Generally a glob for all .c and .h files. If you use **/* with glob, we recommend excluding the patterns defined by BUILD_LEFTOVERS.",
         ),
     },
+    toolchains = [
+        "@bazel_tools//tools/cpp:toolchain_type",
+    ],
 )
-
-def _normalize_kernel(kernel):
-    """Ensures a kernel string points to a repository rule, with bazel @ syntax."""
-    if not kernel.startswith("@"):
-        kernel = "@" + kernel
-
-    return kernel
 
 def _kernel_modules_bundle(ctx):
     modules = []
@@ -303,6 +311,70 @@ expanded in its list of modules.""",
 
 BUILD_LEFTOVERS = ["**/.*.cmd", "**/*.a", "**/*.o", "**/*.ko", "**/*.order", "**/*.symvers", "**/*.mod", "**/*.mod.c", "**/*.mod.o"]
 
+def _normalize_kernel(kernel_tree_label):
+    """Ensures a kernel string points to a repository rule, with bazel @ syntax."""
+
+    if not kernel_tree_label.startswith("@"):
+        kernel_tree_label = "@" + kernel_tree_label
+
+    # kernel_tree_string: a flat string that can be used to create other labels
+    # The label might have '@', slashes ('/'), and colons (':'). Remove those.
+    kernel_tree_string = kernel_tree_label.replace("@", "").replace("//:", "-").replace("/", "-")
+
+    arch = "host"
+    # this is janky, but if the label contains the string "arm64" or
+    # "aarch64" force the architecture to aarch64.  Really at this
+    # macro level we would like to peak inside the KernelTreeInfo
+    # provider to learn the CPU architecture.
+    if (kernel_tree_string.count("arm64") + kernel_tree_string.count("aarch64")) > 0:
+        arch = "aarch64"
+
+    return (kernel_tree_label, kernel_tree_string, arch)
+
+# TODO: remove tags; see INFRA-1516
+#
+# Setting these tags prevents platform targets from being built by
+# pre/postsubmit.  The targets are still built when non-tagged
+# targets use a transition to build them.
+PLATFORM_NO_BUILD_TAGS = [
+    "manual",
+    "no-postsubmit",
+    "no-presubmit",
+]
+
+def _gen_module_rule(arch, *args, **kwargs):
+    if arch == "host":
+        kernel_modules_rule(*args, **kwargs)
+        return
+
+    if arch != "aarch64":
+        fail("Unknown architecture: " + arch)
+
+    kwargs["target_compatible_with"] =  kernel_aarch64_constraints
+
+    # underlying module rule needs a different name as the top level
+    # transition rule will use the original name.
+    original = kwargs["name"]
+    arch_module_name = original + "-" + arch
+    kwargs["name"] = arch_module_name
+
+    # Skip non-transitioned targets for CI
+    original_tags = kwargs.get("tags", [])
+    kwargs["tags"] = original_tags + PLATFORM_NO_BUILD_TAGS
+
+    # put down original module rule
+    kernel_modules_rule(*args, **kwargs)
+
+    # Add a transition with the original name
+    #
+    # These target will be built by CI.
+    kernel_aarch64_transition(
+        name = original,
+        target = ":" + arch_module_name,
+        tags = original_tags,
+        visibility = kwargs["visibility"],
+    )
+
 def _kernel_module_targets(*args, **kwargs):
     """Common kernel module target setup."""
 
@@ -318,19 +390,21 @@ def _kernel_module_targets(*args, **kwargs):
         kernels.append(kwargs.pop("kernel"))
 
     if len(kernels) == 1:
-        kwargs["kernel"] = _normalize_kernel(kernels.pop())
-        return kernel_modules_rule(*args, **kwargs)
+        (kernel_tree_label, unused, arch) = _normalize_kernel(kernels.pop())
+        kwargs["kernel"] = kernel_tree_label
+        _gen_module_rule(arch, *args, **kwargs)
+        return
 
     targets = []
     original = kwargs["name"]
     for kernel in kernels:
-        kernel = _normalize_kernel(kernel)
-        name = kernel[1:] + "-" + original
+        (kernel_tree_label, kernel_tree_string, arch) = _normalize_kernel(kernel)
+        name = kernel_tree_string + "-" + original
         targets.append(":" + name)
 
         kwargs["name"] = name
-        kwargs["kernel"] = kernel
-        kernel_modules_rule(*args, **kwargs)
+        kwargs["kernel"] = kernel_tree_label
+        _gen_module_rule(arch, *args, **kwargs)
 
     # This creates a target with the name chosen by the user that
     # builds all the modules for all the requested kernels at once.
@@ -357,10 +431,10 @@ def kernel_module(*args, **kwargs):
             name ensuring it has a '.ko' suffix.
       makefile: string, name of the makefile to build the module. If not specified, kernel_module
             assumes it is just called Makefile.
-      kernel: a label, indicating the kernel_tree to build the module against. kernel_module ensures
-            the label starts with an '@', as per bazel convention.
-      kernels: list of kernel (same as above). kernel_module will instantiate multiple
-            kernel_module_rule, one per kernel, and ensure they all build in parallel.
+      kernel: a kernel tree, indicating the kernel source tree, CPU architecture,
+            and kernel configuration to build the module against.
+      kernels: list of kernel trees (same as above). kernel_module will instantiate multiple
+            kernel_module_rule, one per kernel spec, and ensure they all build in parallel.
     """
 
     if "makefile" not in kwargs:
@@ -381,6 +455,7 @@ def _kernel_tree(ctx):
     return [DefaultInfo(files = depset(ctx.files.files)), KernelTreeInfo(
         name = ctx.attr.name,
         package = ctx.attr.package,
+        arch = ctx.attr.arch,
         root = ctx.label.workspace_root,
         build = ctx.attr.build,
     )]
@@ -422,6 +497,10 @@ Example:
         "package": attr.string(
             mandatory = True,
             doc = "A string indicating which package this kernel is coming from.",
+        ),
+        "arch": attr.string(
+            doc = "Architecture this tree was built for. Will only accept moudules for this arch.",
+            default = "host",
         ),
         "build": attr.string(
             mandatory = True,

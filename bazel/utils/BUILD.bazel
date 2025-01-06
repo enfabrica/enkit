@@ -1,5 +1,6 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("//bazel/utils:diff_test.bzl", "diff_test")
+load("//bazel/utils:diff_test.bzl", "diff_test", "diff_test_suite", "extract_file", "md5sum_diff_test")
+load("//bazel/utils:dynamic_wrapper.bzl", "dynamic_wrapper")
 load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
 load("//bazel/utils:files.bzl", "write_to_file")
@@ -99,6 +100,62 @@ sh_test(
     data = [":echo-argv_test"],
 )
 
+# Validate the extract_file test:
+filegroup(
+    name = "abc",
+    srcs = [
+        "testdata/a.txt",
+        "testdata/b.txt",
+        "testdata/c.txt",
+    ],
+)
+
+extract_file(
+    name = "a",
+    path = "bazel/utils/testdata/a.txt",
+    target = ":abc",
+)
+
+diff_test(
+    name = "a-diff_test",
+    actual = ":a",
+    expected = "testdata/a.expected.txt",
+)
+
+# Exercise the diff_test_suite rule:
+diff_test_suite(
+    name = "diff_tests",
+    files = [
+        "escape_and_join1.actual",
+        ":a",
+    ],
+)
+
+# Exercise the md5sum_diff_test rule:
+md5sum_diff_test(
+    name = "md5sum_diff_test_test",
+    srcs = [
+        "escape_and_join1.actual",
+        "testdata/a.expected.txt",
+        ":a",
+    ],
+)
+
+genrule(
+    name = "test_archive.tgz",
+    srcs = [
+        "escape_and_join1.actual",
+        "testdata/a.expected.txt",
+    ],
+    outs = ["test_archive.tgz"],
+    cmd_bash = "tar -zcf $@ --dereference $(SRCS)",
+)
+
+md5sum_diff_test(
+    name = "md5sum_diff_test_archive_test",
+    srcs = [":test_archive.tgz"],
+)
+
 #### Support targets
 filegroup(
     name = "remote-deps",
@@ -128,7 +185,82 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "hello-dynamic",
+    srcs = ["testdata/dynamic/hello-dynamic.cc"],
+    linkstatic = False,
+    deps = [
+        "@com_google_googletest//:gtest",
+    ],
+)
+
 #### Actual tests
+
+dynamic_wrapper(
+    name = "dynamic-test",
+    bin = ":hello-dynamic",
+)
+
+dynamic_wrapper(
+    name = "dynamic-test-false",
+    bin = ":hello-dynamic",
+    run = "/bin/false",
+)
+
+dynamic_wrapper(
+    name = "dynamic-test-fails-argv",
+    bin = ":hello-dynamic",
+    flags = "this-will-cause-binary-to-error-1",
+)
+
+dynamic_wrapper(
+    name = "dynamic-test-succeed-env",
+    env = {"TEST_ENV_PROPAGATION": "43"},
+    flags = "this-will-cause-binary-to-error-1",
+)
+
+dynamic_wrapper(
+    name = "dynamic-test-fails-env",
+    env = {"TEST_ENV_PROPAGATION": "42"},
+    flags = "this-will-cause-binary-to-error-1",
+)
+
+# Verifies that the generated wrapper is executable without error.
+exec_test(
+    name = "dynamic-wrapper_test",
+    dep = ":dynamic-test",
+    must_fail = False,
+)
+
+# An extra argv should cause the test to fail.
+exec_test(
+    name = "dynamic-wrapper-fails-argv_test",
+    dep = ":dynamic-test-fails-argv",
+    must_fail = True,
+)
+
+# The dynamic test binary checks environment variables.
+# If a magic values is present, it fails. If not, it succeeds.
+# Use that to check environment variable propagation.
+exec_test(
+    name = "dynamic-wrapper-fails-env_test",
+    dep = ":dynamic-test-fails-env",
+    must_fail = True,
+)
+
+exec_test(
+    name = "dynamic-wrapper-succeed-env_test",
+    dep = ":dynamic-test-succeed-env",
+    must_fail = True,
+)
+
+# The same wrapper as above is now running /bin/false, error status is propagated.
+exec_test(
+    name = "dynamic-wrapper-false_test",
+    dep = ":dynamic-test-false",
+    must_fail = True,
+)
+
 remote_run(
     name = "test-no-dests",
     rsync_cmd = "./bazel/utils/save-argv test1.rsync",

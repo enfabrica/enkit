@@ -2,6 +2,20 @@
 
 # common helpers
 
+get_arch() {
+    local spec="$1"
+
+    local arch=${spec%%,*}
+    echo -n $arch
+}
+
+get_flavour() {
+    local spec="$1"
+
+    local flavour=${spec##*,}
+    echo -n $flavour
+}
+
 get_kernel_base() {
     local deb_dir="$1"
 

@@ -1,4 +1,5 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_cross_binary", "go_library")
+load("//bazel/astore:defs.bzl", "astore_upload")
 
 go_library(
     name = "cmd_lib",
@@ -16,4 +17,44 @@ go_binary(
     name = "cmd",
     embed = [":cmd_lib"],
     visibility = ["//visibility:public"],
+)
+
+# Register windows machines with machinist to make it easier
+# for prometheus to collect metrics
+go_cross_binary(
+    name = "cmd_windows",
+    platform = "@io_bazel_rules_go//go/toolchain:windows_amd64",
+    target = ":cmd",
+)
+
+go_cross_binary(
+    name = "machinist_linux_arm",
+    platform = "@io_bazel_rules_go//go/toolchain:linux_arm64",
+    target = ":cmd",
+)
+
+astore_upload(
+    name = "machinist_linux_push",
+    file = "infra/dev_machine/machinist",
+    tags = [
+        "manual",
+        "no-presubmit",
+    ],
+    targets = [":cmd"],
+)
+
+astore_upload(
+    name = "machinist_windows_push",
+    file = "infra/dev_machine/machinist",
+    tags = [
+        "manual",
+        "no-presubmit",
+    ],
+    targets = [":cmd_windows"],
+)
+
+astore_upload(
+    name = "machinist_linux_arm_push",
+    file = "infra/dev_machine/machinist",
+    targets = [":machinist_linux_arm"],
 )

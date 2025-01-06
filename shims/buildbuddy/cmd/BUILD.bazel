@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-load("@io_bazel_rules_docker//container:container.bzl", "container_push")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel/utils/container:container.bzl", "container_image", "container_push")
 
 go_library(
     name = "cmd_lib",
@@ -19,19 +19,23 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-go_image(
-    name = "bb-shim",
-    base = "@golang_base//image",
-    embed = [":cmd_lib"],
-    visibility = ["//visibility:public"],
+pkg_tar(
+    name = "tar",
+    srcs = [":cmd"],
+    package_dir = "/enfabrica/bin",
+)
+
+container_image(
+    name = "image",
+    base = "@container_golang_base",
+    entrypoint = ["/enfabrica/bin/cmd"],
+    tars = [":tar"],
 )
 
 container_push(
-    name = "upload-shim",
-    format = "Docker",
-    image = ":bb-shim",
-    registry = "gcr.io",
-    repository = "devops-284019/infra/bb-shim",
-    tag = "latest",
-    visibility = ["//visibility:public"],
+    name = "image_push",
+    image = ":image",
+    image_path = "bb-shim",
+    namespace = "infra",
+    remote_tags = ["latest"],
 )

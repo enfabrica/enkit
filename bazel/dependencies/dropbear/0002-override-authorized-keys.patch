@@ -1,0 +1,127 @@
+From 664e175ae076757246ede342a264e91e348fecd8 Mon Sep 17 00:00:00 2001
+From: Carlo Contavalli <carlo@enfabrica.net>
+Date: Thu, 14 Nov 2024 18:02:44 +0000
+Subject: [PATCH 2/3] override authorized keys
+
+---
+ src/runopts.h        |  3 +++
+ src/svr-authpubkey.c | 38 +++++++++++++++++++++++---------------
+ src/svr-runopts.c    | 10 ++++++++++
+ 3 files changed, 36 insertions(+), 15 deletions(-)
+
+diff --git a/src/runopts.h b/src/runopts.h
+index a79e022..317d540 100644
+--- a/src/runopts.h
++++ b/src/runopts.h
+@@ -138,6 +138,9 @@ typedef struct svr_runopts {
+ 	char *pubkey_plugin_options;
+ #endif
+ 
++	/* If not NULL, overrides the location of the authorized_keys file */
++	char *authorized_keys_file;
++
+ 	int pass_on_env;
+ 
+ } svr_runopts;
+diff --git a/src/svr-authpubkey.c b/src/svr-authpubkey.c
+index 5d298cb..64723df 100644
+--- a/src/svr-authpubkey.c
++++ b/src/svr-authpubkey.c
+@@ -458,22 +458,30 @@ static int checkpubkey(const char* keyalgo, unsigned int keyalgolen,
+ 		dropbear_exit("Failed to set euid");
+ 	}
+ #endif
+-	/* check file permissions, also whether file exists */
+-	if (checkpubkeyperms() == DROPBEAR_FAILURE) {
+-		TRACE(("bad authorized_keys permissions, or file doesn't exist"))
+-	} else {
+-		/* we don't need to check pw and pw_dir for validity, since
+-		 * its been done in checkpubkeyperms. */
+-		len = strlen(ses.authstate.pw_dir);
+-		/* allocate max required pathname storage,
+-		 * = path + "/.ssh/authorized_keys" + '\0' = pathlen + 22 */
+-		filename = m_malloc(len + 22);
+-		snprintf(filename, len + 22, "%s/.ssh/authorized_keys",
+-					ses.authstate.pw_dir);
+-
+-		authfile = fopen(filename, "r");
++	if (svr_opts.authorized_keys_file) {
++		authfile = fopen(svr_opts.authorized_keys_file, "r");
+ 		if (!authfile) {
+-			TRACE(("checkpubkey: failed opening %s: %s", filename, strerror(errno)))
++			TRACE(("checkpubkey: failed flag configured authorized keys file %s: %s",
++				svr_opts.authorized_keys_file, strerror(errno)))
++		}
++	} else {
++		/* check file permissions, also whether file exists */
++		if (checkpubkeyperms() == DROPBEAR_FAILURE) {
++			TRACE(("bad authorized_keys permissions, or file doesn't exist"))
++		} else {
++			/* we don't need to check pw and pw_dir for validity, since
++			 * its been done in checkpubkeyperms. */
++			len = strlen(ses.authstate.pw_dir);
++			/* allocate max required pathname storage,
++			 * = path + "/.ssh/authorized_keys" + '\0' = pathlen + 22 */
++			filename = m_malloc(len + 22);
++			snprintf(filename, len + 22, "%s/.ssh/authorized_keys",
++						ses.authstate.pw_dir);
++
++			authfile = fopen(filename, "r");
++			if (!authfile) {
++				TRACE(("checkpubkey: failed opening %s: %s", filename, strerror(errno)))
++			}
+ 		}
+ 	}
+ #if DROPBEAR_SVR_MULTIUSER
+diff --git a/src/svr-runopts.c b/src/svr-runopts.c
+index aaf199c..2540e8f 100644
+--- a/src/svr-runopts.c
++++ b/src/svr-runopts.c
+@@ -115,6 +115,8 @@ static void printhelp(const char * progname) {
+                                         "-A <authplugin>[,<options>]\n"
+                                         "               Enable external public key auth through <authplugin>\n"
+ #endif
++                                        "-O /path/to/authorized_keys_file\n"
++                                        "               Forces dropbear to always use this authorized keys file\n"
+ 					"-V    Version\n"
+ #if DEBUG_TRACE
+ 					"-v    verbose (repeat for more verbose)\n"
+@@ -152,6 +154,7 @@ void svr_getopts(int argc, char ** argv) {
+ #if DROPBEAR_PLUGIN
+         char* pubkey_plugin = NULL;
+ #endif
++        char* authorized_keys_file = NULL;
+ 
+ 
+ 	/* see printhelp() for options */
+@@ -185,6 +188,7 @@ void svr_getopts(int argc, char ** argv) {
+         svr_opts.pubkey_plugin = NULL;
+         svr_opts.pubkey_plugin_options = NULL;
+ #endif
++	svr_opts.authorized_keys_file = NULL;
+ 	svr_opts.pass_on_env = 0;
+ 	svr_opts.reexec_childpipe = -1;
+ 
+@@ -332,6 +336,9 @@ void svr_getopts(int argc, char ** argv) {
+                                         next = &pubkey_plugin;
+                                         break;
+ #endif
++                                case 'O':
++                                        next = &authorized_keys_file;
++                                        break;
+ #if DEBUG_TRACE
+ 				case 'v':
+ 					debug_trace++;
+@@ -463,6 +470,9 @@ void svr_getopts(int argc, char ** argv) {
+ 		svr_opts.pubkey_plugin_options = args;
+ 	}
+ #endif
++	if (authorized_keys_file) {
++		svr_opts.authorized_keys_file = m_strdup(authorized_keys_file);
++	}
+ }
+ 
+ static void addportandaddress(const char* spec) {
+-- 
+2.47.0
+

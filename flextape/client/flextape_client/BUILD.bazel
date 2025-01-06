@@ -1,3 +1,4 @@
+load("//bazel/astore:defs.bzl", "astore_upload")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
@@ -17,4 +18,13 @@ go_binary(
     name = "flextape_client",
     embed = [":flextape_client_lib"],
     visibility = ["//visibility:public"],
+)
+
+astore_upload(
+    name = "astore_push",
+    file = "infra/flextape/flextape_client",
+    targets = [
+        ":flextape_client",
+    ],
+    visibility = ["//:__pkg__"],
 )

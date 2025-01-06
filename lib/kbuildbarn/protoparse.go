@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DefaultBBClientdCasFileTemplate     = "cas/%s/blobs/file/%s-%s"
+	DefaultBBClientdCasFileTemplate     = "cas/blobs/sha256/file/%s-%s"
 	DefaultBBClientdScratchFileTemplate = "scratch/%s/%s/%s"
 )
 
@@ -64,7 +64,7 @@ func parsePathPrefix(prefix []string) string {
 
 // GenerateLinksForFiles will generate a HardlinkList who has a list of all symlinks from a list of *bespb.File msg.
 // If the msg has no files, it will return nil.
-func GenerateLinksForFiles(filesPb []*bespb.File, baseName, destPrefix, invocationPrefix, clusterName string) HardlinkList {
+func GenerateLinksForFiles(filesPb []*bespb.File, baseName, destPrefix, invocationPrefix string) HardlinkList {
 	var toReturn []*Hardlink
 	for _, f := range filesPb {
 		digest := f.Digest
@@ -87,7 +87,7 @@ func GenerateLinksForFiles(filesPb []*bespb.File, baseName, destPrefix, invocati
 		}
 		simSource := File(baseName, "sha256", digest, size,
 			WithFileTemplate(DefaultBBClientdCasFileTemplate),
-			WithTemplateArgs(clusterName, digest, size))
+			WithTemplateArgs(digest, size))
 		simDest := filepath.Clean(File(baseName, "sha256", digest, size,
 			WithFileTemplate(DefaultBBClientdScratchFileTemplate),
 			WithTemplateArgs(invocationPrefix, destPrefix, f.Name)))

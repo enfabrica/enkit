@@ -3,7 +3,6 @@ core.workflow(
     origin = git.origin(
         url = "https://github.com/buildbuddy-io/buildbuddy",
         ref = "372b95b41a6ed82da632ee44ff0c48071c849c21",  # master as of 26Jan2022
-        partial_fetch = True,
     ),
     destination = git.github_pr_destination(
         url = "https://github.com/enfabrica/enkit",
@@ -19,8 +18,10 @@ core.workflow(
     destination_files = glob(
         ["third_party/buildbuddy/**"],
         exclude = [
+            "third_party/buildbuddy/copy.bara.sky",
             "third_party/buildbuddy/README.md",
             "third_party/buildbuddy/**/BUILD.bazel",
+            "third_party/buildbuddy/proto/empty.go",
         ],
     ),
     authoring = authoring.overwrite(default = "Copybara <noreply@enfabrica.net>"),

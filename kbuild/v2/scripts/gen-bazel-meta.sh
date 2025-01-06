@@ -15,14 +15,18 @@ LIB_SH="$(dirname $(realpath $0))/lib.sh"
 . $LIB_SH
 
 OUTPUT_DEB_ROOT="$(realpath $1)"
-KERNEL_FLAVOURS="$2"
-ASTORE_ROOT="$3"
-ASTORE_META_DIR="$4"
-KERNEL_LABEL="$5"
+ARCH="$2"
+FLAVOUR="$3"
+ASTORE_ROOT="$4"
+ASTORE_META_DIR="$5"
+KERNEL_LABEL="$6"
 
-bazel_kernel_file="${ASTORE_META_DIR}/kernel.version.bzl"
+bazel_kernel_file="${ASTORE_META_DIR}/kernel-${ARCH}-${FLAVOUR}.version.bzl"
 rm -f "$bazel_kernel_file"
 touch "$bazel_kernel_file"
+
+# This script only handles one flavour at a time now.
+KERNEL_FLAVOURS="$FLAVOUR"
 
 get_sha256() {
     local astore_meta="$1"
@@ -58,15 +62,17 @@ gen_artifact_desc() {
         exit 1
     fi
 
-    # Upcase the flavour name
+    # Upcase arch and flavour
+    local arch="$(echo -n $ARCH | tr [:lower:] [:upper:])"
     local FLAVOUR="$(echo -n $flavour | tr [:lower:] [:upper:])"
 
     local sha256=$(get_sha256 "$astore_meta")
     local uid=$(get_uid "$astore_meta")
 
     cat <<EOF >> "$bazel_kernel_file"
-${artifact}_${KERNEL_LABEL}_${FLAVOUR} = {
+${artifact}_${KERNEL_LABEL}_${arch}_${FLAVOUR} = {
     "package":     "enf-${kernel_version}",
+    "arch":        "$ARCH",
     "sha256":      "$sha256",
     "astore_path": "$astore_path",
     "astore_uid":  "$uid",

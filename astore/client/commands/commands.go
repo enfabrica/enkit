@@ -58,10 +58,7 @@ func NewRoot(base *client.BaseFlags) *Root {
 			Short:         "Push, pull, and publish build artifacts",
 			SilenceUsage:  true,
 			SilenceErrors: true,
-			Example: `  $ astore login carlo@enfabrica.net
-        To obtain credentials to store/retrieve artifacts.
-
-  $ astore upload build.out
+			Example: `  $ astore upload build.out
         To upload a file in the artifact repository.
 
   $ astore upload build.out@experiments/builds/
@@ -176,7 +173,7 @@ func SystemArch() string {
 func NewDownload(root *Root) *Download {
 	command := &Download{
 		Command: &cobra.Command{
-			Use:     "download",
+			Use:     "download <path|uid>...",
 			Short:   "Downloads an artifact",
 			Aliases: []string{"down", "get", "pull", "fetch"},
 		},

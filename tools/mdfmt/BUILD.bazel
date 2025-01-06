@@ -1,11 +1,6 @@
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("//bazel/utils:diff_test.bzl", "diff_test")
 load("//tools/mdfmt:mdfmt.bzl", "mdfmt_filter")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
-
-bzl_library(
-    name = "mdfmt_bzl",
-)
 
 py_binary(
     name = "mdfmt",

@@ -3,12 +3,17 @@
 See README.md for more information.
 """
 
+load("@rules_distroless//distroless:toolchains.bzl", "distroless_register_toolchains")
 load("@aspect_rules_js//npm:npm_import.bzl", "npm_translate_lock")
 load("@com_github_bazelbuild_remote_apis//:repository_rules.bzl", "switched_rules_by_language")
 load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 load("@google_jsonnet_go//bazel:repositories.bzl", "jsonnet_go_repositories")
 load("@google_jsonnet_go//bazel:deps.bzl", "jsonnet_go_dependencies")
 load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_register_toolchains")
+load("@rules_oci//oci:repositories.bzl", "LATEST_CRANE_VERSION", "oci_register_toolchains")
+load("@rules_oci//oci:pull.bzl", "oci_pull")
+#load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
+load("@rules_proto_grpc//python:repositories.bzl", rules_proto_grpc_python_repos = "python_repos")
 load("@rules_python//python:pip.bzl", "pip_parse")
 load("@python3_8//:defs.bzl", "interpreter")
 
@@ -20,6 +25,8 @@ def stage_3():
     * A transitive load statement that references a repository that doesn't
       exist until stage 2 completes
     """
+
+    distroless_register_toolchains()
 
     pip_parse(
         name = "enkit_pip_deps",
@@ -36,9 +43,16 @@ def stage_3():
 
     grpc_extra_deps()
 
+    rules_proto_grpc_python_repos()
+
     jsonnet_go_repositories()
 
     jsonnet_go_dependencies()
+
+    oci_register_toolchains(
+        name = "oci",
+        crane_version = LATEST_CRANE_VERSION,
+    )
 
     # Begin buildbarn ecosystem dependencies
     nodejs_register_toolchains(

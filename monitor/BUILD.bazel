@@ -1,4 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel/utils/container:container.bzl", "container_image", "container_push")
 
 go_library(
     name = "monitor_lib",
@@ -23,26 +25,27 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-load("@io_bazel_rules_docker//container:container.bzl", "container_push")
-
-go_image(
-    name = "monitor-image",
-    args = ["$(location :probes.toml)"],
-    base = "@golang_base//image",
-    binary = ":monitor",
-    data = [
-        ":probes.toml",
+pkg_tar(
+    name = "tar",
+    srcs = [
+        "probes.toml",
+        ":monitor",
     ],
-    visibility = ["//visibility:public"],
+    package_dir = "/enfabrica/bin",
+)
+
+container_image(
+    name = "image",
+    base = "@container_golang_base",
+    cmd = ["/enfabrica/bin/probes.toml"],
+    entrypoint = ["/enfabrica/bin/monitor"],
+    tars = [":tar"],
 )
 
 container_push(
-    name = "upload-monitor-image",
-    format = "Docker",
-    image = ":monitor-image",
-    registry = "gcr.io",
-    repository = "devops-284019/infra/monitor",
-    tag = "monitor-server",
-    visibility = ["//visibility:public"],
+    name = "image_push",
+    image = ":image",
+    image_path = "monitor",
+    namespace = "infra",
+    remote_tags = ["latest"],
 )

@@ -5,7 +5,8 @@
 #
 # Inputs:
 # - a flat directory containing the kernel .debs
-# - a space separated list of kernel flavours
+# - CPU architecture
+# - kernel flavour
 # - an output directory to place the generated APT repo
 
 set -e
@@ -14,12 +15,15 @@ LIB_SH="$(dirname $(realpath $0))/lib.sh"
 . $LIB_SH
 
 INPUT_DEB_ROOT="$(realpath $1)"
-KERNEL_FLAVOURS="$2"
-OUTPUT_REPO_ROOT="$(realpath $3)"
+ARCH="$2"
+FLAVOUR="$3"
+OUTPUT_REPO_ROOT="$4"
 
-ARCH=amd64
 DIST=focal
 COMP=main
+
+# This script only handles one flavour at a time now.
+KERNEL_FLAVOURS="$FLAVOUR"
 
 KERNEL_BASE=$(get_kernel_base $INPUT_DEB_ROOT)
 if [ -z "$KERNEL_BASE" ] ; then

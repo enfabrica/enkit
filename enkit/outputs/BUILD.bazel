@@ -11,11 +11,7 @@ go_library(
         "//lib/client",
         "//lib/karchive",
         "//lib/kbuildbarn",
-        "//lib/kbuildbarn/exec",
-        "//lib/logger",
         "//lib/multierror",
-        "//proxy/ptunnel",
-        "//proxy/ptunnel/exec",
         "@com_github_spf13_cobra//:cobra",
     ],
 )

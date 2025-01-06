@@ -12,6 +12,7 @@
 #  https://jinja.palletsprojects.com/en/3.1.x/
 
 # standard libraries
+import inspect
 import json
 import os
 import re
@@ -36,7 +37,11 @@ flags.DEFINE_string("schema", None, "JSON schema to check against.")
 flags.DEFINE_multi_string("output", None, "Output files to generate.")
 flags.DEFINE_boolean("to_stdout", False, "Writes all output to stdout.")
 flags.DEFINE_multi_string("incdir", [], "Paths to search for template files.")
-flags.DEFINE_boolean("multigen_mode", False, "Generates a zip file containing a file for each data context index.")
+flags.DEFINE_boolean(
+    "multigen_mode",
+    False,
+    "Generates a zip file containing a file for each data context index.",
+)
 
 
 class RaisedError(jinja2.TemplateError):
@@ -50,7 +55,9 @@ class RaiseExtension(jinja2.ext.Extension):
     def parse(self, parser):
         ln = next(parser.stream).lineno
         message = parser.parse_expression()
-        return jinja2.nodes.CallBlock(self.call_method("_raise", [message], lineno=ln), [], [], [], lineno=ln)
+        return jinja2.nodes.CallBlock(
+            self.call_method("_raise", [message], lineno=ln), [], [], [], lineno=ln
+        )
 
     def _raise(self, msg, caller):
         raise RaisedError(msg)
@@ -98,13 +105,33 @@ def _merge(a, b, path=None):
         raise TypeError(f"Could not merge type {type(a)!r} with type {type(b)!r}.")
     return a
 
+def log_filter(text):
+    for frameinfo in inspect.stack():
+        template = frameinfo.frame.f_globals.get("__jinja_template__")
+        if template is not None:
+            break
+    lineno = 0
+    filename = "?"
+    if template is not None:
+        filename = template.filename
+        lineno = template.get_corresponding_lineno(inspect.currentframe().f_back.f_lineno)
+        logging.info(f"{filename}:{lineno}: {text}")
+    else:
+        logging.info(f"unknown source: {text}")
+    return ''
 
 class Template(data_loader.DataLoader):
     def __init__(self, other=None):
         super(Template, self).__init__()
         search_paths = ["."] + FLAGS.incdir
         self.env = jinja2.Environment(
-            extensions=["jinja2.ext.do", "jinja2.ext.loopcontrols", "jinja2.ext.debug", "jinja2_strcase.StrcaseExtension", RaiseExtension],
+            extensions=[
+                "jinja2.ext.do",
+                "jinja2.ext.loopcontrols",
+                "jinja2.ext.debug",
+                "jinja2_strcase.StrcaseExtension",
+                RaiseExtension,
+            ],
             loader=jinja2.FileSystemLoader(search_paths),
             keep_trailing_newline=True,
             autoescape=False,
@@ -119,11 +146,10 @@ class Template(data_loader.DataLoader):
                 "re_sub": re_sub_function,
             }
         )
-        self.env.filters.update(
-            {
-                "re_sub": re_sub_function,
-            }
-        )
+        self.env.filters.update({
+            "re_sub": re_sub_function,
+            "log": log_filter,
+        })
         self.context = {"_DATA": [], "_TEMPLATE": ""}
         self.template = None
         self.template_path = None
@@ -145,7 +171,7 @@ class Template(data_loader.DataLoader):
 
     def Override(self, override: str):
         k, v = override.split("=", 2)
-        self.context = _merge(self.context, {k: v })
+        self.context = _merge(self.context, {k: v})
 
     def LoadDataFile(self, path: str):
         # TODO(jonathan): support protobuffer?
@@ -232,7 +258,7 @@ class Template(data_loader.DataLoader):
         output = self.Render()
         if FLAGS.to_stdout:
             sys.stdout.write(output)
-            logging.info("Wrote %d bytes to stdout", len(output))
+            logging.vlog(1, "Wrote %d bytes to stdout", len(output))
         elif FLAGS.multigen_mode:
             if len(FLAGS.output) != 1:
                 logging.error("Only one output zip file can be specified in multimode.")
@@ -244,7 +270,7 @@ class Template(data_loader.DataLoader):
             with open(output_file, "w") as fd:
                 fd.write(output)
                 fd.close()
-            logging.vlog(2, "Wrote %d bytes to %r", len(output), output_file)
+            logging.vlog(1, "Wrote %d bytes to %r", len(output), output_file)
 
 
 def main(argv):
@@ -254,19 +280,26 @@ def main(argv):
     for override in FLAGS.override:
         context.Override(override)
     context.FixToplevelNames()
-    for path in argv[1:]:
+    template_files = argv[1:]
+    if len(template_files) > 1 and FLAGS.output:
+        logging.error("You cannot specify --output files when multiple templates are present")
+        sys.exit(1)
+    for path in template_files:
         t = Template(context)
         t.LoadTemplate(path)
         if FLAGS.multigen_mode:
+            logging.vlog(1, "Is in multigen mode")
             for k in t.GetContextKeys():
                 if k.startswith("_"):
                     continue
                 subt = t.GetSubcontext(k)
                 subt.RenderToOutput(k)
         elif FLAGS.output:
-            for path in FLAGS.output:
-                t.RenderToOutput(path)
+            for output in FLAGS.output:
+                logging.vlog(1, "Output = %r", output)
+                t.RenderToOutput(output)
         else:
+            logging.vlog(1, "Output is inferred")
             t.RenderToOutput(t.InferOutputFile())
 
 

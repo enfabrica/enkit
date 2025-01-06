@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "sqldb",
+    srcs = ["sqldb.go"],
+    importpath = "github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice/sqldb",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//experimental/nomad_resource_plugin/licensedevice/types",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgxpool",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@org_golang_x_exp//slog",
+    ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":sqldb",
+    visibility = ["//visibility:public"],
+)

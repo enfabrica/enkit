@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "str",
+    srcs = ["pointer.go"],
+    importpath = "github.com/enfabrica/enkit/lib/str",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":str",
+    visibility = ["//visibility:public"],
+)

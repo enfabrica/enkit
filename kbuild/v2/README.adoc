@@ -7,25 +7,27 @@ astore.
 
 == TL;DR -- Building For Production
 
-Current as of 05/16/2022:
+Current as of 06/06/2024:
 
-To publish the kernel artifacts, run `kpub-astore` like this:
+To build and publish the amd64 and arm64 kernel artifacts, run
+`kpub-astore` like this:
 
-  $ kpub-astore -b enf/impish-19.19 -l ENF_UBUNTU_IMPISH -a kernel
+  $ kpub-astore -b enf-6.3.12 -l ENF_UBUNTU_IMPISH -a kernel
 
 The `-b` option specifies the git branch in the kernel tree. Here we
-are using `enf/impish-19.19`.
+are using `enf-6.3.12`.
 
 The `-l` option specifies the Bazel kernel label, which is used to
 form various Bazel variables.  Here we are using `ENF_UBUNTU_IMPISH`.
 
-The `-a` option specifies the root path in astore.  For a kernel
-flavour, the artifacts are published to
-`<astore_root>/<git-branch>/<flavour>`.  Here we are using the
-production path `kernel`, which will publish artifacts to the
-following paths:
+The `-a` option specifies the root path in astore.
 
-  kernel/enf/impish-19.19/generic  (Ubuntu generic)
+The artifacts are published to `<astore_root>/<git-branch>`.  Here we
+are using the production path `kernel`, which will publish artifacts
+to the following paths:
+
+  kernel/enf-6.3.12/generic         (Ubuntu amd64-generic)
+  kernel/enf-6.3.12/arm64/emulator  (Ubuntu arm64-emulator)
 
 The build outputs a Bazel file, suitable for checking into the
 internal repo in `bazel/kernel.version.bzl`.
@@ -67,7 +69,8 @@ The inputs to `kpub-astore` are:
 
 - A git branch to check out and build.
 
-- A list of Ubuntu-style kernel flavours to build.
+- A list of "kernel specs", which are CPU architectures and
+  Ubuntu-style kernel flavours to build.
 
 - A scratch directory to use for downloading and building.
 
@@ -114,6 +117,15 @@ following arguments:
 This is a tarball of the kernel vmlinuz image and all the modules from
 `lib/modules/<kernel-version>`.  This tarball is used by bazel to run
 tests using QEMU.
+
+=== ARM64 Only: A Tarball of a kernel module build area and kernel Image
+
+This output contains the following:
+
+- a build directory that is to be used for building out of tree kernel
+  modules.
+
+- The kernel image.
 
 == Install Kernel Packages via APT
 

@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.46
+gee version: 0.2.51
 
 gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
 tools  gee is an opinionated tool that implements a specific, simple, powerful
@@ -116,6 +116,10 @@ review.
 * `YESYESYES`: If set to a non-zero integer, will cause all yes/no prompts within `gee` to automatically
   select "yes".
 
+* `gee` looks in a few places to find the tools it needs, but if gee has a hard time finding the
+  right version of a tool, you can force `gee` to use a specific path by setting any or all
+  of the variables `GIT`, `JQ`, `GH`, and `ENKIT`.
+
 * The following environment variables can be set to a curses color value to override gee's default
   color scheme.  (The `gee colortest` command can be used to dump a color table and examples of the
   current color scheme.)
@@ -136,6 +140,11 @@ review.
 * `VERBOSE`: If set to a non-zero integer, will cause additional debug information to be logged.
   For developer use only.
 
+* `GEE_ENABLE_PRESUBMIT_CANCEL`: If set to any value other than 0, will cause
+  gee to cancel any running presubmit job when pushing a change to remote
+  branch with an open PR.  Setting to 0 will disable this functionality.  This
+  feature is no longer experimental and now defaults to enabled.
+
 See also: `gee help bash_setup` for more environment variables to help you customize the git-aware
 prompt that `gee bash_setup` makes available.
 
@@ -150,9 +159,11 @@ prompt that `gee bash_setup` makes available.
 | <a href="#codeowners">`codeowners`</a> | Provide detailed information about required approvals for this PR. |
 | <a href="#commit">`commit`</a> | Commit all changes in this branch |
 | <a href="#config">`config`</a> | Set various configuration options. |
+| <a href="#copy">`copy`</a> | Copy files (preserving history). |
 | <a href="#create_ssh_key">`create_ssh_key`</a> | Create and enroll an ssh key. |
 | <a href="#diagnose">`diagnose`</a> | Capture diagnostics about your repository. |
 | <a href="#diff">`diff`</a> | Differences in this branch. |
+| <a href="#difftool">`difftool`</a> | Runs the difftool to compare changes in a file. |
 | <a href="#find">`find`</a> | Finds a file by name in the current branch. |
 | <a href="#fix">`fix`</a> | Run automatic code formatters over changed files only. |
 | <a href="#gcd">`gcd`</a> | Change directory to another branch. |
@@ -166,6 +177,7 @@ prompt that `gee bash_setup` makes available.
 | <a href="#make_branch">`make_branch`</a> | Create a new child branch based on the current branch. |
 | <a href="#migrate_default_branch">`migrate_default_branch`</a> | Migrate to a new default branch. |
 | <a href="#pack">`pack`</a> | Exports all unsubmitted changes in this branch as a pack file. |
+| <a href="#pr_cancel">`pr_cancel`</a> | Cancels any running gcloud builds associated with this branch. |
 | <a href="#pr_checkout">`pr_checkout`</a> | Create a client containing someone's pull request. |
 | <a href="#pr_check">`pr_check`</a> | Checks the status of presubmit tests for a PR. |
 | <a href="#pr_edit">`pr_edit`</a> | Edit an existing pull request. |
@@ -189,7 +201,6 @@ prompt that `gee bash_setup` makes available.
 | <a href="#update">`update`</a> | integrate changes from parent into this branch. |
 | <a href="#upgrade">`upgrade`</a> | Upgrade the gee tool. |
 | <a href="#version">`version`</a> | Print tool version information. |
-| <a href="#vimdiff">`vimdiff`</a> | Runs vimdiff to compare changes in a file. |
 | <a href="#whatsout">`whatsout`</a> | List locally changed files in this branch. |
 
 ## Commands
@@ -214,25 +225,42 @@ Usage: `gee config <option>`
 Valid configuration options are:
 
 * "default": Reset to default settings.
-* "enable_vim": Set "vimdiff" as your merge tool.
-* "enable_emacs": Set "emacs" as your merge tool.
-* "enable_vscode": Set "vscode" as your GUI merge tool.
-* "enable_meld": Set "meld" as your GUI merge tool.
-* "enable_bcompare": Set "BeyondCompare" as your GUI merge tool.
+* "enable_vim": Set "vimdiff" as your diff/merge tool.
+* "enable_nvim": Set "nvimdiff" as your diff/merge tool.
+* "enable_emacs": Set "emacs" as your diff/merge tool.
+* "enable_vscode": Set "vscode" as your GUI diff/merge tool.
+* "enable_meld": Set "meld" as your GUI diff/merge tool.
+* "enable_bcompare": Set "BeyondCompare" as your GUI diff/merge tool.
 
 ### make_branch
 
 Aliases: mkbr
 
-Usage: `gee make_branch <branch-name> [<commit-ish>]`
+Usage: `gee make_branch <branch-name> [<parent-branch>]`
 Aliases: mkbr
 
-Create a new branch based on the current branch.  The new branch will be located in the
+Create a new branch based.  The new branch will be located in the
 directory:
   ~/gee/<repo>/<branch-name>
 
-If <commit-ish> is provided, sets the HEAD of the newly created branch to that
-revision.
+If the parent branch is not specified, the current branch is used as the parent
+branch.  An arbitrary upstream branch may be specified as the parent branch
+(ie. `upstream/master_a0`).
+
+Note that if the parent branch is a non-master upstream branch, any PR created
+from this branch (or a child of this branch) will use that non-master branch
+as the base branch to merge into.
+
+If a matching branch exists in origin (ie, if `origin/<branch-name>` exists),
+gee will ask the user if they want to integrate commits from origin into the
+current branch.
+
+For example:
+
+    cd $(gee gcd bar)
+    gee make_branch foo  # foo is a child branch of the current branch, bar
+    gee make_branch based_on_master upstream/master
+    gee make_branch based_on_fork_a0 upstream/fork_a0
 
 ### log
 
@@ -263,8 +291,13 @@ If <files...> are omited, shows changes to all files.
 
 Usage: `gee find [options] <expression>`
 
-Searches the current branch for the specified expression.  Equivalent
-to running:
+Searches the current branch for a file whose name matches the specified
+expression.  Will initially search for the file without traversing symlinks.
+If it fails to find any files, it will search again in the bazel-bin
+subdirectory (and follow symlinks) to see if the file is generated by a bazel
+rule.
+
+Roughly equivalent to running:
 
     find -L "$(git rev-parse --show-toplevel)" -name .git -prune -or \
          -name "${expression}" -print
@@ -295,22 +328,25 @@ Example of use:
 
     grg -l fdst
 
-### vimdiff
+### difftool
 
-Usage: `gee vimdiff <filename>`
+Usage: `gee difftool <filename>`
 
-Invokes vimdiff to show and edit the changes to a specific file in the current
+Invokes difftool to show and edit the changes to a specific file in the current
 branch, versus the version in the parent branch.  This can be useful to clean
 up local changes, especially after resolving merge conflicts.
 
 If installed, neovim will be used.  Otherwise, gee will fallback to vim.
 
 When working in a branch created with `pr_checkout`, the parent branch isn't
-a local worktree, and so vimdiff will produce an error and fail.
+a local worktree, and so difftool will produce an error and fail.
 
 Example of use:
 
-    gee vimdiff BUILD.bazel
+    gee difftool BUILD.bazel
+
+See also: the "gee config" command can be used to select between different
+supported diff/merge tools.
 
 ### pack
 
@@ -478,6 +514,11 @@ pr_checkout`, your commits will be pushed to your `origin` remote, and the
 remote PR branch.  To contribute your changes back to another user's PR branch,
 use the `gee pr_push` command.
 
+Unless GEE_ENABLE_PRESUBMIT_CANCEL feature is disabled, gee
+will check to see if pushing the current commit will invalidate a presubmit job
+in the `pending` state.  If this is the case, gee will kill the previous
+presubmit before pushing the changes and thus kicking off the new presubmit.
+
 Example:
 
     gee commit -m "Added \"gee commit\" command."
@@ -544,10 +585,13 @@ See also:
 
 Aliases: lspr list_pr prls
 
-Usage: `gee pr_list [<user>]`
+Usage: `gee pr_list [--text] [<user>]`
 
 Lists information about PRs associated with the specified user (or yourself, if
 no user is specified).
+
+The `--text` option provides an alternative formatting for a list of open PRs, more
+suitable for pasting into an email.
 
 Example:
 
@@ -566,6 +610,25 @@ Example:
 
     PRs pending their review:
     #1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
+
+An example of using the "--text" option:
+
+    $ /home/jonathan/gee/enkit/gee_lspr_format/scripts/gee lspr --text
+    * #29644: Lorem ipsum dolor sit amet
+      2023-12-30 APPROVED Checks passed.
+      https://github.com/enfabrica/internal/pull/29644
+
+    * #29641: consectetur adipiscing elit
+      2023-12-30 REVIEW_REQUIRED DRAFT Checks passed.
+      https://github.com/enfabrica/internal/pull/29641
+
+    * #29640: sed do eiusmod tempor incididunt
+      2023-12-30 APPROVED Checks passed.
+      https://github.com/enfabrica/internal/pull/29640
+
+    * #29625: ut labore et dolor magna aliqua
+      2023-12-29 REVIEW_REQUIRED Checks passed.
+      https://github.com/enfabrica/internal/pull/29625
 
 ### pr_edit
 
@@ -598,7 +661,21 @@ If you have any second thoughts during this process: Adding the token "DRAFT"
 to your PR description will cause the PR to be marked as a draft.  Adding the
 token "ABORT" will cause gee to abort the creation of your PR.
 
+`pr_make` will look at the recursive parentage of the current branch  until
+it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
+will be used as the "base" branch for the PR to be merged into.
+
 Uses the same options as "gh pr create".
+
+### pr_cancel
+
+Aliases: cancel cancel_pr
+
+Usage: `gee pr_cancel`
+
+Cancels any pending (status = QUEUED or WORKING) gcloud builds jobs
+associated with this branch.  This command can be used to cancel
+a set of presubmits that were triggered by a change to this branch.
 
 ### pr_check
 
@@ -670,7 +747,7 @@ out as formatting rules are highly project specific.
 
 ### gcd
 
-Usage: `gcd [-b] [-m] <branch>[/<path>]`
+Usage: `gcd [-b] [-m] [-B <parent>] <branch>[/<path>]`
 
 Print the path to an equivalent directory in another worktree (branch).
 This command is meant to be invoked from the "gcd" bash function, which
@@ -689,6 +766,8 @@ Options:
   exist.  The new branch is a child of the current branch.
 * "-m" causes gee to create a new branch if the specified branch doesn't
   exist.  The new branch is a child of the master (or main) branch.
+* "-B <parent>" causes gee to create a new branch if the specified branch
+  doesn't exist.  The new branch is a child of the specified parent branch.
 
 If only "<branch>" is specified, "gcd" will change directory to the same
 relative directory in another branch.  If "<branch>/<path>" is specified,
@@ -708,6 +787,10 @@ For example:
     gcd -m new_feature
     # now in new_feature/foo, a child branch of master.
 
+To create a new branch of a non-standard upstream master:
+
+    gcd -B upstream/master_a0 my_a0_feature_branch
+
 The "gcd" function also updates the following environment variables:
 
 * BROOT always contains the path to the root directory of the current branch.
@@ -717,7 +800,8 @@ The "gcd" function also updates the following environment variables:
 
 Usage: `gee hello`
 
-Verifies that the user can communicate with github using ssh.
+Verifies that the user can communicate with github using ssh and the
+github cli interface.
 
 For more information:
   https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh
@@ -731,6 +815,29 @@ This command will attempt to re-enroll you for ssh access to github.
 Normally, "gee init" will ensure that you have ssh access.  This command
 is only available if something else has gone wrong requiring that keys
 be updated.
+
+### copy
+
+Aliases: cp
+
+Usage: `gee copy <files...> <destination>`
+
+Creates a copy of one or more files, preserving git history.  (Just
+copying a file using cp will cause git to assume a new file, and
+not preserve history.)
+
+This operation will create a new commit containing the copy operation.
+All files being copied should be "clean" (committed, not staged) for
+this to work correctly.
+
+Destination may either be a filename or a directory.  When copying
+more than one file, destination must be a directory.
+
+Examples:
+
+    gee copy foo.txt bar.txt
+    mkdir bardir
+    gee copy foo.txt bar.txt bardir/
 
 ### share
 
@@ -748,17 +855,19 @@ any worktree (branch) that gee knows about, and offers to delete them.
 
 ### bisect
 
-Usage: `gee bisect [command...]`
+Usage: `gee bisect [--good <commit-ish>] command...`
 
 This command wraps the `git bisect` command, and attempts to discover
 a commit that causes the provided command to transition from a success
 to a failure.  During this process, gee will create a special branch
 named `bisect_<branchname>` to perform the bisect operation in.
 
-gee will attempt to find a previous last good commit by testing a day, a
-week, a month, 3 months, and finally six months into the past.  Once
-a past good commit is found, the `git bisect` command will be used to
-identify the commit that caused a transition from a pass to a fail.
+If "--good" is specified, gee will using the specified commit as the starting
+point for bisect (the first good commit, where the command is expected to
+succeed).  If "--good" is not used, gee will attempt to find a previous last
+good commit by testing a day, a week, a month, 3 months, and finally six months
+into the past.  Once a past good commit is found, the `git bisect` command will
+be used to identify the commit that caused a transition from a pass to a fail.
 
 gee assumes that the provided command will fail at the head revision.
 If this is not the case, the behavior of this command is undefined.

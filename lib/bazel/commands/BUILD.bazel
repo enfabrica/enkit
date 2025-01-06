@@ -1,18 +1,25 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "commands",
-    srcs = ["commands.go"],
+    srcs = [
+        "commands.go",
+        "target_list.go",
+    ],
     importpath = "github.com/enfabrica/enkit/lib/bazel/commands",
     visibility = ["//visibility:public"],
     deps = [
         "//enkit/proto",
         "//lib/bazel",
+        "//lib/bes",
         "//lib/client",
         "//lib/git",
         "//lib/logger",
+        "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
         "@com_github_spf13_cobra//:cobra",
         "@org_golang_google_protobuf//encoding/prototext",
+        "@org_golang_x_exp//maps",
+        "@org_golang_x_term//:term",
     ],
 )
 
@@ -20,4 +27,19 @@ alias(
     name = "go_default_library",
     actual = ":commands",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "commands_test",
+    srcs = ["target_list_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":commands"],
+    deps = [
+        "//lib/errdiff",
+        "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+        "@io_bazel_rules_go//go/runfiles:go_default_library",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
 )

@@ -1,0 +1,88 @@
+# enkit/allocation_manager/proto/config.proto::Config
+server {
+  queue_refresh_duration_seconds: 15
+  allocation_refresh_duration_seconds: 30
+  janitor_interval_seconds: 1
+  adoption_duration_seconds: 45
+}
+
+units {
+topology: {
+  name: "a"
+  config:
+"name: a\n"
+"nodes:\n"
+" node01:\n"
+"  hostname: nc-gpu-01.rdu\n"
+"GPUs:\n"
+" GPU0:\n"
+"  name: NVIDIA RTX A4000\n"
+"  vram: 16\n"
+"  busid: \"0:41:00.0\"\n"
+" GPU1:\n"
+"  name: Quadro RTX 4000\n"
+"  vram: 8\n"
+"  busid: \"0:81:00.0\"\n"
+  }
+}
+units {
+topology: {
+  name: "b"
+  config:
+"name: b\n"
+"nodes:\n"
+" node01:\n"
+"  hostname: nc-gpu-02.rdu\n"
+"GPUs:\n"
+" GPU0:\n"
+"  name: Quadro RTX 4000\n"
+"  vram: 8\n"
+"  busid: \"0:46:00.0\"\n"
+" GPU1:\n"
+"  name: NVIDIA RTX A4000\n"
+"  vram: 16\n"
+"  busid: \"0:C5:00.0\"\n"
+  }
+}
+units {  # from systest/config/topologies/back-to-back-nc-gpu-11-12.yaml
+topology: {
+  name: "back-to-back-nc-gpu-11-12"
+  config:
+"name: back-to-back-nc-gpu-11-12\n"
+"nodes:\n"
+" nc-gpu-11:\n"
+"  hostname: nc-gpu-11\n"
+" nc-gpu-12:\n"
+"  hostname: nc-gpu-12\n"
+"links:\n"
+"  - node_a: nc-gpu-11\n"
+"    node_a_ifname: eth2\n"
+"    node_b: nc-gpu-12\n"
+"    node_b_ifname: eth2\n"
+# nc-gpu-11 only:
+#"GPUs:\n"
+#" GPU0:\n"
+#"  name: Quadro RTX 4000\n"
+#"  vram: 8\n"
+#"  busid: \"0:01:00.0\"\n"
+#" GPU1:\n"
+#"  name: NVIDIA A100-PCIE-40GB\n"
+#"  vram: 40\n"
+#"  busid: \"0:81:00.0\"\n"
+  }
+}
+#units {
+#topology: {
+#  name: "nc-gpu-12.rdu"
+#  config:
+#"name: nc-gpu-12.rdu\n"
+#"nodes:\n"
+#" node01:\n"
+#"  hostname: nc-gpu-12.rdu\n"
+#"GPUs:\n"
+#" GPU0:\n"
+#"  name: Quadro RTX 4000\n"
+#"  vram: 8\n"
+#"  busid: \"0:01:00.0\"\n"
+#  }
+#}

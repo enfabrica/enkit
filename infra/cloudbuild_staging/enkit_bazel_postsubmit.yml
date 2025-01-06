@@ -8,14 +8,14 @@ build:
     entrypoint: /usr/bin/bazelisk
     env:
     - BAZEL_PROFILE=cloudbuild
-    name: gcr.io/devops-284019/developer:stable
+    name: us-docker.pkg.dev/enfabrica-container-images/infra-prod/developer@sha256:234a6f3523159b9b2d48f96367a160832cb44380743d7e84db78275ac061cb7f
   - args:
     - test
     - //...
     entrypoint: /usr/bin/bazelisk
     env:
     - BAZEL_PROFILE=cloudbuild
-    name: gcr.io/devops-284019/developer:stable
+    name: us-docker.pkg.dev/enfabrica-container-images/infra-prod/developer@sha256:234a6f3523159b9b2d48f96367a160832cb44380743d7e84db78275ac061cb7f
   timeout: 1200s
 createTime: '2021-12-22T17:00:24.852472140Z'
 id: 1b99a715-4526-4a8a-9667-e47f104e8f7d
