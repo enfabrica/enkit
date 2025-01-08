@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.51
+gee version: 0.2.52
 
 gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
 tools  gee is an opinionated tool that implements a specific, simple, powerful
@@ -587,48 +587,12 @@ Aliases: lspr list_pr prls
 
 Usage: `gee pr_list [--text] [<user>]`
 
+
 Lists information about PRs associated with the specified user (or yourself, if
 no user is specified).
 
 The `--text` option provides an alternative formatting for a list of open PRs, more
 suitable for pasting into an email.
-
-Example:
-
-    $ gee lspr jonathan-enf
-    PRs associated with this branch:
-    OPEN 1181 codegen tool
-
-    Open PRs authored by jonathan-enf:
-    #1205   REVIEW_REQUIRED Fix libsystemc build file error.
-    #1181   REVIEW_REQUIRED codegen tool
-    #1158   REVIEW_REQUIRED Added @gmp//:libgmpxx
-    #1148   REVIEW_REQUIRED Added gee to enkit.config.yaml.
-    #1136   REVIEW_REQUIRED Unified PtrQueue and Queue implementations.
-    #1130   REVIEW_REQUIRED Owners of /poc/{sim,models}
-    #1059   REVIEW_REQUIRED CSV file helper library
-
-    PRs pending their review:
-    #1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
-
-An example of using the "--text" option:
-
-    $ /home/jonathan/gee/enkit/gee_lspr_format/scripts/gee lspr --text
-    * #29644: Lorem ipsum dolor sit amet
-      2023-12-30 APPROVED Checks passed.
-      https://github.com/enfabrica/internal/pull/29644
-
-    * #29641: consectetur adipiscing elit
-      2023-12-30 REVIEW_REQUIRED DRAFT Checks passed.
-      https://github.com/enfabrica/internal/pull/29641
-
-    * #29640: sed do eiusmod tempor incididunt
-      2023-12-30 APPROVED Checks passed.
-      https://github.com/enfabrica/internal/pull/29640
-
-    * #29625: ut labore et dolor magna aliqua
-      2023-12-29 REVIEW_REQUIRED Checks passed.
-      https://github.com/enfabrica/internal/pull/29625
 
 ### pr_edit
 
