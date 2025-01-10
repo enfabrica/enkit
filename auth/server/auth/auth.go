@@ -21,6 +21,14 @@ import (
 	"time"
 )
 
+// Implements the Auth service defined in auth/proto/auth.proto file.
+//
+// Use the New() method to instantiate it. Invoke `Authenticate` to start
+// the authentication process, and `Token` to retrieve the generated token
+// at the end of it - which will not complete until `FeedToken` is
+// asynchronously invoked to confirm the identity of the user.
+//
+// See the definition of the protocol in the auth.proto file for more details.
 type Server struct {
 	rng                   *rand.Rand
 	serverPub, serverPriv *common.Key
