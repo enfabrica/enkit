@@ -64,7 +64,7 @@ type Jar struct {
 	cancel  context.CancelFunc
 }
 
-func (s *Server) GetChannel(cancel context.CancelFunc, pub common.Key) chan oauth.AuthData {
+func (s *Server) getChannel(cancel context.CancelFunc, pub common.Key) chan oauth.AuthData {
 	s.jarlock.Lock()
 	defer s.jarlock.Unlock()
 
@@ -103,7 +103,7 @@ func (s *Server) Authenticate(ctx context.Context, req *apb.AuthenticateRequest)
 }
 
 func (s *Server) FeedToken(key common.Key, cookie oauth.AuthData) {
-	channel := s.GetChannel(nil, key)
+	channel := s.getChannel(nil, key)
 	channel <- cookie
 }
 
@@ -113,7 +113,7 @@ func (s *Server) Token(ctx context.Context, req *apb.TokenRequest) (*apb.TokenRe
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	channel := s.GetChannel(cancel, *clientPub)
+	channel := s.getChannel(cancel, *clientPub)
 	select {
 	case <-ctx.Done():
 		return nil, status.Errorf(codes.Canceled, "context canceled while waiting for authentication")
