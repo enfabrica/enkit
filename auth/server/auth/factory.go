@@ -21,7 +21,7 @@ type Flags struct {
 	TimeLimit         time.Duration
 	AuthURL           string
 	Principals        string
-	UseGroups	  bool
+	UseGroups         bool
 	CA                []byte
 	UserCertTimeLimit time.Duration
 }
