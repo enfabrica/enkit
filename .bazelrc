@@ -26,6 +26,9 @@ run --incompatible_strict_action_env
 # rather than user.bazelrc as suggested in the Bazel docs)
 try-import %workspace%/.bazelrc.user
 
-# TODO(INFRA-4384): Remove this flag once all dependencies are compatible with
-# the new platforms repo for constraints.
-build --noincompatible_use_platforms_repo_for_constraints
+# Disable bzlmod since it is enabled by default.
+# Switch to bzlmod in bazel 8 once WORKSPACE files are deprecated
+# https://blog.bazel.build/2023/12/11/bazel-7-release.html
+build --noenable_bzlmod
+run --noenable_bzlmod
+test --noenable_bzlmod
