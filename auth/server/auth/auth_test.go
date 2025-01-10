@@ -85,6 +85,29 @@ func TestBasicAuth(t *testing.T) {
 	assert.Equal(t, 0, len(tresp.Capublickey), "%v", tresp.Capublickey)
 }
 
+func TestLogging(t *testing.T) {
+	rng := rand.New(srand.Source)
+	log := logger.NewAccumulator()
+
+	server, err := New(rng, WithAuthURL("static-prefix"), WithLogger(log))
+	assert.Nil(t, err, err)
+	assert.NotNil(t, server)
+
+	Authenticate(t, rng, server, nil)
+
+	events := log.Retrieve()
+
+	expected := []string{
+		`authenticate - id ........ user emma.goldman@writers.org - started`,
+		`token feed - id ........ user emma.goldman@writers.org groups \[\]`,
+		`token request - id ........`,
+		`token issued - id ........ user emma.goldman@writers.org groups \[\]`,
+	}
+	for ix, match := range expected {
+		assert.Regexp(t, match, events[ix].Message)
+	}
+}
+
 // Just in case your security scanner goes crazy on this:
 // This is a test key, it is actually not used anywehere, at all.
 // Yes, it has no passphrase.
