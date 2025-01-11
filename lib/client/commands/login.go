@@ -60,7 +60,25 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 		populator: populator,
 	}
 	login.Command.RunE = login.Run
-	login.retry.Wait = 10 * time.Second
+
+	// Authenticating requires the user to visit a website to complete oauth.
+	// During that time, the server will either keep the connection hanging (bad)
+	// or return an error (thus the client has to retry). If the client only retries
+	// 5 times (pre-2025 default), to allow the user 30 mins for authentication, the
+	// server must keep connections open for at least 6 minutes - which is high.
+	//
+	// Set the retry value to a very high number, so we can configure the server with
+	// significantly more aggressive timeouts, while allowing enough time for the
+	// user to complete the process.
+	//
+	// A value of 1800 retries, will allow about 30 mins to complete auth assuming
+	// the server keeps the connection open for about 1 second.
+	login.retry.AtMost = 1800
+	// A value of 10 seconds (pre-2025 default) means that the minimum connection
+	// open time on the server is also ~10 seconds, otherwise the user would see
+	// the client wait for ~10 seconds between attempts to retrieve the token.
+	// Set this (the minimum wait time) to a much more aggressive value.
+	login.retry.Wait = 1 * time.Second
 
 	login.Flags().StringVar(&login.BbclientdAddress, "bbclientd-address", "localhost:8981", "bbcliend address")
 	login.Flags().MarkHidden("bbclientd-address")
