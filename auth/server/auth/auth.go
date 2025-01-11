@@ -21,6 +21,14 @@ import (
 	"time"
 )
 
+// Implements the Auth service defined in auth/proto/auth.proto file.
+//
+// Use the New() method to instantiate it. Invoke `Authenticate` to start
+// the authentication process, and `Token` to retrieve the generated token
+// at the end of it - which will not complete until `FeedToken` is
+// asynchronously invoked to confirm the identity of the user.
+//
+// See the definition of the protocol in the auth.proto file for more details.
 type Server struct {
 	rng                   *rand.Rand
 	serverPub, serverPriv *common.Key
@@ -64,7 +72,7 @@ type Jar struct {
 	cancel  context.CancelFunc
 }
 
-func (s *Server) GetChannel(cancel context.CancelFunc, pub common.Key) chan oauth.AuthData {
+func (s *Server) getChannel(cancel context.CancelFunc, pub common.Key) chan oauth.AuthData {
 	s.jarlock.Lock()
 	defer s.jarlock.Unlock()
 
@@ -90,39 +98,103 @@ func (s *Server) GetChannel(cancel context.CancelFunc, pub common.Key) chan oaut
 	return jar.channel
 }
 
+// keyToLogId generates a human readable identifier from a key for logging.
+//
+// The key supplied is a public key generated at random by the client that is
+// used as a unique identifier throughout the codebase. It is passed around as
+// part of the authentication URL thus visible in the browser, cut and paste by
+// users, visible by oauth partners or other authentication endpoints.
+//
+// To turn the key into a unique identifier for logging, this function just
+// converts it to hex and discards all but 32 bits of entropy.
+func keyToLogId(key []byte) string {
+	if len(key) < 4 {
+		return "<invalid>"
+	}
+
+	return hex.EncodeToString(key[len(key)-4:])
+}
+
+// authDataToLogId returns a username and group membership to use for logging.
+func authDataToLogId(authData oauth.AuthData) (string, []string) {
+	var groups []string
+	username := "<unknown>"
+	if authData.Creds != nil {
+		username = authData.Creds.Identity.GlobalName()
+		groups = authData.Creds.Identity.Groups
+	}
+
+	return username, groups
+}
+
 func (s *Server) Authenticate(ctx context.Context, req *apb.AuthenticateRequest) (*apb.AuthenticateResponse, error) {
 	key, err := common.KeyFromSlice(req.Key)
 	if err != nil {
+		s.log.Infof("authenticate - id %s user %s@%s - error: %v", keyToLogId(req.Key), req.User, req.Domain, err)
 		return nil, err
 	}
 	resp := &apb.AuthenticateResponse{
 		Key: (*s.serverPub)[:],
 		Url: fmt.Sprintf("%s/%s", s.authURL, hex.EncodeToString(key[:])),
 	}
+
+	s.log.Infof("authenticate - id %s user %s@%s - started", keyToLogId((*key)[:]), req.User, req.Domain)
 	return resp, nil
 }
 
 func (s *Server) FeedToken(key common.Key, cookie oauth.AuthData) {
-	channel := s.GetChannel(nil, key)
+	username, groups := authDataToLogId(cookie)
+	id := keyToLogId(key[:])
+
+	s.log.Infof("token feed - id %s user %s groups %v", id, username, groups)
+
+	channel := s.getChannel(nil, key)
 	channel <- cookie
 }
 
-func (s *Server) Token(ctx context.Context, req *apb.TokenRequest) (*apb.TokenResponse, error) {
+func (s *Server) Token(ctx context.Context, req *apb.TokenRequest) (resp *apb.TokenResponse, err error) {
+	var authData oauth.AuthData
+	var id string
+
+	defer func() {
+		username, groups := authDataToLogId(authData)
+
+		cert := ""
+		if resp != nil {
+			if len(resp.Cert) > 0 {
+				cert = " (includes certificate)"
+			}
+		}
+		if id == "" {
+			s.log.Infof("token not issued - url %s - error: %v", req.Url, err)
+			return
+		}
+
+		if err != nil {
+			s.log.Infof("token not issued - failed id %s user %s groups %v - error: %v", id, username, groups, err)
+		} else {
+			s.log.Infof("token issued - id %s user %s groups %v%v", id, username, groups, cert)
+		}
+	}()
+
 	clientPub, err := common.KeyFromURL(req.Url)
 	if err != nil {
 		return nil, err
 	}
+	id = keyToLogId((*clientPub)[:])
+	s.log.Infof("token request - id %s", id)
+
 	ctx, cancel := context.WithCancel(ctx)
-	channel := s.GetChannel(cancel, *clientPub)
+	channel := s.getChannel(cancel, *clientPub)
 	select {
 	case <-ctx.Done():
 		return nil, status.Errorf(codes.Canceled, "context canceled while waiting for authentication")
 	case <-time.After(s.limit):
 		return nil, status.Errorf(codes.DeadlineExceeded, "timed out waiting for your lazy fingers to complete authentication")
 
-	case authData := <-channel:
+	case authData = <-channel:
 		var nonce [common.NonceLength]byte
-		if _, err := io.ReadFull(s.rng, nonce[:]); err != nil {
+		if _, err = io.ReadFull(s.rng, nonce[:]); err != nil {
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
 		}
 

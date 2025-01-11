@@ -21,7 +21,7 @@ type Flags struct {
 	TimeLimit         time.Duration
 	AuthURL           string
 	Principals        string
-	UseGroups	  bool
+	UseGroups         bool
 	CA                []byte
 	UserCertTimeLimit time.Duration
 }
@@ -165,6 +165,7 @@ func New(rng *rand.Rand, mods ...Modifier) (*Server, error) {
 		useGroups:  true,
 		jars:       map[common.Key]*Jar{},
 		limit:      30 * time.Minute,
+		log:        &logger.NilLogger{},
 	}
 
 	for _, m := range mods {

@@ -36,11 +36,47 @@ message HostCertificateResponse {
   bytes signedhostcert = 2; // The signed host certificate passed in the request.
 }
 
+// The Auth service provides tokens or host certificates to use for authentication.
+//
+// Tokens identify users (or agents in general) typically performing API calls or
+// accessing web based resources.
+//
+// Host certificates identify machines or API endpoints in general so users/agents
+// can be certain of the identity of the endpoint.
+//
+// For a token to be issued to a CLI tool:
+// 1. Invoke the Authenticate() method. This will return an URL for the
+//    user to visit with his own browser.
+// 2. Invoke the Token() method, repeatedly, with a pause in between attempts
+//    and a timeout. Once the user completes the browser based authentication,
+//    the Token() method will succeed and return a token.
+//
+// This works as visiting the URL returned by Authenticate() with a browser
+// kicks off some sort of web based authentication (oauth, saml, or ... - the auth
+// server gRPC endpoint is really agnostic to it), and at the end of the process,
+// out of band, the web server responsible for the authentication will confirm
+// the identity of the user to the auth server which will then issue a token.
+//
+// In the current (Jan/25) simple auth server implementation, the web server
+// performing the authentication is in the same binary as the gRPC auth
+// endpoint. The out of band step to confirm the identity of the user is
+// performed by invoking the `FeedToken` method.
+//
+// This simple implementation also mandates that the CLI tool and web based
+// authentication must be served by the same backend. Which means there's
+// either a single backend, or the load balancer is capable of guaranteeing
+// that a given IP is always sent to the same backend, or there's some other
+// form of "session stickyness".
+//
+// The HostCertificate issuing mechanism implementation is currently incomplete.
+// A certificate is always returned, with no real checking mechanism.
+// TODO: complete the HostCertificate implementation.
 service Auth {
   // Use to retrieve the url to visit to create an authentication token.
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   // Use to retrieve an authentication token.
   rpc Token(TokenRequest) returns (TokenResponse) {}
+
   // Used to retrieve an SSH certificate for a host.
   rpc HostCertificate(HostCertificateRequest) returns (HostCertificateResponse) {}
 }
