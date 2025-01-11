@@ -68,34 +68,33 @@ func (s *Server) HostCertificate(ctx context.Context, request *apb.HostCertifica
 
 type Jar struct {
 	created time.Time
-	channel chan oauth.AuthData
-	cancel  context.CancelFunc
+
+	lock sync.Mutex
+	// This channel is not used to distribute data to goroutines.
+	// Rather, goroutines will be blocked on this channel until it is CLOSED.
+	// Closing the channel signals that cookie below has been assigned.
+	//
+	// channel is guaranteed set at Jar creation time and before any possible
+	// user, must own lock for closing (to guarantee a single closer).
+	channel chan interface{}
+	cookie  oauth.AuthData // protected by lock, only set after channel is closed.
 }
 
-func (s *Server) getChannel(cancel context.CancelFunc, pub common.Key) chan oauth.AuthData {
+func (s *Server) getJar(pub common.Key) *Jar {
 	s.jarlock.Lock()
 	defer s.jarlock.Unlock()
 
 	jar := s.jars[pub]
 	if jar != nil {
-		if jar.cancel != nil {
-			jar.cancel()
-		}
-		jar.cancel = cancel
-		return jar.channel
+		return jar
 	}
 
 	jar = &Jar{
 		created: time.Now(),
-		// Hold at least one token in the buffer.
-		//
-		// This allows a client supllying a token to not block until the token
-		// has in facts been consumed.
-		channel: make(chan oauth.AuthData, 1),
-		cancel:  cancel,
+		channel: make(chan interface{}),
 	}
 	s.jars[pub] = jar
-	return jar.channel
+	return jar
 }
 
 // keyToLogId generates a human readable identifier from a key for logging.
@@ -116,10 +115,10 @@ func keyToLogId(key []byte) string {
 }
 
 // authDataToLogId returns a username and group membership to use for logging.
-func authDataToLogId(authData oauth.AuthData) (string, []string) {
+func authDataToLogId(authData *oauth.AuthData) (string, []string) {
 	var groups []string
 	username := "<unknown>"
-	if authData.Creds != nil {
+	if authData != nil && authData.Creds != nil {
 		username = authData.Creds.Identity.GlobalName()
 		groups = authData.Creds.Identity.Groups
 	}
@@ -143,17 +142,30 @@ func (s *Server) Authenticate(ctx context.Context, req *apb.AuthenticateRequest)
 }
 
 func (s *Server) FeedToken(key common.Key, cookie oauth.AuthData) {
-	username, groups := authDataToLogId(cookie)
+	username, groups := authDataToLogId(&cookie)
 	id := keyToLogId(key[:])
 
 	s.log.Infof("token feed - id %s user %s groups %v", id, username, groups)
 
-	channel := s.getChannel(nil, key)
-	channel <- cookie
+	jar := s.getJar(key)
+
+	jar.lock.Lock()
+	defer jar.lock.Unlock()
+
+	jar.cookie = cookie
+
+	// Once a cookie has been set, if channel is not closed, close it.
+	// A closed channel always returns the empty value without blocking.
+	// A blocking select (thus, channel is open, no value posted) invokes default.
+	select {
+	case <-jar.channel:
+	default:
+		close(jar.channel)
+	}
 }
 
 func (s *Server) Token(ctx context.Context, req *apb.TokenRequest) (resp *apb.TokenResponse, err error) {
-	var authData oauth.AuthData
+	var authData *oauth.AuthData
 	var id string
 
 	defer func() {
@@ -184,15 +196,18 @@ func (s *Server) Token(ctx context.Context, req *apb.TokenRequest) (resp *apb.To
 	id = keyToLogId((*clientPub)[:])
 	s.log.Infof("token request - id %s", id)
 
-	ctx, cancel := context.WithCancel(ctx)
-	channel := s.getChannel(cancel, *clientPub)
+	jar := s.getJar(*clientPub)
 	select {
 	case <-ctx.Done():
 		return nil, status.Errorf(codes.Canceled, "context canceled while waiting for authentication")
 	case <-time.After(s.limit):
 		return nil, status.Errorf(codes.DeadlineExceeded, "timed out waiting for your lazy fingers to complete authentication")
 
-	case authData = <-channel:
+	case <-jar.channel:
+		jar.lock.Lock()
+		defer jar.lock.Unlock()
+		authData = &jar.cookie
+
 		var nonce [common.NonceLength]byte
 		if _, err = io.ReadFull(s.rng, nonce[:]); err != nil {
 			return nil, status.Errorf(codes.Internal, "could not generate nonce - %s", err)
