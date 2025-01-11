@@ -26,14 +26,15 @@ type Login struct {
 	*cobra.Command
 	rng *rand.Rand
 
-	base      *client.BaseFlags
-	agent     *kcerts.SSHAgentFlags
+	base  *client.BaseFlags
+	agent *kcerts.SSHAgentFlags
+	retry *retry.Flags
+
 	populator kflags.Populator
 
 	BbclientdAddress string
 	Debug            bool
 	NoDefault        bool
-	MinWaitTime      time.Duration
 }
 
 // NewLogin creates a new Login command.
@@ -54,17 +55,21 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 		},
 		base:      base,
 		agent:     kcerts.SSHAgentDefaultFlags(),
+		retry:     retry.DefaultFlags(),
 		rng:       rng,
 		populator: populator,
 	}
 	login.Command.RunE = login.Run
+	login.retry.Wait = 10 * time.Second
 
 	login.Flags().StringVar(&login.BbclientdAddress, "bbclientd-address", "localhost:8981", "bbcliend address")
 	login.Flags().MarkHidden("bbclientd-address")
 	login.Flags().BoolVarP(&login.Debug, "debug", "d", false, "Print extra debugging information. Mostly useful for development")
 	login.Flags().BoolVarP(&login.NoDefault, "no-default", "n", false, "Do not mark this identity as the default identity to use")
-	login.Flags().DurationVar(&login.MinWaitTime, "min-wait-time", 10*time.Second, "Wait at least this long in between failed attempts to retrieve a token")
-	login.agent.Register(&kcobra.FlagSet{login.Flags()}, "")
+
+	klflags := &kcobra.FlagSet{login.Flags()}
+	login.agent.Register(klflags, "")
+	login.retry.Register(klflags, "login-")
 
 	return login
 }
@@ -184,7 +189,7 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	repeater := retry.New(retry.WithWait(l.MinWaitTime), retry.WithRng(l.rng))
+	repeater := retry.New(retry.FromFlags(l.retry), retry.WithRng(l.rng))
 	enCreds, err := kauth.PerformLogin(apb.NewAuthClient(conn), l.base.Log, repeater, l.rng, username, domain)
 	if err != nil {
 		return err
