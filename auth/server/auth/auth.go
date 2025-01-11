@@ -97,6 +97,12 @@ func (s *Server) getJar(pub common.Key) *Jar {
 	return jar
 }
 
+func (s *Server) dropJar(pub common.Key) {
+	s.jarlock.Lock()
+	defer s.jarlock.Unlock()
+	delete(s.jars, pub)
+}
+
 // keyToLogId generates a human readable identifier from a key for logging.
 //
 // The key supplied is a public key generated at random by the client that is
@@ -245,6 +251,19 @@ func (s *Server) Token(ctx context.Context, req *apb.TokenRequest) (resp *apb.To
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "error signing key - %s", err)
 		}
+
+		// Really, there's no guarantee that the jar will actually be dropped.
+		//
+		// Fundamentally the API allows to start / restart authentication requests with any
+		// key, including re-using the same one, without actually consuming the generated token.
+		// If multiple requests are performed on the same key, tokens not consumed, etc, the
+		// jar will "re-appera" in the map, and not be deleted.
+		//
+		// For the normal API use cases (99%), the call here will delete the jar as desired.
+		//
+		// TODO: have a periodic scrub that removes jars that have been inactive for too long,
+		// add some mechanism to prevent abuse of the API.
+		s.dropJar(*clientPub)
 		return &apb.TokenResponse{
 			Nonce:       nonce[:],
 			Token:       box.Seal(nil, []byte(authData.Cookie), &nonce, (*[32]byte)(clientPub), (*[32]byte)(s.serverPriv)),
