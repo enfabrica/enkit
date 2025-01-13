@@ -17,6 +17,9 @@ test --test_output=errors
 build --incompatible_strict_action_env
 run --incompatible_strict_action_env
 
+# https://stackoverflow.com/questions/78195396/bazel-cross-platform-build-fails-with-unable-to-find-a-cc-toolchain-using-toolc
+build --noincompatible_enable_cc_toolchain_resolution
+
 # Load any settings specific to the current user.
 # .bazelrc.user should appear in .gitignore so that settings are not shared with team members
 # This needs to be last statement in this
