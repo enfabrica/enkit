@@ -167,6 +167,7 @@ def stage_1():
 
     maybe(
         name = "com_google_absl",
+        integrity = "sha256-9Q5awxGoE4Laf6dblzEOS5AGR0+VYKxG9UqZZ/B9SuM=",
         repo_rule = http_archive,
         strip_prefix = "abseil-cpp-20240722.0",
         urls = ["https://github.com/abseil/abseil-cpp/releases/download/20240722.0/abseil-cpp-20240722.0.tar.gz"],
@@ -181,6 +182,7 @@ def stage_1():
 
     maybe(
         name = "com_google_googletest",
+        integrity = "sha256-e0K01u1IgQxTYsJloX+uvpDcI3PIheUhZDnTeSfwKSY=",
         repo_rule = http_archive,
         url = "https://github.com/google/googletest/releases/download/v1.15.2/googletest-1.15.2.tar.gz",
         strip_prefix = "googletest-1.15.2",
@@ -214,33 +216,18 @@ def stage_1():
 
     maybe(
         name = "com_github_grpc_grpc",
+        integrity = "sha256-zSVtkXgZEdRqV1BpeLOXm/7kXVCGobZmijrhnF53+Nw=",
         repo_rule = http_archive,
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/grpc:no_remote_tag.patch",
-            "@enkit//bazel/dependencies/grpc:use_hermetic_py_headers.patch",
-        ],
-        sha256 = "e18b16f7976aab9a36c14c38180f042bb0fd196b75c9fd6a20a2b5f934876ad6",
-        strip_prefix = "grpc-1.45.2",
-        urls = [
-            "https://github.com/grpc/grpc/archive/refs/tags/v1.45.2.tar.gz",
-        ],
+        strip_prefix = "grpc-1.69.0",
+        urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.69.0.tar.gz"],
     )
 
     # Required by com_github_bazelbuild_remote_apis
     maybe(
         name = "grpc",
         repo_rule = http_archive,
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/grpc:no_remote_tag.patch",
-            "@enkit//bazel/dependencies/grpc:use_hermetic_py_headers.patch",
-        ],
-        sha256 = "e18b16f7976aab9a36c14c38180f042bb0fd196b75c9fd6a20a2b5f934876ad6",
-        strip_prefix = "grpc-1.45.2",
-        urls = [
-            "https://github.com/grpc/grpc/archive/refs/tags/v1.45.2.tar.gz",
-        ],
+        strip_prefix = "grpc-1.69.0",
+        urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.69.0.tar.gz"],
     )
 
     maybe(
@@ -266,6 +253,7 @@ def stage_1():
 
     maybe(
         name = "com_google_protobuf",
+        integrity = "sha256-/jXxkNemNTOwZViRXW7kacvuFD3nCJHh3VTRl7BfNio=",
         repo_rule = http_archive,
         strip_prefix = "protobuf-5.29.3",
         urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v5.29.3.tar.gz"],
