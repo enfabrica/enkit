@@ -173,6 +173,13 @@ def stage_1():
     )
 
     maybe(
+        name = "abseil-cpp",
+        repo_rule = http_archive,
+        strip_prefix = "abseil-cpp-20240722.0",
+        urls = ["https://github.com/abseil/abseil-cpp/releases/download/20240722.0/abseil-cpp-20240722.0.tar.gz"],
+    )
+
+    maybe(
         name = "com_google_googletest",
         repo_rule = http_archive,
         url = "https://github.com/google/googletest/releases/download/v1.15.2/googletest-1.15.2.tar.gz",
