@@ -17,12 +17,6 @@ def stage_1():
     will override dependendencies loaded as part of later stages, which can be a
     way of forcing a dependency upgrade underneath e.g. io_bazel_rules_go.
     """
-#    maybe(
-#        name = "com_github_bazelbuild_remote_apis",
-#        repo_rule = http_archive,
-#        url = "https://github.com/bazelbuild/remote-apis/archive/refs/tags/v2.3.0.tar.gz",
-#        strip_prefix = "remote-apis-2.3.0",
-#    )
 
     maybe(
         name = "rules_python",

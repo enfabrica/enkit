@@ -11,8 +11,8 @@ proto_library(
 
 py_proto_library(
     name = "postsubmit_py_proto",
-    deps = [":postsubmit_proto"],
     visibility = ["//visibility:public"],
+    deps = [":postsubmit_proto"],
 )
 
 go_proto_library(
