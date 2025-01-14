@@ -27,12 +27,6 @@ def stage_3():
       exist until stage 2 completes
     """
 
-    rules_java_toolchains()
-
-    rules_proto_toolchains()
-
-    distroless_register_toolchains()
-
     pip_parse(
         name = "enkit_pip_deps",
         extra_pip_args = [
@@ -45,6 +39,12 @@ def stage_3():
         requirements_lock = "//:requirements.txt",
         python_interpreter_target = "@python3_8_host//:python",
     )
+
+    rules_java_toolchains()
+
+    rules_proto_toolchains()
+
+    distroless_register_toolchains()
 
     grpc_extra_deps()
 

@@ -46,10 +46,9 @@ py_proto_library(
     name = "build_event_stream_py_proto",
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party/bazel/src/main/protobuf:command_line_py_proto",
-        "//third_party/bazel/src/main/protobuf:failure_details_py_proto",
-        "//third_party/bazel/src/main/protobuf:invocation_policy_py_proto",
+        "//third_party/bazel/src/main/protobuf:command_line_proto",
+        "//third_party/bazel/src/main/protobuf:failure_details_proto",
+        "//third_party/bazel/src/main/protobuf:invocation_policy_proto",
         ":build_event_stream_proto",
-        "@com_google_protobuf//:protobuf_python",
     ],
 )

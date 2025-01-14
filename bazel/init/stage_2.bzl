@@ -26,11 +26,11 @@ load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
 load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+load("@rules_python_gazelle_plugin//:deps.bzl", _py_gazelle_deps = "gazelle_deps")
 load("@com_google_googletest//:googletest_deps.bzl", "googletest_deps")
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 load("@rules_java//java:rules_java_deps.bzl", "rules_java_dependencies")
 load("@com_google_protobuf//bazel/private:proto_bazel_features.bzl", "proto_bazel_features")  # buildifier: disable=bzl-visibility
-load("@rules_python_gazelle_plugin//:deps.bzl", _py_gazelle_deps = "gazelle_deps")
 
 def stage_2():
     """Stage 2 initialization for WORKSPACE.
@@ -45,6 +45,14 @@ def stage_2():
     """
     rules_java_dependencies()
     proto_bazel_features(name = "proto_bazel_features")
+
+    py_repositories()
+
+    python_register_toolchains(
+        name = "python3_8",
+        python_version = "3.8",
+        ignore_root_user_error = True,
+    )
 
     _py_gazelle_deps()
 
@@ -66,13 +74,7 @@ def stage_2():
 
     googletest_deps()
 
-    py_repositories()
 
-    python_register_toolchains(
-        name = "python3_8",
-        python_version = "3.8",
-        ignore_root_user_error = True,
-    )
 
     # Workaround for a bug where rules_python doesn't register
     # the python c toolchain ("py cc").

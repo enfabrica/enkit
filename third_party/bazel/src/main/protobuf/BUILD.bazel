@@ -32,6 +32,12 @@ proto_library(
     srcs = ["option_filters.proto"],
 )
 
+py_proto_library(
+    name = "option_filters_py_proto",
+    deps = [":option_filters_proto"],
+)
+
+
 proto_library(
     name = "invocation_policy_proto",
     srcs = ["invocation_policy.proto"],
@@ -52,25 +58,14 @@ py_proto_library(
     name = "command_line_py_proto",
     deps = [
         ":command_line_proto",
-        ":option_filters_py_proto",
+        ":option_filters_proto",
     ],
-)
-
-proto_library(
-    name = "options_filters_proto",
-    srcs = ["options_filters.proto"], 
-)
-
-py_proto_library(
-    name = "option_filters_py_proto",
-    deps = [":options_filters_proto"],
 )
 
 py_proto_library(
     name = "failure_details_py_proto",
     deps = [
         ":failure_details_proto",
-        "@com_google_protobuf//:protobuf_python",
     ],
 )
 

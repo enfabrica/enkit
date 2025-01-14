@@ -23,6 +23,23 @@ def stage_1():
 #        url = "https://github.com/bazelbuild/remote-apis/archive/refs/tags/v2.3.0.tar.gz",
 #        strip_prefix = "remote-apis-2.3.0",
 #    )
+
+    maybe(
+        name = "rules_python",
+        repo_rule = http_archive,
+        sha256 = "4f7e2aa1eb9aa722d96498f5ef514f426c1f55161c3c9ae628c857a7128ceb07",
+        strip_prefix = "rules_python-1.0.0",
+        url = "https://github.com/bazelbuild/rules_python/releases/download/1.0.0/rules_python-1.0.0.tar.gz",
+    )
+
+    maybe(
+        name = "rules_python_gazelle_plugin",
+        repo_rule = http_archive,
+        sha256 = "4f7e2aa1eb9aa722d96498f5ef514f426c1f55161c3c9ae628c857a7128ceb07",
+        strip_prefix = "rules_python-1.0.0/gazelle",
+        url = "https://github.com/bazelbuild/rules_python/releases/download/1.0.0/rules_python-1.0.0.tar.gz",
+    )
+
     maybe(
         name = "rules_java",
         repo_rule = http_archive,
@@ -176,23 +193,6 @@ def stage_1():
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
             "https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
         ],
-    )
-
-    # TODO(INFRA-1630): Drop this patched version when we can tolerate using setuptools past version 58.
-    maybe(
-        name = "rules_python",
-        repo_rule = http_archive,
-        sha256 = "4f7e2aa1eb9aa722d96498f5ef514f426c1f55161c3c9ae628c857a7128ceb07",
-        strip_prefix = "rules_python-1.0.0",
-        url = "https://github.com/bazelbuild/rules_python/releases/download/1.0.0/rules_python-1.0.0.tar.gz",
-    )
-
-    maybe(
-        name = "rules_python_gazelle_plugin",
-        repo_rule = http_archive,
-        sha256 = "4f7e2aa1eb9aa722d96498f5ef514f426c1f55161c3c9ae628c857a7128ceb07",
-        strip_prefix = "rules_python-1.0.0/gazelle",
-        url = "https://github.com/bazelbuild/rules_python/releases/download/1.0.0/rules_python-1.0.0.tar.gz",
     )
 
     maybe(
