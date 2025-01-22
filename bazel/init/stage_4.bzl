@@ -7,6 +7,7 @@ load("@enkit_pip_deps//:requirements.bzl", python_deps = "install_deps")
 load("@npm//:repositories.bzl", "npm_repositories")
 load("@rules_oci//oci:pull.bzl", "oci_pull")
 load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
+load("@build_bazel_rules_swift//swift:extras.bzl", "swift_rules_extra_dependencies")
 
 def stage_4():
     """Stage 4 initialization for WORKSPACE.
@@ -16,6 +17,8 @@ def stage_4():
     * A transitive load statement that references a repository that doesn't
       exist until stage 3 completes
     """
+
+    swift_rules_extra_dependencies()
 
     python_deps()
 

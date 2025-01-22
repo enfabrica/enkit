@@ -17,6 +17,9 @@ test --test_output=errors
 build --incompatible_strict_action_env
 run --incompatible_strict_action_env
 
+# https://stackoverflow.com/questions/78195396/bazel-cross-platform-build-fails-with-unable-to-find-a-cc-toolchain-using-toolc
+build --noincompatible_enable_cc_toolchain_resolution
+
 # Load any settings specific to the current user.
 # .bazelrc.user should appear in .gitignore so that settings are not shared with team members
 # This needs to be last statement in this
@@ -26,6 +29,10 @@ run --incompatible_strict_action_env
 # rather than user.bazelrc as suggested in the Bazel docs)
 try-import %workspace%/.bazelrc.user
 
-# TODO(INFRA-4384): Remove this flag once all dependencies are compatible with
-# the new platforms repo for constraints.
-build --noincompatible_use_platforms_repo_for_constraints
+# Disable bzlmod since it is enabled by default.
+# Switch to bzlmod in bazel 8 once WORKSPACE files are deprecated
+# https://blog.bazel.build/2023/12/11/bazel-7-release.html
+build --noenable_bzlmod
+run --noenable_bzlmod
+test --noenable_bzlmod
+query --noenable_bzlmod

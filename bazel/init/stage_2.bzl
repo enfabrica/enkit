@@ -23,9 +23,15 @@ load("@rules_antlr//antlr:repositories.bzl", "rules_antlr_dependencies")
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
 load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+load("@rules_python_gazelle_plugin//:deps.bzl", _py_gazelle_deps = "gazelle_deps")
+load("@com_google_googletest//:googletest_deps.bzl", "googletest_deps")
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+load("@rules_java//java:rules_java_deps.bzl", "rules_java_dependencies")
+load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
+load("@build_bazel_rules_swift//swift:repositories.bzl", "swift_rules_dependencies")
 
 def stage_2():
     """Stage 2 initialization for WORKSPACE.
@@ -38,11 +44,8 @@ def stage_2():
       dependencies are in stage 2 because they depend on the existence of
       rules_python in a load statement, which is instantiated in stage 1.
     """
-
-    aspect_bazel_lib_dependencies()
-    aspect_bazel_lib_register_toolchains()
-
-    distroless_dependencies()
+    protobuf_deps()
+    rules_java_dependencies()
 
     py_repositories()
 
@@ -51,6 +54,25 @@ def stage_2():
         python_version = "3.8",
         ignore_root_user_error = True,
     )
+
+    _py_gazelle_deps()
+
+    # Begin transitive deps required by deps of buildbarn ecosystem
+    switched_rules_by_language(
+        name = "com_google_googleapis_imports",
+        python = True,
+    )
+    jsonnet_repositories()
+    rules_js_dependencies()
+    rules_antlr_dependencies("4.10")
+    # End transitive deps required by deps of buildbarn ecosystem
+
+    aspect_bazel_lib_dependencies()
+    aspect_bazel_lib_register_toolchains()
+
+    distroless_dependencies()
+
+    googletest_deps()
 
     # Workaround for a bug where rules_python doesn't register
     # the python c toolchain ("py cc").
@@ -84,12 +106,14 @@ def stage_2():
     rules_proto_grpc_toolchains()
 
     rules_proto_dependencies()
-    rules_proto_toolchains()
 
     bazel_skylib_workspace()
     rules_pkg_dependencies()
     multirun_dependencies()
 
+    # Transitive dependencies that are required for com_github_grpc_grpc
+    apple_rules_dependencies()
+    swift_rules_dependencies()
     # IMPORTANT: grpc_deps() pulls in boringssl as a WORKSPACE dependency. In order to apply patches
     # to boringssl, we define boringssl BEFORE grpc_deps is invoked - that way, our version will be picked
     # over the default one.
@@ -107,12 +131,4 @@ def stage_2():
     rules_foreign_cc_dependencies()
     meson_register_toolchains()
 
-    # Begin transitive deps required by deps of buildbarn ecosystem
-    switched_rules_by_language(
-        name = "com_google_googleapis_imports",
-        python = True,
-    )
-    jsonnet_repositories()
-    rules_js_dependencies()
-    rules_antlr_dependencies("4.10")
-    # End transitive deps required by deps of buildbarn ecosystem
+

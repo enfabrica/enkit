@@ -17,6 +17,81 @@ def stage_1():
     will override dependendencies loaded as part of later stages, which can be a
     way of forcing a dependency upgrade underneath e.g. io_bazel_rules_go.
     """
+
+    maybe(
+        name = "platforms",
+        repo_rule = http_archive,
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.11/platforms-0.0.11.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.11/platforms-0.0.11.tar.gz",
+        ],
+        sha256 = "29742e87275809b5e598dc2f04d86960cc7a55b3067d97221c9abbc9926bff0f",
+    )
+
+    maybe(
+        name = "bazel_skylib",
+        repo_rule = http_archive,
+        sha256 = "bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
+        ],
+    )
+
+    maybe(
+        name = "rules_cc",
+        repo_rule = http_archive,
+        urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.17/rules_cc-0.0.17.tar.gz"],
+        sha256 = "abc605dd850f813bb37004b77db20106a19311a96b2da1c92b789da529d28fe1",
+        strip_prefix = "rules_cc-0.0.17",
+    )
+
+    maybe(
+        name = "rules_python",
+        repo_rule = http_archive,
+        sha256 = "4f7e2aa1eb9aa722d96498f5ef514f426c1f55161c3c9ae628c857a7128ceb07",
+        strip_prefix = "rules_python-1.0.0",
+        url = "https://github.com/bazelbuild/rules_python/releases/download/1.0.0/rules_python-1.0.0.tar.gz",
+    )
+
+#    maybe(
+#        name = "upb",
+#        repo_rule = http_archive,
+#        patch_args = ["-p1"],
+#        patches = [
+#            "@enkit//bazel/dependencies/upb:0001-import-platforms-repo.patch",
+#        ],
+#        urls = [
+#            "https://github.com/protocolbuffers/upb/archive/bef53686ec702607971bd3ea4d4fefd80c6cc6e8.tar.gz",
+#        ],
+#        strip_prefix = "upb-bef53686ec702607971bd3ea4d4fefd80c6cc6e8",
+#        sha256 = "d0fe259d650bf9547e75896a1307bfc7034195e4ae89f5139814d295991ba681",
+#    )
+
+    maybe(
+        name = "com_google_protobuf",
+        repo_rule = http_archive,
+        strip_prefix = "protobuf-29.3",
+        url = "https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protobuf-29.3.tar.gz",
+    )
+
+    maybe(
+        name = "rules_python_gazelle_plugin",
+        repo_rule = http_archive,
+        sha256 = "4f7e2aa1eb9aa722d96498f5ef514f426c1f55161c3c9ae628c857a7128ceb07",
+        strip_prefix = "rules_python-1.0.0/gazelle",
+        url = "https://github.com/bazelbuild/rules_python/releases/download/1.0.0/rules_python-1.0.0.tar.gz",
+    )
+
+    maybe(
+        name = "rules_java",
+        repo_rule = http_archive,
+        urls = [
+            "https://github.com/bazelbuild/rules_java/releases/download/8.6.3/rules_java-8.6.3.tar.gz",
+        ],
+        sha256 = "6d8c6d5cd86fed031ee48424f238fa35f33abc9921fd97dd4ae1119a29fc807f",
+    )
+
     maybe(
         name = "aspect_bazel_lib",
         repo_rule = http_archive,
@@ -44,6 +119,18 @@ def stage_1():
         ],
     )
 
+    # Required by com_github_bazelbuild_remote_apis
+    maybe(
+        name = "rules_go",
+        repo_rule = http_archive,
+        patches = ["@enkit//bazel/dependencies/io_bazel_rules_go:tags_manual.patch"],
+        sha256 = "278b7ff5a826f3dc10f04feaf0b70d48b68748ccd512d7f98bf442077f043fe3",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
+        ],
+    )
+
     maybe(
         name = "bazel_gazelle",
         repo_rule = http_archive,
@@ -61,11 +148,9 @@ def stage_1():
     maybe(
         name = "rules_proto",
         repo_rule = http_archive,
-        sha256 = "e017528fd1c91c5a33f15493e3a398181a9e821a804eb7ff5acdd1d2d6c2b18d",
-        strip_prefix = "rules_proto-4.0.0-3.20.0",
-        urls = [
-            "https://github.com/bazelbuild/rules_proto/archive/refs/tags/4.0.0-3.20.0.tar.gz",
-        ],
+        sha256 = "14a225870ab4e91869652cfd69ef2028277fc1dc4910d65d353b62d6e0ae21f4",
+        strip_prefix = "rules_proto-7.1.0",
+        url = "https://github.com/bazelbuild/rules_proto/releases/download/7.1.0/rules_proto-7.1.0.tar.gz",
     )
 
     maybe(
@@ -131,41 +216,25 @@ def stage_1():
 
     maybe(
         name = "com_google_absl",
+        integrity = "sha256-9Q5awxGoE4Laf6dblzEOS5AGR0+VYKxG9UqZZ/B9SuM=",
         repo_rule = http_archive,
-        sha256 = "51d676b6846440210da48899e4df618a357e6e44ecde7106f1e44ea16ae8adc7",
-        strip_prefix = "abseil-cpp-20230125.3",
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/abseil:0001-absl-flags-parse.cc-provide-a-mechanism-to-let-other.patch",
-            "@enkit//bazel/dependencies/abseil:0002-remove-maes-and-msse4.1-option-from-cross-compilation.patch",
-        ],
-        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.3.zip"],
+        strip_prefix = "abseil-cpp-20240722.0",
+        urls = ["https://github.com/abseil/abseil-cpp/releases/download/20240722.0/abseil-cpp-20240722.0.tar.gz"],
     )
 
     maybe(
-        name = "bazel_skylib",
+        name = "abseil-cpp",
         repo_rule = http_archive,
-        sha256 = "bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
-        urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
-        ],
+        strip_prefix = "abseil-cpp-20240722.0",
+        urls = ["https://github.com/abseil/abseil-cpp/releases/download/20240722.0/abseil-cpp-20240722.0.tar.gz"],
     )
 
-    # TODO(INFRA-1630): Drop this patched version when we can tolerate using setuptools past version 58.
     maybe(
-        name = "rules_python",
+        name = "com_google_googletest",
+        integrity = "sha256-e0K01u1IgQxTYsJloX+uvpDcI3PIheUhZDnTeSfwKSY=",
         repo_rule = http_archive,
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/rules_python:downgrade_setuptools.patch",
-            "@enkit//bazel/dependencies/rules_python:custom_annotations.patch",
-        ],
-        sha256 = "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
-        strip_prefix = "rules_python-0.24.0",
-        urls = [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz",
-        ],
+        url = "https://github.com/google/googletest/releases/download/v1.15.2/googletest-1.15.2.tar.gz",
+        strip_prefix = "googletest-1.15.2",
     )
 
     maybe(
@@ -184,27 +253,46 @@ def stage_1():
         ],
     )
 
+    # Transitive dependencies that are required for com_github_grpc_grpc
     maybe(
-        name = "com_github_grpc_grpc",
+        name = "build_bazel_rules_apple",
         repo_rule = http_archive,
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/grpc:no_remote_tag.patch",
-            "@enkit//bazel/dependencies/grpc:use_hermetic_py_headers.patch",
-        ],
-        sha256 = "e18b16f7976aab9a36c14c38180f042bb0fd196b75c9fd6a20a2b5f934876ad6",
-        strip_prefix = "grpc-1.45.2",
+        sha256 = "352428421c89dba8859055c3e1ba42f742c224544bf0e196c926d1cf44a2d726",
         urls = [
-            "https://github.com/grpc/grpc/archive/refs/tags/v1.45.2.tar.gz",
+            "https://github.com/bazelbuild/rules_apple/releases/download/3.16.1/rules_apple.3.16.1.tar.gz",
+        ],
+    )
+
+    # Transitive dependencies that are required for com_github_grpc_grpc
+    maybe(
+        name = "build_bazel_rules_swift",
+        repo_rule = http_archive,
+        sha256 = "28db894977ac51c8f3ab7c6dc9d655a85510366734e900b3c5302ce1ed91256c",
+        urls = [
+            "https://github.com/bazelbuild/rules_swift/releases/download/2.4.0/rules_swift.2.4.0.tar.gz",
         ],
     )
 
     maybe(
-        name = "com_github_bazelbuild_buildtools",
+        name = "com_github_grpc_grpc",
         repo_rule = http_archive,
-        strip_prefix = "buildtools-5.1.0",
-        url = "https://github.com/bazelbuild/buildtools/archive/refs/tags/5.1.0.tar.gz",
-        sha256 = "e3bb0dc8b0274ea1aca75f1f8c0c835adbe589708ea89bf698069d0790701ea3",
+#        patch_args = ["-p1"],
+#        patches = [
+#            "@enkit//bazel/dependencies/grpc:no_remote_tag.patch",
+#            "@enkit//bazel/dependencies/grpc:use_hermetic_py_headers.patch",
+#        ],
+        strip_prefix = "grpc-1.69.0",
+        urls = [
+            "https://github.com/grpc/grpc/archive/refs/tags/v1.69.0.tar.gz",
+        ],
+    )
+
+    # Required by com_github_bazelbuild_remote_apis
+    maybe(
+        name = "grpc",
+        repo_rule = http_archive,
+        strip_prefix = "grpc-1.69.0",
+        urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.69.0.tar.gz"],
     )
 
     maybe(
@@ -225,22 +313,6 @@ def stage_1():
             "@enkit//bazel/dependencies:rules_docker_no_init_go.patch",
         ],
         patch_args = ["-p1"],
-    )
-
-    maybe(
-        name = "com_google_googleapis",
-        repo_rule = http_archive,
-        urls = ["https://github.com/googleapis/googleapis/archive/f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6.zip"],
-        strip_prefix = "googleapis-f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6",
-        sha256 = "f8f615f7c21459cb9b6ec2efaf795c875cd4698d6a1814a0a30d1eb910903142",
-    )
-
-    maybe(
-        name = "com_google_protobuf",
-        repo_rule = http_archive,
-        sha256 = "8b28fdd45bab62d15db232ec404248901842e5340299a57765e48abe8a80d930",
-        strip_prefix = "protobuf-3.20.1",
-        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.1.tar.gz"],
     )
 
     # BUG(INFRA-6710): `make` is pulled in by source by rules_foreign_cc, but we
