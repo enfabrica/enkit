@@ -16,6 +16,7 @@ load("@rules_proto_grpc//python:repositories.bzl", rules_proto_grpc_python_repos
 load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")
 load("@rules_python//python:pip.bzl", "pip_parse")
 load("@rules_java//java:repositories.bzl", "rules_java_toolchains")
+load("@build_bazel_rules_swift//swift:repositories.bzl", "swift_rules_dependencies")
 
 def stage_3():
     """Stage 3 initialization for WORKSPACE.
@@ -39,9 +40,13 @@ def stage_3():
         python_interpreter_target = "@python3_8_host//:python",
     )
 
+
     rules_java_toolchains()
 
     rules_proto_toolchains()
+
+    # Transitive dependencies that are required for com_github_grpc_grpc
+    swift_rules_dependencies()
 
     distroless_register_toolchains()
 

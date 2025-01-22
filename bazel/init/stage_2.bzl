@@ -30,7 +30,8 @@ load("@rules_python_gazelle_plugin//:deps.bzl", _py_gazelle_deps = "gazelle_deps
 load("@com_google_googletest//:googletest_deps.bzl", "googletest_deps")
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 load("@rules_java//java:rules_java_deps.bzl", "rules_java_dependencies")
-load("@com_google_protobuf//bazel/private:proto_bazel_features.bzl", "proto_bazel_features")  # buildifier: disable=bzl-visibility
+load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
+load("@build_bazel_rules_swift//swift:repositories.bzl", "swift_rules_dependencies")
 
 def stage_2():
     """Stage 2 initialization for WORKSPACE.
@@ -43,8 +44,8 @@ def stage_2():
       dependencies are in stage 2 because they depend on the existence of
       rules_python in a load statement, which is instantiated in stage 1.
     """
+    protobuf_deps()
     rules_java_dependencies()
-    proto_bazel_features(name = "proto_bazel_features")
 
     py_repositories()
 
@@ -71,10 +72,7 @@ def stage_2():
 
     distroless_dependencies()
 
-
     googletest_deps()
-
-
 
     # Workaround for a bug where rules_python doesn't register
     # the python c toolchain ("py cc").
@@ -113,6 +111,9 @@ def stage_2():
     rules_pkg_dependencies()
     multirun_dependencies()
 
+    # Transitive dependencies that are required for com_github_grpc_grpc
+    apple_rules_dependencies()
+    swift_rules_dependencies()
     # IMPORTANT: grpc_deps() pulls in boringssl as a WORKSPACE dependency. In order to apply patches
     # to boringssl, we define boringssl BEFORE grpc_deps is invoked - that way, our version will be picked
     # over the default one.
@@ -130,5 +131,4 @@ def stage_2():
     rules_foreign_cc_dependencies()
     meson_register_toolchains()
 
-    protobuf_deps()
 
