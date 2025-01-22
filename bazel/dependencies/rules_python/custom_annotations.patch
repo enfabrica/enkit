@@ -1,8 +1,8 @@
-diff --git a/python/pip_install/pip_repository.bzl b/python/pip_install/pip_repository.bzl
-index 41533b4..acb8b9c 100644
---- a/python/pip_install/pip_repository.bzl
-+++ b/python/pip_install/pip_repository.bzl
-@@ -727,7 +727,8 @@ def package_annotation(
+diff --git a/python/private/pypi/package_annotation.bzl b/python/private/pypi/package_annotation.bzl
+index 4a54703a..a2be9e67 100644
+--- a/python/private/pypi/package_annotation.bzl
++++ b/python/private/pypi/package_annotation.bzl
+@@ -20,7 +20,8 @@ def package_annotation(
          copy_executables = {},
          data = [],
          data_exclude_glob = [],
@@ -10,76 +10,19 @@ index 41533b4..acb8b9c 100644
 +        srcs_exclude_glob = [],
 +        excluded_deps = []):
      """Annotations to apply to the BUILD file content from package generated from a `pip_repository` rule.
-
+ 
      [cf]: https://github.com/bazelbuild/bazel-skylib/blob/main/docs/copy_file_doc.md
-@@ -742,6 +743,7 @@ def package_annotation(
+@@ -35,6 +36,7 @@ def package_annotation(
          data_exclude_glob (list, optional): A list of exclude glob patterns to add as `data` to the generated
              `py_library` target.
          srcs_exclude_glob (list, optional): A list of labels to add as `srcs` to the generated `py_library` target.
 +        deps (list, optional): A list of labels to remove as `deps` to the generated `py_library` target.
-
+ 
      Returns:
          str: A json encoded string of the provided content.
-@@ -753,6 +755,7 @@ def package_annotation(
+@@ -46,4 +48,5 @@ def package_annotation(
          data = data,
          data_exclude_glob = data_exclude_glob,
          srcs_exclude_glob = srcs_exclude_glob,
 +        excluded_deps = excluded_deps,
      ))
-
- # pip_repository implementation
-diff --git a/python/pip_install/tools/lib/annotation.py b/python/pip_install/tools/lib/annotation.py
-index c980080..c562340 100644
---- a/python/pip_install/tools/lib/annotation.py
-+++ b/python/pip_install/tools/lib/annotation.py
-@@ -33,6 +33,7 @@ class Annotation(OrderedDict):
-             "data",
-             "data_exclude_glob",
-             "srcs_exclude_glob",
-+            "excluded_deps",
-         ):
-             if field not in content:
-                 missing.append(field)
-@@ -75,6 +76,10 @@ class Annotation(OrderedDict):
-     def srcs_exclude_glob(self) -> List[str]:
-         return self["srcs_exclude_glob"]
-
-+    @property
-+    def excluded_deps(self) -> List[str]:
-+        return self["excluded_deps"]
-+
-
- class AnnotationsMap:
-     """A mapping of python package names to [Annotation]"""
-diff --git a/python/pip_install/tools/wheel_installer/wheel_installer.py b/python/pip_install/tools/wheel_installer/wheel_installer.py
-index 9b363c3..a4aa4f0 100644
---- a/python/pip_install/tools/wheel_installer/wheel_installer.py
-+++ b/python/pip_install/tools/wheel_installer/wheel_installer.py
-@@ -16,6 +16,7 @@ import argparse
- import errno
- import glob
- import json
-+import logging
- import os
- import re
- import shutil
-@@ -369,6 +370,19 @@ def _extract_wheel(
-             if annotation.additive_build_content:
-                 additional_content.append(annotation.additive_build_content)
-
-+            if len(annotation.excluded_deps) > 0:
-+                filtered_whl_deps = [dep for dep in whl_deps if
-+                                     dep not in annotation.excluded_deps]
-+
-+                sanitised_dependencies = [
-+                    bazel.sanitised_repo_library_label(d, repo_prefix=repo_prefix) for d
-+                    in filtered_whl_deps
-+                ]
-+                sanitised_wheel_file_dependencies = [
-+                    bazel.sanitised_repo_file_label(d, repo_prefix=repo_prefix) for d in
-+                    filtered_whl_deps
-+                ]
-+
-         contents = _generate_build_file_contents(
-             name=bazel.PY_LIBRARY_LABEL,
-             dependencies=sanitised_dependencies,

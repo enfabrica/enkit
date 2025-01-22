@@ -152,19 +152,13 @@ def stage_1():
         ],
     )
 
-    # TODO(INFRA-1630): Drop this patched version when we can tolerate using setuptools past version 58.
     maybe(
         name = "rules_python",
         repo_rule = http_archive,
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/rules_python:downgrade_setuptools.patch",
-            "@enkit//bazel/dependencies/rules_python:custom_annotations.patch",
-        ],
-        sha256 = "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
-        strip_prefix = "rules_python-0.24.0",
+        sha256 = "9c6e26911a79fbf510a8f06d8eedb40f412023cf7fa6d1461def27116bff022c",
+        strip_prefix = "rules_python-1.1.0",
         urls = [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz",
+            "https://github.com/bazelbuild/rules_python/releases/download/1.1.0/rules_python-1.1.0.tar.gz",
         ],
     )
 
@@ -238,9 +232,9 @@ def stage_1():
     maybe(
         name = "com_google_protobuf",
         repo_rule = http_archive,
-        sha256 = "8b28fdd45bab62d15db232ec404248901842e5340299a57765e48abe8a80d930",
-        strip_prefix = "protobuf-3.20.1",
-        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.1.tar.gz"],
+        strip_prefix = "protobuf-5.29.3",
+        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v5.29.3.tar.gz"],
+        sha256 = "fe35f190d7a63533b06558915d6ee469cbee143de70891e1dd54d197b05f362a",
     )
 
     # BUG(INFRA-6710): `make` is pulled in by source by rules_foreign_cc, but we

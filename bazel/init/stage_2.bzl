@@ -26,6 +26,7 @@ load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 def stage_2():
     """Stage 2 initialization for WORKSPACE.
@@ -47,8 +48,8 @@ def stage_2():
     py_repositories()
 
     python_register_toolchains(
-        name = "python3_8",
-        python_version = "3.8",
+        name = "python_3_12",
+        python_version = "3.12",
         ignore_root_user_error = True,
     )
 
@@ -56,7 +57,9 @@ def stage_2():
     # the python c toolchain ("py cc").
     # see https://github.com/bazelbuild/rules_python/issues/1669
     # and https://rules-python.readthedocs.io/en/latest/toolchains.html#python-c-toolchain-type
-    native.register_toolchains("@python3_8_toolchains//:all")
+    native.register_toolchains("@python_3_12_toolchains//:all")
+
+    protobuf_deps()
 
     # SDKs that can be used to build Go code. We need:
     # * the most recent version we can support

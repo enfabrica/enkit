@@ -15,7 +15,6 @@ load("@rules_oci//oci:pull.bzl", "oci_pull")
 #load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
 load("@rules_proto_grpc//python:repositories.bzl", rules_proto_grpc_python_repos = "python_repos")
 load("@rules_python//python:pip.bzl", "pip_parse")
-load("@python3_8//:defs.bzl", "interpreter")
 
 def stage_3():
     """Stage 3 initialization for WORKSPACE.
@@ -38,7 +37,8 @@ def stage_3():
             "--no-cache-dir",
         ],
         requirements_lock = "//:requirements.txt",
-        python_interpreter_target = interpreter,
+        python_interpreter_target = "@python_3_12_host//:python",
+        quiet = False,
     )
 
     grpc_extra_deps()
