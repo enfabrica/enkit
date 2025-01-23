@@ -132,14 +132,13 @@ def stage_1():
     maybe(
         name = "com_google_absl",
         repo_rule = http_archive,
-        sha256 = "51d676b6846440210da48899e4df618a357e6e44ecde7106f1e44ea16ae8adc7",
-        strip_prefix = "abseil-cpp-20230125.3",
+        sha256 = "7c11539617af1f332f0854a6fb21e296a1b29c27d03f23c7b49d4adefcd102cc",
+        strip_prefix = "abseil-cpp-20230802.2",
         patch_args = ["-p1"],
         patches = [
-            "@enkit//bazel/dependencies/abseil:0001-absl-flags-parse.cc-provide-a-mechanism-to-let-other.patch",
-            "@enkit//bazel/dependencies/abseil:0002-remove-maes-and-msse4.1-option-from-cross-compilation.patch",
+            "@enkit//bazel/dependencies/abseil:0001-remove-maes-and-msse4.1-option-from-cross-compilation.patch",
         ],
-        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.3.zip"],
+        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230802.2.tar.gz"],
     )
 
     maybe(
