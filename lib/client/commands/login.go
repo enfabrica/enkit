@@ -1,9 +1,10 @@
 package commands
 
 import (
+	"context"
 	"fmt"
+	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	apb "github.com/enfabrica/enkit/auth/proto"
-        remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config/identity"
 	"github.com/enfabrica/enkit/lib/kauth"
@@ -12,28 +13,28 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/retry"
 	"github.com/spf13/cobra"
-        "google.golang.org/grpc"
-        "google.golang.org/grpc/grpclog"
-        "google.golang.org/grpc/metadata"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/metadata"
+	"log"
 	"math/rand"
+	"os"
 	"time"
-        "context"
-        "os"
-        "log"
 )
 
 type Login struct {
 	*cobra.Command
 	rng *rand.Rand
 
-	base      *client.BaseFlags
-	agent     *kcerts.SSHAgentFlags
+	base  *client.BaseFlags
+	agent *kcerts.SSHAgentFlags
+	retry *retry.Flags
+
 	populator kflags.Populator
 
-        BbclientdAddress string
-        Debug            bool
+	BbclientdAddress string
+	Debug            bool
 	NoDefault        bool
-	MinWaitTime      time.Duration
 }
 
 // NewLogin creates a new Login command.
@@ -54,39 +55,61 @@ func NewLogin(base *client.BaseFlags, rng *rand.Rand, populator kflags.Populator
 		},
 		base:      base,
 		agent:     kcerts.SSHAgentDefaultFlags(),
+		retry:     retry.DefaultFlags(),
 		rng:       rng,
 		populator: populator,
 	}
 	login.Command.RunE = login.Run
 
-        login.Flags().StringVar(&login.BbclientdAddress, "bbclientd-address", "localhost:8981", "bbcliend address")
-        login.Flags().MarkHidden("bbclientd-address")
-        login.Flags().BoolVarP(&login.Debug, "debug", "d", false, "Print extra debugging information. Mostly useful for development")
+	// Authenticating requires the user to visit a website to complete oauth.
+	// During that time, the server will either keep the connection hanging (bad)
+	// or return an error (thus the client has to retry). If the client only retries
+	// 5 times (pre-2025 default), to allow the user 30 mins for authentication, the
+	// server must keep connections open for at least 6 minutes - which is high.
+	//
+	// Set the retry value to a very high number, so we can configure the server with
+	// significantly more aggressive timeouts, while allowing enough time for the
+	// user to complete the process.
+	//
+	// A value of 1800 retries, will allow about 30 mins to complete auth assuming
+	// the server keeps the connection open for about 1 second.
+	login.retry.AtMost = 1800
+	// A value of 10 seconds (pre-2025 default) means that the minimum connection
+	// open time on the server is also ~10 seconds, otherwise the user would see
+	// the client wait for ~10 seconds between attempts to retrieve the token.
+	// Set this (the minimum wait time) to a much more aggressive value.
+	login.retry.Wait = 1 * time.Second
+
+	login.Flags().StringVar(&login.BbclientdAddress, "bbclientd-address", "localhost:8981", "bbcliend address")
+	login.Flags().MarkHidden("bbclientd-address")
+	login.Flags().BoolVarP(&login.Debug, "debug", "d", false, "Print extra debugging information. Mostly useful for development")
 	login.Flags().BoolVarP(&login.NoDefault, "no-default", "n", false, "Do not mark this identity as the default identity to use")
-	login.Flags().DurationVar(&login.MinWaitTime, "min-wait-time", 10*time.Second, "Wait at least this long in between failed attempts to retrieve a token")
-	login.agent.Register(&kcobra.FlagSet{login.Flags()}, "")
+
+	klflags := &kcobra.FlagSet{login.Flags()}
+	login.agent.Register(klflags, "")
+	login.retry.Register(klflags, "login-")
 
 	return login
 }
 
 // Adds our auth headers to our requests
 func TokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
-    return func(
-        ctx context.Context,
-        method string,
-        req interface{},
-        reply interface{},
-        cc *grpc.ClientConn,
-        invoker grpc.UnaryInvoker,
-        opts ...grpc.CallOption,
-    ) error {
-        // TODO(isaac): This is a little non-standard - perhaps we should make these
-        // constants somewhere in the enkit codebase?
-        md := metadata.Pairs("cookie", "Creds="+token)
-        ctxWithToken := metadata.NewOutgoingContext(ctx, md)
+	return func(
+		ctx context.Context,
+		method string,
+		req interface{},
+		reply interface{},
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) error {
+		// TODO(isaac): This is a little non-standard - perhaps we should make these
+		// constants somewhere in the enkit codebase?
+		md := metadata.Pairs("cookie", "Creds="+token)
+		ctxWithToken := metadata.NewOutgoingContext(ctx, md)
 
-        return invoker(ctxWithToken, method, req, reply, cc, opts...)
-    }
+		return invoker(ctxWithToken, method, req, reply, cc, opts...)
+	}
 }
 
 // AuthenticateBbclientd auths our CAS mounts
@@ -117,37 +140,37 @@ func TokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
 //
 // The ticket for cred helper support in bb_clientd: ENGPROD-355
 func AuthenticateBbclientd(address string, token string, debug bool) {
-        if debug {
-            grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
-            grpc.EnableTracing = true
-        }
-        var conn *grpc.ClientConn
-        var err error
+	if debug {
+		grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
+		grpc.EnableTracing = true
+	}
+	var conn *grpc.ClientConn
+	var err error
 
-        conn, err = grpc.Dial(address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)), grpc.WithTimeout(2 * time.Second))
-        if err != nil {
-            if debug {
-                log.Fatal("fail to dial: %w", err)
-            }
-            
-            // continuing if we fail here will cause a crash.
-            return
-        }
+	conn, err = grpc.Dial(address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(TokenAuthInterceptor(token)), grpc.WithTimeout(2*time.Second))
+	if err != nil {
+		if debug {
+			log.Fatal("fail to dial: %w", err)
+		}
 
-        // The FindMissingBlobs RPC is used by the client to ask the server which blobs it is missing
-        // so it can upload them. We just send an abritrary digest (to which the server should respond
-        // that it doesn't have it). Note that we don't really care about the response here unless it's an
-        // error.
-        digests := []*remoteexecution.Digest{
-            {Hash: "013ad2661e3240ec6e0c8f79eb14944f599e04aeffa78d90873a6d679297746c", SizeBytes: 22733},
-        }
+		// continuing if we fail here will cause a crash.
+		return
+	}
 
-        client := remoteexecution.NewContentAddressableStorageClient(conn)
-        _, err = client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{BlobDigests: digests})
+	// The FindMissingBlobs RPC is used by the client to ask the server which blobs it is missing
+	// so it can upload them. We just send an abritrary digest (to which the server should respond
+	// that it doesn't have it). Note that we don't really care about the response here unless it's an
+	// error.
+	digests := []*remoteexecution.Digest{
+		{Hash: "013ad2661e3240ec6e0c8f79eb14944f599e04aeffa78d90873a6d679297746c", SizeBytes: 22733},
+	}
 
-        if err != nil && debug {
-            log.Fatal("bbclientd auth failed: %w", err)
-        }
+	client := remoteexecution.NewContentAddressableStorageClient(conn)
+	_, err = client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{BlobDigests: digests})
+
+	if err != nil && debug {
+		log.Fatal("bbclientd auth failed: %w", err)
+	}
 }
 
 func (l *Login) Run(cmd *cobra.Command, args []string) error {
@@ -184,7 +207,7 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	repeater := retry.New(retry.WithWait(l.MinWaitTime), retry.WithRng(l.rng))
+	repeater := retry.New(retry.FromFlags(l.retry), retry.WithRng(l.rng))
 	enCreds, err := kauth.PerformLogin(apb.NewAuthClient(conn), l.base.Log, repeater, l.rng, username, domain)
 	if err != nil {
 		return err
@@ -209,8 +232,8 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-        // Reuse the token to authenticate our bbclientd CAS mounts
-        AuthenticateBbclientd(l.BbclientdAddress, enCreds.Token, l.Debug)
+	// Reuse the token to authenticate our bbclientd CAS mounts
+	AuthenticateBbclientd(l.BbclientdAddress, enCreds.Token, l.Debug)
 
 	return nil
 }
