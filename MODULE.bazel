@@ -1,3 +1,243 @@
+module(name = "enkit")
 
-
+bazel_dep(name = "aspect_bazel_lib", version = "2.11.0")
+bazel_dep(name = "rules_distroless", version = "0.3.8")
+bazel_dep(name = "rules_go", version = "0.52.0")
+bazel_dep(name = "gazelle", version = "0.40.0")
+bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "rules_pkg", version = "1.0.1")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "rules_python", version = "1.1.0")
+bazel_dep(name = "grpc", version = "1.69.0")
+bazel_dep(name = "buildtools", version = "8.0.0")
+bazel_dep(name = "rules_oci", version = "2.2.0")
+bazel_dep(name = "protobuf", version = "5.29.3")
+bazel_dep(name = "rules_proto_grpc", version = "5.0.1")
+bazel_dep(name = "rules_jsonnet", version = "0.6.0")
+bazel_dep(name = "rules_js", version = "2.1.2")
 bazel_dep(name = "googletest", version = "1.15.2")
+
+archive_override(
+    module_name = "io_opentelemetry_proto",
+#    build_file_content = """
+#proto_library(
+#    name = "common_proto",
+#    srcs = ["opentelemetry/proto/common/v1/common.proto"],
+#    visibility = ["//visibility:public"],
+#)
+#""",
+    strip_prefix = "opentelemetry-proto-0.19.0",
+    urls = ["https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v0.19.0.tar.gz"],
+)
+
+archive_override(
+    module_name = "rules_antlr",
+    patches = ["@enkit//bazel/dependencies/rules_antlr:antlr_4.10.patch"],
+    strip_prefix = "rules_antlr-0.5.0",
+    urls = ["https://github.com/marcohu/rules_antlr/archive/0.5.0.tar.gz"],
+)
+
+archive_override(
+    module_name = "rules_js",
+    strip_prefix = "rules_js-2.1.2",
+    urls = [
+        "https://github.com/aspect-build/rules_js/releases/download/v2.1.2/rules_js-v2.1.2.tar.gz",
+    ],
+)
+
+archive_override(
+    module_name = "rules_jsonnet",
+    strip_prefix = "rules_jsonnet-0.6.0",
+    urls = ["https://github.com/bazelbuild/rules_jsonnet/archive/0.6.0.tar.gz"],
+)
+
+archive_override(
+    module_name = "com_github_twbs_bootstrap",
+#    build_file_content = """exports_files(["css/bootstrap.min.css", "js/bootstrap.min.js"])""",
+    strip_prefix = "bootstrap-5.1.0-dist",
+    urls = ["https://github.com/twbs/bootstrap/releases/download/v5.1.0/bootstrap-5.1.0-dist.zip"],
+)
+
+archive_override(
+    module_name = "dropbear",
+#    build_file = "@enkit//bazel/dependencies:dropbear.BUILD.bazel",
+    urls = ["https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2024.86.tar.gz"],
+    strip_prefix = "dropbear-DROPBEAR_2024.86",
+    patches = [
+        "@enkit//bazel/dependencies/dropbear:0001-allow-blank-password.patch",
+        "@enkit//bazel/dependencies/dropbear:0002-override-authorized-keys.patch",
+        "@enkit//bazel/dependencies/dropbear:0003-ignore-user-s-shell.patch",
+    ],
+)
+
+archive_override(
+    module_name = "libz",
+#    build_file = "@enkit//bazel/dependencies:libz.BUILD.bazel",
+    strip_prefix = "zlib-1.2.11",
+    # Original file: https://zlib.net/fossils/zlib-1.2.11.tar.gz
+    urls = ["https://astore.corp.enfabrica.net/d/mirror/zlib/zlib-1.2.11.tar.gz?u=giqzp6y6me76syf7jrgwtevqxgdhswdu"]
+)
+
+# http_file
+#archive_override(
+#    module_name = "net_enfabrica_binary_astore",
+#    urls = ["https://astore.corp.enfabrica.net/d/bazel/workspace_deps/astore/v1?u=7hfw4dsxxobamx5uyvvwmnj8tpxj7yub"],
+#    executable = True,
+#)
+
+archive_override(
+    module_name = "meson",
+#    build_file = "@enkit//bazel/meson:meson.BUILD.bazel",
+    urls = ["https://github.com/mesonbuild/meson/releases/download/1.1.1/meson-1.1.1.tar.gz"],
+    strip_prefix = "meson-1.1.1",
+)
+
+archive_override(
+    module_name = "rules_foreign_cc",
+    strip_prefix = "rules_foreign_cc-816905a078773405803e86635def78b61d2f782d",
+    urls = [
+        "https://github.com/bazelbuild/rules_foreign_cc/archive/816905a078773405803e86635def78b61d2f782d.tar.gz",
+    ],
+    patches = [
+        "@enkit//bazel/dependencies:rules_foreign_cc_export_functions.patch",
+        "@enkit//bazel/dependencies:rules_foreign_cc_module_name_linker_flags.patch",
+    ],
+)
+
+archive_override(
+    module_name = "gnumake_src",
+    strip_prefix = "make-4.4",
+#    build_file_content = """
+#filegroup(
+#name = "all_srcs",
+#srcs = glob(["**"]),
+#visibility = ["//visibility:public"],
+#)
+#""",
+    urls = [
+        "https://mirror.bazel.build/ftpmirror.gnu.org/gnu/make/make-4.4.tar.gz",
+        "http://ftpmirror.gnu.org/gnu/make/make-4.4.tar.gz",
+    ],
+    patches = [
+        "@enkit//bazel/dependencies:make_less_pedantic_configure.patch",
+    ],
+)
+
+archive_override(
+    module_name = "protobuf",
+    strip_prefix = "protobuf-5.29.3",
+    urls = [
+        "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v5.29.3.tar.gz"
+    ],
+)
+
+archive_override(
+    module_name = "com_google_googleapis",
+    urls = [
+        "https://github.com/googleapis/googleapis/archive/f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6.zip"
+    ],
+    strip_prefix = "googleapis-f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6",
+)
+
+archive_override(
+    module_name = "io_bazel_rules_docker",
+    strip_prefix = "rules_docker-0.24.0",
+    urls = [
+        "https://github.com/bazelbuild/rules_docker/releases/download/v0.24.0/rules_docker-v0.24.0.tar.gz"
+    ],
+    patches = [
+        "@enkit//bazel/dependencies:rules_docker_no_init_go.patch",
+    ],
+)
+
+archive_override(
+    module_name = "buildtools",
+    strip_prefix = "buildtools-8.0.1",
+    urls = [
+        "https://github.com/bazelbuild/buildtools/archive/refs/tags/8.0.1.tar.gz",
+    ],
+)
+
+archive_override(
+    module_name = "grpc",
+    strip_prefix = "grpc-1.69.0",
+    urls = [
+        "https://github.com/grpc/grpc/archive/refs/tags/v1.69.0.tar.gz",
+    ],
+)
+
+archive_override(
+    module_name = "boringssl",
+    patches = [
+        "@enkit//bazel/dependencies/boringssl:0001-move-hrss-polynomial-declarations-under-x64-flag.patch",
+        "@enkit//bazel/dependencies/boringssl:0002-commentout-fips-module_name-AARCH64-declarations.patch",
+    ],
+    strip_prefix = "boringssl-b9232f9e27e5668bc0414879dcdedb2a59ea75f2",
+    urls = [
+        "https://storage.googleapis.com/grpc-bazel-mirror/github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
+        "https://github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
+    ],
+)
+
+archive_override(
+    module_name = "com_google_absl",
+    strip_prefix = "abseil-cpp-20230125.3",
+    patches = [
+        "@enkit//bazel/dependencies/abseil:0001-absl-flags-parse.cc-provide-a-mechanism-to-let-other.patch",
+        "@enkit//bazel/dependencies/abseil:0002-remove-maes-and-msse4.1-option-from-cross-compilation.patch",
+    ],
+    urls = [
+        "https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.3.zip"
+    ],
+)
+
+archive_override(
+    module_name = "rules_go",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazel-contrib/rules_go/releases/download/v0.52.0/rules_go-v0.52.0.zip",
+        "https://github.com/bazel-contrib/rules_go/releases/download/v0.52.0/rules_go-v0.52.0.zip",
+    ],
+)
+archive_override(
+    module_name = "bats_support",
+    strip_prefix = "bats-support-0.3.0",
+#    build_file = "@enkit//bazel/dependencies:BUILD.bats_support.bazel",
+    urls = [
+        "https://github.com/bats-core/bats-support/archive/refs/tags/v0.3.0.tar.gz",
+    ],
+)
+archive_override(
+    module_name = "bats_assert",
+    strip_prefix = "bats-assert-2.0.0",
+#    build_file = "@enkit//bazel/dependencies:BUILD.bats_assert.bazel",
+    urls = [
+        "https://github.com/bats-core/bats-assert/archive/refs/tags/v2.0.0.tar.gz",
+    ],
+)
+archive_override(
+    module_name = "bats_file",
+    strip_prefix = "bats-file-0.2.0",
+#    build_file = "@enkit//bazel/dependencies:BUILD.bats_file.bazel",
+    urls = [
+        "https://github.com/bats-core/bats-file/archive/refs/tags/v0.2.0.tar.gz",
+    ],
+)
+archive_override(
+    module_name = "bats_core",
+    strip_prefix = "bats-core-1.5.0",
+    patches = [
+        "@enkit//bazel/dependencies:bats_root.patch",
+    ],
+#    build_file = "@enkit//bazel/dependencies:BUILD.bats.bazel",
+    urls = [
+        "https://github.com/bats-core/bats-core/archive/refs/tags/v1.5.0.tar.gz",
+    ],
+)
+
+archive_override(
+    module_name = "com_github_atlassian_bazel_tools",
+    strip_prefix = "bazel-tools-5c3b9306e703c6669a6ce064dd6dde69f69cba35",
+    urls = [
+        "https://github.com/atlassian/bazel-tools/archive/5c3b9306e703c6669a6ce064dd6dde69f69cba35.zip",
+    ],
+)
