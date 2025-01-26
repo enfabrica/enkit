@@ -8,10 +8,10 @@ go_library(
     importpath = "github.com/enfabrica/enkit/proxy",
     visibility = ["//visibility:private"],
     deps = [
+        "//auth/server/assets",
         "//lib/client",
         "//lib/kflags/kcobra",
         "//lib/srand",
-        "//proxy/credentials",
         "//proxy/enproxy",
         "@com_github_spf13_cobra//:cobra",
     ],

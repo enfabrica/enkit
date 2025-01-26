@@ -3,12 +3,13 @@ package machine
 import (
 	"bytes"
 	"errors"
-	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/machinist/machine/assets"
 	"io/ioutil"
 	"os/exec"
 	"strings"
 	"text/template"
+
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/machinist/machine/assets"
 )
 
 func InstallLibPam(l logger.Logger) error {
@@ -19,7 +20,7 @@ func InstallLibPam(l logger.Logger) error {
 }
 
 func ReadSSHDContent(cafile, hostKey, hostCertificateFile string) ([]byte, error) {
-	tpl, err := template.New("ssh_server").Parse(assets.SSHDTemplate)
+	tpl, err := template.New("ssh_server").Parse(string(assets.SSHDTemplate))
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +81,8 @@ type NssConf struct {
 		Match string
 	}
 }
-// Nss Installer Functions
 
+// Nss Installer Functions
 
 // InstallNssAutoUserConf will read from the nssautouser.conf.gotmpl file, and output in /etc/nss-autouser.conf
 func InstallNssAutoUserConf(path string, conf *NssConf) error {
@@ -93,7 +94,7 @@ func InstallNssAutoUserConf(path string, conf *NssConf) error {
 }
 
 func ReadNssConf(conf *NssConf) ([]byte, error) {
-	tpl, err := template.New("nss_config").Parse(assets.NssConfig)
+	tpl, err := template.New("nss_config").Parse(string(assets.NssConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +103,6 @@ func ReadNssConf(conf *NssConf) ([]byte, error) {
 	err = tpl.Execute(reader, conf)
 	return reader.Bytes(), err
 }
-
 
 // Pam Installer Functions
 func InstallPamSSHDFile(path string, l logger.Logger) error {

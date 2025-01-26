@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
+
 	"github.com/enfabrica/enkit/lib/khttp"
 	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/dustin/go-humanize"
 )
 
 func AcceptsEncoding(accepts, encoding string) bool {
@@ -123,6 +124,7 @@ func (as *AssetStats) AddSkipped(res AssetResource) {
 	}
 	as.Skipped = append(as.Skipped, res)
 }
+
 func (as *AssetStats) AddMapped(res AssetResource) {
 	if as == nil {
 		return
@@ -136,9 +138,11 @@ func (as *AssetStats) add(ptr *uint64, value int) {
 	}
 	(*ptr) += uint64(value)
 }
+
 func (as *AssetStats) AddJsCompressed(size int) {
 	as.add(&as.JsCompressed, size)
 }
+
 func (as *AssetStats) AddJsTotal(size int) {
 	as.add(&as.JsTotal, size)
 }
@@ -146,6 +150,7 @@ func (as *AssetStats) AddJsTotal(size int) {
 func (as *AssetStats) AddTotal(size int) {
 	as.add(&as.Total, size)
 }
+
 func (as *AssetStats) AddCompressed(size int) {
 	as.add(&as.Compressed, size)
 }
@@ -196,6 +201,7 @@ func (as AssetStats) Log(p logger.Printer) {
 	p("Mapped: %d, skipped %d - compressed %0.2f%% of total", len(as.Mapped), len(as.Skipped), gain)
 	p("-------------------------------")
 }
+
 
 // RegisterAssets goes oever each asset supplied, creates an http handler, and registers it with AssetMapper.
 //
