@@ -36,7 +36,10 @@ def stage_1():
     maybe(
         name = "io_bazel_rules_go",
         repo_rule = http_archive,
-        patches = ["@enkit//bazel/dependencies/io_bazel_rules_go:tags_manual.patch"],
+        patches = [
+            "@enkit//bazel/dependencies/io_bazel_rules_go:tags_manual.patch",
+            "@enkit//bazel/dependencies/io_bazel_rules_go:embedsrcs_generated_files.patch",
+        ],
         sha256 = "278b7ff5a826f3dc10f04feaf0b70d48b68748ccd512d7f98bf442077f043fe3",
         urls = [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
@@ -132,13 +135,14 @@ def stage_1():
     maybe(
         name = "com_google_absl",
         repo_rule = http_archive,
-        sha256 = "7c11539617af1f332f0854a6fb21e296a1b29c27d03f23c7b49d4adefcd102cc",
-        strip_prefix = "abseil-cpp-20230802.2",
+        sha256 = "51d676b6846440210da48899e4df618a357e6e44ecde7106f1e44ea16ae8adc7",
+        strip_prefix = "abseil-cpp-20230125.3",
         patch_args = ["-p1"],
         patches = [
-            "@enkit//bazel/dependencies/abseil:0001-remove-maes-and-msse4.1-option-from-cross-compilation.patch",
+            "@enkit//bazel/dependencies/abseil:0001-absl-flags-parse.cc-provide-a-mechanism-to-let-other.patch",
+            "@enkit//bazel/dependencies/abseil:0002-remove-maes-and-msse4.1-option-from-cross-compilation.patch",
         ],
-        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230802.2.tar.gz"],
+        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.3.zip"],
     )
 
     maybe(
@@ -305,7 +309,7 @@ filegroup(
         sha256 = "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
         strip_prefix = "zlib-1.2.11",
         # Original file: https://zlib.net/fossils/zlib-1.2.11.tar.gz
-        urls = ["https://astore.corp.enfabrica.net/d/mirror/zlib/zlib-1.2.11.tar.gz?u=giqzp6y6me76syf7jrgwtevqxgdhswdu"]
+        urls = ["https://astore.corp.enfabrica.net/d/mirror/zlib/zlib-1.2.11.tar.gz?u=giqzp6y6me76syf7jrgwtevqxgdhswdu"],
     )
 
     maybe(
