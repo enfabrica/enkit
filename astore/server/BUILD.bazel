@@ -15,7 +15,6 @@ go_library(
         "//auth/server/assets",
         "//auth/server/assets/templates",
         "//auth/server/auth",
-        "//auth/server/credentials",
         "//lib/kflags",
         "//lib/kflags/kcobra",
         "//lib/kflags/kconfig",

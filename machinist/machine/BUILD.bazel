@@ -19,7 +19,7 @@ go_library(
         "//lib/multierror",
         "//lib/retry",
         "//machinist/config",
-        "//machinist/machine/assets:go_default_library",
+        "//machinist/machine/assets",
         "//machinist/polling",
         "//machinist/rpc:machinist-go",
         "@com_github_spf13_cobra//:cobra",
@@ -49,7 +49,7 @@ go_test(
     srcs = ["templates_test.go"],
     deps = [
         ":machine",
-        "//machinist/machine/assets:go_default_library",
+        "//machinist/machine/assets",
         "@com_github_stretchr_testify//assert",
     ],
 )
