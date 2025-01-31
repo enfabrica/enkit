@@ -17,6 +17,60 @@ def stage_1():
     will override dependendencies loaded as part of later stages, which can be a
     way of forcing a dependency upgrade underneath e.g. io_bazel_rules_go.
     """
+
+    maybe(
+        name = "bazel_features",
+        repo_rule = http_archive,
+        strip_prefix = "bazel_features-1.23.0",
+        urls = [
+            "https://github.com/bazel-contrib/bazel_features/releases/download/v1.23.0/bazel_features-v1.23.0.tar.gz",
+        ],
+    )
+
+    maybe(
+        name = "com_google_protobuf",
+        repo_rule = http_archive,
+        strip_prefix = "protobuf-27.0",
+        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v27.0.tar.gz"],
+    )
+
+    maybe(
+        name = "rules_python",
+        repo_rule = http_archive,
+        strip_prefix = "rules_python-0.33.2",
+        patch_args = ["-p1"],
+        patches = [
+            "@enkit//bazel/dependencies/rules_python:exclude_pypi_deps_v0.32.0.patch",
+        ],
+        urls = [
+            "https://github.com/bazelbuild/rules_python/releases/download/0.33.2/rules_python-0.33.2.tar.gz",
+        ],
+    )
+
+    maybe(
+        name = "com_github_grpc_grpc",
+        repo_rule = http_archive,
+        strip_prefix = "grpc-1.70.0",
+        urls = [
+            "https://github.com/grpc/grpc/archive/refs/tags/v1.70.0.tar.gz",
+        ],
+    )
+
+    maybe(
+        name = "rules_proto",
+        repo_rule = http_archive,
+        strip_prefix = "rules_proto-7.0.0",
+        url = "https://github.com/bazelbuild/rules_proto/releases/download/7.0.0/rules_proto-7.0.0.tar.gz",
+    )
+
+    maybe(
+        name = "com_google_absl",
+        repo_rule = http_archive,
+        strip_prefix = "abseil-cpp-20240722.1",
+        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.1.tar.gz"],
+    )
+
+
     maybe(
         name = "aspect_bazel_lib",
         repo_rule = http_archive,
@@ -55,16 +109,6 @@ def stage_1():
         urls = [
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.34.0/bazel-gazelle-v0.34.0.tar.gz",
             "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.34.0/bazel-gazelle-v0.34.0.tar.gz",
-        ],
-    )
-
-    maybe(
-        name = "rules_proto",
-        repo_rule = http_archive,
-        sha256 = "e017528fd1c91c5a33f15493e3a398181a9e821a804eb7ff5acdd1d2d6c2b18d",
-        strip_prefix = "rules_proto-4.0.0-3.20.0",
-        urls = [
-            "https://github.com/bazelbuild/rules_proto/archive/refs/tags/4.0.0-3.20.0.tar.gz",
         ],
     )
 
@@ -130,33 +174,12 @@ def stage_1():
     )
 
     maybe(
-        name = "com_google_absl",
-        repo_rule = http_archive,
-        sha256 = "7c11539617af1f332f0854a6fb21e296a1b29c27d03f23c7b49d4adefcd102cc",
-        strip_prefix = "abseil-cpp-20230802.2",
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/abseil:0001-remove-maes-and-msse4.1-option-from-cross-compilation.patch",
-        ],
-        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230802.2.tar.gz"],
-    )
-
-    maybe(
         name = "bazel_skylib",
         repo_rule = http_archive,
         sha256 = "bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
         urls = [
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
             "https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
-        ],
-    )
-
-    maybe(
-        name = "rules_python",
-        repo_rule = http_archive,
-        strip_prefix = "rules_python-0.32.0",
-        urls = [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.32.0/rules_python-0.32.0.tar.gz",
         ],
     )
 
@@ -173,21 +196,6 @@ def stage_1():
         urls = [
             "https://storage.googleapis.com/grpc-bazel-mirror/github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
             "https://github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
-        ],
-    )
-
-    maybe(
-        name = "com_github_grpc_grpc",
-        repo_rule = http_archive,
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/grpc:no_remote_tag.patch",
-            "@enkit//bazel/dependencies/grpc:use_hermetic_py_headers.patch",
-        ],
-        sha256 = "e18b16f7976aab9a36c14c38180f042bb0fd196b75c9fd6a20a2b5f934876ad6",
-        strip_prefix = "grpc-1.45.2",
-        urls = [
-            "https://github.com/grpc/grpc/archive/refs/tags/v1.45.2.tar.gz",
         ],
     )
 
@@ -225,14 +233,6 @@ def stage_1():
         urls = ["https://github.com/googleapis/googleapis/archive/f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6.zip"],
         strip_prefix = "googleapis-f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6",
         sha256 = "f8f615f7c21459cb9b6ec2efaf795c875cd4698d6a1814a0a30d1eb910903142",
-    )
-
-    maybe(
-        name = "com_google_protobuf",
-        repo_rule = http_archive,
-        sha256 = "8b28fdd45bab62d15db232ec404248901842e5340299a57765e48abe8a80d930",
-        strip_prefix = "protobuf-3.20.1",
-        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.1.tar.gz"],
     )
 
     # BUG(INFRA-6710): `make` is pulled in by source by rules_foreign_cc, but we
