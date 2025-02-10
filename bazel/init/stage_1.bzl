@@ -28,6 +28,14 @@ def stage_1():
     )
 
     maybe(
+        name = "rules_cc",
+        repo_rule = http_archive,
+        urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.1.1/rules_cc-0.1.1.tar.gz"],
+        sha256 = "712d77868b3152dd618c4d64faaddefcc5965f90f5de6e6dd1d5ddcd0be82d42",
+        strip_prefix = "rules_cc-0.1.1",
+    )
+
+    maybe(
         name = "com_google_protobuf",
         repo_rule = http_archive,
         strip_prefix = "protobuf-27.0",
@@ -70,8 +78,8 @@ def stage_1():
     maybe(
         name = "com_google_absl",
         repo_rule = http_archive,
-        strip_prefix = "abseil-cpp-20240722.1",
-        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.1.tar.gz"],
+        strip_prefix = "abseil-cpp-20250127.0",
+        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20250127.0.tar.gz"],
     )
 
 
