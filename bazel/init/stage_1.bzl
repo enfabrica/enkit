@@ -21,6 +21,7 @@ def stage_1():
     maybe(
         name = "bazel_features",
         repo_rule = http_archive,
+        sha256 = "8b1c9b7558498000f5adebbc584b7bf15b6b2bf181448a66f6b2fc5b4c84231c",
         strip_prefix = "bazel_features-1.23.0",
         urls = [
             "https://github.com/bazel-contrib/bazel_features/releases/download/v1.23.0/bazel_features-v1.23.0.tar.gz",
@@ -45,6 +46,7 @@ def stage_1():
     maybe(
         name = "rules_python",
         repo_rule = http_archive,
+        sha256 = "e3f1cc7a04d9b09635afb3130731ed82b5f58eadc8233d4efb59944d92ffc06f",
         strip_prefix = "rules_python-0.33.2",
         patch_args = ["-p1"],
         patches = [
@@ -58,6 +60,7 @@ def stage_1():
     maybe(
         name = "com_github_grpc_grpc",
         repo_rule = http_archive,
+        sha256 = "3c95034f6b23ce7d286e2e7b5f3f4f223720b8bb3f5a9662ff96b7013b2c3c26",
         strip_prefix = "grpc-1.70.0",
         patch_args = ["-p1"],
         patches = [
@@ -71,6 +74,7 @@ def stage_1():
     maybe(
         name = "rules_proto",
         repo_rule = http_archive,
+        sha256 = "8e195dbb6a505ca4c7aafa6b7cffa47fe49a261b27a342053cfb2b973cc4aa12",
         strip_prefix = "rules_proto-7.0.0",
         url = "https://github.com/bazelbuild/rules_proto/releases/download/7.0.0/rules_proto-7.0.0.tar.gz",
     )
@@ -78,10 +82,10 @@ def stage_1():
     maybe(
         name = "com_google_absl",
         repo_rule = http_archive,
+        sha256 = "16242f394245627e508ec6bb296b433c90f8d914f73b9c026fddb905e27276e8",
         strip_prefix = "abseil-cpp-20250127.0",
         urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20250127.0.tar.gz"],
     )
-
 
     maybe(
         name = "aspect_bazel_lib",
