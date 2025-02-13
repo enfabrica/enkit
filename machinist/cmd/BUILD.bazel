@@ -13,28 +13,17 @@ go_library(
     ],
 )
 
+# Define platforms at the CLI level for bazel 7+
+# --platforms=@io_bazel_rules_go//go/toolchain:windows_amd64
+# --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64
 go_binary(
     name = "cmd",
     embed = [":cmd_lib"],
     visibility = ["//visibility:public"],
 )
 
-# Register windows machines with machinist to make it easier
-# for prometheus to collect metrics
-go_cross_binary(
-    name = "cmd_windows",
-    platform = "@io_bazel_rules_go//go/toolchain:windows_amd64",
-    target = ":cmd",
-)
-
-go_cross_binary(
-    name = "machinist_linux_arm",
-    platform = "@io_bazel_rules_go//go/toolchain:linux_arm64",
-    target = ":cmd",
-)
-
 astore_upload(
-    name = "machinist_linux_push",
+    name = "machinist_push",
     file = "infra/dev_machine/machinist",
     tags = [
         "manual",
@@ -43,18 +32,3 @@ astore_upload(
     targets = [":cmd"],
 )
 
-astore_upload(
-    name = "machinist_windows_push",
-    file = "infra/dev_machine/machinist",
-    tags = [
-        "manual",
-        "no-presubmit",
-    ],
-    targets = [":cmd_windows"],
-)
-
-astore_upload(
-    name = "machinist_linux_arm_push",
-    file = "infra/dev_machine/machinist",
-    targets = [":machinist_linux_arm"],
-)
