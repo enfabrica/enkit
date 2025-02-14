@@ -23,6 +23,7 @@ go_binary(
 )
 
 astore_upload(
+    # N.B. astore upload does automatic architecture detection
     name = "machinist_push",
     file = "infra/dev_machine/machinist",
     tags = [
