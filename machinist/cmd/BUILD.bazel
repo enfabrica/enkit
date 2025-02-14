@@ -13,7 +13,7 @@ go_library(
     ],
 )
 
-# Define platforms at the CLI level for bazel 7+
+# To compile for different architectures, use one of these bazel flags:
 # --platforms=@io_bazel_rules_go//go/toolchain:windows_amd64
 # --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64
 go_binary(
