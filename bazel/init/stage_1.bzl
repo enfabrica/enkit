@@ -39,8 +39,8 @@ def stage_1():
     maybe(
         name = "com_google_protobuf",
         repo_rule = http_archive,
-        strip_prefix = "protobuf-27.0",
-        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v27.0.tar.gz"],
+        strip_prefix = "protobuf-29.0",
+        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v29.0.tar.gz"],
     )
 
     maybe(
