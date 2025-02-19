@@ -1492,6 +1492,12 @@ function _local_branch_exists() {
   # Returns true if a local branch exists (even if it's worktree was deleted).
   # Fixes up the worktree if the branch is missing from the worktree.
   local BRANCH="$1"; shift
+
+  if [[ "${BRANCH}" == */* ]]; then
+    _warn "${BRANCH}: is not a local branch name."
+    return 1
+  fi
+
   _set_main
   if ! "${GIT}" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
     return 1  # false
@@ -1862,13 +1868,28 @@ function _safer_rebase() {
 }
 
 function _is_rebase_in_progress() {
-  # Is this branch currently in the middle of a rebase operation?
-  local G
-  G="$(git rev-parse --git-dir)"
-  if compgen -G "${G}/rebase*" > /dev/null; then
-    return 0  # 0=true
+  local RC
+  NOFAIL=1 "${GIT}" rev-parse --verify REBASE_HEAD >/dev/null 2>/dev/null
+  RC=$?
+  if [[ "${RC}" == 0 ]]; then
+    return 0  # rebase is in progress
+  elif [[ "${RC}" == 128 ]]; then
+    return 1  # rebase is not in progress
   else
-    return 1  # 1=false
+    _die "git rev-parse --verify REBASE_HEAD failed with unexpected code: ${RC}"
+  fi
+}
+
+function _is_cherry_pick_in_progress() {
+  local RC
+  NOFAIL=1 "${GIT}" rev-parse --verify CHERRY_PICK_HEAD >/dev/null 2>/dev/null
+  RC=$?
+  if [[ "${RC}" == 0 ]]; then
+    return 0  # cherry-pick is in progress
+  elif [[ "${RC}" == 128 ]]; then
+    return 1  # cherry-pick is not in progress
+  else
+    _die "git rev-parse --verify CHERRY_PICK_HEAD failed with unexpected code: ${RC}"
   fi
 }
 
@@ -1887,6 +1908,12 @@ function _checkout_or_die() {
   # whatever is necessary.
   local BRANCH BRDIR
   BRANCH="$1"; shift
+
+  if [[ "${BRANCH}" == */* ]]; then
+    _warn "${BRANCH}: is not a local branch name."
+    return 1
+  fi
+
   # Do we already have a worktree?
   BRDIR="${GEE_REPO_DIR}/${BRANCH}"
   if ! [[ -d "${BRDIR}" ]]; then
@@ -3460,6 +3487,10 @@ function gee__cleanup() {
   local -a empty=()
   local br
   for br in "${branches[@]}"; do
+    if [[ "${br}" == */* ]]; then
+      _warn "Skipping branch with a weird name: ${br}"
+      continue
+    fi
     if [[ "${br}" != "${MAIN}" ]]; then
       local parent
       parent="$(_get_parent_branch "${br}")"
@@ -4915,6 +4946,7 @@ EOT
 function _remove_a_branch() {
   local BR="$1"
   local STATE
+  local PARENT
 
   _banner "Deleting ${BR}"
   # if a local branch exists, or if the worktree directory exists:
@@ -4923,11 +4955,12 @@ function _remove_a_branch() {
     _set_main
 
     # Check if branch is clean
+    PARENT="$(_get_parent_branch "${BR}")"
     STATE=CLEAN
     local -a  counts=()
-    read -r -a counts < <("${GIT}" rev-list --left-right --count "${MAIN}...${BR}")
+    read -r -a counts < <("${GIT}" rev-list --left-right --count "${PARENT}...${BR}")
     if (( counts[1] != 0 )); then
-      _warn "Branch \"${BR}\" is ${counts[1]} commit(s) ahead of ${MAIN}."
+      _warn "Branch \"${BR}\" is ${counts[1]} commit(s) ahead of ${PARENT}."
       STATE=UNCLEAN
     fi
     if [[ -n "$("${GIT}" status --porcelain)" ]]; then
@@ -5879,6 +5912,84 @@ function gee__restore_all_branches() {
   gee__repair
 
   _info "Done."
+}
+
+##########################################################################
+# cherry-pick
+##########################################################################
+
+_register_help "pick" "Cherry-pick in commits from another branch." "cherrypick" \
+<<'EOT'
+Usage: pick <commit>...<commit>
+
+The gee wrapper around the git `cherry-pick` command that adds extra
+book-keeping in the `metadata` directory.
+
+EOT
+
+function gee__cherrypick() { gee__pick "$@"; }
+function gee__pick() {
+  local CURRENT_BRANCH CURRENT_TOPLEVEL UPSTREAM_PARENT BASE_BRANCH METADATA_FILE
+  _update_branch_to_worktree
+  CURRENT_BRANCH="$(_get_current_branch)"
+  UPSTREAM_PARENT="$(_get_upstream_parent "${CURRENT_BRANCH}")"
+  BASE_BRANCH="${UPSTREAM_PARENT#*/}"
+  CURRENT_TOPLEVEL="${BRANCH_TO_WORKTREE["${CURRENT_BRANCH}"]}"
+  METADATA_FILE="${CURRENT_TOPLEVEL}/metadata/cherrypick.${BASE_BRANCH}.log"
+
+  mkdir -p "$(dirname "${METADATA_FILE}")"
+
+  # Read $METADATA_FILE to collect a list of all the commits already integrated.
+  local -a ALREADY_INTEGRATED=()
+  readarray -t ALREADY_INTEGRATED < <(
+    sed -e 's/\s*#.*//' "${METADATA_FILE}" | grep -v -e '^\s*$' | awk '{print $1}'
+  )
+  local -A ALREADY_INTEGRATED_MAP
+  local COMMIT
+  for COMMIT in "${ALREADY_INTEGRATED[@]}"; do
+    ALREADY_INTEGRATED_MAP["${COMMIT}"]=1
+  done
+  _info "Parsed ${#ALREADY_INTEGRATED[@]} commits from ${METADATA_FILE}"
+
+  local -a COMMITS=()
+  readarray -t COMMITS < <(_git rev-list --reverse "$@")
+  echo "Picking: ${COMMITS[*]}"
+  (
+    printf "\n"
+    printf "# Cherry-picking %s\n" "$*"
+    printf "# User: %s\n" "${USER}"
+    printf "# Date: %s\n" "$(date)"
+  ) >> "${METADATA_FILE}"
+
+  for COMMIT in "${COMMITS[@]}"; do
+    printf "Checking for commit %q\n" "${COMMIT}"
+    if [[ -v ALREADY_INTEGRATED_MAP["${COMMIT}"] ]]; then
+      _warn "Commit ${COMMIT} is already integrated according to ${METADATA_FILE}"
+      echo "# ${COMMIT}: already integrated." >> "${METADATA_FILE}"
+      continue
+    fi
+    DESC="$(_git show --quiet --pretty=oneline "${COMMIT}")"
+    _info "Merging: ${DESC}"
+    "${GIT}" stash push -- "${METADATA_FILE}"
+    if ! _git cherry-pick -x "${COMMIT}"; then
+      if ! _is_cherry_pick_in_progress; then
+        _die "cherry-pick operation failed, but cherry-pick not in progress.  Bug!"
+      fi
+      _warn "Cherry-pick operation had merge conflicts, entering subshell."
+      # TODO(jonathan): adapt _interactive_conflict_resolution for this.
+      _git status
+      _git mergetool
+      local -a STATUS=()
+      mapfile -t STATUS < <( _git status );
+      _git cherry-pick --continue # This should complete, we're just doing one commit at a time.
+      if _is_cherry_pick_in_progress; then
+        echo "# FAILED: ${DESC}" >> "${METADATA_FILE}"
+        _fatal "cherry-pick ${COMMIT} operation did not succeed, aborting."
+      fi
+    fi
+    "${GIT}" stash pop
+    echo "${DESC}" >> "${METADATA_FILE}"
+  done
 }
 
 ##########################################################################
