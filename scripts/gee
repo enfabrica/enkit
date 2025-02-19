@@ -5925,9 +5925,6 @@ Usage: pick <commit>...<commit>
 The gee wrapper around the git `cherry-pick` command that adds extra
 book-keeping in the `metadata` directory.
 
-TODO(jonathan): add extra logic to verify that the same commit doesn't get
-cherry-picked twice.
-
 EOT
 
 function gee__cherrypick() { gee__pick "$@"; }
@@ -5942,6 +5939,18 @@ function gee__pick() {
 
   mkdir -p "$(dirname "${METADATA_FILE}")"
 
+  # Read $METADATA_FILE to collect a list of all the commits already integrated.
+  local -a ALREADY_INTEGRATED=()
+  readarray -t ALREADY_INTEGRATED < <(
+    sed -e 's/\s*#.*//' "${METADATA_FILE}" | grep -v -e '^\s*$' | awk '{print $1}'
+  )
+  local -A ALREADY_INTEGRATED_MAP
+  local COMMIT
+  for COMMIT in "${ALREADY_INTEGRATED[@]}"; do
+    ALREADY_INTEGRATED_MAP["${COMMIT}"]=1
+  done
+  _info "Parsed ${#ALREADY_INTEGRATED[@]} commits from ${METADATA_FILE}"
+
   local -a COMMITS=()
   readarray -t COMMITS < <(_git rev-list --reverse "$@")
   echo "Picking: ${COMMITS[*]}"
@@ -5952,8 +5961,13 @@ function gee__pick() {
     printf "# Date: %s\n" "$(date)"
   ) >> "${METADATA_FILE}"
 
-  local COMMIT
   for COMMIT in "${COMMITS[@]}"; do
+    printf "Checking for commit %q\n" "${COMMIT}"
+    if [[ -v ALREADY_INTEGRATED_MAP["${COMMIT}"] ]]; then
+      _warn "Commit ${COMMIT} is already integrated according to ${METADATA_FILE}"
+      echo "# ${COMMIT}: already integrated." >> "${METADATA_FILE}"
+      continue
+    fi
     DESC="$(_git show --quiet --pretty=oneline "${COMMIT}")"
     _info "Merging: ${DESC}"
     "${GIT}" stash push -- "${METADATA_FILE}"
