@@ -1,31 +1,5 @@
-diff --git a/bazel/cython_library.bzl b/bazel/cython_library.bzl
-index dc2ef7a890..fd2881ed8c 100644
---- a/bazel/cython_library.bzl
-+++ b/bazel/cython_library.bzl
-@@ -72,7 +72,7 @@ def pyx_library(name, deps = [], py_deps = [], srcs = [], **kwargs):
-         native.cc_binary(
-             name = shared_object_name,
-             srcs = [stem + ".cpp"],
--            deps = deps + ["@local_config_python//:python_headers"],
-+            deps = deps + ["@rules_python//python/cc:current_py_cc_headers"],
-             defines = defines,
-             linkshared = 1,
-         )
-diff --git a/bazel/grpc_python_deps.bzl b/bazel/grpc_python_deps.bzl
-index fab8756390..2b187d984f 100644
---- a/bazel/grpc_python_deps.bzl
-+++ b/bazel/grpc_python_deps.bzl
-@@ -31,7 +31,7 @@ def grpc_python_deps():
- 
-     native.bind(
-         name = "python_headers",
--        actual = "@local_config_python//:python_headers",
-+        actual = "@rules_python//python/cc:current_py_cc_headers",
-     )
- 
-     if "cython" not in native.existing_rules():
 diff --git a/third_party/py/python_configure.bzl b/third_party/py/python_configure.bzl
-index 6569d3e9c1..ef9ef8f36a 100644
+index 7ec4459d61..c5d5869c37 100644
 --- a/third_party/py/python_configure.bzl
 +++ b/third_party/py/python_configure.bzl
 @@ -91,14 +91,21 @@ def _read_dir(repository_ctx, src_dir):
