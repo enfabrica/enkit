@@ -151,12 +151,19 @@ def stage_1():
         ],
     )
 
+    # TODO(INFRA-1630): Drop this patched version when we can tolerate using setuptools past version 58.
     maybe(
         name = "rules_python",
         repo_rule = http_archive,
-        strip_prefix = "rules_python-0.32.0",
+        patch_args = ["-p1"],
+        patches = [
+            "@enkit//bazel/dependencies/rules_python:downgrade_setuptools.patch",
+            "@enkit//bazel/dependencies/rules_python:custom_annotations.patch",
+        ],
+        sha256 = "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
+        strip_prefix = "rules_python-0.24.0",
         urls = [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.32.0/rules_python-0.32.0.tar.gz",
+            "https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz",
         ],
     )
 

@@ -47,8 +47,8 @@ def stage_2():
     py_repositories()
 
     python_register_toolchains(
-        name = "python3_12",
-        python_version = "3.12",
+        name = "python3_8",
+        python_version = "3.8",
         ignore_root_user_error = True,
     )
 
@@ -56,7 +56,7 @@ def stage_2():
     # the python c toolchain ("py cc").
     # see https://github.com/bazelbuild/rules_python/issues/1669
     # and https://rules-python.readthedocs.io/en/latest/toolchains.html#python-c-toolchain-type
-    native.register_toolchains("@python3_12_toolchains//:all")
+    native.register_toolchains("@python3_8_toolchains//:all")
 
     # SDKs that can be used to build Go code. We need:
     # * the most recent version we can support
