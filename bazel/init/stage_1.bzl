@@ -51,10 +51,6 @@ def stage_1():
         name = "com_github_grpc_grpc",
         repo_rule = http_archive,
         strip_prefix = "grpc-1.70.0",
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/grpc:hermetic_py_no_remote.patch",
-        ],
         urls = [
             "https://github.com/grpc/grpc/archive/refs/tags/v1.70.0.tar.gz",
         ],
