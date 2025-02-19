@@ -23,11 +23,9 @@ load("@rules_antlr//antlr:repositories.bzl", "rules_antlr_dependencies")
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
-load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
-load("@bazel_features//:deps.bzl", "bazel_features_deps")
 
 def stage_2():
     """Stage 2 initialization for WORKSPACE.
@@ -41,7 +39,6 @@ def stage_2():
       rules_python in a load statement, which is instantiated in stage 1.
     """
 
-    bazel_features_deps()
     aspect_bazel_lib_dependencies()
     aspect_bazel_lib_register_toolchains()
 
@@ -60,8 +57,6 @@ def stage_2():
     # see https://github.com/bazelbuild/rules_python/issues/1669
     # and https://rules-python.readthedocs.io/en/latest/toolchains.html#python-c-toolchain-type
     native.register_toolchains("@python3_12_toolchains//:all")
-    
-    protobuf_deps()
 
     # SDKs that can be used to build Go code. We need:
     # * the most recent version we can support
@@ -89,6 +84,7 @@ def stage_2():
     rules_proto_grpc_toolchains()
 
     rules_proto_dependencies()
+    rules_proto_toolchains()
 
     bazel_skylib_workspace()
     rules_pkg_dependencies()
