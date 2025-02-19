@@ -17,6 +17,7 @@ def stage_1():
     will override dependendencies loaded as part of later stages, which can be a
     way of forcing a dependency upgrade underneath e.g. io_bazel_rules_go.
     """
+
     maybe(
         name = "aspect_bazel_lib",
         repo_rule = http_archive,
