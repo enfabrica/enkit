@@ -177,6 +177,7 @@ prompt that `gee bash_setup` makes available.
 | <a href="#make_branch">`make_branch`</a> | Create a new child branch based on the current branch. |
 | <a href="#migrate_default_branch">`migrate_default_branch`</a> | Migrate to a new default branch. |
 | <a href="#pack">`pack`</a> | Exports all unsubmitted changes in this branch as a pack file. |
+| <a href="#pick">`pick`</a> | Cherry-pick in commits from another branch. |
 | <a href="#pr_cancel">`pr_cancel`</a> | Cancels any running gcloud builds associated with this branch. |
 | <a href="#pr_checkout">`pr_checkout`</a> | Create a client containing someone's pull request. |
 | <a href="#pr_check">`pr_check`</a> | Checks the status of presubmit tests for a PR. |
@@ -880,6 +881,15 @@ to restore those branches.
 
 Note that gee isn't able to restore parentage metadata in this way.  Be
 sure to invoke `gee set_parent` in branches that benefit from this.
+
+### pick
+
+Aliases: cherrypick
+
+Usage: `pick <commit>...<commit>`
+
+The gee wrapper around the git `cherry-pick` command that adds extra
+book-keeping in the `metadata` directory.
 
 ### recover_stashes
 
