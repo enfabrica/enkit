@@ -5920,10 +5920,17 @@ function gee__restore_all_branches() {
 
 _register_help "pick" "Cherry-pick in commits from another branch." "cherrypick" \
 <<'EOT'
-Usage: pick <commit>...<commit>
+Usage: pick <commit>...
 
 The gee wrapper around the git `cherry-pick` command that adds extra
 book-keeping in the `metadata` directory.
+
+The arguments to the pick command are supplied to `git rev-list --reverse` to
+produce a list of commits to integrate.  See `git help rev-list` for proper
+usage, but here are some examples of simple use cases:
+
+* `ABCD1234^..ABCD1234`: specify a single commit
+* `ABCD1234..master_b0`: specify all commits in master_b0 after ABCD1234.
 
 EOT
 
@@ -5954,6 +5961,10 @@ function gee__pick() {
   local -a COMMITS=()
   readarray -t COMMITS < <(_git rev-list --reverse "$@")
   echo "Picking: ${COMMITS[*]}"
+  if ! _confirm_default_yes "Do you want to proceed? (Y/n)  "; then
+    _info "Canceled."
+    exit 1
+  fi
   (
     printf "\n"
     printf "# Cherry-picking %s\n" "$*"
