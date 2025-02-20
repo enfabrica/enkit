@@ -5988,11 +5988,14 @@ function gee__pick() {
       fi
       _warn "Cherry-pick operation had merge conflicts, entering subshell."
       # TODO(jonathan): adapt _interactive_conflict_resolution for this.
-      _git status
       _git mergetool
       local -a STATUS=()
-      mapfile -t STATUS < <( _git status );
-      _git cherry-pick --continue # This should complete, we're just doing one commit at a time.
+      mapfile -t STATUS < <( _git status -s );
+      if [[ -z "${STATUS[*]}" ]]; then
+        _git commit --allow-empty  # This should complete the cherry-pick operation.
+      else
+        _git cherry-pick --continue # This should complete, we're just doing one commit at a time.
+      fi
       if _is_cherry_pick_in_progress; then
         echo "# FAILED: ${DESC}" >> "${METADATA_FILE}"
         _fatal "cherry-pick ${COMMIT} operation did not succeed, aborting."
