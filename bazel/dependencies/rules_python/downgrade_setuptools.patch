@@ -1,8 +1,8 @@
-diff --git a/python/pip_install/repositories.bzl b/python/pip_install/repositories.bzl
-index e5567c8..2824bc5 100644
---- a/python/pip_install/repositories.bzl
-+++ b/python/pip_install/repositories.bzl
-@@ -61,8 +61,8 @@ _RULE_DEPS = [
+diff --git a/repositories.bzl.orig b/repositories.bzl
+index efe3bc72a0..2bbb481794 100644
+--- a/repositories.bzl.orig
++++ b/repositories.bzl
+@@ -62,8 +62,13 @@ _RULE_DEPS = [
      ),
      (
          "pypi__setuptools",
@@ -10,6 +10,11 @@ index e5567c8..2824bc5 100644
 -        "782ef48d58982ddb49920c11a0c5c9c0b02e7d7d1c2ad0aa44e1a1e133051c96",
 +        "https://files.pythonhosted.org/packages/a2/e1/902fbc2f61ad6243cd3d57ffa195a9eb123021ec912ec5d811acf54a39f8/setuptools-57.1.0-py3-none-any.whl",
 +        "ddae4c1b9220daf1e32ba9d4e3714df6019c5b583755559be84ff8199f7e1fe3",
++    ),
++    (
++        "pypi__setuptools-scm",
++        "https://files.pythonhosted.org/packages/a0/b9/1906bfeb30f2fc13bb39bf7ddb8749784c05faadbd18a21cf141ba37bff2/setuptools_scm-8.1.0-py3-none-any.whl",
++        "897a3226a6fd4a6eb2f068745e49733261a21f70b1bb28fce0339feb978d9af3",
      ),
      (
          "pypi__tomli",
