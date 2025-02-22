@@ -1,0 +1,147 @@
+diff --git a/python/pip_install/pip_repository.bzl b/python/pip_install/pip_repository.bzl
+index db673683..88d031bc 100644
+--- a/python/pip_install/pip_repository.bzl
++++ b/python/pip_install/pip_repository.bzl
+@@ -231,6 +231,11 @@ def _parse_optional_attrs(rctx, args, extra_pip_args = None):
+             "--pip_data_exclude",
+             json.encode(struct(arg = rctx.attr.pip_data_exclude)),
+         ]
++    if rctx.attr.exclude_deps != None:
++        args += [
++            "--exclude_deps",
++            json.encode(struct(arg = rctx.attr.exclude_deps)),
++        ]
+ 
+     if rctx.attr.enable_implicit_namespace_pkgs:
+         args.append("--enable_implicit_namespace_pkgs")
+@@ -360,6 +365,7 @@ def _pip_repository_impl(rctx):
+         "environment": rctx.attr.environment,
+         "envsubst": rctx.attr.envsubst,
+         "extra_pip_args": options,
++        "exclude_deps": rctx.attr.exclude_deps,
+         "isolated": use_isolated(rctx, rctx.attr),
+         "pip_data_exclude": rctx.attr.pip_data_exclude,
+         "python_interpreter": _get_python_interpreter_attr(rctx),
+@@ -413,6 +419,7 @@ def _pip_repository_impl(rctx):
+         "%%ANNOTATIONS%%": _format_dict(_repr_dict(annotations)),
+         "%%CONFIG%%": _format_dict(_repr_dict(config)),
+         "%%EXTRA_PIP_ARGS%%": json.encode(options),
++        "%%EXCLUDE_DEPS%%": json.encode(rctx.attr.exclude_deps),
+         "%%IMPORTS%%": "\n".join(imports),
+         "%%MACRO_TMPL%%": macro_tmpl,
+         "%%NAME%%": rctx.attr.name,
+@@ -433,6 +440,9 @@ common_env = [
+ ]
+ 
+ common_attrs = {
++    "exclude_deps": attr.string_list(
++        doc = "List of PyPi packages to exclude",
++    ),
+     "download_only": attr.bool(
+         doc = """
+ Whether to use "pip download" instead of "pip wheel". Disables building wheels from source, but allows use of
+@@ -914,6 +924,7 @@ def _whl_library_impl(rctx):
+         group_name = rctx.attr.group_name,
+         group_deps = rctx.attr.group_deps,
+         data_exclude = rctx.attr.pip_data_exclude,
++        exclude_deps = rctx.attr.exclude_deps,
+         tags = [
+             "pypi_name=" + metadata["name"],
+             "pypi_version=" + metadata["version"],
+diff --git a/python/pip_install/private/generate_whl_library_build_bazel.bzl b/python/pip_install/private/generate_whl_library_build_bazel.bzl
+index 8010ccba..084f2bfb 100644
+--- a/python/pip_install/private/generate_whl_library_build_bazel.bzl
++++ b/python/pip_install/private/generate_whl_library_build_bazel.bzl
+@@ -220,6 +220,7 @@ def generate_whl_library_build_bazel(
+         data_exclude,
+         tags,
+         entry_points,
++        exclude_deps = [],
+         annotation = None,
+         group_name = None,
+         group_deps = []):
+diff --git a/python/pip_install/tools/wheel_installer/arguments.py b/python/pip_install/tools/wheel_installer/arguments.py
+index 71133c29..b9b23322 100644
+--- a/python/pip_install/tools/wheel_installer/arguments.py
++++ b/python/pip_install/tools/wheel_installer/arguments.py
+@@ -73,6 +73,11 @@ def parser(**kwargs: Any) -> argparse.ArgumentParser:
+         type=pathlib.Path,
+         help="Extract a whl file to be used within Bazel.",
+     )
++    parser.add_argument(
++        "--exclude_deps",
++        action="store",
++        help="List PyPi packages to exclude to prevent circular wheel/bazel dependencies",
++    )
+     return parser
+ 
+ 
+@@ -82,7 +87,7 @@ def deserialize_structured_args(args: Dict[str, str]) -> Dict:
+     Args:
+         args: dict of parsed command line arguments
+     """
+-    structured_args = ("extra_pip_args", "pip_data_exclude", "environment")
++    structured_args = ("exclude_deps", "extra_pip_args", "pip_data_exclude", "environment")
+     for arg_name in structured_args:
+         if args.get(arg_name) is not None:
+             args[arg_name] = json.loads(args[arg_name])["arg"]
+diff --git a/python/pip_install/tools/wheel_installer/wheel_installer.py b/python/pip_install/tools/wheel_installer/wheel_installer.py
+index 801ef959..f3d148fb 100644
+--- a/python/pip_install/tools/wheel_installer/wheel_installer.py
++++ b/python/pip_install/tools/wheel_installer/wheel_installer.py
+@@ -106,6 +106,7 @@ def _extract_wheel(
+     extras: Dict[str, Set[str]],
+     enable_implicit_namespace_pkgs: bool,
+     platforms: List[wheel.Platform],
++    exclude_deps: List[str],
+     installation_dir: Path = Path("."),
+ ) -> None:
+     """Extracts wheel into given directory and creates py_library and filegroup targets.
+@@ -115,6 +116,7 @@ def _extract_wheel(
+         installation_dir: the destination directory for installation of the wheel.
+         extras: a list of extras to add as dependencies for the installed wheel
+         enable_implicit_namespace_pkgs: if true, disables conversion of implicit namespace packages and will unzip as-is
++        exclude_deps: list of PyPi packages to exclude to prevent circular dependencies in bazel/pip.
+     """
+ 
+     whl = wheel.Wheel(wheel_file)
+@@ -125,13 +127,18 @@ def _extract_wheel(
+ 
+     extras_requested = extras[whl.name] if whl.name in extras else set()
+ 
++    exclude_deps = [d.replace("-", "_") for d in exclude_deps]
++    filtered_deps = []
+     dependencies = whl.dependencies(extras_requested, platforms)
++    for d in dependencies.deps:
++        if d not in exclude_deps:
++            filtered_deps += [d]
+ 
+     with open(os.path.join(installation_dir, "metadata.json"), "w") as f:
+         metadata = {
+             "name": whl.name,
+             "version": whl.version,
+-            "deps": dependencies.deps,
++            "deps": filtered_deps,
+             "deps_by_platform": dependencies.deps_select,
+             "entry_points": [
+                 {
+@@ -162,6 +169,7 @@ def main() -> None:
+             extras=extras,
+             enable_implicit_namespace_pkgs=args.enable_implicit_namespace_pkgs,
+             platforms=arguments.get_platforms(args),
++            exclude_deps=deserialized_args["exclude_deps"],
+         )
+         return
+ 
+diff --git a/python/private/bzlmod/pip.bzl b/python/private/bzlmod/pip.bzl
+index ce681259..b200b421 100644
+--- a/python/private/bzlmod/pip.bzl
++++ b/python/private/bzlmod/pip.bzl
+@@ -232,6 +232,7 @@ def _create_whl_repos(module_ctx, pip_attr, whl_map, whl_overrides, group_map, s
+             group_deps = group_deps,
+             group_name = group_name,
+             pip_data_exclude = pip_attr.pip_data_exclude,
++            exclude_deps = pip_attr.exclude_deps,
+             python_interpreter = pip_attr.python_interpreter,
+             python_interpreter_target = python_interpreter_target,
+             whl_patches = {
