@@ -9,7 +9,9 @@
 import json
 import os
 
-import bazel.linux.kunit.kunit_parser
+import kunit_parser
+
+from bazel.linux.kunit.kunit_parser import TestStatus
 
 def get_json_result(test_result, def_config, build_dir, json_path) -> str:
 	sub_groups = []
@@ -32,9 +34,9 @@ def get_json_result(test_result, def_config, build_dir, json_path) -> str:
 		#  failure message, see https://api.kernelci.org/schema-test-case.html#get
 		for case in test_suite.cases:
 			test_case = {"name": case.name, "status": "FAIL"}
-			if case.status == kunit_parser.TestStatus.SUCCESS:
+			if case.status == TestStatus.SUCCESS:
 				test_case["status"] = "PASS"
-			elif case.status == kunit_parser.TestStatus.TEST_CRASHED:
+			elif case.status == TestStatus.TEST_CRASHED:
 				test_case["status"] = "ERROR"
 			test_cases.append(test_case)
 		sub_group["test_cases"] = test_cases
