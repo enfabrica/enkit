@@ -46,14 +46,14 @@ def stage_1():
     maybe(
         name = "rules_python",
         repo_rule = http_archive,
-        sha256 = "e3f1cc7a04d9b09635afb3130731ed82b5f58eadc8233d4efb59944d92ffc06f",
-        strip_prefix = "rules_python-0.33.2",
+        sha256 = "4f7e2aa1eb9aa722d96498f5ef514f426c1f55161c3c9ae628c857a7128ceb07",
+        strip_prefix = "rules_python-1.0.0",
         patch_args = ["-p1"],
         patches = [
-            "@enkit//bazel/dependencies/rules_python:exclude_pypi_deps_v0.32.0.patch",
+            "@enkit//bazel/dependencies/rules_python:exclude_pypi_deps_v1.0.0.patch",
         ],
         urls = [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.33.2/rules_python-0.33.2.tar.gz",
+            "https://github.com/bazelbuild/rules_python/releases/download/1.0.0/rules_python-1.0.0.tar.gz",
         ],
     )
 

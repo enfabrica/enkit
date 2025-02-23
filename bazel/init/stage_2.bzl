@@ -50,8 +50,8 @@ def stage_2():
     py_repositories()
 
     python_register_toolchains(
-        name = "python3_12",
-        python_version = "3.12",
+        name = "python3_9",
+        python_version = "3.9",
         ignore_root_user_error = True,
     )
 
@@ -59,7 +59,7 @@ def stage_2():
     # the python c toolchain ("py cc").
     # see https://github.com/bazelbuild/rules_python/issues/1669
     # and https://rules-python.readthedocs.io/en/latest/toolchains.html#python-c-toolchain-type
-    native.register_toolchains("@python3_12_toolchains//:all")
+    native.register_toolchains("@python3_9_toolchains//:all")
     
     protobuf_deps()
 

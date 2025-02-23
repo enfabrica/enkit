@@ -13,7 +13,6 @@ load("@rules_oci//oci:repositories.bzl", "LATEST_CRANE_VERSION", "oci_register_t
 load("@rules_oci//oci:pull.bzl", "oci_pull")
 load("@rules_proto_grpc//python:repositories.bzl", rules_proto_grpc_python_repos = "python_repos")
 load("@rules_python//python:pip.bzl", "pip_parse")
-load("@python3_12//:defs.bzl", "interpreter")
 
 def stage_3():
     """Stage 3 initialization for WORKSPACE.
@@ -36,7 +35,7 @@ def stage_3():
             "--no-cache-dir",
         ],
         requirements_lock = "//:requirements.txt",
-        python_interpreter_target = interpreter,
+        python_interpreter_target = "@python3_9_host//:python",
     )
 
     rules_proto_grpc_python_repos()
