@@ -4186,9 +4186,12 @@ Usage: gee make_pr <gh-options>
 Creates a new pull request from this branch.  The user will be asked to
 edit a PR description file before the PR is created.
 
-If you have any second thoughts during this process: Adding the token "DRAFT"
-to your PR description will cause the PR to be marked as a draft.  Adding the
-token "ABORT" will cause gee to abort the creation of your PR.
+These special tokens, on a line by themselves in your description, have
+the following effect:
+
+* "DRAFT" causes your PR to be marked as a draft.
+* "AUTOMERGE" causes your PR to have auto-merge enabled.
+* "ABORT" will cause gee to abort the creation of your PR.
 
 `pr_make` will look at the recursive parentage of the current branch  until
 it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
@@ -4291,9 +4294,10 @@ function gee__pr_make() {
 # What manual testing have you performed?
 Tested:
 
-# Having second thoughts?  Uncomment one of these two lines:
-# DRAFT   # To mark this PR as a "draft"
-# ABORT   # To abort the creation of a PR.
+# Uncomment to enable:
+# DRAFT      # To mark this PR as a "draft"
+# AUTOMERGE  # To enable automatic merging when merge requirements are met
+# ABORT      # To abort the creation of a PR.
 
 EndOfPrTemplate
 
@@ -4388,6 +4392,10 @@ EndOfPrTemplate
     DRAFT=1
     PR_ARGS+=( --draft )
   fi
+  local AUTOMERGE=0
+  if grep --quiet -E "^\s*AUTOMERGE" "${TRIMMED}"; then
+    AUTOMERGE=1
+  fi
 
   local ASSIGNEES=()
   mapfile -t ASSIGNEES < <(grep ^ASSIGNEES: "${TRIMMED}" | xargs -n1 | grep -v ^ASSIGNEES:)
@@ -4408,6 +4416,11 @@ EndOfPrTemplate
 
   if (( DRAFT != 1 )); then
     gee__codeowners --comment
+  fi
+
+  if (( AUTOMERGE == 1 )); then
+    sleep 1  # wait for github
+    _gh pr merge --auto --squash </dev/null
   fi
 
   # _gh pr checks  # These take a while to run, no point checking now.
