@@ -622,9 +622,12 @@ Usage: `gee make_pr <gh-options>`
 Creates a new pull request from this branch.  The user will be asked to
 edit a PR description file before the PR is created.
 
-If you have any second thoughts during this process: Adding the token "DRAFT"
-to your PR description will cause the PR to be marked as a draft.  Adding the
-token "ABORT" will cause gee to abort the creation of your PR.
+These special tokens, on a line by themselves in your description, have
+the following effect:
+
+* "DRAFT" causes your PR to be marked as a draft.
+* "AUTOMERGE" causes your PR to have auto-merge enabled.
+* "ABORT" will cause gee to abort the creation of your PR.
 
 `pr_make` will look at the recursive parentage of the current branch  until
 it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
