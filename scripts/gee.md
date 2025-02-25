@@ -889,10 +889,17 @@ sure to invoke `gee set_parent` in branches that benefit from this.
 
 Aliases: cherrypick
 
-Usage: `pick <commit>...<commit>`
+Usage: `pick <commit>...`
 
 The gee wrapper around the git `cherry-pick` command that adds extra
 book-keeping in the `metadata` directory.
+
+The arguments to the pick command are supplied to `git rev-list --reverse` to
+produce a list of commits to integrate.  See `git help rev-list` for proper
+usage, but here are some examples of simple use cases:
+
+* `ABCD1234^..ABCD1234`: specify a single commit
+* `ABCD1234..master_b0`: specify all commits in master_b0 after ABCD1234.
 
 ### recover_stashes
 
