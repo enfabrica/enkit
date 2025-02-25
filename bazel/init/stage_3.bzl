@@ -35,7 +35,7 @@ def stage_3():
             "--no-cache-dir",
         ],
         requirements_lock = "//:requirements.txt",
-        python_interpreter_target = "@python3_9_host//:python",
+        python_interpreter_target = "@python3_12_host//:python",
     )
 
     rules_proto_grpc_python_repos()
