@@ -110,16 +110,11 @@ def _kernel_modules(ctx):
 
     kernel_build_dir = ctx.attr.local_kernel[BuildSettingInfo].value if ctx.attr.local_kernel and ki.arch == "host" else kernel_build_dir
 
-    print(ctx.attr.local_kernel)
-    print(kernel_build_dir)
-
     make_args = ctx.attr.make_format_str.format(
         src_dir = srcdir,
         kernel_build_dir = kernel_build_dir,
         modules = " ".join(modules),
     )
-
-    #print(make_args)
 
     compilation_mode = ctx.var["COMPILATION_MODE"]
     if compilation_mode == "fastbuild":
@@ -147,7 +142,6 @@ def _kernel_modules(ctx):
     # equivalent to tags = ["no-remote"], but tags are not configurable attributes -
     # https://github.com/bazelbuild/bazel/issues/2971
     execution_requirements = None if ctx.attr.remote else {"no-remote": "foo"}
-    print(execution_requirements)
 
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
