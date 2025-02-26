@@ -8,8 +8,8 @@ enkit/tools/codegen/tests/gen-test.actual
 enkit/../com_google_absl/AUTHORS
 enkit/../com_google_googletest/libgtest.a
 enkit/../com_google_googletest/libgtest.so
-enkit/tools/codegen/codegen.py
 enkit/tools/codegen/codegen
+enkit/tools/codegen/codegen.py
 enkit/../bazel_tools/tools/python/python_bootstrap_template.txt
 enkit/../bazel_tools/tools/test/collect_cc_coverage.sh
 enkit/../bazel_tools/src/tools/launcher/launcher_maker
