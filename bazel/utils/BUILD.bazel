@@ -1,4 +1,5 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("//bazel/utils:diff_test.bzl", "diff_test", "diff_test_suite", "extract_file", "md5sum_diff_test")
 load("//bazel/utils:dynamic_wrapper.bzl", "dynamic_wrapper")
 load("//bazel/utils:types.bzl", "escape_and_join")

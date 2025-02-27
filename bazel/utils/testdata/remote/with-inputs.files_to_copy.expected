@@ -1,4 +1,6 @@
 enkit/../local_config_cc/builtin_include_directory_paths
+enkit/../local_config_cc/cc_wrapper.sh
+enkit/../local_config_cc/validate_static_library.sh
 enkit/../bazel_tools/tools/def_parser/no_op.bat
 enkit/bazel/utils/testdata/remote/quote00.txt
 enkit/bazel/utils/quote01.txt
