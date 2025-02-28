@@ -131,6 +131,47 @@ def _install_kernel_image(ctx, candidate, required):
         "image_path": path,
     })
 
+def _local_kernel_impl(repository_ctx):
+    if repository_ctx.attr.path:
+        target = repository_ctx.attr.path
+    else:
+        # By default we'll assume a standard install location
+        # on the users host.
+        target = repository_ctx.os.environ['HOME'] + "/rootfs"
+
+    # create a symlink into the external repo dir
+    repository_ctx.symlink(
+        target,
+        "",
+    )
+
+    substitutions = {
+        "{version}": repository_ctx.attr.version,
+    }
+
+    repository_ctx.template(
+        "BUILD.bazel",
+        repository_ctx.attr._build_tpl,
+        substitutions,
+    )
+
+local_kernel_package = repository_rule(
+    doc = "Imports a local kernel install into the bazel workspace",
+    implementation = _local_kernel_impl,
+    attrs = {
+        "path": attr.string(
+            doc = "Optional path to kernel install directory",
+        ),
+        "version": attr.string(
+            doc = "Version metadata for kernel image - will be appended to vmlinuz-{version}",
+            mandatory = True,
+        ),
+        "_build_tpl": attr.label(
+            doc = "BUILD template for kernel_image target and kernel_modules filegroup",
+            default = Label("//bazel/linux:BUILD.bazel.tpl"),
+        ),
+    },
+)
 def _kernel_package(ctx):
     if ctx.attr.url and not (ctx.attr.path or ctx.attr.uid):
         if ctx.attr.extract:

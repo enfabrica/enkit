@@ -466,12 +466,12 @@ def kernel_module(*args, **kwargs):
         kwargs["make_format_str"] = "-C {kernel_build_dir} M=$PWD/{src_dir} {modules}"
 
     kwargs["local_kernel"] = select({
-        "@enfabrica//:kernel_dir_placeholder": None,
-        "//conditions:default": "@enfabrica//:kernel_dir",
+        Label("//:kernel_dir_placeholder"): None,
+        "//conditions:default": Label("//:kernel_dir"),
     })
 
     kwargs["remote"] = select({
-        "@enfabrica//:kernel_dir_placeholder": True,
+        Label("//:kernel_dir_placeholder"): True,
         "//conditions:default": False,
     })
 
