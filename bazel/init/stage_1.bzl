@@ -65,6 +65,7 @@ def stage_1():
         patch_args = ["-p1"],
         patches = [
             "@enkit//bazel/dependencies/grpc:hermetic_py_no_remote.patch",
+            "@enkit//bazel/dependencies/grpc:fix_includes_warning.patch",
         ],
         urls = [
             "https://github.com/grpc/grpc/archive/refs/tags/v1.70.0.tar.gz",
