@@ -1,0 +1,39 @@
+diff --git a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
+index 16e0185d90..05bf84e080 100644
+--- a/bazel/grpc_build_system.bzl
++++ b/bazel/grpc_build_system.bzl
+@@ -200,7 +200,6 @@ def grpc_cc_library(
+     if select_deps:
+         for select_deps_entry in select_deps:
+             deps += select(select_deps_entry)
+-    include_prefix = _include_prefix()
+     native.cc_library(
+         name = name,
+         srcs = srcs,
+@@ -225,9 +224,9 @@ def grpc_cc_library(
+         testonly = testonly,
+         linkopts = linkopts,
+         includes = [
+-            include_prefix + "include",
+-            include_prefix + "src/core/ext/upb-gen",  # Once upb code-gen issue is resolved, remove this.
+-            include_prefix + "src/core/ext/upbdefs-gen",  # Once upb code-gen issue is resolved, remove this.
++            "include",
++            "src/core/ext/upb-gen",  # Once upb code-gen issue is resolved, remove this.
++            "src/core/ext/upbdefs-gen",  # Once upb code-gen issue is resolved, remove this.
+         ],
+         alwayslink = alwayslink,
+         data = data,
+diff --git a/src/core/BUILD b/src/core/BUILD
+index eda740ee1f..52d6d1f753 100644
+--- a/src/core/BUILD
++++ b/src/core/BUILD
+@@ -67,6 +67,9 @@ grpc_cc_library(
+         "absl/strings:str_format",
+     ],
+     language = "c++",
++    deps = [
++      "//:gpr_platform",
++    ],
+ )
+ 
+ grpc_cc_library(
