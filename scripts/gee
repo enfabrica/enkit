@@ -5961,8 +5961,17 @@ function gee__pick() {
   done
   _info "Parsed ${#ALREADY_INTEGRATED[@]} commits from ${METADATA_FILE}"
 
+  local -a ALL_COMMITS=()
+  readarray -t ALL_COMMITS < <(_git rev-list --reverse "$@")
   local -a COMMITS=()
-  readarray -t COMMITS < <(_git rev-list --reverse "$@")
+  for COMMIT in "${ALL_COMMITS[@]}"; do
+    if [[ -v ALREADY_INTEGRATED_MAP["${COMMIT}"] ]]; then
+      _warn "Skipping ${COMMIT}: already integrated according to ${METADATA_FILE}"
+      continue
+    else
+      COMMITS+=( "${COMMIT}" )
+    fi
+  done
   if (( "${#COMMITS[@]}" == 0 )); then
     _info "No new commits to integrate."
     return 0
@@ -5980,12 +5989,6 @@ function gee__pick() {
   ) >> "${METADATA_FILE}"
 
   for COMMIT in "${COMMITS[@]}"; do
-    printf "Checking for commit %q\n" "${COMMIT}"
-    if [[ -v ALREADY_INTEGRATED_MAP["${COMMIT}"] ]]; then
-      _warn "Commit ${COMMIT} is already integrated according to ${METADATA_FILE}"
-      echo "# ${COMMIT}: already integrated." >> "${METADATA_FILE}"
-      continue
-    fi
     DESC="$(_git show --quiet --pretty=oneline "${COMMIT}")"
     _info "Merging: ${DESC}"
     "${GIT}" stash push -- "${METADATA_FILE}"
