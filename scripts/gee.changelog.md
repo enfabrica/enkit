@@ -2,6 +2,11 @@
 
 ## Releases
 
+### 0.2.53
+* `gee pick`: add cherry-picking command with metadata logging.  (#1169, #1171)
+* `gee pr_make`: add AUTOMERGE option. (#1172)
+* `gee mkbr`: fix and simplify behavior when branch exists in origin. (#1177)
+
 ### 0.2.52
 * `gee lspr`: Improve lspr output, improve bash prompt to report number of assigned PRs.  (#1148)
 * `gee pr_submit`: Fix automatic rebasing of child branches.  This broke in 0.2.51.  (#1147)
