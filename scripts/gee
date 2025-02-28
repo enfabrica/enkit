@@ -5963,6 +5963,10 @@ function gee__pick() {
 
   local -a COMMITS=()
   readarray -t COMMITS < <(_git rev-list --reverse "$@")
+  if (( "${#COMMITS[@]}" == 0 )); then
+    _info "No new commits to integrate."
+    return 0
+  fi
   echo "Picking: ${COMMITS[*]}"
   if ! _confirm_default_yes "Do you want to proceed? (Y/n)  "; then
     _info "Canceled."
