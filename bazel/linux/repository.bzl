@@ -160,7 +160,7 @@ local_kernel_package = repository_rule(
     implementation = _local_kernel_impl,
     attrs = {
         "path": attr.string(
-            doc = "Optional path to kernel install directory",
+            doc = "Optional path to kernel install directory. Defaults to /home/{user}/rootfs",
         ),
         "version": attr.string(
             doc = "Version metadata for kernel image - will be appended to vmlinuz-{version}",
@@ -168,7 +168,7 @@ local_kernel_package = repository_rule(
         ),
         "_build_tpl": attr.label(
             doc = "BUILD template for kernel_image target and kernel_modules filegroup",
-            default = Label("//bazel/linux:BUILD.bazel.tpl"),
+            default = "//bazel/linux:BUILD.bazel.tpl",
         ),
     },
 )
