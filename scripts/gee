@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.52"
+readonly VERSION="0.2.53"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -2414,6 +2414,8 @@ function gee__init() {
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
   _git remote -v
+  _gh repo set-default "${UPSTREAM}/${REPO}"
+  _gh repo set-default --view
 
   # Fix the name of the main branch to match the actual branch name:
   local OLD_MAIN="${MAIN}"
@@ -2598,31 +2600,19 @@ function gee__make_branch() {
   _write_parents_file
 
   # If the user has created a branch whose name matches an
-  # existing branch in their existing repo, pull those changes
-  # into this branch.
+  # existing branch in their existing repo, reset this branch
+  # to match what is in origin.
   _git fetch origin
   if _remote_branch_exists origin "${BRNAME}"; then
+    _warn "Found existing \"origin/${BRNAME}\" branch: resetting local \"${BRNAME}\" to match."
     _checkout_or_die "${BRNAME}"
+    # always make our local branch the same as what's in origin.
+    _git reset --hard "origin/${BRNAME}"
     local -a COUNTS
-    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "HEAD...origin/${CURRENT_BRANCH}")
+    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "HEAD...${SHA}")
     if [[ "${COUNTS[1]}" -gt 0 ]]; then
-      if [[ "${COUNTS[0]}" -eq 0 ]]; then
-        _warn "Remote branch origin/${BRNAME} is ${COUNTS[1]} commit(s) ahead of master." \
-              "Do you want to reset your local branch to be the same as origin/${BRNAME}?"
-        if _confirm_default_yes "Reset ${BRNAME} to match origin/${BRNAME}?  (Y/n)  "; then
-          _git reset --hard "origin/${BRNAME}"
-        else
-          _warn "Commits from origin/${BRNAME} were not imported." \
-                "You probably want to run \"gee update\" in branch ${BRNAME}."
-        fi
-      else
-        _warn "Local branch has ${COUNTS[0]} commits that are not in origin." \
-              "Origin has ${COUNTS[1]} commits that are not in the local branch." \
-              "You probably want to run \"gee update\" in branch ${BRNAME}."
-      fi
-    else
-      _warn "Remote branch origin/${BRNAME} exists but was not ahead of master." \
-            "No commits were imported from origin/${BRNAME}."
+      _warn "Parent branch ${SHA} is ${COUNTS[1]} commits ahead of this branch." \
+            "You probably want to do a \"gee update\" operation in branch ${BRNAME}."
     fi
   fi
 }
@@ -5971,8 +5961,21 @@ function gee__pick() {
   done
   _info "Parsed ${#ALREADY_INTEGRATED[@]} commits from ${METADATA_FILE}"
 
+  local -a ALL_COMMITS=()
+  readarray -t ALL_COMMITS < <(_git rev-list --reverse "$@")
   local -a COMMITS=()
-  readarray -t COMMITS < <(_git rev-list --reverse "$@")
+  for COMMIT in "${ALL_COMMITS[@]}"; do
+    if [[ -v ALREADY_INTEGRATED_MAP["${COMMIT}"] ]]; then
+      _warn "Skipping ${COMMIT}: already integrated according to ${METADATA_FILE}"
+      continue
+    else
+      COMMITS+=( "${COMMIT}" )
+    fi
+  done
+  if (( "${#COMMITS[@]}" == 0 )); then
+    _info "No new commits to integrate."
+    return 0
+  fi
   echo "Picking: ${COMMITS[*]}"
   if ! _confirm_default_yes "Do you want to proceed? (Y/n)  "; then
     _info "Canceled."
@@ -5986,12 +5989,6 @@ function gee__pick() {
   ) >> "${METADATA_FILE}"
 
   for COMMIT in "${COMMITS[@]}"; do
-    printf "Checking for commit %q\n" "${COMMIT}"
-    if [[ -v ALREADY_INTEGRATED_MAP["${COMMIT}"] ]]; then
-      _warn "Commit ${COMMIT} is already integrated according to ${METADATA_FILE}"
-      echo "# ${COMMIT}: already integrated." >> "${METADATA_FILE}"
-      continue
-    fi
     DESC="$(_git show --quiet --pretty=oneline "${COMMIT}")"
     _info "Merging: ${DESC}"
     "${GIT}" stash push -- "${METADATA_FILE}"
