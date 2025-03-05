@@ -421,3 +421,11 @@ proto_library(
         strip_prefix = "opentelemetry-proto-0.19.0",
         urls = ["https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v0.19.0.tar.gz"],
     )
+
+    maybe(
+        name = "yq",
+        repo_rule = http_file,
+        sha256 = "654d2943ca1d3be2024089eb4f270f4070f491a0610481d128509b2834870049",
+        urls = ["https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64"],
+        executable = True,
+    )
