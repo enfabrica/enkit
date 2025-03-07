@@ -48,6 +48,11 @@ A few places where gee.py is already different from gee:
 
 ## Testing
 
-To test simple gee.py commands:
+To get started running the python version of gee, first create a
+local copy of the .gee.rc file:
 
     cp geerc.default ~/.gee.rc
+
+The run any gee command:
+
+    ./gee.py help
