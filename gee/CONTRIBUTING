@@ -1,0 +1,28 @@
+# CONTRIBUTING
+
+This is an effort to re-implement the gee bash script in python.
+
+## Goals
+
+A few high level objectives:
+
+  * implement gee as a stand-alone python3 script that can be executed
+    directly from the command line, without using any python modules
+    that aren't part of the python standard library.  Gee shouldn't
+    need to be a pyzip file or be executed via `bazel run`.
+
+  * configure gee.py using a .gee.rc file.  geerc.default is a prototype.
+
+  * remove all enfabrica-isms from the gee.py script -- or, at least,
+    move them to the configuration file.
+
+  * be as backwards compatible with the previous workflow as possible.
+    gee.py should be a drop-in replacement for gee.
+
+## Caveats
+
+A few places where gee.py is already different from gee:
+
+* all references to enkit are removed
+* the parents file is now parents.json
+
