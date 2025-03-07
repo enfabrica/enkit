@@ -568,34 +568,40 @@ class Gee:
             self.fatal("Command failed with returncode=%d: %s", rc, cmd)
         return rc
 
-    def run(self: "Gee", cmd, check=True, stdin=subprocess.DEVNULL, quiet=False, timeout=None):
+    def run(self: "Gee", cmd, check=True, stdin=subprocess.DEVNULL, direct_out=False, quiet=False, timeout=None):
         """quiet flag is for diagnostic commands."""
         self.log_command(cmd, quiet=quiet)
 
-        p = subprocess.Popen(
+        if direct_out:
+            stdout=None
+            stderr=None
+        else:
+            stdout=subprocess.PIPE
+            stderr=subprocess.PIPE
+        completed = subprocess.run(
             cmd,
             # Everything gee runs is run through the shell,
             # so the user can copy/paste exactly:
             shell=True if isinstance(cmd, str) else False,
             stdin=stdin,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=stdout,
+            stderr=stderr,
             encoding="utf-8",
             errors="utf-8",
             cwd=self.cwd,
         )
         # TODO(jonathan): implement a reader thread to tee the process
         # output to the logger in realtime.
-        stdout, stderr = p.communicate(input=stdin, timeout=timeout)
-        self.log_command_stderr(stderr, quiet=quiet)
-        self.log_command_stdout(stdout, quiet=quiet)
-        rc = p.wait()
-        self.logger.debug("exit status = %d", rc)
-        if check and rc != 0:
-            self.fatal("Command failed with returncode=%d: %s", rc, cmd)
-        return rc, stdout, stderr
+        if completed.stderr:
+            self.log_command_stderr(completed.stderr, quiet=quiet)
+        if completed.stdout:
+            self.log_command_stdout(completed.stdout, quiet=quiet)
+        self.logger.debug("exit status = %d", completed.returncode)
+        if check and completed.returncode != 0:
+            self.fatal("Command failed with returncode=%d: %s", completed.returncode, cmd)
+        return completed.returncode, completed.stdout, completed.stderr
 
-    def run_git(self: "Gee", cmd, check=True, stdin=None, quiet=False, timeout=None):
+    def run_git(self: "Gee", cmd, check=True, stdin=subprocess.DEVNULL, direct_out=False, quiet=False, timeout=None):
         git = self.find_binary(self.config.get("gee.git", "git"))
         if isinstance(cmd, str):
             cmd = git + " " + cmd
@@ -603,7 +609,7 @@ class Gee:
             cmd = [git] + cmd
         else:
             raise TypeError("command is not a list or a string: %r", cmd)
-        return self.run(cmd, check=check, stdin=subprocess.DEVNULL, quiet=quiet, timeout=timeout)
+        return self.run(cmd, check=check, stdin=stdin, direct_out=direct_out, quiet=quiet, timeout=timeout)
 
     def run_gh(self: "Gee", cmd, check=True, stdin=None, quiet=False, timeout=None):
         gh = self.find_binary(self.config.get("gee.gh", "gh"))
@@ -1043,6 +1049,7 @@ class Gee:
                         main_branch_dir,
                     ]
                 ),
+                direct_out=True,  # this is a slow command.
                 check=True,
             )
         os.chdir(main_branch_dir)
