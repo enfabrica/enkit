@@ -1,11 +1,11 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.12
 """gee, Rewriten in python.
 
 Goals:
     * run directly anywhere:
         * use only the standard python library
         * monolithic utility (no support files)
-    * respect a user's .geerc file
+    * respect a user's .gee.rc file
     * feature for feature backwards compatibility with the shell version of gee
     * show every command executed in a subshell, show all results
         * optionally?  --quiet suppresses commands
@@ -19,6 +19,7 @@ Environment variables gee cares about:
 
 # standard library
 import argparse
+import copy
 import datetime
 import difflib
 import io
@@ -33,7 +34,7 @@ import sys
 import textwrap
 import types
 import inspect
-import toml
+import tomllib
 import json
 import logging
 from typing import List, Optional
@@ -91,29 +92,25 @@ class GeeConfig:
                     d1[k] = d2[k]  # override
         return d1
 
-    def _inner_load(self, path):
-        path = _expand_path(path)
-        with open(path, "r", encoding="utf-8") as fd:
-            d = toml.decoder.load(fd)
-            fd.close()
-        if "load" in d:
-            for p in d["load"]:
-                self._inner_load(p)
-        self.data = self._merge(self.data, d)
-
     def load(self, path):
         self.path = path
-        # TODO(jonathan): create reasonable defaults if missing.
-        self._inner_load(path)
+        with open(path, "rb") as fd:
+            self.data = tomllib.load(fd)
+            fd.close()
 
     def save(self, path=None):
-        if path is None:
-            path = self.path
-        path = _expand_path(path)
-        with open(path, "w", encoding="utf-8") as fd:
-            toml.encoder.dump(self.data, fd)
-            fd.close()
-        logging.debug("Saved config: %r", path)
+        self.warn("Writing configuration file not yet supported.")
+        return
+        # TODO(jonathan): python3.11 replaced the "toml" library with
+        # "tomllib", and took away the ability to write a toml file.
+        # find a workaround. Maybe switch to yaml?  configparser?
+        # if path is None:
+        #     path = self.path
+        # path = _expand_path(path)
+        # with open(path, "w", encoding="utf-8") as fd:
+        #     # was: toml.write()
+        #     fd.close()
+        # logging.debug("Saved config: %r", path)
 
     def validate(self):
         # TODO(jonathan)
@@ -315,11 +312,11 @@ class InitCommand(GeeCommand):
             nargs=None,
         )
 
-    def dispatch(self, args):
+    def dispatch(self: "Gee", args):
         self.gee.install_tools()
 
         # Create gee directory if needed
-        self.gee.create_gee_dir()
+        self.create_gee_dir()
 
         # Check access to the github API.
         self.gee.check_gh_auth()
@@ -336,13 +333,19 @@ class InitCommand(GeeCommand):
         # Configure git.
         self.configure()
 
-        # Save the .geerc file, creating it if it's missing.
+        # Save the .gee.rc file, creating it if it's missing.
         self.save_config()
 
         self.info("Initialized gee workspace: %s/%s", self.repo_dir(), self.main_branch())
 
 class MakeBranchCommand(GeeCommand):
-    """Create a new branch."""
+    """Create a new branch.
+
+    Creates a new branch and worktree directory.
+
+    If no `parent` argument is provided, a branch based on the current branch
+    will be created.
+    """
     COMMAND = "make_branch"
     ALIASES = ["mkbr", "branch"]
 
@@ -360,7 +363,8 @@ class MakeBranchCommand(GeeCommand):
         )
 
     def dispatch(self, args):
-        return self.gee.make_branch(args.branch, args.parent)
+        self.gee.make_branch(args.branch, args.parent)
+        return 0
 
 
 class ConfigCommand(GeeCommand):
@@ -422,6 +426,8 @@ class Gee:
         self.logger.setLevel(logging.DEBUG)
 
         # Current repo selection:
+        self.cwd = os.path.realpath(os.getcwd())
+        self.initial_cwd = self.cwd
         self.repo = None  # a reference to a repo object in config.
 
         self.argparser = argparse.ArgumentParser(
@@ -432,7 +438,7 @@ class Gee:
         # Generic flags shared by all commands:
         self.argparser.add_argument(
             "--config",
-            default=os.environ.get("GEERC_PATH", "$HOME/.geerc"),
+            default=os.environ.get("GEERC_PATH", "$HOME/.gee.rc"),
             help="The path to the configuration file.",
         )
         self.argparser.add_argument(
@@ -469,8 +475,8 @@ class Gee:
         if self.parent_map_loaded:
             return
 
-        self.gee.create_gee_dir()  # make sure .gee directory exists
-        parents_file = os.path.join(self.gee.gee_dir(), "parents.json")
+        self.create_gee_dir()  # make sure .gee directory exists
+        parents_file = os.path.join(self.gee_dir(), "parents.json")
 
         if os.path.isfile(parents_file):
             with open(parents_file, "r", encoding="utf-8") as fd:
@@ -478,6 +484,8 @@ class Gee:
                 fd.close()
         else:
             self.parents = {}  # Create an empty map.
+
+        self.orig_parents = copy.deepcopy(self.parents)
 
         if self.repo:
             # Special case:
@@ -493,33 +501,33 @@ class Gee:
 
         Includes safety checks to prevent writing empty data.
         """
-        if not self.parent_map_loaded:
+        if (not self.parent_map_loaded) or (self.parents == self.orig_parents):
             return
         if not self.parents:
-            warn("BUG: almost wrote empty parents file!")
+            self.warn("BUG: almost wrote empty parents file!")
             return
 
-        self.gee.create_gee_dir()  # make sure .gee directory exists
-        parents_file = os.path.join(self.gee.gee_dir(), "parents.json")
+        self.create_gee_dir()  # make sure .gee directory exists
+        parents_file = os.path.join(self.gee_dir(), "parents.json")
 
         with open(parents_file, "w", encoding="utf-8") as fd:
             json.dump(self.parents, fd, indent=2)
             fd.close()
 
     def load_config(self: "Gee"):
-        self.debug("Loading config: %s", self.geerc_path)
+        path = _expand_path(self.gee_rc_path)
+        self.debug("Loading config: %s", path)
         self.config = GeeConfig()
-        self.config.load(self.geerc_path)
+        self.config.load(path)
 
     def save_config(self: "Gee"):
-        self.config.save(self.geerc_path)
+        self.config.save(self.gee_rc_path)
 
     def select_repo(self: "Gee"):
-        cwd = os.path.realpath(os.getcwd())
         gee_dir = self.gee_dir()
-        rel = os.path.relpath(cwd, start=gee_dir)
+        rel = os.path.relpath(self.cwd, start=gee_dir)
         if rel.startswith(".."):
-            self.debug("Could not guess repo from cwd=%r, gee_dir=%r", cwd, gee_dir)
+            self.debug("Could not guess repo from cwd=%r, gee_dir=%r", self.cwd, gee_dir)
             return
         parts = rel.split("/")
         if len(parts) < 2:
@@ -548,6 +556,7 @@ class Gee:
             stderr=sys.stderr,
             encoding="utf-8",
             errors="utf-8",
+            cwd=self.cwd,
         )
         stdout, stderr = p.communicate()
         rc = p.wait()
@@ -570,6 +579,7 @@ class Gee:
             stderr=subprocess.PIPE,
             encoding="utf-8",
             errors="utf-8",
+            cwd=self.cwd,
         )
         # TODO(jonathan): implement a reader thread to tee the process
         # output to the logger in realtime.
@@ -631,6 +641,9 @@ class Gee:
             self.fatal("Repo was unknown.")
         return f"{self.gee_dir()}/{self.repo['repo']}"
 
+    def branch_dir(self: "Gee", branch):
+        return f"{self.repo_dir()}/{branch}"
+
     def repo_config_id(self: "Gee"):
         if not self.repo:
             self.fatal("Repo was unknown.")
@@ -673,9 +686,9 @@ class Gee:
             self.fatal("Unknown log_level: %s", self.args.log_level)
 
         self.repo = None
-        self.geerc_path = os.environ.get("GEERC_PATH", "$HOME/.geerc")
+        self.gee_rc_path = os.environ.get("GEERC_PATH", "$HOME/.gee.rc")
         if self.args.config:
-            self.geerc_path = self.args.config
+            self.gee_rc_path = self.args.config
         self.load_config()
         self.config.validate()
         self.select_repo()
@@ -868,6 +881,25 @@ class Gee:
         if not gitdir.startswith(repo_dir):
             self.fatal("Current directory is not beneath %r", repo_dir)
 
+    def get_current_branch(self: "Gee"):
+        if not self.check_in_repo():
+            # default to the main branch:
+            return self.main_branch()
+        else:
+            rc, branch = self.run_git(
+                    "rev-parse --abbrev-ref HEAD",
+                    quiet=True,
+                    check=False,
+            )
+            if rc != 0:
+                logging.warning("Could not identify current branch: git rev-parse command failed (rc=%d)", rc)
+                return self.main_branch()
+            elif branch.strip() == "":
+                logging.warning("Could not identify current branch: git rev-parse said nothing.")
+                return self.main_branch()
+            else:
+                return branch.strip()
+
     def ssh_enroll(self: "Gee"):
         """Ensure the user has ssh access to github, or enroll the user if not."""
         self.check_ssh_agent()  # ensure ssh agent is running.
@@ -1020,8 +1052,39 @@ class Gee:
             sys.exit(1)
         _, _, _ = self.run_git("fetch upstream")
 
+    def remote_branch_exists(repo, branch) -> bool:
+        # TODO
+        pass
+
     def make_branch(self: "Gee", branch: str, parent: Optional[str]=None):
-        """Create a new branch and workdir, based on parent or """
+        """Create a new branch and workdir, based on parent or the current branch."""
+        if not parent:
+            parent = self.get_current_branch()
+        path = self.branch_dir(branch)
+        self.run_git(f"worktree add -f -b {branch!r} {path!r} {parent!r}")
+        self.parents[branch] = {
+                "parent": parent,
+                "mergebase": "",
+                }
+        self.cwd = path  # all further commands run from this new branch.
+
+        self.run_git("fetch origin", quiet=True, check=True)
+        if self.remote_branch_exists("origin", branch):
+            _, text = self.run_git(f"rev-list --left-right --count \"HEAD...origin/{branch}\"")
+            counts = text.strip().split()
+            if counts[1] > 0:
+                warn(f"Remote branch origin/{branch} is {counts[1]} commits ahead of {branch}.")
+                warn(f"Do you want to reset {branch} to be the same as origin/{branch}?")
+                if self.confirm(f"Reset {branch} to match origin/{branch}?  (Y/n)", default=True):
+                    self.run_git(f"reset --hard \"origin/{branch}\"")
+                else:
+                    warn("Commits from origin were not integrated.")
+                    warn(f"You probably want to run \"gee update\" in branch {branch}.")
+            else:
+                warn(f"Remote branch origin/{branch} exists, but is not ahead of {branch}.")
+
+
+
 
     def configure(self: "Gee"):
         self.run_git("config --global rerere.enabled true")
@@ -1055,10 +1118,10 @@ class Gee:
             self.info("Setting meld as the default GUI diff and merge tool.")
             self.run_git("config --global merge.guitool meld")
             self.run_git("config","--global","mergetool.meld.cmd",
-                "/usr/bin/meld \"\$LOCAL\" \"\$MERGED\" \"\$REMOTE\" --output \"\$MERGED\"",)
+                "/usr/bin/meld \"$LOCAL\" \"$MERGED\" \"$REMOTE\" --output \"$MERGED\"",)
             self.run_git("config --global diff.guitool meld")
             self.run_git(["config","--global difftool.meld.cmd",
-                "/usr/bin/meld \"\$LOCAL\" \"\$REMOTE\""])
+                "/usr/bin/meld \"$LOCAL\" \"$REMOTE\""])
             if not self.find_binary("meld"):
                 self.warning("meld is configured, but the tool could not be found.")
         elif mergetool == "bcompare":

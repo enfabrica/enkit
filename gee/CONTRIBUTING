@@ -46,3 +46,8 @@ A few places where gee.py is already different from gee:
 * all references to enkit are removed
 * the parents file is now parents.json
 
+## Testing
+
+To test simple gee.py commands:
+
+    cp geerc.default ~/.gee.rc
