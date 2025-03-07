@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Rewriting gee in python.
+"""gee, Rewriten in python.
 
 Goals:
     * run directly anywhere:
@@ -36,9 +36,23 @@ import inspect
 import toml
 import json
 import logging
+from typing import List, Optional
 
+#####################################################################
+## Utility functions
+#####################################################################
 
 def _expand_path(path):
+    """Expand a few special tokens in a path string.
+
+    >>> os.environ["HOME"] = "/home/foo"
+    >>> os.environ["USER"] = "foo"
+    >>> _expand_path("~/file")
+    '/home/foo/file'
+    >>> _expand_path("$HOME/file.$USER.txt")
+    '/home/foo/file.foo.txt'
+    """
+
     path = path.replace("$HOME", os.environ["HOME"])
     if path.startswith("~/"):
         path = os.path.join(os.environ["HOME"], path[2:])
@@ -46,8 +60,15 @@ def _expand_path(path):
     return os.path.realpath(path)
 
 
+#####################################################################
+# Configuring gee
+#####################################################################
+
 class GeeConfig:
-    SCHEMA = {}
+    """Responsible for loading and saving the user's .gee.rc file.
+
+    TODO(jonathan): help the user create a default .gee.rc file on startup.
+    """
 
     def __init__(self):
         self.path = None
@@ -123,63 +144,9 @@ class GeeConfig:
             data = data[key_part]
         data[key_parts[-1]] = value
 
-
-class GeeCommand:
-    """Documentation for this command."""
-
-    COMMAND = None
-    ALIASES = []
-
-    def __init__(self, gee_obj: "Gee"):
-        self.gee = gee_obj
-
-        shortdoc, longdoc = self.__doc__.split("\n\n", 1)
-        longdoc = textwrap.dedent(longdoc)
-        self.argparser = self.gee.subparsers.add_parser(
-            self.COMMAND,
-            aliases=self.ALIASES,
-            formatter_class = argparse.RawDescriptionHelpFormatter,
-            description=longdoc,
-            help=shortdoc,
-        )
-        self.argparser.set_defaults(func=self.dispatch)
-
-    def dispatch(self, args):
-        print(f"DEBUG: {self.COMMAND}:dispatch({vars(args)!r})")
-        raise NotImplementedError(self.COMMAND)
-
-
-class HelpCommand(GeeCommand):
-    """Show help.
-
-    Help!  The problem!  I must have fruit!
-    """
-
-    COMMAND = "help"
-    ALIASES = ["h"]
-
-    def __init__(self, gee_obj: "Gee"):
-        super().__init__(gee_obj)
-        self.argparser.add_argument(
-            "command", help="Command to get help for.", nargs="?"
-        )
-
-    def dispatch(self, args):
-        command = args.command
-        if command is None:
-            self.gee.argparser.print_help()
-            return 0
-        elif command in self.gee.subcommands:
-            self.gee.subcommands[command].argparser.print_help()
-            return 0
-        else:
-            print(f"Invalid command: {command}")
-            print()
-            print(
-                f"Supported commands: {' '.join(sorted(self.gee.subcommands.keys()))}"
-            )
-            return 1
-
+#####################################################################
+# Logging
+#####################################################################
 
 class GeeLogger(logging.Logger):
     # DEBUG=10, INFO=20, etc:
@@ -244,6 +211,205 @@ class GeeLogFormatter(logging.Formatter):
         formatter = self.FORMATS.get(record.levelno)
         return formatter.format(record)
 
+
+#####################################################################
+# Gee commands
+#####################################################################
+
+class GeeCommand:
+    """Base class for adding commands to Gee.
+
+    This class registers a subparser with the global argument
+    parser, and provides a "dispatch" method for executing
+    the command.  All subclasses of this class are automatically
+    enrolled by the Gee constructor.
+
+    Usually, this docstring will contain the documentation for the
+    specific command.
+    """
+
+    COMMAND = None
+    ALIASES = []
+
+    def __init__(self, gee_obj: "Gee"):
+        self.gee = gee_obj
+
+        if self.COMMAND:
+            shortdoc, longdoc = self.__doc__.split("\n\n", 1)
+            longdoc = textwrap.dedent(longdoc)
+            self.argparser = self.gee.subparsers.add_parser(
+                self.COMMAND,
+                aliases=self.ALIASES,
+                formatter_class = argparse.RawDescriptionHelpFormatter,
+                description=longdoc,
+                help=shortdoc,
+            )
+            self.argparser.set_defaults(func=self.dispatch)
+
+    def dispatch(self, args):
+        print(f"DEBUG: {self.COMMAND}:dispatch({vars(args)!r})")
+        raise NotImplementedError(self.COMMAND)
+
+
+class HelpCommand(GeeCommand):
+    """Show help.
+
+    Help!  The problem!  I must have fruit!
+    """
+
+    COMMAND = "help"
+    ALIASES = ["h"]
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+        self.argparser.add_argument(
+            "command", help="Command to get help for.", nargs="?"
+        )
+
+    def dispatch(self, args):
+        command = args.command
+        if command is None:
+            self.gee.argparser.print_help()
+            return 0
+        elif command in self.gee.subcommands:
+            self.gee.subcommands[command].argparser.print_help()
+            return 0
+        else:
+            print(f"Invalid command: {command}")
+            print()
+            print(
+                f"Supported commands: {' '.join(sorted(self.gee.subcommands.keys()))}"
+            )
+            return 1
+
+
+class InitCommand(GeeCommand):
+    """Initialize a gee environment.
+
+    `gee init` creates a new gee-controlled workspace in the user's home
+    directory.  The directory `~/gee/<repo>/main` will be created and
+    populated, and all other branches will be checked out into
+    `~/gee/<repo>/<branch>`.
+
+    The init command will also attempt to ensure that the user's
+    git and gh environments are configured in a correct, consistent
+    manner.
+    """
+
+    COMMAND = "init"
+    ALIASES = ["start", "initialize"]
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+        self.argparser.add_argument(
+            "url",
+            help="The https/ssh-based URL for the git repository to clone.",
+            default=None,
+            nargs=None,
+        )
+        self.argparser.add_argument(
+            "-m",
+            "--main_branch",
+            help="The name of the branch to use as the default main branch, if the default is not desired.",
+            default=None,
+            nargs=None,
+        )
+
+    def dispatch(self, args):
+        self.gee.install_tools()
+
+        # Create gee directory if needed
+        self.gee.create_gee_dir()
+
+        # Check access to the github API.
+        self.gee.check_gh_auth()
+
+        # Check ssh access to github.
+        if not self.gee.check_ssh():
+            self.gee.ssh_enroll()
+
+        # Clone the remote repo
+        self.gee.parse_url(args.url, args.main_branch)
+        self.gee.make_fork()
+        self.gee.clone()
+
+        # Configure git.
+        self.configure()
+
+        # Save the .geerc file, creating it if it's missing.
+        self.save_config()
+
+        self.info("Initialized gee workspace: %s/%s", self.repo_dir(), self.main_branch())
+
+class MakeBranchCommand(GeeCommand):
+    """Create a new branch."""
+    COMMAND = "make_branch"
+    ALIASES = ["mkbr", "branch"]
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+        self.argparser.add_argument(
+                "branch",
+                help="Name of branch to create.",
+        )
+        self.argparser.add_argument(
+                "parent",
+                help="Branch to use as parent for this branch.",
+                nargs="?",
+                default=None,
+        )
+
+    def dispatch(self, args):
+        return self.gee.make_branch(args.branch, args.parent)
+
+
+class ConfigCommand(GeeCommand):
+    """Change configurations.
+
+    Valid configuration options are:
+
+    * "default": Reset to default settings.
+    * "enable_vim": Set "vimdiff" as your diff/merge tool.
+    * "enable_nvim": Set "nvimdiff" as your diff/merge tool.
+    * "enable_emacs": Set "emacs" as your diff/merge tool.
+    * "enable_vscode": Set "vscode" as your GUI diff/merge tool.
+    * "enable_meld": Set "meld" as your GUI diff/merge tool.
+    * "enable_bcompare": Set "BeyondCompare" as your GUI diff/merge tool.
+    """
+    COMMAND = "config"
+    ALIASES = ["configure"]
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+        self.argparser.add_argument(
+                "option", help="Configuration option to select",
+        )
+
+    def dispatch(self, args):
+        if args.option in ("default", "defaults", "vim", "vimdiff", "enable_vim", "enable_vimdiff"):
+            self.gee.config.set("gee.mergetool", "vim")
+        elif args.option in ("nvim", "nvimdiff", "enable_nvim", "enable_nvimdiff"):
+            self.gee.config.set("gee.mergetool", "nvim")
+        elif args.option in ("code", "vscode", "enable_code", "enable_vscode"):
+            self.gee.config.set("gee.mergetool", "vscode")
+        elif args.option in ("meld", "enable_meld"):
+            self.gee.config.set("gee.mergetool", "meld")
+        elif args.option in ("bcompare", "enable_bcompare", "beyondcompare", "enable_beyondcompare"):
+            self.gee.config.set("gee.mergetool", "bcompare")
+        else:
+            self.gee.error("Unsupported configuration option: %s", args.option)
+            return 1
+
+        self.gee.configure()
+        self.gee.save_config()
+
+#####################################################################
+# The gee base class.  All the real work is done here.  Any
+# functionality that is shared by multiple commands should be here.
+#
+# TODO: there's a lot here -- organzie this class better so that
+#  it will be easier to understand and find things.
+#####################################################################
 
 class Gee:
     def __init__(self: "Gee"):
@@ -854,6 +1020,9 @@ class Gee:
             sys.exit(1)
         _, _, _ = self.run_git("fetch upstream")
 
+    def make_branch(self: "Gee", branch: str, parent: Optional[str]=None):
+        """Create a new branch and workdir, based on parent or """
+
     def configure(self: "Gee"):
         self.run_git("config --global rerere.enabled true")
         mergetool = self.config.get("gee.mergetool", "vim")
@@ -905,125 +1074,10 @@ class Gee:
             self.error("Unsupported mergetool configuration: %s", mergetool)
             self.info("Valid options are: bcompare, meld, nvim, vim, vscode")
 
-class InitCommand(GeeCommand):
-    """Initialize a gee environment.
 
-    `gee init` creates a new gee-controlled workspace in the user's home
-    directory.  The directory `~/gee/<repo>/main` will be created and
-    populated, and all other branches will be checked out into
-    `~/gee/<repo>/<branch>`.
-
-    The init command will also attempt to ensure that the user's
-    git and gh environments are configured in a correct, consistent
-    manner.
-    """
-
-    COMMAND = "init"
-    ALIASES = ["start", "initialize"]
-
-    def __init__(self, gee_obj: "Gee"):
-        super().__init__(gee_obj)
-        self.argparser.add_argument(
-            "url",
-            help="The https/ssh-based URL for the git repository to clone.",
-            default=None,
-            nargs=None,
-        )
-        self.argparser.add_argument(
-            "-m",
-            "--main_branch",
-            help="The name of the branch to use as the default main branch, if the default is not desired.",
-            default=None,
-            nargs=None,
-        )
-
-    def dispatch(self, args):
-        self.gee.install_tools()
-
-        # Create gee directory if needed
-        self.gee.create_gee_dir()
-
-        # Check access to the github API.
-        self.gee.check_gh_auth()
-
-        # Check ssh access to github.
-        if not self.gee.check_ssh():
-            self.gee.ssh_enroll()
-
-        # Clone the remote repo
-        self.gee.parse_url(args.url, args.main_branch)
-        self.gee.make_fork()
-        self.gee.clone()
-
-        # Configure git.
-        self.configure()
-
-        # Save the .geerc file, creating it if it's missing.
-        self.save_config()
-
-        self.info("Initialized gee workspace: %s/%s", self.repo_dir(), self.main_branch())
-
-class MakeBranchCommand(GeeCommand):
-    """Create a new branch."""
-    COMMAND = "make_branch"
-    ALIASES = ["mkbr", "branch"]
-
-    def __init__(self, gee_obj: "Gee"):
-        super().__init__(gee_obj)
-        self.argparser.add_argument(
-                "branch",
-                help="Name of branch to create.",
-        )
-        self.argparser.add_argument(
-                "parent",
-                help="Branch to use as parent for this branch.",
-                nargs="?",
-                default=None,
-        )
-
-    def dispatch(self, args):
-        return self.gee.make_branch(args.branch, args.parent)
-
-
-class ConfigCommand(GeeCommand):
-    """Change configurations.
-
-    Valid configuration options are:
-
-    * "default": Reset to default settings.
-    * "enable_vim": Set "vimdiff" as your diff/merge tool.
-    * "enable_nvim": Set "nvimdiff" as your diff/merge tool.
-    * "enable_emacs": Set "emacs" as your diff/merge tool.
-    * "enable_vscode": Set "vscode" as your GUI diff/merge tool.
-    * "enable_meld": Set "meld" as your GUI diff/merge tool.
-    * "enable_bcompare": Set "BeyondCompare" as your GUI diff/merge tool.
-    """
-    COMMAND = "config"
-    ALIASES = ["configure"]
-
-    def __init__(self, gee_obj: "Gee"):
-        super().__init__(gee_obj)
-        self.argparser.add_argument(
-                "option", help="Configuration option to select",
-        )
-
-    def dispatch(self, args):
-        if args.option in ("default", "defaults", "vim", "vimdiff", "enable_vim", "enable_vimdiff"):
-            self.gee.config.set("gee.mergetool", "vim")
-        elif args.option in ("nvim", "nvimdiff", "enable_nvim", "enable_nvimdiff"):
-            self.gee.config.set("gee.mergetool", "nvim")
-        elif args.option in ("code", "vscode", "enable_code", "enable_vscode"):
-            self.gee.config.set("gee.mergetool", "vscode")
-        elif args.option in ("meld", "enable_meld"):
-            self.gee.config.set("gee.mergetool", "meld")
-        elif args.option in ("bcompare", "enable_bcompare", "beyondcompare", "enable_beyondcompare"):
-            self.gee.config.set("gee.mergetool", "bcompare")
-        else:
-            self.gee.error("Unsupported configuration option: %s", args.option)
-            return 1
-
-        self.gee.configure()
-        self.gee.save_config()
+#####################################################################
+# main
+#####################################################################
 
 def main(args):
     gee = Gee()
