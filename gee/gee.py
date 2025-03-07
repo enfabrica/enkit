@@ -99,7 +99,7 @@ class GeeConfig:
             fd.close()
 
     def save(self, path=None):
-        self.warn("Writing configuration file not yet supported.")
+        print("Writing configuration file not yet supported.")
         return
         # TODO(jonathan): python3.11 replaced the "toml" library with
         # "tomllib", and took away the ability to write a toml file.
@@ -155,8 +155,9 @@ class GeeLogger(logging.Logger):
     STDOUT = 23  # the stdout of an executed command
     STDERR = 25  # the stderr of an executed command
     COMMANDS = 27  # the commandline of an executed command
-    WARNINGS = 30
-    ERRORS = 40
+    WARNING = 30
+    ERROR = 40
+    CRITICAL = 50
 
 
     def cmd(self, msg, *args, **kwargs):
@@ -181,27 +182,29 @@ class GeeLogger(logging.Logger):
 class GeeLogFormatter(logging.Formatter):
     grey = "\x1b[38;20m"
     bold_grey = "\x1b[38;1m"
-    white = "\x1b[38;20m"  # TODO(jonathan): fix this code
-    bold_white = "\x1b[38;1m"  # TODO(jonathan): fix this code
+    white = "\x1b[97;20m"  # TODO(jonathan): fix this code
+    bold_white = "\x1b[97;1m"  # TODO(jonathan): fix this code
+    green = "\x1b[32;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"
     bold_red = "\x1b[31;1m"
+    black_on_white = "\x1b[30;107m\x1b[K"
+    black_on_grey = "\x1b[30;47m\x1b[K"
     reset = "\x1b[0m"
     format = "%(levelname)s - %(message)s"
 
     FORMATS = {
-        logging.DEBUG: logging.Formatter(grey + "DBG: %(message)s" + reset),
-        GeeLogger.LOW_STDOUT: logging.Formatter(grey + "o-> %(message)s" + reset),
-        GeeLogger.LOW_STDERR: logging.Formatter(grey + "E-> %(message)s" + reset),
-        GeeLogger.LOW_COMMANDS: logging.Formatter(grey + "$ " + bold_grey + "%(message)s" + reset),
-        logging.INFO: logging.Formatter(grey + "%(message)s" + reset),
-        GeeLogger.STDOUT: logging.Formatter(grey + "o-> %(message)s" + reset),
-        GeeLogger.STDERR: logging.Formatter(grey + "E-> %(message)s" + reset),
-        GeeLogger.COMMANDS: logging.Formatter(white + "$ " + bold_white + "%(message)s" + reset),
-        logging.INFO: logging.Formatter(grey + "%(message)s" + reset),
-        logging.WARNING: logging.Formatter(yellow + "WARNING: %(message)s" + reset),
-        logging.ERROR: logging.Formatter(red + "ERROR: %(message)s" + reset),
-        logging.CRITICAL: logging.Formatter(bold_red + "CRITICAL ERROR@%(filename)s:%(lineno)d: %(message)s" + reset),
+        GeeLogger.DEBUG: logging.Formatter(grey + "DBG: %(message)s" + reset),
+        GeeLogger.LOW_STDOUT: logging.Formatter(grey + "%(message)s" + reset),
+        GeeLogger.LOW_STDERR: logging.Formatter(bold_grey + "%(message)s" + reset),
+        GeeLogger.LOW_COMMANDS: logging.Formatter(black_on_grey + "$ %(message)s" + reset),
+        GeeLogger.INFO: logging.Formatter(green + "INFO: %(message)s" + reset),
+        GeeLogger.STDOUT: logging.Formatter(grey + "%(message)s" + reset),
+        GeeLogger.STDERR: logging.Formatter(bold_grey + "%(message)s" + reset),
+        GeeLogger.COMMANDS: logging.Formatter(black_on_white + "$ %(message)s" + reset),
+        GeeLogger.WARNING: logging.Formatter(yellow + "WARNING: %(message)s" + reset),
+        GeeLogger.ERROR: logging.Formatter(red + "ERROR: %(message)s" + reset),
+        GeeLogger.CRITICAL: logging.Formatter(bold_red + "CRITICAL ERROR@%(filename)s:%(lineno)d: %(message)s" + reset),
     }
 
     def format(self, record):
@@ -316,7 +319,7 @@ class InitCommand(GeeCommand):
         self.gee.install_tools()
 
         # Create gee directory if needed
-        self.create_gee_dir()
+        self.gee.create_gee_dir()
 
         # Check access to the github API.
         self.gee.check_gh_auth()
@@ -331,12 +334,12 @@ class InitCommand(GeeCommand):
         self.gee.clone()
 
         # Configure git.
-        self.configure()
+        self.gee.configure()
 
         # Save the .gee.rc file, creating it if it's missing.
-        self.save_config()
+        self.gee.save_config()
 
-        self.info("Initialized gee workspace: %s/%s", self.repo_dir(), self.main_branch())
+        self.gee.info("Initialized gee workspace: %s/%s", self.gee.repo_dir(), self.gee.main_branch())
 
 class MakeBranchCommand(GeeCommand):
     """Create a new branch.
@@ -565,7 +568,7 @@ class Gee:
             self.fatal("Command failed with returncode=%d: %s", rc, cmd)
         return rc
 
-    def run(self: "Gee", cmd, check=True, stdin=None, quiet=False, timeout=None):
+    def run(self: "Gee", cmd, check=True, stdin=subprocess.DEVNULL, quiet=False, timeout=None):
         """quiet flag is for diagnostic commands."""
         self.log_command(cmd, quiet=quiet)
 
@@ -574,7 +577,7 @@ class Gee:
             # Everything gee runs is run through the shell,
             # so the user can copy/paste exactly:
             shell=True if isinstance(cmd, str) else False,
-            stdin=subprocess.PIPE,
+            stdin=stdin,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             encoding="utf-8",
@@ -600,7 +603,7 @@ class Gee:
             cmd = [git] + cmd
         else:
             raise TypeError("command is not a list or a string: %r", cmd)
-        return self.run(cmd, check=check, stdin=stdin, quiet=quiet, timeout=timeout)
+        return self.run(cmd, check=check, stdin=subprocess.DEVNULL, quiet=quiet, timeout=timeout)
 
     def run_gh(self: "Gee", cmd, check=True, stdin=None, quiet=False, timeout=None):
         gh = self.find_binary(self.config.get("gee.gh", "gh"))

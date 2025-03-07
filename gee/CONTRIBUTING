@@ -56,3 +56,7 @@ local copy of the .gee.rc file:
 The run any gee command:
 
     ./gee.py help
+
+A useful first command:
+
+    ./gee.py init org-64667743@github.com:enfabrica/internal.git
