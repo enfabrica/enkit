@@ -19,6 +19,26 @@ A few high level objectives:
   * be as backwards compatible with the previous workflow as possible.
     gee.py should be a drop-in replacement for gee.
 
+  * clean up the logging.  Differential between "important" commands
+    (things we want gee to teach the user how to do), and "unimportant"
+    commands (diagnostic checks and other things that would distract
+    the user from seeing what's important).
+
+    This version of gee has the following logging levels:
+       DEBUG: shows everything
+       LOW_STDOUT: shows stdout for unimportant commands
+       LOW_STDERR: shows stderr for unimportant commands
+       LOW_COMMANDS: shows what unimportant commands are begin executed
+       INFO: informational messages
+       STDOUT: shows stdout for important commands
+       STDERR: shows stderr for important commands
+       COMMANDS: shows what important commands are being executed
+       WARNINGS: concerning conditions, not necessarily a failure.
+       ERRORS: error conditions, indicates that operations have failed.
+
+  * Make gee testable by adding mocks for subprocess calls to "git", "gh", and
+    other commands.
+
 ## Caveats
 
 A few places where gee.py is already different from gee:
