@@ -19,6 +19,7 @@ Environment variables gee cares about:
 
 # standard library
 import argparse
+import pty
 import copy
 import datetime
 import difflib
@@ -28,6 +29,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import pathlib
 import shlex
 import sys
@@ -42,6 +44,11 @@ from typing import List, Optional
 #####################################################################
 ## Utility functions
 #####################################################################
+
+# Command Priorities
+LOW = 1
+HIGH = 2
+
 
 def _expand_path(path):
     """Expand a few special tokens in a path string.
@@ -64,6 +71,7 @@ def _expand_path(path):
 #####################################################################
 # Configuring gee
 #####################################################################
+
 
 class GeeConfig:
     """Responsible for loading and saving the user's .gee.rc file.
@@ -141,9 +149,11 @@ class GeeConfig:
             data = data[key_part]
         data[key_parts[-1]] = value
 
+
 #####################################################################
 # Logging
 #####################################################################
+
 
 class GeeLogger(logging.Logger):
     # DEBUG=10, INFO=20, etc:
@@ -158,7 +168,6 @@ class GeeLogger(logging.Logger):
     WARNING = 30
     ERROR = 40
     CRITICAL = 50
-
 
     def cmd(self, msg, *args, **kwargs):
         self.log(GeeLogger.COMMANDS, msg, *args, **kwargs)
@@ -197,14 +206,18 @@ class GeeLogFormatter(logging.Formatter):
         GeeLogger.DEBUG: logging.Formatter(grey + "DBG: %(message)s" + reset),
         GeeLogger.LOW_STDOUT: logging.Formatter(grey + "%(message)s" + reset),
         GeeLogger.LOW_STDERR: logging.Formatter(bold_grey + "%(message)s" + reset),
-        GeeLogger.LOW_COMMANDS: logging.Formatter(black_on_grey + "$ %(message)s" + reset),
+        GeeLogger.LOW_COMMANDS: logging.Formatter(
+            black_on_grey + "$ %(message)s" + reset
+        ),
         GeeLogger.INFO: logging.Formatter(green + "INFO: %(message)s" + reset),
         GeeLogger.STDOUT: logging.Formatter(grey + "%(message)s" + reset),
         GeeLogger.STDERR: logging.Formatter(bold_grey + "%(message)s" + reset),
         GeeLogger.COMMANDS: logging.Formatter(black_on_white + "$ %(message)s" + reset),
         GeeLogger.WARNING: logging.Formatter(yellow + "WARNING: %(message)s" + reset),
         GeeLogger.ERROR: logging.Formatter(red + "ERROR: %(message)s" + reset),
-        GeeLogger.CRITICAL: logging.Formatter(bold_red + "CRITICAL ERROR@%(filename)s:%(lineno)d: %(message)s" + reset),
+        GeeLogger.CRITICAL: logging.Formatter(
+            bold_red + "CRITICAL ERROR@%(filename)s:%(lineno)d: %(message)s" + reset
+        ),
     }
 
     def format(self, record):
@@ -215,6 +228,7 @@ class GeeLogFormatter(logging.Formatter):
 #####################################################################
 # Gee commands
 #####################################################################
+
 
 class GeeCommand:
     """Base class for adding commands to Gee.
@@ -240,7 +254,7 @@ class GeeCommand:
             self.argparser = self.gee.subparsers.add_parser(
                 self.COMMAND,
                 aliases=self.ALIASES,
-                formatter_class = argparse.RawDescriptionHelpFormatter,
+                formatter_class=argparse.RawDescriptionHelpFormatter,
                 description=longdoc,
                 help=shortdoc,
             )
@@ -339,7 +353,12 @@ class InitCommand(GeeCommand):
         # Save the .gee.rc file, creating it if it's missing.
         self.gee.save_config()
 
-        self.gee.info("Initialized gee workspace: %s/%s", self.gee.repo_dir(), self.gee.main_branch())
+        self.gee.info(
+            "Initialized gee workspace: %s/%s",
+            self.gee.repo_dir(),
+            self.gee.main_branch(),
+        )
+
 
 class MakeBranchCommand(GeeCommand):
     """Create a new branch.
@@ -349,20 +368,18 @@ class MakeBranchCommand(GeeCommand):
     If no `parent` argument is provided, a branch based on the current branch
     will be created.
     """
+
     COMMAND = "make_branch"
     ALIASES = ["mkbr", "branch"]
 
     def __init__(self, gee_obj: "Gee"):
         super().__init__(gee_obj)
+        self.argparser.add_argument("branch", help="Name of branch to create.")
         self.argparser.add_argument(
-                "branch",
-                help="Name of branch to create.",
-        )
-        self.argparser.add_argument(
-                "parent",
-                help="Branch to use as parent for this branch.",
-                nargs="?",
-                default=None,
+            "parent",
+            help="Branch to use as parent for this branch.",
+            nargs="?",
+            default=None,
         )
 
     def dispatch(self, args):
@@ -383,17 +400,23 @@ class ConfigCommand(GeeCommand):
     * "enable_meld": Set "meld" as your GUI diff/merge tool.
     * "enable_bcompare": Set "BeyondCompare" as your GUI diff/merge tool.
     """
+
     COMMAND = "config"
     ALIASES = ["configure"]
 
     def __init__(self, gee_obj: "Gee"):
         super().__init__(gee_obj)
-        self.argparser.add_argument(
-                "option", help="Configuration option to select",
-        )
+        self.argparser.add_argument("option", help="Configuration option to select")
 
     def dispatch(self, args):
-        if args.option in ("default", "defaults", "vim", "vimdiff", "enable_vim", "enable_vimdiff"):
+        if args.option in (
+            "default",
+            "defaults",
+            "vim",
+            "vimdiff",
+            "enable_vim",
+            "enable_vimdiff",
+        ):
             self.gee.config.set("gee.mergetool", "vim")
         elif args.option in ("nvim", "nvimdiff", "enable_nvim", "enable_nvimdiff"):
             self.gee.config.set("gee.mergetool", "nvim")
@@ -401,7 +424,12 @@ class ConfigCommand(GeeCommand):
             self.gee.config.set("gee.mergetool", "vscode")
         elif args.option in ("meld", "enable_meld"):
             self.gee.config.set("gee.mergetool", "meld")
-        elif args.option in ("bcompare", "enable_bcompare", "beyondcompare", "enable_beyondcompare"):
+        elif args.option in (
+            "bcompare",
+            "enable_bcompare",
+            "beyondcompare",
+            "enable_beyondcompare",
+        ):
             self.gee.config.set("gee.mergetool", "bcompare")
         else:
             self.gee.error("Unsupported configuration option: %s", args.option)
@@ -410,6 +438,7 @@ class ConfigCommand(GeeCommand):
         self.gee.configure()
         self.gee.save_config()
 
+
 #####################################################################
 # The gee base class.  All the real work is done here.  Any
 # functionality that is shared by multiple commands should be here.
@@ -417,6 +446,7 @@ class ConfigCommand(GeeCommand):
 # TODO: there's a lot here -- organzie this class better so that
 #  it will be easier to understand and find things.
 #####################################################################
+
 
 class Gee:
     def __init__(self: "Gee"):
@@ -434,7 +464,7 @@ class Gee:
         self.repo = None  # a reference to a repo object in config.
 
         self.argparser = argparse.ArgumentParser(
-                formatter_class = argparse.RawDescriptionHelpFormatter,
+            formatter_class=argparse.RawDescriptionHelpFormatter
         )
         self.logger.setLevel(logging.INFO)
 
@@ -451,10 +481,10 @@ class Gee:
             choices=["DEBUG", "INFO", "COMMANDS", "WARNINGS", "ERRORS"],
         )
         self.argparser.add_argument(
-                "--dry_run",
-                default=False,
-                action='store_true',
-                help="Don't run any commands, but show what would be run instead.",
+            "--dry_run",
+            default=False,
+            action="store_true",
+            help="Don't run any commands, but show what would be run instead.",
         )
 
         # Construct and register all commands:
@@ -493,8 +523,8 @@ class Gee:
         if self.repo:
             # Special case:
             self.parents[self.main_branch()] = {
-                    "parent": f"upstream/{self.main_branch()}",
-                    "mergebase": "",
+                "parent": f"upstream/{self.main_branch()}",
+                "mergebase": "",
             }
 
         self.parent_map_loaded = True
@@ -530,7 +560,9 @@ class Gee:
         gee_dir = self.gee_dir()
         rel = os.path.relpath(self.cwd, start=gee_dir)
         if rel.startswith(".."):
-            self.debug("Could not guess repo from cwd=%r, gee_dir=%r", self.cwd, gee_dir)
+            self.debug(
+                "Could not guess repo from cwd=%r, gee_dir=%r", self.cwd, gee_dir
+            )
             return
         parts = rel.split("/")
         if len(parts) < 2:
@@ -545,10 +577,110 @@ class Gee:
         # TODO(jonathan): search self.config.paths for binary.
         return b
 
-    def run_interactive(self: "Gee", cmd, check=True, quiet=False):
-        """Run an interactive command that communicates with the console."""
+    def run(
+        self: "Gee",
+        cmd,
+        check=True,
+        priority=HIGH,
+        timeout=None,
+        capture=True,
+        **kwargs,
+    ):
+        """Run a subprocess and capture it's output while streaming to the console.
 
-        self.log_command(cmd, quiet=quiet)
+        git and gh are tricked into interacting with a pseudo-tty, so that
+        "fancy" output can be streamed to the user, without compromising the
+        ability to capture the output of simple commands.
+        """
+        self.log_command(cmd, priority=priority)
+        log_level = self.logger.getEffectiveLevel()
+        if priority == LOW:
+            stdout_enabled = log_level >= LOW_STDOUT
+            stderr_enabled = log_level >= LOW_STDERR
+        else:
+            stdout_enabled = log_level >= STDOUT
+            stderr_enabled = log_level >= STDERR
+
+        stdout_parent, stdout_child = pty.openpty()
+        stderr_parent, stderr_child = pty.openpty()
+
+        process = subprocess.Popen(
+            cmd,
+            shell=True if isinstance(cmd, str) else False,
+            stdout=stdout_child,
+            stderr=stderr_child,
+            text=True,
+            encoding="utf-8",
+            errors="utf-8",
+            cwd=self.cwd,
+            bufsize=1,  # unbuffered output
+            **kwargs,
+        )
+        os.close(stdout_child)
+        os.close(stderr_child)
+
+        stdout_bytes = bytearray()
+        stderr_bytes = bytearray()
+
+        def stream_and_capture(fd, is_stdout):
+            nonlocal stdout_bytes, stdout_enabled, stderr_bytes, stderr_enabled
+            while True:
+                try:
+                    output_bytes = os.read(fd, 1024)
+                    if not output_bytes:
+                        break
+                    if is_stdout:
+                        if capture:
+                            stdout_bytes.extend(output_bytes)
+                        if stdout_enabled:
+                            os.write(
+                                sys.stdout.fileno(), output_bytes
+                            )  # stream to stdout (which is the tty)
+                        sys.stdout.flush()  # ensure it is shown immediately.
+                    else:
+                        if capture:
+                            stderr_bytes.extend(output_bytes)
+                        os.write(
+                            sys.stderr.fileno(), output_bytes
+                        )  # stream to stdout (which is the tty)
+                        sys.stderr.flush()  # ensure it is shown immediately.
+                except OSError:
+                    break
+
+        stdout_thread = threading.Thread(
+            target=stream_and_capture, args=(stdout_parent, True)
+        )
+        stderr_thread = threading.Thread(
+            target=stream_and_capture, args=(stderr_parent, False)
+        )
+        stdout_thread.start()
+        stderr_thread.start()
+        process.wait(timeout=timeout)
+        stdout_thread.join()
+        stderr_thread.join()
+
+        self.logger.debug("exit status = %d", process.returncode)
+        if check and process.returncode != 0:
+            self.fatal("Command failed with return code = %d", process.returncode)
+
+        os.close(stdout_parent)
+        os.close(stderr_parent)
+
+        stdout = bytes(stdout_bytes).decode("utf-8")
+        stderr = bytes(stderr_bytes).decode("utf-8")
+        return process.returncode, stdout, stderr
+
+    def run_interactive(self: "Gee", cmd, check=True, priority=HIGH):
+        """Run an interactive command that communicates with the console.
+
+        For when we don't want to futz about with the multithreaded solution
+        implemented in "run" above, and we're sure we don't need to capture
+        the output of the command.
+
+        Ignores log_level.
+        """
+
+        self.log_command(cmd, priority=priority)
         p = subprocess.Popen(
             cmd,
             # Everything gee runs is run through the shell,
@@ -568,40 +700,15 @@ class Gee:
             self.fatal("Command failed with returncode=%d: %s", rc, cmd)
         return rc
 
-    def run(self: "Gee", cmd, check=True, stdin=subprocess.DEVNULL, direct_out=False, quiet=False, timeout=None):
-        """quiet flag is for diagnostic commands."""
-        self.log_command(cmd, quiet=quiet)
-
-        if direct_out:
-            stdout=None
-            stderr=None
-        else:
-            stdout=subprocess.PIPE
-            stderr=subprocess.PIPE
-        completed = subprocess.run(
-            cmd,
-            # Everything gee runs is run through the shell,
-            # so the user can copy/paste exactly:
-            shell=True if isinstance(cmd, str) else False,
-            stdin=stdin,
-            stdout=stdout,
-            stderr=stderr,
-            encoding="utf-8",
-            errors="utf-8",
-            cwd=self.cwd,
-        )
-        # TODO(jonathan): implement a reader thread to tee the process
-        # output to the logger in realtime.
-        if completed.stderr:
-            self.log_command_stderr(completed.stderr, quiet=quiet)
-        if completed.stdout:
-            self.log_command_stdout(completed.stdout, quiet=quiet)
-        self.logger.debug("exit status = %d", completed.returncode)
-        if check and completed.returncode != 0:
-            self.fatal("Command failed with returncode=%d: %s", completed.returncode, cmd)
-        return completed.returncode, completed.stdout, completed.stderr
-
-    def run_git(self: "Gee", cmd, check=True, stdin=subprocess.DEVNULL, direct_out=False, quiet=False, timeout=None):
+    def run_git(
+        self: "Gee",
+        cmd,
+        check=True,
+        stdin=subprocess.DEVNULL,
+        direct_out=False,
+        priority=HIGH,
+        timeout=None,
+    ):
         git = self.find_binary(self.config.get("gee.git", "git"))
         if isinstance(cmd, str):
             cmd = git + " " + cmd
@@ -609,9 +716,9 @@ class Gee:
             cmd = [git] + cmd
         else:
             raise TypeError("command is not a list or a string: %r", cmd)
-        return self.run(cmd, check=check, stdin=stdin, direct_out=direct_out, quiet=quiet, timeout=timeout)
+        return self.run(cmd, check=check, priority=priority, timeout=timeout)
 
-    def run_gh(self: "Gee", cmd, check=True, stdin=None, quiet=False, timeout=None):
+    def run_gh(self: "Gee", cmd, check=True, stdin=None, priority=HIGH, timeout=None):
         gh = self.find_binary(self.config.get("gee.gh", "gh"))
         if isinstance(cmd, str):
             cmd = gh + " " + cmd
@@ -619,7 +726,9 @@ class Gee:
             cmd = [gh] + cmd
         else:
             raise TypeError("command is not a list or a string: %r", cmd)
-        return self.run(cmd, check=check, stdin=stdin, quiet=quiet, timeout=timeout)
+        return self.run(
+            cmd, check=check, stdin=stdin, priority=priority, timeout=timeout
+        )
 
     def origin_url(self: "Gee"):
         if not self.repo:
@@ -630,16 +739,12 @@ class Gee:
         """For example, internal/enfabrica."""
         if not self.repo:
             self.fatal("Repo was unknown.")
-        return (
-            f"{self.repo['upstream']}/{self.repo['repo']}"
-        )
+        return f"{self.repo['upstream']}/{self.repo['repo']}"
 
     def upstream_url(self: "Gee"):
         if not self.repo:
             self.fatal("Repo was unknown.")
-        return (
-                f"{self.repo['git_at_github']}:{self.repo_descriptor()}"
-        )
+        return f"{self.repo['git_at_github']}:{self.repo_descriptor()}"
 
     def gee_dir(self: "Gee"):
         """Path to the root of the gee directory."""
@@ -730,34 +835,33 @@ class Gee:
         self.logger.fatal(msg, *args, **kwargs, stacklevel=2, stack_info=True)
         sys.exit(1)
 
-    def log_command(self: "Gee", cmd, quiet=False):
+    def log_command(self: "Gee", cmd, priority=HIGH):
         """Log a command at COMMAND priority, or LOW_COMMAND if quiet is true.
 
-        quiet=False is for mainline commands that teach the user git.
-        quiet=True is for less essential commands (error checks, diagnostics) that
+        priority=HIGH is for mainline commands that teach the user git.
+        priority=LOW is for less essential commands (error checks, diagnostics) that
           aren't as useful for the user to see.
         """
         if isinstance(cmd, list) and not isinstance(cmd, str):
             cmd = " ".join([shlex.quote(x) for x in cmd])
-        if not quiet:
+        if priority == HIGH:
             self.logger.cmd(cmd)
         else:
             self.logger.low_cmd(cmd)
 
-    def log_command_stdout(self: "Gee", text, quiet=False):
+    def log_command_stdout(self: "Gee", text, priority=HIGH):
         for line in text.splitlines():
             if not quiet:
                 self.logger.cmd_stdout(line)
             else:
                 self.logger.low_cmd_stdout(line)
 
-    def log_command_stderr(self: "Gee", text, quiet=False):
+    def log_command_stderr(self: "Gee", text, priority=HIGH):
         for line in text.splitlines():
             if not quiet:
                 self.logger.cmd_stderr(line)
             else:
                 self.logger.low_cmd_stderr(line)
-
 
     ########################################
 
@@ -773,24 +877,24 @@ class Gee:
             self.fatal("%s exists but is not a directory.", gee_dir)
 
     # Diagnostics:
-    #   * Diagnostics usually run commands with the quiet=True flag to avoid
+    #   * Diagnostics usually run commands with the priority=LOW flag to avoid
     #     polluting the TUI.  If a diagnostic fails, any successive remedies
-    #     or retries should have quiet=False.
+    #     or retries should have priority=HIGH.
     def check_ssh_agent(self: "Gee"):
         if not os.environ.get("SSH_AUTH_SOCK", None):
             self.warn("SSH_AUTH_SOCK is not set.")
             self.fatal("Start an ssh-agent and try again.")
-        rc, _, _ = self.run("ssh-add -l", quiet=True, timeout=2, check=False)
+        rc, _, _ = self.run("ssh-add -l", priority=LOW, timeout=2, check=False)
         if rc == 2:
             self.error("SSH_AUTH_SOCK is set, but ssh-agent is unresponsive.")
             self.fatal("Start a new ssh-agent and try again.")
 
-    def check_ssh(self: "Gee", quiet=True):
+    def check_ssh(self: "Gee", priority=LOW):
         """Returns true iff we can ssh to github."""
         self.check_ssh_agent()
         git_at_github = self.config.get("gee.git_at_github", "git@github.com")
         rc, stdout, _ = self.run(
-            f"ssh -xT {git_at_github} </dev/null 2>&1", quiet=quiet, check=False
+            f"ssh -xT {git_at_github} </dev/null 2>&1", priority=priority, check=False
         )
 
         mo = re.match(r"^Hi ([a-zA-Z0-9_-]+)", stdout, flags=re.MULTILINE)
@@ -810,7 +914,7 @@ class Gee:
         return False
 
     def check_gh_auth(self: "Gee"):
-        rc, _, _ = self.run_gh("auth status", quiet=True, check=False)
+        rc, _, _ = self.run_gh("auth status", priority=LOW, check=False)
         if rc == 0:
             return True
         self.warn("gh could not authenticate to github.")
@@ -858,7 +962,7 @@ class Gee:
             else:
                 self.warning("Authentication unsuccessful.  Try again.")
             tries -= 1
-        rc, _, _ = self.run_gh("auth status", quiet=False, check=False)
+        rc, _, _ = self.run_gh("auth status", priority=HIGH, check=False)
         if rc != 0:
             self.fatal("gh still could not authenticate to github.")
             return False
@@ -874,16 +978,16 @@ class Gee:
 
         # Make sure we're not in one of bazel's weird symlink
         # directories.
-        _, pwd_p, _ = self.run("pwd -P", quiet=True)
-        _, pwd_l, _ = self.run("pwd -L", quiet=True)
+        _, pwd_p, _ = self.run("pwd -P", priority=LOW)
+        _, pwd_l, _ = self.run("pwd -L", priority=LOW)
         while pwd_p != pwd_l:
             os.chdir("..")
-            _, pwd_p, _ = self.run("pwd -P", quiet=True)
-            _, pwd_l, _ = self.run("pwd -L", quiet=True)
+            _, pwd_p, _ = self.run("pwd -P", priority=LOW)
+            _, pwd_l, _ = self.run("pwd -L", priority=LOW)
 
         # check that we're in a git repo
         rc, gitdir, _ = self.run_git(
-            "rev-parse --git-common-dir 2>/dev/null )", quiet=True, check=False
+            "rev-parse --git-common-dir 2>/dev/null )", priority=LOW, check=False
         )
         if rc != 0:
             self.fatal("Current directory is not in a git workspace.")
@@ -896,15 +1000,18 @@ class Gee:
             return self.main_branch()
         else:
             rc, branch = self.run_git(
-                    "rev-parse --abbrev-ref HEAD",
-                    quiet=True,
-                    check=False,
+                "rev-parse --abbrev-ref HEAD", priority=LOW, check=False
             )
             if rc != 0:
-                logging.warning("Could not identify current branch: git rev-parse command failed (rc=%d)", rc)
+                logging.warning(
+                    "Could not identify current branch: git rev-parse command failed (rc=%d)",
+                    rc,
+                )
                 return self.main_branch()
             elif branch.strip() == "":
-                logging.warning("Could not identify current branch: git rev-parse said nothing.")
+                logging.warning(
+                    "Could not identify current branch: git rev-parse said nothing."
+                )
                 return self.main_branch()
             else:
                 return branch.strip()
@@ -924,7 +1031,9 @@ class Gee:
         if os.path.exists(ssh_key_file):
             self.logger.info(f"Re-using existing ssh key {ssh_key_file!r}")
         else:
-            self.warn("%s: missing.  gee will help you generate a new key.", ssh_key_file)
+            self.warn(
+                "%s: missing.  gee will help you generate a new key.", ssh_key_file
+            )
             _ = self.run_interactive(
                 f'ssh-keygen -f {ssh_key_file!r} -t ed25519 -C "{os.environ["USER"]}@enfabrica.net"'
             )
@@ -954,7 +1063,7 @@ class Gee:
                 fd.close()
 
         # Make sure the user's ssh-key is enrolled:
-        _ = self.run_interactive(f"ssh-add {ssh_key_file}", quiet=False)
+        _ = self.run_interactive(f"ssh-add {ssh_key_file}", priority=HIGH)
 
         # If we can ssh into github, we're done:
         if self.check_ssh():
@@ -962,8 +1071,7 @@ class Gee:
 
         # Make sure our ssh key is enrolled at github
         rc, _, _ = self.run_gh(
-            f'ssh-key add {ssh_key_file}.pub --title "gee-enrolled-key"',
-            check=False,
+            f'ssh-key add {ssh_key_file}.pub --title "gee-enrolled-key"', check=False
         )
         if rc != 0:
             self.logger.warn(
@@ -975,7 +1083,7 @@ class Gee:
         # GitHub CLI      ssh-ed25519 XXX...XXX 2024-03-19T17:37:12Z    96758991        authentication
 
         # fatal if we still can't connect via ssh
-        if not self.check_ssh(quiet=False):
+        if not self.check_ssh(priority=HIGH):
             self.logger.fatal(
                 "Something still wrong: can't authenticate to github via ssh."
             )
@@ -1066,35 +1174,39 @@ class Gee:
         # TODO
         pass
 
-    def make_branch(self: "Gee", branch: str, parent: Optional[str]=None):
+    def make_branch(self: "Gee", branch: str, parent: Optional[str] = None):
         """Create a new branch and workdir, based on parent or the current branch."""
         if not parent:
             parent = self.get_current_branch()
         path = self.branch_dir(branch)
         self.run_git(f"worktree add -f -b {branch!r} {path!r} {parent!r}")
-        self.parents[branch] = {
-                "parent": parent,
-                "mergebase": "",
-                }
+        self.parents[branch] = {"parent": parent, "mergebase": ""}
         self.cwd = path  # all further commands run from this new branch.
 
-        self.run_git("fetch origin", quiet=True, check=True)
+        self.run_git("fetch origin", priority=LOW, check=True)
         if self.remote_branch_exists("origin", branch):
-            _, text = self.run_git(f"rev-list --left-right --count \"HEAD...origin/{branch}\"")
+            _, text = self.run_git(
+                f'rev-list --left-right --count "HEAD...origin/{branch}"'
+            )
             counts = text.strip().split()
             if counts[1] > 0:
-                warn(f"Remote branch origin/{branch} is {counts[1]} commits ahead of {branch}.")
-                warn(f"Do you want to reset {branch} to be the same as origin/{branch}?")
-                if self.confirm(f"Reset {branch} to match origin/{branch}?  (Y/n)", default=True):
-                    self.run_git(f"reset --hard \"origin/{branch}\"")
+                warn(
+                    f"Remote branch origin/{branch} is {counts[1]} commits ahead of {branch}."
+                )
+                warn(
+                    f"Do you want to reset {branch} to be the same as origin/{branch}?"
+                )
+                if self.confirm(
+                    f"Reset {branch} to match origin/{branch}?  (Y/n)", default=True
+                ):
+                    self.run_git(f'reset --hard "origin/{branch}"')
                 else:
                     warn("Commits from origin were not integrated.")
-                    warn(f"You probably want to run \"gee update\" in branch {branch}.")
+                    warn(f'You probably want to run "gee update" in branch {branch}.')
             else:
-                warn(f"Remote branch origin/{branch} exists, but is not ahead of {branch}.")
-
-
-
+                warn(
+                    f"Remote branch origin/{branch} exists, but is not ahead of {branch}."
+                )
 
     def configure(self: "Gee"):
         self.run_git("config --global rerere.enabled true")
@@ -1105,7 +1217,14 @@ class Gee:
             self.run_git("config --global merge.conflictstyle diff3")
             self.run_git("config --global mergetool.prompt false")
             self.run_git("config --global diff.difftool vimdiff")
-            self.run_git(["config", "--global", "difftool.vimdiff.cmd", "vimdiff \"$LOCAL\" \"$REMOTE\""])
+            self.run_git(
+                [
+                    "config",
+                    "--global",
+                    "difftool.vimdiff.cmd",
+                    'vimdiff "$LOCAL" "$REMOTE"',
+                ]
+            )
             if not self.find_binary("vimdiff"):
                 self.warning("vimdiff is configured, but the tool could not be found.")
         elif mergetool == "nvim":
@@ -1115,23 +1234,41 @@ class Gee:
             self.run_git("config --global merge.conflictstyle diff3")
             self.run_git("config --global mergetool.prompt false")
             self.run_git("config --global diff.difftool nvimdiff")
-            self.run_git(["config", "--global", "difftool.nvimdiff.cmd", "nvim -d \"$LOCAL\" \"$REMOTE\""])
+            self.run_git(
+                [
+                    "config",
+                    "--global",
+                    "difftool.nvimdiff.cmd",
+                    'nvim -d "$LOCAL" "$REMOTE"',
+                ]
+            )
             if not self.find_binary("nvim"):
                 self.warning("nvim is configured, but the tool could not be found.")
         elif mergetool == "vscode":
             self.info("Setting vscode as the default GUI diff and merge tool.")
             self.run_git("config --global merge.guitool vscode")
-            self.run_git(["config","--global","mergetool.vscode.cmd","code --wait \"$MERGED\""])
+            self.run_git(
+                ["config", "--global", "mergetool.vscode.cmd", 'code --wait "$MERGED"']
+            )
             if not self.find_binary("code"):
                 self.warning("vscode is configured, but the tool could not be found.")
         elif mergetool == "meld":
             self.info("Setting meld as the default GUI diff and merge tool.")
             self.run_git("config --global merge.guitool meld")
-            self.run_git("config","--global","mergetool.meld.cmd",
-                "/usr/bin/meld \"$LOCAL\" \"$MERGED\" \"$REMOTE\" --output \"$MERGED\"",)
+            self.run_git(
+                "config",
+                "--global",
+                "mergetool.meld.cmd",
+                '/usr/bin/meld "$LOCAL" "$MERGED" "$REMOTE" --output "$MERGED"',
+            )
             self.run_git("config --global diff.guitool meld")
-            self.run_git(["config","--global difftool.meld.cmd",
-                "/usr/bin/meld \"$LOCAL\" \"$REMOTE\""])
+            self.run_git(
+                [
+                    "config",
+                    "--global difftool.meld.cmd",
+                    '/usr/bin/meld "$LOCAL" "$REMOTE"',
+                ]
+            )
             if not self.find_binary("meld"):
                 self.warning("meld is configured, but the tool could not be found.")
         elif mergetool == "bcompare":
@@ -1151,6 +1288,7 @@ class Gee:
 #####################################################################
 # main
 #####################################################################
+
 
 def main(args):
     gee = Gee()
