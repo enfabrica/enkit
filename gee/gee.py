@@ -386,6 +386,24 @@ class MakeBranchCommand(GeeCommand):
         self.gee.make_branch(args.branch, args.parent)
         return 0
 
+class LogCommand(GeeCommand):
+    """A pretty version of log.
+
+    This command creates the "logp" git alias, if it doesn't
+    already exist, and then executes the rest of the command
+    line as if "git logp" had been executed.
+    """
+    COMMAND = "log"
+    ALIASES = []
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+        self.argparser.add_argument("args", nargs=argparse.REMAINDER, help="git logp arguments.")
+
+    def dispatch(self, args):
+        self.gee.configure_logp_alias()
+        self.gee.run_git(["logp"] + args.args)
+
 
 class ConfigCommand(GeeCommand):
     """Change configurations.
