@@ -1170,9 +1170,9 @@ class Gee:
             sys.exit(1)
         _, _, _ = self.run_git("fetch upstream")
 
-    def remote_branch_exists(repo, branch) -> bool:
-        # TODO
-        pass
+    def remote_branch_exists(self, repo, branch) -> bool:
+        rc, stdout, _ = self.run_git(f"ls-remote {repo!r} {branch!r}", priority=LOW)
+        return not (stdout.strip() == "")
 
     def make_branch(self: "Gee", branch: str, parent: Optional[str] = None):
         """Create a new branch and workdir, based on parent or the current branch."""
