@@ -25,7 +25,7 @@ warn_bg = 0
 info_fg = 6
 info_bg = 0
 
-[repo.enfabrica.internal]
+[repo.internal]
 repo = "internal"
 upstream = "enfabrica"
 dir = "internal"
