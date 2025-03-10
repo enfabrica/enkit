@@ -981,7 +981,7 @@ class Gee:
         _, pwd_p, _ = self.run("pwd -P", priority=LOW)
         _, pwd_l, _ = self.run("pwd -L", priority=LOW)
         while pwd_p != pwd_l:
-            os.chdir("..")
+            self.cwd = os.path.dirname(self.cwd)
             _, pwd_p, _ = self.run("pwd -P", priority=LOW)
             _, pwd_l, _ = self.run("pwd -L", priority=LOW)
 
@@ -1160,7 +1160,7 @@ class Gee:
                 direct_out=True,  # this is a slow command.
                 check=True,
             )
-        os.chdir(main_branch_dir)
+        self.cwd = main_branch_dir
         rc, _, stderr = self.run_git(
             f"remote add upstream {self.upstream_url()!r}", check=False
         )
