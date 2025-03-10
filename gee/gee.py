@@ -565,12 +565,8 @@ class Gee:
             )
             return
         parts = rel.split("/")
-        if len(parts) < 2:
-            self.debug("Could not guess repo from rel=%r", rel)
-            return
-        upstream = parts[0]
-        repo = parts[1]
-        self.repo = self.config.get(f"repo.{upstream}.{repo}", None)
+        repo = parts[0]
+        self.repo = self.config.get(f"repo.{repo}", None)
         self.debug("self.repo: %r", self.repo)
 
     def find_binary(self: "Gee", b):
@@ -595,11 +591,11 @@ class Gee:
         self.log_command(cmd, priority=priority)
         log_level = self.logger.getEffectiveLevel()
         if priority == LOW:
-            stdout_enabled = log_level >= LOW_STDOUT
-            stderr_enabled = log_level >= LOW_STDERR
+            stdout_enabled = log_level <= GeeLogger.LOW_STDOUT
+            stderr_enabled = log_level <= GeeLogger.LOW_STDERR
         else:
-            stdout_enabled = log_level >= STDOUT
-            stderr_enabled = log_level >= STDERR
+            stdout_enabled = log_level <= GeeLogger.STDOUT
+            stderr_enabled = log_level <= GeeLogger.STDERR
 
         stdout_parent, stdout_child = pty.openpty()
         stderr_parent, stderr_child = pty.openpty()
@@ -761,7 +757,7 @@ class Gee:
     def repo_config_id(self: "Gee"):
         if not self.repo:
             self.fatal("Repo was unknown.")
-        return f"repo.{self.repo['upstream']}.{self.repo['repo']}"
+        return f"repo.{self.repo['repo']}"
 
     def main_branch(self: "Gee"):
         # TODO(jonathan): alternately, if gh can be run reliably at this stage of initialization:
@@ -920,6 +916,9 @@ class Gee:
         self.warn("gh could not authenticate to github.")
         return self.gh_authenticate()
 
+    def check_executable(self: "Gee", path):
+        return path and os.path.exists(path) and os.path.isfile(path) and os.access(path, os.X_OK)
+
     def check_basics(self: "Gee"):
         self.check_executable(self.find_binary(self.config.get("gee.git", "git")))
         self.check_executable(self.find_binary(self.config.get("gee.gh", "gh")))
@@ -972,7 +971,8 @@ class Gee:
     def check_in_repo(self: "Gee"):
         self.check_basics()
         # Make sure gee init has been run:
-        repo_dir = self.config.get("gee.repo_dir")
+        self.select_repo()
+        repo_dir = self.repo_dir()
         if not os.path.isdir(repo_dir):
             self.fatal('Directory %r is missing, run "gee init".', repo_dir)
 
@@ -987,7 +987,7 @@ class Gee:
 
         # check that we're in a git repo
         rc, gitdir, _ = self.run_git(
-            "rev-parse --git-common-dir 2>/dev/null )", priority=LOW, check=False
+            "rev-parse --show-toplevel 2>/dev/null", priority=LOW, check=False
         )
         if rc != 0:
             self.fatal("Current directory is not in a git workspace.")
@@ -1098,14 +1098,14 @@ class Gee:
             git_at_github = f"{mo.group(1)}@github.com"
             upstream = mo.group(2)
             repo = mo.group(3)
-            repo_dict = self.config.get(f"repo.{upstream}.{repo}", None)
+            repo_dict = self.config.get(f"repo.{repo}", None)
         else:
             mo = https_re.match(url)
             if mo:
                 git_at_github = "git@github.com"
                 upstream = mo.group(1)
                 repo = mo.group(2)
-                repo_dict = self.config.get(f"repo.{upstream}.{repo}", None)
+                repo_dict = self.config.get(f"repo.{repo}", None)
             else:
                 self.fatal("Could not parse repo URL: %r", url)
         if repo_dict is None:
@@ -1117,7 +1117,7 @@ class Gee:
                 "clone_depth_months": 3,
                 "main": main,
             }
-            self.config.set(f"repo.{upstream}.{repo}", repo_dict)
+            self.config.set(f"repo.{repo}", repo_dict)
             self.config.save()
         self.repo = repo_dict
 
@@ -1208,8 +1208,22 @@ class Gee:
                     f"Remote branch origin/{branch} exists, but is not ahead of {branch}."
                 )
 
+    def configure_logp_alias(self: "Gee"):
+        if self.run_git("config --get alias.logp", check=False, priority=LOW):
+            self.debug("alias.logp is already defined.")
+            return
+        logp_command=shlex.quote(shlex.join((
+          "log",
+          "--color",
+          "--graph",
+          "--pretty=format:%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset",
+          "--abbrev-commit",
+        )))
+        self.run_git(f"config --global alias.logp {logp_command}")
+
     def configure(self: "Gee"):
         self.run_git("config --global rerere.enabled true")
+        self.configure_logp_alias()
         mergetool = self.config.get("gee.mergetool", "vim")
         if mergetool == "vim":
             self.info("Configuring git to use vimdiff as the default mergetool.")
