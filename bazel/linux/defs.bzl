@@ -108,7 +108,15 @@ def _kernel_modules(ctx):
     else:
         jobs = "-j%d" % ctx.attr.jobs
 
-    kernel_build_dir = ctx.attr.local_kernel[BuildSettingInfo].value if ctx.attr.local_kernel and ki.arch == "host" else kernel_build_dir
+    if ctx.attr.local_kernel and ki.arch == "host":
+        kernel_build_dir = ctx.attr.local_kernel[BuildSettingInfo].value
+        if kernel_build_dir[0] != '/':
+            # When building against a local kernel we force the action to execute
+            # locally but the rest of the build happens remotely. This leaves
+            # a small chance for cache poisoning. Forcing the user to pass
+            # an absolute path makes it less likely two independent builds will
+            # collide (i.e. --@enkit//:kernel_dir=~/kernel/vm-build).
+            fail("--@enkit//:kernel_dir argument must be an absolute path.")
 
     make_args = ctx.attr.make_format_str.format(
         src_dir = srcdir,

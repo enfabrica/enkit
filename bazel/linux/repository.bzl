@@ -139,6 +139,8 @@ def _local_kernel_impl(repository_ctx):
         # on the users host.
         target = repository_ctx.os.environ['HOME'] + "/rootfs"
 
+    version = repository_ctx.os.environ.get('KVER', repository_ctx.attr.version)
+
     # create a symlink into the external repo dir
     repository_ctx.symlink(
         target,
@@ -146,13 +148,14 @@ def _local_kernel_impl(repository_ctx):
     )
 
     substitutions = {
-        "{version}": repository_ctx.attr.version,
+        "{version}": version,
     }
 
     repository_ctx.template(
         "BUILD.bazel",
         repository_ctx.attr._build_tpl,
         substitutions,
+        False,
     )
 
 local_kernel_package = repository_rule(
@@ -171,7 +174,9 @@ local_kernel_package = repository_rule(
             default = "//bazel/linux:BUILD.bazel.tpl",
         ),
     },
+    environ = ["KVER"],
 )
+
 def _kernel_package(ctx):
     if ctx.attr.url and not (ctx.attr.path or ctx.attr.uid):
         if ctx.attr.extract:
