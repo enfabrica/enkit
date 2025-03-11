@@ -12,7 +12,7 @@ kernel_image(
 
 filegroup(
     name = "modules",
-    srcs = glob(["lib/modules/**"],
+    srcs = glob(["lib/modules/{version}/**"],
     exclude = [
         "**/add-ons/**",
     ]),
