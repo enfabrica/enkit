@@ -49,6 +49,17 @@ LOW = 1
 HIGH = 2
 
 
+def q(*args, **kwargs):
+    """A very short alias for shlex.quote.
+
+    We use shlex.quote everywhere, and it's convenient to have something
+    terse to embed in f-strings.
+
+    TODO: maybe "from shlex import quote as q" is better?
+    """
+    return shlex.quote(*args, **kwargs)
+
+
 def _expand_path(path):
     """Expand a few special tokens in a path string.
 
@@ -65,6 +76,36 @@ def _expand_path(path):
         path = os.path.join(os.environ["HOME"], path[2:])
     path = path.replace("$USER", os.environ["USER"])
     return os.path.realpath(path)
+
+
+def ask_yesno(prompt, default=True):
+    """Ask the user a yes/no question."""
+    yesno = " (Y/n)  " if default else " (y/N)  "
+    while True:
+        result = input(prompt + yesno)
+        if result.lower() in ("y", "yes"):
+            return True
+        elif result.lower() in ("n", "no"):
+            return False
+        elif result == "":
+            return default
+        print(f"Invalid response: {result!r}")
+
+
+def ask_multi(prompt, default=None, options=None):
+    if not options:
+        # extract options from prompt
+        options = "".join(re.findall(r"\((.)\)", prompt.lower()))
+    resp_char = None
+    while True:
+        resp = input(prompt).lower()
+        if not resp:
+            resp = default
+        resp_char = None if resp is None else resp[0]
+        if resp_char in options:
+            return resp_char
+            break
+        self.warn(f"Invalid response: {resp}")
 
 
 #####################################################################
@@ -208,12 +249,12 @@ class GeeLogFormatter(logging.Formatter):
         GeeLogger.LOW_STDOUT: logging.Formatter(grey + "%(message)s" + reset),
         GeeLogger.LOW_STDERR: logging.Formatter(bold_grey + "%(message)s" + reset),
         GeeLogger.LOW_COMMANDS: logging.Formatter(
-            black_on_grey + "$ %(message)s" + reset
+            black_on_grey + "%(message)s" + reset
         ),
         GeeLogger.INFO: logging.Formatter(green + "INFO: %(message)s" + reset),
         GeeLogger.STDOUT: logging.Formatter(grey + "%(message)s" + reset),
         GeeLogger.STDERR: logging.Formatter(bold_grey + "%(message)s" + reset),
-        GeeLogger.COMMANDS: logging.Formatter(black_on_white + "$ %(message)s" + reset),
+        GeeLogger.COMMANDS: logging.Formatter(black_on_white + "%(message)s" + reset),
         GeeLogger.WARNING: logging.Formatter(yellow + "WARNING: %(message)s" + reset),
         GeeLogger.ERROR: logging.Formatter(red + "ERROR: %(message)s" + reset),
         GeeLogger.CRITICAL: logging.Formatter(
@@ -387,6 +428,7 @@ class MakeBranchCommand(GeeCommand):
         self.gee.make_branch(args.branch, args.parent)
         return 0
 
+
 class LogCommand(GeeCommand):
     """A pretty version of log.
 
@@ -394,18 +436,22 @@ class LogCommand(GeeCommand):
     already exist, and then executes the rest of the command
     line as if "git logp" had been executed.
     """
+
     COMMAND = "log"
     ALIASES = []
 
     def __init__(self, gee_obj: "Gee"):
         super().__init__(gee_obj)
-        self.argparser.add_argument("args", nargs=argparse.REMAINDER, help="git logp arguments.")
+        self.argparser.add_argument(
+            "args", nargs=argparse.REMAINDER, help="git logp arguments."
+        )
 
     def dispatch(self, args):
         self.gee.configure_logp_alias()
         if args.args[0] == "--":
             _ = args.args.pop(0)
         self.gee.run_git(["logp"] + args.args)
+
 
 class ConfigCommand(GeeCommand):
     """Change configurations.
@@ -466,7 +512,8 @@ class DiffCommand(GeeCommand):
 
     If <files...> are omitted, shows changes to all files.
     """
-    COMMAND="diff"
+
+    COMMAND = "diff"
     ALIASES = []
 
     def __init__(self, gee_obj: "Gee"):
@@ -478,6 +525,7 @@ class DiffCommand(GeeCommand):
         parent_commit = self.gee.get_parent_commit(branch)
         self.gee.run_git(["diff", f"{parent_commit}...HEAD", "--"] + args.files)
 
+
 class VimdiffCommand(GeeCommand):
     """compare file(s) against the parent branch version.
 
@@ -485,7 +533,8 @@ class VimdiffCommand(GeeCommand):
     "vimdiff") to show all local changes since this branch diverged from its
     parent branch.
     """
-    COMMAND="vimdiff"
+
+    COMMAND = "vimdiff"
     ALIASES = []
 
     def __init__(self, gee_obj: "Gee"):
@@ -495,17 +544,21 @@ class VimdiffCommand(GeeCommand):
     def dispatch(self, args):
         branch = self.gee.get_current_branch()
         parent = self.gee.get_parent_branch(branch)
-        _, stdout, _ = self.gee.run_git(f"config --global --get diff.difftool", priority=LOW)
+        _, stdout, _ = self.gee.run_git(
+            f"config --global --get diff.difftool", priority=LOW
+        )
         difftool = stdout.strip()
         files = " ".join([shlex.quote(x) for x in args.files])
         self.gee.run_interactive(f"git difftool -t {difftool} {parent} -- {files}")
+
 
 class WhatsoutCommand(GeeCommand):
     """Show a list of files with changes from the parent branch.
 
     Reports which files in this branch differ from the parent branch.
     """
-    COMMAND="whatsout"
+
+    COMMAND = "whatsout"
     ALIASES = ["what", "wat"]
 
     def __init__(self, gee_obj: "Gee"):
@@ -515,6 +568,7 @@ class WhatsoutCommand(GeeCommand):
         branch = self.gee.get_current_branch()
         parent = self.gee.get_parent_branch(branch)
         self.gee.run_git(["diff", "--name-only", f"{parent}...HEAD"])
+
 
 class FindCommand(GeeCommand):
     """Finds a file by name in the current branch.
@@ -534,6 +588,7 @@ class FindCommand(GeeCommand):
 
         gee find WORKSPACE
     """
+
     COMMAND = "find"
     ALIASES = []
 
@@ -542,16 +597,46 @@ class FindCommand(GeeCommand):
         self.argparser.add_argument("expression", help="Filename-ish to search for.")
 
     def dispatch(self, args):
-        current_branch=self.gee.get_current_branch()
+        current_branch = self.gee.get_current_branch()
         path = self.gee.branch_dir(current_branch)
         paths = (path, f"{path}/bazel-bin/*", f"{path}/bazel-{current_branch}/*")
         for p in paths:
             _, stdout, _ = self.gee.run(
-                f"find {p!r} -name .git -prune -or -name {args.expression!r} -print",
+                f"find {q(p)} -name .git -prune -or -name {q(args.expression)} -print",
                 check=False,
             )
             if stdout.strip() != "":
                 break
+
+
+class UpdateCommand(GeeCommand):
+    """Rebase the current branch onto the parent branch.
+
+    "gee update" attempts to rebase the current branch onto its parent
+    branch.  An interactive flow is implemented to aid in resolving
+    merge conflicts.
+
+    If the parent branch is remote (ie, "upstream/master"), gee will
+    automatically perform a "git fetch" operation first.
+
+    Before rebasing, gee always creates a `<branch-name>.REBASE_BACKUP`
+    tag.  If something went wrong with the merge and you want to get back
+    to where you started, you can run:
+
+        git reset --hard your_branch.REBASE_BACKUP
+    """
+
+    COMMAND = "update"
+    ALIASES = ["up"]
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+
+    def dispatch(self, args):
+        current_branch = self.gee.get_current_branch()
+        parent_branch = self.gee.get_parent_branch(current_branch)
+        self.gee.run_git("fetch origin")  # to check for commits in origin
+        return self.gee.rebase(current_branch, parent_branch)
 
 
 #####################################################################
@@ -561,6 +646,7 @@ class FindCommand(GeeCommand):
 # TODO: there's a lot here -- organzie this class better so that
 #  it will be easier to understand and find things.
 #####################################################################
+
 
 class Gee:
     def __init__(self: "Gee"):
@@ -616,6 +702,11 @@ class Gee:
         self.parent_map_loaded = False
         self.parent_map = {}
 
+    ##########################################################################
+    # The following methods are related to loading, saving, and fetching
+    # configuration information and metadata.
+    ##########################################################################
+
     def load_parents_map(self: "Gee"):
         # TODO(jonathan): Add backwards compatibility shim with old parents file format.
         # TODO(jonathan): find a better place to store this metadata.
@@ -659,12 +750,9 @@ class Gee:
 
     def set_parent_branch(self: "Gee", branch, parent):
         """Records the parentage of a branch."""
-        _, stdout, _ = self.run_git(f"merge-base {branch!r} {parent!r}")
+        _, stdout, _ = self.run_git(f"merge-base {q(branch)} {q(parent)}")
         mergebase = stdout.strip()
-        self.parents[branch] = {
-                "parent": parent,
-                "mergebase": mergebase,
-        }
+        self.parents[branch] = {"parent": parent, "mergebase": mergebase}
 
     def get_parent_branch(self: "Gee", branch):
         """Gets the name of the parent of the specified branch."""
@@ -740,6 +828,69 @@ class Gee:
             self.select_repo()
         return self.repo
 
+    def gee_dir(self: "Gee"):
+        return _expand_path(self.config.get("gee.gee_dir", "~/gee"))
+
+    def repo_config_id(self: "Gee"):
+        repo = self.get_repo()
+        return f"repo.{repo['repo']}"
+
+    def origin_url(self: "Gee"):
+        repo = self.get_repo()
+        return f"{repo['git_at_github']}:{self.config.get('gee.ghuser')}/{repo['repo']}"
+
+    def repo_descriptor(self: "Gee"):
+        """For example, internal/enfabrica."""
+        repo = self.get_repo()
+        return f"{repo['upstream']}/{repo['repo']}"
+
+    def upstream_url(self: "Gee"):
+        repo = self.get_repo()
+        return f"{repo['git_at_github']}:{repo_descriptor()}"
+
+    def repo_dir(self: "Gee"):
+        repo = self.get_repo()
+        return f"{self.gee_dir()}/{repo['repo']}"
+
+    def branch_dir(self: "Gee", branch):
+        return f"{self.repo_dir()}/{branch}"
+
+    def main_branch(self: "Gee"):
+        # TODO(jonathan): alternately, if gh can be run reliably at this stage of initialization:
+        #   result = self._gh(("repo", "view", f"{self.config.upstream}/{self.config.repo}",
+        #                    "--json", "defaultBranchRef"))
+        #   data = json.loads(result)
+        #   return data["defaultBranchRef"]["name"]
+        main = self.repo.get("main", None)
+        if main is None:
+            # query upstream repo to determine the default main branch:
+            rc, text, _ = self.run_git(f"remote show {self.upstream_url()}")
+            mo = re.search(r"  HEAD branch: (\S+)", text)
+            if not mo:
+                self.fatal('"git remote show" did not report a HEAD branch.')
+            main = mo.group(1)
+            self.info(f"Upstream branch reports {q(main)} as the HEAD branch.")
+            self.config.set(f"{self.repo_config_id()}.main", main)
+            self.config.save()
+        else:
+            self.debug(f"Config file says main branch is {q(main)}")
+        return main
+
+    def get_commit(self: "Gee", branch):
+        parts = branch.split("/", 2)
+        if len(parts) == 2:
+            self.run_git(f"fetch {parts[0]} {parts[1]}")
+            branch = "FETCH_HEAD"
+        return branch
+
+    def get_parent_commit(self: "Gee", branch):
+        parent = self.get_parent_branch(branch)
+        return self.get_commit(parent)
+
+    ##########################################################################
+    # The following methods assist with running subprocesses.
+    ##########################################################################
+
     def find_binary(self: "Gee", b):
         # TODO(jonathan): search self.config.paths for binary.
         return b
@@ -751,6 +902,7 @@ class Gee:
         priority=HIGH,
         timeout=None,
         capture=True,
+        cwd=None,
         **kwargs,
     ):
         """Run a subprocess and capture it's output while streaming to the console.
@@ -759,7 +911,7 @@ class Gee:
         "fancy" output can be streamed to the user, without compromising the
         ability to capture the output of simple commands.
         """
-        self.log_command(cmd, priority=priority)
+        self.log_command(cmd, priority=priority, cwd=cwd)
         log_level = self.logger.getEffectiveLevel()
         if priority == LOW:
             stdout_enabled = log_level <= GeeLogger.LOW_STDOUT
@@ -771,6 +923,9 @@ class Gee:
         stdout_parent, stdout_child = pty.openpty()
         stderr_parent, stderr_child = pty.openpty()
 
+        if cwd is None:
+            cwd = self.cwd
+
         process = subprocess.Popen(
             cmd,
             shell=True if isinstance(cmd, str) else False,
@@ -779,7 +934,7 @@ class Gee:
             text=True,
             encoding="utf-8",
             errors="utf-8",
-            cwd=self.cwd,
+            cwd=cwd,
             bufsize=1,  # unbuffered output
             **kwargs,
         )
@@ -828,16 +983,18 @@ class Gee:
 
         self.logger.debug("exit status = %d", process.returncode)
         if check and process.returncode != 0:
-            self.fatal("Command failed with return code = %d", process.returncode, stacklevel=3)
+            self.fatal(
+                "Command failed with return code = %d", process.returncode, stacklevel=3
+            )
 
         os.close(stdout_parent)
         os.close(stderr_parent)
 
-        stdout = bytes(stdout_bytes).decode("utf-8")
-        stderr = bytes(stderr_bytes).decode("utf-8")
+        stdout = bytes(stdout_bytes).decode("utf-8").strip()
+        stderr = bytes(stderr_bytes).decode("utf-8").strip()
         return process.returncode, stdout, stderr
 
-    def run_interactive(self: "Gee", cmd, check=True, priority=HIGH):
+    def run_interactive(self: "Gee", cmd, check=True, priority=HIGH, cwd=None):
         """Run an interactive command that communicates with the console.
 
         For when we don't want to futz about with the multithreaded solution
@@ -847,6 +1004,7 @@ class Gee:
         Ignores log_level.
         """
 
+        cwd = cwd if cwd else self.cwd
         self.log_command(cmd, priority=priority)
         p = subprocess.Popen(
             cmd,
@@ -858,7 +1016,7 @@ class Gee:
             stderr=sys.stderr,
             encoding="utf-8",
             errors="utf-8",
-            cwd=self.cwd,
+            cwd=cwd,
         )
         stdout, stderr = p.communicate()
         rc = p.wait()
@@ -875,6 +1033,7 @@ class Gee:
         direct_out=False,
         priority=HIGH,
         timeout=None,
+        cwd=None,
     ):
         git = self.find_binary(self.config.get("gee.git", "git"))
         if isinstance(cmd, str):
@@ -883,9 +1042,11 @@ class Gee:
             cmd = [git] + cmd
         else:
             raise TypeError("command is not a list or a string: %r", cmd)
-        return self.run(cmd, check=check, priority=priority, timeout=timeout)
+        return self.run(cmd, check=check, priority=priority, timeout=timeout, cwd=cwd)
 
-    def run_gh(self: "Gee", cmd, check=True, stdin=None, priority=HIGH, timeout=None):
+    def run_gh(
+        self: "Gee", cmd, check=True, stdin=None, priority=HIGH, timeout=None, cwd=None
+    ):
         gh = self.find_binary(self.config.get("gee.gh", "gh"))
         if isinstance(cmd, str):
             cmd = gh + " " + cmd
@@ -894,64 +1055,286 @@ class Gee:
         else:
             raise TypeError("command is not a list or a string: %r", cmd)
         return self.run(
-            cmd, check=check, stdin=stdin, priority=priority, timeout=timeout
+            cmd, check=check, stdin=stdin, priority=priority, timeout=timeout, cwd=cwd
         )
 
-    def gee_dir(self: "Gee"):
-        return _expand_path(self.config.get("gee.gee_dir", "~/gee"))
+    ##########################################################################
+    # The following methods represent basic git operations used in a variety
+    # of commands.
+    ##########################################################################
 
-    def repo_config_id(self: "Gee"):
-        repo = self.get_repo()
-        return f"repo.{repo['repo']}"
+    def rebase(self, branch, parent, onto=None):
+        """Safely rebase branch onto parent.
 
-    def origin_url(self: "Gee"):
-        repo = self.get_repo()
-        return f"{repo['git_at_github']}:{self.config.get('gee.ghuser')}/{repo['repo']}"
+        It is assumed that "git fetch origin" was run before this operation
+        begins.
+        """
+        if self.remote_branch_exists("origin", branch):
+            _, stdout, _ = self.run_git(
+                f'rev-list --left-right --count "{branch}...origin/{branch}"',
+                priority=LOW,
+            )
+            counts = [int(x) for x in stdout.strip().split()]
+            if counts[1] > 0:
+                self.warn(
+                    f"Remote branch origin/{branch} contains {counts[1]} commits that are not in local {branch}"
+                )
+                self.infos(
+                    """\
+                    There are two likely causes:
 
-    def repo_descriptor(self: "Gee"):
-        """For example, internal/enfabrica."""
-        repo = self.get_repo()
-        return f"{repo['upstream']}/{repo['repo']}"
+                    * Another user may have pushed a commit into your remote
+                      branch. You probably will want to integrate the origin
+                      commits before proceeding.
 
-    def upstream_url(self: "Gee"):
-        repo = self.get_repo()
-        return f"{repo['git_at_github']}:{repo_descriptor()}"
+                    * You manually rebased your local branch, which rewrites
+                      the commit identifiers, but forgot to do a subsequent
+                      force-push. In this case, you probably do not want to
+                      integrate the origin commits.
 
-    def repo_dir(self: "Gee"):
-        repo = self.get_repo()
-        return f"{self.gee_dir()}/{repo['repo']}"
+                    The commits in question are listed below:
+                    """
+                )
+                self.configure_logp_alias()
+                self.run_git(f"logp {q(branch)}...origin/{q(branch)}")
+                if self.ask_yesno(
+                    f"Do you want to integrate these commits from origin/{branch}?",
+                    default=True,
+                ):
+                    self.info(f"Pulling in commits from origin/{branch}.")
+                    self._inner_rebase(branch, f"origin/{branch}")
+                else:
+                    self.infos(
+                        f"""\
+                        gee will now abort, so you can resolve this issue on your own.  If you are
+                        certain that you want to blow away and overwrite the commits in origin, you can
+                        run:
+                            gcd {q(branch)}; git push -u origin {q(branch)} --force
+                        """
+                    )
+                    self.fatal("Aborting.")
+                    sys.exit(1)
+        self._inner_rebase(branch, parent, onto)
 
-    def branch_dir(self: "Gee", branch):
-        return f"{self.repo_dir()}/{branch}"
-
-    def main_branch(self: "Gee"):
-        # TODO(jonathan): alternately, if gh can be run reliably at this stage of initialization:
-        #   result = self._gh(("repo", "view", f"{self.config.upstream}/{self.config.repo}",
-        #                    "--json", "defaultBranchRef"))
-        #   data = json.loads(result)
-        #   return data["defaultBranchRef"]["name"]
-        main = self.repo.get("main", None)
-        if main is None:
-            # query upstream repo to determine the default main branch:
-            rc, text, _ = self.run_git(f"remote show {self.upstream_url()}")
-            mo = re.search(r"  HEAD branch: (\S+)", text)
-            if not mo:
-                self.fatal('"git remote show" did not report a HEAD branch.')
-            main = mo.group(1)
-            self.info(f"Upstream branch reports {main!r} as the HEAD branch.")
-            self.config.set(f"{self.repo_config_id()}.main", main)
-            self.config.save()
+    def rebase_in_progress(self, branch_dir):
+        rc, _, _ = self.run_git(
+            "rev-parse --verify REBASE_HEAD", cwd=branch_dir, check=False
+        )
+        if rc == 0:
+            return True  # rebase is in progress
+        elif rc == 128:
+            return False  # rebase is not in progress
         else:
-            self.debug(f"Config file says main branch is {main!r}")
-        return main
+            self.exception(
+                "git rev-parse --verify REBASE_HEAD failed with unexpected code: {rc}"
+            )
+            sys.exit(1)
 
-    def get_parent_commit(self: "Gee", branch):
-        parent = self.get_parent_branch(branch)
-        parts = parent.split("/", 2)
-        if len(parts) == 2:
-            self.run_git(f"fetch upstream {parts[1]}")
-            parent = "FETCH_HEAD"
-        return parent
+    def cherrypick_in_progress(self, branch_dir):
+        rc, _, _ = self.run_git(
+            "rev-parse --verify CHERRY_PICK_HEAD", cwd=branch_dir, check=False
+        )
+        if rc == 0:
+            return True  # cherry-pick is in progress
+        elif rc == 128:
+            return False  # cherry-pick is not in progress
+        else:
+            self.exception(
+                "git rev-parse --verify CHERRY_PICK_HEAD failed with unexpected code: {rc}"
+            )
+            sys.exit(1)
+
+    def _inner_rebase(self, branch, parent, onto=None):
+        if "/" in parent:
+            parts = parent.split("/", 2)
+            self.run_git(f"fetch {parts[0]}")
+
+        # The original gee would check for an existing PR here and ask
+        # the user to confirm.  This was a work-around because users were
+        # worried about a github issue where PR comments would be lost if
+        # the PR owner did a force-rebase.  In practice, the users always
+        # answer yes to this question.  This version of gee doesn't even
+        # check or ask.
+
+        # The original gee would check for uncommitted changes here and
+        # issue a warning.  That information is unnecessary noise, dropped
+        # here.
+
+        branch_dir = self.branch_dir(branch)
+        self.run_git(f"tag -f {branch}.REBASE_BACKUP", cwd=branch_dir, priority=LOW)
+        parent_commit = self.get_commit(parent)
+        cmd = ["rebase", "--autostash"]
+        if onto:
+            cmd += ["--onto", onto]
+        cmd += [parent_commit, branch]
+        rc, _, _ = self.run_git(cmd, cwd=branch_dir, check=False)
+        if rc != 0:
+            if not self.rebase_in_progress(branch_dir):
+                self.fatal("Rebase command failed for an unknown reason.")
+                sys.exit(1)
+            self.warn("Rebase operation had merge conflicts.")
+            self._interactive_conflict_resolution(branch, parent, onto)
+
+            if self.rebase_in_progress(branch_dir):
+                self.warn(
+                    "Interactive conflict resolution failed, must be manually resolved."
+                )
+                self.run_git("status", cwd=branch_dir)
+                self.fatal(f"Exited without resolving rebase conflict in {branch_dir}.")
+                sys.exit(1)
+
+            rc, _, _ = self.run_git("merge-base --is-ancestor {q(parent_commit)} HEAD")
+            if rc != 0:
+                self.fatal("Rebase did not succeed, aborting.")
+                sys.exit(1)
+            self.check_for_merge_conflict_markers(branch, parent_commit)
+            self.info("Rebase completed.")
+            self.info("To undo: gcd {branch}; git reset --hard {branch}.REBASE_BACKUP")
+            self.run_git("push --set-upstream --quiet --force origin {q(branch)}")
+
+    def check_for_merge_conflict_markers(self, branch, parent_commit):
+        branch_dir = self.branch_dir(branch)
+        _ = parent_commit
+        rc, _, _ = self.run_git(
+            (f"diff " '| grep -q -E "^((<{6,})|(={6,})|(>{6,}))"'), cwd=branch_dir
+        )
+        if rc == 0:
+            log.warn("Changes still contain merge conflict markers: please resolve.")
+            return True
+        else:
+            return False
+
+    STATUS_DECODE_MAP = {
+        "DD": "Both deleted",
+        "AU": "Added by them",
+        "UD": "Deleted by us",
+        "UA": "Added by us",
+        "DU": "Deleted by them",
+        "AA": "Both added",
+        "UU": "Both modified",
+    }
+
+    def _interactive_conflict_resolution(self, branch, parent, onto):
+        """Interactively help the user resolve merge conflicts.
+
+        Interactive conflict resolution options:
+           (Y)ours: discard their changes to a file, keeps yours.
+           (T)heirs: discard your changes to a file, keeps theirs.
+           (M)erge: invokes the merge resolution tool.
+           (G)uimerge: invokes the GUI merge tool.
+           (V)iew: view the conflict.
+           (A)bort: abort this rebase operation.
+           (H)elp: this text.
+
+        Psst!  Secret menu for advanced users:
+           (P)ick: abort this merge, and instead attempt "git rebase -i".
+           (S)hell: drop into interactive shell.
+           s(K)ip: discard your entire conflicting commit.
+        """
+        help_text = textwrap.dedent(self.__doc__.split("\n\n", 1)[1])
+        branch_dir = self.branch_dir(branch)
+        git = self.find_binary(self.config.get("gee.git", "git"))
+        abort = False
+        while self.rebase_in_progress(branch_dir):
+            skip = False
+            restart = False
+            _, onto_commit, _ = self.run_git(
+                "rev-parse HEAD", priority=LOW, cwd=branch_dir
+            )
+            _, onto_desc, _ = self.run_git(
+                f"show --oneline -s {onto_commit}", priority=LOW, cwd=branch_dir
+            )
+            _, from_commit, _ = self.run_git(
+                "rev-parse REBASE_HEAD", priority=LOW, cwd=branch_dir
+            )
+            _, from_desc, _ = self.run_git(
+                f"show --oneline -s {from_commit}", priority=LOW, cwd=branch_dir
+            )
+            self.banner(
+                f"Attempting to apply: {from_desc}", f"               onto: {onto_desc}"
+            )
+            _, status, _ = self.run_git(
+                "status --porcelain", priority=LOW, cwd=branch_dir
+            )
+            if status == "":
+                self.info("Empty commit, skipping.")
+                self.git_run("rebase --skip")
+                continue
+            status_lines = status.splitlines(keepends=False)
+            while status_lines:
+                status_line = status_lines.pop(0)
+                st, file = status_line.split(maxsplit=1)
+                if len(st) == 1:
+                    self.info(f"{st}  {file}: no action needed.")
+                    continue
+                decoded_st = STATUS_DECODE_MAP.get(st, default="Bizarre!")
+                self.info(f"{file}: {decoded_st}")
+                resp = ask_multi(
+                    "keep (Y)ours, keep (T)heirs, (M)erge, (G)ui-merge, (V)iew, (A)bort, or (H)elp?  "
+                )
+                if resp == "y":
+                    self.info(f"{file}: Keeping your version from ${from_desc}")
+                    self.info(f"{file}: Discarding their version from ${onto_desc}")
+                    if st == "UD":
+                        self.run("yes d | {git} mergetool -- {q(file)}")
+                        print()
+                    else:
+                        self.info('During a rebase, "--theirs" means yours:')
+                        self.run_git("checkout --theirs {q(file)}")
+                elif resp == "t":
+                    self.info(f"{file}: Discarding your version from ${from_desc}")
+                    self.info(f"{file}: Keeping their version from ${onto_desc}")
+                    if st == "DU":
+                        self.run("yes d | {git} mergetool -- {q(file)}")
+                        print()
+                    else:
+                        self.info('During a rebase, "--ours" means theirs:')
+                        self.run_git("checkout --ours {q(file)}")
+                elif resp == "m" or resp == "g":
+                    cmd = [git, "mergetool", "--no-prompt"]
+                    if resp == "g":
+                        cmd += ["--gui"]
+                    rc = self.run_interactive(cmd, check=False, cwd=branch_dir)
+                    rc, stdout, _ = self.run_git(
+                        "diff --check", check=False, cwd=branch_dir
+                    )
+                    if "conflict marker" in stdout:
+                        self.warn("Conflict markers are still present, please resolve.")
+                        status_lines.insert(0, status_line)  # redo
+                    else:
+                        self.run_git("add .", cwd=branch_dir, check=False)
+                        self.run_git("rebase --continue", cwd=branch_dir)
+                elif resp == "p":
+                    self.run_git("rebase --abort", cwd=branch_dir)
+                    cmd = [git, "rebase", "-i", "--autostash"]
+                    if onto:
+                        cmd += ["--onto", onto]
+                    cmd += [parent, branch]
+                    rc = self.run_interactive(cmd, cwd=branch_dir, check=False)
+                    if rc == 0:
+                        self.info("Rebase succeeded.")
+                    else:
+                        if self.rebase_in_progress(branch_dir):
+                            self.warn("Rebase operation had merge conflicts.")
+                        else:
+                            self.fatal(
+                                "Rebase command failed, but rebase is not in progress.  Bug?"
+                            )
+                            sys.exit(1)
+                        status_lines = []  # restart.
+                elif resp == "k":
+                    self.run_git("rebase --skip")
+                    status_lines = []
+                elif resp == "a":
+                    self.run_git("rebase --abort")
+                    status_lines = []
+                else:
+                    log.infos(help_text.splitlines())
+        pass  # end of while self.rebase_in_progress(branch_dir) loop.
+
+    ##########################################################################
+    # The main method for this application.
+    ##########################################################################
 
     def main(self: "Gee", args):
         self.args = self.argparser.parse_args(args)
@@ -1008,7 +1391,14 @@ class Gee:
         self.logger.fatal(msg, *args, **kwargs, stacklevel=stacklevel, stack_info=True)
         sys.exit(1)
 
-    def log_command(self: "Gee", cmd, priority=HIGH):
+    def banner(self: "Gee", *msgs):
+        self.logger.info(50 * "#")
+        for msg in msgs:
+            self.logger.info(f"# {msg}")
+        self.logger.info(50 * "#")
+        self.logger.info("")
+
+    def log_command(self: "Gee", cmd, priority=HIGH, cwd=None):
         """Log a command at COMMAND priority, or LOW_COMMAND if quiet is true.
 
         priority=HIGH is for mainline commands that teach the user git.
@@ -1017,6 +1407,10 @@ class Gee:
         """
         if isinstance(cmd, list) and not isinstance(cmd, str):
             cmd = " ".join([shlex.quote(x) for x in cmd])
+        if cwd:
+            cmd = f"{cwd}$ {cmd}"
+        else:
+            cmd = f"$ {cmd}"
         if priority == HIGH:
             self.logger.cmd(cmd)
         else:
@@ -1077,7 +1471,7 @@ class Gee:
 
         ssh_key_file = self.config.get("gee.ssh_key", None)
         if ssh_key_file and os.path.exists(ssh_key_file):
-            self.run(f"ssh-add {_expand_path(ssh_key_file)!r}")
+            self.run(f"ssh-add {q(_expand_path(ssh_key_file))}")
             rc, stdout, _ = self.run(f"ssh -xT {git_at_github} </dev/null 2>&1")
 
             mo = re.match(r"^Hi ([a-zA-Z0-9_-]+)", stdout, flags=re.MULTILINE)
@@ -1094,7 +1488,12 @@ class Gee:
         return self.gh_authenticate()
 
     def check_executable(self: "Gee", path):
-        return path and os.path.exists(path) and os.path.isfile(path) and os.access(path, os.X_OK)
+        return (
+            path
+            and os.path.exists(path)
+            and os.path.isfile(path)
+            and os.access(path, os.X_OK)
+        )
 
     def check_basics(self: "Gee"):
         self.check_executable(self.find_binary(self.config.get("gee.git", "git")))
@@ -1207,13 +1606,13 @@ class Gee:
             ssh_key_file = self.config.get("gee.ssh_key", None)
         ssh_key_file = _expand_path(ssh_key_file)
         if os.path.exists(ssh_key_file):
-            self.logger.info(f"Re-using existing ssh key {ssh_key_file!r}")
+            self.logger.info(f"Re-using existing ssh key {q(ssh_key_file)}")
         else:
             self.warn(
                 "%s: missing.  gee will help you generate a new key.", ssh_key_file
             )
             _ = self.run_interactive(
-                f'ssh-keygen -f {ssh_key_file!r} -t ed25519 -C "{os.environ["USER"]}@enfabrica.net"'
+                f'ssh-keygen -f {q(ssh_key_file)} -t ed25519 -C "{os.environ["USER"]}@enfabrica.net"'
             )
             if not os.path.exists(ssh_key_file):
                 self.logger.fatal(f"ssh-keygen failed.")
@@ -1310,7 +1709,7 @@ class Gee:
             self.info(f"{user_fork}: remote branch already exists.")
         else:
             _, _, _ = self.run_gh(
-                f"repo fork --clone=false {self.repo_descriptor()!r}", check=True
+                f"repo fork --clone=false {q(self.repo_descriptor())}", check=True
             )
 
     def clone(self: "Gee"):
@@ -1326,21 +1725,20 @@ class Gee:
             self.warning(f"{main_branch_dir}: already exists, skipping clone step.")
         else:
             self.run_git(
-                " ".join(
-                    [
-                        "clone",
-                        f"--shallow-since {clone_since!r}",
-                        "--no-single-branch",
-                        f"{self.origin_url()!r}",
-                        main_branch_dir,
-                    ]
-                ),
+                [
+                    "clone",
+                    "--shallow-since",
+                    clone_since,
+                    "--no-single-branch",
+                    self.origin_url(),
+                    main_branch_dir,
+                ],
                 direct_out=True,  # this is a slow command.
                 check=True,
             )
         self.cwd = main_branch_dir
         rc, _, stderr = self.run_git(
-            f"remote add upstream {self.upstream_url()!r}", check=False
+            f"remote add upstream {q(self.upstream_url())}", check=False
         )
         if rc != 0 and "remote upstream already exists" not in stderr:
             print(repr(stderr))
@@ -1349,7 +1747,7 @@ class Gee:
         _, _, _ = self.run_git("fetch upstream")
 
     def remote_branch_exists(self, repo, branch) -> bool:
-        rc, stdout, _ = self.run_git(f"ls-remote {repo!r} {branch!r}", priority=LOW)
+        rc, stdout, _ = self.run_git(f"ls-remote {q(repo)} {q(branch)}", priority=LOW)
         return not (stdout.strip() == "")
 
     def make_branch(self: "Gee", branch: str, parent: Optional[str] = None):
@@ -1357,7 +1755,7 @@ class Gee:
         if not parent:
             parent = self.get_current_branch()
         path = self.branch_dir(branch)
-        self.run_git(f"worktree add -f -b {branch!r} {path!r} {parent!r}")
+        self.run_git(f"worktree add -f -b {q(branch)} {q(path)} {q(parent)}")
         self.set_parent_branch(branch, parent)
         self.cwd = path  # all further commands run from this new branch.
 
@@ -1390,13 +1788,17 @@ class Gee:
         if self.run_git("config --get alias.logp", check=False, priority=LOW):
             self.debug("alias.logp is already defined.")
             return
-        logp_command=shlex.quote(shlex.join((
-          "log",
-          "--color",
-          "--graph",
-          "--pretty=format:%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset",
-          "--abbrev-commit",
-        )))
+        logp_command = shlex.quote(
+            shlex.join(
+                (
+                    "log",
+                    "--color",
+                    "--graph",
+                    "--pretty=format:%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset",
+                    "--abbrev-commit",
+                )
+            )
+        )
         self.run_git(f"config --global alias.logp {logp_command}")
 
     def configure(self: "Gee"):
