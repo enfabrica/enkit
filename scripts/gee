@@ -1388,12 +1388,20 @@ function _git_can_fail() {
 function _git_rev_list_counts() {
   local B="$1"
   local P="$2"
+
+  if [[ "${B}" == upstream/refs/pull/*/head ]]; then
+    "${GIT}" fetch --quiet upstream "${B#upstream/refs/}:FETCH_HEAD_B" >/dev/null 2>&1
+    B=FETCH_HEAD_B
+  elif [[ "${B}" == */* ]]; then
+    "${GIT}" fetch --quiet "${B%%/*}" "${B#upstream}:FETCH_HEAD_B" >/dev/null 2>&1
+    B=FETCH_HEAD_B
+  fi
   if [[ "${P}" == upstream/refs/pull/*/head ]]; then
-    "${GIT}" fetch upstream "${P#upstream/refs/}" >/dev/null 2>&1
-    P=FETCH_HEAD
+    "${GIT}" fetch --quiet upstream "${P#upstream/refs/}:FETCH_HEAD_P" >/dev/null 2>&1
+    P=FETCH_HEAD_P
   elif [[ "${P}" == */* ]]; then
-    "${GIT}" fetch "${P%%/*}" "${P#upstream}" >/dev/null 2>&1
-    P=FETCH_HEAD
+    "${GIT}" fetch --quiet "${P%%/*}" "${P#upstream}:FETCH_HEAD_P" >/dev/null 2>&1
+    P=FETCH_HEAD_P
   fi
   "${GIT}" rev-list --left-right --count "${B}...${P}" || /bin/true
 }
@@ -4961,7 +4969,7 @@ function _remove_a_branch() {
     PARENT="$(_get_parent_branch "${BR}")"
     STATE=CLEAN
     local -a  counts=()
-    read -r -a counts < <("${GIT}" rev-list --left-right --count "${PARENT}...${BR}")
+    read -r -a counts < <(_git_rev_list_counts "${PARENT}" "${BR}")
     if (( counts[1] != 0 )); then
       _warn "Branch \"${BR}\" is ${counts[1]} commit(s) ahead of ${PARENT}."
       STATE=UNCLEAN
@@ -4988,7 +4996,7 @@ function _remove_a_branch() {
       BAZELCACHE="$(readlink -f ./bazel-out)"
       BAZELCACHE="${BAZELCACHE%/execroot/*/bazel-out}"
       _info "Removing linked bazel cache directory \"${BAZELCACHE}\""
-      chmod -R u+w "${BAZELCACHE}"
+      chmod -fR u+w "${BAZELCACHE}"
       rm -rf "${BAZELCACHE}"
     fi
 
