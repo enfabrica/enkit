@@ -687,7 +687,7 @@ class CommitCommand(GeeCommand):
         if rc == 0:
             # TODO(jonathan): how do we cancel presubmit jobs in a generic way?
             if not (args.amend or args.force):
-                self.gee.check_origin()
+                self.gee.check_origin(branch)
                 self.gee.run_git(f"push --quiet -u origin {branch}")
             else:
                 self.gee.run_git(f"push --quiet --force -u origin {branch}")
@@ -1228,7 +1228,7 @@ class Gee:
 
     def rebase_in_progress(self, branch_dir):
         rc, _, _ = self.run_git(
-            "rev-parse --verify REBASE_HEAD", cwd=branch_dir, check=False
+            "rev-parse --verify REBASE_HEAD", cwd=branch_dir, check=False, priority=LOW
         )
         if rc == 0:
             return True  # rebase is in progress
@@ -1242,7 +1242,7 @@ class Gee:
 
     def cherrypick_in_progress(self, branch_dir):
         rc, _, _ = self.run_git(
-            "rev-parse --verify CHERRY_PICK_HEAD", cwd=branch_dir, check=False
+            "rev-parse --verify CHERRY_PICK_HEAD", cwd=branch_dir, check=False, priority=LOW
         )
         if rc == 0:
             return True  # cherry-pick is in progress
@@ -1283,7 +1283,10 @@ class Gee:
                 self.fatal("Rebase command failed for an unknown reason.")
                 sys.exit(1)
             self.warn("Rebase operation had merge conflicts.")
-            self._interactive_conflict_resolution(branch, parent, onto)
+            success = self._interactive_conflict_resolution(branch, parent, onto)
+
+            if not success:
+                return
 
             if self.rebase_in_progress(branch_dir):
                 self.warn(
@@ -1293,7 +1296,7 @@ class Gee:
                 self.fatal(f"Exited without resolving rebase conflict in {branch_dir}.")
                 sys.exit(1)
 
-            rc, _, _ = self.run_git("merge-base --is-ancestor {q(parent_commit)} HEAD")
+            rc, _, _ = self.run_git(f"merge-base --is-ancestor {q(parent_commit)} HEAD", priority=LOW)
             if rc != 0:
                 self.fatal("Rebase did not succeed, aborting.")
                 sys.exit(1)
@@ -1341,7 +1344,7 @@ class Gee:
            (S)hell: drop into interactive shell.
            s(K)ip: discard your entire conflicting commit.
         """
-        help_text = textwrap.dedent(self.__doc__.split("\n\n", 1)[1])
+        help_text = textwrap.dedent(Gee._interactive_conflict_resolution.__doc__.split("\n\n", 1)[1])
         branch_dir = self.branch_dir(branch)
         git = self.find_binary(self.config.get("gee.git", "git"))
         abort = False
@@ -1352,23 +1355,25 @@ class Gee:
                 "rev-parse HEAD", priority=LOW, cwd=branch_dir
             )
             _, onto_desc, _ = self.run_git(
-                f"show --oneline -s {onto_commit}", priority=LOW, cwd=branch_dir
+                    # "| cat" is necessary to convince git not to add superfluous vt100 codes.
+                    f"show --oneline --no-color -s {onto_commit} | cat", priority=LOW, cwd=branch_dir
             )
             _, from_commit, _ = self.run_git(
                 "rev-parse REBASE_HEAD", priority=LOW, cwd=branch_dir
             )
             _, from_desc, _ = self.run_git(
-                f"show --oneline -s {from_commit}", priority=LOW, cwd=branch_dir
+                    f"show --oneline --no-color -s {from_commit} | cat", priority=LOW, cwd=branch_dir
             )
             self.banner(
-                f"Attempting to apply: {from_desc}", f"               onto: {onto_desc}"
+                f"Applying: {from_desc.strip()}",
+                f"    Onto: {onto_desc.strip()}",
             )
             _, status, _ = self.run_git(
                 "status --porcelain", priority=LOW, cwd=branch_dir
             )
             if status == "":
                 self.info("Empty commit, skipping.")
-                self.git_run("rebase --skip")
+                self.run_git("rebase --skip")
                 continue
             status_lines = status.splitlines(keepends=False)
             while status_lines:
@@ -1377,7 +1382,7 @@ class Gee:
                 if len(st) == 1:
                     self.info(f"{st}  {file}: no action needed.")
                     continue
-                decoded_st = STATUS_DECODE_MAP.get(st, default="Bizarre!")
+                decoded_st = self.STATUS_DECODE_MAP.get(st, "Bizarre!")
                 self.info(f"{file}: {decoded_st}")
                 resp = ask_multi(
                     "keep (Y)ours, keep (T)heirs, (M)erge, (G)ui-merge, (V)iew, (A)bort, or (H)elp?  "
@@ -1438,9 +1443,10 @@ class Gee:
                 elif resp == "a":
                     self.run_git("rebase --abort")
                     status_lines = []
+                    return False
                 else:
                     log.infos(help_text.splitlines())
-        pass  # end of while self.rebase_in_progress(branch_dir) loop.
+        return True
 
     ##########################################################################
     # The main method for this application.
@@ -1874,26 +1880,27 @@ class Gee:
 
         self.run_git("fetch origin", priority=LOW, check=True)
         if self.remote_branch_exists("origin", branch):
-            _, text = self.run_git(
-                f'rev-list --left-right --count "HEAD...origin/{branch}"'
+            _, text, _ = self.run_git(
+                f'rev-list --left-right --count "HEAD...origin/{branch}"',
+                priority=LOW
             )
             counts = text.strip().split()
-            if counts[1] > 0:
-                warn(
+            if int(counts[1]) > 0:
+                self.warn(
                     f"Remote branch origin/{branch} is {counts[1]} commits ahead of {branch}."
                 )
-                warn(
+                self.warn(
                     f"Do you want to reset {branch} to be the same as origin/{branch}?"
                 )
-                if self.confirm(
-                    f"Reset {branch} to match origin/{branch}?  (Y/n)", default=True
+                if ask_yesno(
+                    f"Reset {branch} to match origin/{branch}?", default=True
                 ):
                     self.run_git(f'reset --hard "origin/{branch}"')
                 else:
-                    warn("Commits from origin were not integrated.")
-                    warn(f'You probably want to run "gee update" in branch {branch}.')
+                    self.warn("Commits from origin were not integrated.")
+                    self.warn(f'You probably want to run "gee update" in branch {branch}.')
             else:
-                warn(
+                self.debug(
                     f"Remote branch origin/{branch} exists, but is not ahead of {branch}."
                 )
 
