@@ -788,11 +788,12 @@ class Gee:
             self.debug(
                 "Could not guess repo from cwd=%r, gee_dir=%r", self.cwd, gee_dir
             )
-            return
+            return None
         parts = rel.split("/")
         repo = parts[0]
         self.repo = self.config.get(f"repo.{repo}", None)
         self.debug("self.repo: %r", self.repo)
+        return self.repo
 
     def get_repo(self: "Gee"):
         """Get the repo data structure for the current directory.
@@ -846,7 +847,7 @@ class Gee:
 
     def upstream_url(self: "Gee"):
         repo = self.get_repo()
-        return f"{repo['git_at_github']}:{repo_descriptor()}"
+        return f"{repo['git_at_github']}:{self.repo_descriptor()}"
 
     def repo_dir(self: "Gee"):
         repo = self.get_repo()
@@ -1384,11 +1385,11 @@ class Gee:
         self.logger.error(msg, *args, **kwargs, stacklevel=2)
 
     def fatal(self: "Gee", msg, *args, stacklevel=2, **kwargs):
-        self.logger.fatal(msg, *args, **kwargs, stacklevel=stacklevel, stack_info=False)
+        self.logger.critical(msg, *args, **kwargs, stacklevel=stacklevel, stack_info=False)
         sys.exit(1)
 
     def exception(self: "Gee", msg, *args, stacklevel=2, **kwargs):
-        self.logger.fatal(msg, *args, **kwargs, stacklevel=stacklevel, stack_info=True)
+        self.logger.critical(msg, *args, **kwargs, stacklevel=stacklevel, stack_info=True)
         sys.exit(1)
 
     def banner(self: "Gee", *msgs):
@@ -1408,6 +1409,7 @@ class Gee:
         if isinstance(cmd, list) and not isinstance(cmd, str):
             cmd = " ".join([shlex.quote(x) for x in cmd])
         if cwd:
+            # Inform the user which directory a command is being run from.
             cmd = f"{cwd}$ {cmd}"
         else:
             cmd = f"$ {cmd}"
@@ -1547,7 +1549,8 @@ class Gee:
     def check_in_repo(self: "Gee"):
         self.check_basics()
         # Make sure gee init has been run:
-        self.select_repo()
+        if not self.select_repo():
+            self.fatal("Current directory is not inside %r", self.gee_dir())
         repo_dir = self.repo_dir()
         if not os.path.isdir(repo_dir):
             self.fatal('Directory %r is missing, run "gee init".', repo_dir)
@@ -1744,7 +1747,7 @@ class Gee:
             print(repr(stderr))
             self.fatal("Could not add upstream remote.")
             sys.exit(1)
-        _, _, _ = self.run_git("fetch upstream")
+        _, _, _ = self.run_git("fetch --quiet upstream")
 
     def remote_branch_exists(self, repo, branch) -> bool:
         rc, stdout, _ = self.run_git(f"ls-remote {q(repo)} {q(branch)}", priority=LOW)
