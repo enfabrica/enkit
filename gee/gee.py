@@ -609,6 +609,103 @@ class FindCommand(GeeCommand):
                 break
 
 
+class CommitCommand(GeeCommand):
+    """Commit and push changes.
+
+    Commits changes to your local branch, and then pushes your commits to
+    `origin`.
+
+    Note that if you are working in a PR-associated branch created with `gee
+    pr_checkout`, your commits will be pushed to your `origin` remote, and the
+    remote PR branch.  To contribute your changes back to another user's PR branch,
+    use the `gee pr_push` command.
+
+    TODO(jonathan):
+    Unless GEE_ENABLE_PRESUBMIT_CANCEL feature is disabled, gee
+    will check to see if pushing the current commit will invalidate a presubmit job
+    in the `pending` state.  If this is the case, gee will kill the previous
+    presubmit before pushing the changes and thus kicking off the new presubmit.
+
+    Example:
+
+        gee commit -m "Added \"gee commit\" command."
+
+    See also:
+
+    * pr_push
+    """
+    COMMAND = "commit"
+    ALIASES = ["c"]
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+        self.argparser.add_argument(
+                "-a", "--all",
+                default=False,
+                action="store_true",
+                help="Automatically stage all added, modified, or deleted files."
+        )
+        self.argparser.add_argument(
+                "--amend",
+                default=False,
+                action="store_true",
+                help="Amend the previous commit."
+        )
+        self.argparser.add_argument(
+                "-f", "--force",
+                default=False,
+                action="store_true",
+                help="Force-push to origin after commit."
+        )
+        self.argparser.add_argument(
+                "-m", "--msg",
+                help="Commit message to use.",
+                default=None,
+        )
+
+    def dispatch(self, args):
+        branch = self.gee.get_current_branch()
+        if branch == self.gee.main_branch():
+            self.gee.infos(f"""\
+                gee's workflow doesn't allow changes to the {self.gee.main_branch()} branch.
+                You should move your changes to another branch.  For example:
+                    git add -A; git stash; gcd -m new1; git stash apply
+                """
+                )
+            self.gee.fatal("Preventing commit to %s branch", branch)
+
+        git = self.gee.find_binary(self.gee.config.get("gee.git", "git"))
+        cmd=[git, "commit"]
+        if args.amend:
+            cmd += ["--amend"]
+        if args.all:
+            self.gee.run_git("add --all")
+            cmd += ["-a"]
+        if args.msg:
+            cmd += ["-m", args.msg]
+        rc = self.gee.run_interactive(cmd, check = False)
+        if rc == 0:
+            # TODO(jonathan): how do we cancel presubmit jobs in a generic way?
+            if not (args.amend or args.force):
+                self.gee.check_origin()
+                self.gee.run_git(f"push --quiet -u origin {branch}")
+            else:
+                self.gee.run_git(f"push --quiet --force -u origin {branch}")
+        else:
+            # git commit will fail if there are no local changes.
+            self.gee.debug("git commit operation returned rc=%d", rc)
+            return
+
+        # check if this is a branch of a PR:
+        parent = self.gee.get_parent_branch(branch)
+        if parent.startswith("upstream/refs/pull/"):
+            self.gee.infos("""\
+              NOTE: This is a branch of another user's PR.  Your changes were pushed to *your*
+                    github fork.  To push your changes back into the other user's PR, you need
+                    to use the \"gee pr_push\" command."
+              """)
+
+
 class UpdateCommand(GeeCommand):
     """Rebase the current branch onto the parent branch.
 
@@ -750,7 +847,7 @@ class Gee:
 
     def set_parent_branch(self: "Gee", branch, parent):
         """Records the parentage of a branch."""
-        _, stdout, _ = self.run_git(f"merge-base {q(branch)} {q(parent)}")
+        _, stdout, _ = self.run_git(f"merge-base {q(branch)} {q(parent)}", priority=LOW)
         mergebase = stdout.strip()
         self.parents[branch] = {"parent": parent, "mergebase": mergebase}
 
@@ -1006,6 +1103,8 @@ class Gee:
         """
 
         cwd = cwd if cwd else self.cwd
+        if isinstance(cmd, list) and not isinstance(cmd, str):
+            cmd = shlex.join(cmd)
         self.log_command(cmd, priority=priority)
         p = subprocess.Popen(
             cmd,
@@ -1064,11 +1163,13 @@ class Gee:
     # of commands.
     ##########################################################################
 
-    def rebase(self, branch, parent, onto=None):
-        """Safely rebase branch onto parent.
+    def check_origin(self, branch):
+        """This checks to see if origin contains extra commits.
 
-        It is assumed that "git fetch origin" was run before this operation
-        begins.
+        Some operations require a force-push to origin.  This command checks
+        origin first to make sure origin isn't ahead of the local branch. If
+        extra commits exist, the user is asked whether or not to integrate
+        them.
         """
         if self.remote_branch_exists("origin", branch):
             _, stdout, _ = self.run_git(
@@ -1098,12 +1199,12 @@ class Gee:
                 )
                 self.configure_logp_alias()
                 self.run_git(f"logp {q(branch)}...origin/{q(branch)}")
-                if self.ask_yesno(
-                    f"Do you want to integrate these commits from origin/{branch}?",
-                    default=True,
-                ):
+                resp = self.ask_multi("Do you want to (P)ull in those commits, (d)iscard those commits, or (a)bort? ", default="p")
+                if resp == "p":
                     self.info(f"Pulling in commits from origin/{branch}.")
                     self._inner_rebase(branch, f"origin/{branch}")
+                elif resp == "d":
+                    self.warn("The extra commits in origin will be discarded.")
                 else:
                     self.infos(
                         f"""\
@@ -1115,6 +1216,14 @@ class Gee:
                     )
                     self.fatal("Aborting.")
                     sys.exit(1)
+
+    def rebase(self, branch, parent, onto=None):
+        """Safely rebase branch onto parent.
+
+        It is assumed that "git fetch origin" was run before this operation
+        begins.
+        """
+        self.check_origin(branch)
         self._inner_rebase(branch, parent, onto)
 
     def rebase_in_progress(self, branch_dir):
@@ -1385,7 +1494,7 @@ class Gee:
         self.logger.error(msg, *args, **kwargs, stacklevel=2)
 
     def fatal(self: "Gee", msg, *args, stacklevel=2, **kwargs):
-        self.logger.critical(msg, *args, **kwargs, stacklevel=stacklevel, stack_info=False)
+        self.logger.error(msg, *args, **kwargs, stacklevel=stacklevel, stack_info=False)
         sys.exit(1)
 
     def exception(self: "Gee", msg, *args, stacklevel=2, **kwargs):
@@ -1572,6 +1681,7 @@ class Gee:
             self.fatal("Current directory is not in a git workspace.")
         if not gitdir.startswith(repo_dir):
             self.fatal("Current directory is not beneath %r", repo_dir)
+        return True
 
     def get_current_branch(self: "Gee"):
         if not self.check_in_repo():

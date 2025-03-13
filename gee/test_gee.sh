@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# A quick bash script that exercises some of gee's basic functionality.
+# Requires human intervention.  At some point, replace with expect.
 
 SCRIPTDIR="$(dirname "$(readlink -f "$0")")"
 GEE="${SCRIPTDIR}/gee.py"
@@ -34,6 +37,16 @@ g mkbr test1
 cd "${GEEDIR}/enkit/test1"
 ls
 
+printf "1 2 3\n4 5 6\n7 8 9\n" > matrix.txt
+g commit -a -m "added matrix.txt"
+g mkbr test2
+printf "1 2 3\n4 X 6\n7 8 9\n" > matrix.txt
+g commit -a -m "matrix: changed to X"
+cd "${GEEDIR}/enkit/test2"
+printf "1 2 3\n4 Y 6\n7 8 9\n" > matrix.txt
+g commit -a -m "matrix: changed to Y"
+# encounter a merge conflict:
+g up
 
 
 
