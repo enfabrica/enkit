@@ -542,9 +542,13 @@ Example:
 
 ### pr_checkout
 
-Usage: `gee pr_checkout <PR>`
+Usage: `gee pr_checkout [-n <branch-name>] <PR>`
 
 Creates a new branch containing the specified pull request.
+
+The "-n" flag may be used to specify a name for the locally created branch.
+Otherwise, gee will default to creating a branch named "pr_<PR>" (ie, "gee
+pr_checkout 1234" creates a branch named "pr_1234").
 
 Note that the new will be configured so that `gee update` will update that
 branch by integrating changes from the original pull request.  However,
