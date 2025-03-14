@@ -2,6 +2,11 @@
 
 ## Releases
 
+### 0.2.54
+
+* `gee pr_checkout`: add "-n" flag to explicitly specify a branch name.
+* `gee rmbr`: fix bug when deleting branches created by `gee pr_checkout`.
+
 ### 0.2.53
 * `gee pick`: add cherry-picking command with metadata logging.  (#1169, #1171)
 * `gee pr_make`: add AUTOMERGE option. (#1172)

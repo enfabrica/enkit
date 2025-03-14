@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.53"
+readonly VERSION="0.2.54"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -3802,9 +3802,13 @@ function gee__revert() {
 ##########################################################################
 _register_help "pr_checkout" \
   "Create a client containing someone's pull request." <<'EOT'
-Usage: gee pr_checkout <PR>
+Usage: gee pr_checkout [-n <branch-name>] <PR>
 
 Creates a new branch containing the specified pull request.
+
+The "-n" flag may be used to specify a name for the locally created branch.
+Otherwise, gee will default to creating a branch named "pr_<PR>" (ie, "gee
+pr_checkout 1234" creates a branch named "pr_1234").
 
 Note that the new will be configured so that `gee update` will update that
 branch by integrating changes from the original pull request.  However,
@@ -3824,8 +3828,15 @@ function gee__pr_checkout() {
 
   _check_gh_auth
   _set_main
+  local BRANCH=""
+  if [[ "$1" == "-n" ]] || [[ "$1" == "--name" ]]; then
+    BRANCH="$2"
+    shift;shift
+  fi
   local PRNUM="$1"; shift
-  local BRANCH="pr_${PRNUM}"
+  if [[ -z "${BRANCH}" ]]; then
+    BRANCH="pr_${PRNUM}"
+  fi
 
   _checkout_or_die "${MAIN}"  # or _local_branch_exists won't work.
   if ! _local_branch_exists "${BRANCH}"; then
