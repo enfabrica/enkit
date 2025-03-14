@@ -7,7 +7,7 @@ SCRIPTDIR="$(dirname "$(readlink -f "$0")")"
 GEE="${SCRIPTDIR}/gee.py"
 DEFAULT_GEERC="${SCRIPTDIR}/geerc.default"
 GEERC="${SCRIPTDIR}/test.gee.rc"
-GEEDIR="${HOME}/test_gee.$$"
+GEEDIR="${HOME}/test_gee.foo"
 function g() {
   printf ">>> gee.py --config %s" "${GEERC}"
   printf " %q" "$@"
@@ -21,6 +21,9 @@ perl -p -e \
   's(^gee_dir.*)(gee_dir = "'"${GEEDIR}"'");s(internal)(enkit)g' <"${DEFAULT_GEERC}" >"${GEERC}"
 
 set -e
+
+# clean up prior runs
+rm -rf "${HOME}"/test_gee.*
 
 g init org-64667743@github.com:enfabrica/enkit.git
 

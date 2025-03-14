@@ -1365,8 +1365,8 @@ class Gee:
                     f"show --oneline --no-color -s {from_commit} | cat", priority=LOW, cwd=branch_dir
             )
             self.banner(
-                f"Applying: {from_desc.strip()}",
-                f"    Onto: {onto_desc.strip()}",
+                f"Yours:  {from_desc.strip()}",
+                f"Theirs: {onto_desc.strip()}",
             )
             _, status, _ = self.run_git(
                 "status --porcelain", priority=LOW, cwd=branch_dir
@@ -1391,20 +1391,28 @@ class Gee:
                     self.info(f"{file}: Keeping your version from ${from_desc}")
                     self.info(f"{file}: Discarding their version from ${onto_desc}")
                     if st == "UD":
-                        self.run("yes d | {git} mergetool -- {q(file)}")
+                        self.run(f"yes d | {git} mergetool -- {q(file)}", cwd=branch_dir)
                         print()
+                        self.run_interactive(f"{git} rebase --continue", cwd=branch_dir)
                     else:
-                        self.info('During a rebase, "--theirs" means yours:')
-                        self.run_git("checkout --theirs {q(file)}")
+                        self.info('Unlike merge, during a rebase, "--theirs" means yours:')
+                        self.run_git(f"checkout --theirs {q(file)}", cwd=branch_dir)
+                        self.run_git(f"add {q(file)}", cwd=branch_dir)
+                        self.run_git("commit --reuse-message=HEAD@{1}", cwd=branch_dir)  # undocumented flag!
+                        self.run_interactive(f"{git} rebase --continue", cwd=branch_dir)
                 elif resp == "t":
                     self.info(f"{file}: Discarding your version from ${from_desc}")
                     self.info(f"{file}: Keeping their version from ${onto_desc}")
                     if st == "DU":
-                        self.run("yes d | {git} mergetool -- {q(file)}")
+                        self.run(f"yes d | {git} mergetool -- {q(file)}", cwd=branch_dir)
                         print()
+                        self.run_interactive(f"{git} rebase --continue", cwd=branch_dir)
                     else:
-                        self.info('During a rebase, "--ours" means theirs:')
-                        self.run_git("checkout --ours {q(file)}")
+                        self.info('Unlike merge, during a rebase, "--ours" means theirs:')
+                        self.run_git(f"checkout --ours {q(file)}", cwd=branch_dir)
+                        self.run_git(f"add {q(file)}", cwd=branch_dir)
+                        self.run_git("commit --reuse-message=HEAD@{1}", cwd=branch_dir)  # undocumented flag!
+                        self.run_interactive(f"{git} rebase --continue", cwd=branch_dir)
                 elif resp == "m" or resp == "g":
                     cmd = [git, "mergetool", "--no-prompt"]
                     if resp == "g":
@@ -1418,6 +1426,7 @@ class Gee:
                         status_lines.insert(0, status_line)  # redo
                     else:
                         self.run_git("add .", cwd=branch_dir, check=False)
+                        self.run_git("commit --reuse-message=HEAD@{1}", cwd=branch_dir)  # undocumented flag!
                         self.run_interactive(f"{git} rebase --continue", cwd=branch_dir)
                 elif resp == "p":
                     self.run_git("rebase --abort", cwd=branch_dir)
@@ -1438,10 +1447,10 @@ class Gee:
                             sys.exit(1)
                         status_lines = []  # restart.
                 elif resp == "k":
-                    self.run_git("rebase --skip")
+                    self.run_git("rebase --skip", cwd=branch_dir)
                     status_lines = []
                 elif resp == "a":
-                    self.run_git("rebase --abort")
+                    self.run_git("rebase --abort", cwd=branch_dir)
                     status_lines = []
                     return False
                 else:
