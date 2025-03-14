@@ -1373,7 +1373,7 @@ class Gee:
             )
             if status == "":
                 self.info("Empty commit, skipping.")
-                self.run_git("rebase --skip")
+                self.run_interactive(f"{git} rebase --skip")
                 continue
             status_lines = status.splitlines(keepends=False)
             while status_lines:
@@ -1418,7 +1418,7 @@ class Gee:
                         status_lines.insert(0, status_line)  # redo
                     else:
                         self.run_git("add .", cwd=branch_dir, check=False)
-                        self.run_git("rebase --continue", cwd=branch_dir)
+                        self.run_interactive(f"{git} rebase --continue", cwd=branch_dir)
                 elif resp == "p":
                     self.run_git("rebase --abort", cwd=branch_dir)
                     cmd = [git, "rebase", "-i", "--autostash"]
