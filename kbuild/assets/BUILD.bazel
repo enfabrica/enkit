@@ -12,10 +12,9 @@ go_embed_data(
 go_library(
     name = "assets",
     srcs = [
-        "empty.go",
         ":embedded-assets",  # keep
     ],
-    importpath = "github.com/enfabrica/enkit/kbuild/assets",
+    importpath = "github.com/enfabrica/enkit/kbuild/assets",  # keep
     visibility = ["//visibility:public"],
 )
 

@@ -10,12 +10,17 @@ go_library(
 go_test(
     name = "exec_test",
     srcs = ["exec_test.go"],
+    data = ["//faketree"],
     embed = [":exec"],
     tags = [
         # Cloud Build cannot run privileged containers
         "no-cloudbuild",
     ],
-    deps = ["@com_github_stretchr_testify//assert"],
+    deps = [
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+        "@io_bazel_rules_go//go/runfiles:go_default_library",
+    ],
 )
 
 alias(

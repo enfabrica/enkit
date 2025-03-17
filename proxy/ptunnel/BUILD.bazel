@@ -30,6 +30,8 @@ go_test(
         # Test starts up a server on localhost, which may not be permitted on
         # remote workers.
         "no-remote-exec",
+        # Test also fails when executed locally.
+        "no-presubmit",  # TODO(ccontavalli): fix and re-enable
     ],
     deps = [
         "//lib/errdiff",

@@ -5,6 +5,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"io"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,7 +13,10 @@ import (
 	bpb "github.com/enfabrica/enkit/lib/bazel/proto"
 )
 
-var pseudoTargetAttributeName = "workspace_download_checksums"
+var (
+	pseudoTargetAttributeName = "workspace_download_checksums"
+	reIgnoreFilePath          = regexp.MustCompile(`^.*/`)
+)
 
 // Target wraps a build.proto Target message with some lazily computed
 // properties.
@@ -102,7 +106,12 @@ func shallowHash(w *Workspace, t *bpb.Target) (uint32, error) {
 		// order
 		sort.Slice(attrList, func(i, j int) bool { return attrList[i].GetName() < attrList[j].GetName() })
 		for _, attr := range attrList {
-			fmt.Fprintf(h, "%s=%s", attr.GetName(), attrValue(attr))
+			if attr.GetName() != "generator_location" {
+				fmt.Fprintf(h, "%s=%s", attr.GetName(), attrValue(attr))
+			} else {
+				// Ignore the path prefix of the generator location.
+				fmt.Fprintf(h, "%s=%s", attr.GetName(), reIgnoreFilePath.ReplaceAllString(attrValue(attr), ""))
+			}
 		}
 	case bpb.Target_SOURCE_FILE:
 		lbl, err := labelFromString(t.GetSourceFile().GetName())

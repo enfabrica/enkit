@@ -1,5 +1,6 @@
 load("//bazel/utils:files.bzl", "write_to_file")
 load("//bazel/dive:dive.bzl", "oci_dive")
+load("//bazel/utils:merge_kwargs.bzl", "add_tag")
 load("@enkit//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
@@ -331,6 +332,17 @@ def container_dive(*args, **kwargs):
     oci_dive(*args, **kwargs)
 
 def container_image(*args, **kwargs):
+    # TODO: This forces targets to be `manual`, since the base images they
+    # depend on aren't publicly available. This allows `bazel test //...` to
+    # work for everyone, while still allowing containers to be built and pushed
+    # by specifying specific labels.
+    #
+    # Remove this once either:
+    # * base images are publicly fetchable (pull permissions granted to the
+    #   public)
+    # * base images are removed entirely
+    kwargs = add_tag(kwargs, "manual")
+
     name = kwargs.get("name")
     output = "{}_labels.txt".format(name)
     tags = kwargs.get("tags", [])
@@ -368,6 +380,17 @@ def container_tarball(*args, **kwargs):
     oci_tarball(*args, **kwargs)
 
 def container_push(*args, **kwargs):
+    # TODO: This forces targets to be `manual`, since the base images they
+    # depend on aren't publicly available. This allows `bazel test //...` to
+    # work for everyone, while still allowing containers to be built and pushed
+    # by specifying specific labels.
+    #
+    # Remove this once either:
+    # * base images are publicly fetchable (pull permissions granted to the
+    #   public)
+    # * base images are removed entirely
+    kwargs = add_tag(kwargs, "manual")
+
     target_basename = kwargs.get("name")
     namespace = kwargs.get("namespace")
     region = kwargs.get("region", GCP_REGION)
@@ -423,22 +446,22 @@ def container_pusher_impl(ctx):
 --v=1 \\
 $@
 """.format(
-    ctx.executable._tool.short_path,
-    ctx.file.dev_script.short_path,
-    ctx.file.staging_script.short_path,
-    ctx.file.image_tarball.short_path,
-    ctx.attr.namespace,
-    ctx.attr.image_path,
-    ctx.attr.project,
-    ctx.attr.region,
-)
+        ctx.executable._tool.short_path,
+        ctx.file.dev_script.short_path,
+        ctx.file.staging_script.short_path,
+        ctx.file.image_tarball.short_path,
+        ctx.attr.namespace,
+        ctx.attr.image_path,
+        ctx.attr.project,
+        ctx.attr.region,
+    )
     ctx.actions.write(script, body)
 
     direct_files = ctx.files.dev_script + ctx.files.staging_script + ctx.files.image_tarball
     transitive_files = ctx.attr._tool[DefaultInfo].default_runfiles.files.to_list() + \
-        ctx.attr.dev_script[DefaultInfo].default_runfiles.files.to_list() + \
-        ctx.attr.staging_script[DefaultInfo].default_runfiles.files.to_list() + \
-        ctx.attr.image_tarball[DefaultInfo].default_runfiles.files.to_list()
+                       ctx.attr.dev_script[DefaultInfo].default_runfiles.files.to_list() + \
+                       ctx.attr.staging_script[DefaultInfo].default_runfiles.files.to_list() + \
+                       ctx.attr.image_tarball[DefaultInfo].default_runfiles.files.to_list()
     runfiles = ctx.runfiles(
         files = ctx.attr._tool[DefaultInfo].files.to_list() + direct_files,
         transitive_files = depset(transitive_files),
@@ -563,7 +586,6 @@ def container_bootstrap_rule_impl(ctx):
         DefaultInfo(files = depset([outfile])),
     ]
 
-
 bootstrap_attrs = {
     "bootstrap_script": attr.label(
         doc = "Script that executes the bootstrap tool",
@@ -657,7 +679,7 @@ container_bootstrap_rule = rule(
             doc = "List of tarballs to extract into the debootstrap environment",
             allow_files = [".tar", ".tar.gz"],
         ),
-    }
+    },
 )
 
 def ubuntu_pkg_rule_impl(ctx):
@@ -690,9 +712,9 @@ ubuntu_pkg_rule = rule(
         ),
         "exclude_pkgs": attr.string_list(
             doc = "List of packages to not download",
-            default = _EXCLUDE_BASE_PKGS, 
+            default = _EXCLUDE_BASE_PKGS,
         ),
-    }
+    },
 )
 
 def ubuntu_base_rule_impl(ctx):
@@ -715,19 +737,19 @@ def ubuntu_base_rule_impl(ctx):
         DefaultInfo(files = depset([outfile])),
     ]
 
-
 ubuntu_base_rule = rule(
     implementation = ubuntu_base_rule_impl,
     attrs = bootstrap_attrs | {
         "pkgs": attr.string_list(
             doc = "List of packages to include in the base image",
-            default = ["curl", "wget", "software-properties-common"]
+            default = ["curl", "wget", "software-properties-common"],
         ),
-    }, 
+    },
 )
 
 def ubuntu_base(*args, **kwargs):
     kwargs["bootstrap_script"] = "@enkit//bazel/utils/container:ubuntu_base.sh"
+
     # The debootstrap package is not installed on deployed containers yet so
     # any ubuntu_base, ubuntu_bootstrap, or ubuntu_pkg target will fail.
     # After a new container is built and deployed with the debootstrap target,

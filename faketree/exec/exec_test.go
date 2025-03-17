@@ -5,12 +5,20 @@ import (
 	"os"
 	"testing"
 
+	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRun(t *testing.T) {
 	ctx := context.Background()
-	faketreeBin = "/opt/enfabrica/bin/faketree"
+
+	faketreeRunfilesPath, err := runfiles.Rlocation("enkit/faketree/faketree_/faketree")
+	require.NoError(t, err)
+	defer func(oldPath string) {
+		faketreeBin = oldPath
+	}(faketreeBin)
+	faketreeBin = faketreeRunfilesPath
 
 	gotErr := Run(
 		ctx,
@@ -21,7 +29,7 @@ func TestRun(t *testing.T) {
 		os.Getenv("TEST_TMPDIR"),
 		[]string{"/bin/true"},
 	)
-	assert.Nilf(t, gotErr, "got error: %v; want no error", gotErr)
+	assert.NoError(t, gotErr)
 
 	gotErr = Run(
 		ctx,
@@ -32,5 +40,5 @@ func TestRun(t *testing.T) {
 		os.Getenv("TEST_TMPDIR"),
 		[]string{"/bin/false"},
 	)
-	assert.NotNil(t, gotErr)
+	assert.ErrorContains(t, gotErr, "exit status 1")
 }

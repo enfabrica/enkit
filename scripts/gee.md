@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.51
+gee version: 0.2.54
 
 gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
 tools  gee is an opinionated tool that implements a specific, simple, powerful
@@ -177,6 +177,7 @@ prompt that `gee bash_setup` makes available.
 | <a href="#make_branch">`make_branch`</a> | Create a new child branch based on the current branch. |
 | <a href="#migrate_default_branch">`migrate_default_branch`</a> | Migrate to a new default branch. |
 | <a href="#pack">`pack`</a> | Exports all unsubmitted changes in this branch as a pack file. |
+| <a href="#pick">`pick`</a> | Cherry-pick in commits from another branch. |
 | <a href="#pr_cancel">`pr_cancel`</a> | Cancels any running gcloud builds associated with this branch. |
 | <a href="#pr_checkout">`pr_checkout`</a> | Create a client containing someone's pull request. |
 | <a href="#pr_check">`pr_check`</a> | Checks the status of presubmit tests for a PR. |
@@ -541,9 +542,13 @@ Example:
 
 ### pr_checkout
 
-Usage: `gee pr_checkout <PR>`
+Usage: `gee pr_checkout [-n <branch-name>] <PR>`
 
 Creates a new branch containing the specified pull request.
+
+The "-n" flag may be used to specify a name for the locally created branch.
+Otherwise, gee will default to creating a branch named "pr_<PR>" (ie, "gee
+pr_checkout 1234" creates a branch named "pr_1234").
 
 Note that the new will be configured so that `gee update` will update that
 branch by integrating changes from the original pull request.  However,
@@ -587,48 +592,12 @@ Aliases: lspr list_pr prls
 
 Usage: `gee pr_list [--text] [<user>]`
 
+
 Lists information about PRs associated with the specified user (or yourself, if
 no user is specified).
 
 The `--text` option provides an alternative formatting for a list of open PRs, more
 suitable for pasting into an email.
-
-Example:
-
-    $ gee lspr jonathan-enf
-    PRs associated with this branch:
-    OPEN 1181 codegen tool
-
-    Open PRs authored by jonathan-enf:
-    #1205   REVIEW_REQUIRED Fix libsystemc build file error.
-    #1181   REVIEW_REQUIRED codegen tool
-    #1158   REVIEW_REQUIRED Added @gmp//:libgmpxx
-    #1148   REVIEW_REQUIRED Added gee to enkit.config.yaml.
-    #1136   REVIEW_REQUIRED Unified PtrQueue and Queue implementations.
-    #1130   REVIEW_REQUIRED Owners of /poc/{sim,models}
-    #1059   REVIEW_REQUIRED CSV file helper library
-
-    PRs pending their review:
-    #1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
-
-An example of using the "--text" option:
-
-    $ /home/jonathan/gee/enkit/gee_lspr_format/scripts/gee lspr --text
-    * #29644: Lorem ipsum dolor sit amet
-      2023-12-30 APPROVED Checks passed.
-      https://github.com/enfabrica/internal/pull/29644
-
-    * #29641: consectetur adipiscing elit
-      2023-12-30 REVIEW_REQUIRED DRAFT Checks passed.
-      https://github.com/enfabrica/internal/pull/29641
-
-    * #29640: sed do eiusmod tempor incididunt
-      2023-12-30 APPROVED Checks passed.
-      https://github.com/enfabrica/internal/pull/29640
-
-    * #29625: ut labore et dolor magna aliqua
-      2023-12-29 REVIEW_REQUIRED Checks passed.
-      https://github.com/enfabrica/internal/pull/29625
 
 ### pr_edit
 
@@ -657,9 +626,12 @@ Usage: `gee make_pr <gh-options>`
 Creates a new pull request from this branch.  The user will be asked to
 edit a PR description file before the PR is created.
 
-If you have any second thoughts during this process: Adding the token "DRAFT"
-to your PR description will cause the PR to be marked as a draft.  Adding the
-token "ABORT" will cause gee to abort the creation of your PR.
+These special tokens, on a line by themselves in your description, have
+the following effect:
+
+* "DRAFT" causes your PR to be marked as a draft.
+* "AUTOMERGE" causes your PR to have auto-merge enabled.
+* "ABORT" will cause gee to abort the creation of your PR.
 
 `pr_make` will look at the recursive parentage of the current branch  until
 it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
@@ -916,6 +888,22 @@ to restore those branches.
 
 Note that gee isn't able to restore parentage metadata in this way.  Be
 sure to invoke `gee set_parent` in branches that benefit from this.
+
+### pick
+
+Aliases: cherrypick
+
+Usage: `pick <commit>...`
+
+The gee wrapper around the git `cherry-pick` command that adds extra
+book-keeping in the `metadata` directory.
+
+The arguments to the pick command are supplied to `git rev-list --reverse` to
+produce a list of commits to integrate.  See `git help rev-list` for proper
+usage, but here are some examples of simple use cases:
+
+* `ABCD1234^..ABCD1234`: specify a single commit
+* `ABCD1234..master_b0`: specify all commits in master_b0 after ABCD1234.
 
 ### recover_stashes
 

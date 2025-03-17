@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -83,6 +84,145 @@ func TestBasicAuth(t *testing.T) {
 	tresp := Authenticate(t, rng, server, nil)
 	assert.Equal(t, 0, len(tresp.Cert), "%v", tresp.Cert)
 	assert.Equal(t, 0, len(tresp.Capublickey), "%v", tresp.Capublickey)
+}
+
+func TestLogging(t *testing.T) {
+	rng := rand.New(srand.Source)
+	log := logger.NewAccumulator()
+
+	server, err := New(rng, WithAuthURL("static-prefix"), WithLogger(log))
+	assert.Nil(t, err, err)
+	assert.NotNil(t, server)
+
+	Authenticate(t, rng, server, nil)
+
+	events := log.Retrieve()
+
+	expected := []string{
+		`authenticate - id ........ user emma.goldman@writers.org - started`,
+		`token feed - id ........ user emma.goldman@writers.org groups \[\]`,
+		`token request - id ........`,
+		`token issued - id ........ user emma.goldman@writers.org groups \[\]`,
+	}
+	for ix, match := range expected {
+		assert.Regexp(t, match, events[ix].Message)
+	}
+}
+
+// Verifies incorrect behavior: user browser authenticating multiple times,
+// CLI client repeteadly trying for the same token, etc.
+func TestContrivedFuzzy(t *testing.T) {
+	rng := rand.New(srand.Source)
+	log := logger.Go // Provides visual hints that the fuzzing is working.
+
+	server, err := New(rng, WithAuthURL("static-prefix"), WithLogger(log))
+	assert.Nil(t, err, err)
+	assert.NotNil(t, server)
+
+	pub, priv, err := box.GenerateKey(rng)
+	assert.Nil(t, err, err)
+
+	areq := &apb.AuthenticateRequest{
+		Key:    (*pub)[:],
+		User:   "emma.goldman",
+		Domain: "writers.org",
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+
+	lock := sync.RWMutex{}
+	lock.Lock()
+
+	var url string          // Protected by lock.
+	var key *common.Key     // Protected by lock.
+	var servPub *common.Key // Protected by lock.
+
+	const violence = "The most violent element in society is ignorance."
+	const kIterations = 1000
+	const kMinSleep = 0
+	const kMaxSleep = 1000
+
+	sleep := func() {
+		time.Sleep(time.Duration(rng.Intn(kMaxSleep-kMinSleep)+kMinSleep) * time.Microsecond)
+	}
+
+	go func() {
+		for ix := 0; ix < kIterations; ix++ {
+			aresp, err := server.Authenticate(context.Background(), areq)
+			assert.Nil(t, err, err)
+			assert.Equal(t, 32, len(aresp.Key), "%d", len(aresp.Key))
+			assert.True(t, strings.HasPrefix(aresp.Url, "static-prefix"), aresp.Url)
+
+			if ix != 0 {
+				lock.Lock()
+			}
+
+			url = aresp.Url
+			key, err = common.KeyFromURL(aresp.Url)
+			assert.Nil(t, err, err)
+			assert.NotNil(t, key)
+
+			servPub, err = common.KeyFromSlice(aresp.Key)
+			assert.Nil(t, err, err)
+			lock.Unlock()
+
+			sleep()
+		}
+
+		wg.Done()
+	}()
+
+	go func() {
+		for ix := 0; ix < kIterations; ix++ {
+			oa := oauth.AuthData{Creds: &oauth.CredentialsCookie{Identity: oauth.Identity{
+				Id:           "emma.goldman@writers.org",
+				Username:     "emma.goldman",
+				Organization: "writers.org",
+			}}, Cookie: violence}
+
+			lock.RLock()
+			lkey := *key
+			lock.RUnlock()
+
+			server.FeedToken(lkey, oa)
+			sleep()
+		}
+
+		wg.Done()
+	}()
+
+	go func() {
+		for ix := 0; ix < kIterations; ix++ {
+			lock.RLock()
+			treq := &apb.TokenRequest{
+				Url: url,
+			}
+			lpub := servPub.ToByte()
+			lock.RUnlock()
+
+			tresp, err := server.Token(context.Background(), treq)
+			assert.Nil(t, err, err)
+			assert.NotNil(t, tresp)
+
+			if tresp != nil {
+				assert.Equal(t, 65, len(tresp.Token), "%v", tresp.Token)
+				assert.Equal(t, 24, len(tresp.Nonce), "%v", tresp.Nonce)
+
+				nonce, err := common.NonceFromSlice(tresp.Nonce)
+				assert.Nil(t, err, err)
+
+				decrypted, ok := box.Open(nil, tresp.Token, nonce.ToByte(), lpub, priv)
+				assert.True(t, ok)
+				assert.Equal(t, violence, string(decrypted), "%v - %v", decrypted, string(decrypted))
+			}
+			sleep()
+		}
+
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
 
 // Just in case your security scanner goes crazy on this:

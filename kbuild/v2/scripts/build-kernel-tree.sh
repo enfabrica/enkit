@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Build Enfabrica kernel tree release directories.
 
@@ -126,7 +126,7 @@ while getopts hqcv:a:f:b: opt ; do
             ;;
     esac
 done
-shift `expr $OPTIND - 1`
+shift $((OPTIND - 1))
 
 case "$RT_ARCH" in
     amd64 | arm64) ;;
@@ -149,7 +149,7 @@ function gen_kernel_version() {
     DEBIAN="debian.master"
     pkg_name="linux"
     linux_version=$(sed -n '1s/^linux.*(\(.*\)-.*).*$/\1/p' ${DEBIAN}/changelog)
-    if [ -z "LINUX_VERSION" ] ; then
+    if [[ -z "$linux_version" ]] ; then
         echo "ERROR: unable to determine Debian kernel version"
         exit 1
     fi

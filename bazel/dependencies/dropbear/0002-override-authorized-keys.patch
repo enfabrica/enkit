@@ -1,8 +1,19 @@
-diff --git runopts.h runopts.h
-index a42e99b..925e409 100644
---- runopts.h
-+++ runopts.h
-@@ -137,6 +137,9 @@ typedef struct svr_runopts {
+From 664e175ae076757246ede342a264e91e348fecd8 Mon Sep 17 00:00:00 2001
+From: Carlo Contavalli <carlo@enfabrica.net>
+Date: Thu, 14 Nov 2024 18:02:44 +0000
+Subject: [PATCH 2/3] override authorized keys
+
+---
+ src/runopts.h        |  3 +++
+ src/svr-authpubkey.c | 38 +++++++++++++++++++++++---------------
+ src/svr-runopts.c    | 10 ++++++++++
+ 3 files changed, 36 insertions(+), 15 deletions(-)
+
+diff --git a/src/runopts.h b/src/runopts.h
+index a79e022..317d540 100644
+--- a/src/runopts.h
++++ b/src/runopts.h
+@@ -138,6 +138,9 @@ typedef struct svr_runopts {
  	char *pubkey_plugin_options;
  #endif
  
@@ -12,10 +23,10 @@ index a42e99b..925e409 100644
  	int pass_on_env;
  
  } svr_runopts;
-diff --git svr-authpubkey.c svr-authpubkey.c
+diff --git a/src/svr-authpubkey.c b/src/svr-authpubkey.c
 index 5d298cb..64723df 100644
---- svr-authpubkey.c
-+++ svr-authpubkey.c
+--- a/src/svr-authpubkey.c
++++ b/src/svr-authpubkey.c
 @@ -458,22 +458,30 @@ static int checkpubkey(const char* keyalgo, unsigned int keyalgolen,
  		dropbear_exit("Failed to set euid");
  	}
@@ -62,11 +73,11 @@ index 5d298cb..64723df 100644
  		}
  	}
  #if DROPBEAR_SVR_MULTIUSER
-diff --git svr-runopts.c svr-runopts.c
-index 6870f62..ff105dd 100644
---- svr-runopts.c
-+++ svr-runopts.c
-@@ -110,6 +110,8 @@ static void printhelp(const char * progname) {
+diff --git a/src/svr-runopts.c b/src/svr-runopts.c
+index aaf199c..2540e8f 100644
+--- a/src/svr-runopts.c
++++ b/src/svr-runopts.c
+@@ -115,6 +115,8 @@ static void printhelp(const char * progname) {
                                          "-A <authplugin>[,<options>]\n"
                                          "               Enable external public key auth through <authplugin>\n"
  #endif
@@ -75,7 +86,7 @@ index 6870f62..ff105dd 100644
  					"-V    Version\n"
  #if DEBUG_TRACE
  					"-v    verbose (repeat for more verbose)\n"
-@@ -147,6 +149,7 @@ void svr_getopts(int argc, char ** argv) {
+@@ -152,6 +154,7 @@ void svr_getopts(int argc, char ** argv) {
  #if DROPBEAR_PLUGIN
          char* pubkey_plugin = NULL;
  #endif
@@ -83,15 +94,15 @@ index 6870f62..ff105dd 100644
  
  
  	/* see printhelp() for options */
-@@ -180,6 +183,7 @@ void svr_getopts(int argc, char ** argv) {
+@@ -185,6 +188,7 @@ void svr_getopts(int argc, char ** argv) {
          svr_opts.pubkey_plugin = NULL;
          svr_opts.pubkey_plugin_options = NULL;
  #endif
-+ 	svr_opts.authorized_keys_file = NULL;
++	svr_opts.authorized_keys_file = NULL;
  	svr_opts.pass_on_env = 0;
  	svr_opts.reexec_childpipe = -1;
  
-@@ -322,6 +326,9 @@ void svr_getopts(int argc, char ** argv) {
+@@ -332,6 +336,9 @@ void svr_getopts(int argc, char ** argv) {
                                          next = &pubkey_plugin;
                                          break;
  #endif
@@ -101,13 +112,16 @@ index 6870f62..ff105dd 100644
  #if DEBUG_TRACE
  				case 'v':
  					debug_trace++;
-@@ -477,6 +484,9 @@ void svr_getopts(int argc, char ** argv) {
+@@ -463,6 +470,9 @@ void svr_getopts(int argc, char ** argv) {
  		svr_opts.pubkey_plugin_options = args;
  	}
  #endif
 +	if (authorized_keys_file) {
-+ 		svr_opts.authorized_keys_file = m_strdup(authorized_keys_file);
++		svr_opts.authorized_keys_file = m_strdup(authorized_keys_file);
 +	}
  }
  
  static void addportandaddress(const char* spec) {
+-- 
+2.47.0
+

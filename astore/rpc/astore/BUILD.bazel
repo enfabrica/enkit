@@ -21,7 +21,6 @@ go_proto_library(
 
 go_library(
     name = "astore",
-    srcs = ["empty.go"],
     embed = [":go_default_library"],
     importpath = "github.com/enfabrica/enkit/astore/rpc/astore",
     visibility = ["//visibility:public"],
