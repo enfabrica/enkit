@@ -29,6 +29,10 @@ def _astore_upload(ctx):
         uidfile = ctx.files.uidfile[0].short_path
         files.append(ctx.files.uidfile[0])
 
+    upload_tag = ""
+    if ctx.attr.upload_tag:
+        upload_tag = "--tag=" + ctx.attr.upload_tag
+
     ctx.actions.expand_template(
         template = template,
         output = ctx.outputs.executable,
@@ -38,6 +42,7 @@ def _astore_upload(ctx):
             "{file}": ctx.attr.file,
             "{dir}": ctx.attr.dir,
             "{uidfile}": uidfile,
+            "{upload_tag}": upload_tag,
         },
         is_executable = True,
     )
@@ -66,6 +71,9 @@ astore_upload = rule(
             providers = [DefaultInfo],
             mandatory = False,
             doc = "If specified, will attempt to update the UID variable in this (build) file.",
+        ),
+        "upload_tag": attr.string(
+            doc = "Apply optional tag to binary during upload.",
         ),
         "_astore_upload_file": attr.label(
             default = Label("//bazel/astore:astore_upload_file.sh"),
