@@ -278,8 +278,8 @@ class ExecutionContext:
     the cwd for a sequence of subcommands.
     """
 
-    def __init__(self, logger, git="git", gh="gh", cwd=None):
-        self.logger = logger
+    def __init__(self, gee, git="git", gh="gh", cwd=None):
+        self.gee = gee
         self.git = git
         self.gh = gh
         self.default_cwd = os.path.realpath(os.getcwd())
@@ -299,29 +299,29 @@ class ExecutionContext:
             cwd = self.cwd
         if isinstance(cmd, list) and not isinstance(cmd, str):
             cmd = " ".join([shlex.quote(x) for x in cmd])
-        if cwd and cwd != self.default_cwd
+        if cwd and cwd != self.default_cwd:
             # Inform the user which directory a command is being run from.
             cmd = f"{cwd}$ {cmd}"
         else:
             cmd = f"$ {cmd}"
         if priority == HIGH:
-            self.logger.cmd(cmd)
+            self.gee.logger.cmd(cmd)
         else:
-            self.logger.low_cmd(cmd)
+            self.gee.logger.low_cmd(cmd)
 
     def log_command_stdout(self, text, priority=HIGH):
         for line in text.splitlines():
             if not quiet:
-                self.logger.cmd_stdout(line)
+                self.gee.logger.cmd_stdout(line)
             else:
-                self.logger.low_cmd_stdout(line)
+                self.gee.logger.low_cmd_stdout(line)
 
     def log_command_stderr(self, text, priority=HIGH):
         for line in text.splitlines():
             if not quiet:
-                self.logger.cmd_stderr(line)
+                self.gee.logger.cmd_stderr(line)
             else:
-                self.logger.low_cmd_stderr(line)
+                self.gee.logger.low_cmd_stderr(line)
 
     def run(
         self: "Gee",
@@ -330,9 +330,9 @@ class ExecutionContext:
         **kwargs,
     ):
         if interactive:
-            self.run_interactive(*args, **kwargs)
+            return self.run_interactive(*args, **kwargs)
         else:
-            self.run_noninteractive(*args, **kwargs)
+            return self.run_noninteractive(*args, **kwargs)
 
     def run_noninteractive(
         self: "Gee",
@@ -351,7 +351,7 @@ class ExecutionContext:
         ability to capture the output of simple commands.
         """
         self.log_command(cmd, priority=priority, cwd=cwd)
-        log_level = self.logger.getEffectiveLevel()
+        log_level = self.gee.logger.getEffectiveLevel()
         if priority == LOW:
             stdout_enabled = log_level <= GeeLogger.LOW_STDOUT
             stderr_enabled = log_level <= GeeLogger.LOW_STDERR
@@ -421,9 +421,9 @@ class ExecutionContext:
         stdout_thread.join()
         stderr_thread.join()
 
-        self.logger.debug("exit status = %d", process.returncode)
+        self.gee.logger.debug("exit status = %d", process.returncode)
         if check and process.returncode != 0:
-            self.fatal(
+            self.gee.fatal(
                 "Command failed with return code = %d", process.returncode, stacklevel=3
             )
 
@@ -462,9 +462,9 @@ class ExecutionContext:
         )
         stdout, stderr = p.communicate()
         rc = p.wait()
-        self.logger.debug("exit status = %d", rc)
+        self.gee.logger.debug("exit status = %d", rc)
         if check and rc != 0:
-            self.fatal("Command failed with returncode=%d: %s", rc, cmd, stacklevel=3)
+            self.gee.fatal("Command failed with returncode=%d: %s", rc, cmd, stacklevel=3)
         return rc
 
     def run_git(self, cmd, **kwargs):
@@ -485,7 +485,8 @@ class ExecutionContext:
             cmd = [gh] + cmd
         else:
             raise TypeError("command is not a list or a string: %r", cmd)
-        return self.run(cmd, **kwargs)
+        a = self.run(cmd, **kwargs)
+        return a
 
 
 #####################################################################
@@ -671,7 +672,7 @@ class LogCommand(GeeCommand):
         self.gee.configure_logp_alias()
         if args.args[0] == "--":
             _ = args.args.pop(0)
-        self.gee.run_git(["logp"] + args.args)
+        self.gee.xc().run_git(["logp"] + args.args)
 
 
 class ConfigCommand(GeeCommand):
@@ -744,7 +745,7 @@ class DiffCommand(GeeCommand):
     def dispatch(self, args):
         branch = self.gee.get_current_branch()
         parent_commit = self.gee.get_parent_commit(branch)
-        self.gee.run_git(["diff", f"{parent_commit}...HEAD", "--"] + args.files)
+        self.gee.xc().run_git(["diff", f"{parent_commit}...HEAD", "--"] + args.files)
 
 
 class VimdiffCommand(GeeCommand):
@@ -765,12 +766,12 @@ class VimdiffCommand(GeeCommand):
     def dispatch(self, args):
         branch = self.gee.get_current_branch()
         parent = self.gee.get_parent_branch(branch)
-        _, stdout, _ = self.gee.run_git(
+        _, stdout, _ = self.gee.xc().run_git(
             f"config --global --get diff.difftool", priority=LOW
         )
         difftool = stdout.strip()
         files = " ".join([shlex.quote(x) for x in args.files])
-        self.gee.run_interactive(f"git difftool -t {difftool} {parent} -- {files}")
+        self.gee.xc().run_interactive(f"git difftool -t {difftool} {parent} -- {files}")
 
 
 class WhatsoutCommand(GeeCommand):
@@ -788,7 +789,7 @@ class WhatsoutCommand(GeeCommand):
     def dispatch(self, args):
         branch = self.gee.get_current_branch()
         parent = self.gee.get_parent_branch(branch)
-        self.gee.run_git(["diff", "--name-only", f"{parent}...HEAD"])
+        self.gee.xc().run_git(["diff", "--name-only", f"{parent}...HEAD"])
 
 
 class FindCommand(GeeCommand):
@@ -822,7 +823,7 @@ class FindCommand(GeeCommand):
         path = self.gee.branch_dir(current_branch)
         paths = (path, f"{path}/bazel-bin/*", f"{path}/bazel-{current_branch}/*")
         for p in paths:
-            _, stdout, _ = self.gee.run(
+            _, stdout, _ = self.gee.xc().run(
                 f"find {q(p)} -name .git -prune -or -name {q(args.expression)} -print",
                 check=False,
             )
@@ -902,18 +903,18 @@ class CommitCommand(GeeCommand):
         if args.amend:
             cmd += ["--amend"]
         if args.all:
-            self.gee.run_git("add --all")
+            self.gee.xc().run_git("add --all")
             cmd += ["-a"]
         if args.msg:
             cmd += ["-m", args.msg]
-        rc = self.gee.run_interactive(cmd, check=False)
+        rc = self.gee.xc().run_interactive(cmd, check=False)
         if rc == 0:
             # TODO(jonathan): how do we cancel presubmit jobs in a generic way?
             if not (args.amend or args.force):
                 self.gee.check_origin(branch)
-                self.gee.run_git(f"push --quiet -u origin {branch}")
+                self.gee.xc().run_git(f"push --quiet -u origin {branch}")
             else:
-                self.gee.run_git(f"push --quiet --force -u origin {branch}")
+                self.gee.xc().run_git(f"push --quiet --force -u origin {branch}")
         else:
             # git commit will fail if there are no local changes.
             self.gee.debug("git commit operation returned rc=%d", rc)
@@ -957,7 +958,7 @@ class UpdateCommand(GeeCommand):
     def dispatch(self, args):
         current_branch = self.gee.get_current_branch()
         parent_branch = self.gee.get_parent_branch(current_branch)
-        self.gee.run_git("fetch origin")  # to check for commits in origin
+        self.gee.xc().run_git("fetch origin")  # to check for commits in origin
         return self.gee.rebase(current_branch, parent_branch)
 
 
@@ -1220,7 +1221,7 @@ class Gee:
     def xc(self: "Gee"):
         """Create a new ExecutionContext."""
         return ExecutionContext(
-                logger=self.logger,
+                gee=self,
                 git=self.find_binary(self.config.get("gee.git", "git")),
                 gh=self.find_binary(self.config.get("gee.gh", "gh")),
                 cwd=self.cwd
@@ -1683,7 +1684,8 @@ class Gee:
         return False
 
     def check_gh_auth(self: "Gee"):
-        rc, _, _ = self.xc().run_gh("auth status", priority=LOW, check=False)
+        xc = self.xc()
+        rc, _, _ = xc.run_gh("auth status", priority=LOW, check=False)
         if rc == 0:
             return True
         self.warn("gh could not authenticate to github.")
@@ -1937,7 +1939,7 @@ class Gee:
                     self.origin_url(),
                     main_branch_dir,
                 ],
-                direct_out=True,  # this is a slow command.
+                interactive=True,  # this is a slow command.
                 check=True,
             )
         self.cwd = main_branch_dir
