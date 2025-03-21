@@ -1,75 +1,21 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
-load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
-
-# Keep gazelle from overzealously removing the go_library below
-# (https://github.com/bazelbuild/bazel-gazelle/issues/646)
-# gazelle:ignore
 
 go_library(
-    name = "go_default_library",
-    srcs = [
-        ":autouser_binary",
-        ":libpam_script_install",
-        ":mnode_sshd_conf",
-        ":mnode_systemd_conf",
-        ":nss_autouser_config",
-        ":pam_script",
-        ":pam_sshd_config",
+    name = "assets",
+    srcs = ["assets.go"],
+    embedsrcs = [
+        "install_libpam-script.sh",
+        "machinist.service.gotmpl",
+        "machinist_sshd.conf.gotmpl",
+        "nss-autouser.conf.gotmpl",
     ],
     importpath = "github.com/enfabrica/enkit/machinist/machine/assets",
     visibility = ["//machinist/machine:__pkg__"],
+    deps = ["//proxy/nss/configs"],
 )
 
-go_embed_data(
-    name = "mnode_systemd_conf",
-    src = "machinist.service.gotmpl",
-    package = "assets",
-    string = True,
-    var = "SystemdTemplate",
-)
-
-go_embed_data(
-    name = "mnode_sshd_conf",
-    src = "machinist_sshd.conf.gotmpl",
-    package = "assets",
-    string = True,
-    var = "SSHDTemplate",
-)
-
-go_embed_data(
-    name = "nss_autouser_config",
-    src = "nss-autouser.conf.gotmpl",
-    package = "assets",
-    string = True,
-    var = "NssConfig",
-)
-
-go_embed_data(
-    name = "autouser_binary",
-    srcs = [
-        "//proxy/nss:nss_autouser",
-    ],  # Technically cc_library outputs a .a and .so, doesn't matter which but this embeds both TODO(adam): strip out .a just for sizing reasons
-    package = "assets",
-    var = "AutoUserBinaries",
-)
-
-go_embed_data(
-    name = "pam_script",
-    src = "//proxy/nss/configs:pam_script_acct",
-    package = "assets",
-    var = "PamScript",
-)
-
-go_embed_data(
-    name = "libpam_script_install",
-    src = "install_libpam-script.sh",
-    package = "assets",
-    var = "InstallLibPamScript",
-)
-
-go_embed_data(
-    name = "pam_sshd_config",
-    src = "//proxy/nss/configs:sshd",
-    package = "assets",
-    var = "PamSSHDConfig",
+alias(
+    name = "go_default_library",
+    actual = ":assets",
+    visibility = ["//visibility:public"],
 )

@@ -1,0 +1,33 @@
+diff --git go/private/actions/compilepkg.bzl go/private/actions/compilepkg.bzl
+index fff807fa..efb0d051 100644
+--- go/private/actions/compilepkg.bzl
++++ go/private/actions/compilepkg.bzl
+@@ -36,6 +36,10 @@ def _embedlookupdir_arg(src):
+         root_relative = root_relative[len("/"):]
+     return root_relative
+ 
++def _embedlookupdir_root(src):
++    if src.root.path:
++        return src.root.path
++
+ def emit_compilepkg(
+         go,
+         sources = None,
+@@ -87,6 +91,17 @@ def emit_compilepkg(
+         uniquify = True,
+         expand_directories = False,
+     )
++
++    # HACK: Add (deduplicated) root dir as an embed lookup dir, so that
++    # //go:embed directives can use workspace-relative paths to embed generated
++    # files
++    args.add_all(
++        sources + [out_lib],
++        map_each = _embedlookupdir_root,
++        before_each = "-embedlookupdir",
++        uniquify = True,
++        expand_directories = False,
++    )
+     if cover and go.coverdata:
+         inputs.append(go.coverdata.data.export_file)
+         args.add("-arc", _archive(go.coverdata))
