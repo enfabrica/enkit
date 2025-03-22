@@ -106,7 +106,7 @@ def ask_multi(prompt, default=None, options=None):
         if resp_char in options:
             return resp_char
             break
-        self.warn(f"Invalid response: {resp}")
+        print(f"Invalid response: {resp}")
 
 
 #####################################################################
@@ -1488,7 +1488,8 @@ class Gee:
                     resp = "h"
                     while resp == "h":
                         resp = ask_multi(
-                            "keep (Y)ours, keep (T)heirs, (M)erge, (G)ui-merge, (V)iew, (A)bort, or (H)elp?  "
+                            "keep (Y)ours, keep (T)heirs, (M)erge, (G)ui-merge, (V)iew, (A)bort, or (H)elp?  ",
+                            options="ytmgvahk"
                         )
                         if resp == "h":
                             log.infos(help_text.splitlines())
@@ -1549,6 +1550,8 @@ class Gee:
                     else:
                         raise Exception("wat")
             if not self.rebase_in_progress(branch_dir):
+                # Sometimes, such as when picking "theirs", git will spontaneously
+                # decide there is no more work to be done and exit the rebase state.
                 break
             if state == "resolved":
                 xc.run_git(
