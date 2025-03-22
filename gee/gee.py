@@ -960,6 +960,46 @@ class UpdateCommand(GeeCommand):
         self.gee.xc().run_git("fetch origin")  # to check for commits in origin
         return self.gee.rebase(current_branch, parent_branch)
 
+class RecursiveUpdateCommand(GeeCommand):
+    """Recursive rebase each branch onto it's parent.
+
+    "gee rupdate" extracts the complete chain of parent branches.  Starting from
+    the earliest branch, each branch is rebased with changes from it's parent
+    branch, until finally the current branch is rebased.
+
+    If the parent branch is remote (ie, "upstream/master"), gee will
+    automatically perform a "git fetch" operation first.
+
+    Before rebasing, gee always creates a `<branch-name>.REBASE_BACKUP`
+    tag.  If something went wrong with the merge and you want to get back
+    to where you started, you can run:
+
+        git reset --hard your_branch.REBASE_BACKUP
+    """
+
+    COMMAND = "rupdate"
+    ALIASES = ["rup"]
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+
+    def dispatch(self, args):
+        current_branch = self.gee.get_current_branch()
+        branch = current_branch
+        branches = [current_branch]
+        while "/" not in branch:
+            parent_branch = self.gee.get_parent_branch(branch)
+            branches.append(parent_branch)
+            branch = parent_branch
+        branches.reverse()
+        self.gcc.cx().run_git("fetch upstream")
+        self.gee.xc().run_git("fetch origin")  # to check for commits in origin
+        for i in range(1, len(branches)):
+            parent_branch = branches[i-1]
+            branch = branches[i]
+            self.gee.banner(f"Rebasing {branch} onto {parent_branch}")
+            self.gee.rebase(branch, parent_branch)
+
 
 #####################################################################
 # The gee base class.  All the real work is done here.  Any
@@ -1442,6 +1482,19 @@ class Gee:
            (P)ick: abort this merge, and instead attempt "git rebase -i".
            (S)hell: drop into interactive shell.
            s(K)ip: discard your entire conflicting commit.
+
+        The fundamental flow here is:
+
+            while rebase_in_progress:
+               * make a list of all files with merge conflicts
+               * for each file with merge conflicts:
+                   * ask what to do with each file.
+                * commit merged files, if any.
+                * git rebase --continue
+
+        At each step along the way, we check to see if the rebase is still
+        in progress, or if the git rebase FSM "saved us time" by prematurely
+        marking the rebase operation complete.
         """
         help_text = textwrap.dedent(
             Gee._interactive_conflict_resolution.__doc__.split("\n\n", 1)[1]
@@ -1462,12 +1515,10 @@ class Gee:
             _, from_desc, _ = xc.run_git(
                 f"show --oneline --no-color -s {from_commit} | cat", priority=LOW
             )
-            self.xc().run_git("status")
-            print("rebasing" if self.rebase_in_progress(branch_dir) else "done")
             self.banner(f"Yours:  {from_desc.strip()}", f"Theirs: {onto_desc.strip()}")
+            self.xc().run_git("status -s")
             state = "unresolved"
             while state == "unresolved":
-                self.info(f"DEBUG: state={state}")
                 _, status, _ = xc.run_git("status --porcelain", priority=LOW)
                 if status == "":
                     self.info("Empty commit, skipping.")
@@ -1478,7 +1529,6 @@ class Gee:
                 status_lines = status.splitlines(keepends=False)
                 while status_lines:
                     status_line = status_lines.pop(0)
-                    self.info(f"DEBUG: status_line: {status_line.strip()}")
                     st, file = status_line.split(maxsplit=1)
                     if len(st) == 1:
                         self.debug(f"{st}  {file}: no action needed.")
