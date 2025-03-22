@@ -312,24 +312,74 @@ class ExecutionContext:
             self.gee.logger.low_cmd(cmd)
 
     def log_command_stdout(self, text, priority=HIGH):
-        for line in text.splitlines():
-            if not quiet:
+        for line in text.splitlines(keepends=False):
+            if priority == HIGH:
                 self.gee.logger.cmd_stdout(line)
             else:
                 self.gee.logger.low_cmd_stdout(line)
 
     def log_command_stderr(self, text, priority=HIGH):
-        for line in text.splitlines():
-            if not quiet:
+        for line in text.splitlines(keepends=False):
+            if priority == HIGH:
                 self.gee.logger.cmd_stderr(line)
             else:
                 self.gee.logger.low_cmd_stderr(line)
 
-    def run(self: "Gee", *args, interactive=False, **kwargs):
-        if interactive:
+    def run(self: "Gee", *args, mode=None, **kwargs):
+        if mode == "interactive":
             return self.run_interactive(*args, **kwargs)
+        elif mode == "no_tty":
+            return self.run_no_tty(*args, **kwargs)
         else:
             return self.run_noninteractive(*args, **kwargs)
+
+    def run_no_tty(
+        self: "Gee",
+        cmd,
+        check=True,
+        priority=HIGH,
+        timeout=None,
+        capture=True,
+        cwd=None,
+        **kwargs,
+    ):
+        """Run a subprocess in a simple way, without a pseudo-tty.
+
+        Sometimes, we want to run a command with no pseudo-tty attached.  This is
+        the easiest way to prevent git from inserting unwanted control characters
+        into the byte stream.
+        """
+        if cwd is None:
+            cwd = self.cwd
+
+        self.log_command(cmd, priority=priority, cwd=cwd)
+
+        process = subprocess.Popen(
+            cmd,
+            shell=True if isinstance(cmd, str) else False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="utf-8",
+            cwd=cwd,
+            **kwargs,
+        )
+
+        process.wait(timeout=timeout)
+        stdout = "".join(process.stdout)
+        self.log_command_stdout(stdout, priority=priority)
+        stderr = "".join(process.stderr)
+        self.log_command_stderr(stderr, priority=priority)
+
+        self.gee.logger.debug("exit status = %d", process.returncode)
+        if check and process.returncode != 0:
+            self.gee.fatal(
+                "Command failed with return code = %d", process.returncode, stacklevel=3
+            )
+
+        return process.returncode, stdout, stderr
 
     def run_noninteractive(
         self: "Gee",
@@ -986,21 +1036,12 @@ class RecursiveUpdateCommand(GeeCommand):
         super().__init__(gee_obj)
 
     def dispatch(self, args):
-        cwd = os.getcwd()
-        self.gee.check_branch_directory(cwd)
-
         current_branch = self.gee.get_current_branch()
-        branch = current_branch
-        branches = [current_branch]
-        while "/" not in branch:
-            # check the current child branch to make sure it
-            # can be rebased:
+        branches = self.gee.get_parent_chain(current_branch)
+        for branch in branches:
+            # Check each branch to make sure it can be rebased.
             branch_dir = self.gee.branch_dir(branch)
             self.gee.check_branch_directory(branch_dir)
-            # add the parent of this child to our processing list:
-            parent_branch = self.gee.get_parent_branch(branch)
-            branches.append(parent_branch)
-            branch = parent_branch
         branches.reverse()
         self.gee.xc().run_git("fetch upstream")
         self.gee.xc().run_git("fetch origin")  # to check for commits in origin
@@ -1010,6 +1051,54 @@ class RecursiveUpdateCommand(GeeCommand):
             self.gee.banner(f"Rebasing {branch} onto {parent_branch}")
             self.gee.rebase(branch, parent_branch)
 
+class UpdateAllCommand(GeeCommand):
+    """Ordered update of all extant branches.
+
+    "gee update_all" updates all local branches (in the correct order),
+    by rebasing child branches onto parent branches.
+
+    If the parent branch is remote (ie, "upstream/master"), gee will
+    automatically perform a "git fetch" operation first.
+
+    Before rebasing, gee always creates a `<branch-name>.REBASE_BACKUP`
+    tag.  If something went wrong with the merge and you want to get back
+    to where you started, you can run:
+
+        git reset --hard your_branch.REBASE_BACKUP
+    """
+
+    COMMAND = "update_all"
+    ALIASES = []
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+
+    def dispatch(self, args):
+        _, stdout, _ = self.gee.xc().run_git("branch --format=\"%(refname:short)\"", mode="no_tty", priority=LOW,)
+        all_branches = stdout.strip().split()
+        complete_chain = []
+        for branch in all_branches:
+            if branch in complete_chain:
+                continue
+            subchain = self.gee.get_parent_chain(branch)
+            subchain = [x for x in subchain if x not in complete_chain]
+            subchain.reverse()  # order from eldest to youngest
+            complete_chain.extend(subchain)
+
+        self.gee.xc().run_git("fetch upstream")
+        self.gee.xc().run_git("fetch origin")  # to check for commits in origin
+        for branch in complete_chain:
+            if "/" in branch:
+                continue
+            parent_branch = self.gee.get_parent_branch(branch)
+            self.gee.banner(f"Rebasing {branch} onto {parent_branch}")
+            branch_dir = self.gee.branch_dir(branch)
+            # Check each branch to make sure it can be rebased.
+            branch_dir = self.gee.branch_dir(branch)
+            if not self.gee.check_branch_directory(branch_dir, fatal=False):
+                self.warning(f"Skipping update of {branch}")
+                continue
+            self.gee.rebase(branch, parent_branch)
 
 #####################################################################
 # The gee base class.  All the real work is done here.  Any
@@ -1136,6 +1225,20 @@ class Gee:
             self.select_repo()
             self.set_parent_branch(branch, f"{self.repo['repo']}/{self.repo['main']}")
         return self.parents[branch]["parent"]
+
+    def get_parent_chain(self: "Gee", branch):
+        """Return an ordered list containing the specified branch and all of its parents.
+
+        The first element in the list is the specified branch.  Each subsequent branch
+        listed is the previous branch's parent.
+        """
+        branches = [branch]
+        while "/" not in branch:
+            parent_branch = self.get_parent_branch(branch)
+            branches.append(parent_branch)
+            branch = parent_branch
+        return branches
+
 
     def get_parent_mergebase(self: "Gee", branch):
         """Gets the name of the parent of the specified branch."""
@@ -1319,8 +1422,8 @@ class Gee:
                     """
                 )
                 self.configure_logp_alias()
-                self.xc().run_git(f"logp {q(branch)}...origin/{q(branch)}")
-                resp = self.ask_multi(
+                self.xc().run_git(f"logp {q(branch)}..origin/{q(branch)}")  # only two dots
+                resp = ask_multi(
                     "Do you want to (P)ull in those commits, (d)iscard those commits, or (a)bort? ",
                     default="p",
                 )
@@ -1729,11 +1832,11 @@ class Gee:
         sys.exit(1)
 
     def banner(self: "Gee", *msgs):
+        self.logger.info("")
         self.logger.info(50 * "#")
         for msg in msgs:
             self.logger.info(f"# {msg}")
         self.logger.info(50 * "#")
-        self.logger.info("")
 
     ########################################
 
@@ -2059,7 +2162,7 @@ class Gee:
                     self.origin_url(),
                     main_branch_dir,
                 ],
-                interactive=True,  # this is a slow command.
+                mode="interactive",  # this is a slow command.
                 check=True,
             )
         self.cwd = main_branch_dir
