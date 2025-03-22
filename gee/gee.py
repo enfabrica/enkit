@@ -21,6 +21,7 @@ Environment variables gee cares about:
 import argparse
 import pty
 import copy
+import glob
 import datetime
 import difflib
 import io
@@ -271,6 +272,7 @@ class GeeLogFormatter(logging.Formatter):
 # Subprocess execution
 #####################################################################
 
+
 class ExecutionContext:
     """An execution context for running subprocesses.
 
@@ -323,12 +325,7 @@ class ExecutionContext:
             else:
                 self.gee.logger.low_cmd_stderr(line)
 
-    def run(
-        self: "Gee",
-        *args,
-        interactive=False,
-        **kwargs,
-    ):
+    def run(self: "Gee", *args, interactive=False, **kwargs):
         if interactive:
             return self.run_interactive(*args, **kwargs)
         else:
@@ -464,7 +461,9 @@ class ExecutionContext:
         rc = p.wait()
         self.gee.logger.debug("exit status = %d", rc)
         if check and rc != 0:
-            self.gee.fatal("Command failed with returncode=%d: %s", rc, cmd, stacklevel=3)
+            self.gee.fatal(
+                "Command failed with returncode=%d: %s", rc, cmd, stacklevel=3
+            )
         return rc
 
     def run_git(self, cmd, **kwargs):
@@ -970,6 +969,7 @@ class UpdateCommand(GeeCommand):
 #  it will be easier to understand and find things.
 #####################################################################
 
+
 class Gee:
     def __init__(self: "Gee"):
         ch = logging.StreamHandler()
@@ -1072,7 +1072,9 @@ class Gee:
 
     def set_parent_branch(self: "Gee", branch, parent):
         """Records the parentage of a branch."""
-        _, stdout, _ = self.xc().run_git(f"merge-base {q(branch)} {q(parent)}", priority=LOW)
+        _, stdout, _ = self.xc().run_git(
+            f"merge-base {q(branch)} {q(parent)}", priority=LOW
+        )
         mergebase = stdout.strip()
         self.parents[branch] = {"parent": parent, "mergebase": mergebase}
 
@@ -1221,12 +1223,11 @@ class Gee:
     def xc(self: "Gee"):
         """Create a new ExecutionContext."""
         return ExecutionContext(
-                gee=self,
-                git=self.find_binary(self.config.get("gee.git", "git")),
-                gh=self.find_binary(self.config.get("gee.gh", "gh")),
-                cwd=self.cwd
-                )
-
+            gee=self,
+            git=self.find_binary(self.config.get("gee.git", "git")),
+            gh=self.find_binary(self.config.get("gee.gh", "gh")),
+            cwd=self.cwd,
+        )
 
     ##########################################################################
     # The following methods represent basic git operations used in a variety
@@ -1300,35 +1301,26 @@ class Gee:
         self._inner_rebase(branch, parent, onto)
 
     def rebase_in_progress(self, branch_dir):
-        rc, _, _ = self.xc().run_git(
-            "rev-parse --verify REBASE_HEAD", cwd=branch_dir, check=False, priority=LOW
+        _, git_dir, _ = self.xc().run_git(
+            "rev-parse --git-dir", cwd=branch_dir, check=True, priority=LOW
         )
-        if rc == 0:
+        git_dir = git_dir.strip()
+        rebase_files = glob.glob(f"{git_dir}/rebase*")
+        if rebase_files:
             return True  # rebase is in progress
-        elif rc == 128:
-            return False  # rebase is not in progress
         else:
-            self.exception(
-                "git rev-parse --verify REBASE_HEAD failed with unexpected code: {rc}"
-            )
-            sys.exit(1)
+            return False  # rebase is not in progress
 
     def cherrypick_in_progress(self, branch_dir):
-        rc, _, _ = self.xc().run_git(
-            "rev-parse --verify CHERRY_PICK_HEAD",
-            cwd=branch_dir,
-            check=False,
-            priority=LOW,
+        _, git_dir, _ = self.xc().run_git(
+            "rev-parse --git-dir", cwd=branch_dir, check=True, priority=LOW
         )
-        if rc == 0:
-            return True  # cherry-pick is in progress
-        elif rc == 128:
-            return False  # cherry-pick is not in progress
+        git_dir = git_dir.strip()
+        cherry_pick_files = glob.glob(f"{git_dir}/CHERRY_PICK_HEAD*")
+        if cherry_pick_files:
+            return True  # cherry_pick is in progress
         else:
-            self.exception(
-                "git rev-parse --verify CHERRY_PICK_HEAD failed with unexpected code: {rc}"
-            )
-            sys.exit(1)
+            return False  # cherry_pick is not in progress
 
     def _inner_rebase(self, branch, parent, onto=None):
         if "/" in parent:
@@ -1347,7 +1339,9 @@ class Gee:
         # here.
 
         branch_dir = self.branch_dir(branch)
-        self.xc().run_git(f"tag -f {branch}.REBASE_BACKUP", cwd=branch_dir, priority=LOW)
+        self.xc().run_git(
+            f"tag -f {branch}.REBASE_BACKUP", cwd=branch_dir, priority=LOW
+        )
         parent_commit = self.get_commit(parent)
         cmd = ["rebase", "--autostash"]
         if onto:
@@ -1381,13 +1375,16 @@ class Gee:
             self.check_for_merge_conflict_markers(branch, parent_commit)
             self.info("Rebase completed.")
             self.info("To undo: gcd {branch}; git reset --hard {branch}.REBASE_BACKUP")
-            self.xc().run_git("push --set-upstream --quiet --force origin {q(branch)}")
+            self.xc().run_git(f"push --set-upstream --quiet --force origin {q(branch)}")
 
     def check_for_merge_conflict_markers(self, branch, parent_commit):
         branch_dir = self.branch_dir(branch)
         _ = parent_commit
         rc, _, _ = self.xc().run_git(
-            (f"diff " '| grep -q -E "^((<{6,})|(={6,})|(>{6,}))"'), cwd=branch_dir
+            (f'diff | grep -q -E "^((<{6,})|(={6,})|(>{6,}))"'),
+            cwd=branch_dir,
+            check=False,
+            priority=LOW,
         )
         if rc == 0:
             log.warn("Changes still contain merge conflict markers: please resolve.")
@@ -1457,29 +1454,22 @@ class Gee:
         while self.rebase_in_progress(branch_dir):
             skip = False
             restart = False
-            _, onto_commit, _ = xc.run_git(
-                "rev-parse HEAD", priority=LOW
-            )
+            _, onto_commit, _ = xc.run_git("rev-parse HEAD", priority=LOW)
             _, onto_desc, _ = xc.run_git(
                 # "| cat" is necessary to convince git not to add superfluous vt100 codes.
                 f"show --oneline --no-color -s {onto_commit} | cat",
                 priority=LOW,
             )
-            _, from_commit, _ = xc.run_git(
-                "rev-parse REBASE_HEAD", priority=LOW
-            )
+            _, from_commit, _ = xc.run_git("rev-parse REBASE_HEAD", priority=LOW)
             _, from_desc, _ = xc.run_git(
-                f"show --oneline --no-color -s {from_commit} | cat",
-                priority=LOW,
+                f"show --oneline --no-color -s {from_commit} | cat", priority=LOW
             )
             self.xc().run_git("status")
             print("rebasing" if self.rebase_in_progress(branch_dir) else "done")
             self.banner(f"Yours:  {from_desc.strip()}", f"Theirs: {onto_desc.strip()}")
             state = "unresolved"
             while state == "unresolved":
-                _, status, _ = xc.run_git(
-                    "status --porcelain", priority=LOW
-                )
+                _, status, _ = xc.run_git("status --porcelain", priority=LOW)
                 if status == "":
                     self.info("Empty commit, skipping.")
                     xc.run_interactive(f"{git} rebase --skip")
@@ -1503,10 +1493,14 @@ class Gee:
                             log.infos(help_text.splitlines())
                     if resp == "y":
                         state = "unresolved"
-                        self._resolve_conflict_yours(st, file, branch_dir, from_desc, onto_desc)
+                        self._resolve_conflict_yours(
+                            st, file, branch_dir, from_desc, onto_desc
+                        )
                     elif resp == "t":
                         state = "unresolved"
-                        self._resolve_conflict_theirs(st, file, branch_dir, from_desc, onto_desc)
+                        self._resolve_conflict_theirs(
+                            st, file, branch_dir, from_desc, onto_desc
+                        )
                     elif resp == "m" or resp == "g":
                         state = "unresolved"
                         cmd = [git, "mergetool", "--no-prompt"]
@@ -1514,7 +1508,9 @@ class Gee:
                             cmd += ["--gui"]
                         cmd += file
                         rc = xc.run_interactive(cmd, check=False)
-                        rc, stdout, _ = xc.run_git("diff --check -- {q(file)}", check=False)
+                        rc, stdout, _ = xc.run_git(
+                            "diff --check -- {q(file)}", check=False
+                        )
                         if "conflict marker" in stdout:
                             self.warn(
                                 "Conflict markers are still present, please resolve."
@@ -1554,7 +1550,9 @@ class Gee:
                         raise Exception("wat")
             # We've iterated through all the files, but are we state?
             if state == "resolved":
-                xc.run_git("commit --allow-empty --reuse-message=HEAD@{1}")  # undocumented flag!
+                xc.run_git(
+                    "commit --allow-empty --reuse-message=HEAD@{1}"
+                )  # undocumented flag!
                 xc.run_interactive(f"{git} rebase --continue")
             elif state == "skip":
                 xc.run_git("rebase --skip")
@@ -1631,7 +1629,6 @@ class Gee:
             self.logger.info(f"# {msg}")
         self.logger.info(50 * "#")
         self.logger.info("")
-
 
     ########################################
 
@@ -1953,7 +1950,9 @@ class Gee:
         _, _, _ = self.xc().run_git("fetch --quiet upstream")
 
     def remote_branch_exists(self, repo, branch) -> bool:
-        rc, stdout, _ = self.xc().run_git(f"ls-remote {q(repo)} {q(branch)}", priority=LOW)
+        rc, stdout, _ = self.xc().run_git(
+            f"ls-remote {q(repo)} {q(branch)}", priority=LOW
+        )
         return not (stdout.strip() == "")
 
     def make_branch(self: "Gee", branch: str, parent: Optional[str] = None):
@@ -2091,6 +2090,7 @@ class Gee:
 
 
 def main(args):
+    os.chdir(".")  # git likes to recreate directories, this is a workaround.
     gee = Gee()
     gee.main(args)
 
