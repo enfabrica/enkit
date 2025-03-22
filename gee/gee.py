@@ -1452,8 +1452,6 @@ class Gee:
         xc = self.xc()
         xc.chdir(branch_dir)
         while self.rebase_in_progress(branch_dir):
-            skip = False
-            restart = False
             _, onto_commit, _ = xc.run_git("rev-parse HEAD", priority=LOW)
             _, onto_desc, _ = xc.run_git(
                 # "| cat" is necessary to convince git not to add superfluous vt100 codes.
@@ -1469,15 +1467,18 @@ class Gee:
             self.banner(f"Yours:  {from_desc.strip()}", f"Theirs: {onto_desc.strip()}")
             state = "unresolved"
             while state == "unresolved":
+                self.info(f"DEBUG: state={state}")
                 _, status, _ = xc.run_git("status --porcelain", priority=LOW)
                 if status == "":
                     self.info("Empty commit, skipping.")
                     xc.run_interactive(f"{git} rebase --skip")
+                    state = "resolved"
                     continue
                 state = "resolved"
                 status_lines = status.splitlines(keepends=False)
                 while status_lines:
                     status_line = status_lines.pop(0)
+                    self.info(f"DEBUG: status_line: {status_line.strip()}")
                     st, file = status_line.split(maxsplit=1)
                     if len(st) == 1:
                         self.debug(f"{st}  {file}: no action needed.")
@@ -1539,7 +1540,6 @@ class Gee:
                     #         status_lines = []  # restart.
                     elif resp == "k":
                         state = "skip"
-                        xc.run_git("rebase --skip")
                         status_lines = []
                     elif resp == "a":
                         state = "abort"
@@ -1548,7 +1548,8 @@ class Gee:
                         return False
                     else:
                         raise Exception("wat")
-            # We've iterated through all the files, but are we state?
+            if not self.rebase_in_progress(branch_dir):
+                break
             if state == "resolved":
                 xc.run_git(
                     "commit --allow-empty --reuse-message=HEAD@{1}"
