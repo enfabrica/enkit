@@ -9,7 +9,7 @@ DEFAULT_GEERC="${SCRIPTDIR}/geerc.default"
 GEERC="${SCRIPTDIR}/test.gee.rc"
 GEEDIR="${HOME}/test_gee.foo"
 function g() {
-  printf ">>> gee.py --config %s" "${GEERC}"
+  printf "\n\n>>> gee.py --config %s" "${GEERC}"
   printf " %q" "$@"
   printf "\n"
   "${GEE}" --config "${GEERC}" "$@"
