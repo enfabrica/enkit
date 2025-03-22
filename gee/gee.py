@@ -955,6 +955,8 @@ class UpdateCommand(GeeCommand):
         super().__init__(gee_obj)
 
     def dispatch(self, args):
+        cwd = os.getcwd()
+        self.gee.check_branch_directory(cwd)
         current_branch = self.gee.get_current_branch()
         parent_branch = self.gee.get_parent_branch(current_branch)
         self.gee.xc().run_git("fetch origin")  # to check for commits in origin
@@ -984,15 +986,23 @@ class RecursiveUpdateCommand(GeeCommand):
         super().__init__(gee_obj)
 
     def dispatch(self, args):
+        cwd = os.getcwd()
+        self.gee.check_branch_directory(cwd)
+
         current_branch = self.gee.get_current_branch()
         branch = current_branch
         branches = [current_branch]
         while "/" not in branch:
+            # check the current child branch to make sure it
+            # can be rebased:
+            branch_dir = self.gee.branch_dir(branch)
+            self.gee.check_branch_directory(branch_dir)
+            # add the parent of this child to our processing list:
             parent_branch = self.gee.get_parent_branch(branch)
             branches.append(parent_branch)
             branch = parent_branch
         branches.reverse()
-        self.gcc.cx().run_git("fetch upstream")
+        self.gee.xc().run_git("fetch upstream")
         self.gee.xc().run_git("fetch origin")  # to check for commits in origin
         for i in range(1, len(branches)):
             parent_branch = branches[i-1]
@@ -1122,9 +1132,9 @@ class Gee:
         """Gets the name of the parent of the specified branch."""
         if not branch in self.parents:
             logging.warning(f"Branch {branch} does not have a parent branch.")
-            logging.info(f"Using {self.repo.repo}/{self.repo.main}")
+            logging.info(f"Using {self.repo['repo']}/{self.repo['main']}")
             self.select_repo()
-            self.set_parent_branch(branch, f"{self.repo.repo}/{self.repo.main}")
+            self.set_parent_branch(branch, f"{self.repo['repo']}/{self.repo['main']}")
         return self.parents[branch]["parent"]
 
     def get_parent_mergebase(self: "Gee", branch):
@@ -1616,6 +1626,38 @@ class Gee:
                 logging.error("Entered unexpected state: {state}")
         return True
 
+    def check_branch_directory(self, branch_dir, fatal=True):
+        """Checks if a branch is intact.
+
+        Fails if a branch is in a rebase-in-progress, cherry-pick-in-progress, or detached
+        HEAD state.
+
+        If fatal=True, exits the process on error.  Otherwise, returns True if
+        no errors were detected.
+        """
+        if self.rebase_in_progress(branch_dir):
+            self.errors((f"{branch_dir}: a rebase operation is already in progress.",
+                         "Try \"gee repair\" or \"git rebase --abort\" and try again."))
+            if fatal:
+                sys.exit(1)
+            return False
+        if self.cherrypick_in_progress(branch_dir):
+            self.errors((f"{branch_dir}: a cherry-pick operation is already in progress.",
+                         "Try \"gee repair\" or \"git cherry-pick --abort\" and try again."))
+            if fatal:
+                sys.exit(1)
+            return False
+        current_branch = self.get_current_branch(branch_dir)
+        if current_branch == "HEAD":
+            inferred_branch = self.get_inferred_branch(cwd=branch_dir)
+            self.errors((f"{branch_dir}: branch is in a detached HEAD state.",
+                         f'Try "gee repair" or "git checkout {inferred_branch}" and try again.'))
+            if fatal:
+                sys.exit(1)
+            return False
+        return True
+
+
     ##########################################################################
     # The main method for this application.
     ##########################################################################
@@ -1667,8 +1709,17 @@ class Gee:
     def error(self: "Gee", msg, *args, **kwargs):
         self.logger.error(msg, *args, **kwargs, stacklevel=2)
 
+    def errors(self: "Gee", msgs, stacklevel=2, **kwargs):
+        for msg in msgs:
+            self.logger.error(msg, **kwargs, stacklevel=stacklevel, stack_info=False)
+
     def fatal(self: "Gee", msg, *args, stacklevel=2, **kwargs):
         self.logger.error(msg, *args, **kwargs, stacklevel=stacklevel, stack_info=False)
+        sys.exit(1)
+
+    def fatals(self: "Gee", msgs, stacklevel=2, **kwargs):
+        for msg in msgs:
+            self.logger.error(msg, **kwargs, stacklevel=stacklevel, stack_info=False)
         sys.exit(1)
 
     def exception(self: "Gee", msg, *args, stacklevel=2, **kwargs):
@@ -1827,13 +1878,13 @@ class Gee:
             self.fatal("Current directory is not beneath %r", repo_dir)
         return True
 
-    def get_current_branch(self: "Gee"):
+    def get_current_branch(self: "Gee", cwd=None):
         if not self.check_in_repo():
             # default to the main branch:
             return self.main_branch()
         else:
             rc, branch, _ = self.xc().run_git(
-                "rev-parse --abbrev-ref HEAD", priority=LOW, check=False
+                "rev-parse --abbrev-ref HEAD", priority=LOW, check=False, cwd=cwd,
             )
             branch = branch.strip()
             if rc != 0:
@@ -1848,7 +1899,25 @@ class Gee:
                 )
                 return self.main_branch()
             else:
+                if branch == "HEAD":
+                    logging.warning("Current branch is in a detached HEAD state.")
                 return branch
+
+    def get_inferred_branch(self: "Gee", cwd=None):
+        """Infers the intended branch name from the workdir path.
+
+        There are a couple of things we could do here: one is, we can infer
+        the branch from the gee-created workdir path name.  Or, we can use
+        the metadata provided by "git worktree list" to identify the branch
+        associated with each worktree.
+
+        Simple solutions such as `git show -s --pretty=%d HEAD` don't work
+        in all cases (ie, in a rebase-in-progress state).
+        """
+        _, stdout, _ = self.xc().run_git("rev-parse --show-toplevel", cwd=cwd, priority=LOW, check=True)
+        return os.path.basename(stdout.strip())
+
+
 
     def ssh_enroll(self: "Gee"):
         """Ensure the user has ssh access to github, or enroll the user if not."""
