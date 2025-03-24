@@ -375,7 +375,6 @@ class ExecutionContext:
         check=True,
         priority=HIGH,
         timeout=None,
-        capture=True,
         cwd=None,
         **kwargs,
     ):
@@ -423,6 +422,7 @@ class ExecutionContext:
         check=True,
         priority=HIGH,
         timeout=None,
+        capture=True,
         cwd=None,
         **kwargs,
     ):
@@ -525,7 +525,6 @@ class ExecutionContext:
 
         Ignores log_level.
         """
-
         cwd = cwd if cwd else self.cwd
         if isinstance(cmd, list) and not isinstance(cmd, str):
             cmd = shlex.join(cmd)
@@ -668,10 +667,9 @@ class Codeowners:
         owners_map = {}
         for path in paths:
             owners = self.GetOwnersForFile(path)
-            if owners:
-                if owners not in owners_map:
-                    owners_map[owners] = []
-                owners_map[owners].append(path)
+            if owners not in owners_map:
+                owners_map[owners] = []
+            owners_map[owners].append(path)
         return owners_map
 
 
@@ -1253,7 +1251,7 @@ class WhatsoutCommand(GeeCommand):
     def dispatch(self, args):
         current_branch = self.gee.get_current_branch()
         parent_commit = self.gee.get_parent_commit(current_branch)
-        self.gee.run_git(f"diff --name-only {parent_commit}...{current_branch}")
+        self.gee.xc().run_git(f"diff --name-only {parent_commit}...{current_branch}")
 
 
 class CodeownersCommand(GeeCommand):
@@ -1281,6 +1279,38 @@ class CodeownersCommand(GeeCommand):
         self.argparser.add_argument(
                 "--comment", default=False, action="store_true", help="Add a codeowners comment to this PR."
         )
+        self.argparser.add_argument(
+                "-v", "--verbose", default=False, action="store_true", help="Show which rule applies to which file."
+        )
+
+    def dispatch(self, args):
+        current_branch = self.gee.get_current_branch()
+        parent_commit = self.gee.get_parent_commit(current_branch)  # TODO(jonathan): should be the base commit
+        _, stdout, _ = self.gee.xc().run_git(f"diff --name-only {parent_commit}...{current_branch}", priority=LOW, mode="no_tty")
+        files = stdout.strip().splitlines()
+
+        if len(files) == 0:
+            self.gee.info(f"No changed files since {parent_commit}")
+            return 0
+
+        branch_dir = self.gee.branch_dir(current_branch)
+        co = Codeowners()
+        co.Load(f"{branch_dir}/CODEOWNERS")
+        s = co.GetOwnersForFileSet(files)
+
+        if len(s) == 1 and "" in s:
+            self.gee.info("This PR can be submitted with approval from any repo owner.")
+        else:
+            self.gee.info("This PR can be submitted with approval from at least one reviewer from each line:")
+            for o, f in s.items():
+                if args.verbose:
+                    if o == "":
+                        o = "(anybody)"
+                    self.gee.info(f"* {o}: {','.join(f)}")
+                elif o != "":
+                    self.gee.info(f"* {o}")
+
+
 
 #####################################################################
 # The gee base class.  All the real work is done here.  Any
