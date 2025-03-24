@@ -276,8 +276,10 @@ class GeeLogFormatter(logging.Formatter):
 class ExecutionContext:
     """An execution context for running subprocesses.
 
-    The only real benefit of this class is the ability to change
-    the cwd for a sequence of subcommands.
+    Sometimes it is beneficial to execute a sequence of commands in
+    a specific subdirectory, without necessarily changing the directory
+    for the whole process.  The execution context keeps track of a cwd
+    for use by all subprocesses.
     """
 
     def __init__(self, gee, git="git", gh="gh", cwd=None):
@@ -288,6 +290,7 @@ class ExecutionContext:
         self.cwd = cwd if cwd is not None else os.self.default_cwd
 
     def chdir(self, d):
+        """Change the directory only for this execution context."""
         self.cwd = d
 
     def log_command(self, cmd, priority=HIGH, cwd=None):
@@ -326,6 +329,39 @@ class ExecutionContext:
                 self.gee.logger.low_cmd_stderr(line)
 
     def run(self: "Gee", *args, mode=None, **kwargs):
+        """Run a subprocess.
+
+        There are three flavors, or modes, of this run function.
+
+        They are:
+
+          * "interactive" mode attaches the subprocess directly
+            to the user's console, so that commands that require
+            user interaction (vim, etc) will function.
+
+          * "non-interactive" mode is the default.  In this mode,
+            the subprocess is run without user control, but a
+            pseudo-tty is still attached so that git and gh can
+            produce colorful, realtime output.
+
+          * "no_tty" mode is for porcelain commands that require
+            no user interaction, and we don't want git or gh
+            inserting any control codes into the data stream.
+
+        The following additional arguments are supported:
+
+          * "priority" can be "HIGH" or "LOW".  A high priority
+            command visible to the user at the normal (INFO) log
+            level.  Low priority commands are extra checks that
+            are usually invisible to the user, but can be
+            revealed by changing the log level to DEBUG.
+
+          * "cwd" can be used to override the current working
+            directory for one command, otherwise the cwd of
+            the ExecutionContext instance is used instead.
+
+        All other subprocess.Popen kwargs operate as defined.
+        """
         if mode == "interactive":
             return self.run_interactive(*args, **kwargs)
         elif mode == "no_tty":
@@ -387,7 +423,6 @@ class ExecutionContext:
         check=True,
         priority=HIGH,
         timeout=None,
-        capture=True,
         cwd=None,
         **kwargs,
     ):
@@ -539,9 +574,110 @@ class ExecutionContext:
 
 
 #####################################################################
-# Gee commands
+# Codeowners
 #####################################################################
 
+class Codeowners:
+    def __init__(self):
+        self.rules = []
+
+    def Load(self, path):
+        with open(path, "r", encoding="utf-8") as fd:
+            for line in fd:
+                line = re.sub(r'\s*#.*', '', line).strip()
+                if not line:
+                    continue
+                parts = line.split()
+                self.AddRule(parts[0], parts[1:])
+            fd.close()
+
+    @classmethod
+    def _PatternToRegexp(cls, expr):
+        """Convert a .gitignore file pattern to regular expressions.
+
+        >>> re1 = Codeowners._PatternToRegexp("*.h")
+        >>> str(re1)
+        "re.compile('^([^/]+/)*[^/]*\\\\\\\\.h(/.*)?$')"
+        >>> bool(re1.match("foo.h"))
+        True
+        >>> bool(re1.match("bar/bee/bum.h"))
+        True
+        >>> bool(re1.match("bar/bee/.h"))
+        True
+        >>> bool(re1.match("bar/foo.h/bum"))
+        True
+        >>> re2 = Codeowners._PatternToRegexp("**/zap/**")
+        >>> bool(re2.match("a/b/c/zap/foo/bum.zip"))
+        True
+        >>> bool(re2.match("a/b/c/zzzap/foo/bum.zip"))
+        False
+        >>> re3 = Codeowners._PatternToRegexp(".bazelrc")
+        >>> str(re3)
+        "re.compile('^([^/]+/)*\\\\\\\\.bazelrc(/.*)?$')"
+        >>> bool(re3.match(".bazelrc"))
+        True
+        """
+        # normalize the expression:
+        if expr.endswith("/**"):
+            # An expression ending with /** is equivalent to an expression
+            # ending with /
+            expr = expr[:-2]
+        if "/" not in expr:
+            # match any file or dir matching expr
+            expr = "**/" + expr
+        elif not (expr.startswith("/") or expr.startswith("**/")):
+            expr = "**/" + expr
+        if expr.startswith("/"):
+            expr = expr[1:]
+        expr_tokens = re.split(r'(\*\*\/)|(\*)|(\?)', expr)
+        re_expr = "^"
+        for token in expr_tokens:
+            if token == "**/":
+                re_expr += r'([^/]+/)*'  # zero or more paths
+            elif token == "*":
+                re_expr += r'[^/]*'  # any non-separator character
+            elif token == "?":
+                re_expr += r'.'
+            elif token:
+                re_expr += re.escape(token)
+        if re_expr.endswith("/"):
+            re_expr += ".*$"  # anything can come after the final slash
+        else:
+            re_expr += "(/.*)?$"  # can be a file, or can be a subtree.
+        r = re.compile(re_expr)
+        return r
+
+    def AddRule(self, expr, owners):
+        re_expr = self._PatternToRegexp(expr)
+        owners.sort()
+        self.rules.append((re_expr, " ".join(owners)))
+
+    def GetOwnersForFile(self, path):
+        if path.startswith("/"):
+            path = path[1:]
+        owners = ""
+        for r, o in self.rules:
+            if r.match(path):
+                logging.debug(f"matched: {r!r} {path!r}")
+                owners = o
+            else:
+                logging.debug(f"   nope: {r!r} {path!r}")
+        return owners
+
+    def GetOwnersForFileSet(self, paths):
+        owners_map = {}
+        for path in paths:
+            owners = self.GetOwnersForFile(path)
+            if owners:
+                if owners not in owners_map:
+                    owners_map[owners] = []
+                owners_map[owners].append(path)
+        return owners_map
+
+
+#####################################################################
+# Gee commands
+#####################################################################
 
 class GeeCommand:
     """Base class for adding commands to Gee.
@@ -1068,7 +1204,7 @@ class UpdateAllCommand(GeeCommand):
     """
 
     COMMAND = "update_all"
-    ALIASES = []
+    ALIASES = ["up_all"]
 
     def __init__(self, gee_obj: "Gee"):
         super().__init__(gee_obj)
@@ -1099,6 +1235,52 @@ class UpdateAllCommand(GeeCommand):
                 self.warning(f"Skipping update of {branch}")
                 continue
             self.gee.rebase(branch, parent_branch)
+
+
+class WhatsoutCommand(GeeCommand):
+    """List all files that differ from the parent branch.
+
+    "gee whatsout" lists all files in the current branch that differ
+    from the parent branch.
+    """
+
+    COMMAND = "whatsout"
+    ALIASES = ["what", "wat", "out"]
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+
+    def dispatch(self, args):
+        current_branch = self.gee.get_current_branch()
+        parent_commit = self.gee.get_parent_commit(current_branch)
+        self.gee.run_git(f"diff --name-only {parent_commit}...{current_branch}")
+
+
+class CodeownersCommand(GeeCommand):
+    """Report the required approvers for the changes in this brnach.
+
+    Gee examines the set of modified files in this branch, and compares it against
+    the rules in the CODEOWNERS file.  Gee then presents the user with detailed
+    information about which approvals are necessary to submit this PR:
+
+    *  Each line contains a list of users who are code owners of at least
+       some part of the PR.
+
+    *  A minimum of one user from each line must provide approval in order for the
+       PR to be merged.
+
+    If `--comment` option is specified, the codeowners information is appended to the
+    current PR as a new comment.
+    """
+
+    COMMAND = "codeowners"
+    ALIASES = ["owners", "reviewers"]
+
+    def __init__(self, gee_obj: "Gee"):
+        super().__init__(gee_obj)
+        self.argparser.add_argument(
+                "--comment", default=False, action="store_true", help="Add a codeowners comment to this PR."
+        )
 
 #####################################################################
 # The gee base class.  All the real work is done here.  Any
