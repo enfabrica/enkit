@@ -49,6 +49,7 @@ def stage_1():
     maybe(
         name = "com_google_protobuf",
         repo_rule = http_archive,
+        integrity = "sha256-EKDVjzmhqQnpXgDougtbHcZNApl/dBFRlTorNln254w=",
         strip_prefix = "protobuf-29.0",
         urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v29.0.tar.gz"],
     )
