@@ -62,7 +62,7 @@ ${SCRIPT_PATH}/build-kernel-tree.sh -q -c -v "$kernel_version_suffix" -a "$ARCH"
 kernel_version="$(cat ${BUILD_DIR}/install/build/enf-kernel-version.txt)"
 
 # remove a bunch of unneeded stuff from build directory
-PATTERNS=".*.cmd *.a *.o *.d *.ko *.order *.mod *.mod.c *.mod.o *.log"
+PATTERNS=".*.cmd *.a *.o *.d *.order *.mod *.mod.c *.mod.o *.log"
 for p in $PATTERNS ; do
     find "${BUILD_DIR}/install" -name $p -type f -exec rm -f {} +
 done
