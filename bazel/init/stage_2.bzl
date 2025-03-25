@@ -41,13 +41,15 @@ def stage_2():
       rules_python in a load statement, which is instantiated in stage 1.
     """
 
+    rules_foreign_cc_dependencies()
+    bazel_skylib_workspace()
     bazel_features_deps()
+    py_repositories()
+
     aspect_bazel_lib_dependencies()
     aspect_bazel_lib_register_toolchains()
 
     distroless_dependencies()
-
-    py_repositories()
 
     python_register_toolchains(
         name = "python3_12",
@@ -90,7 +92,6 @@ def stage_2():
 
     rules_proto_dependencies()
 
-    bazel_skylib_workspace()
     rules_pkg_dependencies()
     multirun_dependencies()
 
@@ -108,7 +109,6 @@ def stage_2():
 
     rules_oci_dependencies()
 
-    rules_foreign_cc_dependencies()
     meson_register_toolchains()
 
     # Begin transitive deps required by deps of buildbarn ecosystem
