@@ -2,8 +2,30 @@ syntax = "proto3";
 
 package ghinviter.proto;
 
-message Hello {}
+message User {
+  string provider = 1;
 
-service User {
-  rpc Cheeer(Hello) returns (Hello) {}
+  string id = 2;
+  string username = 3;
+  string organization = 4;
+}
+
+message UserGroups {
+  User user = 1;
+  repeated string group = 2;
+}
+
+message GetMyUserGroupsRequest {
+  string provider = 1;
+}
+
+message GetUserRequest {
+  User user = 1;
+  string target = 2;
+}
+
+service Account {
+  rpc GetMyUserGroups(GetMyUserGroupsRequest) returns (UserGroups) {}
+
+  rpc GetUser(GetUserRequest) returns (User) {}
 }

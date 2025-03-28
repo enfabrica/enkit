@@ -1,7 +1,7 @@
 import {createChannel, createClient} from 'nice-grpc-web';
 import {
-  UserClient,
-  UserDefinition,
+  AccountClient,
+  AccountDefinition,
 // } from '../proto/ghinviter/proto/user';
 } from '../proto/user';
 
@@ -9,7 +9,7 @@ import {
 // bazel-bin/ghinviter/ui/main.js
 
 const channel = createChannel("");
-const client: UserClient = createClient(UserDefinition, channel);
+const client: AccountClient = createClient(AccountDefinition, channel);
 
 export { client };
 

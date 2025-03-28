@@ -7,12 +7,18 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//ghinviter/assets:go_default_library",
+        "//ghinviter/proto:go_default_library",
         "//ghinviter/ui:go_default_library",
         "//lib/kflags:go_default_library",
         "//lib/khttp:go_default_library",
         "//lib/khttp/kassets:go_default_library",
+        "//lib/khttp/kgrpc:go_default_library",
         "//lib/logger:go_default_library",
         "//lib/oauth:go_default_library",
         "//lib/oauth/ogithub:go_default_library",
+        "//lib/oauth/ogrpc:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
     ],
 )

@@ -17,7 +17,8 @@ function App() {
 
   React.useEffect(() => {
     async function fetchData() {
-       const response = await client.cheeer({});
+       const response = await client.getMyUserGroups({});
+       console.log("response", response);
     }
 
     fetchData();

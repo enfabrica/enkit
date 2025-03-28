@@ -26,7 +26,7 @@ func main() {
 	rng := rand.New(srand.Source)
 
 	command.RunE = func(cmd *cobra.Command, args[]string) error {
-		inv, err := inviter.New(inviter.FromFlags(rng, flags), inviter.WithLogger(&logger.DefaultLogger{Printer: log.Printf}))
+		inv, err := inviter.New(inviter.WithLogger(&logger.DefaultLogger{Printer: log.Printf}), inviter.FromFlags(rng, flags))
 		if err != nil {
 			return err
 		}

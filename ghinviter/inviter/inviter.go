@@ -2,16 +2,23 @@ package inviter
 
 import (
 	"github.com/enfabrica/enkit/lib/oauth"
+	"github.com/enfabrica/enkit/lib/oauth/ogrpc"
 	"github.com/enfabrica/enkit/lib/khttp"
+	"github.com/enfabrica/enkit/lib/khttp/kgrpc"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/enfabrica/enkit/ghinviter/ui"
 	"github.com/enfabrica/enkit/ghinviter/assets"
+	"github.com/enfabrica/enkit/ghinviter/proto"
 	"github.com/enfabrica/enkit/lib/khttp/kassets"
 	"github.com/enfabrica/enkit/lib/oauth/ogithub"
+	"google.golang.org/grpc"
+        "google.golang.org/grpc/codes"
+        "google.golang.org/grpc/status"
 	"math/rand"
 	"net/http"
 	"fmt"
+	"context"
 )
 
 type Flags struct {
@@ -61,6 +68,7 @@ type Inviter struct {
 	redirector *oauth.Redirector
 	github *oauth.Authenticator
 	mux *http.ServeMux
+	grpcs *grpc.Server
 }
 
 type Modifier func(*Inviter) error
@@ -119,7 +127,8 @@ func FromFlags(rng *rand.Rand, flags *Flags) Modifier {
 			return fmt.Errorf("A target URL must be set with --site-url - must match one of the URLs configured in the oauth provider")
 		}
 
-		server, err := khttp.FromFlags(flags.Http)
+		// FIXME! Include the user server. Include the interceptor.
+		server, err := kgrpc.NewServer(inviter.mux, inviter.grpcs, khttp.WithLogger(inviter.log.Infof), khttp.FromFlags(flags.Http))
 		if err != nil {
 			return err
 		}
@@ -145,8 +154,10 @@ func New(mods... Modifier) (*Inviter, error) {
 	inviter := &Inviter{
 		log: logger.Nil, // FIXME: use .Go
 		mux: http.NewServeMux(),
-		server: khttp.DefaultServer(),
+		grpcs: grpc.NewServer(),
+		server: nil,
 	}
+	proto.RegisterAccountServer(inviter.grpcs, inviter)
 
 	if err := Modifiers(mods).Apply(inviter); err != nil {
 		return nil, err
@@ -171,11 +182,43 @@ func New(mods... Modifier) (*Inviter, error) {
 	inviter.mux.HandleFunc("/github", oauth.LoginHandler(inviter.github, oauth.WithTarget("/")))
 
 	stats.Log(inviter.log.Infof)
-
-
 	return inviter, nil
 }
 
 func (iv *Inviter) Run() error {
-	return iv.server.Run(iv.log.Infof, iv.mux)
+	iv.log.Infof("starting now...")
+	return iv.server.Run()
+}
+
+func (iv *Inviter) GetMyUserGroups(ctx context.Context, req *proto.GetMyUserGroupsRequest) (*proto.UserGroups, error) {
+	var extractor *oauth.Extractor
+	var provider string
+	if req.Provider == "google" || req.Provider == "primary" || req.Provider == "" {
+		extractor = iv.redirector.Extractor
+		provider = "google"
+	} else if req.Provider == "github" || req.Provider == "secondary" {
+		extractor = &iv.github.Extractor
+		provider = "github"
+        } else {
+		return nil, status.Errorf(codes.InvalidArgument, "unknown provider: %s", req.Provider)
+	}
+
+	creds, err := ogrpc.GetCredentials(extractor, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &proto.UserGroups{
+		User: &proto.User{
+			Provider: provider,
+			Id: creds.Identity.Id,
+			Username: creds.Identity.Username,
+			Organization: creds.Identity.Organization,
+		},
+		// FIXME: return groups!!!
+	}, nil
+}
+
+func (iv *Inviter) GetUser(ctx context.Context, req *proto.GetUserRequest) (*proto.User, error) {
+	return &proto.User{}, nil
 }

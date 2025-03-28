@@ -302,13 +302,30 @@ type Authenticator struct {
 
 type Identity struct {
 	// Id is a globally unique identifier of the user.
+        //
 	// It is oauth provider specific, generally contains an integer or string
 	// uniquely identifying the user, and a domain name used to namespace the id.
 	Id string
-	// Username is the name of the user on the remote system.
-	Username string
-	// Organization is the domain name used to authenticate the user.
-	// For example, github.com, or the specific gsuite domain.
+
+	// The name by which a user goes by.
+        //
+	// Note that the Username tied to a specific user may change over time.
+	Username     string
+
+	// An organization this username belongs to.
+	// It is generally the entity issuing the username, the namespace denoting the
+	// validity of the username.
+	//
+	// For example: with a gsuite account, the organization would be the domain name
+	// tied with the gsuite account, for example "enfabrica.net". The administrators
+	// of "enfabrica.net" can create new accounts, accounts @enfabrica.net are
+	// guaranteed unique within "enfabrica.net" only. With a github account instead,
+	// even though the account is used within an organization like "enfabrica", users
+	// register with "github.com", and the username must be unique across the entire
+	// "github.com" organization. So github.com is the Organization here.
+	//
+        // Username + "@" + Organization is guaranteed globally unique.
+	// But unlike an Id, the Username may change.
 	Organization string
 	// Groups is a list of string identifying the groups the user is part of.
 	Groups []string

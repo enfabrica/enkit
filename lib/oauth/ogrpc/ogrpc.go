@@ -91,22 +91,35 @@ func ExtractCookie(lines []string, name string) *string {
 	return nil
 }
 
+// GetCredentials extracts oauth credentials from a grpc context.
+//
+// grpc stores cookies and other http headers as metadata available in the
+// context. This function extracts and parses an authentication cookie from a
+// context.
+func GetCredentials(auth *oauth.Extractor, ctx context.Context) (*oauth.CredentialsCookie, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "no cookies in request")
+	}
+	cookie := ExtractCookie(md["cookie"], auth.CredentialsCookieName())
+	if cookie == nil {
+		return nil, status.Errorf(codes.Unauthenticated, "no credentials cookie")
+	}
+	_, creds, err := auth.ParseCredentialsCookie(*cookie)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid credentials - %s", err)
+	}
+	return creds, nil
+}
+
 // ProcessMetadata extracts the grpc metadata from a grpc provided context.Context, and
 // verifies that the request was effectively authenticated.
 //
 // There is no authorization at this layer, just sets the credentials of the user.
-func ProcessMetdata(auth *oauth.Authenticator, ctx context.Context) (context.Context, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return ctx, status.Errorf(codes.Unauthenticated, "no cookies in request")
-	}
-	cookie := ExtractCookie(md["cookie"], auth.CredentialsCookieName())
-	if cookie == nil {
-		return ctx, status.Errorf(codes.Unauthenticated, "no credentials cookie")
-	}
-	_, creds, err := auth.ParseCredentialsCookie(*cookie)
+func ProcessMetdata(auth *oauth.Extractor, ctx context.Context) (context.Context, error) {
+	creds, err := GetCredentials(auth, ctx)
 	if err != nil {
-		return ctx, status.Errorf(codes.Unauthenticated, "invalid credentials - %s", err)
+		return ctx, err
 	}
 
 	return oauth.SetCredentials(ctx, creds), nil
@@ -132,7 +145,7 @@ func SetContextStream(stream grpc.ServerStream, ctx context.Context) *ContextStr
 	return &ContextStream{ServerStream: stream, ctx: ctx}
 }
 
-func StreamInterceptor(auth *oauth.Authenticator, unauthenticated ...string) grpc.StreamServerInterceptor {
+func StreamInterceptor(auth *oauth.Extractor, unauthenticated ...string) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		authenticate := true
 		for _, direct := range unauthenticated {
@@ -148,7 +161,7 @@ func StreamInterceptor(auth *oauth.Authenticator, unauthenticated ...string) grp
 		return handler(srv, SetContextStream(stream, ctx))
 	}
 }
-func UnaryInterceptor(auth *oauth.Authenticator, unauthenticated ...string) grpc.UnaryServerInterceptor {
+func UnaryInterceptor(auth *oauth.Extractor, unauthenticated ...string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		authenticate := true
 		for _, direct := range unauthenticated {
