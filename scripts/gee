@@ -1390,17 +1390,17 @@ function _git_rev_list_counts() {
   local P="$2"
 
   if [[ "${B}" == upstream/refs/pull/*/head ]]; then
-    "${GIT}" fetch --quiet upstream "${B#upstream/refs/}:FETCH_HEAD_B" >/dev/null 2>&1
+    "${GIT}" fetch --quiet --force upstream "${B#upstream/refs/}:FETCH_HEAD_B" >/dev/null 2>&1
     B=FETCH_HEAD_B
   elif [[ "${B}" == */* ]]; then
-    "${GIT}" fetch --quiet "${B%%/*}" "${B#upstream}:FETCH_HEAD_B" >/dev/null 2>&1
+    "${GIT}" fetch --quiet --force "${B%%/*}" "${B#upstream}:FETCH_HEAD_B" >/dev/null 2>&1
     B=FETCH_HEAD_B
   fi
   if [[ "${P}" == upstream/refs/pull/*/head ]]; then
-    "${GIT}" fetch --quiet upstream "${P#upstream/refs/}:FETCH_HEAD_P" >/dev/null 2>&1
+    "${GIT}" fetch --quiet --force upstream "${P#upstream/refs/}:FETCH_HEAD_P" >/dev/null 2>&1
     P=FETCH_HEAD_P
   elif [[ "${P}" == */* ]]; then
-    "${GIT}" fetch --quiet "${P%%/*}" "${P#upstream}:FETCH_HEAD_P" >/dev/null 2>&1
+    "${GIT}" fetch --quiet --force "${P%%/*}" "${P#upstream}:FETCH_HEAD_P" >/dev/null 2>&1
     P=FETCH_HEAD_P
   fi
   "${GIT}" rev-list --left-right --count "${B}...${P}" || /bin/true
@@ -2695,7 +2695,7 @@ function gee__diff() {
   PARENT_BRANCH="$(_get_parent_branch)"
   # branches created with "gee pr_checkout" need special handling:
   if [[ "${PARENT_BRANCH}" == upstream/* ]]; then
-    _git fetch upstream "${PARENT_BRANCH#upstream/}"
+    _git fetch --force upstream "${PARENT_BRANCH#upstream/}"
     PARENT_BRANCH="FETCH_HEAD"
   fi
   if (( "$#" )); then
@@ -3493,7 +3493,7 @@ function gee__cleanup() {
       local parent
       parent="$(_get_parent_branch "${br}")"
       if [[ "${parent}" == upstream/* ]]; then
-        _git fetch upstream "${parent#upstream/}"
+        _git fetch --force upstream "${parent#upstream/}"
         parent="FETCH_HEAD"
       fi
       local -a  counts=()
@@ -3922,7 +3922,7 @@ function gee__pr_push() {
   if ! "${GIT}" remote get-url "${REMOTE_USER}" >/dev/null 2>&1; then
     _git remote add "${REMOTE_USER}" "${GIT_AT_GITHUB}:${REMOTE_USER}/${REPO}.git" >&2
   fi
-  _git fetch "${REMOTE_USER}" "${REMOTE_BRANCH}"
+  _git fetch --force "${REMOTE_USER}" "${REMOTE_BRANCH}"
 
   # Check if we are behind remote branch
   local -a COUNTS
