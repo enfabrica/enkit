@@ -1,4 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
 exports_files([
     "pam_script_acct",
     "sshd",
 ])
+
+go_library(
+    name = "configs",
+    srcs = ["configs.go"],
+    embedsrcs = [
+        "pam_script_acct",
+        "sshd",
+        "//proxy/nss:nss_autouser",  # keep
+    ],
+    importpath = "github.com/enfabrica/enkit/proxy/nss/configs",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":configs",
+    visibility = ["//visibility:public"],
+)

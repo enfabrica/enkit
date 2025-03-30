@@ -1,9 +1,10 @@
 package kflags
 
 import (
-	"github.com/enfabrica/enkit/lib/logger"
 	"path/filepath"
 	"strings"
+
+	"github.com/enfabrica/enkit/lib/logger"
 )
 
 type asset struct {
