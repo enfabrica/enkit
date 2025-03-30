@@ -14,6 +14,7 @@ RELRUNTIME="{runtime}"
 ROOTFS="{rootfs}"
 KERNEL="{kernel}"
 TARGET="{target}"
+ARCH="{arch}"
 WRAPPER_OPTS={wrapper_flags} # Array, no quotes!
 
 # A script in charge of verifying the output of the run.
@@ -31,13 +32,18 @@ or:
   bazel build $TARGET
   bazel-bin/.../path/to/file [-k option]... [-e option]... [-s|-x|-h]
 
+
 Accepted options:
 
-  -s           Configures /bin/sh as init, drops you in a shell.
+  For aarch64 changing kernel/initramfs or kernel cmdline is done by building
+  a new FIT image with the new kernel/initramfs and for cmdline changes need to change
+  the dts file. So can't use some of these options
+
+  -s           Configures /bin/sh as init, drops you in a shell (only for x86).
                Hint: you can then use the paths shown with -x to manually
                start the init script used.
 
-  -k [value]   Adds one or more command line options to the kernel.
+  -k [value]   Adds one or more command line options to the kernel (only for x86).
 
      For example: "-k ro -k root=/dev/sda -k console=ttyS0"
      will add "ro root=/dev/sda console=ttyS0" to the kernel command line.
@@ -47,7 +53,7 @@ Accepted options:
      For example: "-e'-f' -e/dev/sda -e'-mem' -e2048"
      will add "-f /dev/sda -mem 2048" to the emulator command line.
 
-  -r [value]   Overrides the path to the rootfs.
+  -r [value]   Overrides the path to the rootfs (only for x86).
 
      For example: "-r /tmp/myown.qcow" will ask the emulator to run
      the specified rootfs.
@@ -78,6 +84,7 @@ function onexit {
 }
 
 function showstate {
+    echo 1>&2 "Arch: $ARCH"
     echo 1>&2 "CWD: $(realpath "$PWD")"
     echo 1>&2 "Script: $(realpath "$0")"
     echo 1>&2 "Kernel: $(realpath "$KERNEL")"
@@ -97,7 +104,7 @@ TMPDIR="${TEST_TMPDIR:-$(mktemp -d)}"
 OUTPUT_DIR=${TEST_UNDECLARED_OUTPUTS_DIR:-$(mktemp -d)}
 
 # If TERM variable is exported, then set the number of columns in the VM.
-if [[ "${TERM@a}" == *x* ]]; then
+if [[ "$ARCH" != "aarch64" && "${TERM@a}" == *x* ]]; then
   KERNEL_OPTS+=("COLUMNS=$(tput cols)")
 fi
 
@@ -120,6 +127,11 @@ while getopts "k:e:r:hsx" opt; do
   esac
 done
 shift $((OPTIND - 1))
+
+if [[ "$ARCH" = "aarch64" ]]  && [[ -n "$SINGLE" || -n "$ROOTFS" || -n "$KERNEL_OPTS" ]];  then
+    echo "Invalid option provided for AARCH64"
+    exit 1
+fi
 
 WRAPPER_OPTS+=("$@")
 
