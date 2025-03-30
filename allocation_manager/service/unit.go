@@ -5,11 +5,14 @@ package service
 import (
 	"strings"
 	"time"
+	"fmt"
 
 	apb "github.com/enfabrica/enkit/allocation_manager/proto"
 	"github.com/enfabrica/enkit/lib/logger"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -46,12 +49,46 @@ metricLicenseReleaseReason = promauto.NewCounterVec(prometheus.CounterOpts{
 	},
 )
 */
+
+unitCounter = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "allocation_manager_unit_operations_total",
+		Help: "Total number of operations performed on units",
+	},
+	[]string{
+		// "kind", // so far all resources are Topology, no need for a kind
+		"unit",
+		"operation",
+	},
 )
+)
+
+func init() {
+	prometheus.MustRegister(unitCounter)
+}
+
+func (u unit) DoOperation(operationName string) {
+	// name := u.name
+	name := u.Topology.Name
+	unitCounter.With(prometheus.Labels{
+		// "kind": fmt.Sprintf("%T", u),
+		"unit": name,
+		"operation": operationName}).Inc()
+	fmt.Printf("Operation '%s' performed on unit: %s %T\n", operationName, name, u)
+	// fmt.Println("Counter:", unitCounter.Counter)
+}
 
 type unit struct { // store topologies describing actual hardware
 	Health     apb.Health   // Health status of hardware
 	Topology   apb.Topology // hardware actual configuration
 	Invocation *invocation  // request for a Unit allocation
+}
+
+func NewUnit(topo apb.Topology) *unit {
+	u := new(unit)
+	u.Topology = topo
+	fmt.Println("New unit created", topo)
+	return u
 }
 
 // Allocate attempts to associate the supplied invocation with this Unit.
@@ -64,6 +101,7 @@ func (u *unit) Allocate(inv *invocation) bool {
 	// u.prioritizer.OnAllocate(inv)
 	logger.Go.Infof("unit.Allocate %s to %s\n", u.Topology.Name, inv.ID)
 	u.Invocation = inv
+	u.DoOperation("Allocate")
 	return true
 }
 
@@ -102,6 +140,7 @@ func (u *unit) ExpireAllocations(expiry time.Time) {
 		// metricLicenseReleaseReason.WithLabelValues("allocated_expired").Inc()
 		logger.Go.Infof("unit.ExpireAllocations %v", u.Invocation.ID)
 		u.Invocation = nil
+		u.DoOperation("Expire")
 		// move health to unknown?
 	}
 }
@@ -129,6 +168,7 @@ func (u *unit) Forget(invID string) int {
 	if u.Invocation != nil && invID == u.Invocation.ID {
 		logger.Go.Infof("unit.Forget(%v)", u.Invocation.ID)
 		u.Invocation = nil
+		u.DoOperation("Forget")
 		return 1
 	}
 	return 0
