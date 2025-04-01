@@ -1,0 +1,25 @@
+From aa7a3072ce8c24d9c57bb79be791d397bcdbacfb Mon Sep 17 00:00:00 2001
+From: Brian Huynh <bbhuynh@enfabrica.net>
+Date: Tue, 1 Apr 2025 20:04:16 +0000
+Subject: [PATCH] Add requires keyword to fix compilation errors
+
+---
+ src/google/protobuf/port.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/google/protobuf/port.h b/src/google/protobuf/port.h
+index 3a0162ca9..440a465c0 100644
+--- a/src/google/protobuf/port.h
++++ b/src/google/protobuf/port.h
+@@ -178,7 +178,7 @@ void AssertDownCast(From* from) {
+   // Check that this function is not used to downcast message types.
+   // For those we should use {Down,Dynamic}CastTo{Message,Generated}.
+   static_assert(!requires {
+-    std::derived_from<std::remove_pointer_t<To>,
++    requires std::derived_from<std::remove_pointer_t<To>,
+                       typename std::remove_pointer_t<To>::MessageLite>;
+   });
+ #endif
+-- 
+2.47.0
+

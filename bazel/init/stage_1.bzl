@@ -51,6 +51,10 @@ def stage_1():
         repo_rule = http_archive,
         integrity = "sha256-EKDVjzmhqQnpXgDougtbHcZNApl/dBFRlTorNln254w=",
         strip_prefix = "protobuf-29.0",
+        patch_args = ["-p1"],
+        patches = [
+            "@enkit//bazel/dependencies/com_google_protobuf:0001-Add-requires-keyword-to-fix-compilation-errors.patch",
+        ],
         urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v29.0.tar.gz"],
     )
 
