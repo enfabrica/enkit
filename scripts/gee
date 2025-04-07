@@ -3323,8 +3323,8 @@ function _get_parent_head_commit() {
   local -a WORDS=()
   if [[ "${PARENT}" == */* ]]; then
     # make sure remote is up to date:
-    _git fetch "${PARENT%%/*}"
-    READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" ls-remote "${PARENT%%/*}" "${PARENT#*/}"
+    _git fetch "${PARENT%%/*}" "${PARENT#*/}"
+    READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" show -s --format=oneline FETCH_HEAD
     read -r -a WORDS <<< "${OUTPUT[0]}"
     _PARENT_HEAD="${WORDS[0]}"
   else
