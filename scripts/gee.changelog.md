@@ -2,6 +2,10 @@
 
 ## Releases
 
+### 0.2.55
+
+* `gee update`: fix fetching of commits from other user's PRs.
+
 ### 0.2.54
 
 * `gee pr_checkout`: add "-n" flag to explicitly specify a branch name.
