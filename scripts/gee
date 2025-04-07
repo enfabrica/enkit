@@ -851,15 +851,30 @@ function _gh_auth_check() {
   # Wrap gh auth check and return correct exit codes on failure,
   # to work around https://github.com/cli/cli/issues/8845
   local -a RESULT=()
+  # Check gh auth status:
   if _read_cmd RESULT "${GH}" auth status; then
     if [[ "${RESULT[1]}" =~ Failed ]]; then
+      _error "gh auth status command failed.  Do you have a valid github API token?"
       return 1
-    else
-      return 0
     fi
   else
     return 1
   fi
+  # Check if we have the right token scopes:
+  local SCOPES=""
+  SCOPES="$("${GH}" api --verbose / | grep X-Oauth-Scopes: )"
+  MISSING=""
+  for S in "read:org" "repo" "admin:public_key" "admin:ssh_signing_key"; do
+    if ! [[ "${SCOPES}" == *"${S}"* ]]; then
+      MISSING+=" ${S}"
+    fi
+  done
+  if [[ -n "${MISSING}" ]]; then
+    _error "Your github API token is missing the following permissions: ${MISSING}"
+    return 1
+  fi
+  _info "All github API permissions present."
+  return 0
 }
 
 function _gh_authenticate() {
