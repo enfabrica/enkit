@@ -4,6 +4,7 @@
 
 ### 0.2.55
 
+* `gee hello`: diagnose missing github API token scopes.
 * `gee update`: fix fetching of commits from other user's PRs.
 
 ### 0.2.54
