@@ -297,15 +297,6 @@ filegroup(
     )
 
     maybe(
-        name = "meson",
-        repo_rule = http_archive,
-        build_file = "@enkit//bazel/meson:meson.BUILD.bazel",
-        sha256 = "d04b541f97ca439fb82fab7d0d480988be4bd4e62563a5ca35fadb5400727b1c",
-        urls = ["https://github.com/mesonbuild/meson/releases/download/1.1.1/meson-1.1.1.tar.gz"],
-        strip_prefix = "meson-1.1.1",
-    )
-
-    maybe(
         name = "net_enfabrica_binary_astore",
         repo_rule = http_file,
         sha256 = "47be8fa1067a8c498a67888b6f32386b9504b70e1da13afe869e6f06139805c9",

@@ -3,7 +3,6 @@
 See README.md for more information.
 """
 
-load("//bazel/meson:meson.bzl", "meson_register_toolchains")
 load("@aspect_bazel_lib//lib:repositories.bzl", "aspect_bazel_lib_dependencies", "aspect_bazel_lib_register_toolchains")
 load("@rules_distroless//distroless:dependencies.bzl", "distroless_dependencies")
 load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
@@ -108,8 +107,6 @@ def stage_2():
     rules_docker_container_dependencies()
 
     rules_oci_dependencies()
-
-    meson_register_toolchains()
 
     # Begin transitive deps required by deps of buildbarn ecosystem
     switched_rules_by_language(
