@@ -19,27 +19,38 @@ Environment variables gee cares about:
 
 # standard library
 import argparse
-import pty
 import copy
-import glob
 import datetime
 import difflib
+import glob
+import importlib
 import io
-import logging
-import os
-import re
-import shutil
-import subprocess
-import threading
-import pathlib
-import shlex
-import sys
-import textwrap
-import types
-import tomllib
 import json
 import logging
+import logging
+import os
+import pathlib
+import pty
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import textwrap
+import threading
+import tomllib
+import types
 from typing import List, Optional
+
+#####################################################################
+## Import toml or tomllib, depending on which is available.
+#####################################################################
+try:
+    tomllib = importlib.import_module("tomllib")
+    toml = None
+except ImportError:
+    toml = importlib.import_module("toml")
+    tomllib = None
 
 #####################################################################
 ## Utility functions
@@ -146,7 +157,10 @@ class GeeConfig:
     def load(self, path):
         self.path = path
         with open(path, "rb") as fd:
-            self.data = tomllib.load(fd)
+            if tomllib:
+                self.data = tomllib.load(fd)
+            else:
+                self.data = toml.load(fd)
             fd.close()
 
     def save(self, path=None):
@@ -370,13 +384,7 @@ class ExecutionContext:
             return self.run_noninteractive(*args, **kwargs)
 
     def run_no_tty(
-        self: "Gee",
-        cmd,
-        check=True,
-        priority=HIGH,
-        timeout=None,
-        cwd=None,
-        **kwargs,
+        self: "Gee", cmd, check=True, priority=HIGH, timeout=None, cwd=None, **kwargs
     ):
         """Run a subprocess in a simple way, without a pseudo-tty.
 
@@ -576,6 +584,7 @@ class ExecutionContext:
 # Codeowners
 #####################################################################
 
+
 class Codeowners:
     def __init__(self):
         self.rules = []
@@ -583,7 +592,7 @@ class Codeowners:
     def Load(self, path):
         with open(path, "r", encoding="utf-8") as fd:
             for line in fd:
-                line = re.sub(r'\s*#.*', '', line).strip()
+                line = re.sub(r"\s*#.*", "", line).strip()
                 if not line:
                     continue
                 parts = line.split()
@@ -628,15 +637,15 @@ class Codeowners:
             expr = "**/" + expr
         if expr.startswith("/"):
             expr = expr[1:]
-        expr_tokens = re.split(r'(\*\*\/)|(\*)|(\?)', expr)
+        expr_tokens = re.split(r"(\*\*\/)|(\*)|(\?)", expr)
         re_expr = "^"
         for token in expr_tokens:
             if token == "**/":
-                re_expr += r'([^/]+/)*'  # zero or more paths
+                re_expr += r"([^/]+/)*"  # zero or more paths
             elif token == "*":
-                re_expr += r'[^/]*'  # any non-separator character
+                re_expr += r"[^/]*"  # any non-separator character
             elif token == "?":
-                re_expr += r'.'
+                re_expr += r"."
             elif token:
                 re_expr += re.escape(token)
         if re_expr.endswith("/"):
@@ -676,6 +685,7 @@ class Codeowners:
 #####################################################################
 # Gee commands
 #####################################################################
+
 
 class GeeCommand:
     """Base class for adding commands to Gee.
@@ -957,24 +967,6 @@ class VimdiffCommand(GeeCommand):
         self.gee.xc().run_interactive(f"git difftool -t {difftool} {parent} -- {files}")
 
 
-class WhatsoutCommand(GeeCommand):
-    """Show a list of files with changes from the parent branch.
-
-    Reports which files in this branch differ from the parent branch.
-    """
-
-    COMMAND = "whatsout"
-    ALIASES = ["what", "wat"]
-
-    def __init__(self, gee_obj: "Gee"):
-        super().__init__(gee_obj)
-
-    def dispatch(self, args):
-        branch = self.gee.get_current_branch()
-        parent = self.gee.get_parent_branch(branch)
-        self.gee.xc().run_git(["diff", "--name-only", f"{parent}...HEAD"])
-
-
 class FindCommand(GeeCommand):
     """Finds a file by name in the current branch.
 
@@ -1146,6 +1138,7 @@ class UpdateCommand(GeeCommand):
         self.gee.xc().run_git("fetch origin")  # to check for commits in origin
         return self.gee.rebase(current_branch, parent_branch)
 
+
 class RecursiveUpdateCommand(GeeCommand):
     """Recursive rebase each branch onto it's parent.
 
@@ -1180,10 +1173,11 @@ class RecursiveUpdateCommand(GeeCommand):
         self.gee.xc().run_git("fetch upstream")
         self.gee.xc().run_git("fetch origin")  # to check for commits in origin
         for i in range(1, len(branches)):
-            parent_branch = branches[i-1]
+            parent_branch = branches[i - 1]
             branch = branches[i]
             self.gee.banner(f"Rebasing {branch} onto {parent_branch}")
             self.gee.rebase(branch, parent_branch)
+
 
 class UpdateAllCommand(GeeCommand):
     """Ordered update of all extant branches.
@@ -1208,7 +1202,9 @@ class UpdateAllCommand(GeeCommand):
         super().__init__(gee_obj)
 
     def dispatch(self, args):
-        _, stdout, _ = self.gee.xc().run_git("branch --format=\"%(refname:short)\"", mode="no_tty", priority=LOW,)
+        _, stdout, _ = self.gee.xc().run_git(
+            'branch --format="%(refname:short)"', mode="no_tty", priority=LOW
+        )
         all_branches = stdout.strip().split()
         complete_chain = []
         for branch in all_branches:
@@ -1277,16 +1273,29 @@ class CodeownersCommand(GeeCommand):
     def __init__(self, gee_obj: "Gee"):
         super().__init__(gee_obj)
         self.argparser.add_argument(
-                "--comment", default=False, action="store_true", help="Add a codeowners comment to this PR."
+            "--comment",
+            default=False,
+            action="store_true",
+            help="Add a codeowners comment to this PR.",
         )
         self.argparser.add_argument(
-                "-v", "--verbose", default=False, action="store_true", help="Show which rule applies to which file."
+            "-v",
+            "--verbose",
+            default=False,
+            action="store_true",
+            help="Show which rule applies to which file.",
         )
 
     def dispatch(self, args):
         current_branch = self.gee.get_current_branch()
-        parent_commit = self.gee.get_parent_commit(current_branch)  # TODO(jonathan): should be the base commit
-        _, stdout, _ = self.gee.xc().run_git(f"diff --name-only {parent_commit}...{current_branch}", priority=LOW, mode="no_tty")
+        parent_commit = self.gee.get_parent_commit(
+            current_branch
+        )  # TODO(jonathan): should be the base commit
+        _, stdout, _ = self.gee.xc().run_git(
+            f"diff --name-only {parent_commit}...{current_branch}",
+            priority=LOW,
+            mode="no_tty",
+        )
         files = stdout.strip().splitlines()
 
         if len(files) == 0:
@@ -1301,7 +1310,9 @@ class CodeownersCommand(GeeCommand):
         if len(s) == 1 and "" in s:
             self.gee.info("This PR can be submitted with approval from any repo owner.")
         else:
-            self.gee.info("This PR can be submitted with approval from at least one reviewer from each line:")
+            self.gee.info(
+                "This PR can be submitted with approval from at least one reviewer from each line:"
+            )
             for o, f in s.items():
                 if args.verbose:
                     if o == "":
@@ -1309,7 +1320,6 @@ class CodeownersCommand(GeeCommand):
                     self.gee.info(f"* {o}: {','.join(f)}")
                 elif o != "":
                     self.gee.info(f"* {o}")
-
 
 
 #####################################################################
@@ -1450,7 +1460,6 @@ class Gee:
             branches.append(parent_branch)
             branch = parent_branch
         return branches
-
 
     def get_parent_mergebase(self: "Gee", branch):
         """Gets the name of the parent of the specified branch."""
@@ -1634,7 +1643,9 @@ class Gee:
                     """
                 )
                 self.configure_logp_alias()
-                self.xc().run_git(f"logp {q(branch)}..origin/{q(branch)}")  # only two dots
+                self.xc().run_git(
+                    f"logp {q(branch)}..origin/{q(branch)}"
+                )  # only two dots
                 resp = ask_multi(
                     "Do you want to (P)ull in those commits, (d)iscard those commits, or (a)bort? ",
                     default="p",
@@ -1864,7 +1875,7 @@ class Gee:
                     while resp == "h":
                         resp = ask_multi(
                             "keep (Y)ours, keep (T)heirs, (M)erge, (G)ui-merge, (V)iew, (A)bort, or (H)elp?  ",
-                            options="ytmgvahk"
+                            options="ytmgvahk",
                         )
                         if resp == "h":
                             log.infos(help_text.splitlines())
@@ -1951,27 +1962,38 @@ class Gee:
         no errors were detected.
         """
         if self.rebase_in_progress(branch_dir):
-            self.errors((f"{branch_dir}: a rebase operation is already in progress.",
-                         "Try \"gee repair\" or \"git rebase --abort\" and try again."))
+            self.errors(
+                (
+                    f"{branch_dir}: a rebase operation is already in progress.",
+                    'Try "gee repair" or "git rebase --abort" and try again.',
+                )
+            )
             if fatal:
                 sys.exit(1)
             return False
         if self.cherrypick_in_progress(branch_dir):
-            self.errors((f"{branch_dir}: a cherry-pick operation is already in progress.",
-                         "Try \"gee repair\" or \"git cherry-pick --abort\" and try again."))
+            self.errors(
+                (
+                    f"{branch_dir}: a cherry-pick operation is already in progress.",
+                    'Try "gee repair" or "git cherry-pick --abort" and try again.',
+                )
+            )
             if fatal:
                 sys.exit(1)
             return False
         current_branch = self.get_current_branch(branch_dir)
         if current_branch == "HEAD":
             inferred_branch = self.get_inferred_branch(cwd=branch_dir)
-            self.errors((f"{branch_dir}: branch is in a detached HEAD state.",
-                         f'Try "gee repair" or "git checkout {inferred_branch}" and try again.'))
+            self.errors(
+                (
+                    f"{branch_dir}: branch is in a detached HEAD state.",
+                    f'Try "gee repair" or "git checkout {inferred_branch}" and try again.',
+                )
+            )
             if fatal:
                 sys.exit(1)
             return False
         return True
-
 
     ##########################################################################
     # The main method for this application.
@@ -2199,7 +2221,7 @@ class Gee:
             return self.main_branch()
         else:
             rc, branch, _ = self.xc().run_git(
-                "rev-parse --abbrev-ref HEAD", priority=LOW, check=False, cwd=cwd,
+                "rev-parse --abbrev-ref HEAD", priority=LOW, check=False, cwd=cwd
             )
             branch = branch.strip()
             if rc != 0:
@@ -2229,10 +2251,10 @@ class Gee:
         Simple solutions such as `git show -s --pretty=%d HEAD` don't work
         in all cases (ie, in a rebase-in-progress state).
         """
-        _, stdout, _ = self.xc().run_git("rev-parse --show-toplevel", cwd=cwd, priority=LOW, check=True)
+        _, stdout, _ = self.xc().run_git(
+            "rev-parse --show-toplevel", cwd=cwd, priority=LOW, check=True
+        )
         return os.path.basename(stdout.strip())
-
-
 
     def ssh_enroll(self: "Gee"):
         """Ensure the user has ssh access to github, or enroll the user if not."""
