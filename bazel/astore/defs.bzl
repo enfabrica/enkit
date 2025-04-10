@@ -1,5 +1,17 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
+AstoreMetadataProvider = provider(fields = ["tags"])
+
+def _astore_tag_impl(ctx):
+    # TODO(minor-fixes): If any validation is necessary on astore tag values,
+    # logic can go here to fail the build on illegal values.
+    return AstoreMetadataProvider(tags = ctx.build_setting_value)
+
+astore_tag = rule(
+    implementation = _astore_tag_impl,
+    build_setting = config.string_list(flag = True, repeatable = True),
+)
+
 def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
     """Returns a URL for a particular package version from astore."""
     if not package.startswith("/"):
@@ -29,9 +41,11 @@ def _astore_upload(ctx):
         uidfile = ctx.files.uidfile[0].short_path
         files.append(ctx.files.uidfile[0])
 
-    upload_tag = ""
+    tags = []
     if ctx.attr.upload_tag:
-        upload_tag = "--tag=" + ctx.attr.upload_tag
+        tags.append(ctx.attr.upload_tag)
+    tags.extend(ctx.attr._cmdline_upload_tag[AstoreMetadataProvider].tags)
+    upload_tag = " ".join(["--tag={}".format(tag) for tag in tags])
 
     ctx.actions.expand_template(
         template = template,
@@ -74,6 +88,10 @@ astore_upload = rule(
         ),
         "upload_tag": attr.string(
             doc = "Apply optional tag to binary during upload.",
+        ),
+        "_cmdline_upload_tag": attr.label(
+            providers = [[AstoreMetadataProvider]],
+            default = "//f/astore:upload_tag",
         ),
         "_astore_upload_file": attr.label(
             default = Label("//bazel/astore:astore_upload_file.sh"),
