@@ -23,7 +23,6 @@ import copy
 import datetime
 import difflib
 import glob
-import importlib
 import io
 import json
 import logging
@@ -38,7 +37,6 @@ import subprocess
 import sys
 import textwrap
 import threading
-import tomllib
 import types
 from typing import List, Optional
 
@@ -46,10 +44,12 @@ from typing import List, Optional
 ## Import toml or tomllib, depending on which is available.
 #####################################################################
 try:
-    tomllib = importlib.import_module("tomllib")
+    import tomllib
+
     toml = None
 except ImportError:
-    toml = importlib.import_module("toml")
+    import toml
+
     tomllib = None
 
 #####################################################################
@@ -156,12 +156,13 @@ class GeeConfig:
 
     def load(self, path):
         self.path = path
-        with open(path, "rb") as fd:
-            if tomllib:
+        if tomllib:
+            with open(path, "rb") as fd:
                 self.data = tomllib.load(fd)
-            else:
+                fd.close()
+        else:
+            with open(path, "r", encoding="utf-8") as fd:
                 self.data = toml.load(fd)
-            fd.close()
 
     def save(self, path=None):
         print("Writing configuration file not yet supported.")
