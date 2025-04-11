@@ -160,6 +160,7 @@ type invocation struct {
 	ID          string    // Server-generated unique ID
 	Owner       string    // Client-provided owner
 	Purpose     string    // Client-provided purpose (CI: send test target)
+	Query		string
 	LastCheckin time.Time // Time the invocation last had its queue position/allocation refreshed.
 	QueueID     QueueID   // Position in the queue. 0 means the invocation has not been queued yet.
 	Topologies  []*apb.Topology
@@ -277,6 +278,11 @@ func (md *Matched) ToString(nu int) string {
 	return fmt.Sprintf("%d topologies + %d units = %v matches", len(md.invocation.Topologies), nu, details)
 }
 
+func validateQuery(query string) bool {
+	// TODO: do actual validation
+	return true
+}
+
 // Matchmaker returns [n][_]*unit containing plausible matches
 // n: index corresponding to the invocation topologies
 // _: if all=false, len is 0 (nomatch) or 1 (match). if all=true, len is uint
@@ -322,6 +328,13 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 	if len(invMsg.GetTopologies()) != 1 {
 		return nil, status.Errorf(codes.InvalidArgument, "requests must have exactly one topology (for now)")
 	}
+	
+	// validate that we were given a valid query string
+	query := invMsg.GetQuery()
+	if !validateQuery(query) {
+		return nil, status.Errorf(codes.InvalidArgument, "requests must have a valid query string")
+	}
+
 	inv := &invocation{Topologies: req.Invocation.GetTopologies()} // Matchmaker only uses the topos
 	invocationID := invMsg.GetId()
 	// Enqueue it
@@ -346,6 +359,7 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 			ID:          invocationID,
 			Owner:       invMsg.GetOwner(),
 			Purpose:     invMsg.GetPurpose(),
+			Query:	     invMsg.GetQuery(),
 			LastCheckin: timeNow(),
 			Topologies:  invMsg.GetTopologies(),
 		}

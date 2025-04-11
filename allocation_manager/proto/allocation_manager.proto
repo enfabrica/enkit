@@ -75,6 +75,10 @@ message Invocation {
   // what else can we use this for?
   string purpose = 4;
 
+  // query string, specifying what is needed from the allocated systems
+  // i.e. gpus=2 AND ram>=16g
+  string query = 5;
+
   // TODO: maybe this instead of purpose? maybe build tag goes into purpose?
   /*
   // Build tag of the allocation request. This tag does not need to be unique
