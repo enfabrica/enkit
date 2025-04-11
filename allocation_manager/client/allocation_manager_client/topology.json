@@ -1,0 +1,10 @@
+{
+	"name": "a",
+	"nodes": {
+		"cortana": {
+			"Hostname": "cortana.whatever.com"
+		}
+	},
+	"GPUs": {
+	}
+}
