@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.55"
+readonly VERSION="0.2.56"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -1408,14 +1408,14 @@ function _git_rev_list_counts() {
     "${GIT}" fetch --quiet --force upstream "${B#upstream/refs/}:FETCH_HEAD_B" >/dev/null 2>&1
     B=FETCH_HEAD_B
   elif [[ "${B}" == */* ]]; then
-    "${GIT}" fetch --quiet --force "${B%%/*}" "${B#upstream}:FETCH_HEAD_B" >/dev/null 2>&1
+    "${GIT}" fetch --quiet --force "${B%%/*}" "${B#upstream/}:FETCH_HEAD_B" >/dev/null 2>&1
     B=FETCH_HEAD_B
   fi
   if [[ "${P}" == upstream/refs/pull/*/head ]]; then
     "${GIT}" fetch --quiet --force upstream "${P#upstream/refs/}:FETCH_HEAD_P" >/dev/null 2>&1
     P=FETCH_HEAD_P
   elif [[ "${P}" == */* ]]; then
-    "${GIT}" fetch --quiet --force "${P%%/*}" "${P#upstream}:FETCH_HEAD_P" >/dev/null 2>&1
+    "${GIT}" fetch --quiet --force "${P%%/*}" "${P#upstream/}:FETCH_HEAD_P" >/dev/null 2>&1
     P=FETCH_HEAD_P
   fi
   "${GIT}" rev-list --left-right --count "${B}...${P}" || /bin/true
@@ -1480,10 +1480,10 @@ function _branch_ahead_behind() {
   fi
   local -a counts
   read -r -a counts < <(_git_rev_list_counts "${branch}" "${obr}") || /bin/true
-  if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
+  if [[ "${counts[0]}" == "0" ]] && [[ "${counts[1]}" == "0" ]]; then
     printf "%-20s: same as %s" "${branch}" "${obr}"
   else
-    printf "%-20s: %s ahead, %s behind %s" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+    printf "%-20s: %q ahead, %q behind %s" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
   fi
   if _remote_branch_exists origin "${branch}"; then
     counts=()
@@ -3465,6 +3465,9 @@ function gee__lsbranches() {
   _set_main
   _git fetch
   for br in "${branches[@]}"; do
+    if [[ "${br}" == FETCH_HEAD* ]]; then
+      continue
+    fi
     if [[ "${br}" != "${MAIN}" ]]; then
       _branch_ahead_behind "${br}"
     fi
@@ -3921,12 +3924,14 @@ function gee__pr_push() {
   # Identify remote branch
   local -a DATA=()
   _read_cmd DATA "${GH}" pr view "${PRNUM}" \
-    --json author,headRefName,state \
-    --jq '.author["login"],.headRefName,.state'
+    --json author,headRepository,headRepositoryOwner,headRefName,state \
+    --jq '.author["login"],.headRepository["name"],.headRepositoryOwner["login"],.headRefName,.state'
   local REMOTE_USER REMOTE_BRANCH REMOTE_STATE
   REMOTE_USER="${DATA[0]}"
-  REMOTE_BRANCH="${DATA[1]}"
-  REMOTE_STATE="${DATA[2]}"
+  REMOTE_REPO="${DATA[1]}"
+  REMOTE_REPO_OWNER="${DATA[2]}"
+  REMOTE_BRANCH="${DATA[3]}"
+  REMOTE_STATE="${DATA[4]}"
 
   # Check that the remote branch hasn't already been merged.
   if [[ "${REMOTE_STATE}" == "MERGED" ]]; then
@@ -3934,27 +3939,28 @@ function gee__pr_push() {
   fi
 
   # Fetch from remote branch.
-  if ! "${GIT}" remote get-url "${REMOTE_USER}" >/dev/null 2>&1; then
-    _git remote add "${REMOTE_USER}" "${GIT_AT_GITHUB}:${REMOTE_USER}/${REPO}.git" >&2
-  fi
-  _git fetch --force "${REMOTE_USER}" "${REMOTE_BRANCH}"
+  # We no longer need to add a new remote:
+  # if ! "${GIT}" remote get-url "${REMOTE_USER}" >/dev/null 2>&1; then
+  #   _git remote add "${REMOTE_USER}" "${GIT_AT_GITHUB}:${REMOTE_USER}/${REPO}.git" >&2
+  # fi
+  _git fetch --force "${GIT_AT_GITHUB}:${REMOTE_REPO_OWNER}/${REMOTE_REPO}" "${REMOTE_BRANCH}"
 
   # Check if we are behind remote branch
   local -a COUNTS
   read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${BRANCH}...FETCH_HEAD")
-  _info "Local has ${COUNTS[0]} more commit(s) than remote ${REMOTE_USER}/${REMOTE_BRANCH}."
+  _info "Local has ${COUNTS[0]} more commit(s) than remote ${REMOTE_REPO_OWNER}/${REMOTE_BRANCH}."
   _info "Remote has ${COUNTS[1]} more commit(s) than local."
   if [[ "${COUNTS[0]}" -eq 0 ]]; then
     _fatal "No local commits to push.  Perhaps you need to \"gee commit\" first?"
   fi
   if [[ "${COUNTS[1]}" -gt 0 ]]; then
-    _warn "Remote branch ${REMOTE_USER}/${REMOTE_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${BRANCH}."
+    _warn "Remote branch ${REMOTE_REPO_OWNER}/${REMOTE_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${BRANCH}."
     _fatal "You must run \"gee update\" and then try again."
   fi
 
   # Push our changes to the remote branch
-  _git push "${REMOTE_USER}" "HEAD:${REMOTE_BRANCH}"
-  _info "Successfully pushed to PR#${PRNUM} (${REMOTE_USER}/${REMOTE_BRANCH})."
+  _git push "${GIT_AT_GITHUB}:${REMOTE_REPO_OWNER}/${REMOTE_REPO}" "HEAD:${REMOTE_BRANCH}"
+  _info "Successfully pushed to PR#${PRNUM} (${REMOTE_REPO_OWNER}/${REMOTE_BRANCH})."
 
   _warn "Please notify ${REMOTE_USER} that they should pull from their remote branch, " \
         "otherwise they might accidentally force-commit over your changes."
