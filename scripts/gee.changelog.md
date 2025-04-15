@@ -2,6 +2,10 @@
 
 ## Releases
 
+### 0.2.56
+
+* `gee lsbr`: fix bug in traversing upstream branches.
+
 ### 0.2.55
 
 * `gee hello`: diagnose missing github API token scopes.
