@@ -1127,18 +1127,18 @@ class CommitCommand(GeeCommand):
         if args.amend:
             cmd += ["--amend"]
         if args.all:
-            self.gee.xc().run_git("add --all")
+            self.gee.xc().run_git("add --all", explain="Make sure all files are staged:")
             cmd += ["-a"]
         if args.msg:
             cmd += ["-m", args.msg]
-        rc = self.gee.xc().run_interactive(cmd, check=False)
+        rc = self.gee.xc().run_interactive(cmd, check=False, explain="Commit all changes to the local repo:")
         if rc == 0:
             # TODO(jonathan): how do we cancel presubmit jobs in a generic way?
             if not (args.amend or args.force):
                 self.gee.check_origin(branch)
-                self.gee.xc().run_git(f"push --quiet -u origin {branch}")
+                self.gee.xc().run_git(f"push --quiet -u origin {branch}", explain="Push our local repo to our remote repo:")
             else:
-                self.gee.xc().run_git(f"push --quiet --force -u origin {branch}")
+                self.gee.xc().run_git(f"push --quiet --force -u origin {branch}", explain="Push our local repo to our remote repo:")
         else:
             # git commit will fail if there are no local changes.
             self.gee.debug("git commit operation returned rc=%d", rc)
