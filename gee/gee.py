@@ -229,9 +229,10 @@ class GeeConfig:
 class GeeLogger(logging.Logger):
     # DEBUG=10, INFO=20, etc:
     DEBUG = 10
-    LOW_STDOUT = 13  # the stdout of a non-essential executed command
-    LOW_STDERR = 15  # the stderr of a non-essential executed command
-    LOW_COMMANDS = 17  # the commandline for a non-essential executed command
+    LOW_EXPLAIN = 12
+    LOW_STDOUT = 14  # the stdout of a non-essential executed command
+    LOW_STDERR = 16  # the stderr of a non-essential executed command
+    LOW_COMMANDS = 18  # the commandline for a non-essential executed command
     INFO = 20
     EXPLAIN = 22  # the explanation of an executed command
     STDOUT = 24  # the stdout of an executed command
@@ -241,8 +242,26 @@ class GeeLogger(logging.Logger):
     ERROR = 40
     CRITICAL = 50
 
-    def cmd(self, msg, *args, **kwargs):
-        self.log(GeeLogger.COMMANDS, msg, *args, **kwargs)
+    def explain(self, msg, **kwargs):
+        for line in textwrap.wrap(msg):
+            self.log(GeeLogger.EXPLAIN, line, **kwargs)
+
+    def low_explain(self, msg, **kwargs):
+        for line in textwrap.wrap(msg):
+            self.log(GeeLogger.LOW_EXPLAIN, line, **kwargs)
+
+    def cmd(self, msg, **kwargs):
+        tokens = shlex.split(msg)
+        column = 0
+        line = tokens[0]  # first token is the "prompt"
+        for token in tokens[1:]:
+            q_token = shlex.quote(token)
+            if len(line) + len(token) > 70:
+                self.log(GeeLogger.COMMANDS, line + " \\", **kwargs)
+                line = "    " + q_token
+            else:
+                line += " " + q_token
+        self.log(GeeLogger.COMMANDS, line, **kwargs)
 
     def cmd_stdout(self, msg, *args, **kwargs):
         self.log(GeeLogger.STDOUT, msg, *args, **kwargs)
@@ -323,7 +342,7 @@ class ExecutionContext:
         """Change the directory only for this execution context."""
         self.cwd = d
 
-    def log_command(self, cmd, priority=HIGH, cwd=None):
+    def log_command(self, cmd, priority=HIGH, cwd=None, explain=None):
         """Log a command at COMMAND priority, or LOW_COMMAND if quiet is true.
 
         priority=HIGH is for mainline commands that teach the user git.
@@ -340,8 +359,12 @@ class ExecutionContext:
         else:
             cmd = f"$ {cmd}"
         if priority == HIGH:
+            if explain:
+                self.gee.logger.explain(explain)
             self.gee.logger.cmd(cmd)
         else:
+            if explain:
+                self.gee.logger.low_explain(explain)
             self.gee.logger.low_cmd(cmd)
 
     def log_command_stdout(self, text, priority=HIGH):
@@ -358,7 +381,7 @@ class ExecutionContext:
             else:
                 self.gee.logger.low_cmd_stderr(line)
 
-    def run(self: "Gee", *args, mode=None, **kwargs):
+    def run(self: "Gee", *args, mode=None, explain=None, **kwargs):
         """Run a subprocess.
 
         There are three flavors, or modes, of this run function.
@@ -393,14 +416,21 @@ class ExecutionContext:
         All other subprocess.Popen kwargs operate as defined.
         """
         if mode == "interactive":
-            return self.run_interactive(*args, **kwargs)
+            return self.run_interactive(*args, explain=explain, **kwargs)
         elif mode == "no_tty":
-            return self.run_no_tty(*args, **kwargs)
+            return self.run_no_tty(*args, explain=explain, **kwargs)
         else:
-            return self.run_noninteractive(*args, **kwargs)
+            return self.run_noninteractive(*args, explain=explain, **kwargs)
 
     def run_no_tty(
-        self: "Gee", cmd, check=True, priority=HIGH, timeout=None, cwd=None, **kwargs
+        self: "Gee",
+        cmd,
+        check=True,
+        priority=HIGH,
+        timeout=None,
+        cwd=None,
+        explain=None,
+        **kwargs,
     ):
         """Run a subprocess in a simple way, without a pseudo-tty.
 
@@ -411,7 +441,7 @@ class ExecutionContext:
         if cwd is None:
             cwd = self.cwd
 
-        self.log_command(cmd, priority=priority, cwd=cwd)
+        self.log_command(cmd, priority=priority, cwd=cwd, explain=explain)
 
         process = subprocess.Popen(
             cmd,
@@ -448,6 +478,7 @@ class ExecutionContext:
         timeout=None,
         capture=True,
         cwd=None,
+        explain=None,
         **kwargs,
     ):
         """Run a subprocess and capture it's output while streaming to the console.
@@ -456,7 +487,7 @@ class ExecutionContext:
         "fancy" output can be streamed to the user, without compromising the
         ability to capture the output of simple commands.
         """
-        self.log_command(cmd, priority=priority, cwd=cwd)
+        self.log_command(cmd, priority=priority, cwd=cwd, explain=explain)
         log_level = self.gee.logger.getEffectiveLevel()
         if priority == LOW:
             stdout_enabled = log_level <= GeeLogger.LOW_STDOUT
@@ -540,7 +571,9 @@ class ExecutionContext:
         stderr = bytes(stderr_bytes).decode("utf-8").strip()
         return process.returncode, stdout, stderr
 
-    def run_interactive(self: "Gee", cmd, check=True, priority=HIGH, cwd=None):
+    def run_interactive(
+        self: "Gee", cmd, check=True, priority=HIGH, cwd=None, explain=None
+    ):
         """Run an interactive command that communicates with the console.
 
         For when we don't want to futz about with the multithreaded solution
@@ -552,7 +585,7 @@ class ExecutionContext:
         cwd = cwd if cwd else self.cwd
         if isinstance(cmd, list) and not isinstance(cmd, str):
             cmd = shlex.join(cmd)
-        self.log_command(cmd, priority=priority)
+        self.log_command(cmd, priority=priority, explain=explain)
         p = subprocess.Popen(
             cmd,
             # Everything gee runs is run through the shell,
@@ -2196,7 +2229,12 @@ class Gee:
             else:
                 self.warning("Authentication unsuccessful.  Try again.")
             tries -= 1
-        rc, _, _ = self.xc().run_gh("auth status", priority=HIGH, check=False)
+        rc, _, _ = self.xc().run_gh(
+            "auth status",
+            priority=HIGH,
+            check=False,
+            explain="Check if we can authenticate to github:",
+        )
         if rc != 0:
             self.fatal("gh still could not authenticate to github.")
             return False
@@ -2223,7 +2261,10 @@ class Gee:
 
         # check that we're in a git repo
         rc, gitdir, _ = self.xc().run_git(
-            "rev-parse --show-toplevel 2>/dev/null", priority=LOW, check=False
+            "rev-parse --show-toplevel 2>/dev/null",
+            priority=LOW,
+            check=False,
+            explain="Check if we are in a git repo:",
         )
         if rc != 0:
             self.fatal("Current directory is not in a git workspace.")
@@ -2319,7 +2360,11 @@ class Gee:
                 fd.close()
 
         # Make sure the user's ssh-key is enrolled:
-        _ = self.xc().run_interactive(f"ssh-add {ssh_key_file}", priority=HIGH)
+        _ = self.xc().run_interactive(
+            f"ssh-add {ssh_key_file}",
+            priority=HIGH,
+            explain="Enroll SSH key with the ssh-agent",
+        )
 
         # If we can ssh into github, we're done:
         if self.check_ssh():
@@ -2388,7 +2433,9 @@ class Gee:
             self.info(f"{user_fork}: remote branch already exists.")
         else:
             _, _, _ = self.xc().run_gh(
-                f"repo fork --clone=false {q(self.repo_descriptor())}", check=True
+                f"repo fork --clone=false {q(self.repo_descriptor())}",
+                check=True,
+                explain="Create a new remote repo that is a fork of the {self.repo_descriptor()} repository:",
             )
 
     def clone(self: "Gee"):
@@ -2414,6 +2461,11 @@ class Gee:
                 ],
                 mode="interactive",  # this is a slow command.
                 check=True,
+                explain=(
+                    "Create a local repository that is a clone of our "
+                    "remote repository.  This is a shallow clone, meaning "
+                    f"it only contains recent commits (since {clone_since})"
+                ),
             )
         self.cwd = main_branch_dir
         rc, _, stderr = self.xc().run_git(
