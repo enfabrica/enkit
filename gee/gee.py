@@ -1,20 +1,32 @@
 #!/usr/bin/python3.12
-"""gee, Rewriten in python.
+"""gee, Rewritten in python.
 
 Goals:
     * run directly anywhere:
         * use only the standard python library
-        * monolithic utility (no support files)
+        * monolithic (no support files, no pyzip)
     * respect a user's .gee.rc file
     * feature for feature backwards compatibility with the shell version of gee
-    * show every command executed in a subshell, show all results
-        * optionally?  --quiet suppresses commands
-        * optionally?  --verbose shows all output of commands
+    * be a better git teaching tool, by supporting 8 levels of verbosity:
+        * only errors and warnings.
+        * above, plus the essential commands executed.
+        * above, plus the stdout and stderr of the essential commands. (default)
+        * above, plus extra comment explaining what each command is doing.
+        * above, plus the non-essential commands that  are executed.
+        * above, plus the stdout and stderr of the non-essential commands.
+        * above, plus debug messages.
     * be agnostic towards enfabrica-isms (defer to config file)
 
 Environment variables gee cares about:
     GHUSER: used if gee.ghuser isn't set in the config file
     SSH_AUTH_SOCK: indicates a running ssh-agent
+
+TODOs:
+    * complete all gee commands
+    * add explanatory comments to all run_cmd-like calls.
+    * reorganize the code in this file to make navigation easier.  Maybe
+      add a TOC, since this is a monolithic script.
+    * review and reduce the standard libraries we use.
 """
 
 # standard library
@@ -170,6 +182,7 @@ class GeeConfig:
         # TODO(jonathan): python3.11 replaced the "toml" library with
         # "tomllib", and took away the ability to write a toml file.
         # find a workaround. Maybe switch to yaml?  configparser?
+        # Write our own toml writer?
         # if path is None:
         #     path = self.path
         # path = _expand_path(path)
@@ -220,9 +233,10 @@ class GeeLogger(logging.Logger):
     LOW_STDERR = 15  # the stderr of a non-essential executed command
     LOW_COMMANDS = 17  # the commandline for a non-essential executed command
     INFO = 20
-    STDOUT = 23  # the stdout of an executed command
-    STDERR = 25  # the stderr of an executed command
-    COMMANDS = 27  # the commandline of an executed command
+    EXPLAIN = 22  # the explanation of an executed command
+    STDOUT = 24  # the stdout of an executed command
+    STDERR = 26  # the stderr of an executed command
+    COMMANDS = 28  # the commandline of an executed command
     WARNING = 30
     ERROR = 40
     CRITICAL = 50
@@ -268,6 +282,7 @@ class GeeLogFormatter(logging.Formatter):
             black_on_grey + "%(message)s" + reset
         ),
         GeeLogger.INFO: logging.Formatter(green + "INFO: %(message)s" + reset),
+        GeeLogger.EXPLAIN: logging.Formatter(black_on_white + "# %(message)s" + reset),
         GeeLogger.STDOUT: logging.Formatter(grey + "%(message)s" + reset),
         GeeLogger.STDERR: logging.Formatter(bold_grey + "%(message)s" + reset),
         GeeLogger.COMMANDS: logging.Formatter(black_on_white + "%(message)s" + reset),
