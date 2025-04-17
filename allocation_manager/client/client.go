@@ -29,13 +29,14 @@ type AllocationClient struct {
 
 // New returns a AllocationClient that can be used to guard command invocations
 // with the specified Unit.
-func New(client apb.AllocationManagerClient, names, configs []string, username, purpose string) *AllocationClient {
+func New(client apb.AllocationManagerClient, query, names, configs []string, username, purpose string) *AllocationClient {
 	// buildTag string) *AllocationClient {
 	a := &AllocationClient{
 		client: client,
 		invocation: &apb.Invocation{
 			Owner:   username,
 			Purpose: purpose,
+			Query: query,
 			// BuildTag: buildTag,
 		},
 		allocationErr: make(chan error),

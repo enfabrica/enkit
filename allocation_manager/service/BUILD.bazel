@@ -7,6 +7,7 @@ go_library(
         "queue.go",
         "service.go",
         "unit.go",
+        "query.go",
     ],
     importpath = "github.com/enfabrica/enkit/allocation_manager/service",
     visibility = ["//visibility:public"],
@@ -34,6 +35,7 @@ go_test(
         "queue_test.go",
         "service_test.go",
         "unit_test.go",
+        "query_test.go",
     ],
     embed = [":service"],
     deps = [
