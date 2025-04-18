@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.56"
+readonly VERSION="0.2.57"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -4495,9 +4495,10 @@ function gee__pr_cancel() {
   FILTER+=" AND (status=\"WORKING\" OR status=\"QUEUED\")"  # and by job status
   while read -r -a FIELDS; do
     local ID="${FIELDS[1]}"
-    _cmd gcloud --project "${GEE_BUILDLOGS_PROJECT}" builds cancel "${ID}" > /dev/null
+    _cmd gcloud --project "${GEE_BUILDLOGS_PROJECT}" builds cancel "${ID}" --region us-west1 > /dev/null
     COUNT=$((COUNT + 1))
   done < <(_cmd gcloud --project="${GEE_BUILDLOGS_PROJECT}" builds list \
+              --region us-west1 \
               --format=yaml \
               --filter="${FILTER}" \
               | grep ^id:)
@@ -4655,7 +4656,7 @@ function gee__pr_check() {
       local BUILD
       for BUILD in "${FAILED_BUILDS[@]}"; do
         _warn "Failed build: ${BUILD}"
-        gcloud --project="${GEE_BUILDLOGS_PROJECT}" builds log "${BUILD}" | grep -i -E "(failed:|error:|streaming build results to:)"
+        gcloud --project="${GEE_BUILDLOGS_PROJECT}" builds log "${BUILD}" --region us-west1  | grep -i -E "(failed:|error:|streaming build results to:)"
       done
     fi
   fi

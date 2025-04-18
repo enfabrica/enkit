@@ -2,6 +2,10 @@
 
 ## Releases
 
+### 0.2.57
+
+* `gee pr_cancel`: Add missing `--region us-west1` flag to all gcloud commands.
+
 ### 0.2.56
 
 * `gee lsbr`: fix bug in traversing upstream branches.
