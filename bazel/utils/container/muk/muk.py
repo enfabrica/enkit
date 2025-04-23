@@ -53,10 +53,15 @@ def download_astore_files(build_def: mpb.ImageBuild, build_dir: pathlib.Path) ->
     for astore_file in build_def.astore_files:
         target = build_dir / astore_file.filename
         log.info("Downloading astore file %s to %s...", astore_file.uid, target)
-        subprocess.run(["enkit", "astore", "download", "-o", target, "-u", astore_file.uid], check=True)
+        subprocess.run(
+            ["enkit", "astore", "download", "-o", target, "-u", astore_file.uid],
+            check=True,
+        )
 
 
-def generate_dockerfile(build_def: mpb.ImageBuild, buf: io.TextIOBase, labels=None) -> None:
+def generate_dockerfile(
+    build_def: mpb.ImageBuild, buf: io.TextIOBase, labels=None
+) -> None:
     body = [
         f"FROM {build_def.base_image}\n",
         # TODO(scott): If we have non-astore files to add, they will end up
@@ -118,7 +123,9 @@ RUN DEBIAN_FRONTEND='noninteractive' TZ=UTC apt-get update && \\
 
         options_str = ""
         if len(aar.repo_options):
-            options_str = " " + " ".join(_apt_repo_option_format(a) for a in aar.repo_options)
+            options_str = " " + " ".join(
+                _apt_repo_option_format(a) for a in aar.repo_options
+            )
 
         components_str = ""
         if len(aar.components):
@@ -126,7 +133,7 @@ RUN DEBIAN_FRONTEND='noninteractive' TZ=UTC apt-get update && \\
 
         if aar.HasField("signing_key"):
             keyring_path = f"/usr/share/keyrings/{aar.signing_key.name}.gpg"
-            cmd += f"RUN curl -fsSL {aar.signing_key.url} | apt-key --keyring {keyring_path} add -\n"
+            cmd += f"RUN curl -fsSL '{aar.signing_key.url}' | apt-key --keyring '{keyring_path}' add -\n"
             cmd += f"RUN echo 'deb [signed-by={keyring_path}{options_str}] {aar.binary_url} {aar.distribution}{components_str}' | tee -a {source_path}\n"
         elif options_str:
             cmd += f"RUN echo 'deb [{options_str}] {aar.binary_url} {aar.distribution}{components_str}' | tee -a {source_path}\n"
@@ -157,14 +164,14 @@ RUN DEBIAN_FRONTEND='noninteractive' TZ=UTC apt-get update && \\
 RUN TZ=UTC yum update -y && \\
     TZ=UTC yum install --allowerasing --enablerepo=devel -y \\
     {}""".format(
-            " \\\n    ".join(yum_install.packages)
+                " \\\n    ".join(yum_install.packages)
             )
         else:
             run_cmd = """\
 RUN TZ=UTC yum update -y && \\
     TZ=UTC yum install -y \\
     {}""".format(
-            " \\\n    ".join(yum_install.packages)
+                " \\\n    ".join(yum_install.packages)
             )
         if len(yum_install.rpms):
             run_cmd += """ && \\
@@ -201,7 +208,8 @@ def has_https_apt_key_fetch(build_def: mpb.ImageBuild) -> bool:
     keys = [
         action.apt_add_repo.signing_key
         for action in build_def.actions
-        if action.WhichOneof("action") == "apt_add_repo" and action.apt_add_repo.HasField("signing_key")
+        if action.WhichOneof("action") == "apt_add_repo"
+        and action.apt_add_repo.HasField("signing_key")
     ]
     return any(k for k in keys if k.url.startswith("https"))
 

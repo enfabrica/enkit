@@ -173,9 +173,9 @@ RUN DEBIAN_FRONTEND='noninteractive' TZ=UTC apt-get update && \
     xterm \
     xz-utils \
     zip
-RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+RUN curl -fsSL 'https://packages.cloud.google.com/apt/doc/apt-key.gpg' | apt-key --keyring '/usr/share/keyrings/cloud.google.gpg' add -
 RUN echo 'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main' | tee -a /etc/apt/sources.list.d/google_cloud_sdk.list
-RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key --keyring /usr/share/keyrings/hashicorp.gpg add -
+RUN curl -fsSL 'https://apt.releases.hashicorp.com/gpg' | apt-key --keyring '/usr/share/keyrings/hashicorp.gpg' add -
 RUN echo 'deb [signed-by=/usr/share/keyrings/hashicorp.gpg arch=amd64] https://apt.releases.hashicorp.com focal main' | tee -a /etc/apt/sources.list.d/hashicorp.list
 RUN wget -O /usr/bin/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.9.0/bazelisk-linux-amd64
 RUN chmod 0777 /usr/bin/bazelisk
