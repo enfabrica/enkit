@@ -1237,6 +1237,17 @@ function _warn() {
   printf >&2 "${_COLOR_WARN}WARNING: %s${_COLOR_RST}\n" "$@"
 }
 
+# Report an error but don't die.
+function _error() {
+  local COLS LINE LEN BLANK
+  printf "  error: %s\n" "$@" | _to_gee_log
+  COLS="$(safe_tput cols)"
+  for LINE in "$@"; do
+    LEN="$( printf "%s\n" "$@" | wc -L )"
+    BLANK="$(head -c "$(( COLS - LEN - 8 ))" /dev/zero | tr '\0' ' ')"
+    printf >&2 "${_COLOR_DIE}ERROR: %s%s${_COLOR_RST}\n" "${LINE}" "${BLANK}"
+  done
+}
 # Use _fatal for user errors that don't require a stack dump.
 # "The user is going to be sad when they see this."
 function _fatal() {
@@ -4565,7 +4576,9 @@ function _parse_gh_pr_checks() {
     read -r -a FIELDS <<< "${LINE}"
     (( CHECK_COUNTS_REF["${FIELDS[2]}"]++ )) || /bin/true
     if [[ "${FIELDS[2]}" == "fail" ]]; then
-      if [[ "${FIELDS[4]}" =~ builds/([a-f0-9-]*)\?project ]]; then
+      if [[ "${FIELDS[4]}" =~ builds\;region=us-west1/([a-f0-9-]*)\?project ]]; then
+        FAILED_BUILDS_REF+=( "${BASH_REMATCH[1]}" )
+      elif [[ "${FIELDS[4]}" =~ builds/([a-f0-9-]*)\?project ]]; then
         FAILED_BUILDS_REF+=( "${BASH_REMATCH[1]}" )
       else
         _warn "Could not parse build number from URL: ${FIELDS[4]}"
@@ -6666,6 +6679,7 @@ function gee__colortest() {
   _debug "This is _debug"
   _info "This is _info"
   _warn "This is _warn"
+  _error "This is an _error"
   DRYRUN=1 _cmd run --a --command
   (_fatal "This is _fatal") || /bin/true
   (_die "This is _die") || /bin/true
