@@ -4565,7 +4565,9 @@ function _parse_gh_pr_checks() {
     read -r -a FIELDS <<< "${LINE}"
     (( CHECK_COUNTS_REF["${FIELDS[2]}"]++ )) || /bin/true
     if [[ "${FIELDS[2]}" == "fail" ]]; then
-      if [[ "${FIELDS[4]}" =~ builds/([a-f0-9-]*)\?project ]]; then
+      if [[ "${FIELDS[4]}" =~ builds\;region=us-west1/([a-f0-9-]*)\?project ]]; then
+        FAILED_BUILDS_REF+=( "${BASH_REMATCH[1]}" )
+      elif [[ "${FIELDS[4]}" =~ builds/([a-f0-9-]*)\?project ]]; then
         FAILED_BUILDS_REF+=( "${BASH_REMATCH[1]}" )
       else
         _warn "Could not parse build number from URL: ${FIELDS[4]}"
