@@ -2,6 +2,11 @@
 
 ## Releases
 
+### 0.2.58
+
+* `gee update`: Fixed bug where gee incorrectly thinks a rebase is still in progress,
+  and enters an infinite loop.
+
 ### 0.2.57
 
 * `gee pr_cancel`: Add missing `--region us-west1` flag to all gcloud commands.

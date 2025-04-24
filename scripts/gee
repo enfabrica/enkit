@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.57"
+readonly VERSION="0.2.58"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -1612,7 +1612,7 @@ function _interactive_conflict_resolution() {
     SKIP=0
     RESTART=0
     if [[ "${#STATUS[@]}" -eq 0 ]]; then
-      _warn "Empty commit, skipping automatically."
+      _info "Empty commit, skipping automatically."
       SKIP=1
     fi
     for STATUS_LINE in "${STATUS[@]}"; do
@@ -1902,15 +1902,13 @@ function _safer_rebase() {
 }
 
 function _is_rebase_in_progress() {
-  local RC
-  NOFAIL=1 "${GIT}" rev-parse --verify REBASE_HEAD >/dev/null 2>/dev/null
-  RC=$?
-  if [[ "${RC}" == 0 ]]; then
-    return 0  # rebase is in progress
-  elif [[ "${RC}" == 128 ]]; then
-    return 1  # rebase is not in progress
+  # Is this branch currently in the middle of a rebase operation?
+  local G
+  G="$(git rev-parse --git-dir)"
+  if compgen -G "${G}/rebase*" > /dev/null; then
+    return 0  # 0=true
   else
-    _die "git rev-parse --verify REBASE_HEAD failed with unexpected code: ${RC}"
+    return 1  # 1=false
   fi
 }
 
