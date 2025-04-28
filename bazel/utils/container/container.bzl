@@ -347,13 +347,6 @@ def container_image(*args, **kwargs):
     output = "{}_labels.txt".format(name)
     tags = kwargs.get("tags", [])
 
-    # The 'image' field in oci_pull does not need the //image target
-    # while the container_pull rule does. Modify this wrapper script
-    # to insert the //image target when using container_pull.
-    # Remove once oci_pull doesn't have auth errors anymore.
-    if kwargs.get("base", "").startswith("@"):
-        kwargs["base"] = "{}//image".format(kwargs.get("base"))
-
     # Always include user-defined container labels in addition to build metadata from bazel --stamp
     # https://bazel.build/docs/user-manual#workspace-status
     # Container labels for oci_image can be a dictionary or file of key-value pairs with '=' as delimiters
