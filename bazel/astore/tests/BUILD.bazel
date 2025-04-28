@@ -10,10 +10,10 @@ astore_upload(
         "testdata.txt",
     ],
     uidfile = "BUILD.bazel",
+    upload_tag = "//bazel/astore/tests",
     visibility = [
         "//developer:__subpackages__",
     ],
-    upload_tag = "//bazel/astore/tests"
 )
 
 UID_TESTDATA_TXT = "i8o3rkarrqgf4ekprz2gdih2eymxsoa4"

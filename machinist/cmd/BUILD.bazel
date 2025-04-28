@@ -32,4 +32,3 @@ astore_upload(
     ],
     targets = [":cmd"],
 )
-

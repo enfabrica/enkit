@@ -2,6 +2,7 @@ load("@//bazel:shellutils.bzl", "shellcheck_test")
 
 shellcheck_test(
     name = "shellcheck_test",
+    srcs = glob(["scripts/*.sh"]) + glob(["template/*.sh"]) + ["kpub-astore"],
     extra_args = [
         # SC2086: Double quote to prevent globbing and word splitting.
         # SC2034: pkg_name appears unused. Verify use (or export if used externally).
@@ -19,5 +20,4 @@ shellcheck_test(
         "-e",
         "SC2086,SC2034,SC2046,SC2006,SC2003,SC1090,SC2230,SC2039,SC2155,SC2002,SC2166,SC2060,SC2038",
     ],
-    srcs = glob(["scripts/*.sh"]) + glob(["template/*.sh"]) + ["kpub-astore"],
 )

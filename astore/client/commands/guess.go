@@ -2,14 +2,17 @@ package commands
 
 import (
 	"fmt"
+
 	"github.com/enfabrica/enkit/astore/client/astore"
 	"github.com/enfabrica/enkit/lib/kflags"
+
 	"github.com/spf13/cobra"
 )
 
 type Remote struct {
 	*cobra.Command
 
+	root *Root
 	Suggest SuggestFlags
 }
 
@@ -20,6 +23,7 @@ func NewRemote(root *Root) *Remote {
 			Short:   "Guesses the remote name that will be used for a file",
 			Aliases: []string{"guess", "file"},
 		},
+		root: root,
 	}
 	command.Command.RunE = command.Run
 	command.Suggest.Register(command.Flags())
@@ -35,8 +39,9 @@ func (uc *Remote) Run(cmd *cobra.Command, args []string) error {
 	for _, arg := range args {
 		local, remote, err := astore.SuggestRemote(arg, *uc.Suggest.Options())
 		if err != nil {
-			fmt.Printf("%s: error - %s\n", arg, err)
+			uc.root.Log.Errorf("%s: error - %s\n", arg, err)
 		} else {
+			// TODO(scott): Get this command to obey --console-format flag
 			fmt.Printf("%s: %s %s\n", arg, local, remote)
 		}
 	}
@@ -46,6 +51,7 @@ func (uc *Remote) Run(cmd *cobra.Command, args []string) error {
 
 type Arch struct {
 	*cobra.Command
+	root *Root
 }
 
 func NewArch(root *Root) *Arch {
@@ -55,6 +61,7 @@ func NewArch(root *Root) *Arch {
 			Short:   "Guesses the architecture of an artifact",
 			Aliases: []string{"guess", "file"},
 		},
+		root: root,
 	}
 	command.Command.RunE = command.Run
 	return command
@@ -68,11 +75,12 @@ func (uc *Arch) Run(cmd *cobra.Command, args []string) error {
 	for _, arg := range args {
 		arch, err := astore.GuessArchOS(arg)
 		if err != nil {
-			fmt.Printf("%s: error - %s\n", arg, err)
+			uc.root.Log.Errorf("%s: error - %s\n", arg, err)
 			continue
 		}
 
 		for _, a := range arch {
+			// TODO(scott): Get this command to obey --console-format flag
 			fmt.Printf("%s: %s %s\n", arg, a.Cpu, a.Os)
 		}
 	}

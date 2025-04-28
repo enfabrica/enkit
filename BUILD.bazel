@@ -1,9 +1,8 @@
-load("//bazel/enkit:defs.bzl", "multirun")
 load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
-load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
-
+load("//bazel/enkit:defs.bzl", "multirun")
 
 # To update and generate the BUILD.bazel files, run:
 #     bazelisk run //:gazelle
@@ -118,4 +117,3 @@ config_setting(
     flag_values = {":kernel_dir": "placeholder"},
     visibility = ["//visibility:public"],
 )
-
