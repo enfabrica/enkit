@@ -314,7 +314,7 @@ func (l *List) Run(cmd *cobra.Command, args []string) error {
 		formatter.Artifact(art)
 	}
 	if !l.All && len(arts) >= 1 {
-		fmt.Printf("(only showing artifacts with %d tags: %v - use --all or -l to show all)\n", len(l.Tag), l.Tag)
+		l.root.Log.Warnf("(only showing artifacts with %d tags: %v - use --all or -l to show all)\n", len(l.Tag), l.Tag)
 	}
 
 	for _, el := range els {
