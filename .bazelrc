@@ -27,3 +27,8 @@ run --incompatible_strict_action_env
 try-import %workspace%/.bazelrc.user
 
 common --noenable_bzlmod
+
+# Manually authenticate for oci_pull to download container images from
+# Google Artifact Registry
+common --credential_helper=us-docker.pkg.dev=%workspace%/tools/artifact_registry_auth.sh
+common --repo_env=OCI_GET_TOKEN_ALLOW_FAIL=1

@@ -11,10 +11,6 @@ load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 load("@com_github_atlassian_bazel_tools//multirun:deps.bzl", "multirun_dependencies")
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 load("@googleapis//:repository_rules.bzl", "switched_rules_by_language")
-load("@io_bazel_rules_docker//go:image.bzl", rules_docker_go_dependencies = "repositories")
-load("@io_bazel_rules_docker//python:image.bzl", rules_docker_python_dependencies = "repositories")
-load("@io_bazel_rules_docker//repositories:deps.bzl", rules_docker_container_dependencies = "deps")
-load("@io_bazel_rules_docker//repositories:repositories.bzl", rules_docker_dependencies = "repositories")
 load("@io_bazel_rules_go//extras:embed_data_deps.bzl", "go_embed_data_dependencies")
 load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk", "go_register_toolchains", "go_rules_dependencies")
 load("@io_bazel_rules_jsonnet//jsonnet:jsonnet.bzl", "jsonnet_repositories")
@@ -100,11 +96,6 @@ def stage_2():
     # You must manually update boringssl when grpc is updated. If ARM support is added upstream, we may
     # be able to remove the patches and the work here.
     grpc_deps()
-
-    rules_docker_dependencies()
-    rules_docker_go_dependencies()
-    rules_docker_python_dependencies()
-    rules_docker_container_dependencies()
 
     rules_oci_dependencies()
 
