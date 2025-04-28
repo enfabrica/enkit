@@ -2,7 +2,7 @@ load("//bazel/utils:files.bzl", "write_to_file")
 load("//bazel/dive:dive.bzl", "oci_dive")
 load("//bazel/utils:merge_kwargs.bzl", "add_tag")
 load("@enkit//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary")
 
@@ -377,7 +377,7 @@ def container_image(*args, **kwargs):
     oci_image(*args, **kwargs)
 
 def container_tarball(*args, **kwargs):
-    oci_tarball(*args, **kwargs)
+    oci_load(*args, **kwargs)
 
 def container_push(*args, **kwargs):
     # TODO: This forces targets to be `manual`, since the base images they
@@ -416,7 +416,7 @@ def container_push(*args, **kwargs):
             tags = tags,
         )
     local_image_path = "{}/{}:latest".format(native.package_name(), target_basename)
-    oci_tarball(
+    oci_load(
         name = "{}_tarball".format(target_basename),
         image = kwargs.get("image"),
         repo_tags = [local_image_path],
@@ -488,7 +488,7 @@ container_pusher = rule(
             mandatory = True,
         ),
         "image_tarball": attr.label(
-            doc = "Image tarball returned by the oci_tarball rule to validate image tags",
+            doc = "Image tarball returned by the oci_load rule to validate image tags",
             allow_single_file = [".tar"],
             mandatory = True,
         ),
