@@ -410,10 +410,15 @@ def container_push(*args, **kwargs):
         )
     local_image_path = "{}/{}:latest".format(native.package_name(), target_basename)
     oci_load(
-        name = "{}_tarball".format(target_basename),
+        name = "{}_load".format(target_basename),
         image = kwargs.get("image"),
         repo_tags = [local_image_path],
         tags = tags,
+    )
+    native.filegroup(
+        name = "{}_tarball".format(target_basename),
+        srcs = [":{}_load".format(target_basename)],
+        output_group = "tarball",
     )
     container_pusher(
         name = target_basename,
