@@ -23,6 +23,7 @@ load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_repos", "rules_pr
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 load("@bazel_features//:deps.bzl", "bazel_features_deps")
+load("@com_github_google_benchmark//:bazel/benchmark_deps.bzl", "benchmark_deps")
 
 def stage_2():
     """Stage 2 initialization for WORKSPACE.
@@ -98,6 +99,8 @@ def stage_2():
     grpc_deps()
 
     rules_oci_dependencies()
+
+    benchmark_deps()
 
     # Begin transitive deps required by deps of buildbarn ecosystem
     switched_rules_by_language(

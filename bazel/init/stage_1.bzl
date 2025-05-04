@@ -414,3 +414,11 @@ proto_library(
         urls = ["https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64"],
         executable = True,
     )
+
+    maybe(
+        name = "com_github_google_benchmark",
+        repo_rule = http_archive,
+        urls = ["https://github.com/google/benchmark/archive/refs/tags/v1.9.2.tar.gz"],
+        strip_prefix = "benchmark-1.9.2",
+        integrity = "sha256-QJB1F2Fo3Ea7uBt0wbS2kAOFtdFr/BgdZ4r7Bg2Si9M="
+    )
