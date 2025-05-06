@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.58"
+readonly VERSION="0.2.59"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -860,20 +860,22 @@ function _gh_auth_check() {
   else
     return 1
   fi
-  # Check if we have the right token scopes:
-  local SCOPES=""
-  SCOPES="$("${GH}" api --verbose / | grep X-Oauth-Scopes: )"
-  MISSING=""
-  for S in "read:org" "repo" "admin:public_key" "admin:ssh_signing_key"; do
-    if ! [[ "${SCOPES}" == *"${S}"* ]]; then
-      MISSING+=" ${S}"
-    fi
-  done
-  if [[ -n "${MISSING}" ]]; then
-    _error "Your github API token is missing the following permissions: ${MISSING}"
-    return 1
-  fi
-  _info "All github API permissions present."
+  ### TODO(jonathan): the following breaks with 2023 version of gh.  Find a way
+  ###    to fail functional.
+  ### # Check if we have the right token scopes:
+  ### local SCOPES=""
+  ### SCOPES="$("${GH}" api --verbose / | grep X-Oauth-Scopes: )"
+  ### MISSING=""
+  ### for S in "read:org" "repo" "admin:public_key" "admin:ssh_signing_key"; do
+  ###   if ! [[ "${SCOPES}" == *"${S}"* ]]; then
+  ###     MISSING+=" ${S}"
+  ###   fi
+  ### done
+  ### if [[ -n "${MISSING}" ]]; then
+  ###   _error "Your github API token is missing the following permissions: ${MISSING}"
+  ###   return 1
+  ### fi
+  ### _info "All github API permissions present."
   return 0
 }
 
