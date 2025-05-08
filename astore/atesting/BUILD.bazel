@@ -2,10 +2,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "atesting",
+    testonly = True,
     srcs = ["mocks.go"],
     importpath = "github.com/enfabrica/enkit/astore/atesting",
     visibility = ["//visibility:public"],
-    deps = ["//lib/knetwork"],
+    deps = ["@com_github_stretchr_testify//require"],
 )
 
 alias(
