@@ -21,6 +21,7 @@ go_library(
         "//lib/multierror",
         "//lib/proto/delimited",
         "@com_github_bazelbuild_buildtools//wspace",
+        "@org_golang_google_protobuf//encoding/protojson",
         "@org_golang_google_protobuf//proto",
     ],
 )

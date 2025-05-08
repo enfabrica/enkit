@@ -26,8 +26,6 @@ type Workspace struct {
 	bazelBin  string
 	sourceDir string
 	outputBaseDir string
-
-	sourceFS fs.FS
 }
 
 // FindRoot returns the path to the bazel workspace root in which `dir`
@@ -88,21 +86,23 @@ func (w *Workspace) OutputBaseDir() (string, error) {
 }
 
 func (w *Workspace) OpenSource(path string) (fs.File, error) {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	if w.sourceFS == nil {
-		// SourceDir() internally grabs the lock.
-		// Let's release it temporarily.
-		w.lock.Unlock()
-		srcdir, err := w.SourceDir()
-		w.lock.Lock()
+	if strings.HasPrefix(path, "external/") {
+		outputBaseDir, err := w.OutputBaseDir()
 		if err != nil {
 			return nil, err
 		}
 
-		w.sourceFS = os.DirFS(srcdir)
+		path = filepath.Join(outputBaseDir, path)
+	} else {
+		sourceDir, err := w.SourceDir()
+		if err != nil {
+			return nil, err
+		}
+
+		path = filepath.Join(sourceDir, path)
 	}
-	return w.sourceFS.Open(path)
+
+	return os.DirFS(filepath.Dir(path)).Open(filepath.Base(path))
 }
 
 func (w *Workspace) OutputExternal() (string, error) {
