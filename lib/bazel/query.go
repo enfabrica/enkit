@@ -91,23 +91,11 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 		if err := proto.Unmarshal(buf, &target); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal Target message: %w", err)
 		}
-		lbl, err := labelFromString(extractName(&target))
+		newTarget, err := NewTarget(w, &target, workspaceEvents)
 		if err != nil {
 			return nil, err
 		}
-		if lbl.isExternal() {
-			newTarget, err := NewExternalPseudoTarget(&target, workspaceEvents)
-			if err != nil {
-				return nil, err
-			}
-			targets[newTarget.Name()] = newTarget
-		} else {
-			newTarget, err := NewTarget(w, &target)
-			if err != nil {
-				return nil, err
-			}
-			targets[newTarget.Name()] = newTarget
-		}
+		targets[newTarget.Name()] = newTarget
 	}
 	if err != io.EOF {
 		return nil, fmt.Errorf("error while reading stdout from bazel command: %w", err)
@@ -174,10 +162,10 @@ func (l *Label) toCoarseExternal() *Label {
 }
 
 func (l *Label) filePath() string {
-	if l.Workspace != "" {
-		panic(fmt.Sprintf("shouldn't be looking up generated files in //external: %+v", l))
+	if len(l.Workspace) == 0 {
+		return filepath.Join(l.Package, l.Rule)
 	}
-	return filepath.Join(l.Package, l.Rule)
+	return filepath.Join("external", l.Workspace, l.Package, l.Rule)
 }
 
 func (l *Label) isExternal() bool {

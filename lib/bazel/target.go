@@ -5,12 +5,15 @@ import (
 	"hash"
 	"hash/fnv"
 	"io"
+	"log/slog"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
 	bpb "github.com/enfabrica/enkit/lib/bazel/proto"
+
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var (
@@ -42,9 +45,7 @@ type Target struct {
 
 type TargetHashes map[string]uint32
 
-// Creates a Target object that holds computations based on the supplied target
-// proto message.
-func NewTarget(w *Workspace, t *bpb.Target) (*Target, error) {
+func ConstructTarget(w *Workspace, t *bpb.Target) (*Target, error) {
 	shallow, err := shallowHash(w, t)
 	if err != nil {
 		return nil, err
@@ -59,12 +60,33 @@ func NewTarget(w *Workspace, t *bpb.Target) (*Target, error) {
 	}, nil
 }
 
+// Creates a Target object that holds computations based on the supplied target
+// proto message.
+func NewTarget(w *Workspace, t *bpb.Target, workspaceEvents map[string][]*bpb.WorkspaceEvent) (*Target, error) {
+	lbl, err := labelFromString(extractName(t))
+	if err != nil {
+		return nil, err
+	}
+	if lbl.isExternal() {
+		newTarget, err := NewExternalPseudoTarget(w, t, workspaceEvents)
+		if err != nil {
+			return nil, err
+		}
+		if newTarget != nil {
+			return newTarget, nil
+		}
+
+	}
+
+	return ConstructTarget(w, t)
+}
+
 // Creates a Target object from the supplied proto message that represents an
 // external target. This target only has attributes based on the hashes used
 // during download of the external repository, to save time on hashing
 // third-party files that are unlikely to change often. These hashes are fetched
 // from the supplied set of workspace events.
-func NewExternalPseudoTarget(t *bpb.Target, eventMap map[string][]*bpb.WorkspaceEvent) (*Target, error) {
+func NewExternalPseudoTarget(w *Workspace, t *bpb.Target, eventMap map[string][]*bpb.WorkspaceEvent) (*Target, error) {
 	nameCopy := extractName(t)
 	lbl, err := labelFromString(nameCopy)
 	if err != nil {
@@ -75,7 +97,12 @@ func NewExternalPseudoTarget(t *bpb.Target, eventMap map[string][]*bpb.Workspace
 	}
 
 	lbl = lbl.toCoarseExternal()
-	events := eventMap[lbl.String()]
+	events, eventsExist := eventMap[lbl.String()]
+	if !eventsExist {
+		return nil, nil
+	}
+
+	checkSums := extractChecksums(events)
 
 	newTarget := &bpb.Target{
 		Type: bpb.Target_RULE.Enum(),
@@ -86,12 +113,13 @@ func NewExternalPseudoTarget(t *bpb.Target, eventMap map[string][]*bpb.Workspace
 				{
 					Name:            &pseudoTargetAttributeName,
 					Type:            bpb.Attribute_STRING_LIST.Enum(),
-					StringListValue: extractChecksums(events),
+					StringListValue: checkSums,
 				},
 			},
 		},
 	}
-	return NewTarget(nil, newTarget)
+
+	return ConstructTarget(w, newTarget)
 }
 
 // Calculates a hash based on the attributes of this target only, including
@@ -120,25 +148,31 @@ func shallowHash(w *Workspace, t *bpb.Target) (uint32, error) {
 		}
 		f, err := w.OpenSource(lbl.filePath())
 		if err != nil {
-			return 0, fmt.Errorf("can't open source file %q: %w", lbl.filePath(), err)
-		}
-		defer f.Close()
-
-		err = hashFile(h, f)
-		if err != nil {
-			// TODO(scott): After moving to go 1.17, replace this error
-			// introspection with a call to Stat before Open (requires os.DirFS to
-			// return an fs.StatFS). String validation is hacky, but it works for both
-			// tests and prod, which return different error types so type assertion is
-			// not possible here.
-			if strings.Contains(err.Error(), "is a directory") {
-				// Somehow a directory got passed as a label. This sometimes happens to
-				// format directories onto action commandlines; in these cases, the
-				// action doesn't depend on the directory's contents per se, but rather
-				// the directory name. Add the name to the hash and continue.
-				fmt.Fprintf(h, "%s", extractName(t))
+			err = fmt.Errorf("can't open source file %q: %w", lbl.filePath(), err)
+			if lbl.isExternal() {
+				slog.Error("%s", err)
 			} else {
 				return 0, err
+			}
+		}
+		if f != nil {
+			defer f.Close()
+			err = hashFile(h, f)
+			if err != nil {
+				// TODO(scott): After moving to go 1.17, replace this error
+				// introspection with a call to Stat before Open (requires os.DirFS to
+				// return an fs.StatFS). String validation is hacky, but it works for both
+				// tests and prod, which return different error types so type assertion is
+				// not possible here.
+				if strings.Contains(err.Error(), "is a directory") {
+					// Somehow a directory got passed as a label. This sometimes happens to
+					// format directories onto action commandlines; in these cases, the
+					// action doesn't depend on the directory's contents per se, but rather
+					// the directory name. Add the name to the hash and continue.
+					fmt.Fprintf(h, "%s", extractName(t))
+				} else {
+					return 0, err
+				}
 			}
 		}
 
@@ -148,7 +182,8 @@ func shallowHash(w *Workspace, t *bpb.Target) (uint32, error) {
 		// No need to do anything more here.
 
 	case bpb.Target_PACKAGE_GROUP:
-		return 0, fmt.Errorf("PACKAGE_GROUP hashing not implemented")
+		// Just skip PACKAGE_GROUP hashing
+		// return 0, fmt.Errorf("PACKAGE_GROUP hashing not implemented")
 	case bpb.Target_ENVIRONMENT_GROUP:
 		return 0, fmt.Errorf("ENVIRONMENT_GROUP hashing not implemented")
 	}
@@ -261,6 +296,8 @@ func extractChecksums(events []*bpb.WorkspaceEvent) []string {
 				fmt.Printf("got checksum: %q\n", e.ExecuteEvent.GetArguments()[1])
 				checksums = append(checksums, e.ExecuteEvent.GetArguments()[1])
 			}
+		default:
+			slog.Debug("Unchecked workspace event type  type: %s", protojson.Format(event))
 		}
 	}
 	sort.Strings(checksums)
@@ -288,6 +325,7 @@ func (t *Target) getHashInteral(w *Workspace, chain *map[string]struct{}) (uint3
 	for _, dep := range t.deps {
 		hash, err := dep.getHashInteral(w, chain)
 		if err != nil {
+			// fmt.Errorf("Target.getHash() for: %s, error:", dep.name, err)
 			return 0, err
 		} else {
 			fmt.Fprintf(h, "%d", hash)
