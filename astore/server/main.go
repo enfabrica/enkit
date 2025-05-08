@@ -169,7 +169,7 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 	})
 
 	// This is for appengine deployments - see https://cloud.google.com/appengine/docs/legacy/standard/python/how-instances-are-managed#startup
-	mux.HandleFunc("/_ah/", func (w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/_ah/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		log.Infof("received _ah request for %s %s", r.Host, r.URL.Path)
 		fmt.Fprintf(w, "I hear you.")
@@ -195,8 +195,13 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 	mux.HandleFunc("/g/", reqAuth.WithCredentialsOrError(func(w http.ResponseWriter, r *http.Request) {
 		astoreServer.DownloadArtifact("/g/", func(upath string, resp *rpc_astore.RetrieveResponse, err error, w http.ResponseWriter, r *http.Request) {
 			DownloadHandler("", upath, resp, err, w, r)
-		}, w, r)
+		}, astore.AuthTypeOauth, w, r)
 	}))
+	mux.HandleFunc("/gt/", func(w http.ResponseWriter, r *http.Request) {
+		astoreServer.DownloadArtifact("/gt/", func(upath string, resp *rpc_astore.RetrieveResponse, err error, w http.ResponseWriter, r *http.Request) {
+			DownloadHandler("", upath, resp, err, w, r)
+		}, astore.AuthTypeToken, w, r)
+	})
 
 	// Web authentication endpoint. Other web services can redirect the user to /w here with an r= parameter to perform authentication,
 	// and redirect the user back to the r= target if authentication succeeds.
@@ -305,7 +310,7 @@ func main() {
 	}
 
 	kcobra.PopulateDefaults(command, os.Args,
-		kflags.NewAssetAugmenter(&logger.NilLogger{}, "astore-server", credentials.Data),
+		kflags.NewAssetAugmenter(logger.Go, "astore-server", credentials.Data),
 	)
 	kcobra.Run(command)
 }
