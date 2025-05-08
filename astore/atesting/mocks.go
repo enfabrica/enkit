@@ -1,3 +1,4 @@
+//go:build !release
 // +build !release
 
 package atesting
@@ -5,13 +6,16 @@ package atesting
 import (
 	"bufio"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/knetwork"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 type MinioDescriptor struct {
@@ -29,25 +33,31 @@ type EmulatedDatastoreDescriptor struct {
 	Addr *net.TCPAddr
 }
 
-func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, error) {
-	portDescriptor, err := knetwork.AllocatePort()
-	if err != nil {
-		return nil, nil, err
-	}
-	tcpAddr, err := portDescriptor.Address()
-	if err != nil {
-		return nil, nil, err
-	}
-	cmd := exec.Command("gcloud",
-		"beta", "emulators", "datastore", "start",
+func RunEmulatedDatastore(t *testing.T) (*EmulatedDatastoreDescriptor, KillAbleProcess) {
+	t.Helper()
+
+	testTmpdir := os.Getenv("TEST_TMPDIR")
+	// There's currently no easy way to get an unallocated port number without
+	// opening said port; hardcode a port here (requires that tests that use
+	// this not run concurrently with each other)
+	testAddr, err := net.ResolveTCPAddr("tcp4", "127.0.0.1:8432")
+	require.NoError(t, err)
+
+	t.Logf("Starting emulated Datastore on address %q", testAddr)
+	cmd := exec.Command(
+		"gcloud",
+		"beta",
+		"emulators",
+		"datastore",
+		"start",
 		"--no-store-on-disk",
-		fmt.Sprintf("--host-port=127.0.0.1:%d", tcpAddr.Port),
+		"--data-dir="+testTmpdir,
+		"--host-port="+testAddr.String(),
 		"--quiet")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	outputStdErrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, nil, err
-	}
+	require.NoError(t, err)
+
 	err = cmd.Start()
 	killFunc := []func(){
 		func() {
@@ -55,10 +65,10 @@ func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, erro
 			if err := cmd.Process.Kill(); err != nil {
 				log.Fatalln(fmt.Sprintf("error killing process %d", cmd.Process.Pid))
 			}
-		}}
-	if err != nil {
-		return nil, killFunc, err
+		},
 	}
+	require.NoError(t, err)
+
 	datastoreBooted := make(chan bool)
 	// TODO(adam): concatenate stdout and stderr?
 	// the datastore emulator writes all logs to the error channel for some reason
@@ -68,24 +78,25 @@ func RunEmulatedDatastore() (*EmulatedDatastoreDescriptor, KillAbleProcess, erro
 		for scannerErr.Scan() {
 			emulatorOutputText += scannerErr.Text()
 			if strings.Contains(scannerErr.Text(), "Dev App Server is now running") {
+				t.Logf("Started emulated Datastore successfully")
 				datastoreBooted <- true
 			}
 		}
 	}()
 	select {
 	case <-time.After(15 * time.Second):
-		return nil, nil, fmt.Errorf("timeout on starting the emulator, output is %v", emulatorOutputText)
+		require.FailNowf(t, "timeout on starting the emulator", "output is %v", emulatorOutputText)
 	case result := <-datastoreBooted:
 		if result {
 			return &EmulatedDatastoreDescriptor{
-				Addr: tcpAddr,
-			}, killFunc, nil
+				Addr: testAddr,
+			}, killFunc
 		}
-		return nil, killFunc, fmt.Errorf("unable to start emulator, output is %v", emulatorOutputText)
+		require.FailNowf(t, "unable to start emulator", "output is %v", emulatorOutputText)
 	}
+	require.FailNow(t, "unreachable")
+	return nil, nil
 }
-
-
 
 type KillAbleProcess []func()
 
@@ -101,6 +112,6 @@ func (k *KillAbleProcess) AddKillable(process KillAbleProcess) {
 	*k = append(*k, process...)
 }
 
-func (k *KillAbleProcess) Add(p func()){
+func (k *KillAbleProcess) Add(p func()) {
 	*k = append(*k, p)
 }

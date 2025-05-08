@@ -17,11 +17,11 @@ import (
 
 // TODO(aaahrens): fix client so that its signed urls can depend on an interface for actual e2e testing.
 func TestServer(t *testing.T) {
-	astoreDescriptor, killFuncs, err := RunAStoreServer()
+	astoreDescriptor, killFuncs := RunAStoreServer(t)
 	if killFuncs != nil {
 		defer killFuncs.KillAll()
 	}
-	assert.Nil(t, err)
+
 	// Running this as test ping feature.
 	client := astore.New(astoreDescriptor.Connection)
 	res, _, err := client.List("/test", astore.ListOptions{})
