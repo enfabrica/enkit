@@ -2,11 +2,16 @@ package astore
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"fmt"
 	"testing"
 
 	"cloud.google.com/go/datastore"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/stretchr/testify/require"
 	dpb "google.golang.org/genproto/googleapis/datastore/v1"
 )
 
@@ -191,10 +196,24 @@ func int32Val(i int32) *wrappers.Int32Value {
 
 func kindArtifact() []*dpb.KindExpression {
 	return []*dpb.KindExpression{
-		&dpb.KindExpression{
+		{
 			Name: "Artifact",
 		},
 	}
+}
+
+func generateTokenKeypair(t *testing.T) *ecdsa.PrivateKey {
+	t.Helper()
+	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	return k
+}
+
+func createToken(t *testing.T, key *ecdsa.PrivateKey, claims jwt.Claims) string {
+	t.Helper()
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(key)
+	require.NoError(t, err)
+	return signed
 }
 
 const (
