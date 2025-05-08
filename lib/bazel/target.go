@@ -329,9 +329,9 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 	for _, dep := range t.deps {
 		hash, err := dep.getHash(w)
 		if err != nil {
-			// TODO(scott): Log this condition
 			fmt.Errorf("Target.getHash() for: %s, error:", dep.name, err)
-			continue
+		} else {
+			fmt.Fprintf(h, "%d", hash)
 		}
 	}
 
