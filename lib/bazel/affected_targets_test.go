@@ -27,7 +27,7 @@ func testWorkspace(t *testing.T) *Workspace {
 
 func mustNewTarget(t *testing.T, target *bpb.Target) *Target {
 	t.Helper()
-	newTarget, err := NewTarget(testWorkspace(t), target)
+	newTarget, err := NewTarget(testWorkspace(t), target, nil)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create target: %v", err))
 	}
@@ -36,7 +36,7 @@ func mustNewTarget(t *testing.T, target *bpb.Target) *Target {
 
 func mustNewPseudoTarget(t *testing.T, target *bpb.Target, events map[string][]*bpb.WorkspaceEvent) *Target {
 	t.Helper()
-	newT, err := NewExternalPseudoTarget(target, events)
+	newT, err := NewExternalPseudoTarget(nil, target, events)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create target: %v", err))
 	}
