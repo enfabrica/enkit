@@ -324,20 +324,31 @@ func (t *Target) getHash(w *Workspace) (uint32, error) {
 		return *t.hash, nil
 	}
 
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("getHash for target: %s - %d:", t.name, t.shallowHash))
+
 	h := fnv.New32()
 
 	for _, dep := range t.deps {
 		hash, err := dep.getHash(w)
 		if err != nil {
+			// TODO(scott): Log this condition
 			fmt.Errorf("Target.getHash() for: %s, error:", dep.name, err)
 		} else {
 			fmt.Fprintf(h, "%d", hash)
+			sb.WriteString(fmt.Sprintf("\n    dep: %s - %d", dep.name, dep.hash))
 		}
 	}
 
 	fmt.Fprintf(h, "%d", t.shallowHash)
 
 	hash := h.Sum32()
+	sb.WriteString(fmt.Sprintf("\nFinal hash: %d", hash))
+
+	if t.name == "//systest/src/lib:files" {
+		fmt.Println("--->", sb.String())
+	}
+
 	t.hash = &hash
 	return hash, nil
 }
