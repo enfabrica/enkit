@@ -14,7 +14,7 @@ import (
 
 type QueryResult struct {
 	Targets         map[string]*Target
-	WorkspaceEvents map[string][]*bpb.WorkspaceEvent
+	Events 			*WorkspaceEvents
 
 	workspace *Workspace
 }
@@ -63,7 +63,13 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 		return nil, fmt.Errorf("Command: %s\nError: %v\n\nbazel stderr:\n%s", cmd.String(), err, cmd.StderrContents())
 	}
 
-	targets := map[string]*Target{}
+	var workspaceEvents *WorkspaceEvents
+	if queryOpts.workspaceLog != nil {
+		workspaceEvents, err = ParseWorkspaceEvents(queryOpts.workspaceLog)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	stdout, err := cmd.Stdout()
 	if err != nil {
@@ -72,42 +78,18 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 	defer stdout.Close()
 	rdr := delimited.NewReader(stdout)
 
-	workspaceEvents := map[string][]*bpb.WorkspaceEvent{}
-	if queryOpts.workspaceLog != nil {
-		rdr := delimited.NewReader(queryOpts.workspaceLog)
-		var buf []byte
-		for buf, err = rdr.Next(); err == nil; buf, err = rdr.Next() {
-			var event bpb.WorkspaceEvent
-			if err := proto.Unmarshal(buf, &event); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal WorkspaceEvent message: %w", err)
-			}
-			workspaceEvents[event.GetRule()] = append(workspaceEvents[event.GetRule()], &event)
-		}
-	}
-
+	targets := map[string]*Target{}
 	var buf []byte
 	for buf, err = rdr.Next(); err == nil; buf, err = rdr.Next() {
 		var target bpb.Target
 		if err := proto.Unmarshal(buf, &target); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal Target message: %w", err)
 		}
-		lbl, err := labelFromString(extractName(&target))
+		newTarget, err := NewTarget(w, &target, workspaceEvents)
 		if err != nil {
 			return nil, err
 		}
-		if lbl.isExternal() {
-			newTarget, err := NewExternalPseudoTarget(&target, workspaceEvents)
-			if err != nil {
-				return nil, err
-			}
-			targets[newTarget.Name()] = newTarget
-		} else {
-			newTarget, err := NewTarget(w, &target)
-			if err != nil {
-				return nil, err
-			}
-			targets[newTarget.Name()] = newTarget
-		}
+		targets[newTarget.Name()] = newTarget
 	}
 	if err != io.EOF {
 		return nil, fmt.Errorf("error while reading stdout from bazel command: %w", err)
@@ -115,7 +97,7 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 
 	return &QueryResult{
 		Targets:         targets,
-		WorkspaceEvents: workspaceEvents,
+		Events: workspaceEvents,
 		workspace:       w,
 	}, nil
 }
@@ -166,20 +148,20 @@ func (l *Label) String() string {
 	return b.String()
 }
 
-func (l *Label) toCoarseExternal() *Label {
-	return &Label{
-		Package: "external",
-		Rule:    l.Workspace,
-	}
-}
-
 func (l *Label) filePath() string {
-	if l.Workspace != "" {
-		panic(fmt.Sprintf("shouldn't be looking up generated files in //external: %+v", l))
+	if len(l.Workspace) == 0 {
+		return filepath.Join(l.Package, l.Rule)
 	}
-	return filepath.Join(l.Package, l.Rule)
+	return filepath.Join("external", l.Workspace, l.Package, l.Rule)
 }
 
 func (l *Label) isExternal() bool {
 	return l.Workspace != "" || l.Package == "external"
+}
+
+func (l *Label) WorkspaceName() string {
+	if len(l.Workspace) != 0 {
+		return l.Workspace
+	}
+	return ""
 }
