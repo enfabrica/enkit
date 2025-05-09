@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-{astore} upload -G -d {dir} {targets} 
+{astore} upload {upload_tag} -G -d {dir} {targets} 

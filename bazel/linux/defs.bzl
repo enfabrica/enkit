@@ -5,6 +5,7 @@ load("//bazel/linux:test.bzl", "kunit_test")
 load("//bazel/linux:uml.bzl", "kernel_uml_run")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 def _kernel_modules(ctx):
     modules = ctx.attr.modules
@@ -107,6 +108,16 @@ def _kernel_modules(ctx):
     else:
         jobs = "-j%d" % ctx.attr.jobs
 
+    if ctx.attr.local_kernel and ki.arch == "host":
+        kernel_build_dir = ctx.attr.local_kernel[BuildSettingInfo].value
+        if kernel_build_dir[0] != '/':
+            # When building against a local kernel we force the action to execute
+            # locally but the rest of the build happens remotely. This leaves
+            # a small chance for cache poisoning. Forcing the user to pass
+            # an absolute path makes it less likely two independent builds will
+            # collide (i.e. --@enkit//:kernel_dir=~/kernel/vm-build).
+            fail("--@enkit//:kernel_dir argument must be an absolute path.")
+
     make_args = ctx.attr.make_format_str.format(
         src_dir = srcdir,
         kernel_build_dir = kernel_build_dir,
@@ -136,6 +147,10 @@ def _kernel_modules(ctx):
 
     extra.append("EXTRA_CFLAGS+=\"%s\"" % cflags)
 
+    # equivalent to tags = ["no-remote"], but tags are not configurable attributes -
+    # https://github.com/bazelbuild/bazel/issues/2971
+    execution_requirements = None if ctx.attr.remote else {"no-remote": "foo"}
+
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
         progress_message = message,
@@ -150,6 +165,7 @@ def _kernel_modules(ctx):
         inputs = inputs,
         use_default_shell_env = True,
         tools = tools,
+        execution_requirements = execution_requirements,
     )
 
     bundled.append(KernelModulesInfo(
@@ -197,6 +213,14 @@ whatever you do when not debugging flaky builds.
             mandatory = True,
             allow_single_file = True,
             doc = "A label pointing to the Makefile to use. Unless you are doing anything funky, normally you would have the string 'Makefile' here.",
+        ),
+        "remote": attr.bool(
+            default = True,
+            doc = "Whether to allow remote execution, should be set to false when building against a local kernel",
+        ),
+        "local_kernel": attr.label(
+            mandatory = False,
+            providers = [BuildSettingInfo],
         ),
         "modules": attr.string_list(
             mandatory = True,
@@ -415,7 +439,7 @@ def _kernel_module_targets(*args, **kwargs):
 def kernel_module(*args, **kwargs):
     """Convenience wrapper around kernel_modules_rule.
 
-    Use this wrpaper for building a single out of tree kernel module.
+    Use this wrapper for building a single out of tree kernel module.
 
     The parameters passed to kernel_module are just passed to
     kernel_module_rule, except for what is listed below.
@@ -447,7 +471,17 @@ def kernel_module(*args, **kwargs):
     kwargs["modules"] = [kwargs.pop("module", kwargs["name"])]
 
     if "make_format_str" not in kwargs:
-        kwargs["make_format_str"] = "-C $PWD/{kernel_build_dir} M=$PWD/{src_dir} {modules}"
+        kwargs["make_format_str"] = "-C {kernel_build_dir} M=$PWD/{src_dir} {modules}"
+
+    kwargs["local_kernel"] = select({
+        Label("//:kernel_dir_placeholder"): None,
+        "//conditions:default": Label("//:kernel_dir"),
+    })
+
+    kwargs["remote"] = select({
+        Label("//:kernel_dir_placeholder"): True,
+        "//conditions:default": False,
+    })
 
     return _kernel_module_targets(*args, **kwargs)
 

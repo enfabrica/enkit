@@ -5,6 +5,7 @@ load("//bazel/linux:providers.bzl", "KernelBundleInfo")
 kernel_aarch64_constraints = [
     "@platforms//cpu:aarch64",
     "@platforms//os:linux",
+    Label("//bazel/linux/platforms:gcc_13"),
 ]
 
 def _kernel_aarch64_transition_impl(settings, attr):

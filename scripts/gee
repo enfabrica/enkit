@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.51"
+readonly VERSION="0.2.59"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -851,15 +851,32 @@ function _gh_auth_check() {
   # Wrap gh auth check and return correct exit codes on failure,
   # to work around https://github.com/cli/cli/issues/8845
   local -a RESULT=()
+  # Check gh auth status:
   if _read_cmd RESULT "${GH}" auth status; then
     if [[ "${RESULT[1]}" =~ Failed ]]; then
+      _error "gh auth status command failed.  Do you have a valid github API token?"
       return 1
-    else
-      return 0
     fi
   else
     return 1
   fi
+  ### TODO(jonathan): the following breaks with 2023 version of gh.  Find a way
+  ###    to fail functional.
+  ### # Check if we have the right token scopes:
+  ### local SCOPES=""
+  ### SCOPES="$("${GH}" api --verbose / | grep X-Oauth-Scopes: )"
+  ### MISSING=""
+  ### for S in "read:org" "repo" "admin:public_key" "admin:ssh_signing_key"; do
+  ###   if ! [[ "${SCOPES}" == *"${S}"* ]]; then
+  ###     MISSING+=" ${S}"
+  ###   fi
+  ### done
+  ### if [[ -n "${MISSING}" ]]; then
+  ###   _error "Your github API token is missing the following permissions: ${MISSING}"
+  ###   return 1
+  ### fi
+  ### _info "All github API permissions present."
+  return 0
 }
 
 function _gh_authenticate() {
@@ -883,6 +900,7 @@ function _gh_authenticate() {
       "   * \"repo\" (enables the whole sub-tree of permissions)" \
       "   * \"read:org\" (below the \"admin:org\" permission tree)" \
       "   * \"admin:public_key\" (enables the whole sub-tree of permissions)" \
+      "   * \"admin:ssh_signing_key\"" \
       "6. Finally, click \"Generate token\" at the bottom of the form." \
       ""
     local TOKEN=""
@@ -1222,6 +1240,17 @@ function _warn() {
   printf >&2 "${_COLOR_WARN}WARNING: %s${_COLOR_RST}\n" "$@"
 }
 
+# Report an error but don't die.
+function _error() {
+  local COLS LINE LEN BLANK
+  printf "  error: %s\n" "$@" | _to_gee_log
+  COLS="$(safe_tput cols)"
+  for LINE in "$@"; do
+    LEN="$( printf "%s\n" "$@" | wc -L )"
+    BLANK="$(head -c "$(( COLS - LEN - 8 ))" /dev/zero | tr '\0' ' ')"
+    printf >&2 "${_COLOR_DIE}ERROR: %s%s${_COLOR_RST}\n" "${LINE}" "${BLANK}"
+  done
+}
 # Use _fatal for user errors that don't require a stack dump.
 # "The user is going to be sad when they see this."
 function _fatal() {
@@ -1337,6 +1366,10 @@ function _read_cmd() {
       fi
     fi
     set -e
+    if [[ "${READ_CMD_ECHO}" == 1 ]]; then
+      local VAR_ITEMS="${VAR}[@]"
+      printf >&2 "%s\n" "${!VAR_ITEMS}"
+    fi
     return "${RC}"
   else
     local C
@@ -1384,12 +1417,20 @@ function _git_can_fail() {
 function _git_rev_list_counts() {
   local B="$1"
   local P="$2"
+
+  if [[ "${B}" == upstream/refs/pull/*/head ]]; then
+    "${GIT}" fetch --quiet --force upstream "${B#upstream/refs/}:FETCH_HEAD_B" >/dev/null 2>&1
+    B=FETCH_HEAD_B
+  elif [[ "${B}" == */* ]]; then
+    "${GIT}" fetch --quiet --force "${B%%/*}" "${B#upstream/}:FETCH_HEAD_B" >/dev/null 2>&1
+    B=FETCH_HEAD_B
+  fi
   if [[ "${P}" == upstream/refs/pull/*/head ]]; then
-    "${GIT}" fetch upstream "${P#upstream/refs/}" >/dev/null 2>&1
-    P=FETCH_HEAD
+    "${GIT}" fetch --quiet --force upstream "${P#upstream/refs/}:FETCH_HEAD_P" >/dev/null 2>&1
+    P=FETCH_HEAD_P
   elif [[ "${P}" == */* ]]; then
-    "${GIT}" fetch "${P%%/*}" "${P#upstream}" >/dev/null 2>&1
-    P=FETCH_HEAD
+    "${GIT}" fetch --quiet --force "${P%%/*}" "${P#upstream/}:FETCH_HEAD_P" >/dev/null 2>&1
+    P=FETCH_HEAD_P
   fi
   "${GIT}" rev-list --left-right --count "${B}...${P}" || /bin/true
 }
@@ -1453,10 +1494,10 @@ function _branch_ahead_behind() {
   fi
   local -a counts
   read -r -a counts < <(_git_rev_list_counts "${branch}" "${obr}") || /bin/true
-  if (( "${counts[0]}" == 0 )) && (( "${counts[1]}" == 0 )); then
+  if [[ "${counts[0]}" == "0" ]] && [[ "${counts[1]}" == "0" ]]; then
     printf "%-20s: same as %s" "${branch}" "${obr}"
   else
-    printf "%-20s: %s ahead, %s behind %s" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
+    printf "%-20s: %q ahead, %q behind %s" "${branch}" "${counts[0]}" "${counts[1]}" "${obr}"
   fi
   if _remote_branch_exists origin "${branch}"; then
     counts=()
@@ -1488,6 +1529,12 @@ function _local_branch_exists() {
   # Returns true if a local branch exists (even if it's worktree was deleted).
   # Fixes up the worktree if the branch is missing from the worktree.
   local BRANCH="$1"; shift
+
+  if [[ "${BRANCH}" == */* ]]; then
+    _warn "${BRANCH}: is not a local branch name."
+    return 1
+  fi
+
   _set_main
   if ! "${GIT}" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
     return 1  # false
@@ -1568,7 +1615,7 @@ function _interactive_conflict_resolution() {
     SKIP=0
     RESTART=0
     if [[ "${#STATUS[@]}" -eq 0 ]]; then
-      _warn "Empty commit, skipping automatically."
+      _info "Empty commit, skipping automatically."
       SKIP=1
     fi
     for STATUS_LINE in "${STATUS[@]}"; do
@@ -1818,21 +1865,14 @@ function _safer_rebase() {
   CHILD_DIR="$(_get_branch_rootdir "${CHILD}")"
   cd "${CHILD_DIR}"
   local PARENT_HEAD
-  if [[ "${PARENT}" == */* ]]; then
-    # make sure remote is up to date:
-    _git fetch "${PARENT%%/*}"
-    PARENT_HEAD="$(git ls-remote "${PARENT%%/*}" "${PARENT#upstream/}" | awk '{print $1}')"
-  else
-    PARENT_HEAD="$(git show-ref "refs/heads/${PARENT}" | awk '{print $1}')"
-  fi
+  _get_parent_head_commit PARENT_HEAD "${PARENT}"
 
-  # Use rebase for local parent branches, or pull for remote parent branches.
   local -a GITCMD=()
   GITCMD+=( rebase --autostash )
   if [[ -n "${ONTO}" ]]; then
     GITCMD+=(--onto "${ONTO}")
   fi
-  GITCMD+=( "${PARENT}" "${CHILD}" )
+  GITCMD+=( "${PARENT_HEAD}" "${CHILD}" )
 
   _checkout_or_die "${CHILD}"
   if ! _git "${GITCMD[@]}"; then
@@ -1875,6 +1915,19 @@ function _is_rebase_in_progress() {
   fi
 }
 
+function _is_cherry_pick_in_progress() {
+  local RC
+  NOFAIL=1 "${GIT}" rev-parse --verify CHERRY_PICK_HEAD >/dev/null 2>/dev/null
+  RC=$?
+  if [[ "${RC}" == 0 ]]; then
+    return 0  # cherry-pick is in progress
+  elif [[ "${RC}" == 128 ]]; then
+    return 1  # cherry-pick is not in progress
+  else
+    _die "git rev-parse --verify CHERRY_PICK_HEAD failed with unexpected code: ${RC}"
+  fi
+}
+
 function _push_to_origin() {
   local B="$1"
   if [[ -z "${B}" ]]; then
@@ -1890,6 +1943,12 @@ function _checkout_or_die() {
   # whatever is necessary.
   local BRANCH BRDIR
   BRANCH="$1"; shift
+
+  if [[ "${BRANCH}" == */* ]]; then
+    _warn "${BRANCH}: is not a local branch name."
+    return 1
+  fi
+
   # Do we already have a worktree?
   BRDIR="${GEE_REPO_DIR}/${BRANCH}"
   if ! [[ -d "${BRDIR}" ]]; then
@@ -2390,6 +2449,8 @@ function gee__init() {
   _git remote add upstream "${UPSTREAM_URL}"
   _git fetch upstream
   _git remote -v
+  _gh repo set-default "${UPSTREAM}/${REPO}"
+  _gh repo set-default --view
 
   # Fix the name of the main branch to match the actual branch name:
   local OLD_MAIN="${MAIN}"
@@ -2416,17 +2477,22 @@ Usage: gee config <option>
 Valid configuration options are:
 
 * "default": Reset to default settings.
-* "enable_vim": Set "vimdiff" as your merge tool.
-* "enable_emacs": Set "emacs" as your merge tool.
-* "enable_vscode": Set "vscode" as your GUI merge tool.
-* "enable_meld": Set "meld" as your GUI merge tool.
-* "enable_bcompare": Set "BeyondCompare" as your GUI merge tool.
+* "enable_vim": Set "vimdiff" as your diff/merge tool.
+* "enable_nvim": Set "nvimdiff" as your diff/merge tool.
+* "enable_emacs": Set "emacs" as your diff/merge tool.
+* "enable_vscode": Set "vscode" as your GUI diff/merge tool.
+* "enable_meld": Set "meld" as your GUI diff/merge tool.
+* "enable_bcompare": Set "BeyondCompare" as your GUI diff/merge tool.
 EOT
 function gee__config() {
   _git config --global rerere.enabled true
   case "$1" in
     default)
-      gee__config enable_vim
+      if command -v nvim >/dev/null; then
+        gee__config enable_nvim
+      else
+        gee__config enable_vim
+      fi
       gee__config enable_meld
       ;;
     enable_vim)
@@ -2437,6 +2503,15 @@ function gee__config() {
       _git config --global diff.difftool vimdiff
       _git config --global difftool.vimdiff.cmd \
         "vimdiff \"\$LOCAL\" \"\$REMOTE\""
+      ;;
+    enable_nvim)
+      _info "Setting vimdiff as the default text-based diff and merge tool."
+      _git config --global merge.tool nvimdiff
+      _git config --global merge.conflictstyle diff3
+      _git config --global mergetool.prompt false
+      _git config --global diff.difftool nvimdiff
+      _git config --global difftool.nvimdiff.cmd \
+        "nvim -d \"\$LOCAL\" \"\$REMOTE\""
       ;;
     enable_vscode)
       _info "Setting vscode as the default GUI diff and merge tool."
@@ -2481,7 +2556,14 @@ function gee__config() {
       _fatal "enable_emacs: not yet supported."
       ;;
     *)
-      _info "Valid options include:" \ default \ enable_vim \ enable_emacs \ enable_vscode
+      _info "Valid options include:" \
+           default \
+           enable_bcompare \
+           enable_emacs \
+           enable_meld \
+           enable_nvim \
+           enable_vim \
+           enable_vscode
       _fatal "Unknown configuration directive."
       ;;
   esac
@@ -2553,31 +2635,19 @@ function gee__make_branch() {
   _write_parents_file
 
   # If the user has created a branch whose name matches an
-  # existing branch in their existing repo, pull those changes
-  # into this branch.
+  # existing branch in their existing repo, reset this branch
+  # to match what is in origin.
   _git fetch origin
   if _remote_branch_exists origin "${BRNAME}"; then
+    _warn "Found existing \"origin/${BRNAME}\" branch: resetting local \"${BRNAME}\" to match."
     _checkout_or_die "${BRNAME}"
+    # always make our local branch the same as what's in origin.
+    _git reset --hard "origin/${BRNAME}"
     local -a COUNTS
-    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "HEAD...origin/${CURRENT_BRANCH}")
+    read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "HEAD...${SHA}")
     if [[ "${COUNTS[1]}" -gt 0 ]]; then
-      if [[ "${COUNTS[0]}" -eq 0 ]]; then
-        _warn "Remote branch origin/${BRNAME} is ${COUNTS[1]} commit(s) ahead of master." \
-              "Do you want to reset your local branch to be the same as origin/${BRNAME}?"
-        if _confirm_default_yes "Reset ${BRNAME} to match origin/${BRNAME}?  (Y/n)  "; then
-          _git reset --hard "origin/${BRNAME}"
-        else
-          _warn "Commits from origin/${BRNAME} were not imported." \
-                "You probably want to run \"gee update\" in branch ${BRNAME}."
-        fi
-      else
-        _warn "Local branch has ${COUNTS[0]} commits that are not in origin." \
-              "Origin has ${COUNTS[1]} commits that are not in the local branch." \
-              "You probably want to run \"gee update\" in branch ${BRNAME}."
-      fi
-    else
-      _warn "Remote branch origin/${BRNAME} exists but was not ahead of master." \
-            "No commits were imported from origin/${BRNAME}."
+      _warn "Parent branch ${SHA} is ${COUNTS[1]} commits ahead of this branch." \
+            "You probably want to do a \"gee update\" operation in branch ${BRNAME}."
     fi
   fi
 }
@@ -2652,7 +2722,7 @@ function gee__diff() {
   PARENT_BRANCH="$(_get_parent_branch)"
   # branches created with "gee pr_checkout" need special handling:
   if [[ "${PARENT_BRANCH}" == upstream/* ]]; then
-    _git fetch upstream "${PARENT_BRANCH#upstream/}"
+    _git fetch --force upstream "${PARENT_BRANCH#upstream/}"
     PARENT_BRANCH="FETCH_HEAD"
   fi
   if (( "$#" )); then
@@ -2756,23 +2826,27 @@ function gee__grep() {
 # vimdiff command
 ##########################################################################
 
-_register_help "vimdiff" "Runs vimdiff to compare changes in a file." <<'EOT'
-Usage: gee vimdiff <filename>
+_register_help "difftool" "Runs the difftool to compare changes in a file." <<'EOT'
+Usage: gee difftool <filename>
 
-Invokes vimdiff to show and edit the changes to a specific file in the current
+Invokes difftool to show and edit the changes to a specific file in the current
 branch, versus the version in the parent branch.  This can be useful to clean
 up local changes, especially after resolving merge conflicts.
 
 If installed, neovim will be used.  Otherwise, gee will fallback to vim.
 
 When working in a branch created with `pr_checkout`, the parent branch isn't
-a local worktree, and so vimdiff will produce an error and fail.
+a local worktree, and so difftool will produce an error and fail.
 
 Example of use:
 
-    gee vimdiff BUILD.bazel
+    gee difftool BUILD.bazel
+
+See also: the "gee config" command can be used to select between different
+supported diff/merge tools.
 
 EOT
+function gee__difftool() { gee__vimdiff "$@"; }
 function gee__vimdiff() {
   _startup_checks "vimdiff"
   _check_cwd
@@ -2783,7 +2857,7 @@ function gee__vimdiff() {
 
   local FILENAME="$1"
   if [[ -z "${FILENAME}" ]]; then
-    _fatal "vimdiff requires a filename argument."
+    _fatal "gee difftool requires a filename argument."
   elif [[ ! -e "${FILENAME}" ]]; then
     _fatal "File \"${FILENAME}\" does not exist."
   fi
@@ -2796,19 +2870,11 @@ function gee__vimdiff() {
   local PARENT_BRANCH PARENT_ROOT_DIR
   _read_parents_file
   PARENT_BRANCH="$(_get_parent_branch)"
-  # branches created with "gee pr_checkout" need special handling:
-  if [[ "${PARENT_BRANCH}" == upstream/* ]]; then
-    _fatal "gee vimdiff doesn't support pr_checkout-created branches yet."
-  fi
-  PARENT_ROOT_DIR="$(_get_branch_rootdir "${PARENT_BRANCH}")"
 
-  if command -v nvim >/dev/null; then
-    _cmd nvim -d "${PARENT_ROOT_DIR}/${RELPATH}" "${BRANCH_ROOT_DIR}/${RELPATH}"
-  elif command -v vimdiff >/dev/null; then
-    _cmd vimdiff "${PARENT_ROOT_DIR}/${RELPATH}" "${BRANCH_ROOT_DIR}/${RELPATH}"
-  else
-    _fatal "Neither nvim nor vimdiff seem to be installed."
-  fi
+  local DIFFTOOL
+  DIFFTOOL="$(${GIT} config --global --get diff.difftool)"
+
+  _git difftool -t "${DIFFTOOL}" "${PARENT_BRANCH}" -- "${FILENAME}"
 }
 
 ##########################################################################
@@ -3267,6 +3333,38 @@ Usage: gee whatsout
 Reports which files in this branch differ from parent branch.
 EOT
 
+# _get_parent_head_commit <varname> <parent>
+#
+# git sometimes makes it hard for some commands to refer to branches in
+# remote repos.  This function takes any refspec that looks like it
+# refers to a remote repo and turns that into a commit id.  Otherwise,
+# it leaves it alone.
+#
+# Sets the value of indirect variable <varname> to a commit, local branch, or
+# local tag name associated with the <parent> reference specification.
+function _get_parent_head_commit() {
+  local VARNAME="$1"; shift
+  local PARENT="$1"; shift
+  local _PARENT_HEAD
+  local -a OUTPUT=()
+  local -a WORDS=()
+  if [[ "${PARENT}" == */* ]]; then
+    # make sure remote is up to date:
+    _git fetch "${PARENT%%/*}" "${PARENT#*/}"
+    READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" show -s --format=oneline FETCH_HEAD
+    read -r -a WORDS <<< "${OUTPUT[0]}"
+    _PARENT_HEAD="${WORDS[0]}"
+  else
+    # Note: git show-ref "refs/heads/${PARENTS}" is the conventional wisdom
+    # solution, which doesn't work for tags.  Instead, git rev-list works for
+    # both branches and tags.
+    READ_CMD_ECHO=1 _read_cmd OUTPUT "${GIT}" rev-list -n 1 "${PARENT}"
+    read -r -a WORDS <<< "${OUTPUT[0]}"
+    _PARENT_HEAD="${WORDS[0]}"
+  fi
+  printf -v "${VARNAME}" '%s' "${_PARENT_HEAD}"
+}
+
 function gee__whatsout() {
   _startup_checks "whatsout"
 
@@ -3275,7 +3373,9 @@ function gee__whatsout() {
   BRANCH="$(_get_current_branch)"
   _read_parents_file
   PARENT="$(_get_parent_branch "${BRANCH}")"
-  _git diff --name-only "${PARENT}...${BRANCH}"
+  local PARENT_HEAD
+  _get_parent_head_commit PARENT_HEAD "${PARENT}"
+  _git diff --name-only "${PARENT_HEAD}...${BRANCH}"
   if _branch_has_unstaged_changes; then
     _info "Note: This branch contains uncommitted changes."
   fi
@@ -3377,6 +3477,9 @@ function gee__lsbranches() {
   _set_main
   _git fetch
   for br in "${branches[@]}"; do
+    if [[ "${br}" == FETCH_HEAD* ]]; then
+      continue
+    fi
     if [[ "${br}" != "${MAIN}" ]]; then
       _branch_ahead_behind "${br}"
     fi
@@ -3412,11 +3515,15 @@ function gee__cleanup() {
   local -a empty=()
   local br
   for br in "${branches[@]}"; do
+    if [[ "${br}" == */* ]]; then
+      _warn "Skipping branch with a weird name: ${br}"
+      continue
+    fi
     if [[ "${br}" != "${MAIN}" ]]; then
       local parent
       parent="$(_get_parent_branch "${br}")"
       if [[ "${parent}" == upstream/* ]]; then
-        _git fetch upstream "${parent#upstream/}"
+        _git fetch --force upstream "${parent#upstream/}"
         parent="FETCH_HEAD"
       fi
       local -a  counts=()
@@ -3725,9 +3832,13 @@ function gee__revert() {
 ##########################################################################
 _register_help "pr_checkout" \
   "Create a client containing someone's pull request." <<'EOT'
-Usage: gee pr_checkout <PR>
+Usage: gee pr_checkout [-n <branch-name>] <PR>
 
 Creates a new branch containing the specified pull request.
+
+The "-n" flag may be used to specify a name for the locally created branch.
+Otherwise, gee will default to creating a branch named "pr_<PR>" (ie, "gee
+pr_checkout 1234" creates a branch named "pr_1234").
 
 Note that the new will be configured so that `gee update` will update that
 branch by integrating changes from the original pull request.  However,
@@ -3747,8 +3858,15 @@ function gee__pr_checkout() {
 
   _check_gh_auth
   _set_main
+  local BRANCH=""
+  if [[ "$1" == "-n" ]] || [[ "$1" == "--name" ]]; then
+    BRANCH="$2"
+    shift;shift
+  fi
   local PRNUM="$1"; shift
-  local BRANCH="pr_${PRNUM}"
+  if [[ -z "${BRANCH}" ]]; then
+    BRANCH="pr_${PRNUM}"
+  fi
 
   _checkout_or_die "${MAIN}"  # or _local_branch_exists won't work.
   if ! _local_branch_exists "${BRANCH}"; then
@@ -3818,12 +3936,14 @@ function gee__pr_push() {
   # Identify remote branch
   local -a DATA=()
   _read_cmd DATA "${GH}" pr view "${PRNUM}" \
-    --json author,headRefName,state \
-    --jq '.author["login"],.headRefName,.state'
+    --json author,headRepository,headRepositoryOwner,headRefName,state \
+    --jq '.author["login"],.headRepository["name"],.headRepositoryOwner["login"],.headRefName,.state'
   local REMOTE_USER REMOTE_BRANCH REMOTE_STATE
   REMOTE_USER="${DATA[0]}"
-  REMOTE_BRANCH="${DATA[1]}"
-  REMOTE_STATE="${DATA[2]}"
+  REMOTE_REPO="${DATA[1]}"
+  REMOTE_REPO_OWNER="${DATA[2]}"
+  REMOTE_BRANCH="${DATA[3]}"
+  REMOTE_STATE="${DATA[4]}"
 
   # Check that the remote branch hasn't already been merged.
   if [[ "${REMOTE_STATE}" == "MERGED" ]]; then
@@ -3831,27 +3951,28 @@ function gee__pr_push() {
   fi
 
   # Fetch from remote branch.
-  if ! "${GIT}" remote get-url "${REMOTE_USER}" >/dev/null 2>&1; then
-    _git remote add "${REMOTE_USER}" "${GIT_AT_GITHUB}:${REMOTE_USER}/${REPO}.git" >&2
-  fi
-  _git fetch "${REMOTE_USER}" "${REMOTE_BRANCH}"
+  # We no longer need to add a new remote:
+  # if ! "${GIT}" remote get-url "${REMOTE_USER}" >/dev/null 2>&1; then
+  #   _git remote add "${REMOTE_USER}" "${GIT_AT_GITHUB}:${REMOTE_USER}/${REPO}.git" >&2
+  # fi
+  _git fetch --force "${GIT_AT_GITHUB}:${REMOTE_REPO_OWNER}/${REMOTE_REPO}" "${REMOTE_BRANCH}"
 
   # Check if we are behind remote branch
   local -a COUNTS
   read -r -a COUNTS < <("${GIT}" rev-list --left-right --count "${BRANCH}...FETCH_HEAD")
-  _info "Local has ${COUNTS[0]} more commit(s) than remote ${REMOTE_USER}/${REMOTE_BRANCH}."
+  _info "Local has ${COUNTS[0]} more commit(s) than remote ${REMOTE_REPO_OWNER}/${REMOTE_BRANCH}."
   _info "Remote has ${COUNTS[1]} more commit(s) than local."
   if [[ "${COUNTS[0]}" -eq 0 ]]; then
     _fatal "No local commits to push.  Perhaps you need to \"gee commit\" first?"
   fi
   if [[ "${COUNTS[1]}" -gt 0 ]]; then
-    _warn "Remote branch ${REMOTE_USER}/${REMOTE_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${BRANCH}."
+    _warn "Remote branch ${REMOTE_REPO_OWNER}/${REMOTE_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${BRANCH}."
     _fatal "You must run \"gee update\" and then try again."
   fi
 
   # Push our changes to the remote branch
-  _git push "${REMOTE_USER}" "HEAD:${REMOTE_BRANCH}"
-  _info "Successfully pushed to PR#${PRNUM} (${REMOTE_USER}/${REMOTE_BRANCH})."
+  _git push "${GIT_AT_GITHUB}:${REMOTE_REPO_OWNER}/${REMOTE_REPO}" "HEAD:${REMOTE_BRANCH}"
+  _info "Successfully pushed to PR#${PRNUM} (${REMOTE_REPO_OWNER}/${REMOTE_BRANCH})."
 
   _warn "Please notify ${REMOTE_USER} that they should pull from their remote branch, " \
         "otherwise they might accidentally force-commit over your changes."
@@ -3865,50 +3986,69 @@ _register_help "pr_list" \
   "lspr" "list_pr" "prls" <<'EOT'
 Usage: gee pr_list [--text] [<user>]
 
+
 Lists information about PRs associated with the specified user (or yourself, if
 no user is specified).
 
 The `--text` option provides an alternative formatting for a list of open PRs, more
 suitable for pasting into an email.
 
-Example:
-
-    $ gee lspr jonathan-enf
-    PRs associated with this branch:
-    OPEN 1181 codegen tool
-
-    Open PRs authored by jonathan-enf:
-    #1205   REVIEW_REQUIRED Fix libsystemc build file error.
-    #1181   REVIEW_REQUIRED codegen tool
-    #1158   REVIEW_REQUIRED Added @gmp//:libgmpxx
-    #1148   REVIEW_REQUIRED Added gee to enkit.config.yaml.
-    #1136   REVIEW_REQUIRED Unified PtrQueue and Queue implementations.
-    #1130   REVIEW_REQUIRED Owners of /poc/{sim,models}
-    #1059   REVIEW_REQUIRED CSV file helper library
-
-    PRs pending their review:
-    #1200  taoliu0  2021-08-12T15:26:03Z  Added an example integrating SC
-
-An example of using the "--text" option:
-
-    $ /home/jonathan/gee/enkit/gee_lspr_format/scripts/gee lspr --text
-    * #29644: Lorem ipsum dolor sit amet
-      2023-12-30 APPROVED Checks passed.
-      https://github.com/enfabrica/internal/pull/29644
-
-    * #29641: consectetur adipiscing elit
-      2023-12-30 REVIEW_REQUIRED DRAFT Checks passed.
-      https://github.com/enfabrica/internal/pull/29641
-
-    * #29640: sed do eiusmod tempor incididunt
-      2023-12-30 APPROVED Checks passed.
-      https://github.com/enfabrica/internal/pull/29640
-
-    * #29625: ut labore et dolor magna aliqua
-      2023-12-29 REVIEW_REQUIRED Checks passed.
-      https://github.com/enfabrica/internal/pull/29625
-
 EOT
+function _new_pr_list() {
+  local SEARCH="$1"; shift
+  local JSON TEMPLATE
+  JSON="number,url,author,reviewDecision,title,state,baseRefName,headRefName,createdAt,statusCheckRollup"
+  # golang templates are complex but useful:
+  TEMPLATE=''
+  TEMPLATE+='{{tablerow "URL" "Title" "Author" "Created" "Status" }}'
+  TEMPLATE+='{{tablerow "---" "-----" "------" "-------" "------" }}'
+  TEMPLATE+='{{range .}}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ $status := "" }}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ $color := "reset" }}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ if ne .reviewDecision "REVIEW_REQUIRED" }}{{ $status = .reviewDecision }}{{ end }}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ range .statusCheckRollup}}{{if eq .status "IN_PROGRESS"}}{{ $status = "check pending" }}{{end}}{{end}}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{ $color = "red+b:black" }}{{end}}{{end}}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{if eq $status "APPROVED"}}{{ $color = "blue+b:black" }}{{end}}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|truncate 40|autocolor $color) (.author.login|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
+  TEMPLATE+='{{end}}'
+  gh pr list --search "${SEARCH}" --json "${JSON}" --template "${TEMPLATE}"
+}
+
+function _new_pr_list_with_merging_info() {
+  local SEARCH="$1"; shift
+  local JSON TEMPLATE
+  JSON="number,url,author,reviewDecision,title,state,baseRefName,headRefName,createdAt,statusCheckRollup"
+  # golang templates are complex but useful:
+  TEMPLATE=''
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{tablerow "URL" "Title" "From Branch" "To" "Created" "Status" }}'
+  TEMPLATE+='{{tablerow "---" "-----" "-----------" "--" "-------" "------" }}'
+  TEMPLATE+='{{range .}}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ $status := "" }}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ $color := "reset" }}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ if ne .reviewDecision "REVIEW_REQUIRED" }}{{ $status = .reviewDecision }}{{ end }}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ range .statusCheckRollup}}{{if eq .status "IN_PROGRESS"}}{{ $status = "check pending" }}{{end}}{{end}}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{ range .statusCheckRollup }}{{if eq .conclusion "FAILURE"}}{{ $status = "check failed"}}{{ $color = "red+b:black" }}{{end}}{{end}}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{if eq $status "APPROVED"}}{{ $color = "blue+b:black" }}{{end}}'
+  # shellcheck disable=SC2016
+  TEMPLATE+='{{tablerow (.url|autocolor $color) (.title|truncate 40|autocolor $color) (.headRefName|autocolor $color) (.baseRefName|autocolor $color) (timeago .createdAt|autocolor $color) ($status|autocolor $color)}}'
+  TEMPLATE+='{{end}}'
+  gh pr list --search "${SEARCH}" --json "${JSON}" --template "${TEMPLATE}"
+}
+
 function gee__lspr() { gee__pr_list "$@"; }
 function gee__list_pr() { gee__pr_list "$@"; }
 function gee__prls() { gee__pr_list "$@"; }
@@ -3986,53 +4126,13 @@ function gee__pr_list() {
     return
   fi
 
-  if _in_gee_branch; then
-    _info "PRs associated with this branch:"
-    _get_pull_requests
-    echo ""
-  fi
-
   _info "Open PRs authored by ${WHO_3RD_PERSON}:"
-  ( printf "PR\tbranch\treview\ttitle\n" ; \
-    printf "==\t======\t======\t=====\n" ; \
-   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
-    -L "${PR_LIST_MAX_FETCH}" \
-    --author "${WHO}" \
-    --state open \
-    --json number,reviewDecision,headRefName,title \
-    --jq '.[] | "#\(.number)\t\(.headRefName)\t\(.reviewDecision)\t\(.title)"' \
-    ) | column -t -s $'\t'
+  _new_pr_list_with_merging_info "author:@me"
   echo ""
 
   _info "PRs assigned to ${WHO_3RD_PERSON}:"
-  local -a JQSCRIPT=(
-    '.[]'
-    ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
-  )
-  ( printf "PR\tauthor\tcreated\ttitle\n" ; \
-    printf "==\t======\t=======\t=====\n" ; \
-   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
-    -L "${PR_LIST_MAX_FETCH}" \
-    --assignee "@me" \
-    --json number,author,headRefName,createdAt,state,title,reviewDecision,reviewRequests \
-    --jq "${JQSCRIPT[*]}" \
-    ) | column -t -s $'\t'
+  _new_pr_list "assignee:@me"
   echo ""
-
-  _info "PRs pending ${YOUR} review:"
-  local -a JQSCRIPT=(
-    '.[]'
-    ' | select( .reviewDecision == "REVIEW_REQUIRED" )'
-    ' | select( .reviewRequests[]? | contains({"login":"'"${USER}"'"}))'
-    ' | "#\(.number)\t\(.author.login)\t\(.createdAt)\t\(.title)"'
-  )
-  ( printf "PR\tauthor\tcreated\ttitle\n" ; \
-    printf "==\t======\t=======\t=====\n" ; \
-   "${GH}" --repo "${UPSTREAM}/${REPO}" pr list \
-    -L "${PR_LIST_MAX_FETCH}" \
-    --json number,author,headRefName,createdAt,state,title,reviewDecision,reviewRequests \
-    --jq "${JQSCRIPT[*]}" \
-    ) | column -t -s $'\t'
 }
 
 ##########################################################################
@@ -4128,9 +4228,12 @@ Usage: gee make_pr <gh-options>
 Creates a new pull request from this branch.  The user will be asked to
 edit a PR description file before the PR is created.
 
-If you have any second thoughts during this process: Adding the token "DRAFT"
-to your PR description will cause the PR to be marked as a draft.  Adding the
-token "ABORT" will cause gee to abort the creation of your PR.
+These special tokens, on a line by themselves in your description, have
+the following effect:
+
+* "DRAFT" causes your PR to be marked as a draft.
+* "AUTOMERGE" causes your PR to have auto-merge enabled.
+* "ABORT" will cause gee to abort the creation of your PR.
 
 `pr_make` will look at the recursive parentage of the current branch  until
 it finds a remote branch as a parent.  This remote branch (usually `upstream/master`)
@@ -4233,9 +4336,10 @@ function gee__pr_make() {
 # What manual testing have you performed?
 Tested:
 
-# Having second thoughts?  Uncomment one of these two lines:
-# DRAFT   # To mark this PR as a "draft"
-# ABORT   # To abort the creation of a PR.
+# Uncomment to enable:
+# DRAFT      # To mark this PR as a "draft"
+# AUTOMERGE  # To enable automatic merging when merge requirements are met
+# ABORT      # To abort the creation of a PR.
 
 EndOfPrTemplate
 
@@ -4330,6 +4434,10 @@ EndOfPrTemplate
     DRAFT=1
     PR_ARGS+=( --draft )
   fi
+  local AUTOMERGE=0
+  if grep --quiet -E "^\s*AUTOMERGE" "${TRIMMED}"; then
+    AUTOMERGE=1
+  fi
 
   local ASSIGNEES=()
   mapfile -t ASSIGNEES < <(grep ^ASSIGNEES: "${TRIMMED}" | xargs -n1 | grep -v ^ASSIGNEES:)
@@ -4350,6 +4458,11 @@ EndOfPrTemplate
 
   if (( DRAFT != 1 )); then
     gee__codeowners --comment
+  fi
+
+  if (( AUTOMERGE == 1 )); then
+    sleep 1  # wait for github
+    _gh pr merge --auto --squash </dev/null
   fi
 
   # _gh pr checks  # These take a while to run, no point checking now.
@@ -4394,9 +4507,10 @@ function gee__pr_cancel() {
   FILTER+=" AND (status=\"WORKING\" OR status=\"QUEUED\")"  # and by job status
   while read -r -a FIELDS; do
     local ID="${FIELDS[1]}"
-    _cmd gcloud --project "${GEE_BUILDLOGS_PROJECT}" builds cancel "${ID}" > /dev/null
+    _cmd gcloud --project "${GEE_BUILDLOGS_PROJECT}" builds cancel "${ID}" --region us-west1 > /dev/null
     COUNT=$((COUNT + 1))
   done < <(_cmd gcloud --project="${GEE_BUILDLOGS_PROJECT}" builds list \
+              --region us-west1 \
               --format=yaml \
               --filter="${FILTER}" \
               | grep ^id:)
@@ -4463,7 +4577,9 @@ function _parse_gh_pr_checks() {
     read -r -a FIELDS <<< "${LINE}"
     (( CHECK_COUNTS_REF["${FIELDS[2]}"]++ )) || /bin/true
     if [[ "${FIELDS[2]}" == "fail" ]]; then
-      if [[ "${FIELDS[4]}" =~ builds/([a-f0-9-]*)\?project ]]; then
+      if [[ "${FIELDS[4]}" =~ builds\;region=us-west1/([a-f0-9-]*)\?project ]]; then
+        FAILED_BUILDS_REF+=( "${BASH_REMATCH[1]}" )
+      elif [[ "${FIELDS[4]}" =~ builds/([a-f0-9-]*)\?project ]]; then
         FAILED_BUILDS_REF+=( "${BASH_REMATCH[1]}" )
       else
         _warn "Could not parse build number from URL: ${FIELDS[4]}"
@@ -4554,7 +4670,7 @@ function gee__pr_check() {
       local BUILD
       for BUILD in "${FAILED_BUILDS[@]}"; do
         _warn "Failed build: ${BUILD}"
-        gcloud --project="${GEE_BUILDLOGS_PROJECT}" builds log "${BUILD}" | grep -i -E "(failed:|error:|streaming build results to:)"
+        gcloud --project="${GEE_BUILDLOGS_PROJECT}" builds log "${BUILD}" --region us-west1  | grep -i -E "(failed:|error:|streaming build results to:)"
       done
     fi
   fi
@@ -4888,6 +5004,7 @@ EOT
 function _remove_a_branch() {
   local BR="$1"
   local STATE
+  local PARENT
 
   _banner "Deleting ${BR}"
   # if a local branch exists, or if the worktree directory exists:
@@ -4896,11 +5013,12 @@ function _remove_a_branch() {
     _set_main
 
     # Check if branch is clean
+    PARENT="$(_get_parent_branch "${BR}")"
     STATE=CLEAN
     local -a  counts=()
-    read -r -a counts < <("${GIT}" rev-list --left-right --count "${MAIN}...${BR}")
+    read -r -a counts < <(_git_rev_list_counts "${PARENT}" "${BR}")
     if (( counts[1] != 0 )); then
-      _warn "Branch \"${BR}\" is ${counts[1]} commit(s) ahead of ${MAIN}."
+      _warn "Branch \"${BR}\" is ${counts[1]} commit(s) ahead of ${PARENT}."
       STATE=UNCLEAN
     fi
     if [[ -n "$("${GIT}" status --porcelain)" ]]; then
@@ -4925,7 +5043,7 @@ function _remove_a_branch() {
       BAZELCACHE="$(readlink -f ./bazel-out)"
       BAZELCACHE="${BAZELCACHE%/execroot/*/bazel-out}"
       _info "Removing linked bazel cache directory \"${BAZELCACHE}\""
-      chmod -R u+w "${BAZELCACHE}"
+      chmod -fR u+w "${BAZELCACHE}"
       rm -rf "${BAZELCACHE}"
     fi
 
@@ -5096,6 +5214,9 @@ function gee__gcd() {
     fi
   done
   TARGET="$1"
+  if [[ "${TARGET}" == "" ]]; then
+    _fatal "gcd: target branch argument not specified."
+  fi
   _set_main
 
   if ! _in_gee_branch; then
@@ -5852,6 +5973,105 @@ function gee__restore_all_branches() {
 }
 
 ##########################################################################
+# cherry-pick
+##########################################################################
+
+_register_help "pick" "Cherry-pick in commits from another branch." "cherrypick" \
+<<'EOT'
+Usage: pick <commit>...
+
+The gee wrapper around the git `cherry-pick` command that adds extra
+book-keeping in the `metadata` directory.
+
+The arguments to the pick command are supplied to `git rev-list --reverse` to
+produce a list of commits to integrate.  See `git help rev-list` for proper
+usage, but here are some examples of simple use cases:
+
+* `ABCD1234^..ABCD1234`: specify a single commit
+* `ABCD1234..master_b0`: specify all commits in master_b0 after ABCD1234.
+
+EOT
+
+function gee__cherrypick() { gee__pick "$@"; }
+function gee__pick() {
+  local CURRENT_BRANCH CURRENT_TOPLEVEL UPSTREAM_PARENT BASE_BRANCH METADATA_FILE
+  _update_branch_to_worktree
+  CURRENT_BRANCH="$(_get_current_branch)"
+  UPSTREAM_PARENT="$(_get_upstream_parent "${CURRENT_BRANCH}")"
+  BASE_BRANCH="${UPSTREAM_PARENT#*/}"
+  CURRENT_TOPLEVEL="${BRANCH_TO_WORKTREE["${CURRENT_BRANCH}"]}"
+  METADATA_FILE="${CURRENT_TOPLEVEL}/metadata/cherrypick.${BASE_BRANCH}.log"
+
+  mkdir -p "$(dirname "${METADATA_FILE}")"
+
+  # Read $METADATA_FILE to collect a list of all the commits already integrated.
+  local -a ALREADY_INTEGRATED=()
+  readarray -t ALREADY_INTEGRATED < <(
+    sed -e 's/\s*#.*//' "${METADATA_FILE}" | grep -v -e '^\s*$' | awk '{print $1}'
+  )
+  local -A ALREADY_INTEGRATED_MAP
+  local COMMIT
+  for COMMIT in "${ALREADY_INTEGRATED[@]}"; do
+    ALREADY_INTEGRATED_MAP["${COMMIT}"]=1
+  done
+  _info "Parsed ${#ALREADY_INTEGRATED[@]} commits from ${METADATA_FILE}"
+
+  local -a ALL_COMMITS=()
+  readarray -t ALL_COMMITS < <(_git rev-list --reverse "$@")
+  local -a COMMITS=()
+  for COMMIT in "${ALL_COMMITS[@]}"; do
+    if [[ -v ALREADY_INTEGRATED_MAP["${COMMIT}"] ]]; then
+      _warn "Skipping ${COMMIT}: already integrated according to ${METADATA_FILE}"
+      continue
+    else
+      COMMITS+=( "${COMMIT}" )
+    fi
+  done
+  if (( "${#COMMITS[@]}" == 0 )); then
+    _info "No new commits to integrate."
+    return 0
+  fi
+  echo "Picking: ${COMMITS[*]}"
+  if ! _confirm_default_yes "Do you want to proceed? (Y/n)  "; then
+    _info "Canceled."
+    exit 1
+  fi
+  (
+    printf "\n"
+    printf "# Cherry-picking %s\n" "$*"
+    printf "# User: %s\n" "${USER}"
+    printf "# Date: %s\n" "$(date)"
+  ) >> "${METADATA_FILE}"
+
+  for COMMIT in "${COMMITS[@]}"; do
+    DESC="$(_git show --quiet --pretty=oneline "${COMMIT}")"
+    _info "Merging: ${DESC}"
+    "${GIT}" stash push -- "${METADATA_FILE}"
+    if ! _git cherry-pick -x "${COMMIT}"; then
+      if ! _is_cherry_pick_in_progress; then
+        _die "cherry-pick operation failed, but cherry-pick not in progress.  Bug!"
+      fi
+      _warn "Cherry-pick operation had merge conflicts, entering subshell."
+      # TODO(jonathan): adapt _interactive_conflict_resolution for this.
+      _git mergetool
+      local -a STATUS=()
+      mapfile -t STATUS < <( _git status -s );
+      if [[ -z "${STATUS[*]}" ]]; then
+        _git commit --allow-empty  # This should complete the cherry-pick operation.
+      else
+        _git cherry-pick --continue # This should complete, we're just doing one commit at a time.
+      fi
+      if _is_cherry_pick_in_progress; then
+        echo "# FAILED: ${DESC}" >> "${METADATA_FILE}"
+        _fatal "cherry-pick ${COMMIT} operation did not succeed, aborting."
+      fi
+    fi
+    "${GIT}" stash pop
+    echo "${DESC}" >> "${METADATA_FILE}"
+  done
+}
+
+##########################################################################
 # recover_stashes
 ##########################################################################
 
@@ -6148,9 +6368,16 @@ function gee_prompt_update_git_info() {
     stash_depth=" S=${stash_depth}"
   fi
 
-  GEE_PROMPT_INFO="$(printf "(%s%s%s%s%s%s)" \
+  local assigned=""
+  local assigned_count
+  assigned_count="$(gh pr list --search "assignee:@me" 2>/dev/null | grep -v "^no pull requests" | wc -l)"
+  if [[ "${assigned_count}" > 0 ]]; then
+    assigned=", ASSIGNED_PRs=${assigned_count}"
+  fi
+
+  GEE_PROMPT_INFO="$(printf "(%s%s%s%s%s%s%s)" \
     "${repo}" "${branch}" "${complete_mode}" \
-    "${changes}" "${cached}" "${stash_depth}")"
+    "${changes}" "${cached}" "${stash_depth}" "${assigned}" )"
 }
 
 function gee_prompt_git_info() {
@@ -6453,6 +6680,7 @@ function gee__colortest() {
   _debug "This is _debug"
   _info "This is _info"
   _warn "This is _warn"
+  _error "This is an _error"
   DRYRUN=1 _cmd run --a --command
   (_fatal "This is _fatal") || /bin/true
   (_die "This is _die") || /bin/true

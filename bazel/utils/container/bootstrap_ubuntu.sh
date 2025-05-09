@@ -13,7 +13,7 @@ readonly pkgs="${@:8}"
 
 tmp_root=$(mktemp -d)
 log="$tmp_root/debootstrap/debootstrap.log"
-mkdir -p "$tmp_root/tmp/pkgs" \
+mkdir -p "$tmp_root/downloads/pkgs" \
     "$tmp_root/dev/pts" \
     "$tmp_root/proc" \
     "$tmp_root/etc/ssl/certs/java" \
@@ -62,15 +62,15 @@ sudo mount --rbind /run/dbus "$tmp_root/run/dbus"
 
 for p in $pkgs
 do
-    echo "Unpacking $p into $tmp_root/tmp/pkgs"
+    echo "Unpacking $p into $tmp_root/downloads/pkgs"
     echo "" 
-    sudo tar -xf $p -C "$tmp_root/tmp/pkgs"
+    sudo tar -xf $p -C "$tmp_root/downloads/pkgs"
 done
 
 IFS=','
 for p in $exclude_pkgs
 do
-    sudo rm -f "$tmp_root/tmp/pkgs/$p"
+    sudo rm -f "$tmp_root/downloads/pkgs/$p"
 done
 unset IFS
 
@@ -90,9 +90,9 @@ echo "Copying $install_sh into $tmp_root/tmp/$(basename $install_sh)"
 echo ""
 sudo cp $install_sh "$tmp_root/tmp/$(basename $install_sh)"
 
-echo "Installing additional packages under $tmp_root/tmp/pkgs"
+echo "Installing additional packages under $tmp_root/downloads/pkgs"
 echo ""
-sudo chroot $tmp_root "/tmp/$(basename $install_sh)" "/tmp/pkgs"
+sudo chroot $tmp_root "/tmp/$(basename $install_sh)" "/downloads/pkgs"
 
 echo "Copying $postinstall_sh into $tmp_root/tmp/$(basename $postinstall_sh)"
 echo ""
@@ -107,8 +107,9 @@ sudo chroot $tmp_root "/tmp/$(basename $postinstall_sh)"
 # Exclude the /tmp directory because this contains all downloaded *.deb files
 echo "Packaging bootstrap directory $tmp_root to $outfile"
 echo ""
-sudo tar --exclude="./tmp" \
-    --exclude="./dev" \
+sudo chmod 0755 $tmp_root
+sudo rm -rf $tmp_root/tmp/*
+sudo tar --exclude="./dev" \
     --exclude="./proc" \
     --exclude="./run" -cf $outfile -C $tmp_root .
 # Change ownership of outfile so that bazel doesn't complain about missing output

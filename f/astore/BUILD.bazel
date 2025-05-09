@@ -1,0 +1,7 @@
+load("//bazel/astore:defs.bzl", "astore_tag")
+
+astore_tag(
+    name = "upload_tag",
+    build_setting_default = [],
+    visibility = ["//bazel/astore:__pkg__"],
+)

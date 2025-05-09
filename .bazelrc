@@ -3,6 +3,8 @@
 # see https://docs.bazel.build/versions/master/guide.html#bazelrc
 #
 # The full list of Bazel options: https://docs.bazel.build/versions/master/command-line-reference.html
+common --repo_env=CC=gcc-10 --repo_env=CPP=g++-10 --repo_env=CXX=g++-10
+build --cxxopt="-std=c++20"  --host_cxxopt="-std=c++20" --client_env=BAZEL_CXXOPTS=-std=c++20
 
 build --workspace_status_command "/bin/bash bazel/workspace_status.sh"
 
@@ -24,6 +26,10 @@ run --incompatible_strict_action_env
 # rather than user.bazelrc as suggested in the Bazel docs)
 try-import %workspace%/.bazelrc.user
 
-# TODO(INFRA-4384): Remove this flag once all dependencies are compatible with
-# the new platforms repo for constraints.
-build --noincompatible_use_platforms_repo_for_constraints
+common --noenable_bzlmod
+
+# Manually authenticate for oci_pull to download container images from
+# Google Artifact Registry
+# https://github.com/bazel-contrib/rules_oci/blob/main/docs/pull.md#authentication-using-credential-helpers
+common --credential_helper=us-docker.pkg.dev=%workspace%/tools/artifact_registry_auth.sh
+common --repo_env=OCI_GET_TOKEN_ALLOW_FAIL=1

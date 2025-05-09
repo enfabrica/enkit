@@ -1,5 +1,7 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("//bazel/utils:diff_test.bzl", "diff_test", "diff_test_suite", "extract_file", "md5sum_diff_test")
+load("//bazel/utils:dynamic_wrapper.bzl", "dynamic_wrapper")
 load("//bazel/utils:types.bzl", "escape_and_join")
 load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
 load("//bazel/utils:files.bzl", "write_to_file")
@@ -140,6 +142,21 @@ md5sum_diff_test(
     ],
 )
 
+genrule(
+    name = "test_archive.tgz",
+    srcs = [
+        "escape_and_join1.actual",
+        "testdata/a.expected.txt",
+    ],
+    outs = ["test_archive.tgz"],
+    cmd_bash = "tar -zcf $@ --dereference $(SRCS)",
+)
+
+md5sum_diff_test(
+    name = "md5sum_diff_test_archive_test",
+    srcs = [":test_archive.tgz"],
+)
+
 #### Support targets
 filegroup(
     name = "remote-deps",
@@ -179,7 +196,6 @@ cc_binary(
 )
 
 #### Actual tests
-load("//bazel/utils:dynamic_wrapper.bzl", "dynamic_wrapper")
 
 dynamic_wrapper(
     name = "dynamic-test",

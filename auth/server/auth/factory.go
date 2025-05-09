@@ -21,14 +21,14 @@ type Flags struct {
 	TimeLimit         time.Duration
 	AuthURL           string
 	Principals        string
-	UseGroups	  bool
+	UseGroups         bool
 	CA                []byte
 	UserCertTimeLimit time.Duration
 }
 
 func DefaultFlags() *Flags {
 	return &Flags{
-		TimeLimit: time.Minute * 30,
+		TimeLimit: time.Minute * 6,
 		UseGroups: true,
 	}
 }
@@ -164,7 +164,13 @@ func New(rng *rand.Rand, mods ...Modifier) (*Server, error) {
 		serverPriv: (*common.Key)(priv),
 		useGroups:  true,
 		jars:       map[common.Key]*Jar{},
-		limit:      30 * time.Minute,
+		// Pre-2025 clients by default try at most 5 times, with 10 seconds between attempts.
+		//      6 minutes * 5 = 30 minutes to complete login.
+		// Post-2025 clients by default try at most 1800 times, with 1 second between attempts.
+		//      Once rolled out, we can lower this time to a few seconds, and still allow the user
+		//      1800 * 1 seconds = ~30 minutes to complete login
+		limit:      6 * time.Minute,
+		log:        &logger.NilLogger{},
 	}
 
 	for _, m := range mods {

@@ -17,6 +17,88 @@ def stage_1():
     will override dependendencies loaded as part of later stages, which can be a
     way of forcing a dependency upgrade underneath e.g. io_bazel_rules_go.
     """
+
+    maybe(
+        name = "bazel_features",
+        repo_rule = http_archive,
+        sha256 = "8b1c9b7558498000f5adebbc584b7bf15b6b2bf181448a66f6b2fc5b4c84231c",
+        strip_prefix = "bazel_features-1.23.0",
+        urls = [
+            "https://github.com/bazel-contrib/bazel_features/releases/download/v1.23.0/bazel_features-v1.23.0.tar.gz",
+        ],
+    )
+
+    maybe(
+        name = "platforms",
+        repo_rule = http_archive,
+        sha256 = "29742e87275809b5e598dc2f04d86960cc7a55b3067d97221c9abbc9926bff0f",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.11/platforms-0.0.11.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.11/platforms-0.0.11.tar.gz",
+        ],
+    )
+
+    maybe(
+        name = "rules_cc",
+        repo_rule = http_archive,
+        urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.1.1/rules_cc-0.1.1.tar.gz"],
+        sha256 = "712d77868b3152dd618c4d64faaddefcc5965f90f5de6e6dd1d5ddcd0be82d42",
+        strip_prefix = "rules_cc-0.1.1",
+    )
+
+    maybe(
+        name = "com_google_protobuf",
+        repo_rule = http_archive,
+        integrity = "sha256-EKDVjzmhqQnpXgDougtbHcZNApl/dBFRlTorNln254w=",
+        strip_prefix = "protobuf-29.0",
+        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v29.0.tar.gz"],
+    )
+
+    maybe(
+        name = "rules_python",
+        repo_rule = http_archive,
+        sha256 = "4f7e2aa1eb9aa722d96498f5ef514f426c1f55161c3c9ae628c857a7128ceb07",
+        strip_prefix = "rules_python-1.0.0",
+        patch_args = ["-p1"],
+        patches = [
+            "@enkit//bazel/dependencies/rules_python:exclude_pypi_deps_v1.0.0.patch",
+        ],
+        urls = [
+            "https://github.com/bazelbuild/rules_python/releases/download/1.0.0/rules_python-1.0.0.tar.gz",
+        ],
+    )
+
+    maybe(
+        name = "com_github_grpc_grpc",
+        repo_rule = http_archive,
+        sha256 = "3c95034f6b23ce7d286e2e7b5f3f4f223720b8bb3f5a9662ff96b7013b2c3c26",
+        strip_prefix = "grpc-1.70.0",
+        patch_args = ["-p1"],
+        patches = [
+            "@enkit//bazel/dependencies/grpc:hermetic_py_no_remote.patch",
+            "@enkit//bazel/dependencies/grpc:fix_includes_warning.patch",
+        ],
+        urls = [
+            "https://github.com/grpc/grpc/archive/refs/tags/v1.70.0.tar.gz",
+        ],
+    )
+
+    maybe(
+        name = "rules_proto",
+        repo_rule = http_archive,
+        sha256 = "8e195dbb6a505ca4c7aafa6b7cffa47fe49a261b27a342053cfb2b973cc4aa12",
+        strip_prefix = "rules_proto-7.0.0",
+        url = "https://github.com/bazelbuild/rules_proto/releases/download/7.0.0/rules_proto-7.0.0.tar.gz",
+    )
+
+    maybe(
+        name = "com_google_absl",
+        repo_rule = http_archive,
+        sha256 = "16242f394245627e508ec6bb296b433c90f8d914f73b9c026fddb905e27276e8",
+        strip_prefix = "abseil-cpp-20250127.0",
+        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20250127.0.tar.gz"],
+    )
+
     maybe(
         name = "aspect_bazel_lib",
         repo_rule = http_archive,
@@ -55,16 +137,6 @@ def stage_1():
         urls = [
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.34.0/bazel-gazelle-v0.34.0.tar.gz",
             "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.34.0/bazel-gazelle-v0.34.0.tar.gz",
-        ],
-    )
-
-    maybe(
-        name = "rules_proto",
-        repo_rule = http_archive,
-        sha256 = "e017528fd1c91c5a33f15493e3a398181a9e821a804eb7ff5acdd1d2d6c2b18d",
-        strip_prefix = "rules_proto-4.0.0-3.20.0",
-        urls = [
-            "https://github.com/bazelbuild/rules_proto/archive/refs/tags/4.0.0-3.20.0.tar.gz",
         ],
     )
 
@@ -113,10 +185,9 @@ def stage_1():
         name = "rules_pkg",
         repo_rule = http_archive,
         urls = [
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz",
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/1.1.0/rules_pkg-1.1.0.tar.gz",
         ],
-        sha256 = "8f9ee2dc10c1ae514ee599a8b42ed99fa262b757058f65ad3c384289ff70c4b8",
+        sha256 = "b7215c636f22c1849f1c3142c72f4b954bb12bb8dcf3cbe229ae6e69cc6479db",
     )
 
     maybe(
@@ -130,27 +201,6 @@ def stage_1():
     )
 
     maybe(
-        name = "com_google_googletest",
-        repo_rule = http_archive,
-        sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
-        strip_prefix = "googletest-release-1.10.0",
-        url = "https://github.com/google/googletest/archive/release-1.10.0.zip",
-    )
-
-    maybe(
-        name = "com_google_absl",
-        repo_rule = http_archive,
-        sha256 = "51d676b6846440210da48899e4df618a357e6e44ecde7106f1e44ea16ae8adc7",
-        strip_prefix = "abseil-cpp-20230125.3",
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/abseil:0001-absl-flags-parse.cc-provide-a-mechanism-to-let-other.patch",
-            "@enkit//bazel/dependencies/abseil:0002-remove-maes-and-msse4.1-option-from-cross-compilation.patch",
-        ],
-        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.3.zip"],
-    )
-
-    maybe(
         name = "bazel_skylib",
         repo_rule = http_archive,
         sha256 = "bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
@@ -160,50 +210,14 @@ def stage_1():
         ],
     )
 
-    # TODO(INFRA-1630): Drop this patched version when we can tolerate using setuptools past version 58.
-    maybe(
-        name = "rules_python",
-        repo_rule = http_archive,
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/rules_python:downgrade_setuptools.patch",
-            "@enkit//bazel/dependencies/rules_python:custom_annotations.patch",
-        ],
-        sha256 = "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
-        strip_prefix = "rules_python-0.24.0",
-        urls = [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz",
-        ],
-    )
-
     maybe(
         name = "boringssl",
         repo_rule = http_archive,
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/boringssl:0001-ignore-pedantic-warnings-and-move-hrss-polynomial-declarations-under-x64-flag.patch",
-            "@enkit//bazel/dependencies/boringssl:0002-commentout-fips-module-AARCH64-declarations.patch",
-        ],
-        sha256 = "534fa658bd845fd974b50b10f444d392dfd0d93768c4a51b61263fd37d851c40",
-        strip_prefix = "boringssl-b9232f9e27e5668bc0414879dcdedb2a59ea75f2",
+        sha256 = "cea4c77cd69279585ea53efa2bb2ae6eb5f31fb39c214213c5b7cdf3c44d7b52",
+        strip_prefix = "boringssl-c64b8fefbba9a9dadda73138062fc449bdf11e2a",
         urls = [
-            "https://storage.googleapis.com/grpc-bazel-mirror/github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
-            "https://github.com/google/boringssl/archive/b9232f9e27e5668bc0414879dcdedb2a59ea75f2.tar.gz",
-        ],
-    )
-
-    maybe(
-        name = "com_github_grpc_grpc",
-        repo_rule = http_archive,
-        patch_args = ["-p1"],
-        patches = [
-            "@enkit//bazel/dependencies/grpc:no_remote_tag.patch",
-            "@enkit//bazel/dependencies/grpc:use_hermetic_py_headers.patch",
-        ],
-        sha256 = "e18b16f7976aab9a36c14c38180f042bb0fd196b75c9fd6a20a2b5f934876ad6",
-        strip_prefix = "grpc-1.45.2",
-        urls = [
-            "https://github.com/grpc/grpc/archive/refs/tags/v1.45.2.tar.gz",
+            "https://storage.googleapis.com/grpc-bazel-mirror/github.com/google/boringssl/archive/c64b8fefbba9a9dadda73138062fc449bdf11e2a.tar.gz",
+            "https://github.com/google/boringssl/archive/c64b8fefbba9a9dadda73138062fc449bdf11e2a.tar.gz",
         ],
     )
 
@@ -218,21 +232,9 @@ def stage_1():
     maybe(
         name = "rules_oci",
         repo_rule = http_archive,
-        strip_prefix = "rules_oci-1.7.5",
-        url = "https://github.com/bazel-contrib/rules_oci/releases/download/v1.7.5/rules_oci-v1.7.5.tar.gz",
-        sha256 = "56d5499025d67a6b86b2e6ebae5232c72104ae682b5a21287770bd3bf0661abf",
-    )
-
-    maybe(
-        name = "io_bazel_rules_docker",
-        repo_rule = http_archive,
-        sha256 = "27d53c1d646fc9537a70427ad7b034734d08a9c38924cc6357cc973fed300820",
-        strip_prefix = "rules_docker-0.24.0",
-        urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.24.0/rules_docker-v0.24.0.tar.gz"],
-        patches = [
-            "@enkit//bazel/dependencies:rules_docker_no_init_go.patch",
-        ],
-        patch_args = ["-p1"],
+        strip_prefix = "rules_oci-2.2.6",
+        url = "https://github.com/bazel-contrib/rules_oci/releases/download/v2.2.6/rules_oci-v2.2.6.tar.gz",
+        sha256 = "5994ec0e8df92c319ef5da5e1f9b514628ceb8fc5824b4234f2fe635abb8cc2e",
     )
 
     maybe(
@@ -241,14 +243,6 @@ def stage_1():
         urls = ["https://github.com/googleapis/googleapis/archive/f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6.zip"],
         strip_prefix = "googleapis-f5ed6db308e6ce3f9bcdc3afcbf2ab8b50d905d6",
         sha256 = "f8f615f7c21459cb9b6ec2efaf795c875cd4698d6a1814a0a30d1eb910903142",
-    )
-
-    maybe(
-        name = "com_google_protobuf",
-        repo_rule = http_archive,
-        sha256 = "8b28fdd45bab62d15db232ec404248901842e5340299a57765e48abe8a80d930",
-        strip_prefix = "protobuf-3.20.1",
-        urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.1.tar.gz"],
     )
 
     # BUG(INFRA-6710): `make` is pulled in by source by rules_foreign_cc, but we
@@ -285,17 +279,9 @@ filegroup(
         url = "https://github.com/bazelbuild/rules_foreign_cc/archive/816905a078773405803e86635def78b61d2f782d.tar.gz",
         patches = [
             "@enkit//bazel/dependencies:rules_foreign_cc_export_functions.patch",
+            "@enkit//bazel/dependencies:rules_foreign_cc_module_linker_flags.patch",
         ],
         patch_args = ["-p1"],
-    )
-
-    maybe(
-        name = "meson",
-        repo_rule = http_archive,
-        build_file = "@enkit//bazel/meson:meson.BUILD.bazel",
-        sha256 = "d04b541f97ca439fb82fab7d0d480988be4bd4e62563a5ca35fadb5400727b1c",
-        urls = ["https://github.com/mesonbuild/meson/releases/download/1.1.1/meson-1.1.1.tar.gz"],
-        strip_prefix = "meson-1.1.1",
     )
 
     maybe(
@@ -307,16 +293,28 @@ filegroup(
     )
 
     maybe(
+        name = "libz",
+        repo_rule = http_archive,
+        build_file = "@enkit//bazel/dependencies:libz.BUILD.bazel",
+        sha256 = "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
+        strip_prefix = "zlib-1.2.11",
+        # Original file: https://zlib.net/fossils/zlib-1.2.11.tar.gz
+        urls = ["https://astore.corp.enfabrica.net/d/mirror/zlib/zlib-1.2.11.tar.gz?u=giqzp6y6me76syf7jrgwtevqxgdhswdu"]
+    )
+
+    maybe(
         name = "dropbear",
         repo_rule = http_archive,
         build_file = "@enkit//bazel/dependencies:dropbear.BUILD.bazel",
-        sha256 = "e02c5c36eb53bfcd3f417c6e40703a50ec790a1a772269ea156a2ccef14998d2",
-        urls = ["https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2022.83.tar.gz"],
-        strip_prefix = "dropbear-DROPBEAR_2022.83",
+        sha256 = "d16285f0233a2400a84affa0235e34a71c660908079c639fdef889c2e90c9f5f",
+        urls = ["https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2024.86.tar.gz"],
+        strip_prefix = "dropbear-DROPBEAR_2024.86",
         patches = [
-            "@enkit//bazel/dependencies/dropbear:0000-allow-blank-password.patch",
-            "@enkit//bazel/dependencies/dropbear:0001-override-authorized-keys.patch",
+            "@enkit//bazel/dependencies/dropbear:0001-allow-blank-password.patch",
+            "@enkit//bazel/dependencies/dropbear:0002-override-authorized-keys.patch",
+            "@enkit//bazel/dependencies/dropbear:0003-ignore-user-s-shell.patch",
         ],
+        patch_args = ["-p1"],
     )
 
     maybe(
@@ -407,4 +405,20 @@ proto_library(
         sha256 = "464bc2b348e674a1a03142e403cbccb01be8655b6de0f8bfe733ea31fcd421be",
         strip_prefix = "opentelemetry-proto-0.19.0",
         urls = ["https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v0.19.0.tar.gz"],
+    )
+
+    maybe(
+        name = "yq",
+        repo_rule = http_file,
+        sha256 = "654d2943ca1d3be2024089eb4f270f4070f491a0610481d128509b2834870049",
+        urls = ["https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64"],
+        executable = True,
+    )
+
+    maybe(
+        name = "com_github_google_benchmark",
+        repo_rule = http_archive,
+        urls = ["https://github.com/google/benchmark/archive/refs/tags/v1.9.2.tar.gz"],
+        strip_prefix = "benchmark-1.9.2",
+        integrity = "sha256-QJB1F2Fo3Ea7uBt0wbS2kAOFtdFr/BgdZ4r7Bg2Si9M="
     )

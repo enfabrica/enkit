@@ -1,0 +1,27 @@
+cc_library(
+    name = "bestie_reporter",
+    srcs = [
+        "bestie_reporter.cc",
+    ],
+    hdrs = [
+        "bestie_reporter.hh",
+    ],
+    deps = [
+        "//bestie/proto:bestie_cc_proto",
+        "@com_github_google_benchmark//:benchmark",
+    ],
+)
+
+cc_test(
+    name = "bestie_reporter_test",
+    srcs = [
+        "bestie_reporter_test.cc",
+    ],
+    deps = [
+        ":bestie_reporter",
+        "//bestie/proto:bestie_cc_proto",
+        "@com_github_google_benchmark//:benchmark",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)

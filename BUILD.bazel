@@ -1,7 +1,8 @@
-load("//bazel/enkit:defs.bzl", "multirun")
 load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
+load("//bazel/enkit:defs.bzl", "multirun")
 
 # To update and generate the BUILD.bazel files, run:
 #     bazelisk run //:gazelle
@@ -20,6 +21,17 @@ load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirem
 
 # Set the prefix for this repo
 # gazelle:prefix github.com/enfabrica/enkit
+
+# When adding protos used by Go, typically the import path is the same as the
+# proto's containing dir. However, this will confuse Go tooling (`go mod tidy`,
+# for instance) when there are no source files present.
+#
+# To work around this, add a source file called `empty.go` with only a package
+# declaration, so from the Go tooling's perspective it is a legitimate package.
+# The directive below will prevent `empty.go` files from being added to
+# Gazelle-generated rules.
+#
+# gazelle:exclude **/empty.go
 
 # Ensure that BUILD files have targets generated with the correct convention
 # TODO(scott): Change to `import` after targets have migrated to use the new
@@ -47,6 +59,7 @@ gazelle(
 # These mappings keep gazelle from generating bogus dependency labels.
 #
 # gazelle:resolve go kythe.io/kythe/go/platform/delimited @io_kythe//kythe/go/platform/delimited
+# gazelle:resolve go github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2 @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:execution
 
 # Buildbarn gazelle resolve mappings
 # Buildbarn dependencies may need certain overrides; these mappings are copied
@@ -91,4 +104,16 @@ compile_pip_requirements(
     name = "python_deps",
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
+)
+
+string_flag(
+    name = "kernel_dir",
+    build_setting_default = "placeholder",
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kernel_dir_placeholder",
+    flag_values = {":kernel_dir": "placeholder"},
+    visibility = ["//visibility:public"],
 )

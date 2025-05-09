@@ -5,6 +5,7 @@ set -e
 FILE="{file}"
 TARGETS=( {targets} )
 UIDFILE="{uidfile}"
+UPLOAD_TAG="{upload_tag}"
 
 TEMPTOML="$(mktemp /tmp/astore.XXXXX.toml)" || exit 1
 trap 'rm -f "${TEMPTOML}"' EXIT
@@ -42,7 +43,7 @@ function update_build_file() {
 # astore doesn't tell us which metadata entry corresponds to which target, so
 # we work around the issue by uploading the targets sequentially:
 for TARGET in "${TARGETS[@]}"; do
-  {astore} upload -G -f "${FILE}" "${TARGET}" -m "${TEMPTOML}"
+  {astore} upload ${UPLOAD_TAG} -G -f "${FILE}" "${TARGET}" -m "${TEMPTOML}"
   FILE_UID="$(grep -E "^  Uid = " "${TEMPTOML}" | awk '{print $3}' | tr -d \")"
   FILE_SHA="$(sha256sum "${TARGET}" | awk '{print $1}')"
   if [[ -z "${FILE_UID}" ]]; then
