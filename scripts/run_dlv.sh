@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Sample script of how to start enkit built with bazel
+# weth Delve debugger attached. Related vscode configuration
+# is in `launch.json`.
+
 set -ex
 
 target=//enkit
