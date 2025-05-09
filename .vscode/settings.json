@@ -32,5 +32,16 @@
   },
   "go.useLanguageServer": true,
   "go.lintOnSave": "off",
-  "go.vetOnSave": "off"
+  "go.vetOnSave": "off",
+  "go.delveConfig": {
+      // don't deal with DAP for now
+      "debugAdapter": "legacy",
+      "substitutePath": [
+          // vscode passes absolute paths to dlv, but bazel built binaries only have relative paths
+          {
+              "from": "${workspaceFolder}/",
+              "to": ""
+          }
+      ]
+  }
 }

@@ -186,11 +186,11 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 
-	workspaceLogStart, err := WithTempWorkspaceRulesLog()
+	workspaceLogStart, err := WithTempWorkspaceRulesLog("")
 	if err != nil {
 		return nil, fmt.Errorf("start workspace: %w", err)
 	}
-	workspaceLogEnd, err := WithTempWorkspaceRulesLog()
+	workspaceLogEnd, err := WithTempWorkspaceRulesLog("")
 	if err != nil {
 		return nil, fmt.Errorf("end workspace: %w", err)
 	}
@@ -198,7 +198,12 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 	var errs []error
 	var result GetResult
 	log.Infof("Querying dependency graph for 'before' workspace...")
-	result.StartQueryResult, err = startWorkspace.Query(opt.Query, WithUnorderedOutput(), workspaceLogStart)
+	result.StartQueryResult, err = startWorkspace.Query(
+		opt.Query,
+		WithUnorderedOutput(),
+		WithRepositoryCache(),
+		workspaceLogStart,
+	)
 	if err != nil {
 		result.StartQueryError = fmt.Errorf("failed to query deps for start point: %w", err)
 		errs = append(errs, result.StartQueryError)
@@ -207,7 +212,12 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 	}
 
 	log.Infof("Querying dependency graph for 'after' workspace...")
-	result.EndQueryResult, err = endWorkspace.Query(opt.Query, WithUnorderedOutput(), workspaceLogEnd)
+	result.EndQueryResult, err = endWorkspace.Query(
+		opt.Query,
+		WithUnorderedOutput(),
+		WithRepositoryCache(),
+		workspaceLogEnd,
+	)
 	if err != nil {
 		result.EndQueryError = fmt.Errorf("failed to query deps for end point: %w", err)
 		errs = append(errs, result.EndQueryError)
@@ -260,11 +270,11 @@ func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 
-	workspaceLogStart, err := WithTempWorkspaceRulesLog()
+	workspaceLogStart, err := WithTempWorkspaceRulesLog("")
 	if err != nil {
 		return nil, fmt.Errorf("start workspace: %w", err)
 	}
-	workspaceLogEnd, err := WithTempWorkspaceRulesLog()
+	workspaceLogEnd, err := WithTempWorkspaceRulesLog("")
 	if err != nil {
 		return nil, fmt.Errorf("end workspace: %w", err)
 	}
@@ -275,7 +285,12 @@ func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		func() error {
 			log.Infof("Querying dependency graph for 'before' workspace...")
 			var err error
-			result.StartQueryResult, err = startWorkspace.Query(opt.Query, WithUnorderedOutput(), workspaceLogStart)
+			result.StartQueryResult, err = startWorkspace.Query(
+				opt.Query,
+				WithUnorderedOutput(),
+				WithRepositoryCache(),
+				workspaceLogStart,
+			)
 			if err != nil {
 				result.StartQueryError = fmt.Errorf("failed to query deps for start point: %w", err)
 				return result.StartQueryError
@@ -286,7 +301,12 @@ func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		func() error {
 			log.Infof("Querying dependency graph for 'after' workspace...")
 			var err error
-			result.EndQueryResult, err = endWorkspace.Query(opt.Query, WithUnorderedOutput(), workspaceLogEnd)
+			result.EndQueryResult, err = endWorkspace.Query(
+				opt.Query,
+				WithUnorderedOutput(),
+				WithRepositoryCache(),
+				workspaceLogEnd,
+			)
 			if err != nil {
 				result.EndQueryError = fmt.Errorf("failed to query deps for end point: %w", err)
 				return result.EndQueryError
