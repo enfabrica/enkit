@@ -10,6 +10,7 @@ go_library(
         "query.go",
         "target.go",
         "workspace.go",
+        "workspace_events.go",
     ],
     importpath = "github.com/enfabrica/enkit/lib/bazel",
     visibility = ["//visibility:public"],

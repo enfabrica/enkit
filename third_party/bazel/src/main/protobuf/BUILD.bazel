@@ -51,8 +51,8 @@ go_proto_library(
 py_proto_library(
     name = "command_line_py_proto",
     deps = [
-        ":option_filters_proto",
         ":command_line_proto",
+        ":option_filters_proto",
     ],
 )
 
@@ -64,7 +64,7 @@ py_proto_library(
 py_proto_library(
     name = "failure_details_py_proto",
     deps = [
-        ":failure_details_proto"
+        ":failure_details_proto",
     ],
 )
 

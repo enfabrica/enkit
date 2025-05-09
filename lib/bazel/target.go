@@ -5,6 +5,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"io"
+	"io/fs"
 	"log/slog"
 	"regexp"
 	"sort"
@@ -12,8 +13,6 @@ import (
 	"strings"
 
 	bpb "github.com/enfabrica/enkit/lib/bazel/proto"
-
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var (
@@ -62,7 +61,7 @@ func ConstructTarget(w *Workspace, t *bpb.Target) (*Target, error) {
 
 // Creates a Target object that holds computations based on the supplied target
 // proto message.
-func NewTarget(w *Workspace, t *bpb.Target, workspaceEvents map[string][]*bpb.WorkspaceEvent) (*Target, error) {
+func NewTarget(w *Workspace, t *bpb.Target, workspaceEvents *WorkspaceEvents) (*Target, error) {
 	lbl, err := labelFromString(extractName(t))
 	if err != nil {
 		return nil, err
@@ -75,7 +74,6 @@ func NewTarget(w *Workspace, t *bpb.Target, workspaceEvents map[string][]*bpb.Wo
 		if newTarget != nil {
 			return newTarget, nil
 		}
-
 	}
 
 	return ConstructTarget(w, t)
@@ -86,7 +84,7 @@ func NewTarget(w *Workspace, t *bpb.Target, workspaceEvents map[string][]*bpb.Wo
 // during download of the external repository, to save time on hashing
 // third-party files that are unlikely to change often. These hashes are fetched
 // from the supplied set of workspace events.
-func NewExternalPseudoTarget(w *Workspace, t *bpb.Target, eventMap map[string][]*bpb.WorkspaceEvent) (*Target, error) {
+func NewExternalPseudoTarget(w *Workspace, t *bpb.Target, workspaceEvents *WorkspaceEvents) (*Target, error) {
 	nameCopy := extractName(t)
 	lbl, err := labelFromString(nameCopy)
 	if err != nil {
@@ -96,13 +94,12 @@ func NewExternalPseudoTarget(w *Workspace, t *bpb.Target, eventMap map[string][]
 		return nil, fmt.Errorf("target %q is not external", nameCopy)
 	}
 
-	lbl = lbl.toCoarseExternal()
-	events, eventsExist := eventMap[lbl.String()]
-	if !eventsExist {
+	workspaceName := lbl.WorkspaceName()
+	hash, hashExist := workspaceEvents.WorkspaceHashes[workspaceName]
+	if !hashExist {
 		return nil, nil
 	}
-
-	checkSums := extractChecksums(events)
+	hashStr := fmt.Sprintf("%d", hash)
 
 	newTarget := &bpb.Target{
 		Type: bpb.Target_RULE.Enum(),
@@ -111,9 +108,9 @@ func NewExternalPseudoTarget(w *Workspace, t *bpb.Target, eventMap map[string][]
 			RuleInput: extractDepNames(t),
 			Attribute: []*bpb.Attribute{
 				{
-					Name:            &pseudoTargetAttributeName,
-					Type:            bpb.Attribute_STRING_LIST.Enum(),
-					StringListValue: checkSums,
+					Name:           &pseudoTargetAttributeName,
+					Type:           bpb.Attribute_STRING.Enum(),
+					StringValue: 	&hashStr,
 				},
 			},
 		},
@@ -157,7 +154,16 @@ func shallowHash(w *Workspace, t *bpb.Target) (uint32, error) {
 		}
 		if f != nil {
 			defer f.Close()
-			err = hashFile(h, f)
+			if lbl.isExternal() {
+				// External files change rarely, so just size calculation is enough
+				var fileInfo fs.FileInfo
+				fileInfo, err = f.Stat()
+				if fileInfo != nil {
+					fmt.Fprintf(h, "%d", fileInfo.Size())
+				}
+			} else {
+				err = hashFile(h, f)
+			}
 			if err != nil {
 				// TODO(scott): After moving to go 1.17, replace this error
 				// introspection with a call to Stat before Open (requires os.DirFS to
@@ -269,39 +275,6 @@ func extractDepNames(t *bpb.Target) []string {
 		return []string{t.GetGeneratedFile().GetGeneratingRule()}
 	}
 	return nil
-}
-
-// extractChecksums returns a sorted list of download hashes from a set of
-// relevant workspace events.
-func extractChecksums(events []*bpb.WorkspaceEvent) []string {
-	var checksums []string
-	for _, event := range events {
-		switch e := event.GetEvent().(type) {
-		case *bpb.WorkspaceEvent_DownloadEvent:
-			if e.DownloadEvent.GetSha256() != "" {
-				checksums = append(checksums, e.DownloadEvent.GetSha256())
-			}
-			if e.DownloadEvent.GetIntegrity() != "" {
-				checksums = append(checksums, e.DownloadEvent.GetIntegrity())
-			}
-		case *bpb.WorkspaceEvent_DownloadAndExtractEvent:
-			if e.DownloadAndExtractEvent.GetSha256() != "" {
-				checksums = append(checksums, e.DownloadAndExtractEvent.GetSha256())
-			}
-			if e.DownloadAndExtractEvent.GetIntegrity() != "" {
-				checksums = append(checksums, e.DownloadAndExtractEvent.GetIntegrity())
-			}
-		case *bpb.WorkspaceEvent_ExecuteEvent:
-			if len(e.ExecuteEvent.GetArguments()) == 2 && e.ExecuteEvent.GetArguments()[0] == "echo" {
-				fmt.Printf("got checksum: %q\n", e.ExecuteEvent.GetArguments()[1])
-				checksums = append(checksums, e.ExecuteEvent.GetArguments()[1])
-			}
-		default:
-			slog.Debug("Unchecked workspace event type  type: %s", protojson.Format(event))
-		}
-	}
-	sort.Strings(checksums)
-	return checksums
 }
 
 func (t *Target) containsTag(tag string) bool {
