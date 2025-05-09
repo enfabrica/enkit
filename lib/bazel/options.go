@@ -23,7 +23,7 @@ type baseOptions struct {
 	// Bazel's cache directory for this workspace.
 	OutputBase string
 	// Additional flags appended to bazel after other common flags,
-        // but before any command.
+	// but before any command.
 	ExtraStartupFlags []string
 	// Additional environment variables to set.
 	ExtraEnv []string
@@ -86,11 +86,11 @@ func (opts BaseOptions) apply(o *baseOptions) {
 type queryOptions struct {
 	query string
 
-	keepGoing       bool
-	unorderedOutput bool
-	workspaceLog    *os.File
-	reuseWorkspaceLog	bool
-	repositoryCache string
+	keepGoing         bool
+	unorderedOutput   bool
+	workspaceLog      *os.File
+	reuseWorkspaceLog bool
+	repositoryCache   string
 }
 
 // Args returns the `query` and relevant subcommand arguments as passed to bazel.
@@ -133,7 +133,9 @@ func (o *queryOptions) Close() error {
 	var errs []error
 	if o.workspaceLog != nil {
 		errs = append(errs, o.workspaceLog.Close())
-		errs = append(errs, os.RemoveAll(o.workspaceLog.Name()))
+		if !o.reuseWorkspaceLog {
+			errs = append(errs, os.RemoveAll(o.workspaceLog.Name()))
+		}
 	}
 	return multierror.New(errs)
 }
@@ -157,22 +159,29 @@ func WithUnorderedOutput() QueryOption {
 	}
 }
 
-func WithTempWorkspaceRulesLog(path string) (QueryOption, error) {
-	var f *os.File
-	var err error
-	reuseWorkspaceLog := len(path) != 0
-	if reuseWorkspaceLog {
-		f, err = os.OpenFile(path, os.O_RDWR|os.O_EXCL, 0600)
-	} else {
-		f, err = ioutil.TempFile("", "bazel_workspace_log_*.pb")
-	}
+func WithTempWorkspaceRulesLog() (QueryOption, error) {
+	f, err := ioutil.TempFile("", "bazel_workspace_log_*.pb")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp workspace log file: %w", err)
 	}
-
 	return func(o *queryOptions) {
 		o.workspaceLog = f
-		o.reuseWorkspaceLog = reuseWorkspaceLog
+		o.reuseWorkspaceLog = false
+	}, nil
+}
+
+func WithWorkspaceRulesLog(path string) (QueryOption, error) {
+	reuseWorkspaceLog := len(path) != 0
+	if !reuseWorkspaceLog {
+		return WithTempWorkspaceRulesLog()
+	}
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_EXCL, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp workspace log file: %w", err)
+	}
+	return func(o *queryOptions) {
+		o.workspaceLog = f
+		o.reuseWorkspaceLog = true
 	}, nil
 }
 

@@ -20,7 +20,7 @@ func exitError(retcode int) error{
 }
 
 func TestQueryOptionsArgs(t *testing.T) {
-	tempLog, err := WithTempWorkspaceRulesLog("")
+	tempLog, err := WithTempWorkspaceRulesLog()
 	assert.NoError(t, err)
 	opts := QueryOptions{
 		WithKeepGoing(),

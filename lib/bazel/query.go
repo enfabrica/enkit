@@ -78,7 +78,6 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 	defer stdout.Close()
 	rdr := delimited.NewReader(stdout)
 
-	idx := 0
 	targets := map[string]*Target{}
 	var buf []byte
 	for buf, err = rdr.Next(); err == nil; buf, err = rdr.Next() {
@@ -91,8 +90,6 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 			return nil, err
 		}
 		targets[newTarget.Name()] = newTarget
-		idx += 1
-		fmt.Printf("Reading query: %d", idx)
 	}
 	if err != io.EOF {
 		return nil, fmt.Errorf("error while reading stdout from bazel command: %w", err)

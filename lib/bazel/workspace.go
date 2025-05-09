@@ -88,7 +88,9 @@ func (w *Workspace) SourceFS() (fs.FS, error) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 	if w.sourceFS == nil {
+		w.lock.Unlock()
 		srcdir, err := w.SourceDir()
+		w.lock.Lock()
 		if err != nil {
 			return nil, err
 		}
