@@ -108,9 +108,9 @@ func NewExternalPseudoTarget(w *Workspace, t *bpb.Target, workspaceEvents *Works
 			RuleInput: extractDepNames(t),
 			Attribute: []*bpb.Attribute{
 				{
-					Name:           &pseudoTargetAttributeName,
-					Type:           bpb.Attribute_STRING.Enum(),
-					StringValue: 	&hashStr,
+					Name:        &pseudoTargetAttributeName,
+					Type:        bpb.Attribute_STRING.Enum(),
+					StringValue: &hashStr,
 				},
 			},
 		},
@@ -148,6 +148,7 @@ func shallowHash(w *Workspace, t *bpb.Target) (uint32, error) {
 			err = fmt.Errorf("can't open source file %q: %w", lbl.filePath(), err)
 			if lbl.isExternal() {
 				slog.Error("%s", err)
+				err = nil
 			} else {
 				return 0, err
 			}
@@ -164,21 +165,21 @@ func shallowHash(w *Workspace, t *bpb.Target) (uint32, error) {
 			} else {
 				err = hashFile(h, f)
 			}
-			if err != nil {
-				// TODO(scott): After moving to go 1.17, replace this error
-				// introspection with a call to Stat before Open (requires os.DirFS to
-				// return an fs.StatFS). String validation is hacky, but it works for both
-				// tests and prod, which return different error types so type assertion is
-				// not possible here.
-				if strings.Contains(err.Error(), "is a directory") {
-					// Somehow a directory got passed as a label. This sometimes happens to
-					// format directories onto action commandlines; in these cases, the
-					// action doesn't depend on the directory's contents per se, but rather
-					// the directory name. Add the name to the hash and continue.
-					fmt.Fprintf(h, "%s", extractName(t))
-				} else {
-					return 0, err
-				}
+		}
+		if err != nil {
+			// TODO(scott): After moving to go 1.17, replace this error
+			// introspection with a call to Stat before Open (requires os.DirFS to
+			// return an fs.StatFS). String validation is hacky, but it works for both
+			// tests and prod, which return different error types so type assertion is
+			// not possible here.
+			if strings.Contains(err.Error(), "is a directory") {
+				// Somehow a directory got passed as a label. This sometimes happens to
+				// format directories onto action commandlines; in these cases, the
+				// action doesn't depend on the directory's contents per se, but rather
+				// the directory name. Add the name to the hash and continue.
+				fmt.Fprintf(h, "%s", extractName(t))
+			} else {
+				return 0, err
 			}
 		}
 

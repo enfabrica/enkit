@@ -19,7 +19,6 @@ import (
 )
 
 type WorkspaceEvents struct {
-	EventsMap		map[string][]*bpb.WorkspaceEvent
 	WorkspaceHashes map[string]uint32
 }
 
@@ -44,10 +43,24 @@ func extractChecksums(events []*bpb.WorkspaceEvent) []string {
 				checksums = append(checksums, e.DownloadAndExtractEvent.GetIntegrity())
 			}
 		case *bpb.WorkspaceEvent_ExecuteEvent:
-			if len(e.ExecuteEvent.GetArguments()) == 2 && e.ExecuteEvent.GetArguments()[0] == "echo" {
-				fmt.Printf("got checksum: %q\n", e.ExecuteEvent.GetArguments()[1])
-				checksums = append(checksums, e.ExecuteEvent.GetArguments()[1])
-			}
+			arguments := e.ExecuteEvent.GetArguments() 
+			if len(arguments) == 2 && arguments[0] == "echo" {
+				checksums = append(checksums, arguments[1])
+			} else if len(arguments) > 5 && arguments[0] == "enkit" {
+				// Astore downloads are present in workspace events log as:
+				// execute_event {
+				//   arguments: "enkit"
+				//   arguments: "astore"
+				//   arguments: "download"
+				//   arguments: "--force-uid"
+				//   arguments: "6vescy2uyzqao3y8nvqrbj4a57ja6bcx"
+				// ...
+				// }
+				// So extract uid as checksum here
+				if arguments[1] == "astore" && arguments[2] == "download" && arguments[3] == "--force-uid" {
+					checksums = append(checksums, arguments[4])
+				}
+			} 
 		default:
 			slog.Debug("Unchecked workspace event type  type: %s", protojson.Format(event))
 		}
@@ -56,26 +69,10 @@ func extractChecksums(events []*bpb.WorkspaceEvent) []string {
 	return checksums
 }
 
-func ParseWorkspaceEvents(workspaceLog *os.File) (*WorkspaceEvents, error) {
-	workspaceEvents := map[string][]*bpb.WorkspaceEvent{}
-	rdr := delimited.NewReader(workspaceLog)
-	for buf, err := rdr.Next(); err == nil; buf, err = rdr.Next() {
-		var event bpb.WorkspaceEvent
-		if err := proto.Unmarshal(buf, &event); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal WorkspaceEvent message: %w", err)
-		}
-		workspaceEvents[event.GetRule()] = append(workspaceEvents[event.GetRule()], &event)
-	}
+func ConstructWorkspaceEvents(workspaceEvents map[string][]*bpb.WorkspaceEvent) *WorkspaceEvents {
 	workspaceHashes := map[string]uint32{}
 
-	for context, events := range workspaceEvents {
-		var workspaceName string
-		if strings.HasPrefix(context, "repository @@") {
-			workspaceName = context[len("repository @@"):]
-		} else {
-			return nil, fmt.Errorf("Unknown workspace events context type: %s", context)
-		}
-
+	for workspaceName, events := range workspaceEvents {
 		checksums := extractChecksums(events)
 		if len(checksums) == 0 {
 			continue
@@ -88,7 +85,27 @@ func ParseWorkspaceEvents(workspaceLog *os.File) (*WorkspaceEvents, error) {
 	}
 
 	return &WorkspaceEvents{
-		EventsMap: workspaceEvents,
 		WorkspaceHashes: workspaceHashes,
-	}, nil
+	}
+}
+
+func ParseWorkspaceEvents(workspaceLog *os.File) (*WorkspaceEvents, error) {
+	workspaceEvents := map[string][]*bpb.WorkspaceEvent{}
+	rdr := delimited.NewReader(workspaceLog)
+	for buf, err := rdr.Next(); err == nil; buf, err = rdr.Next() {
+		var event bpb.WorkspaceEvent
+		if err := proto.Unmarshal(buf, &event); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal WorkspaceEvent message: %w", err)
+		}
+		context := event.GetRule()
+		var workspaceName string
+		if strings.HasPrefix(context, "repository @@") {
+			workspaceName = context[len("repository @@"):]
+		} else {
+			return nil, fmt.Errorf("Unknown workspace events context type: %s", context)
+		}
+
+		workspaceEvents[workspaceName] = append(workspaceEvents[event.GetRule()], &event)
+	}
+	return ConstructWorkspaceEvents(workspaceEvents), nil
 }

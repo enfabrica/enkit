@@ -34,7 +34,7 @@ func mustNewTarget(t *testing.T, target *bpb.Target) *Target {
 	return newTarget
 }
 
-func mustNewPseudoTarget(t *testing.T, target *bpb.Target, events map[string][]*bpb.WorkspaceEvent) *Target {
+func mustNewPseudoTarget(t *testing.T, target *bpb.Target, events *WorkspaceEvents) *Target {
 	t.Helper()
 	newT, err := NewExternalPseudoTarget(nil, target, events)
 	if err != nil {
@@ -663,7 +663,7 @@ func TestCalculateAffected(t *testing.T) {
 						SourceFile: &bpb.SourceFile{
 							Name: proto.String("@third_party_dep//:some_file.txt"),
 						},
-					}, map[string][]*bpb.WorkspaceEvent{
+					}, ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
 						"//external:third_party_dep": {
 							{
 								Rule: "//external:third_party_dep",
@@ -675,7 +675,7 @@ func TestCalculateAffected(t *testing.T) {
 								},
 							},
 						},
-					}),
+					})),
 				},
 				workspace: testWorkspace(t),
 			},
@@ -686,7 +686,7 @@ func TestCalculateAffected(t *testing.T) {
 						SourceFile: &bpb.SourceFile{
 							Name: proto.String("@third_party_dep//:some_file.txt"),
 						},
-					}, map[string][]*bpb.WorkspaceEvent{
+					}, ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
 						"//external:third_party_dep": {
 							{
 								Rule: "//external:third_party_dep",
@@ -698,7 +698,7 @@ func TestCalculateAffected(t *testing.T) {
 								},
 							},
 						},
-					}),
+					})),
 				},
 				workspace: testWorkspace(t),
 			},

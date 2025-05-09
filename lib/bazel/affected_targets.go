@@ -20,6 +20,8 @@ type SourceOptions struct {
 	// Path of the --output_base to use with bazel.
 	// If empty, a default path will be used depending on the GetMode used.
 	OutputBase string
+
+	WorkspaceLog string
 }
 
 type GetModeOptions struct {
@@ -186,11 +188,11 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 
-	workspaceLogStart, err := WithTempWorkspaceRulesLog("")
+	workspaceLogStart, err := WithWorkspaceRulesLog(opt.Start.WorkspaceLog)
 	if err != nil {
 		return nil, fmt.Errorf("start workspace: %w", err)
 	}
-	workspaceLogEnd, err := WithTempWorkspaceRulesLog("")
+	workspaceLogEnd, err := WithWorkspaceRulesLog(opt.End.WorkspaceLog)
 	if err != nil {
 		return nil, fmt.Errorf("end workspace: %w", err)
 	}
@@ -270,11 +272,11 @@ func ParallelQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 		return nil, fmt.Errorf("failed to open bazel workspace: %w", err)
 	}
 
-	workspaceLogStart, err := WithTempWorkspaceRulesLog("")
+	workspaceLogStart, err := WithWorkspaceRulesLog(opt.Start.WorkspaceLog)
 	if err != nil {
 		return nil, fmt.Errorf("start workspace: %w", err)
 	}
-	workspaceLogEnd, err := WithTempWorkspaceRulesLog("")
+	workspaceLogEnd, err := WithWorkspaceRulesLog(opt.End.WorkspaceLog)
 	if err != nil {
 		return nil, fmt.Errorf("end workspace: %w", err)
 	}

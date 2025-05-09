@@ -24,6 +24,8 @@ dlv exec "${command}" \
     -e gleb-INFRA-11538-experiments \
     list \
     --start_output_base ~/sob \
+    --start_workspace_log "${HOME}/sob_workspace_events.pb" \
     --end_output_base ~/eob \
+    --end_workspace_log "${HOME}/eob_workspace_events.pb" \
     --repo_root "${HOME}/develop/internal" \
     --query 'deps(//...)'
