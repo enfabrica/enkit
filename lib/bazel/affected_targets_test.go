@@ -664,9 +664,9 @@ func TestCalculateAffected(t *testing.T) {
 							Name: proto.String("@third_party_dep//:some_file.txt"),
 						},
 					}, ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
-						"//external:third_party_dep": {
+						"third_party_dep": {
 							{
-								Rule: "//external:third_party_dep",
+								Rule: "repository @@third_party_dep",
 								Event: &bpb.WorkspaceEvent_DownloadEvent{
 									DownloadEvent: &bpb.DownloadEvent{
 										Url:    []string{"https://example.com/some/url"},
@@ -687,9 +687,9 @@ func TestCalculateAffected(t *testing.T) {
 							Name: proto.String("@third_party_dep//:some_file.txt"),
 						},
 					}, ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
-						"//external:third_party_dep": {
+						"third_party_dep": {
 							{
-								Rule: "//external:third_party_dep",
+								Rule: "repository @@third_party_dep",
 								Event: &bpb.WorkspaceEvent_DownloadEvent{
 									DownloadEvent: &bpb.DownloadEvent{
 										Url:    []string{"https://example.com/some/url"},
