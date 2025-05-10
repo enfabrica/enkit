@@ -1,5 +1,4 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
 load("//bazel/appengine:defs.bzl", "go_appengine_deploy")
 
 go_library(
@@ -16,7 +15,6 @@ go_library(
         "//auth/server/assets",
         "//auth/server/assets/templates",
         "//auth/server/auth",
-        "//auth/server/credentials",
         "//lib/kflags",
         "//lib/kflags/kcobra",
         "//lib/kflags/kconfig",
@@ -38,38 +36,6 @@ go_library(
 go_binary(
     name = "server",
     embed = [":server_lib"],
-    visibility = ["//visibility:public"],
-)
-
-# Generate a .go file containing all the credentials supplied during the build.
-go_embed_data(
-    name = "embedded-credentials",
-    srcs = glob(["credentials/**/*.flag*"]),
-    flatten = True,
-    package = "credentials",
-    visibility = ["//visibility:public"],
-)
-
-go_library(
-    name = "credentials",
-    srcs = [":embedded-credentials"],
-    importpath = "github.com/enfabrica/enkit/astore/server/credentials",
-    visibility = ["//visibility:public"],
-)
-
-# Generate a .go file containing all the web assets.
-go_embed_data(
-    name = "embedded-assets",
-    srcs = ["//auth/server/assets:css"] + glob(["assets/**"]),
-    flatten = True,
-    package = "assets",
-    visibility = ["//visibility:public"],
-)
-
-go_library(
-    name = "assets",
-    srcs = [":embedded-assets"],
-    importpath = "github.com/enfabrica/enkit/astore/server/assets",
     visibility = ["//visibility:public"],
 )
 
