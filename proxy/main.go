@@ -1,15 +1,17 @@
 package main
 
 import (
+	"fmt"
+	"math/rand"
+	"os"
+
+	"github.com/spf13/cobra"
+
+	"github.com/enfabrica/enkit/auth/server/assets"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/enfabrica/enkit/proxy/credentials"
 	"github.com/enfabrica/enkit/proxy/enproxy"
-	"github.com/spf13/cobra"
-	"math/rand"
-	"fmt"
-	"os"
 )
 
 func main() {
@@ -33,8 +35,8 @@ func main() {
 
 	var validateOnly bool
 	set.BoolVar(&validateOnly, "validate-only", false,
-		"If this flag is set, no proxy is started. Instead, the config file and command line " +
-		"flags are validated, and a non-zero status returned if invalid")
+		"If this flag is set, no proxy is started. Instead, the config file and command line "+
+			"flags are validated, and a non-zero status returned if invalid")
 
 	root.RunE = func(cmd *cobra.Command, args []string) error {
 		ep, err := enproxy.New(rng, enproxy.WithLogging(base.Log), enproxy.FromFlags(flags))
@@ -49,6 +51,6 @@ func main() {
 		return ep.Run()
 	}
 
-	base.LoadFlagAssets(populator, credentials.Data)
+	base.LoadFlagAssets(populator, assets.CredentialsMap)
 	base.Run(set, populator, runner)
 }

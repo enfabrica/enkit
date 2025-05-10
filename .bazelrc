@@ -3,7 +3,7 @@
 # see https://docs.bazel.build/versions/master/guide.html#bazelrc
 #
 # The full list of Bazel options: https://docs.bazel.build/versions/master/command-line-reference.html
-common --repo_env=CC=gcc-10 --repo_env=CPP=g++-10 --repo_env=CXX=g++-10
+#common --repo_env=CC=gcc-10 --repo_env=CPP=g++-10 --repo_env=CXX=g++-10
 build --cxxopt="-std=c++20"  --host_cxxopt="-std=c++20" --client_env=BAZEL_CXXOPTS=-std=c++20
 
 build --workspace_status_command "/bin/bash bazel/workspace_status.sh"

@@ -2,6 +2,9 @@ package client
 
 import (
 	"errors"
+	"log"
+	"net/http"
+
 	"github.com/enfabrica/enkit/lib/cache"
 	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/config"
@@ -13,8 +16,6 @@ import (
 	"github.com/enfabrica/enkit/lib/logger/klog"
 	"github.com/enfabrica/enkit/lib/oauth/cookie"
 	"github.com/enfabrica/enkit/lib/progress"
-	"log"
-	"net/http"
 )
 
 type AuthFlags struct {
@@ -65,7 +66,7 @@ type BaseFlags struct {
 	NoProgress bool
 
 	// Allow to override the security token used, and identity.
-	OverrideToken string
+	OverrideToken    string
 	OverrideIdentity string
 
 	// Logger object. Guaranteed to never be nil, and always be usable.
@@ -91,7 +92,8 @@ func DefaultBaseFlags(commandName, configName string) *BaseFlags {
 // with the proper error message to guide the user through authentication.
 //
 // For example, use kcobra.Run(..., WithErrorHandler(
-//         HandleIdentityError("run enkit login to log in")
+//
+//	HandleIdentityError("run enkit login to log in")
 //
 // to make sure the user is told to use enkit login in case of identity
 // related errors.
@@ -109,7 +111,7 @@ func (bf *BaseFlags) IdentityErrorHandler(message string) kflags.ErrorHandler {
 			}
 		}
 		return kflags.NewStatusErrorf(100,
-                        "Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s %s",
+			"Attempting to use your credentials failed with:\n%w\n\nThis probably means that you just need to log in again with:\n\t%s %s",
 			logger.NewIndentedError(err, "    (for debug only) "), message, identity)
 	}
 }

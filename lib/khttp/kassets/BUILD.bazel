@@ -1,8 +1,11 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "kassets",
-    srcs = ["assets.go"],
+    srcs = [
+        "assets.go",
+        "fs.go",
+    ],
     importpath = "github.com/enfabrica/enkit/lib/khttp/kassets",
     visibility = ["//visibility:public"],
     deps = [
@@ -16,4 +19,20 @@ alias(
     name = "go_default_library",
     actual = ":kassets",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "kassets_test",
+    srcs = ["fs_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":kassets"],
+    embedsrcs = [
+        "testdata/heroes.txt",
+        "testdata/villains.extra.ext.txt",
+    ],
+    deps = [
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+        "@org_golang_x_exp//maps",
+    ],
 )

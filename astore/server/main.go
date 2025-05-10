@@ -25,7 +25,6 @@ import (
 	"github.com/enfabrica/enkit/auth/server/assets"
 	"github.com/enfabrica/enkit/auth/server/assets/templates"
 	"github.com/enfabrica/enkit/auth/server/auth"
-	"github.com/enfabrica/enkit/auth/server/credentials"
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/kflags/kconfig"
@@ -175,7 +174,7 @@ func Start(ctx context.Context, targetURL, cookieDomain string, astoreFlags *ast
 		fmt.Fprintf(w, "I hear you.")
 	})
 
-	kassets.RegisterAssets(&stats, assets.Data, "", kassets.BasicMapper(kassets.MuxMapper(mux)))
+	kassets.RegisterAssets(&stats, assets.StaticFilesMap, "", kassets.BasicMapper(kassets.MuxMapper(mux)))
 	kassets.RegisterAssets(&stats, configs.Data, "", kassets.PrefixMapper("/configs", kassets.StripExtensionMapper(kassets.BasicMapper(kassets.MuxMapper(mux)))))
 	stats.Log(log.Infof)
 
@@ -305,7 +304,7 @@ func main() {
 	}
 
 	kcobra.PopulateDefaults(command, os.Args,
-		kflags.NewAssetAugmenter(&logger.NilLogger{}, "astore-server", credentials.Data),
+		kflags.NewAssetAugmenter(&logger.NilLogger{}, "astore-server", assets.CredentialsMap),
 	)
 	kcobra.Run(command)
 }
