@@ -46,14 +46,24 @@ func extractChecksums(events []*bpb.WorkspaceEvent) []string {
 			arguments := e.ExecuteEvent.GetArguments() 
 			if len(arguments) == 2 && arguments[0] == "echo" {
 				checksums = append(checksums, arguments[1])
+				// There are lots of astore related checksums invocation started with `echo`:
+				// context: "repository @@c-capnproto"
+				// execute_event {
+				// 	arguments: "echo"
+				// 	arguments: "a758d771f9246a1880de37c8a29f69c25e925cb03ba2974f0ecf8806d7ba2737"
+				// 	...
+				// }
+				// So we extract checksums here
+				
 			} else if len(arguments) > 5 && arguments[0] == "enkit" {
 				// Astore downloads are present in workspace events log as:
+				// context: "repository @@generic-latest-kernel"
 				// execute_event {
 				//   arguments: "enkit"
 				//   arguments: "astore"
 				//   arguments: "download"
 				//   arguments: "--force-uid"
-				//   arguments: "6vescy2uyzqao3y8nvqrbj4a57ja6bcx"
+				//   arguments: "chq3vth43g35tgzy5aad22wcdf5quiqs"
 				// ...
 				// }
 				// So extract uid as checksum here
