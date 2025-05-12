@@ -189,8 +189,8 @@ func shallowHash(w *Workspace, t *bpb.Target) (uint32, error) {
 		// No need to do anything more here.
 
 	case bpb.Target_PACKAGE_GROUP:
-		// Just skip PACKAGE_GROUP hashing
-		// return 0, fmt.Errorf("PACKAGE_GROUP hashing not implemented")
+		// `package_group` rules only control visibility, nothing to hash here, just skip.
+
 	case bpb.Target_ENVIRONMENT_GROUP:
 		return 0, fmt.Errorf("ENVIRONMENT_GROUP hashing not implemented")
 	}

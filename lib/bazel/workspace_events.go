@@ -44,6 +44,7 @@ func extractChecksums(events []*bpb.WorkspaceEvent) []string {
 			}
 		case *bpb.WorkspaceEvent_ExecuteEvent:
 			arguments := e.ExecuteEvent.GetArguments() 
+			// TODO ENGPROD-1075: Migrate astore downloads to repository_ctx
 			if len(arguments) == 2 && arguments[0] == "echo" {
 				checksums = append(checksums, arguments[1])
 				// There are lots of astore related checksums invocation started with `echo`:
