@@ -2,7 +2,28 @@
 
 # Sample script of how to start enkit built with bazel
 # weth Delve debugger attached. Related vscode configuration
-# is in `launch.json`.
+# Example `launch.json` to integrate with this script:
+# {
+#     "version": "0.2.0",
+#     "configurations": [
+#         {
+#             "name": "connect to dlv",
+#             "type": "go",
+#             "debugAdapter": "dlv-dap", // `legacy` by default
+#             "request": "attach",
+#             "mode": "remote",
+#             "port": 50034,
+#             "host": "127.0.0.1", // can skip for localhost
+#             "logOutput": "dap",
+#             "showLog": true,
+#             "trace": "verbose",
+#             "substitutePath": [
+#               { "from": "${workspaceFolder}", "to": "" }
+#           ]
+#         }
+#     ]
+# }
+
 
 set -ex
 
