@@ -1,6 +1,6 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
-AstoreMetadataProvider = provider(fields = ["tags"])
+AstoreMetadataProvider = provider(fields = ["tags", "output_format"])
 
 def _astore_tag_impl(ctx):
     # TODO(minor-fixes): If any validation is necessary on astore tag values,
@@ -10,6 +10,16 @@ def _astore_tag_impl(ctx):
 astore_tag = rule(
     implementation = _astore_tag_impl,
     build_setting = config.string_list(flag = True, repeatable = True),
+)
+
+def _astore_output_format(ctx):
+    if ctx.build_setting_value not in ["table", "json"]:
+        fail("unknown setting for {}: {}".format(ctx.target, ctx.build_setting_value))
+    return AstoreMetadataProvider(output_format = ctx.build_setting_value)
+
+astore_output_format = rule(
+    implementation = _astore_output_format,
+    build_setting = config.string(flag = True),
 )
 
 def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
@@ -47,11 +57,6 @@ def _astore_upload(ctx):
     tags.extend(ctx.attr._cmdline_upload_tag[AstoreMetadataProvider].tags)
     upload_tag = " ".join(["--tag={}".format(tag) for tag in tags])
 
-    if ctx.attr.print_uid_stdout:
-        print_uid_stdout = "true"
-    else:
-        print_uid_stdout = "false"
-
     ctx.actions.expand_template(
         template = template,
         output = ctx.outputs.executable,
@@ -62,7 +67,7 @@ def _astore_upload(ctx):
             "{dir}": ctx.attr.dir,
             "{uidfile}": uidfile,
             "{upload_tag}": upload_tag,
-            "{print_uid_stdout}": print_uid_stdout,
+            "{output_format}": ctx.attr._cmdline_upload_output_format[AstoreMetadataProvider].output_format,
         },
         is_executable = True,
     )
@@ -95,13 +100,13 @@ astore_upload = rule(
         "upload_tag": attr.string(
             doc = "Apply optional tag to binary during upload.",
         ),
-        "print_uid_stdout": attr.bool(
-            default=False,
-            doc = "Optionally, print file and uid to stdout.",
-        ),
         "_cmdline_upload_tag": attr.label(
             providers = [[AstoreMetadataProvider]],
             default = "//f/astore:upload_tag",
+        ),
+        "_cmdline_upload_output_format": attr.label(
+            providers = [[AstoreMetadataProvider]],
+            default = "//f/astore:output_format",
         ),
         "_astore_upload_file": attr.label(
             default = Label("//bazel/astore:astore_upload_file.sh"),
