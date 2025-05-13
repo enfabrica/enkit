@@ -287,8 +287,8 @@ filegroup(
     maybe(
         name = "net_enfabrica_binary_astore",
         repo_rule = http_file,
-        sha256 = "47be8fa1067a8c498a67888b6f32386b9504b70e1da13afe869e6f06139805c9",
-        urls = ["https://astore.corp.enfabrica.net/d/bazel/workspace_deps/astore/v1?u=7hfw4dsxxobamx5uyvvwmnj8tpxj7yub"],
+        sha256 = "c8a9c8b42ad5694ddf4863aec8f145c81bbb2e5154cac25d9cc7ba1f15609e77",
+        urls = ["https://astore.corp.enfabrica.net/d/bazel/workspace_deps/astore/v2?u=52hfhiuekmeqt7fv8mdkkm28hjgsrg7v"],
         executable = True,
     )
 
@@ -299,7 +299,7 @@ filegroup(
         sha256 = "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
         strip_prefix = "zlib-1.2.11",
         # Original file: https://zlib.net/fossils/zlib-1.2.11.tar.gz
-        urls = ["https://astore.corp.enfabrica.net/d/mirror/zlib/zlib-1.2.11.tar.gz?u=giqzp6y6me76syf7jrgwtevqxgdhswdu"]
+        urls = ["https://astore.corp.enfabrica.net/d/mirror/zlib/zlib-1.2.11.tar.gz?u=giqzp6y6me76syf7jrgwtevqxgdhswdu"],
     )
 
     maybe(
@@ -420,5 +420,5 @@ proto_library(
         repo_rule = http_archive,
         urls = ["https://github.com/google/benchmark/archive/refs/tags/v1.9.2.tar.gz"],
         strip_prefix = "benchmark-1.9.2",
-        integrity = "sha256-QJB1F2Fo3Ea7uBt0wbS2kAOFtdFr/BgdZ4r7Bg2Si9M="
+        integrity = "sha256-QJB1F2Fo3Ea7uBt0wbS2kAOFtdFr/BgdZ4r7Bg2Si9M=",
     )
