@@ -147,7 +147,7 @@ func shallowHash(w *Workspace, t *bpb.Target) (uint32, error) {
 		if err != nil {
 			err = fmt.Errorf("can't open source file %q: %w", lbl.filePath(), err)
 			if lbl.isExternal() {
-				slog.Error("%s", err)
+				slog.Debug("%s", err)
 				err = nil
 			} else {
 				return 0, err
@@ -299,7 +299,6 @@ func (t *Target) getHashInteral(w *Workspace, chain *map[string]struct{}) (uint3
 	for _, dep := range t.deps {
 		hash, err := dep.getHashInteral(w, chain)
 		if err != nil {
-			// fmt.Errorf("Target.getHash() for: %s, error:", dep.name, err)
 			return 0, err
 		} else {
 			fmt.Fprintf(h, "%d", hash)
