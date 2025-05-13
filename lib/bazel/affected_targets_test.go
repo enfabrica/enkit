@@ -127,6 +127,62 @@ func TestCalculateAffected(t *testing.T) {
 			},
 		},
 		{
+			desc: "dependency cycle",
+			startResults: &QueryResult{
+				Targets: map[string]*Target{
+					"//test/target:foo": mustNewTarget(t, &bpb.Target{
+						Type: bpb.Target_RULE.Enum(),
+						Rule: &bpb.Rule{
+							Name: proto.String("//test/target:foo"),
+							RuleInput: []string{
+								"//test/target:bar",
+							},
+						},
+					}),
+					"//test/target:bar": mustNewTarget(t, &bpb.Target{
+						Type: bpb.Target_RULE.Enum(),
+						Rule: &bpb.Rule{
+							Name: proto.String("//test/target:bar"),
+							RuleInput: []string{
+								"//test/target:foo.txt",
+							},
+						},
+					}),
+					"//test/target:foo.txt": mustNewTarget(t, &bpb.Target{
+						Type: bpb.Target_SOURCE_FILE.Enum(),
+						SourceFile: &bpb.SourceFile{
+							Name: proto.String("//test/target:foo.txt"),
+						},
+					}),
+				},
+				workspace: testWorkspace(t),
+			},
+			endResults: &QueryResult{
+				Targets: map[string]*Target{
+					"//test/target:foo": mustNewTarget(t, &bpb.Target{
+						Type: bpb.Target_RULE.Enum(),
+						Rule: &bpb.Rule{
+							Name: proto.String("//test/target:foo"),
+							RuleInput: []string{
+								"//test/target:bar",
+							},
+						},
+					}),
+					"//test/target:bar": mustNewTarget(t, &bpb.Target{
+						Type: bpb.Target_RULE.Enum(),
+						Rule: &bpb.Rule{
+							Name: proto.String("//test/target:bar"),
+							RuleInput: []string{
+								"//test/target:foo",
+							},
+						},
+					}),
+				},
+				workspace: testWorkspace(t),
+			},
+			wantErr: "dependency cycle",
+		},
+		{
 			desc: "attribute change detection",
 			startResults: &QueryResult{
 				Targets: map[string]*Target{
