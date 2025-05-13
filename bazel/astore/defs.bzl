@@ -1,6 +1,6 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
-AstoreMetadataProvider = provider(fields = ["tags"])
+AstoreMetadataProvider = provider(fields = ["tags", "output_format"])
 
 def _astore_tag_impl(ctx):
     # TODO(minor-fixes): If any validation is necessary on astore tag values,
@@ -10,6 +10,16 @@ def _astore_tag_impl(ctx):
 astore_tag = rule(
     implementation = _astore_tag_impl,
     build_setting = config.string_list(flag = True, repeatable = True),
+)
+
+def _astore_output_format(ctx):
+    if ctx.build_setting_value not in ["table", "json"]:
+        fail("unknown setting for {}: {}".format(ctx.target, ctx.build_setting_value))
+    return AstoreMetadataProvider(output_format = ctx.build_setting_value)
+
+astore_output_format = rule(
+    implementation = _astore_output_format,
+    build_setting = config.string(flag = True),
 )
 
 def _astore_url(package, uid, access_mod = "g", instance = "https://astore.corp.enfabrica.net"):
@@ -50,7 +60,8 @@ def _astore_upload(ctx):
     if ctx.attr.dir and ctx.attr.file:
         fail("in '%s' rule for an astore_upload in %s - you can only set dir or file, not both" % (ctx.attr.name, ctx.build_file_path), "dir")
 
-    files = [ctx.executable._astore_client]
+    files = [ctx.executable._astore_client, ctx.executable._astore_py_wrapper]
+    files.extend(ctx.files._astore_py_wrapper)
     targets = []
     for target in ctx.attr.targets:
         targets.extend([t.short_path for t in target.files.to_list()])
@@ -71,16 +82,21 @@ def _astore_upload(ctx):
     tags.extend(ctx.attr._cmdline_upload_tag[AstoreMetadataProvider].tags)
     upload_tag = " ".join(["--tag={}".format(tag) for tag in tags])
 
+    print(ctx.files._astore_py_wrapper)
+    print(ctx.executable._astore_py_wrapper)
+
     ctx.actions.expand_template(
         template = template,
         output = ctx.outputs.executable,
         substitutions = {
             "{astore}": ctx.executable._astore_client.short_path,
+            "{py_wrapper}": ctx.executable._astore_py_wrapper.short_path,
             "{targets}": " ".join(targets),
             "{file}": ctx.attr.file,
             "{dir}": ctx.attr.dir,
             "{uidfile}": uidfile,
             "{upload_tag}": upload_tag,
+            "{output_format}": ctx.attr._cmdline_upload_output_format[AstoreMetadataProvider].output_format,
         },
         is_executable = True,
     )
@@ -117,6 +133,10 @@ astore_upload = rule(
             providers = [[AstoreMetadataProvider]],
             default = "//f/astore:upload_tag",
         ),
+        "_cmdline_upload_output_format": attr.label(
+            providers = [[AstoreMetadataProvider]],
+            default = "//f/astore:output_format",
+        ),
         "_astore_upload_file": attr.label(
             default = Label("//bazel/astore:astore_upload_file.sh"),
             allow_single_file = True,
@@ -128,6 +148,13 @@ astore_upload = rule(
         "_astore_client": attr.label(
             default = Label("@net_enfabrica_binary_astore//file"),
             allow_single_file = True,
+            executable = True,
+            cfg = "host",
+        ),
+        "_astore_py_wrapper": attr.label(
+            default = Label("//bazel/astore:astore_upload_files"),
+            # allow_single_file = True,
+            # allow_files = True,
             executable = True,
             cfg = "host",
         ),

@@ -1,16 +1,43 @@
 #!/usr/bin/env bash
 
 set -e
+set -x
 
 FILE="{file}"
 TARGETS=( {targets} )
 UIDFILE="{uidfile}"
 UPLOAD_TAG="{upload_tag}"
+OUTPUT_FORMAT="{output_format}"
+ASTORE_CMD=( {astore} )
+PY_WRAPPER=( {py_wrapper} )
+
+# file $(realpath "${PY_WRAPPER[@]}")
+# sha256sum "${PY_WRAPPER[@]}"
+
+"${PY_WRAPPER[@]}" --help >&2 || true
+
+test ${#ASTORE_CMD[@]} -eq 1
+
+# "${ASTORE_CMD[@]}" --help
+
+if [[ "${OUTPUT_FORMAT}" == "json" ]]; then
+  ls -lh "${PY_WRAPPER[@]}"
+  "${PY_WRAPPER[@]}" --help >&2 || true
+
+  exec echo "${PY_WRAPPER[@]}" \
+--astore "${ASTORE_CMD[0]}" \
+--file "${FILE}" \
+--output_format "${OUTPUT_FORMAT}" \
+--upload_tag "${UPLOAD_TAG}" \
+"${TARGETS[@]}"
+
+  exit 1
+fi
 
 TEMPTOML="$(mktemp /tmp/astore.XXXXX.toml)" || exit 1
 trap 'rm -f "${TEMPTOML}"' EXIT
 
-function update_build_file() {
+function update_starlark_version_file() {
   local UIDFILE="$1"
   local TARGET="$2"
   local FILE_UID="$3"
@@ -43,15 +70,14 @@ function update_build_file() {
 # astore doesn't tell us which metadata entry corresponds to which target, so
 # we work around the issue by uploading the targets sequentially:
 for TARGET in "${TARGETS[@]}"; do
-  {astore} upload ${UPLOAD_TAG} -G -f "${FILE}" "${TARGET}" -m "${TEMPTOML}"
+  {astore} upload ${UPLOAD_TAG} -G -f "${FILE}" "${TARGET}" -m "${TEMPTOML}" --console-format "${OUTPUT_FORMAT}"
   FILE_UID="$(grep -E "^  Uid = " "${TEMPTOML}" | awk '{print $3}' | tr -d \")"
   FILE_SHA="$(sha256sum "${TARGET}" | awk '{print $1}')"
   if [[ -z "${FILE_UID}" ]]; then
     echo >&2 "Error: no UID found for ${TARGET} uploaded as ${FILE}".
     exit 2
   fi
-  echo >&2 "${TARGET} uploaded as ${FILE}: assigned UID ${FILE_UID}"
   if [[ -n "${UIDFILE}"  ]]; then
-    update_build_file "${UIDFILE}" "${TARGET}" "${FILE_UID}" "${FILE_SHA}"
+    update_starlark_version_file "${UIDFILE}" "${TARGET}" "${FILE_UID}" "${FILE_SHA}"
   fi
 done
