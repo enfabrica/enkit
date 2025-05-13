@@ -6,6 +6,7 @@ FILE="{file}"
 TARGETS=( {targets} )
 UIDFILE="{uidfile}"
 UPLOAD_TAG="{upload_tag}"
+PRINT_UID="{print_uid_stdout}"
 
 TEMPTOML="$(mktemp /tmp/astore.XXXXX.toml)" || exit 1
 trap 'rm -f "${TEMPTOML}"' EXIT
@@ -51,6 +52,9 @@ for TARGET in "${TARGETS[@]}"; do
     exit 2
   fi
   echo >&2 "${TARGET} uploaded as ${FILE}: assigned UID ${FILE_UID}"
+  if [[ ${PRINT_UID:-false} == "true" ]]; then
+    echo "${TARGET} uploaded as ${FILE}: assigned UID ${FILE_UID}"
+  fi
   if [[ -n "${UIDFILE}"  ]]; then
     update_build_file "${UIDFILE}" "${TARGET}" "${FILE_UID}" "${FILE_SHA}"
   fi

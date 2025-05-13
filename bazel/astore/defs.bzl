@@ -47,6 +47,11 @@ def _astore_upload(ctx):
     tags.extend(ctx.attr._cmdline_upload_tag[AstoreMetadataProvider].tags)
     upload_tag = " ".join(["--tag={}".format(tag) for tag in tags])
 
+    if ctx.attr.print_uid_stdout:
+        print_uid_stdout = "true"
+    else:
+        print_uid_stdout = "false"
+
     ctx.actions.expand_template(
         template = template,
         output = ctx.outputs.executable,
@@ -57,6 +62,7 @@ def _astore_upload(ctx):
             "{dir}": ctx.attr.dir,
             "{uidfile}": uidfile,
             "{upload_tag}": upload_tag,
+            "{print_uid_stdout}": print_uid_stdout,
         },
         is_executable = True,
     )
@@ -88,6 +94,10 @@ astore_upload = rule(
         ),
         "upload_tag": attr.string(
             doc = "Apply optional tag to binary during upload.",
+        ),
+        "print_uid_stdout": attr.bool(
+            default=False,
+            doc = "Optionally, print file and uid to stdout.",
         ),
         "_cmdline_upload_tag": attr.label(
             providers = [[AstoreMetadataProvider]],
