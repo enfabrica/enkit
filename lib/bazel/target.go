@@ -272,6 +272,36 @@ func (t *Target) containsTag(tag string) bool {
 	return ok
 }
 
+func (t *Target) getHashInteral(w *Workspace, chain *map[string]struct{}) (uint32, error) {
+	if t.hash != nil {
+		return *t.hash, nil
+	}
+
+	_, cycle := (*chain)[t.Name()]
+	if cycle {
+		return 0, fmt.Errorf("dependency cycle detected involving %s", t.Name())
+	}
+	(*chain)[t.Name()] = struct{}{}
+
+	h := fnv.New32()
+
+	for _, dep := range t.deps {
+		hash, err := dep.getHashInteral(w, chain)
+		if err != nil {
+			return 0, err
+		} else {
+			fmt.Fprintf(h, "%d", hash)
+		}
+	}
+
+	fmt.Fprintf(h, "%d", t.shallowHash)
+
+	hash := h.Sum32()
+	t.hash = &hash
+	delete(*chain, t.Name())
+	return hash, nil
+}
+
 // getHash returns the computed hash from this target, recursively evaluating
 // dependencies if they are not already hashed themselves.
 // This hash should change if:
@@ -283,26 +313,8 @@ func (t *Target) containsTag(tag string) bool {
 //     of t.deps changes)
 //   - The Starlark code of the producing rule changes
 func (t *Target) getHash(w *Workspace) (uint32, error) {
-	if t.hash != nil {
-		return *t.hash, nil
-	}
-
-	h := fnv.New32()
-
-	for _, dep := range t.deps {
-		hash, err := dep.getHash(w)
-		if err != nil {
-			// TODO(scott): Log this condition
-		} else {
-			fmt.Fprintf(h, "%d", hash)
-		}
-	}
-
-	fmt.Fprintf(h, "%d", t.shallowHash)
-
-	hash := h.Sum32()
-	t.hash = &hash
-	return hash, nil
+	chain := map[string]struct{}{}
+	return t.getHashInteral(w, &chain)
 }
 
 // hashFile adds the contents of a file at path `path` to the provided
