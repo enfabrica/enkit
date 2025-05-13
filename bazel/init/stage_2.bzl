@@ -58,7 +58,7 @@ def stage_2():
     # see https://github.com/bazelbuild/rules_python/issues/1669
     # and https://rules-python.readthedocs.io/en/latest/toolchains.html#python-c-toolchain-type
     native.register_toolchains("@python3_12_toolchains//:all")
-    
+
     protobuf_deps()
 
     # SDKs that can be used to build Go code. We need:
@@ -73,14 +73,14 @@ def stage_2():
     # `--@io_bazel_rules_go//go/toolchain:sdk_version=` flag to bazel. The
     # default seems to be whichever go_download_sdk rule is listed first here.
     go_download_sdk(
-        name = "go_sdk_1_21",
-        version = "1.21.4",
+        name = "go_sdk_1_24",
+        version = "1.24.3",
     )
 
     go_rules_dependencies()
     go_register_toolchains()
 
-    gazelle_dependencies(go_sdk = "go_sdk_1_21")
+    gazelle_dependencies(go_sdk = "go_sdk_1_24")
     go_embed_data_dependencies()
 
     rules_proto_grpc_repos()
