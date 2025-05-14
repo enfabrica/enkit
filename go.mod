@@ -1,10 +1,6 @@
 module github.com/enfabrica/enkit
 
-go 1.23.0
-
-toolchain go1.23.3
-
-replace github.com/GoogleCloudPlatform/cloud-build-notifiers => github.com/minor-fixes/cloud-build-notifiers v0.0.0-20230424124639-02281bcdd3d5
+go 1.24.3
 
 // Required by buildbarn ecosystem
 replace github.com/grpc-ecosystem/grpc-gateway/v2 => github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.1
@@ -15,7 +11,7 @@ require (
 	cloud.google.com/go/datastore v1.20.0
 	cloud.google.com/go/pubsub v1.45.1
 	cloud.google.com/go/storage v1.47.0
-	github.com/GoogleCloudPlatform/cloud-build-notifiers v0.0.0-00010101000000-000000000000
+	github.com/GoogleCloudPlatform/cloud-build-notifiers/lib/notifiers v0.0.0-20210219212036-163c92a64b27
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/Microsoft/go-winio v0.6.1
 	github.com/bazelbuild/buildtools v0.0.0-20240918101019-be1c24cc9a44
@@ -276,7 +272,7 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
-	k8s.io/client-go v0.27.1 // indirect
+	k8s.io/client-go v11.0.0+incompatible // indirect
 	nhooyr.io/websocket v1.8.6 // indirect
 	oss.indeed.com/go/libtime v1.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect

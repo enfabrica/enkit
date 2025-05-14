@@ -4,26 +4,26 @@ See README.md for more information.
 """
 
 load("@aspect_bazel_lib//lib:repositories.bzl", "aspect_bazel_lib_dependencies", "aspect_bazel_lib_register_toolchains")
-load("@rules_distroless//distroless:dependencies.bzl", "distroless_dependencies")
 load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
+load("@bazel_features//:deps.bzl", "bazel_features_deps")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 load("@com_github_atlassian_bazel_tools//multirun:deps.bzl", "multirun_dependencies")
+load("@com_github_google_benchmark//:bazel/benchmark_deps.bzl", "benchmark_deps")
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 load("@googleapis//:repository_rules.bzl", "switched_rules_by_language")
 load("@io_bazel_rules_go//extras:embed_data_deps.bzl", "go_embed_data_dependencies")
 load("@io_bazel_rules_go//go:deps.bzl", "go_download_sdk", "go_register_toolchains", "go_rules_dependencies")
 load("@io_bazel_rules_jsonnet//jsonnet:jsonnet.bzl", "jsonnet_repositories")
 load("@rules_antlr//antlr:repositories.bzl", "rules_antlr_dependencies")
+load("@rules_distroless//distroless:dependencies.bzl", "distroless_dependencies")
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
 load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
-load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
-load("@bazel_features//:deps.bzl", "bazel_features_deps")
-load("@com_github_google_benchmark//:bazel/benchmark_deps.bzl", "benchmark_deps")
 
 def stage_2():
     """Stage 2 initialization for WORKSPACE.
@@ -58,7 +58,7 @@ def stage_2():
     # see https://github.com/bazelbuild/rules_python/issues/1669
     # and https://rules-python.readthedocs.io/en/latest/toolchains.html#python-c-toolchain-type
     native.register_toolchains("@python3_12_toolchains//:all")
-    
+
     protobuf_deps()
 
     # SDKs that can be used to build Go code. We need:
@@ -73,14 +73,14 @@ def stage_2():
     # `--@io_bazel_rules_go//go/toolchain:sdk_version=` flag to bazel. The
     # default seems to be whichever go_download_sdk rule is listed first here.
     go_download_sdk(
-        name = "go_sdk_1_21",
-        version = "1.21.4",
+        name = "go_sdk_1_24",
+        version = "1.24.3",
     )
 
     go_rules_dependencies()
     go_register_toolchains()
 
-    gazelle_dependencies(go_sdk = "go_sdk_1_21")
+    gazelle_dependencies(go_sdk = "go_sdk_1_24")
     go_embed_data_dependencies()
 
     rules_proto_grpc_repos()
