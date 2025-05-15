@@ -325,7 +325,7 @@ def _astore_download_and_verify(rctx, dest, uid, digest, timeout, attempts = 10,
     # digest.
     rctx.execute(["echo", digest], timeout = 10)
 
-def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None, timeout = 10 * 60, attempts = 10, sleep = 1):
+def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None, output = ".", timeout = 10 * 60, attempts = 10, sleep = 1):
     """Fetch and extract a package from astore.
 
     This method downloads a package stored as an archive in astore, verifies
@@ -349,7 +349,7 @@ def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = Non
 
     rctx.extract(
         archive = f,
-        output = ".",
+        output = output,
         stripPrefix = stripPrefix,
     )
     rctx.delete(f)
