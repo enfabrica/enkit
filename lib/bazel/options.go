@@ -23,7 +23,7 @@ type baseOptions struct {
 	// Bazel's cache directory for this workspace.
 	OutputBase string
 	// Additional flags appended to bazel after other common flags,
-        // but before any command.
+	// but before any command.
 	ExtraStartupFlags []string
 	// Additional environment variables to set.
 	ExtraEnv []string
@@ -86,9 +86,11 @@ func (opts BaseOptions) apply(o *baseOptions) {
 type queryOptions struct {
 	query string
 
-	keepGoing       bool
-	unorderedOutput bool
-	workspaceLog    *os.File
+	keepGoing         bool
+	unorderedOutput   bool
+	workspaceLog      *os.File
+	reuseWorkspaceLog bool
+	repositoryCache   string
 }
 
 // Args returns the `query` and relevant subcommand arguments as passed to bazel.
@@ -100,10 +102,13 @@ func (o *queryOptions) Args() []string {
 	if o.unorderedOutput {
 		f = append(f, "--order_output=no")
 	}
-	if o.workspaceLog != nil {
+	if o.workspaceLog != nil && !o.reuseWorkspaceLog {
 		// See https://github.com/bazelbuild/bazel/issues/6807 for tracking issue
 		// making this flag non-experimental
 		f = append(f, "--experimental_workspace_rules_log_file", o.workspaceLog.Name())
+	}
+	if len(o.repositoryCache) != 0 {
+		f = append(f, "--repository_cache", o.repositoryCache)
 	}
 	f = append(f, "--", o.query)
 	return f
@@ -128,7 +133,9 @@ func (o *queryOptions) Close() error {
 	var errs []error
 	if o.workspaceLog != nil {
 		errs = append(errs, o.workspaceLog.Close())
-		errs = append(errs, os.RemoveAll(o.workspaceLog.Name()))
+		if !o.reuseWorkspaceLog {
+			errs = append(errs, os.RemoveAll(o.workspaceLog.Name()))
+		}
 	}
 	return multierror.New(errs)
 }
@@ -157,10 +164,31 @@ func WithTempWorkspaceRulesLog() (QueryOption, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp workspace log file: %w", err)
 	}
-
 	return func(o *queryOptions) {
 		o.workspaceLog = f
+		o.reuseWorkspaceLog = false
 	}, nil
+}
+
+func WithWorkspaceRulesLog(path string) (QueryOption, error) {
+	reuseWorkspaceLog := len(path) != 0
+	if !reuseWorkspaceLog {
+		return WithTempWorkspaceRulesLog()
+	}
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_EXCL, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp workspace log file: %w", err)
+	}
+	return func(o *queryOptions) {
+		o.workspaceLog = f
+		o.reuseWorkspaceLog = true
+	}, nil
+}
+
+func WithRepositoryCache() QueryOption {
+	return func(o *queryOptions) {
+		o.repositoryCache = "~/bazel/repo_cache"
+	}
 }
 
 // apply applies all the options to this option struct.

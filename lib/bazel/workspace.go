@@ -12,8 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/enfabrica/enkit/lib/logger"
 	"github.com/bazelbuild/buildtools/wspace"
+
+	"github.com/enfabrica/enkit/lib/logger"
 )
 
 // Workspace corresponds to a bazel workspace on the filesystem, as defined by
@@ -22,9 +23,9 @@ type Workspace struct {
 	root    string // Path to the workspace root on the filesystem
 	options *baseOptions
 
-	lock sync.Mutex
-	bazelBin  string
-	sourceDir string
+	lock          sync.Mutex
+	bazelBin      string
+	sourceDir     string
 	outputBaseDir string
 
 	sourceFS fs.FS
@@ -83,31 +84,46 @@ func (w *Workspace) SourceDir() (string, error) {
 	return w.getAndCachePath("workspace", &w.sourceDir)
 }
 
-func (w *Workspace) OutputBaseDir() (string, error) {
-	return w.getAndCachePath("output_base", &w.outputBaseDir)
-}
-
-func (w *Workspace) OpenSource(path string) (fs.File, error) {
+func (w *Workspace) SourceFS() (fs.FS, error) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 	if w.sourceFS == nil {
-		// SourceDir() internally grabs the lock.
-		// Let's release it temporarily.
 		w.lock.Unlock()
 		srcdir, err := w.SourceDir()
 		w.lock.Lock()
 		if err != nil {
 			return nil, err
 		}
-
 		w.sourceFS = os.DirFS(srcdir)
 	}
-	return w.sourceFS.Open(path)
+	return w.sourceFS, nil
+}
+
+func (w *Workspace) OutputBaseDir() (string, error) {
+	return w.getAndCachePath("output_base", &w.outputBaseDir)
+}
+
+func (w *Workspace) OpenSource(path string) (fs.File, error) {
+	if strings.HasPrefix(path, "external/") {
+		outputBaseDir, err := w.OutputBaseDir()
+		if err != nil {
+			return nil, err
+		}
+
+		path = filepath.Join(outputBaseDir, path)
+		return os.DirFS(filepath.Dir(path)).Open(filepath.Base(path))
+	} else {
+		sourceFS, err := w.SourceFS()
+		if err != nil {
+			return nil, err
+		}
+		return sourceFS.Open(path)
+	}
 }
 
 func (w *Workspace) OutputExternal() (string, error) {
-       obase, err := w.OutputBaseDir()
-       if err != nil {
+	obase, err := w.OutputBaseDir()
+	if err != nil {
 		return "", err
 	}
 

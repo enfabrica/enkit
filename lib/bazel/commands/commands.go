@@ -226,7 +226,9 @@ func NewAffectedTargetsList(parent *AffectedTargets) *AffectedTargetsList {
 	command.Flags().StringVar(&command.AffectedTargetsFile, "affected_targets_file", "", "If set, the list of affected targets will be dumped to this file path")
 	command.Flags().StringVar(&command.AffectedTestsFile, "affected_tests_file", "", "If set, the list of affected tests will be dumped to this file path")
 	command.Flags().StringVar(&command.Start.OutputBase, "start_output_base", "", "If set, the directory to use as start output base")
+	command.Flags().StringVar(&command.Start.WorkspaceLog, "start_workspace_log", "", "If set, previously generated workspace log file will be used")
 	command.Flags().StringVar(&command.End.OutputBase, "end_output_base", "", "If set, the directory to use as end output base")
+	command.Flags().StringVar(&command.End.WorkspaceLog, "end_workspace_log", "", "If set, previously generated workspace log file will be used")
 	command.Flags().StringVar(&command.Query, "query", "deps(//...)",
 		"The query to use to find the targets. Only the default query has been tested, "+
 			"not all queries will work correctly, make sure to test your changes carefully")

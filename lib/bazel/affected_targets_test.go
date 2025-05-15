@@ -27,16 +27,16 @@ func testWorkspace(t *testing.T) *Workspace {
 
 func mustNewTarget(t *testing.T, target *bpb.Target) *Target {
 	t.Helper()
-	newTarget, err := NewTarget(testWorkspace(t), target)
+	newTarget, err := NewTarget(testWorkspace(t), target, nil)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create target: %v", err))
 	}
 	return newTarget
 }
 
-func mustNewPseudoTarget(t *testing.T, target *bpb.Target, events map[string][]*bpb.WorkspaceEvent) *Target {
+func mustNewPseudoTarget(t *testing.T, target *bpb.Target, events *WorkspaceEvents) *Target {
 	t.Helper()
-	newT, err := NewExternalPseudoTarget(target, events)
+	newT, err := NewExternalPseudoTarget(nil, target, events)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create target: %v", err))
 	}
@@ -663,10 +663,10 @@ func TestCalculateAffected(t *testing.T) {
 						SourceFile: &bpb.SourceFile{
 							Name: proto.String("@third_party_dep//:some_file.txt"),
 						},
-					}, map[string][]*bpb.WorkspaceEvent{
-						"//external:third_party_dep": {
+					}, ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
+						"third_party_dep": {
 							{
-								Rule: "//external:third_party_dep",
+								Rule: "repository @@third_party_dep",
 								Event: &bpb.WorkspaceEvent_DownloadEvent{
 									DownloadEvent: &bpb.DownloadEvent{
 										Url:    []string{"https://example.com/some/url"},
@@ -675,7 +675,7 @@ func TestCalculateAffected(t *testing.T) {
 								},
 							},
 						},
-					}),
+					})),
 				},
 				workspace: testWorkspace(t),
 			},
@@ -686,10 +686,10 @@ func TestCalculateAffected(t *testing.T) {
 						SourceFile: &bpb.SourceFile{
 							Name: proto.String("@third_party_dep//:some_file.txt"),
 						},
-					}, map[string][]*bpb.WorkspaceEvent{
-						"//external:third_party_dep": {
+					}, ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
+						"third_party_dep": {
 							{
-								Rule: "//external:third_party_dep",
+								Rule: "repository @@third_party_dep",
 								Event: &bpb.WorkspaceEvent_DownloadEvent{
 									DownloadEvent: &bpb.DownloadEvent{
 										Url:    []string{"https://example.com/some/url"},
@@ -698,7 +698,7 @@ func TestCalculateAffected(t *testing.T) {
 								},
 							},
 						},
-					}),
+					})),
 				},
 				workspace: testWorkspace(t),
 			},

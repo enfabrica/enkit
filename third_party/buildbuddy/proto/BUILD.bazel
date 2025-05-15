@@ -18,7 +18,7 @@ proto_library(
 
 py_proto_library(
     name = "acl_py_proto",
-    deps = [":acl_proto"], 
+    deps = [":acl_proto"],
 )
 
 proto_library(
@@ -75,11 +75,11 @@ py_proto_library(
 proto_library(
     name = "buildbuddy_proto",
     deps = [
-        ":user_id_proto",
         ":acl_proto",
         ":cache_proto",
         ":context_proto",
         ":invocation_proto",
+        ":user_id_proto",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_proto",
         "//third_party/bazel/src/main/protobuf:command_line_proto",
     ],
@@ -91,7 +91,6 @@ py_proto_library(
         ":buildbuddy_proto",
     ],
 )
-
 
 # Go proto rules below here
 
@@ -110,4 +109,3 @@ go_proto_library(
         "//third_party/bazel/src/main/protobuf:proto",
     ],
 )
-
