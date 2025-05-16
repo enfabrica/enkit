@@ -14,35 +14,67 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	// Functions mocked in unit tests
-	storageSignedURL = storage.SignedURL
+// Functions mocked in unit tests
+var storageSignedURL = storage.SignedURL
+
+type authType int
+
+const (
+	// Unsupported; do not use
+	AuthTypeNone authType = iota
+	// Authentication is handled by credentials cookie + SSO
+	AuthTypeOauth
+	// Authentication is handled by JWT token parameter
+	AuthTypeToken
 )
 
-// DownalodArtifact turns an http.Request into an astore.RetrieveRequest, executes it, and invokes the specified handler with the result.
-func (s *Server) DownloadArtifact(prefix string, ehandler DownloadHandler, w http.ResponseWriter, r *http.Request) {
+// DownloadArtifact turns an http.Request into an astore.RetrieveRequest,
+// executes it, and invokes the specified handler with the result. Authorization
+// is enforced on the request based on the specified `authType`.
+func (s *Server) DownloadArtifact(prefix string, ehandler DownloadHandler, auth authType, w http.ResponseWriter, r *http.Request) {
 	upath := path.Clean(r.URL.Path)
 	if !strings.HasPrefix(upath, prefix) {
 		ehandler(upath, nil, status.Errorf(codes.InvalidArgument, "path %s does not start with the required prefix %s", upath, prefix), w, r)
 		return
 	}
+	astorePath := strings.TrimPrefix(upath, prefix)
 
-	parms := r.URL.Query()
-	arch := parms.Get("a")
+	params := r.URL.Query()
+	arch := params.Get("a")
 	if arch == "" {
-		arch = parms.Get("arch")
+		arch = params.Get("arch")
 	}
-	uid := parms.Get("u")
+	uid := params.Get("u")
 	if uid == "" {
-		uid = parms.Get("uid")
+		uid = params.Get("uid")
 	}
-	tag := parms["t"]
+	tag := params["t"]
 	if len(tag) <= 0 {
-		tag = parms["tag"]
+		tag = params["tag"]
+	}
+
+	switch auth {
+	default:
+		s.options.logger.Errorf("auth type '%v' not supported by DownloadArtifact()", auth)
+		ehandler(upath, nil, status.Errorf(codes.Unauthenticated, "unhandled auth type: %v", auth), w, r)
+	case AuthTypeOauth:
+		// Assume user has been authenticated at a higher level by this point
+		break
+	case AuthTypeToken:
+		if token := params.Get("token"); token != "" {
+			if err := s.validateToken(token, uid); err != nil {
+				switch {
+				default:
+					s.options.logger.Errorf("Request for uid %q: token validation error: %v", uid, err)
+					ehandler(upath, nil, status.Errorf(codes.Unauthenticated, "invalid token"), w, r)
+					return
+				}
+			}
+		}
 	}
 
 	req := &astore.RetrieveRequest{}
-	req.Path = strings.TrimPrefix(upath, prefix)
+	req.Path = astorePath
 	req.Uid = uid
 	req.Architecture = arch
 
