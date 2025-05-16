@@ -2,13 +2,11 @@ package bazel
 
 import (
 	"fmt"
-
-	"os"
-	"strings"
-
 	"hash/fnv"
 	"log/slog"
+	"os"
 	"sort"
+	"strings"
 
 	bpb "github.com/enfabrica/enkit/lib/bazel/proto"
 	"github.com/enfabrica/enkit/lib/proto/delimited"
@@ -43,7 +41,7 @@ func extractChecksums(events []*bpb.WorkspaceEvent) []string {
 				checksums = append(checksums, e.DownloadAndExtractEvent.GetIntegrity())
 			}
 		case *bpb.WorkspaceEvent_ExecuteEvent:
-			arguments := e.ExecuteEvent.GetArguments() 
+			arguments := e.ExecuteEvent.GetArguments()
 			// TODO ENGPROD-1075: Migrate astore downloads to repository_ctx
 			if len(arguments) == 2 && arguments[0] == "echo" {
 				checksums = append(checksums, arguments[1])
@@ -55,7 +53,6 @@ func extractChecksums(events []*bpb.WorkspaceEvent) []string {
 				// 	...
 				// }
 				// So we extract checksums here
-				
 			} else if len(arguments) > 5 && arguments[0] == "enkit" {
 				// Astore downloads are present in workspace events log as:
 				// context: "repository @@generic-latest-kernel"
@@ -71,7 +68,7 @@ func extractChecksums(events []*bpb.WorkspaceEvent) []string {
 				if arguments[1] == "astore" && arguments[2] == "download" && arguments[3] == "--force-uid" {
 					checksums = append(checksums, arguments[4])
 				}
-			} 
+			}
 		default:
 			slog.Debug("Unchecked workspace event type  type: %s", protojson.Format(event))
 		}
@@ -92,7 +89,7 @@ func ConstructWorkspaceEvents(workspaceEvents map[string][]*bpb.WorkspaceEvent) 
 		for _, checksum := range checksums {
 			fmt.Fprint(h, checksum)
 		}
-		workspaceHashes[workspaceName] = h.Sum32()	
+		workspaceHashes[workspaceName] = h.Sum32()
 	}
 
 	return &WorkspaceEvents{
@@ -111,7 +108,11 @@ func ParseWorkspaceEvents(workspaceLog *os.File) (*WorkspaceEvents, error) {
 		context := event.GetRule()
 		var workspaceName string
 		if strings.HasPrefix(context, "repository @@") {
+			// Bazel 7 format
 			workspaceName = context[len("repository @@"):]
+		} else if strings.HasPrefix(context, "repository @") {
+			// Bazel 6 format
+			workspaceName = context[len("repository @"):]
 		} else {
 			return nil, fmt.Errorf("Unknown workspace events context type: %s", context)
 		}
