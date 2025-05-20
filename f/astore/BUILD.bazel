@@ -1,7 +1,13 @@
-load("//bazel/astore:defs.bzl", "astore_tag")
+load("//bazel/astore:defs.bzl", "astore_output_format", "astore_tag")
 
 astore_tag(
     name = "upload_tag",
     build_setting_default = [],
+    visibility = ["//bazel/astore:__pkg__"],
+)
+
+astore_output_format(
+    name = "output_format",
+    build_setting_default = "table",
     visibility = ["//bazel/astore:__pkg__"],
 )
