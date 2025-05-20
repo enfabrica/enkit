@@ -9,6 +9,7 @@ import (
 
 type Formatter interface {
 	Artifact(*astore.Artifact)
+	RetrieveResponse(*astore.RetrieveResponse)
 	Element(*astore.Element)
 	Flush()
 }
@@ -28,6 +29,11 @@ func (uf *UglyFormatter) File() *os.File {
 
 func (uf *UglyFormatter) Artifact(art *astore.Artifact) {
 	fmt.Fprintf(uf.File(), "%s\t%s\t%s\t%x\t%s\t%s\t%s\n", time.Unix(0, art.Created), art.Creator, art.Architecture, art.MD5, art.Uid, art.Tag, art.Note)
+}
+
+func (uf *UglyFormatter) RetrieveResponse(resp *astore.RetrieveResponse) {
+	fmt.Fprintf(uf.File(), "%s\t%s\t", resp.GetPath(), resp.GetUrl())
+	uf.Artifact(resp.GetArtifact())
 }
 
 func (uf *UglyFormatter) Element(el *astore.Element) {

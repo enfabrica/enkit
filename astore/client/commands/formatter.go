@@ -81,6 +81,34 @@ func (ff *TableFormatter) Artifact(af *astore.Artifact) {
 	}
 }
 
+func (ff *TableFormatter) RetrieveResponse(rr *astore.RetrieveResponse) {
+	prefix := " "
+	if ff.disableNesting {
+		prefix = ""
+	}
+
+	if !ff.afHeaderPrinted {
+		if !ff.disableNesting {
+			if ff.elHeaderPrinted {
+				fmt.Printf("\n")
+			}
+			ff.tPrint(ff.heading + "\n")
+		}
+
+		fmt.Printf(prefix + "|")
+		ff.hPrint(" %-32s %-80s %-14s %s\n", "UID", "Path", "Arch", "URL")
+		ff.afHeaderPrinted = true
+	}
+
+	fmt.Printf(
+		prefix+"| %-32s %-80s %-14s %s\n",
+		rr.GetArtifact().GetUid(),
+		rr.GetPath(),
+		rr.GetArtifact().GetArchitecture(),
+		rr.GetUrl(),
+	)
+}
+
 func (ff *TableFormatter) Element(el *astore.Element) {
 	prefix := " "
 	if ff.disableNesting {
@@ -138,6 +166,16 @@ func (fl *FormatterList) Artifact(af *astore.Artifact) {
 	}
 }
 
+// Implements the astore.Formatter.RetrieveResponse() method for FormatterList.
+//
+// Calls astore.RetrieveResponse() on each formatter in the formatters
+// sequence, passing in the input astore.RetrieveResponse.
+func (fl *FormatterList) RetrieveResponse(rr *astore.RetrieveResponse) {
+	for _, formatter := range fl.formatters {
+		formatter.RetrieveResponse(rr)
+	}
+}
+
 // Implements the astore.Formatter.Element() method for FormatterList.
 //
 // Calls astore.Element() on each formatter in the formatters
@@ -160,8 +198,9 @@ func (fl *FormatterList) Flush() {
 // MarshalData is the collection of Artifacts and Elements from an
 // astore operation.
 type MarshalData struct {
-	Artifacts []astore.Artifact
-	Elements  []astore.Element
+	Artifacts         []astore.Artifact
+	Elements          []astore.Element
+	RetrieveResponses []astore.RetrieveResponse
 }
 
 // OpFile formats the astore meta based on the outputFile
@@ -172,6 +211,7 @@ type OpFile struct {
 	outputFile string
 	artifacts  []astore.Artifact
 	elements   []astore.Element
+	responses  []astore.RetrieveResponse
 }
 
 // Creates an empty OpFile
@@ -197,6 +237,13 @@ func (mf *OpFile) Element(el *astore.Element) {
 	mf.elements = append(mf.elements, *el)
 }
 
+// Implements the astore.Formatter.RetrieveResponse() method for MarshalFormat.
+//
+// Stores the input element into an internal responses sequence.
+func (mf *OpFile) RetrieveResponse(resp *astore.RetrieveResponse) {
+	mf.responses = append(mf.responses, *resp)
+}
+
 // Implements the astore.Formatter.Flush() method for MarshalFormat.
 //
 // Outputs the artifact and element data to an output file using
@@ -204,8 +251,9 @@ func (mf *OpFile) Element(el *astore.Element) {
 // extension of the output file.
 func (mf *OpFile) Flush() {
 	data := MarshalData{
-		Artifacts: mf.artifacts,
-		Elements:  mf.elements,
+		Artifacts:         mf.artifacts,
+		Elements:          mf.elements,
+		RetrieveResponses: mf.responses,
 	}
 	err := marshal.MarshalFile(mf.outputFile, data)
 	if err != nil {
@@ -214,12 +262,14 @@ func (mf *OpFile) Flush() {
 
 	mf.artifacts = nil
 	mf.elements = nil
+	mf.responses = nil
 }
 
 type StructuredStdout struct {
 	marshaler marshal.Marshaller
 	artifacts []astore.Artifact
 	elements  []astore.Element
+	responses []astore.RetrieveResponse
 }
 
 func NewStructuredStdout(m marshal.Marshaller) *StructuredStdout {
@@ -236,10 +286,15 @@ func (s *StructuredStdout) Element(el *astore.Element) {
 	s.elements = append(s.elements, *el)
 }
 
+func (s *StructuredStdout) RetrieveResponse(resp *astore.RetrieveResponse) {
+	s.responses = append(s.responses, *resp)
+}
+
 func (s *StructuredStdout) Flush() {
 	data := MarshalData{
-		Artifacts: s.artifacts,
-		Elements:  s.elements,
+		Artifacts:         s.artifacts,
+		Elements:          s.elements,
+		RetrieveResponses: s.responses,
 	}
 	output, err := s.marshaler.Marshal(data)
 	if err != nil {
@@ -252,4 +307,5 @@ func (s *StructuredStdout) Flush() {
 
 	s.artifacts = nil
 	s.elements = nil
+	s.responses = nil
 }

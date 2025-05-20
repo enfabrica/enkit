@@ -186,8 +186,10 @@ func TestSimple(t *testing.T) {
 
 	// Download one of the files.
 	arts, err = ac.Download([]astore.FileToDownload{{
-		Remote: name,
-		Local:  "result.txt",
+		Descriptor: astore.FileToDownloadDescriptor{
+			Remote: name,
+		},
+		Local: "result.txt",
 	}}, astore.DownloadOptions{
 		Context: ctx,
 	})
@@ -200,8 +202,10 @@ func TestSimple(t *testing.T) {
 	// Download it again. Should fail, no overwrite allowed.
 	arts, err = ac.Download([]astore.FileToDownload{
 		{
-			Remote: name,
-			Local:  "result.txt",
+			Descriptor: astore.FileToDownloadDescriptor{
+				Remote: name,
+			},
+			Local: "result.txt",
 		},
 	}, astore.DownloadOptions{
 		Context: ctx,
@@ -210,10 +214,12 @@ func TestSimple(t *testing.T) {
 
 	// Download it one more time. Set ovewrite. Pick a different tag.
 	arts, err = ac.Download([]astore.FileToDownload{{
-		Remote:    name,
+		Descriptor: astore.FileToDownloadDescriptor{
+			Remote: name,
+			Tag:    &[]string{"simple"},
+		},
 		Local:     "result.txt",
 		Overwrite: true,
-		Tag:       &[]string{"simple"},
 	}}, astore.DownloadOptions{
 		Context: ctx,
 	})
@@ -226,10 +232,12 @@ func TestSimple(t *testing.T) {
 
 	// Try to download something that does not exist.
 	arts, err = ac.Download([]astore.FileToDownload{{
-		Remote:    name,
+		Descriptor: astore.FileToDownloadDescriptor{
+			Remote: name,
+			Tag:    &[]string{"simple", "latest"},
+		},
 		Local:     "result.txt",
 		Overwrite: true,
-		Tag:       &[]string{"simple", "latest"},
 	}}, astore.DownloadOptions{
 		Context: ctx,
 	})
@@ -238,10 +246,12 @@ func TestSimple(t *testing.T) {
 	// Try to download the oldest file by UID.
 	// Specify no name, just for fun.
 	arts, err = ac.Download([]astore.FileToDownload{{
-		Remote:    allarts[0].Uid,
+		Descriptor: astore.FileToDownloadDescriptor{
+			Remote: allarts[0].Uid,
+			// Should be ignored, when querying by Uid.
+			Tag: &[]string{"simple", "latest"},
+		},
 		Overwrite: true,
-		// Should be ignored, when querying by Uid.
-		Tag: &[]string{"simple", "latest"},
 	}}, astore.DownloadOptions{
 		Context: ctx,
 	})

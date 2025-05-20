@@ -42,6 +42,7 @@ func New(base *client.BaseFlags) *Root {
 	root := NewRoot(base)
 
 	root.AddCommand(NewDownload(root).Command)
+	root.AddCommand(NewDownloadUrl(root).Command)
 	root.AddCommand(NewUpload(root).Command)
 	root.AddCommand(NewList(root).Command)
 	root.AddCommand(NewGuess(root).Command)
@@ -154,16 +155,57 @@ func (rc *Root) ConfigStore(namespace ...string) (config.Store, error) {
 	return defcon.Open("astore", namespace...)
 }
 
+type DownloadInfo struct {
+	ForceUid  bool
+	ForcePath bool
+	Arch      string
+	Tag       []string
+}
+
+func (di *DownloadInfo) newFileDownloadDescriptor(name string) (*astore.FileToDownloadDescriptor, error) {
+	if di.ForceUid && di.ForcePath {
+		return nil, kflags.NewUsageErrorf("cannot specify --force-uid together with --force-path - an argument can be either one, but not both")
+	}
+	mode := astore.IdAuto
+	if di.ForceUid {
+		mode = astore.IdUid
+	}
+	if di.ForcePath {
+		mode = astore.IdPath
+	}
+
+	var archs []string
+	switch strings.TrimSpace(di.Arch) {
+	case "":
+		fallthrough
+	case "all":
+		archs = []string{"all"}
+	default:
+		archs = []string{di.Arch, "all"}
+	}
+
+	return &astore.FileToDownloadDescriptor{
+		Remote:       name,
+		RemoteType:   mode,
+		Architecture: archs,
+		Tag:          &di.Tag,
+	}, nil
+}
+
+func addDownloadInfoFlagSet(info *DownloadInfo, flags *pflag.FlagSet) {
+	flags.BoolVarP(&info.ForceUid, "force-uid", "u", false, "The argument specified identifies an uid")
+	flags.BoolVarP(&info.ForcePath, "force-path", "p", false, "The argument specified identifies a file path")
+	flags.StringArrayVarP(&info.Tag, "tag", "t", []string{"latest"}, "Download artifacts matching the tag specified. More than one tag can be specified")
+	flags.StringVarP(&info.Arch, "arch", "a", SystemArch(), "Architecture to download the file for")
+}
+
 type Download struct {
 	*cobra.Command
 	root *Root
 
-	ForceUid  bool
-	ForcePath bool
 	Output    string
 	Overwrite bool
-	Arch      string
-	Tag       []string
+	Info      DownloadInfo
 }
 
 func SystemArch() string {
@@ -181,39 +223,15 @@ func NewDownload(root *Root) *Download {
 	}
 	command.Command.RunE = command.Run
 
-	command.Flags().BoolVarP(&command.ForceUid, "force-uid", "u", false, "The argument specified identifies an uid")
-	command.Flags().BoolVarP(&command.ForcePath, "force-path", "p", false, "The argument specified identifies a file path")
 	command.Flags().StringVarP(&command.Output, "output", "o", ".", "Where to output the downloaded files. If multiple files are supplied, a directory with this name will be created")
 	command.Flags().BoolVarP(&command.Overwrite, "overwrite", "w", false, "Overwrite files that already exist")
-	command.Flags().StringArrayVarP(&command.Tag, "tag", "t", []string{"latest"}, "Download artifacts matching the tag specified. More than one tag can be specified")
-	command.Flags().StringVarP(&command.Arch, "arch", "a", SystemArch(), "Architecture to download the file for")
+	addDownloadInfoFlagSet(&command.Info, command.Flags())
 
 	return command
 }
 func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return kflags.NewUsageErrorf("use as 'astore download <path|uid>...' - one or more paths to download")
-	}
-	if dc.ForceUid && dc.ForcePath {
-		return kflags.NewUsageErrorf("cannot specify --force-uid together with --force-path - an argument can be either one, but not both")
-	}
-
-	mode := astore.IdAuto
-	if dc.ForceUid {
-		mode = astore.IdUid
-	}
-	if dc.ForcePath {
-		mode = astore.IdPath
-	}
-
-	var archs []string
-	switch strings.TrimSpace(dc.Arch) {
-	case "":
-		fallthrough
-	case "all":
-		archs = []string{"all"}
-	default:
-		archs = []string{dc.Arch, "all"}
 	}
 
 	// If there are multiple files to download, the output must be a directory.
@@ -225,13 +243,15 @@ func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 
 	ftd := []astore.FileToDownload{}
 	for _, name := range args {
+		descriptor, err := dc.Info.newFileDownloadDescriptor(name)
+		if err != nil {
+			return err
+		}
+
 		file := astore.FileToDownload{
-			Remote:       name,
-			RemoteType:   mode,
-			Local:        output,
-			Overwrite:    dc.Overwrite,
-			Architecture: archs,
-			Tag:          &dc.Tag,
+			Descriptor: *descriptor,
+			Local:      output,
+			Overwrite:  dc.Overwrite,
 		}
 		ftd = append(ftd, file)
 	}
@@ -255,6 +275,63 @@ func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 		formatter.Artifact(art)
 	}
 	return err
+}
+
+type DownloadUrl struct {
+	*cobra.Command
+	root *Root
+
+	Info DownloadInfo
+}
+
+func NewDownloadUrl(root *Root) *DownloadUrl {
+	command := &DownloadUrl{
+		Command: &cobra.Command{
+			Use:     "download-url <path|uid>...",
+			Short:   "Get URL of an artifact",
+			Aliases: []string{"url", "download-url", "get-url"},
+		},
+		root: root,
+	}
+	command.Command.RunE = command.Run
+	addDownloadInfoFlagSet(&command.Info, command.Flags())
+
+	return command
+}
+
+func (du *DownloadUrl) Run(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return kflags.NewUsageErrorf("use as 'astore download-url <path|uid>...' - one or more paths to get download urls")
+	}
+
+	client, err := du.root.StoreClient()
+	if err != nil {
+		return err
+	}
+
+	responses := []*arpc.RetrieveResponse{}
+	for _, name := range args {
+		descriptor, err := du.Info.newFileDownloadDescriptor(name)
+		if err != nil {
+			return err
+		}
+
+		response, _, _, err := client.GetRetrieveResponse(descriptor)
+		if err != nil {
+			return err
+		}
+
+		responses = append(responses, response)
+	}
+
+	formatter := du.root.Formatter()
+	for _, rr := range responses {
+		formatter.RetrieveResponse(rr)
+	}
+
+	formatter.Flush()
+
+	return nil
 }
 
 type List struct {

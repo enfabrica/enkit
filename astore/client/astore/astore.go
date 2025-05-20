@@ -55,19 +55,22 @@ type DownloadOptions struct {
 	*ccontext.Context
 }
 
-type FileToDownload struct {
+type FileToDownloadDescriptor struct {
 	// Name of the file on the remote system.
 	Remote     string   // ok
 	RemoteType PathType // ok
-
-	// How we want the file to be named on the local filesystem.
-	Local string
-	// Overwrite the file if there already?
-	Overwrite bool
 	// First architecture found is downloaded.
 	Architecture []string // ok
 	// No tags means latest tag.
 	Tag *[]string
+}
+
+type FileToDownload struct {
+	Descriptor FileToDownloadDescriptor
+	// How we want the file to be named on the local filesystem.
+	Local string
+	// Overwrite the file if there already?
+	Overwrite bool
 }
 
 type PathType string
@@ -110,14 +113,14 @@ func RetrieveRequestFromPath(name string, id PathType) (*apb.RetrieveRequest, Pa
 }
 
 // GetRetrieveResponse performs a Retrieve request, and returns both the generated request, and returned response.
-func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId PathType, tags *[]string) (*apb.RetrieveResponse, *apb.RetrieveRequest, PathType, error) {
-	req, id := RetrieveRequestFromPath(name, defaultId)
+func (c *Client) GetRetrieveResponse(d *FileToDownloadDescriptor) (*apb.RetrieveResponse, *apb.RetrieveRequest, PathType, error) {
+	req, id := RetrieveRequestFromPath(d.Remote, d.RemoteType)
 
 	adapt := func(err error) error {
 		if status.Code(err) != codes.NotFound {
 			return client.NiceError(err, "Could not contact the metadata server. Is your connectivity working? Is the server up?\nFor debugging: %s", err)
 		}
-		return status.Errorf(codes.NotFound, "Could not find package archs: %s - %s", archs, err)
+		return status.Errorf(codes.NotFound, "Could not find package archs: %s - %s", d.Architecture, err)
 	}
 
 	var response *apb.RetrieveResponse
@@ -132,15 +135,15 @@ func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId Path
 			return nil, nil, id, adapt(err)
 		}
 	} else {
-		if tags != nil {
-			req.Tag = &apb.TagSet{Tag: *tags}
+		if d.Tag != nil {
+			req.Tag = &apb.TagSet{Tag: *d.Tag}
 		}
 
-		if len(archs) == 0 {
-			archs = []string{"all"}
+		if len(d.Architecture) == 0 {
+			d.Architecture = []string{"all"}
 		}
 
-		for _, arch := range archs {
+		for _, arch := range d.Architecture {
 			req.Architecture = arch
 
 			response, err = c.client.Retrieve(context.TODO(), req)
@@ -162,7 +165,7 @@ func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId Path
 func (c *Client) Download(files []FileToDownload, o DownloadOptions) ([]*apb.Artifact, error) {
 	arts := []*apb.Artifact{}
 	for _, file := range files {
-		response, _, id, err := c.GetRetrieveResponse(file.Remote, file.Architecture, file.RemoteType, file.Tag)
+		response, _, id, err := c.GetRetrieveResponse(&file.Descriptor)
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +192,7 @@ func (c *Client) Download(files []FileToDownload, o DownloadOptions) ([]*apb.Art
 		}
 
 		if id == IdPath && outputFile == "" {
-			outputFile = filepath.Base(file.Remote)
+			outputFile = filepath.Base(file.Descriptor.Remote)
 		}
 		if outputFile == "" {
 			outputFile = filepath.Base(response.Path)
