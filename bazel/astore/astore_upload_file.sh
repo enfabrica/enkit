@@ -21,7 +21,7 @@ test ${#ASTORE_CMD[@]} -eq 1
 # "${ASTORE_CMD[@]}" --help
 
 if [[ "${OUTPUT_FORMAT}" == "json" ]]; then
-  exec echo "${ASTORE_CMD[@]}" \
+  exec "${PY_WRAPPER[@]}" \
 --astore "${ASTORE_CMD[0]}" \
 --file "${FILE}" \
 --output_format "${OUTPUT_FORMAT}" \
