@@ -1,12 +1,35 @@
 #!/usr/bin/env bash
 
 set -e
+set -x
 
 FILE="{file}"
 TARGETS=( {targets} )
 UIDFILE="{uidfile}"
 UPLOAD_TAG="{upload_tag}"
 OUTPUT_FORMAT="{output_format}"
+ASTORE_CMD=( {astore} )
+PY_WRAPPER=( {py_wrapper} )
+
+# file $(realpath "${PY_WRAPPER[@]}")
+# sha256sum "${PY_WRAPPER[@]}"
+
+"${PY_WRAPPER[@]}" --help >&2 || true
+
+test ${#ASTORE_CMD[@]} -eq 1
+
+# "${ASTORE_CMD[@]}" --help
+
+if [[ "${OUTPUT_FORMAT}" == "json" ]]; then
+  exec echo "${ASTORE_CMD[@]}" \
+--astore "${ASTORE_CMD[0]}" \
+--file "${FILE}" \
+--output_format "${OUTPUT_FORMAT}" \
+--upload_tag "${UPLOAD_TAG}" \
+"${TARGETS[@]}"
+
+  exit 1
+fi
 
 TEMPTOML="$(mktemp /tmp/astore.XXXXX.toml)" || exit 1
 trap 'rm -f "${TEMPTOML}"' EXIT

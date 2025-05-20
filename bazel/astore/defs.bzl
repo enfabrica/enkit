@@ -36,7 +36,8 @@ def _astore_upload(ctx):
     if ctx.attr.dir and ctx.attr.file:
         fail("in '%s' rule for an astore_upload in %s - you can only set dir or file, not both" % (ctx.attr.name, ctx.build_file_path), "dir")
 
-    files = [ctx.executable._astore_client]
+    files = [ctx.executable._astore_client, ctx.executable._astore_py_wrapper]
+    print(files)
     targets = []
     for target in ctx.attr.targets:
         targets.extend([t.short_path for t in target.files.to_list()])
@@ -62,6 +63,7 @@ def _astore_upload(ctx):
         output = ctx.outputs.executable,
         substitutions = {
             "{astore}": ctx.executable._astore_client.short_path,
+            "{py_wrapper}": ctx.executable._astore_py_wrapper.short_path,
             "{targets}": " ".join(targets),
             "{file}": ctx.attr.file,
             "{dir}": ctx.attr.dir,
@@ -118,6 +120,12 @@ astore_upload = rule(
         ),
         "_astore_client": attr.label(
             default = Label("@net_enfabrica_binary_astore//file"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "host",
+        ),
+        "_astore_py_wrapper": attr.label(
+            default = Label("@net_enfabrica_binary_astore_py//file"),
             allow_single_file = True,
             executable = True,
             cfg = "host",

@@ -292,6 +292,17 @@ filegroup(
         executable = True,
     )
 
+    # Do we need to make it public? Yes!
+    maybe(
+        name = "net_enfabrica_binary_astore_py",
+        repo_rule = http_file,
+        sha256 = "b0c857e8f5cd90d977d0b66f96ba08b9bcf5db76fb3a038872a0860b24029faa",
+        # what is the meaning of d and l?
+                #  https://astore.corp.enfabrica.net/d/roivanov/test/astore_upload_files?u=uixzsp6fxeac6p6xbsxbfehzx5hs5s7e
+        urls = ["https://astore.corp.enfabrica.net/d/roivanov/test/astore_upload_files?u=uixzsp6fxeac6p6xbsxbfehzx5hs5s7e"],
+        executable = True,
+    )
+
     maybe(
         name = "libz",
         repo_rule = http_archive,
