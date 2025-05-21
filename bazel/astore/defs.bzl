@@ -37,6 +37,7 @@ def _astore_upload(ctx):
         fail("in '%s' rule for an astore_upload in %s - you can only set dir or file, not both" % (ctx.attr.name, ctx.build_file_path), "dir")
 
     files = [ctx.executable._astore_client, ctx.executable._astore_py_wrapper]
+    files.extend(ctx.files._astore_py_wrapper)
     targets = []
     for target in ctx.attr.targets:
         targets.extend([t.short_path for t in target.files.to_list()])
@@ -56,6 +57,9 @@ def _astore_upload(ctx):
         tags.append(ctx.attr.upload_tag)
     tags.extend(ctx.attr._cmdline_upload_tag[AstoreMetadataProvider].tags)
     upload_tag = " ".join(["--tag={}".format(tag) for tag in tags])
+
+    print(ctx.files._astore_py_wrapper)
+    print(ctx.executable._astore_py_wrapper)
 
     ctx.actions.expand_template(
         template = template,
@@ -125,7 +129,8 @@ astore_upload = rule(
         ),
         "_astore_py_wrapper": attr.label(
             default = Label("//bazel/astore:astore_upload_files"),
-            allow_single_file = True,
+            # allow_single_file = True,
+            # allow_files = True,
             executable = True,
             cfg = "host",
         ),

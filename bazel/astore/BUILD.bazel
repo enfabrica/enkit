@@ -30,4 +30,3 @@ py_test(
         requirement("absl-py"),
     ],
 )
-

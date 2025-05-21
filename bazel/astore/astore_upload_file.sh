@@ -21,6 +21,9 @@ test ${#ASTORE_CMD[@]} -eq 1
 # "${ASTORE_CMD[@]}" --help
 
 if [[ "${OUTPUT_FORMAT}" == "json" ]]; then
+  ls -lh "${PY_WRAPPER[@]}"
+  "${PY_WRAPPER[@]}" --help >&2 || true
+
   exec echo "${PY_WRAPPER[@]}" \
 --astore "${ASTORE_CMD[0]}" \
 --file "${FILE}" \
@@ -34,7 +37,7 @@ fi
 TEMPTOML="$(mktemp /tmp/astore.XXXXX.toml)" || exit 1
 trap 'rm -f "${TEMPTOML}"' EXIT
 
-function update_build_file() {
+function update_starlark_version_file() {
   local UIDFILE="$1"
   local TARGET="$2"
   local FILE_UID="$3"
@@ -75,6 +78,6 @@ for TARGET in "${TARGETS[@]}"; do
     exit 2
   fi
   if [[ -n "${UIDFILE}"  ]]; then
-    update_build_file "${UIDFILE}" "${TARGET}" "${FILE_UID}" "${FILE_SHA}"
+    update_starlark_version_file "${UIDFILE}" "${TARGET}" "${FILE_UID}" "${FILE_SHA}"
   fi
 done

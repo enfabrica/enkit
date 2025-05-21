@@ -26,7 +26,7 @@ go_binary(
 
 astore_upload(
     name = "astore_push",
-    file = "home/scott/test/flextape",
+    file = "roivanov/temp/test/flextape",
     targets = [
         ":flextape",
     ],
