@@ -134,8 +134,8 @@ class TestAstoreUploadFiles(absltest.TestCase):
         # self.assertEqual(cmd_args[1], "upload")
 
         self.assertIn("test_tag", cmd_args)
-        self.assertIn("-G", cmd_args)
-        self.assertIn("-f", cmd_args)
+        self.assertIn("--disable-git", cmd_args)
+        self.assertIn("--file", cmd_args)
         self.assertIn(self.test_file, cmd_args)
         self.assertIn(self.test_target, cmd_args)
 
@@ -214,8 +214,8 @@ class TestAstoreUploadFiles(absltest.TestCase):
         cmd_args = mock_subprocess_run.call_args[0][0]
 
         self.assertIn("test_tag", cmd_args)
-        self.assertIn("-G", cmd_args)
-        self.assertIn("-f", cmd_args)
+        self.assertIn("--disable-git", cmd_args)
+        self.assertIn("--file", cmd_args)
         self.assertIn(self.test_file, cmd_args)
         self.assertIn(self.test_target, cmd_args)
         self.assertNotIn("console-format", cmd_args)
@@ -289,8 +289,8 @@ class TestAstoreUploadFiles(absltest.TestCase):
         cmd_args = mock_subprocess_run.call_args[0][0]
 
         self.assertIn("test_tag", cmd_args)
-        self.assertIn("-G", cmd_args)
-        self.assertIn("-f", cmd_args)
+        self.assertIn("--disable-git", cmd_args)
+        self.assertIn("--file", cmd_args)
         self.assertIn(self.test_file, cmd_args)
         self.assertIn(self.test_target, cmd_args)
         self.assertIn("--console-format", cmd_args)
@@ -372,8 +372,8 @@ class TestAstoreUploadFiles(absltest.TestCase):
         cmd_args_second = mock_subprocess_run.call_args_list[1][0][0]
 
         self.assertIn("test_tag", cmd_args)
-        self.assertIn("-G", cmd_args)
-        self.assertIn("-f", cmd_args)
+        self.assertIn("--disable-git", cmd_args)
+        self.assertIn("--file", cmd_args)
         self.assertIn(self.test_file, cmd_args)
         self.assertIn(self.test_target, cmd_args)
         self.assertIn(self.test_second_target, cmd_args_second)
@@ -438,8 +438,8 @@ class TestAstoreUploadFiles(absltest.TestCase):
         cmd_args_second = mock_subprocess_run.call_args_list[1][0][0]
 
         self.assertIn("test_tag", cmd_args)
-        self.assertIn("-G", cmd_args)
-        self.assertIn("-f", cmd_args)
+        self.assertIn("--disable-git", cmd_args)
+        self.assertIn("--file", cmd_args)
 
         self.assertIn(self.test_file, cmd_args)
         self.assertIn(self.test_target, cmd_args)

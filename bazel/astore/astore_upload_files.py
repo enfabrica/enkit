@@ -108,7 +108,7 @@ def main(argv):
                 # FIXME astore_upload_file.sh has -t provided by the bazel rule
                 cmd.extend(FLAGS.upload_tag.split())
 
-            cmd.extend(["-G", "-f", FLAGS.file, "-m", temp_json, "--console-format", FLAGS.output_format, target])
+            cmd.extend(["--disable-git", "--file", FLAGS.file, "--meta-file", temp_json, "--console-format", FLAGS.output_format, target])
             logger.info("Running command: %s", cmd)
 
             # Run the upload command
