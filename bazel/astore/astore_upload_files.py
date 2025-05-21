@@ -23,7 +23,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string("file", "", "Remote file name where to store all files")
 flags.DEFINE_string("uidfile", "", "File to update with UID information")
 flags.DEFINE_string("upload_tag", "", "Tag to add to the upload")
-# FIXME: technically it's just a switch, only json data will be updated with the target
+# FIXME: technically it's just a switch, only json data will be updated with the local_file
 #        anything else just passed as is.
 flags.DEFINE_enum("output_format", "table", ["table", "json"], "Output format")
 flags.DEFINE_string("astore", "astore", "Path to astore binary")
@@ -38,14 +38,14 @@ def sha256sum(filename):
     return h.hexdigest()
 
 
-def update_build_file(uidfile, target, file_uid, file_sha):
+def update_starlark_version_file(uidfile, fname, file_uid, file_sha):
     """Update UID and SHA variables in the build file."""
     if not os.path.isfile(uidfile):
         logger.error("Error: %s: file not found", uidfile)
         sys.exit(3)
 
     uidfile = os.path.realpath(uidfile)
-    varname = os.path.basename(target).translate(
+    varname = os.path.basename(fname).translate(
         str.maketrans(
             "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "".join(c for c in map(chr, range(256)) if not c.isalnum() and c not in "\r\n")
         )
@@ -74,20 +74,19 @@ def update_build_file(uidfile, target, file_uid, file_sha):
 
 
 def main(argv):
-    # Get targets from command line arguments (after the script name)
-    targets = argv[1:]
+    # Get file list from command line arguments (after the script name)
+    local_files_list = argv[1:]
 
-    # Check if we have any targets to process
-    if not targets:
-        logger.error("No targets specified. Please provide targets as command line arguments.")
+    # Check if we have any files to process
+    if not local_files_list:
+        logger.error("No local files to upload specified. Please provide files as command line arguments.")
         sys.exit(1)
 
-    if len(targets) > 1 and FLAGS.uidfile:
-        logger.error("Error: cannot update uidfile when uploading multiple targets")
+    if len(local_files_list) > 1 and FLAGS.uidfile:
+        logger.error("Error: cannot update uidfile when uploading multiple files")
         sys.exit(1)
 
-    # Log the targets we're going to process
-    logger.info("Processing targets: %s", targets)
+    logger.info("Processing files: %s", local_files_list)
 
     # Create temporary file for metadata
     with tempfile.NamedTemporaryFile(prefix="astore.", suffix=".json", delete=False) as temp:
@@ -100,27 +99,27 @@ def main(argv):
             astore_cmd = [FLAGS.astore, "upload"]
 
         json_data = dict()
-        # Process each target sequentially
-        for target in targets:
+        # Process each local_file sequentially
+        for local_file in local_files_list:
             cmd = astore_cmd.copy()
 
             if FLAGS.upload_tag:
                 # FIXME astore_upload_file.sh has -t provided by the bazel rule
                 cmd.extend(FLAGS.upload_tag.split())
 
-            cmd.extend(["--disable-git", "--file", FLAGS.file, "--meta-file", temp_json, "--console-format", FLAGS.output_format, target])
+            cmd.extend(["--disable-git", "--file", FLAGS.file, "--meta-file", temp_json, "--console-format", FLAGS.output_format, local_file])
             logger.info("Running command: %s", cmd)
 
             # Run the upload command
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
-                logger.error("Error uploading %s: %s", target, result.stderr)
+                logger.error("Error uploading %s: %s", local_file, result.stderr)
                 sys.exit(1)
 
             # Print output based on format
             if FLAGS.output_format == "json":
                 data = json.loads(result.stdout)
-                data["Artifacts"][0]["Target"] = target
+                data["Artifacts"][0]["Target"] = local_file
                 if not json_data:
                     json_data = data
                 else:
@@ -136,10 +135,10 @@ def main(argv):
 
                 file_uid = json_data["Artifacts"][0]["Uid"]
                 if not file_uid:
-                    logger.error("Error: no UID found for %s uploaded as %s", target, FLAGS.file)
+                    logger.error("Error: no UID found for %s uploaded as %s", local_file, FLAGS.file)
                     sys.exit(2)
 
-                update_build_file(FLAGS.uidfile, target, file_uid, sha256sum(target))
+                update_starlark_version_file(FLAGS.uidfile, local_file, file_uid, sha256sum(local_file))
 
         if FLAGS.output_format == "json":
             print(json.dumps(json_data))

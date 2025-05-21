@@ -65,13 +65,13 @@ class TestAstoreUploadFiles(absltest.TestCase):
         result = astore_upload_files.sha256sum(self.test_file)
         self.assertEqual(result, expected_hash)
 
-    def test_update_build_file(self):
+    def test_update_starlark_version_file(self):
         """Test updating UID and SHA in build file."""
         test_uid = "test_new_uid_123"
         test_sha = "test_new_sha_456"
 
         # Call the function
-        astore_upload_files.update_build_file(self.test_uidfile, self.test_target, test_uid, test_sha)
+        astore_upload_files.update_starlark_version_file(self.test_uidfile, self.test_target, test_uid, test_sha)
 
         # Verify the file was updated correctly
         with open(self.test_uidfile, "r", encoding="utf-8") as f:
