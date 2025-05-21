@@ -14,7 +14,6 @@ import sys
 import tempfile
 
 # third party libraries
-import toml
 from absl import app, flags
 from absl import logging as logger
 
@@ -91,8 +90,8 @@ def main(argv):
     logger.info("Processing targets: %s", targets)
 
     # Create temporary file for metadata
-    with tempfile.NamedTemporaryFile(prefix="astore.", suffix=".toml", delete=False) as temp:
-        temp_toml = temp.name
+    with tempfile.NamedTemporaryFile(prefix="astore.", suffix=".json", delete=False) as temp:
+        temp_json = temp.name
 
     try:
         if FLAGS.astore == "astore":
@@ -109,7 +108,7 @@ def main(argv):
                 # FIXME astore_upload_file.sh has -t provided by the bazel rule
                 cmd.extend(FLAGS.upload_tag.split())
 
-            cmd.extend(["-G", "-f", FLAGS.file, "-m", temp_toml, "--console-format", FLAGS.output_format, target])
+            cmd.extend(["-G", "-f", FLAGS.file, "-m", temp_json, "--console-format", FLAGS.output_format, target])
             logger.info("Running command: %s", cmd)
 
             # Run the upload command
@@ -132,10 +131,10 @@ def main(argv):
             # Update build file if specified
             if FLAGS.uidfile:
                 # Extract UID from metadata file
-                with open(temp_toml, "r", encoding="utf-8") as f:
-                    toml_data = toml.load(f)
+                with open(temp_json, "r", encoding="utf-8") as f:
+                    json_data = json.load(f)
 
-                file_uid = toml_data["Artifacts"][0]["Uid"]
+                file_uid = json_data["Artifacts"][0]["Uid"]
                 if not file_uid:
                     logger.error("Error: no UID found for %s uploaded as %s", target, FLAGS.file)
                     sys.exit(2)
@@ -146,8 +145,8 @@ def main(argv):
             print(json.dumps(json_data))
     finally:
         # Clean up temporary file
-        if os.path.exists(temp_toml):
-            os.unlink(temp_toml)
+        if os.path.exists(temp_json):
+            os.unlink(temp_json)
 
 
 if __name__ == "__main__":
