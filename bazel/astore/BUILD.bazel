@@ -1,4 +1,6 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@enkit_pip_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 bzl_library(
     name = "defs_bzl",
@@ -10,3 +12,26 @@ exports_files([
     "astore_upload_file.sh",
     "astore_upload_dir.sh",
 ])
+
+py_binary(
+    name = "astore_upload_files",
+    srcs = ["astore_upload_files.py"],
+    main = "astore_upload_files.py",
+    deps = [
+        requirement("absl-py"),
+        # requirement("toml"),
+    ],
+)
+
+py_test(
+    name = "astore_upload_files_test",
+    srcs = ["astore_upload_files_test.py"],
+    # driver = "absltest",
+    deps = [
+        ":astore_upload_files",
+        requirement("absl-py"),
+        # requirement("pytest"),
+        # requirement("toml"),
+    ],
+)
+
