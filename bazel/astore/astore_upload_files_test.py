@@ -147,11 +147,16 @@ class TestAstoreUploadFiles(absltest.TestCase):
         self.assertEqual(uid, "test_uid_123")
         self.assertIn(uid, mock_result.stdout)
 
-    @absltest.skip("Not implemented")
     @mock.patch("subprocess.run")
     @mock.patch("tempfile.NamedTemporaryFile")
-    def test_main_success_flextape(self, mock_temp_file, mock_subprocess_run):
+    @mock.patch("os.unlink")
+    def test_main_success_flextape(self, mock_unlink, mock_temp_file, mock_subprocess_run):
         """Test successful execution of main function."""
+
+        # Keep temp.json file
+        mock_unlink = mock.MagicMock()
+        mock_unlink.returncode = 0
+
         # Mock the temporary file
         mock_temp = mock.MagicMock()
         mock_temp.name = os.path.join(self.temp_dir.name, "temp.json")
@@ -159,19 +164,28 @@ class TestAstoreUploadFiles(absltest.TestCase):
 
         # Create the temp TOML file with test content
         with open(mock_temp.name, "w", encoding="utf-8") as f:
-            f.write(
-                """[[Artifacts]]
-  Architecture = "all"
-  Created = 1747686104596565327
-  Creator = "roman@enfabrica.net"
-  MD5 = [36, 45, 31, 116, 7, 109, 126, 61, 229, 4, 196, 94, 11, 250, 129, 47]
-  Note = ""
-  Sid = "tf/mj/7rjhuz86szyg7xkd2fepqxhf576c"
-  Size = 18067
-  Tag = ["latest"]
-  Uid = "kz6uksgwtwpfjofvj22jyptfsc4g3nm6"
-"""
-            )
+            f.write(textwrap.dedent("""
+                {
+                "Artifacts": [
+                    {
+                    "Architecture": "all",
+                    "Created": "1747686104596565327",
+                    "Creator": "roman@enfabrica.net",
+                    "MD5": [
+                        129,
+                        47
+                    ],
+                    "Note": "",
+                    "Sid": "tf/mj/7rjhuz86szyg7xkd2fepqxhf576c",
+                    "Size": 18067,
+                    "Tag": [
+                        "latest"
+                    ],
+                    "Uid": "kz6uksgwtwpfjofvj22jyptfsc4g3nm6"
+                    }
+                ]
+                }"""
+            ))
 
         # Mock the subprocess run result
         mock_result = mock.MagicMock()
@@ -179,7 +193,7 @@ class TestAstoreUploadFiles(absltest.TestCase):
         # FIXME: is this correct table output?
         # pylint: disable=line-too-long
         mock_result.stdout = """| Created                 Creator                        Arch           MD5                              UID                              Size    TAGs
-| 2025-05-19 18:16:43.026 roman@enfabrica.net            amd64-linux    4ca03f0e6a70a2e3fc925955ab301e5d ym2wvcei7j2ihhvh7sauzgipxcvdtsvr 12 MB   [latest]
+| 2025-05-19 18:16:43.026 roman@enfabrica.net            amd64-linux    4ca03f0e6a70a2e3fc925955ab301e5d kz6uksgwtwpfjofvj22jyptfsc4g3nm6 12 MB   [latest]
 """
         mock_subprocess_run.return_value = mock_result
 
@@ -208,17 +222,14 @@ class TestAstoreUploadFiles(absltest.TestCase):
         with self.assertRaises(json.decoder.JSONDecodeError):
             _ = json.loads(mock_result.stdout)
 
-
         with open(mock_temp.name, "r", encoding="utf-8") as f:
             content = f.read()
 
         uid = json.loads(content)["Artifacts"][0]["Uid"]
-        self.assertEqual(uid, "ym2wvcei7j2ihhvh7sauzgipxcvdtsvr")
-        self.assertEqual(1, 2)
+        self.assertEqual(uid, "kz6uksgwtwpfjofvj22jyptfsc4g3nm6")
         self.assertIn(uid, mock_result.stdout)
 
 
-    @absltest.skip("Not implemented")
     @mock.patch("subprocess.run")
     @mock.patch("tempfile.NamedTemporaryFile")
     def test_main_success_flextape_json(self, mock_temp_file, mock_subprocess_run):
@@ -230,20 +241,24 @@ class TestAstoreUploadFiles(absltest.TestCase):
 
         # Create the temp TOML file with test content
         with open(mock_temp.name, "w", encoding="utf-8") as f:
-            f.write(
-                """
-[[Artifacts]]
-  Architecture = "all"
-  Created = 1747686104596565327
-  Creator = "roman@enfabrica.net"
-  MD5 = [36, 45, 31, 116, 7, 109, 126, 61, 229, 4, 196, 94, 11, 250, 129, 47]
-  Note = ""
-  Sid = "tf/mj/7rjhuz86szyg7xkd2fepqxhf576c"
-  Size = 18067
-  Tag = ["latest"]
-  Uid = "ym2wvcei7j2ihhvh7sauzgipxcvdtsvr"
-                    """
-            )
+            f.write(textwrap.dedent("""
+                {
+                "Artifacts": [
+                    {
+                    "Architecture": "all",
+                    "Created": "1747686104596565327",
+                    "Creator": "roman@enfabrica.net",
+                    "Note": "",
+                    "Sid": "tf/mj/7rjhuz86szyg7xkd2fepqxhf576c",
+                    "Size": 18067,
+                    "Tag": [
+                        "latest"
+                    ],
+                    "Uid": "ym2wvcei7j2ihhvh7sauzgipxcvdtsvr"
+                    }
+                ]
+                }"""
+                                            ))
 
         # Mock the subprocess run result
         mock_result = mock.MagicMock()
@@ -302,19 +317,28 @@ class TestAstoreUploadFiles(absltest.TestCase):
         # Create the temp TOML file with test content
         with open(mock_temp.name, "w", encoding="utf-8") as f:
             f.write(
-                """
-[[Artifacts]]
-  Architecture = "all"
-  Created = 1747686104596565327
-  Creator = "roman@enfabrica.net"
-  MD5 = [36, 45, 31, 116, 7, 109, 126, 61, 229, 4, 196, 94, 11, 250, 129, 47]
-  Note = ""
-  Sid = "tf/mj/7rjhuz86szyg7xkd2fepqxhf576c"
-  Size = 18067
-  Tag = ["latest"]
-  Uid = "ym2wvcei7j2ihhvh7sauzgipxcvdtsvr"
+                textwrap.dedent(
                     """
-            )
+                    {
+                    "Artifacts": [
+                        {
+                        "Architecture": "all",
+                        "Created": "1747686104596565327",
+                        "Creator": "roman@enfabrica.net",
+                        "MD5": [
+                            129,
+                            47
+                        ],
+                        "Note": "",
+                        "Sid": "tf/mj/7rjhuz86szyg7xkd2fepqxhf576c",
+                        "Size": 18067,
+                        "Tag": [
+                            "latest"
+                        ],
+                        "Uid": "ym2wvcei7j2ihhvh7sauzgipxcvdtsvr"
+                        }
+                    ]
+                    }""" )           )
 
         # Mock the subprocess run result
         mock_result = mock.MagicMock()
@@ -379,10 +403,15 @@ class TestAstoreUploadFiles(absltest.TestCase):
         # Create the temp TOML file with test content
         with open(mock_temp.name, "w", encoding="utf-8") as f:
             f.write(
-                """[[Artifacts]]
-  Uid = "test_uid_123"
+                textwrap.dedent(
                     """
-            )
+                    {
+                    "Artifacts": [
+                        {
+                        "Uid": "test_uid_123"
+                        }
+                    ]
+                    }""")            )
 
         # Mock the subprocess run result
         mock_result = mock.MagicMock()
@@ -428,9 +457,15 @@ class TestAstoreUploadFiles(absltest.TestCase):
         # Create the temp TOML file with test content
         with open(mock_temp.name, "w", encoding="utf-8") as f:
             f.write(
-                """[[Artifacts]]
-  Uid = "test_uid_123"
+                textwrap.dedent(
                     """
+                    {
+                    "Artifacts": [
+                        {
+                        "Uid": "test_uid_123"
+                        }
+                    ]
+                    }""" )
             )
 
         # Mock the subprocess run result
