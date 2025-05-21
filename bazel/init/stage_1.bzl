@@ -292,20 +292,6 @@ filegroup(
         executable = True,
     )
 
-    # Do we need to make it public? Yes!
-    maybe(
-        name = "net_enfabrica_binary_astore_py",
-        repo_rule = http_file,
-        # Why it is different from the local checksum?
-        # $ sha256sum bazel-bin/release/internal/astore_upload_files_upload
-        # f3d2185a2ab74e8119e84d349d231665b01f775453d06053b388968ae8decd71  bazel-bin/release/internal/astore_upload_files_upload
-        sha256 = "9da6a5873923e85d2d4d7b6e121d7cf096114a8f83c309dc1c2e5d58bd736fec",
-        # what is the meaning of d and l?
-                #  https://astore.corp.enfabrica.net/d/roivanov/test/astore_upload_files?u=uixzsp6fxeac6p6xbsxbfehzx5hs5s7e
-        urls = ["https://astore.corp.enfabrica.net/d/roivanov/test/astore_upload_files?u=b4gg6r8k2fgvuiecy3subjzy43263mri"],
-        executable = True,
-    )
-
     maybe(
         name = "libz",
         repo_rule = http_archive,

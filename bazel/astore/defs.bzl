@@ -37,7 +37,6 @@ def _astore_upload(ctx):
         fail("in '%s' rule for an astore_upload in %s - you can only set dir or file, not both" % (ctx.attr.name, ctx.build_file_path), "dir")
 
     files = [ctx.executable._astore_client, ctx.executable._astore_py_wrapper]
-    print(files)
     targets = []
     for target in ctx.attr.targets:
         targets.extend([t.short_path for t in target.files.to_list()])
@@ -125,7 +124,7 @@ astore_upload = rule(
             cfg = "host",
         ),
         "_astore_py_wrapper": attr.label(
-            default = Label("@net_enfabrica_binary_astore_py//file"),
+            default = Label("//bazel/astore:astore_upload_files"),
             allow_single_file = True,
             executable = True,
             cfg = "host",

@@ -19,19 +19,15 @@ py_binary(
     main = "astore_upload_files.py",
     deps = [
         requirement("absl-py"),
-        # requirement("toml"),
     ],
 )
 
 py_test(
     name = "astore_upload_files_test",
     srcs = ["astore_upload_files_test.py"],
-    # driver = "absltest",
     deps = [
         ":astore_upload_files",
         requirement("absl-py"),
-        # requirement("pytest"),
-        # requirement("toml"),
     ],
 )
 
