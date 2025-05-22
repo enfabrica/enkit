@@ -31,7 +31,6 @@ flags.DEFINE_multi_string("tag", None, "Tags to add to the upload")
 #        anything else just passed as is.
 flags.DEFINE_enum("output_format", "table", ["table", "json"], "Output format")
 
-flags.mark_flags_as_required(["astore_base_path", "upload_file"])
 
 
 def sha256sum(filename):
@@ -98,8 +97,15 @@ def main(argv):
     r = runfiles.Runfiles.Create()
     astore_client = r.Rlocation("net_enfabrica_binary_astore/file/downloaded")
 
-    if len(FLAGS.upload_file) > 1 and FLAGS.uidfile:
-        log.fatal("Error: cannot update uidfile when uploading multiple files")
+    # questionable
+    # if FLAGS.upload_file and len(FLAGS.upload_file) > 1 and FLAGS.uidfile:
+    #     log.fatal("Error: cannot update uidfile when uploading multiple files")
+
+    if not FLAGS.upload_file:
+        log.fatal("Error: no files to upload")
+
+    if not FLAGS.astore_base_path:
+        log.fatal("Error: no astore base path specified")
 
     log.info("Processing files: %s", FLAGS.upload_file)
 
@@ -179,4 +185,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    flags.mark_flags_as_required(["astore_base_path", "upload_file"])
+
     app.run(main)

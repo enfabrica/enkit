@@ -17,38 +17,56 @@ from absl.testing import absltest, flagsaver
 from bazel.astore import astore_upload_files
 
 
-class TestAstoreUploadFiles(absltest.TestCase):
-    """astore upload test"""
+class AstoreUploadFilesTest(absltest.TestCase):
+    """Test astore_upload_files.py."""
 
     @classmethod
     def setUpClass(cls):
-        # Parse flags to avoid UnparsedFlagAccessError
-        # We need to do this before accessing any flags
-        if not flags.FLAGS.is_parsed():
-            flags.FLAGS(sys.argv)
+        """Set up class-level test environment."""
+        pass
+
+        # TODO: can we mark flags as required after they are already parsed?
+        # if flags.FLAGS.is_parsed():
+        #     flags.mark_flags_as_required(["astore_base_path", "upload_file"])
+        # else:
+        # flags come parsed from absltest
+        #     raise Exception("Flags not parsed")
 
     def setUp(self):
+        """Set up test environment."""
+
         # Create temporary files for testing
         # pylint: disable=consider-using-with
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.test_file = os.path.join(self.temp_dir.name, "test_file.txt")
-        self.test_target = os.path.join(self.temp_dir.name, "test_target.txt")
-        self.test_second_target = os.path.join(self.temp_dir.name, "test_second_target.txt")
-        self.test_uidfile = os.path.join(self.temp_dir.name, "test_uidfile.txt")
 
-        # Create test files
+        # Create test file
+        self.test_file = os.path.join(self.temp_dir.name, "test_file.txt")
         with open(self.test_file, "w", encoding="utf-8") as f:
             f.write("Test file content")
 
+        # Create test target
+        self.test_target = os.path.join(self.temp_dir.name, "test_target.txt")
         with open(self.test_target, "w", encoding="utf-8") as f:
             f.write("Test target content")
 
+        # Create second test target
+        self.test_second_target = os.path.join(self.temp_dir.name, "test_second_target.txt")
         with open(self.test_second_target, "w", encoding="utf-8") as f:
             f.write("Test second target content")
 
+        # Create test UID file
+        self.test_uidfile = os.path.join(self.temp_dir.name, "test_uidfile.bzl")
         with open(self.test_uidfile, "w", encoding="utf-8") as f:
-            f.write('UID_TESTTARGETTXT = "old_uid"\n')
-            f.write('SHA_TESTTARGETTXT = "old_sha"\n')
+            f.write(
+                textwrap.dedent(
+                    """
+            UID_TESTTARGETTXT = "old_uid"
+            SHA_TESTTARGETTXT = "old_sha"
+            """
+                )
+            )
+
+        print("Test environment setup complete")
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -56,7 +74,6 @@ class TestAstoreUploadFiles(absltest.TestCase):
     def test_sha256sum(self):
         """Test SHA256 hash calculation."""
         # Calculate expected hash
-
         h = hashlib.sha256()
         h.update(b"Test file content")
         expected_hash = h.hexdigest()
@@ -116,27 +133,24 @@ class TestAstoreUploadFiles(absltest.TestCase):
         mock_result.stdout = "Uid    1 2 3 4                               test_uid_123"
         mock_subprocess_run.return_value = mock_result
 
-        # Set up flags for this test
-        with flagsaver.flagsaver():
-            # Manually set the flags
-            astore_upload_files.FLAGS.file = self.test_file
-            astore_upload_files.FLAGS.uidfile = self.test_uidfile
-            astore_upload_files.FLAGS.upload_tag = "test_tag"
-            astore_upload_files.FLAGS.output_format = "table"
-            astore_upload_files.FLAGS.astore = "astore"
+        # Set required flags explicitly
+        test_flags = {
+            "astore_base_path": self.test_file,
+            "upload_file": [self.test_target],
+            "uidfile": self.test_uidfile,
+            "tag": ["test_tag"],
+            "output_format": "table",
+        }
 
-            # Call the main function with target as command line argument
-            astore_upload_files.main(["astore_upload_files.py", self.test_target])
+        with flagsaver.flagsaver(**test_flags):
+            # Call the main function
+            astore_upload_files.main(["astore_upload_files.py"])
 
         # Verify subprocess was called with correct arguments
         mock_subprocess_run.assert_called_once()
         cmd_args = mock_subprocess_run.call_args[0][0]
 
-        # TODO: how to test? do we call astore or enkit astore?
-        # self.assertEqual(cmd_args[0], "astore")
-        # self.assertEqual(cmd_args[1], "upload")
-
-        self.assertIn("test_tag", cmd_args)
+        self.assertIn("--tag=test_tag", cmd_args)
         self.assertIn("--disable-git", cmd_args)
         self.assertIn("--file", cmd_args)
         self.assertIn(self.test_file, cmd_args)
@@ -203,23 +217,25 @@ class TestAstoreUploadFiles(absltest.TestCase):
 """
         mock_subprocess_run.return_value = mock_result
 
-        # Set up flags for this test
-        with flagsaver.flagsaver():
-            # Manually set the flags
-            astore_upload_files.FLAGS.file = self.test_file
-            astore_upload_files.FLAGS.uidfile = self.test_uidfile
-            astore_upload_files.FLAGS.upload_tag = "test_tag"
-            astore_upload_files.FLAGS.output_format = "table"
-            astore_upload_files.FLAGS.astore = "astore"
+        # Set required flags explicitly
+        test_flags = {
+            "astore_base_path": self.test_file,
+            "upload_file": [self.test_target],
+            "uidfile": self.test_uidfile,
+            "tag": ["mytest_tag"],
+            "output_format": "table",
+        }
 
+        # Set up flags for this test
+        with flagsaver.flagsaver(**test_flags):
             # Call the main function
-            astore_upload_files.main(["astore_upload_files.py", self.test_target])
+            astore_upload_files.main(["astore_upload_files.py"])
 
         # Verify subprocess was called with correct arguments
         mock_subprocess_run.assert_called_once()
         cmd_args = mock_subprocess_run.call_args[0][0]
 
-        self.assertIn("test_tag", cmd_args)
+        self.assertIn("--tag=mytest_tag", cmd_args)
         self.assertIn("--disable-git", cmd_args)
         self.assertIn("--file", cmd_args)
         self.assertIn(self.test_file, cmd_args)
@@ -280,23 +296,25 @@ class TestAstoreUploadFiles(absltest.TestCase):
 
         mock_subprocess_run.return_value = mock_result
 
-        # Set up flags for this test
-        with flagsaver.flagsaver():
-            # Manually set the flags
-            astore_upload_files.FLAGS.file = self.test_file
-            astore_upload_files.FLAGS.uidfile = self.test_uidfile
-            astore_upload_files.FLAGS.upload_tag = "test_tag"
-            astore_upload_files.FLAGS.output_format = "json"
-            astore_upload_files.FLAGS.astore = "astore"
+        # Set required flags explicitly
+        test_flags = {
+            "astore_base_path": self.test_file,
+            "upload_file": [self.test_target],
+            "uidfile": self.test_uidfile,
+            "tag": ["test_tag"],
+            "output_format": "json",
+        }
 
+        # Set up flags for this test
+        with flagsaver.flagsaver(**test_flags):
             # Call the main function
-            astore_upload_files.main(["astore_upload_files.py", self.test_target])
+            astore_upload_files.main(["astore_upload_files.py"])
 
         # Verify subprocess was called with correct arguments
         mock_subprocess_run.assert_called_once()
         cmd_args = mock_subprocess_run.call_args[0][0]
 
-        self.assertIn("test_tag", cmd_args)
+        self.assertIn("--tag=test_tag", cmd_args)
         self.assertIn("--disable-git", cmd_args)
         self.assertIn("--file", cmd_args)
         self.assertIn(self.test_file, cmd_args)
@@ -364,24 +382,25 @@ class TestAstoreUploadFiles(absltest.TestCase):
 
         mock_subprocess_run.return_value = mock_result
 
-        # Set up flags for this test
-        with flagsaver.flagsaver():
-            # Manually set the flags
-            astore_upload_files.FLAGS.file = self.test_file
-            # astore_upload_files.FLAGS.uidfile = self.test_uidfile
-            astore_upload_files.FLAGS.upload_tag = "test_tag"
-            astore_upload_files.FLAGS.output_format = "json"
-            astore_upload_files.FLAGS.astore = "astore"
+        # Set required flags explicitly
+        test_flags = {
+            "astore_base_path": self.test_file,
+            "upload_file": [self.test_target, self.test_second_target],
+            "tag": ["test_tag"],
+            "output_format": "json",
+        }
 
+        # Set up flags for this test
+        with flagsaver.flagsaver(**test_flags):
             # Call the main function
-            astore_upload_files.main(["astore_upload_files.py", self.test_target, self.test_second_target])
+            astore_upload_files.main(["astore_upload_files.py"])
 
         # Verify subprocess was called with correct arguments
         self.assertEqual(mock_subprocess_run.call_count, 2)
         cmd_args = mock_subprocess_run.call_args_list[0][0][0]
         cmd_args_second = mock_subprocess_run.call_args_list[1][0][0]
 
-        self.assertIn("test_tag", cmd_args)
+        self.assertIn("--tag=test_tag", cmd_args)
         self.assertIn("--disable-git", cmd_args)
         self.assertIn("--file", cmd_args)
         self.assertIn(self.test_file, cmd_args)
@@ -431,25 +450,25 @@ class TestAstoreUploadFiles(absltest.TestCase):
         mock_result.stdout = "Uid    1 2 3 4                               test_uid_123"
         mock_subprocess_run.return_value = mock_result
 
-        # Set up flags for this test
-        with flagsaver.flagsaver():
-            # Manually set the flags
-            astore_upload_files.FLAGS.file = self.test_file
-            # FIXME add test: no uidfile when multiple targets
-            # astore_upload_files.FLAGS.uidfile = self.test_uidfile
-            astore_upload_files.FLAGS.upload_tag = "test_tag"
-            astore_upload_files.FLAGS.output_format = "table"
-            astore_upload_files.FLAGS.astore = "astore"
+        # Set required flags explicitly
+        test_flags = {
+            "astore_base_path": self.test_file,
+            "upload_file": [self.test_target, self.test_second_target],
+            "tag": ["test_tag"],
+            "output_format": "table",
+        }
 
+        # Set up flags for this test
+        with flagsaver.flagsaver(**test_flags):
             # Call the main function
-            astore_upload_files.main(["astore_upload_files.py", self.test_target, self.test_second_target])
+            astore_upload_files.main(["astore_upload_files.py"])
 
         # Verify subprocess was called with correct arguments
         self.assertEqual(mock_subprocess_run.call_count, 2)
         cmd_args = mock_subprocess_run.call_args_list[0][0][0]
         cmd_args_second = mock_subprocess_run.call_args_list[1][0][0]
 
-        self.assertIn("test_tag", cmd_args)
+        self.assertIn("--tag=test_tag", cmd_args)
         self.assertIn("--disable-git", cmd_args)
         self.assertIn("--file", cmd_args)
 
@@ -487,15 +506,13 @@ class TestAstoreUploadFiles(absltest.TestCase):
         mock_result.stdout = '{"Artifacts":[{"uid": "test_uid_123"}]}'
         mock_subprocess_run.return_value = mock_result
 
-        # Set up flags for this test
-        with flagsaver.flagsaver():
-            # Manually set the flags
-            astore_upload_files.FLAGS.file = self.test_file
-            astore_upload_files.FLAGS.output_format = "json"
-            astore_upload_files.FLAGS.astore = "astore"
+        # Set required flags explicitly
+        test_flags = {"astore_base_path": self.test_file, "upload_file": [self.test_target], "output_format": "json"}
 
+        # Set up flags for this test
+        with flagsaver.flagsaver(**test_flags):
             # Call the main function
-            astore_upload_files.main(["astore_upload_files.py", self.test_target])
+            astore_upload_files.main(["astore_upload_files.py"])
 
         # Verify subprocess was called with correct arguments
         mock_subprocess_run.assert_called_once()
@@ -518,16 +535,61 @@ class TestAstoreUploadFiles(absltest.TestCase):
         mock_result.stderr = "Upload failed"
         mock_subprocess_run.return_value = mock_result
 
-        # Set up flags for this test
-        with flagsaver.flagsaver():
-            # Manually set the flags
-            astore_upload_files.FLAGS.file = self.test_file
-            astore_upload_files.FLAGS.astore = "astore"
+        # Set required flags explicitly
+        test_flags = {
+            "astore_base_path": self.test_file,
+            "upload_file": [self.test_target],
+        }
 
+        # Set up flags for this test
+        with flagsaver.flagsaver(**test_flags):
             # Call the main function and expect sys.exit(1)
             with self.assertRaises(SystemExit) as cm:
-                astore_upload_files.main(["astore_upload_files.py", self.test_target])
+                astore_upload_files.main(["astore_upload_files.py"])
             self.assertEqual(cm.exception.code, 1)
+
+    @mock.patch("bazel.astore.astore_upload_files.log.fatal")
+    @mock.patch("subprocess.run")
+    @mock.patch("tempfile.NamedTemporaryFile")
+    def test_main_required_options(self, mock_temp_file, mock_subprocess_run, fatal):
+        """Test main function when upload fails."""
+        fatal = mock.MagicMock()
+        fatal.side_effect = None
+
+        # Mock the temporary file
+        mock_temp = mock.MagicMock()
+        mock_temp.name = os.path.join(self.temp_dir.name, "temp.json")
+        mock_temp_file.return_value.__enter__.return_value = mock_temp
+
+        # Mock the subprocess run result with error
+        mock_result = mock.MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Upload failed"
+        mock_subprocess_run.return_value = mock_result
+
+        # Set required flags explicitly
+        test_flags = {
+            "astore_base_path": self.test_file,
+        }
+
+        # Set up flags for this test
+        with flagsaver.flagsaver(**test_flags):
+            # Call the main function and expect sys.exit(1)
+            with self.assertRaises(Exception) as ex:
+                astore_upload_files.main(["astore_upload_files.py"])
+            self.assertEqual("'NoneType' object is not iterable", str(ex.exception))
+
+        # Set required flags explicitly
+        test_flags = {
+            "upload_file": [self.test_target],
+        }
+
+        # Set up flags for this test
+        with flagsaver.flagsaver(**test_flags):
+            # Call the main function and expect sys.exit(1)
+            with self.assertRaises(SystemExit) as ex:
+                astore_upload_files.main(["astore_upload_files.py"])
+            self.assertEqual("1", str(ex.exception))
 
 
 if __name__ == "__main__":
