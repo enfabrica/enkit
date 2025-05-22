@@ -79,7 +79,6 @@ def _astore_upload(ctx):
     if ctx.attr.upload_tag:
         tags.append(ctx.attr.upload_tag)
     tags.extend(ctx.attr._cmdline_upload_tag[AstoreMetadataProvider].tags)
-    tag_flags = " ".join(["--tag={}".format(tag) for tag in tags])
 
     ctx.actions.expand_template(
         template = template,
@@ -90,8 +89,8 @@ def _astore_upload(ctx):
             "{astore_path_flag}": "--astore_base_path=" + ctx.attr.file,
             "{dir}": ctx.attr.dir,
             "{uidfile_flag}": uidfile_flag,
-            "{tag_flags}": tag_flags,
-            "{output_format_flag}": ctx.attr._cmdline_upload_output_format[AstoreMetadataProvider].output_format,
+            "{tag_flags}": " ".join(["--tag={}".format(tag) for tag in tags]),
+            "{output_format_flag}": "--output_format=" + ctx.attr._cmdline_upload_output_format[AstoreMetadataProvider].output_format,
         },
         is_executable = True,
     )
