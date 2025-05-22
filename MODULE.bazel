@@ -42,11 +42,9 @@ register_toolchains(
 
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_proto", version = "7.1.0")
-bazel_dep(name = "protobuf", version = "31.0")
 bazel_dep(name = "grpc", version = "1.72.0")
 bazel_dep(name = "googletest", version = "1.17.0")
 bazel_dep(name = "google_benchmark", version = "1.9.2")
-bazel_dep(name = "rules_python", version = "1.4.1")
 bazel_dep(name = "rules_jsonnet", version = "0.6.0")
 bazel_dep(name = "rules_oci", version = "2.2.6")
 bazel_dep(name = "xds", version = "0.0.0-20240423-555b57e")
@@ -67,10 +65,32 @@ oci.pull(
 )
 use_repo(oci, "container_golang_base", "golang_base")
 
-python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(python_version = "3.12")
+bazel_dep(
+    name = "rules_python",
+    version = "1.4.1",
+    dev_dependency = True,
+)
 
-pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+python = use_extension(
+    "@rules_python//python/extensions:python.bzl",
+    "python",
+    dev_dependency = True,
+)
+python.toolchain(
+    # Disable root warning for .pyc cache misses since CI runs as root.
+    # See https://github.com/bazelbuild/rules_python/pull/713
+    ignore_root_user_error = True,
+    is_default = True,
+    python_version = "3.12",
+)
+
+use_repo(python)
+
+pip = use_extension(
+    "@rules_python//python/extensions:pip.bzl", 
+    "pip",
+    dev_dependency = True,
+)
 pip.parse(
     extra_pip_args = [
         # Needed for latest pytorch+CUDA install
@@ -84,6 +104,15 @@ pip.parse(
     requirements_lock = "//:requirements.txt",
 )
 use_repo(pip, "enkit_pip_deps")
+
+bazel_dep(name = "protobuf", version = "31.0")
+single_version_override(
+    module_name = "protobuf",
+    version = "31.0",
+    patches = [
+        "//bazel/dependencies/protobuf:0001-fix-protobuf-query-errors.patch",
+    ],
+)
 
 bazel_dep(name = "googleapis-cc", version = "1.0.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20241220-5e258e33.bcr.1")
