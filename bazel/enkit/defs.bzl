@@ -1,5 +1,5 @@
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
-load("@com_github_atlassian_bazel_tools//multirun:def.bzl", _multirun = "multirun", _command = "command")
+
 load("@bazel_tools//tools/build_defs/hash:hash.bzl", "sha256", "tools")
 load("//bazel/utils:template.bzl", "template_expand", "template_tool")
 load("//bazel/utils:validate.bzl", "validate_format", "validate_tool")
@@ -118,7 +118,3 @@ def enkit_package(name, srcs, image = "", override = "", manifest = "maninfest.y
         **kwargs
     )
     enkit_package_definition(name = name, tarball = ":" + tarball, images = images, manifest = manifest, **kwargs)
-
-# Expose the multirun target, for convenience.
-multirun = _multirun
-command = _command

@@ -1,7 +1,7 @@
 {
   // Go settings recommended by
   // https://github.com/bazelbuild/rules_go/wiki/Editor-setup#visual-studio-code
-  "go.goroot": "${workspaceFolder}/bazel-${workspaceFolderBasename}/external/go_sdk_1_21",
+  "go.goroot": "/usr/local/go",
   "go.toolsEnvVars": {
     "GOPACKAGESDRIVER": "${workspaceFolder}/tools/gopackagesdriver.sh"
   },
