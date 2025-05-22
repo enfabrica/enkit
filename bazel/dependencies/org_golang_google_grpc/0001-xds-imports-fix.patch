@@ -1,0 +1,243 @@
+diff --git authz/BUILD.bazel authz/BUILD.bazel
+index ae837c4..2bb92d4 100644
+--- authz/BUILD.bazel
++++ authz/BUILD.bazel
+@@ -14,7 +14,7 @@ go_library(
+         "//grpclog",
+         "//internal/xds/rbac",
+         "//status",
+-        "@@xds~//udpa/type/v1:type",
++        "@@xds~//udpa/type/v1:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/rbac/v3:rbac",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/route/v3:route",
+@@ -49,7 +49,7 @@ go_test(
+         "//metadata",
+         "//status",
+         "//testdata",
+-        "@@xds~//udpa/type/v1:type",
++        "@@xds~//udpa/type/v1:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/rbac/v3:rbac",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/route/v3:route",
+diff --git balancer/weightedroundrobin/BUILD.bazel balancer/weightedroundrobin/BUILD.bazel
+index 68d7054..1099580 100644
+--- balancer/weightedroundrobin/BUILD.bazel
++++ balancer/weightedroundrobin/BUILD.bazel
+@@ -25,7 +25,7 @@ go_library(
+         "//orca",
+         "//resolver",
+         "//serviceconfig",
+-        "@@xds~//xds/data/orca/v3:orca",
++        "@@xds~//xds/data/orca/v3:pkg_go_proto",
+     ],
+ )
+ 
+diff --git internal/xds/rbac/BUILD.bazel internal/xds/rbac/BUILD.bazel
+index 517381a..30a819f 100644
+--- internal/xds/rbac/BUILD.bazel
++++ internal/xds/rbac/BUILD.bazel
+@@ -24,8 +24,8 @@ go_library(
+         "//metadata",
+         "//peer",
+         "//status",
+-        "@@xds~//udpa/type/v1:type",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//udpa/type/v1:pkg_go_proto",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/rbac/v3:rbac",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/route/v3:route",
+@@ -64,8 +64,8 @@ go_test(
+         "//metadata",
+         "//peer",
+         "//status",
+-        "@@xds~//udpa/type/v1:type",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//udpa/type/v1:pkg_go_proto",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/rbac/v3:rbac",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/route/v3:route",
+diff --git interop/BUILD.bazel interop/BUILD.bazel
+index 5002865..032c11d 100644
+--- interop/BUILD.bazel
++++ interop/BUILD.bazel
+@@ -22,7 +22,7 @@ go_library(
+         "//orca",
+         "//peer",
+         "//status",
+-        "@@xds~//xds/data/orca/v3:orca",
++        "@@xds~//xds/data/orca/v3:pkg_go_proto",
+         "@org_golang_google_protobuf//proto",
+         "@org_golang_x_oauth2//:oauth2",
+         "@org_golang_x_oauth2//google",
+diff --git orca/BUILD.bazel orca/BUILD.bazel
+index c10a348..accbafd 100644
+--- orca/BUILD.bazel
++++ orca/BUILD.bazel
+@@ -22,8 +22,8 @@ go_library(
+         "//metadata",
+         "//orca/internal",
+         "//status",
+-        "@@xds~//xds/data/orca/v3:orca",
+-        "@@xds~//xds/service/orca/v3:orca",
++        "@@xds~//xds/data/orca/v3:pkg_go_proto",
++        "@@xds~//xds/service/orca/v3:pkg_go_proto",
+         "@org_golang_google_protobuf//proto",
+         "@org_golang_google_protobuf//types/known/durationpb",
+     ],
+@@ -62,8 +62,8 @@ go_test(
+         "//resolver",
+         "//resolver/manual",
+         "//status",
+-        "@@xds~//xds/data/orca/v3:orca",
+-        "@@xds~//xds/service/orca/v3:orca",
++        "@@xds~//xds/data/orca/v3:pkg_go_proto",
++        "@@xds~//xds/service/orca/v3:pkg_go_proto",
+         "@com_github_google_go_cmp//cmp",
+         "@org_golang_google_protobuf//proto",
+         "@org_golang_google_protobuf//types/known/durationpb",
+diff --git orca/internal/BUILD.bazel orca/internal/BUILD.bazel
+index a9a7e00..4a9c428 100644
+--- orca/internal/BUILD.bazel
++++ orca/internal/BUILD.bazel
+@@ -8,7 +8,7 @@ go_library(
+     deps = [
+         "//internal/backoff",
+         "//metadata",
+-        "@@xds~//xds/data/orca/v3:orca",
++        "@@xds~//xds/data/orca/v3:pkg_go_proto",
+         "@org_golang_google_protobuf//proto",
+     ],
+ )
+diff --git test/xds/BUILD.bazel test/xds/BUILD.bazel
+index cde40a5..dc4ba16 100644
+--- test/xds/BUILD.bazel
++++ test/xds/BUILD.bazel
+@@ -48,7 +48,7 @@ go_test(
+         "//stats",
+         "//status",
+         "//xds",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/cluster/v3:cluster",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/endpoint/v3:endpoint",
+diff --git xds/internal/balancer/clusterimpl/BUILD.bazel xds/internal/balancer/clusterimpl/BUILD.bazel
+index a7cf40e..582ccb9 100644
+--- xds/internal/balancer/clusterimpl/BUILD.bazel
++++ xds/internal/balancer/clusterimpl/BUILD.bazel
+@@ -31,7 +31,7 @@ go_library(
+         "//xds/internal/balancer/loadstore",
+         "//xds/internal/xdsclient",
+         "//xds/internal/xdsclient/load",
+-        "@@xds~//xds/data/orca/v3:orca",
++        "@@xds~//xds/data/orca/v3:pkg_go_proto",
+     ],
+ )
+ 
+@@ -67,7 +67,7 @@ go_test(
+         "//xds/internal/testutils/fakeclient",
+         "//xds/internal/xdsclient",
+         "//xds/internal/xdsclient/load",
+-        "@@xds~//xds/data/orca/v3:orca",
++        "@@xds~//xds/data/orca/v3:pkg_go_proto",
+         "@com_github_google_go_cmp//cmp",
+         "@com_github_google_go_cmp//cmp/cmpopts",
+     ],
+diff --git xds/internal/balancer/clustermanager/e2e_test/BUILD.bazel xds/internal/balancer/clustermanager/e2e_test/BUILD.bazel
+index 18fb21e..8ca9c8c 100644
+--- xds/internal/balancer/clustermanager/e2e_test/BUILD.bazel
++++ xds/internal/balancer/clustermanager/e2e_test/BUILD.bazel
+@@ -22,7 +22,7 @@ go_test(
+         "//serviceconfig",
+         "//status",
+         "//xds",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/cluster/v3:cluster",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/endpoint/v3:endpoint",
+diff --git xds/internal/resolver/BUILD.bazel xds/internal/resolver/BUILD.bazel
+index 1a7d165..f5b9b4b 100644
+--- xds/internal/resolver/BUILD.bazel
++++ xds/internal/resolver/BUILD.bazel
+@@ -77,7 +77,7 @@ go_test(
+         "//xds/internal/xdsclient",
+         "//xds/internal/xdsclient/xdsresource",
+         "//xds/internal/xdsclient/xdsresource/version",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_cespare_xxhash_v2//:xxhash",
+         "@com_github_envoyproxy_go_control_plane//pkg/wellknown:go_default_library",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+diff --git xds/internal/xdsclient/xdslbregistry/BUILD.bazel xds/internal/xdsclient/xdslbregistry/BUILD.bazel
+index e9af436..a9e6dff 100644
+--- xds/internal/xdsclient/xdslbregistry/BUILD.bazel
++++ xds/internal/xdsclient/xdslbregistry/BUILD.bazel
+@@ -28,8 +28,8 @@ go_test(
+         "//internal/testutils",
+         "//xds",
+         "//xds/internal/balancer/wrrlocality",
+-        "@@xds~//udpa/type/v1:type",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//udpa/type/v1:pkg_go_proto",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/cluster/v3:cluster",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+         "@com_github_envoyproxy_go_control_plane_envoy//extensions/load_balancing_policies/least_request/v3:least_request",
+diff --git xds/internal/xdsclient/xdslbregistry/converter/BUILD.bazel xds/internal/xdsclient/xdslbregistry/converter/BUILD.bazel
+index 732c95a..86136ca 100644
+--- xds/internal/xdsclient/xdslbregistry/converter/BUILD.bazel
++++ xds/internal/xdsclient/xdslbregistry/converter/BUILD.bazel
+@@ -16,8 +16,8 @@ go_library(
+         "//xds/internal/balancer/ringhash",
+         "//xds/internal/balancer/wrrlocality",
+         "//xds/internal/xdsclient/xdslbregistry",
+-        "@@xds~//udpa/type/v1:type",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//udpa/type/v1:pkg_go_proto",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//extensions/load_balancing_policies/client_side_weighted_round_robin/v3:client_side_weighted_round_robin",
+         "@com_github_envoyproxy_go_control_plane_envoy//extensions/load_balancing_policies/least_request/v3:least_request",
+         "@com_github_envoyproxy_go_control_plane_envoy//extensions/load_balancing_policies/pick_first/v3:pick_first",
+diff --git xds/internal/xdsclient/xdsresource/BUILD.bazel xds/internal/xdsclient/xdsresource/BUILD.bazel
+index 886531e..3b47d5a 100644
+--- xds/internal/xdsclient/xdsresource/BUILD.bazel
++++ xds/internal/xdsclient/xdsresource/BUILD.bazel
+@@ -44,8 +44,8 @@ go_library(
+         "//xds/internal/httpfilter",
+         "//xds/internal/xdsclient/xdslbregistry",
+         "//xds/internal/xdsclient/xdsresource/version",
+-        "@@xds~//udpa/type/v1:type",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//udpa/type/v1:pkg_go_proto",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/cluster/v3:cluster",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/endpoint/v3:endpoint",
+@@ -100,8 +100,8 @@ go_test(
+         "//xds/internal/httpfilter/rbac",
+         "//xds/internal/httpfilter/router",
+         "//xds/internal/xdsclient/xdsresource/version",
+-        "@@xds~//udpa/type/v1:type",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//udpa/type/v1:pkg_go_proto",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//api/v2:api",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/cluster/v3:cluster",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+diff --git xds/internal/xdsclient/xdsresource/tests/BUILD.bazel xds/internal/xdsclient/xdsresource/tests/BUILD.bazel
+index 30440dc..4ca785e 100644
+--- xds/internal/xdsclient/xdsresource/tests/BUILD.bazel
++++ xds/internal/xdsclient/xdsresource/tests/BUILD.bazel
+@@ -19,7 +19,7 @@ go_test(
+         "//xds/internal/balancer/ringhash",
+         "//xds/internal/balancer/wrrlocality",
+         "//xds/internal/xdsclient/xdsresource",
+-        "@@xds~//xds/type/v3:type",
++        "@@xds~//xds/type/v3:pkg_go_proto",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/cluster/v3:cluster",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/core/v3:core",
+         "@com_github_envoyproxy_go_control_plane_envoy//config/endpoint/v3:endpoint",

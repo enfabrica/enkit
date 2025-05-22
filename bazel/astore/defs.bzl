@@ -12,7 +12,7 @@ astore_tag = rule(
     build_setting = config.string_list(flag = True, repeatable = True),
 )
 
-def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
+def astore_url(package, uid, instance = "{https://astore.corp.enfabrica.net}"):
     """Returns a URL for a particular package version from astore."""
     if not package.startswith("/"):
         package = "/" + package
@@ -102,10 +102,10 @@ astore_upload = rule(
             allow_single_file = True,
         ),
         "_astore_client": attr.label(
-            default = Label("@net_enfabrica_binary_astore//file"),
+            default = "//astore/client:astore",
             allow_single_file = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     executable = True,
@@ -248,10 +248,10 @@ astore_download = rule(
             default = "",
         ),
         "_astore_client": attr.label(
-            default = Label("@net_enfabrica_binary_astore//file"),
+            default = "//astore/client:astore",
             allow_single_file = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     doc = """Downloads artifacts from artifact store - astore.
