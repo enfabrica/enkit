@@ -3,7 +3,7 @@
 Forked from: https://github.com/ccontavalli/bazel-rules/blob/master/qtc/defs.bzl
 """
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library")
 
 def _qtpl_compile(ctx):
     outputs = []
@@ -32,7 +32,7 @@ qtpl_compile = rule(
         "_compiler": attr.label(
             executable = True,
             default = Label("@com_github_valyala_quicktemplate//qtc"),
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     doc = """

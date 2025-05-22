@@ -2,12 +2,12 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("//bazel/utils:diff_test.bzl", "diff_test", "diff_test_suite", "extract_file", "md5sum_diff_test")
 load("//bazel/utils:dynamic_wrapper.bzl", "dynamic_wrapper")
-load("//bazel/utils:types.bzl", "escape_and_join")
-load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
-load("//bazel/utils:files.bzl", "write_to_file")
 load("//bazel/utils:exec_test.bzl", "exec_test")
+load("//bazel/utils:files.bzl", "write_to_file")
+load("//bazel/utils:merge_kwargs_test.bzl", "merge_kwargs_test_suite")
 load("//bazel/utils:remote.bzl", "remote_run", "remote_wrapper")
 load("//bazel/utils:remote_test.bzl", "remote_run_test")
+load("//bazel/utils:types.bzl", "escape_and_join")
 
 bzl_library(
     name = "diff_test_bzl",
@@ -181,8 +181,7 @@ cc_binary(
         "testdata/remote/quote00.txt",  # Static file.
         ":quote01.txt",  # genrule file.
         ":remote-deps",  # filegroup.
-        "@com_google_absl//:AUTHORS",  # static file from external repo.
-        "@com_google_googletest//:gtest",  # generated files from external repo.
+        "@googletest//:gtest",  # generated files from external repo.
     ],
 )
 
@@ -191,7 +190,7 @@ cc_binary(
     srcs = ["testdata/dynamic/hello-dynamic.cc"],
     linkstatic = False,
     deps = [
-        "@com_google_googletest//:gtest",
+        "@googletest//:gtest",
     ],
 )
 
