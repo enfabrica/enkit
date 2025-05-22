@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "machinecert",
@@ -9,7 +9,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/enkit/machinecert",
     visibility = ["//visibility:public"],
     deps = [
-        "//auth/proto",
+        "//auth/proto:go_default_library",
         "//lib/client",
         "//lib/kcerts",
         "@com_github_spf13_cobra//:cobra",

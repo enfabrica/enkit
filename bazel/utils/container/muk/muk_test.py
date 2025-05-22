@@ -5,7 +5,7 @@ import io
 
 # third party libraries
 from absl.testing import absltest
-from rules_python.python.runfiles import runfiles
+from python.runfiles import runfiles
 
 # enfabrica libraries
 from bazel.utils.container.muk import muk

@@ -1,8 +1,8 @@
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//proto:def.bzl", "go_proto_library")
 
 # TODO: Make these definitions compatible with what gazelle wants to emit.
 

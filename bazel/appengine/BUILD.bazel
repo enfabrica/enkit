@@ -1,6 +1,6 @@
-exports_files(["gcloud.sh"])
-
 load("//bazel/appengine:config.bzl", "DEFAULT_BASE", "DEFAULT_HANDLERS", "appengine_config")
+
+exports_files(["gcloud.sh"])
 
 # This rule provides an appengine configuration file with
 # global default parameters - all that you would expect before

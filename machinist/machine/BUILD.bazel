@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "machine",
@@ -11,7 +11,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/machinist/machine",
     visibility = ["//visibility:public"],
     deps = [
-        "//auth/proto",
+        "//auth/proto:go_default_library",
         "//lib/client",
         "//lib/goroutine",
         "//lib/kcerts",
@@ -23,7 +23,7 @@ go_library(
         "//machinist/polling",
         "//machinist/rpc:machinist-go",
         "@com_github_spf13_cobra//:cobra",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
         "@org_golang_x_crypto//ssh",
     ],
 )

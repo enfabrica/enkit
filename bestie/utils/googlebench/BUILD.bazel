@@ -8,7 +8,7 @@ cc_library(
     ],
     deps = [
         "//bestie/proto:bestie_cc_proto",
-        "@com_github_google_benchmark//:benchmark",
+        "@google_benchmark//:benchmark",
     ],
 )
 
@@ -20,8 +20,8 @@ cc_test(
     deps = [
         ":bestie_reporter",
         "//bestie/proto:bestie_cc_proto",
-        "@com_github_google_benchmark//:benchmark",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_protobuf//:protobuf",
+        "@google_benchmark//:benchmark",
+        "@googletest//:gtest_main",
+        "@protobuf",
     ],
 )

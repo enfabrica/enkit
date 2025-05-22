@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "klog",
@@ -9,85 +9,97 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/logger/klog",
     visibility = ["//visibility:public"],
     deps = select({
-        "@io_bazel_rules_go//go/platform:aix": [
+        "@rules_go//go/platform:aix": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:android": [
+        "@rules_go//go/platform:android": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:darwin": [
+        "@rules_go//go/platform:darwin": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:dragonfly": [
+        "@rules_go//go/platform:dragonfly": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:freebsd": [
+        "@rules_go//go/platform:freebsd": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:illumos": [
+        "@rules_go//go/platform:illumos": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:ios": [
+        "@rules_go//go/platform:ios": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:js": [
+        "@rules_go//go/platform:js": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:linux": [
+        "@rules_go//go/platform:linux": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:netbsd": [
+        "@rules_go//go/platform:netbsd": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:openbsd": [
+        "@rules_go//go/platform:openbsd": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:plan9": [
+        "@rules_go//go/platform:osx": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:solaris": [
+        "@rules_go//go/platform:plan9": [
             "//lib/kflags",
             "@com_github_tchap_zapext//zapsyslog",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",
         ],
-        "@io_bazel_rules_go//go/platform:windows": [
+        "@rules_go//go/platform:qnx": [
+            "//lib/kflags",
+            "@com_github_tchap_zapext//zapsyslog",
+            "@org_uber_go_zap//:zap",
+            "@org_uber_go_zap//zapcore",
+        ],
+        "@rules_go//go/platform:solaris": [
+            "//lib/kflags",
+            "@com_github_tchap_zapext//zapsyslog",
+            "@org_uber_go_zap//:zap",
+            "@org_uber_go_zap//zapcore",
+        ],
+        "@rules_go//go/platform:windows": [
             "//lib/kflags",
             "@org_uber_go_zap//:zap",
             "@org_uber_go_zap//zapcore",

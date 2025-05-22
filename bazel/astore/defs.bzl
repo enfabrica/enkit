@@ -290,7 +290,7 @@ astore_download = rule(
             default = "",
         ),
         "_astore_client": attr.label(
-            default = Label("@net_enfabrica_binary_astore//file"),
+            default = "//astore/client:astore",
             allow_single_file = True,
             executable = True,
             cfg = "exec",

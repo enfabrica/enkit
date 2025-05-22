@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
-load "external/bats_support/load.bash"
-load "external/bats_assert/load.bash"
+load "test_helper/bats-support/load"
+load "test_helper/bats-assert/load"
 
 setup() {
   source bazel/tests/example.sh
@@ -15,7 +15,7 @@ setup() {
 @test "find bats_assert" {
   local a
   run find -L . -print 
-  assert_line --partial "external/bats_assert/load.bash"
+  assert_line --partial "test_helper/bats-assert/load"
 }
 
 @test "example_sum" {

@@ -23,10 +23,14 @@ def remote_run_test(**remote_run_opts):
   dirname=$$(dirname "$$script")
   export OUTDIR="$$(mktemp -d)"
   set -e
-  (cd ./"$$script.runfiles/enkit" && ../../"$$filename") && (
-    cp "$$OUTDIR"/{rsyncfile} $(location {rsyncfile}) &>/dev/null || touch $(location {rsyncfile})
-    cp "$$OUTDIR"/{sshfile} $(location {sshfile}) &>/dev/null || touch $(location {sshfile})
-  )
+  if [ -d ./"$$script.runfiles/enkit" ]; then
+    (cd ./"$$script.runfiles/enkit" &&  ../../"$$filename")
+  elif [ -d ./"$$script.runfiles/_main" ]; then
+    (cd ./"$$script.runfiles/_main"  && ../../"$$filename")
+  fi
+
+  cp "$$OUTDIR"/{rsyncfile} $(location {rsyncfile}) &>/dev/null || touch $(location {rsyncfile})
+  cp "$$OUTDIR"/{sshfile} $(location {sshfile}) &>/dev/null || touch $(location {sshfile})
   """.format(name = name, rsyncfile = rsyncfile, sshfile = sshfile),
         tools = [":" + name],
     )

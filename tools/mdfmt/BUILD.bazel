@@ -1,6 +1,6 @@
+load("@enkit_pip_deps//:requirements.bzl", "requirement")
 load("//bazel/utils:diff_test.bzl", "diff_test")
 load("//tools/mdfmt:mdfmt.bzl", "mdfmt_filter")
-load("@enkit_pip_deps//:requirements.bzl", "requirement")
 
 py_binary(
     name = "mdfmt",

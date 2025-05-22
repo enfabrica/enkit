@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_binary(
+    name = "embed",
+    embed = [":go_extras_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "go_extras_lib",
+    srcs = ["embed.go"],
+    importpath = "github.com/enfabrica/enkit/bazel/go_extras",
+    visibility = ["//visibility:private"],
+)

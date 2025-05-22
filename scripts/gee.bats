@@ -1,7 +1,7 @@
 #!/usr/bin/env bats -x
 
-load "external/bats_support/load.bash"
-load "external/bats_assert/load.bash"
+load "test_helper/bats-support/load"
+load "test_helper/bats-assert/load"
 
 
 setup() {

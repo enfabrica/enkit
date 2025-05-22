@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "client",
@@ -7,7 +7,7 @@ go_library(
     visibility = [
         "//allocation_manager/client/allocation_manager_client:__pkg__",
     ],
-    deps = ["//allocation_manager/proto"],
+    deps = ["//allocation_manager/proto:allocation_manager_go_proto"],
 )
 
 alias(
