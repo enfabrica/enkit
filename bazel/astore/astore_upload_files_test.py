@@ -97,7 +97,9 @@ class TestAstoreUploadFiles(absltest.TestCase):
 
         # Create the temp JSON file with test content
         with open(mock_temp.name, "w", encoding="utf-8") as f:
-            f.write(textwrap.dedent("""
+            f.write(
+                textwrap.dedent(
+                    """
                     {
                     "Artifacts": [
                         {
@@ -105,7 +107,8 @@ class TestAstoreUploadFiles(absltest.TestCase):
                         }
                     ]
                     }"""
-            ))
+                )
+            )
 
         # Mock the subprocess run result
         mock_result = mock.MagicMock()
@@ -164,7 +167,9 @@ class TestAstoreUploadFiles(absltest.TestCase):
 
         # Create the temp TOML file with test content
         with open(mock_temp.name, "w", encoding="utf-8") as f:
-            f.write(textwrap.dedent("""
+            f.write(
+                textwrap.dedent(
+                    """
                 {
                 "Artifacts": [
                     {
@@ -185,7 +190,8 @@ class TestAstoreUploadFiles(absltest.TestCase):
                     }
                 ]
                 }"""
-            ))
+                )
+            )
 
         # Mock the subprocess run result
         mock_result = mock.MagicMock()
@@ -229,7 +235,6 @@ class TestAstoreUploadFiles(absltest.TestCase):
         self.assertEqual(uid, "kz6uksgwtwpfjofvj22jyptfsc4g3nm6")
         self.assertIn(uid, mock_result.stdout)
 
-
     @mock.patch("subprocess.run")
     @mock.patch("tempfile.NamedTemporaryFile")
     def test_main_success_flextape_json(self, mock_temp_file, mock_subprocess_run):
@@ -241,7 +246,9 @@ class TestAstoreUploadFiles(absltest.TestCase):
 
         # Create the temp TOML file with test content
         with open(mock_temp.name, "w", encoding="utf-8") as f:
-            f.write(textwrap.dedent("""
+            f.write(
+                textwrap.dedent(
+                    """
                 {
                 "Artifacts": [
                     {
@@ -258,7 +265,8 @@ class TestAstoreUploadFiles(absltest.TestCase):
                     }
                 ]
                 }"""
-                                            ))
+                )
+            )
 
         # Mock the subprocess run result
         mock_result = mock.MagicMock()
@@ -338,7 +346,9 @@ class TestAstoreUploadFiles(absltest.TestCase):
                         "Uid": "ym2wvcei7j2ihhvh7sauzgipxcvdtsvr"
                         }
                     ]
-                    }""" )           )
+                    }"""
+                )
+            )
 
         # Mock the subprocess run result
         mock_result = mock.MagicMock()
@@ -411,7 +421,9 @@ class TestAstoreUploadFiles(absltest.TestCase):
                         "Uid": "test_uid_123"
                         }
                     ]
-                    }""")            )
+                    }"""
+                )
+            )
 
         # Mock the subprocess run result
         mock_result = mock.MagicMock()
@@ -465,7 +477,8 @@ class TestAstoreUploadFiles(absltest.TestCase):
                         "Uid": "test_uid_123"
                         }
                     ]
-                    }""" )
+                    }"""
+                )
             )
 
         # Mock the subprocess run result
@@ -515,6 +528,7 @@ class TestAstoreUploadFiles(absltest.TestCase):
             with self.assertRaises(SystemExit) as cm:
                 astore_upload_files.main(["astore_upload_files.py", self.test_target])
             self.assertEqual(cm.exception.code, 1)
+
 
 if __name__ == "__main__":
     absltest.main()
