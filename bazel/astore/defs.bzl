@@ -1,6 +1,6 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
-AstoreMetadataProvider = provider(fields = ["tags"])
+AstoreMetadataProvider = provider(fields = ["tags", "output_format"])
 
 def _astore_tag_impl(ctx):
     # TODO(minor-fixes): If any validation is necessary on astore tag values,
@@ -10,6 +10,16 @@ def _astore_tag_impl(ctx):
 astore_tag = rule(
     implementation = _astore_tag_impl,
     build_setting = config.string_list(flag = True, repeatable = True),
+)
+
+def _astore_output_format(ctx):
+    if ctx.build_setting_value not in ["table", "json"]:
+        fail("unknown setting for {}: {}".format(ctx.target, ctx.build_setting_value))
+    return AstoreMetadataProvider(output_format = ctx.build_setting_value)
+
+astore_output_format = rule(
+    implementation = _astore_output_format,
+    build_setting = config.string(flag = True),
 )
 
 def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
@@ -26,7 +36,7 @@ def _astore_upload(ctx):
     if ctx.attr.dir and ctx.attr.file:
         fail("in '%s' rule for an astore_upload in %s - you can only set dir or file, not both" % (ctx.attr.name, ctx.build_file_path), "dir")
 
-    files = [ctx.executable._astore_client]
+    files = [ctx.executable._astore_wrapper]
     targets = []
     for target in ctx.attr.targets:
         targets.extend([t.short_path for t in target.files.to_list()])
@@ -36,31 +46,34 @@ def _astore_upload(ctx):
     if ctx.attr.dir:
         template = ctx.file._astore_upload_dir
 
-    uidfile = ""
+    uidfile_flag = ""
     if ctx.attr.uidfile:
-        uidfile = ctx.files.uidfile[0].short_path
+        uidfile_flag = "--uidfile=" + ctx.files.uidfile[0].short_path
         files.append(ctx.files.uidfile[0])
 
     tags = []
     if ctx.attr.upload_tag:
         tags.append(ctx.attr.upload_tag)
     tags.extend(ctx.attr._cmdline_upload_tag[AstoreMetadataProvider].tags)
-    upload_tag = " ".join(["--tag={}".format(tag) for tag in tags])
+    tag_flags = " ".join(["--tag={}".format(tag) for tag in tags])
 
     ctx.actions.expand_template(
         template = template,
         output = ctx.outputs.executable,
         substitutions = {
-            "{astore}": ctx.executable._astore_client.short_path,
-            "{targets}": " ".join(targets),
-            "{file}": ctx.attr.file,
+            "{wrapper}": ctx.executable._astore_wrapper.short_path,
+            "{upload_file_flags}": " ".join(["--upload_file={}".format(t) for t in targets]),
+            "{astore_path_flag}": "--astore_base_path=" + ctx.attr.file,
             "{dir}": ctx.attr.dir,
-            "{uidfile}": uidfile,
-            "{upload_tag}": upload_tag,
+            "{uidfile_flag}": uidfile_flag,
+            "{tag_flags}": tag_flags,
+            "{output_format_flag}": ctx.attr._cmdline_upload_output_format[AstoreMetadataProvider].output_format,
         },
         is_executable = True,
     )
-    runfiles = ctx.runfiles(files = files)
+    runfiles = ctx.runfiles(files = files).merge_all([
+        ctx.attr._astore_wrapper[DefaultInfo].default_runfiles,
+    ])
     return [DefaultInfo(runfiles = runfiles)]
 
 astore_upload = rule(
@@ -93,6 +106,10 @@ astore_upload = rule(
             providers = [[AstoreMetadataProvider]],
             default = "//f/astore:upload_tag",
         ),
+        "_cmdline_upload_output_format": attr.label(
+            providers = [[AstoreMetadataProvider]],
+            default = "//f/astore:output_format",
+        ),
         "_astore_upload_file": attr.label(
             default = Label("//bazel/astore:astore_upload_file.sh"),
             allow_single_file = True,
@@ -101,11 +118,12 @@ astore_upload = rule(
             default = Label("//bazel/astore:astore_upload_dir.sh"),
             allow_single_file = True,
         ),
-        "_astore_client": attr.label(
-            default = Label("@net_enfabrica_binary_astore//file"),
-            allow_single_file = True,
+        "_astore_wrapper": attr.label(
+            default = Label("//bazel/astore:astore_upload_files"),
+            # allow_single_file = True,
+            # allow_files = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     executable = True,
