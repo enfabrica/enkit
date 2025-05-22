@@ -1,4 +1,5 @@
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 AstoreMetadataProvider = provider(fields = ["tags"])
 
@@ -12,15 +13,39 @@ astore_tag = rule(
     build_setting = config.string_list(flag = True, repeatable = True),
 )
 
-def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
+def _astore_url(package, uid, access_mod = "g", instance = "https://astore.corp.enfabrica.net"):
     """Returns a URL for a particular package version from astore."""
+    if not package:
+        fail("package not passed to astore_url substitution")
+
+    if not uid:
+        fail("uid not passed to astore_url substitution")
+
     if not package.startswith("/"):
         package = "/" + package
-    return "{}/d{}?u={}".format(
+    return "{}/{}{}?u={}".format(
         instance,
+        access_mod,
         package,
         uid,
     )
+
+def astore_url(package, uid, instance  = "https://astore.corp.enfabrica.net"):
+    _astore_url(package, uid, "d", instance)
+
+def _get_url_and_sha256(kwargs):
+    url = kwargs.pop("url", None)
+    if not url:
+        url = _astore_url(
+            kwargs.pop("path", None),
+            kwargs.pop("uid", None),
+        )
+
+    sha256 = kwargs.pop("sha256", None)
+    if not sha256:
+        sha256 = kwargs.pop("digest", None)
+
+    return url, sha256
 
 def _astore_upload(ctx):
     if ctx.attr.dir and ctx.attr.file:
@@ -251,7 +276,7 @@ astore_download = rule(
             default = Label("@net_enfabrica_binary_astore//file"),
             allow_single_file = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     doc = """Downloads artifacts from artifact store - astore.
@@ -260,213 +285,66 @@ With this rule, you can easily download
 files from an artifact store.""",
 )
 
-def _astore_download_and_verify(rctx, dest, uid, digest, timeout, attempts = 10, sleep = 1):
-    # Download by UID to destination
-    enkit_args = [
-        "enkit",
-        "astore",
-        "download",
-        "--force-uid",
-        uid,
-        "--output",
-        dest,
-        "--overwrite",
-    ]
+def astore_download_and_extract(repository_ctx, **kwargs):
+    """Just a proxy to rctx.download_and_extract.
 
-    succeeded = False
-    errors = []
-    for attempt in range(attempts):
-        rctx.report_progress("attempt #{attempt}, fetching...".format(attempt = attempt + 1))
-        res = rctx.execute(enkit_args, timeout = timeout)
-        if not res.return_code:
-            succeeded = True
-            break
-
-        message = "Command: '{}'\nStdout:\n{}\nStderr:\n{}\n".format(" ".join([str(arg) for arg in enkit_args]), res.stdout, res.stderr)
-        errors.append(message)
-
-        rctx.report_progress(
-            "attempt #{attempt} FAILED, sleeping for {sleep}s...\n{message}".format(
-                attempt = attempt + 1,
-                sleep = sleep,
-                message = message,
-            ),
-        )
-        rctx.execute(["sleep", str(sleep)])
-
-    if not succeeded:
-        fail("astore download failed after {attempts} attempts - GIVING UP. Here's the output of each run:\n{messages}".format(
-            attempts = attempts,
-            messages = "\n".join(["Attempt {idx} failed with:\n{error}".format(idx = idx + 1, error = error) for idx, error in enumerate(errors)]),
-        ))
-
-    # Check digest of downloaded file
-    checksum_args = ["sha256sum", dest]
-    res = rctx.execute(checksum_args, timeout = 60)
-    if res.return_code:
-        fail("Failed to calculate checksum\nArgs: {}\nStdout:\n{}\nStderr:\n{}\n".format(
-            checksum_args,
-            res.stdout,
-            res.stderr,
-        ))
-
-    got_digest = res.stdout.strip().split(" ")[0]
-    if got_digest != digest:
-        fail("WORKSPACE repository {}: Got digest {}; expected digest {}".format(
-            rctx.attr.name,
-            got_digest,
-            digest,
-        ))
-
-    # BUG(INFRA-7187): There's no native way to pass the digest via the
-    # workspace log to affected targets detection when downloading stuff using a
-    # command instead of a built-in starlark function. This is a hack - a
-    # command that always succeeds, that allows us to detect and exfiltrate the
-    # digest.
-    rctx.execute(["echo", digest], timeout = 10)
-
-def astore_download_and_extract(ctx, digest, stripPrefix, path = None, uid = None, output = ".", timeout = 10 * 60, attempts = 10, sleep = 1):
-    """Fetch and extract a package from astore.
-
-    This method downloads a package stored as an archive in astore, verifies
-    the sha256 digest provided by calling rules, and strips out any archive path
-    components provided by the caller. This function is only meant to be used by
-    Bazel repository rules and they do not maintain a dependency graph and the
-    ctx object is different than the ones used with regular rules.
+    Args:
+        repository_ctx: the context of the repository rule
+        **kwargs: arguments the same as for `repository_ctx.download_and_extract`,
+        but also taking `path` and `uid` into account to substitute astore url,
+        and considering 'digest' as alias to `sha256`.
     """
 
-    # Hard to rename this var, since downstream calls this function using
-    # keyword args, naming ctx explicitly. However, it is a repository context,
-    # so use rctx throughout to minimize confusion.
-    rctx = ctx
+    url, sha256 = _get_url_and_sha256(kwargs)
 
-    f = rctx.path((path or rctx.attr.path).split("/")[-1])
-    uid = uid or rctx.attr.uid
-    if hasattr(rctx.attr, "timeout"):
-        timeout = rctx.attr.timeout
-
-    _astore_download_and_verify(rctx, f, uid, digest, timeout, attempts = attempts, sleep = sleep)
-
-    rctx.extract(
-        archive = f,
-        output = output,
-        stripPrefix = stripPrefix,
+    repository_ctx.download_and_extract(
+        url = url,
+        sha256 = sha256,
+        **kwargs,
     )
-    rctx.delete(f)
 
-    if hasattr(rctx.attr, "build") and rctx.attr.build:
-        rctx.template("BUILD.bazel", rctx.attr.build)
+def astore_package(**kwargs):
+    """Just a proxy to http_archive.
 
-    if hasattr(rctx.attr, "patches"):
-        patch(rctx)
+    Args:
+        **kwargs: arguments the same as for `http_archive`, but also
+        taking `path` and `uid` into account to substitute astore url,
+        and considering 'digest' as alias to `sha256`, `build` to `build_file`.
+    """
+    
+    url, sha256 = _get_url_and_sha256(kwargs)
 
-# This wrapper is in place to allow a rolling upgrade across Enkit and the
-# external repositories which consume the kernel_tree_version rule defined in
-# //enkit/linux/defs.bzl, which uses "sha256" as the attribute name instead of
-# "digest".
-def _astore_download_and_extract_impl(rctx):
-    astore_download_and_extract(rctx, rctx.attr.digest, rctx.attr.strip_prefix, timeout = rctx.attr.timeout, attempts = rctx.attr.attempts, sleep = rctx.attr.sleep)
+    build_file = kwargs.pop("build", None)
+    if not build_file:
+        build_file = kwargs.pop("build_file", None)
 
-astore_package = repository_rule(
-    implementation = _astore_download_and_extract_impl,
-    doc = "Downloads and extracts a file from astore.",
-    attrs = {
-        "build": attr.label(
-            doc = "An optional BUILD file to copy in the unpacked tree.",
-            allow_single_file = True,
-        ),
-        "path": attr.string(
-            doc = "Path to the object in astore.",
-            mandatory = True,
-        ),
-        "uid": attr.string(
-            doc = "Astore UID of the desired version of the object.",
-            mandatory = True,
-        ),
-        "digest": attr.string(
-            doc = "SHA256 digest of the object.",
-            mandatory = True,
-        ),
-        "strip_prefix": attr.string(
-            doc = "Optional path prefix to strip out of the archive.",
-        ),
-        "timeout": attr.int(
-            doc = "Timeout for one attempt at an astore fetch operation, in seconds.",
-            default = 10 * 60,
-        ),
-        "attempts": attr.int(
-            doc = "If the download fails, retry up to this many times.",
-            default = 10,
-        ),
-        "sleep": attr.int(
-            doc = "In between failed attempts, wait this long before retrying, in seconds.",
-            default = 1,
-        ),
-        "patch_tool": attr.string(
-            default = "",
-            doc = "The patch utility to use (optional).",
-        ),
-        "patch_args": attr.string_list(
-            doc = "List of args to pass to patch tool",
-        ),
-        "patches": attr.label_list(
-            doc = "List of patches to apply",
-        ),
-    },
-)
+    http_archive(
+        url = url,
+        sha256 = sha256,
+        build_file = build_file,
+        **kwargs,
+    )
 
-def _astore_file_impl(rctx):
-    f = rctx.path(rctx.attr.path.split("/")[-1])
+def astore_file(**kwargs):
+    """Just a proxy to http_file.
+    
+    Args:
+        **kwargs: arguments the same as for `http_file`, but also
+        taking `path` and `uid` into account to substitute astore url,
+        and considering 'digest' as alias to `sha256`.
+    """
 
-    _astore_download_and_verify(rctx, f, rctx.attr.uid, rctx.attr.digest, rctx.attr.timeout, attempts = rctx.attr.attempts, sleep = rctx.attr.sleep)
+    path = kwargs.get("path")
+    url, sha256 = _get_url_and_sha256(kwargs)
+    kwargs.pop("path", None)
 
-    # Fix permissions on downloaded file.
-    #
-    # Executable bit is not preserved on round-trip through astore, so this is
-    # passed in via a rule attribute. Otherwise, permissions are the two that
-    # git typically supports.
-    perms = "0644"
-    if rctx.attr.executable:
-        perms = "0755"
-    rctx.execute(["chmod", perms, f])
+    downloaded_file_path = kwargs.pop("downloaded_file_path", None)
+    if not downloaded_file_path and path:
+        downloaded_file_path = paths.basename(path)
 
-    # Create a WORKSPACE file
-    rctx.file("WORKSPACE", content = "", executable = False)
-
-    # Create a BUILD file
-    rctx.file("BUILD.bazel", content = 'exports_files(glob(["**/*"]))', executable = False)
-
-astore_file = repository_rule(
-    doc = "Downloads a file from astore without unpacking, provides it exports_files.",
-    implementation = _astore_file_impl,
-    attrs = {
-        "timeout": attr.int(
-            doc = "Timeout for one attempt at an astore fetch operation, in seconds.",
-            default = 10 * 60,
-        ),
-        "attempts": attr.int(
-            doc = "If the download fails, retry up to this many times.",
-            default = 10,
-        ),
-        "sleep": attr.int(
-            doc = "In between failed attempts, wait this long before retrying, in seconds.",
-            default = 1,
-        ),
-        "path": attr.string(
-            doc = "Path to the object in astore",
-            mandatory = True,
-        ),
-        "uid": attr.string(
-            doc = "Astore UID of the desired version of the object.",
-            mandatory = True,
-        ),
-        "digest": attr.string(
-            doc = "SHA256 digest of the object.",
-            mandatory = True,
-        ),
-        "executable": attr.bool(
-            doc = "Whether this file is an executable",
-            default = False,
-        ),
-    },
-)
+    http_file(
+        url = url,
+        sha256 = sha256,
+        downloaded_file_path = downloaded_file_path,
+        **kwargs,
+    )
