@@ -30,4 +30,4 @@ try-import %workspace%/.bazelrc.user
 # Google Artifact Registry
 # https://github.com/bazel-contrib/rules_oci/blob/main/docs/pull.md#authentication-using-credential-helpers
 common --credential_helper=us-docker.pkg.dev=%workspace%/tools/artifact_registry_auth.sh
-common --repo_env=OCI_GET_TOKEN_ALLOW_FAIL=1]
+common --repo_env=OCI_GET_TOKEN_ALLOW_FAIL=1

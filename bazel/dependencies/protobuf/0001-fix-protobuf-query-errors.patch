@@ -1,0 +1,170 @@
+diff --git MODULE.bazel MODULE.bazel
+index 44fcddd..5cb2a2c 100755
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -109,44 +109,14 @@ register_toolchains(
+ # Proto toolchains
+ register_toolchains("//bazel/private/toolchains:all")
+ 
+-SUPPORTED_PYTHON_VERSIONS = [
+-    "3.9",
+-    "3.10",
+-    "3.11",
+-    "3.12",
+-]
+-
+ # TODO: Support hermetic / system python in bzlmod.
+ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+-
+-[
+-    python.toolchain(
+-        # Disable root warning for .pyc cache misses since CI runs as root.
+-        # See https://github.com/bazelbuild/rules_python/pull/713
+-        ignore_root_user_error = True,
+-        is_default = python_version == SUPPORTED_PYTHON_VERSIONS[-1],
+-        python_version = python_version,
+-    )
+-    for python_version in SUPPORTED_PYTHON_VERSIONS
+-]
+-
+-use_repo(
+-    python,
+-    system_python = "python_{}".format(SUPPORTED_PYTHON_VERSIONS[-1].replace(".", "_")),
++python.toolchain(
++    is_default = True,
++    python_version = "3.12",
+ )
+ 
+-pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
+-
+-[
+-    pip.parse(
+-        hub_name = "protobuf_pip_deps",
+-        python_version = python_version,
+-        requirements_lock = "//python:requirements.txt",
+-    )
+-    for python_version in SUPPORTED_PYTHON_VERSIONS
+-]
+-
+-use_repo(pip, "protobuf_pip_deps")
++use_repo(python, system_python = "python_3_12")
+ 
+ crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate", dev_dependency = True)
+ crate.spec(
+diff --git protobuf.bzl protobuf.bzl
+index fdf09bd..9f90e44 100755
+--- protobuf.bzl
++++ protobuf.bzl
+@@ -637,6 +637,8 @@ def internal_py_proto_library(
+         **kargs
+     )
+ 
++py_proto_library = internal_py_proto_library
++
+ def _source_proto_library(
+         name,
+         srcs = [],
+diff --git python/dist/BUILD.bazel python/dist/BUILD.bazel
+index e7d32cb..ea36939 100755
+--- python/dist/BUILD.bazel
++++ python/dist/BUILD.bazel
+@@ -7,15 +7,17 @@
+ 
+ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+ load("@bazel_skylib//lib:selects.bzl", "selects")
+-load("@protobuf_pip_deps//:requirements.bzl", "requirement")
++# load("@protobuf_pip_deps//:requirements.bzl", "requirement")
+ load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
+ load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+ load("@rules_python//python:packaging.bzl", "py_wheel")
+-load("@system_python//:version.bzl", "SYSTEM_PYTHON_VERSION")
++# load("@system_python//:version.bzl", "SYSTEM_PYTHON_VERSION")
+ load("//:protobuf_version.bzl", "PROTOBUF_PYTHON_VERSION")
+ load(":dist.bzl", "py_dist", "py_dist_module")
+ load(":py_proto_library.bzl", "py_proto_library")
+ 
++SYSTEM_PYTHON_VERSION="3"
++
+ licenses(["notice"])
+ 
+ py_dist_module(
+@@ -299,26 +301,6 @@ pkg_tar(
+     }),
+ )
+ 
+-genrule(
+-    name = "source_wheel",
+-    srcs = [":source_tarball"],
+-    outs = ["protobuf-%s.tar.gz" % PROTOBUF_PYTHON_VERSION],
+-    cmd = """
+-        export PYTHONPATH=$$PWD/external/protobuf_pip_deps_setuptools/site-packages
+-        set -eux
+-        tar -xzvf $(location :source_tarball)
+-        cd protobuf/
+-        python3 setup.py sdist
+-        cd ..
+-        mv protobuf/dist/*.tar.gz $@
+-    """,
+-    target_compatible_with = select({
+-        "@system_python//:none": ["@platforms//:incompatible"],
+-        "//conditions:default": [],
+-    }),
+-    tools = [requirement("setuptools")],
+-)
+-
+ py_wheel(
+     name = "binary_wheel",
+     abi = select({
+diff --git python/dist/dist.bzl python/dist/dist.bzl
+index 7c9095e..40db8fc 100755
+--- python/dist/dist.bzl
++++ python/dist/dist.bzl
+@@ -1,7 +1,8 @@
+ """Rules to create python distribution files and properly name them"""
+ 
+ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+-load("@system_python//:version.bzl", "SYSTEM_PYTHON_VERSION")
++# load("@system_python//:version.bzl", "SYSTEM_PYTHON_VERSION")
++SYSTEM_PYTHON_VERSION="3"
+ 
+ def _get_suffix(limited_api, python_version, cpu):
+     """Computes an ABI version tag for an extension module per PEP 3149."""
+diff --git python/google/protobuf/internal/numpy/BUILD.bazel python/google/protobuf/internal/numpy/BUILD.bazel
+index 6799b79..4ae382a 100755
+--- python/google/protobuf/internal/numpy/BUILD.bazel
++++ python/google/protobuf/internal/numpy/BUILD.bazel
+@@ -1,8 +1,8 @@
+ # Protobuf python numpy Tests
+ # This is removed from other tests to keep numpy (and @protobuf_pip_deps) as a test-only dependency
+ 
+-load("@protobuf_pip_deps//:requirements.bzl", "requirement")
+-load("//python:internal.bzl", "internal_py_test")
++# load("@protobuf_pip_deps//:requirements.bzl", "requirement")
++# load("//python:internal.bzl", "internal_py_test")
+ 
+ # TODO: b/278896688 - Remove this target and replace with py_library
+ exports_files([
+@@ -10,13 +10,13 @@ exports_files([
+     "numpy_test.py",
+ ])
+ 
+-internal_py_test(
+-    name = "numpy_test",
+-    srcs = ["numpy_test.py"],
+-    visibility = [
+-        "//python:__pkg__",
+-    ],
+-    deps = [
+-        requirement("numpy"),
+-    ],
+-)
++# internal_py_test(
++#     name = "numpy_test",
++#     srcs = ["numpy_test.py"],
++#     visibility = [
++#         "//python:__pkg__",
++#     ],
++#     deps = [
++#         requirement("numpy"),
++#     ],
++# )
