@@ -1,3 +1,7 @@
 #!/usr/bin/env bash
 
-{astore} upload {upload_tag} -G -d {dir} {targets} 
+exec {wrapper} \
+  {upload_file_flags} \
+  {astore_path_flag} \
+  {tag_flags} \
+  {output_format_flag}

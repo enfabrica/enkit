@@ -126,10 +126,15 @@ def main(argv):
             if FLAGS.tag:
                 cmd.extend(f"--tag={t}" for t in FLAGS.tag)
 
+            if FLAGS.astore_base_path.endswith("/"):
+                dest = "--directory"
+            else:
+                dest = "--file"
+
             cmd.extend(
                 [
                     "--disable-git",
-                    "--file",
+                    dest,
                     FLAGS.astore_base_path,
                     "--meta-file",
                     temp_json,
@@ -138,7 +143,7 @@ def main(argv):
                     local_file,
                 ]
             )
-            log.info("Running command: %s", cmd)
+            log.info("Running command: %s", " ".join(cmd))
 
             # Run the upload command
             result = subprocess.run(cmd, capture_output=True, text=True)

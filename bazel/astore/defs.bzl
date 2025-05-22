@@ -66,9 +66,14 @@ def _astore_upload(ctx):
         targets.extend([t.short_path for t in target.files.to_list()])
         files.extend([f for f in target.files.to_list()])
 
-    template = ctx.file._astore_upload_file
-    if ctx.attr.dir:
+    if ctx.attr.file:
+        template = ctx.file._astore_upload_file
+        if ctx.attr.file.endswith("/"):
+            fail("in '%s' rule for an astore_upload in %s - file attribute must not end with a slash" % (ctx.attr.name, ctx.build_file_path), "file")
+    elif ctx.attr.dir:
         template = ctx.file._astore_upload_dir
+    else:
+        fail("in '%s' rule for an astore_upload in %s - you must set either dir or file" % (ctx.attr.name, ctx.build_file_path))
 
     uidfile_flag = ""
     if ctx.attr.uidfile:
@@ -86,7 +91,7 @@ def _astore_upload(ctx):
         substitutions = {
             "{wrapper}": ctx.executable._astore_wrapper.short_path,
             "{upload_file_flags}": " ".join(["--upload_file={}".format(t) for t in targets]),
-            "{astore_path_flag}": "--astore_base_path=" + ctx.attr.file,
+            "{astore_path_flag}": "--astore_base_path=" + (ctx.attr.file or ctx.attr.dir + "/"),
             "{dir}": ctx.attr.dir,
             "{uidfile_flag}": uidfile_flag,
             "{tag_flags}": " ".join(["--tag={}".format(tag) for tag in tags]),
