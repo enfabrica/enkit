@@ -26,9 +26,30 @@ go_binary(
 
 astore_upload(
     name = "astore_push",
-    file = "roivanov/temp/test/flextape",
+    file = "infra/flextape/flextape_server",
     targets = [
         ":flextape",
     ],
     visibility = ["//:__pkg__"],
+)
+
+# $ bazel run //flextape/server:astore_push_file --@enkit//f/astore:upload_tag=mytag --@enkit//f/astore:output_format=json
+astore_upload(
+    name = "astore_push_file",
+    file = "roivanov/temp/test/flextape",
+    targets = [
+        ":flextape",
+        ":server_lib",
+    ],
+    visibility = ["//:__pkg__"],
+)
+
+# $ bazel run //flextape/server:astore_push_dir --@enkit//f/astore:upload_tag=mytag --@enkit//f/astore:output_format=json
+astore_upload(
+    name = "astore_push_dir",
+    dir = "roivanov/temp/test/dir",
+    targets = [
+        ":flextape",
+        ":server_lib",
+    ],
 )

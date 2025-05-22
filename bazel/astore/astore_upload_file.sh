@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set -e
-
 exec {wrapper} \
   {upload_file_flags} \
   {astore_path_flag} \

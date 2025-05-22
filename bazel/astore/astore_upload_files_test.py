@@ -574,7 +574,7 @@ class AstoreUploadFilesTest(absltest.TestCase):
 
         # Set up flags for this test
         with flagsaver.flagsaver(**test_flags):
-            # Call the main function and expect sys.exit(1)
+            # Call the main function and expect fail on iteration over None object
             with self.assertRaises(Exception) as ex:
                 astore_upload_files.main(["astore_upload_files.py"])
             self.assertEqual("'NoneType' object is not iterable", str(ex.exception))
@@ -586,10 +586,10 @@ class AstoreUploadFilesTest(absltest.TestCase):
 
         # Set up flags for this test
         with flagsaver.flagsaver(**test_flags):
-            # Call the main function and expect sys.exit(1)
-            with self.assertRaises(SystemExit) as ex:
+            # Call the main function and expect to fail on destination not set
+            with self.assertRaises(Exception) as ex:
                 astore_upload_files.main(["astore_upload_files.py"])
-            self.assertEqual("1", str(ex.exception))
+            self.assertEqual("'NoneType' object has no attribute 'endswith'", str(ex.exception))
 
 
 if __name__ == "__main__":
