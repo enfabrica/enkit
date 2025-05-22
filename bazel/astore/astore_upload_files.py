@@ -15,18 +15,23 @@ import tempfile
 
 # third party libraries
 from absl import app, flags
-from absl import logging as logger
+from absl import logging as log
+from python import runfiles
 
 FLAGS = flags.FLAGS
 
 # Define command-line flags
-flags.DEFINE_string("file", "", "Remote file name where to store all files")
-flags.DEFINE_string("uidfile", "", "File to update with UID information")
-flags.DEFINE_string("upload_tag", "", "Tag to add to the upload")
+flags.DEFINE_string(
+    "astore_base_path", None, "Remote file name where to store all files"
+)
+flags.DEFINE_multi_string("upload_file", None, "Files to upload")
+flags.DEFINE_string("uidfile", None, "File to update with UID information")
+flags.DEFINE_multi_string("tag", None, "Tags to add to the upload")
 # FIXME: technically it's just a switch, only json data will be updated with the local_file
 #        anything else just passed as is.
 flags.DEFINE_enum("output_format", "table", ["table", "json"], "Output format")
-flags.DEFINE_string("astore", "astore", "Path to astore binary")
+
+flags.mark_flags_as_required(["astore_base_path", "upload_file"])
 
 
 def sha256sum(filename):
@@ -41,13 +46,17 @@ def sha256sum(filename):
 def update_starlark_version_file(uidfile, fname, file_uid, file_sha):
     """Update UID and SHA variables in the build file."""
     if not os.path.isfile(uidfile):
-        logger.error("Error: %s: file not found", uidfile)
+        log.error("Error: %s: file not found", uidfile)
         sys.exit(3)
 
     uidfile = os.path.realpath(uidfile)
     varname = os.path.basename(fname).translate(
         str.maketrans(
-            "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "".join(c for c in map(chr, range(256)) if not c.isalnum() and c not in "\r\n")
+            "abcdefghijklmnopqrstuvwxyz",
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            "".join(
+                c for c in map(chr, range(256)) if not c.isalnum() and c not in "\r\n"
+            ),
         )
     )
 
@@ -57,8 +66,18 @@ def update_starlark_version_file(uidfile, fname, file_uid, file_sha):
     with open(uidfile, "r", encoding="utf-8") as f:
         content = f.read()
 
-    new_content = re.sub(f'^{uid_varname} = ".*"', f'{uid_varname} = "{file_uid}"', content, flags=re.MULTILINE)
-    new_content = re.sub(f'^{sha_varname} = ".*"', f'{sha_varname} = "{file_sha}"', new_content, flags=re.MULTILINE)
+    new_content = re.sub(
+        f'^{uid_varname} = ".*"',
+        f'{uid_varname} = "{file_uid}"',
+        content,
+        flags=re.MULTILINE,
+    )
+    new_content = re.sub(
+        f'^{sha_varname} = ".*"',
+        f'{sha_varname} = "{file_sha}"',
+        new_content,
+        flags=re.MULTILINE,
+    )
 
     with open(uidfile, "w", encoding="utf-8") as f:
         f.write(new_content)
@@ -66,54 +85,59 @@ def update_starlark_version_file(uidfile, fname, file_uid, file_sha):
     # Verify the update was successful
     with open(uidfile, "r", encoding="utf-8") as f:
         if not re.search(f'^{uid_varname} = "{file_uid}"', f.read(), re.MULTILINE):
-            logger.error("Error: failed to update %s in %s", uid_varname, uidfile)
-            logger.error("       Is this variable missing from this file?")
+            log.error("Error: failed to update %s in %s", uid_varname, uidfile)
+            log.error("       Is this variable missing from this file?")
             sys.exit(5)
 
-    logger.info("Updated %s in %s", uid_varname, uidfile)
+    log.info("Updated %s in %s", uid_varname, uidfile)
 
 
 def main(argv):
-    # Get file list from command line arguments (after the script name)
-    local_files_list = argv[1:]
+    del argv
 
-    # Check if we have any files to process
-    if not local_files_list:
-        logger.error("No local files to upload specified. Please provide files as command line arguments.")
-        sys.exit(1)
+    r = runfiles.Runfiles.Create()
+    astore_client = r.Rlocation("net_enfabrica_binary_astore/file/downloaded")
 
-    if len(local_files_list) > 1 and FLAGS.uidfile:
-        logger.error("Error: cannot update uidfile when uploading multiple files")
-        sys.exit(1)
+    if len(FLAGS.upload_file) > 1 and FLAGS.uidfile:
+        log.fatal("Error: cannot update uidfile when uploading multiple files")
 
-    logger.info("Processing files: %s", local_files_list)
+    log.info("Processing files: %s", FLAGS.upload_file)
 
     # Create temporary file for metadata
-    with tempfile.NamedTemporaryFile(prefix="astore.", suffix=".json", delete=False) as temp:
+    with tempfile.NamedTemporaryFile(
+        prefix="astore.", suffix=".json", delete=False
+    ) as temp:
         temp_json = temp.name
 
     try:
-        if FLAGS.astore == "astore":
-            astore_cmd = ["enkit", "astore", "upload"]
-        else:
-            astore_cmd = [FLAGS.astore, "upload"]
+        astore_cmd = [astore_client, "upload"]
 
         json_data = dict()
         # Process each local_file sequentially
-        for local_file in local_files_list:
+        for local_file in FLAGS.upload_file:
             cmd = astore_cmd.copy()
 
-            if FLAGS.upload_tag:
-                # FIXME astore_upload_file.sh has -t provided by the bazel rule
-                cmd.extend(FLAGS.upload_tag.split())
+            if FLAGS.tag:
+                cmd.extend(f"--tag={t}" for t in FLAGS.tag)
 
-            cmd.extend(["--disable-git", "--file", FLAGS.file, "--meta-file", temp_json, "--console-format", FLAGS.output_format, local_file])
-            logger.info("Running command: %s", cmd)
+            cmd.extend(
+                [
+                    "--disable-git",
+                    "--file",
+                    FLAGS.astore_base_path,
+                    "--meta-file",
+                    temp_json,
+                    "--console-format",
+                    FLAGS.output_format,
+                    local_file,
+                ]
+            )
+            log.info("Running command: %s", cmd)
 
             # Run the upload command
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
-                logger.error("Error uploading %s: %s", local_file, result.stderr)
+                log.error("Error uploading %s: %s", local_file, result.stderr)
                 sys.exit(1)
 
             # Print output based on format
@@ -135,10 +159,16 @@ def main(argv):
 
                 file_uid = json_data["Artifacts"][0]["Uid"]
                 if not file_uid:
-                    logger.error("Error: no UID found for %s uploaded as %s", local_file, FLAGS.file)
+                    log.error(
+                        "Error: no UID found for %s uploaded as %s",
+                        local_file,
+                        FLAGS.file,
+                    )
                     sys.exit(2)
 
-                update_starlark_version_file(FLAGS.uidfile, local_file, file_uid, sha256sum(local_file))
+                update_starlark_version_file(
+                    FLAGS.uidfile, local_file, file_uid, sha256sum(local_file)
+                )
 
         if FLAGS.output_format == "json":
             print(json.dumps(json_data))
