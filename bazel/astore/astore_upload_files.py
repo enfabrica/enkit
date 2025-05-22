@@ -97,10 +97,6 @@ def main(argv):
     r = runfiles.Runfiles.Create()
     astore_client = r.Rlocation("net_enfabrica_binary_astore/file/downloaded")
 
-    # questionable
-    # if FLAGS.upload_file and len(FLAGS.upload_file) > 1 and FLAGS.uidfile:
-    #     log.fatal("Error: cannot update uidfile when uploading multiple files")
-
     if not FLAGS.upload_file:
         log.fatal("Error: no files to upload")
 
