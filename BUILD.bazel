@@ -65,9 +65,6 @@ gazelle(name = "gazelle_update_repos")
 # gazelle:resolve proto proto google/rpc/status.proto @googleapis//google/rpc:status_proto
 # gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status
 
-# gazelle:resolve go cel.dev/expr @cel-spec//:expr
-# gazelle:resolve go cel.dev/expr/conformance @cel-spec//conformance:go_default_library
-
 # gazelle:resolve go github.com/enfabrica/enkit/auth/server/assets/templates //auth/server/assets/templates
 
 exports_files(
