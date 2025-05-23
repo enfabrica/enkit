@@ -66,12 +66,12 @@ def _astore_upload(ctx):
         targets.extend([t.short_path for t in target.files.to_list()])
         files.extend([f for f in target.files.to_list()])
 
+    template = ctx.file._astore_upload_file
     if ctx.attr.file:
-        template = ctx.file._astore_upload_file
         if ctx.attr.file.endswith("/"):
             fail("in '%s' rule for an astore_upload in %s - file attribute must not end with a slash" % (ctx.attr.name, ctx.build_file_path), "file")
     elif ctx.attr.dir:
-        template = ctx.file._astore_upload_dir
+        pass
     else:
         fail("in '%s' rule for an astore_upload in %s - you must set either dir or file" % (ctx.attr.name, ctx.build_file_path))
 
@@ -140,10 +140,6 @@ astore_upload = rule(
         ),
         "_astore_upload_file": attr.label(
             default = Label("//bazel/astore:astore_upload_file.sh"),
-            allow_single_file = True,
-        ),
-        "_astore_upload_dir": attr.label(
-            default = Label("//bazel/astore:astore_upload_dir.sh"),
             allow_single_file = True,
         ),
         "_astore_wrapper": attr.label(
