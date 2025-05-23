@@ -51,8 +51,7 @@ gazelle(name = "gazelle_update_repos")
 # These mappings keep gazelle from generating bogus dependency labels.
 #
 # gazelle:resolve go kythe.io/kythe/go/platform/delimited @io_kythe//kythe/go/platform/delimited
-# gazelle:resolve go github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2 @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:go_default_library
-# gazelle:resolve go github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2 @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:go_default_library
+# gazelle:resolve go github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2 @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution_go_proto
 
 # Buildbarn gazelle resolve mappings
 # Buildbarn dependencies may need certain overrides; these mappings are copied
@@ -65,6 +64,9 @@ gazelle(name = "gazelle_update_repos")
 # gazelle:resolve proto go google/rpc/code.proto @org_golang_google_genproto_googleapis_rpc//code
 # gazelle:resolve proto proto google/rpc/status.proto @googleapis//google/rpc:status_proto
 # gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status
+
+# gazelle:resolve go cel.dev/expr @cel-spec//:expr
+# gazelle:resolve go cel.dev/expr/conformance @cel-spec//conformance:go_default_library
 
 # gazelle:resolve go github.com/enfabrica/enkit/auth/server/assets/templates //auth/server/assets/templates
 
