@@ -3,6 +3,7 @@ package astore
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 
@@ -28,6 +29,24 @@ const (
 	AuthTypeToken
 )
 
+func getSingleParam(v url.Values, keys ...string) string {
+	for _, k := range keys {
+		if val := v.Get(k); val != "" {
+			return val
+		}
+	}
+	return ""
+}
+
+func getListParam(v url.Values, keys ...string) []string {
+	for _, k := range keys {
+		if val, ok := v[k]; ok {
+			return val
+		}
+	}
+	return nil
+}
+
 // DownloadArtifact turns an http.Request into an astore.RetrieveRequest,
 // executes it, and invokes the specified handler with the result. Authorization
 // is enforced on the request based on the specified `authType`.
@@ -40,18 +59,9 @@ func (s *Server) DownloadArtifact(prefix string, ehandler DownloadHandler, auth 
 	astorePath := strings.TrimPrefix(upath, prefix)
 
 	params := r.URL.Query()
-	arch := params.Get("a")
-	if arch == "" {
-		arch = params.Get("arch")
-	}
-	uid := params.Get("u")
-	if uid == "" {
-		uid = params.Get("uid")
-	}
-	tag := params["t"]
-	if len(tag) <= 0 {
-		tag = params["tag"]
-	}
+	arch := getSingleParam(params, "a", "arch")
+	uid := getSingleParam(params, "u", "uid")
+	tags := getListParam(params, "t", "tag")
 
 	switch auth {
 	default:
@@ -78,18 +88,25 @@ func (s *Server) DownloadArtifact(prefix string, ehandler DownloadHandler, auth 
 	req.Uid = uid
 	req.Architecture = arch
 
-	if len(tag) > 0 {
+	if len(tags) > 0 {
 		req.Tag = &astore.TagSet{}
-		for _, t := range tag {
+		for _, t := range tags {
 			t = strings.TrimSpace(t)
 			if t == "" {
 				continue
 			}
 			req.Tag.Tag = append(req.Tag.Tag, t)
 		}
+	} else if uid != "" {
+		// Fetching by UID only must populate an empty tag set, as no tag set
+		// implies a tag of "latest".
+		req.Tag = &astore.TagSet{}
 	}
 
-	retr, err := s.Retrieve(context.TODO(), req)
+	retr, err := s.Retrieve(r.Context(), req)
+	if err != nil {
+		s.options.logger.Errorf("DownloadArtifact failed (path=%q uid=%q arch=%q tags=%+v): %v", req.Path, req.Uid, req.Architecture, req.Tag, err)
+	}
 	ehandler(upath, retr, err, w, r)
 }
 
