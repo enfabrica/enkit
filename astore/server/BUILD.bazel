@@ -1,5 +1,4 @@
-load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
 load("//bazel/appengine:defs.bzl", "go_appengine_deploy")
 load("//bazel/go_extras:embed_data.bzl", "go_embed_data")
 
