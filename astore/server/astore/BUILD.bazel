@@ -51,6 +51,7 @@ go_test(
         "@com_github_golang_protobuf//ptypes/wrappers",
         "@com_github_prashantv_gostub//:gostub",
         "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//mock",
         "@com_github_stretchr_testify//require",
         "@com_google_cloud_go_datastore//:datastore",
         "@com_google_cloud_go_storage//:storage",
