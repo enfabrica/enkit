@@ -2,18 +2,23 @@ package astore
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"time"
 
 	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/storage"
-	"github.com/enfabrica/enkit/lib/kflags"
-	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
+
+	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/logger"
 )
 
 type Modifier func(o *Options) error
@@ -53,7 +58,7 @@ func WithProjectIDJSON(data []byte) Modifier {
 
 func WithProjectIDFile(path string) Modifier {
 	return func(o *Options) error {
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -76,7 +81,7 @@ func WithSigningJSON(data []byte) Modifier {
 
 func WithSigningConfig(path string) Modifier {
 	return func(o *Options) error {
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -94,6 +99,29 @@ func WithCredentialsFile(path string) Modifier {
 func WithCredentialsJSON(json []byte) Modifier {
 	return func(o *Options) error {
 		o.clientOptions = append(o.clientOptions, option.WithCredentialsJSON(json))
+		return nil
+	}
+}
+
+func WithURLBasedTokenCerts(data []byte) Modifier {
+	return func(o *Options) error {
+		for block, rest := pem.Decode(data); block != nil; block, rest = pem.Decode(rest) {
+			if block.Type != "CERTIFICATE" {
+				return fmt.Errorf("expected block type 'CERTIFICATE'; got block type %q", block.Type)
+			}
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return fmt.Errorf("failed to parse certificate: %w", err)
+			}
+			rsaKey, ok := cert.PublicKey.(*rsa.PublicKey)
+			if !ok {
+				return fmt.Errorf("expected *rsa.PublicKey, but got %T", cert.PublicKey)
+			}
+			o.tokenPublicKeys = append(o.tokenPublicKeys, rsaKey)
+		}
+		if len(data) > 0 && len(o.tokenPublicKeys) == 0 {
+			return fmt.Errorf("no valid certificates with public keys found")
+		}
 		return nil
 	}
 }
@@ -122,6 +150,7 @@ type Flags struct {
 	ProjectIDJSON       []byte
 	SigningConfigJSON   []byte
 	CredentialsFileJSON []byte
+	URLBasedTokenCerts  []byte
 }
 
 func WithFlags(flags *Flags) Modifier {
@@ -155,6 +184,11 @@ func WithFlags(flags *Flags) Modifier {
 				return err
 			}
 		}
+		if len(flags.URLBasedTokenCerts) > 0 {
+			if err := WithURLBasedTokenCerts(flags.URLBasedTokenCerts)(o); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 }
@@ -179,6 +213,7 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 		"Path to a signing config file - this is a normal credentials file containing a private_key. If not specified, defaults to the value of "+prefix+"credentials-file")
 	set.ByteFileVar(&f.CredentialsFileJSON, prefix+"credentials-file", "",
 		"Credentials file to use to authenticate against datastore and gcs")
+	set.ByteFileVar(&f.URLBasedTokenCerts, prefix+"url-based-token-certs", "", "Certificates containing public keys to use while authenticating URL fetch tokens")
 	return f
 }
 
@@ -192,6 +227,8 @@ type Options struct {
 	signing storage.SignedURLOptions
 
 	logger logger.Logger
+
+	tokenPublicKeys []jwt.VerificationKey
 
 	clientOptions []option.ClientOption
 }
