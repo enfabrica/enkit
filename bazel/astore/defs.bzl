@@ -1,4 +1,3 @@
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 AstoreMetadataProvider = provider(fields = ["tags"])
@@ -325,26 +324,37 @@ def astore_package(**kwargs):
         **kwargs,
     )
 
-def astore_file(**kwargs):
-    """Just a proxy to http_file.
-    
-    Args:
-        **kwargs: arguments the same as for `http_file`, but also
-        taking `path` and `uid` into account to substitute astore url,
-        and considering 'digest' as alias to `sha256`.
-    """
-
-    path = kwargs.get("path")
-    url, sha256 = _get_url_and_sha256(kwargs)
-    kwargs.pop("path", None)
-
-    downloaded_file_path = kwargs.pop("downloaded_file_path", None)
-    if not downloaded_file_path and path:
-        downloaded_file_path = paths.basename(path)
-
-    http_file(
+def _astore_file_impl(rctx):
+    output = rctx.path(rctx.attr.path.split("/")[-1])
+    url = _astore_url(rctx.attr.path, rctx.attr.uid)
+    rctx.download(
         url = url,
-        sha256 = sha256,
-        downloaded_file_path = downloaded_file_path,
-        **kwargs,
+        output = output,
+        sha256 = rctx.attr.digest,
+        executable = rctx.attr.executable,
     )
+
+    rctx.file("BUILD.bazel", content = 'exports_files(glob(["**/*"]))')
+
+astore_file = repository_rule(
+    doc = "Downloads a file from astore without unpacking, provides it exports_files.",
+    implementation = _astore_file_impl,
+    attrs = {
+        "path": attr.string(
+            doc = "Path to the object in astore",
+            mandatory = True,
+        ),
+        "uid": attr.string(
+            doc = "Astore UID of the desired version of the object.",
+            mandatory = True,
+        ),
+        "digest": attr.string(
+            doc = "SHA256 digest of the object.",
+            mandatory = True,
+        ),
+        "executable": attr.bool(
+            doc = "Whether this file is an executable",
+            default = False,
+        ),
+    },
+)
