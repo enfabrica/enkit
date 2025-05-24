@@ -1,6 +1,6 @@
-load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("@rules_go//proto:def.bzl", "go_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 
 # Keep gazelle from generating a go_library that includes the dummy source
 # (empty.go)

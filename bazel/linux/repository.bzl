@@ -137,9 +137,9 @@ def _local_kernel_impl(repository_ctx):
     else:
         # By default we'll assume a standard install location
         # on the users host.
-        target = repository_ctx.os.environ['HOME'] + "/rootfs"
+        target = repository_ctx.os.environ["HOME"] + "/rootfs"
 
-    version = repository_ctx.os.environ.get('KVER', repository_ctx.attr.version)
+    version = repository_ctx.os.environ.get("KVER", repository_ctx.attr.version)
 
     # create a symlink into the external repo dir
     repository_ctx.symlink(

@@ -9,9 +9,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/plugins"
 
-	// TODO(scott): Change this to "log/slog" after go-hclog-slog is updated to
-	// use the stdlib
-	"golang.org/x/exp/slog"
+	"log/slog"
 
 	"github.com/enfabrica/enkit/experimental/nomad_resource_plugin/licensedevice"
 	"github.com/enfabrica/enkit/lib/metrics"

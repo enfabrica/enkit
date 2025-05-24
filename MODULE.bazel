@@ -49,6 +49,14 @@ bazel_dep(name = "rules_jsonnet", version = "0.6.0")
 bazel_dep(name = "rules_oci", version = "2.2.6")
 bazel_dep(name = "xds", version = "0.0.0-20240423-555b57e")
 bazel_dep(name = "cel-spec", version = "0.23.0")
+single_version_override(
+    module_name = "cel-spec",
+    patches = [
+        "//bazel/dependencies/cel_spec:fix_linkage_problems.patch",
+    ],
+    version = "0.23.0",
+)
+
 bazel_dep(name = "protoc-gen-validate", version = "1.2.1.bcr.1")
 bazel_dep(name = "rules_proto_grpc_go", version = "5.1.0")
 

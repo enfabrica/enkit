@@ -1,11 +1,11 @@
-load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "KernelModulesInfo", "KernelTreeInfo", "RootfsImageInfo", "RuntimeBundleInfo")
-load("//bazel/linux/platforms:defs.bzl", "kernel_aarch64_transition", "kernel_aarch64_constraints")
-load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible", "is_module")
-load("//bazel/linux:test.bzl", "kunit_test")
-load("//bazel/linux:uml.bzl", "kernel_uml_run")
-load("//bazel/utils:messaging.bzl", "location", "package")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "KernelModulesInfo", "KernelTreeInfo", "RootfsImageInfo", "RuntimeBundleInfo")
+load("//bazel/linux:test.bzl", "kunit_test")
+load("//bazel/linux:uml.bzl", "kernel_uml_run")
+load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible", "is_module")
+load("//bazel/linux/platforms:defs.bzl", "kernel_aarch64_constraints", "kernel_aarch64_transition")
+load("//bazel/utils:messaging.bzl", "location", "package")
 
 def _kernel_modules(ctx):
     modules = ctx.attr.modules
@@ -75,6 +75,7 @@ def _kernel_modules(ctx):
     tools = []
     if ki.arch != "host":
         arch = ki.arch
+
         # map aarch64 to arm64.  The kernel uses arm64, bazel uses aarch64. sigh.
         if arch == "aarch64":
             arch = "arm64"
@@ -110,7 +111,7 @@ def _kernel_modules(ctx):
 
     if ctx.attr.local_kernel and ki.arch == "host":
         kernel_build_dir = ctx.attr.local_kernel[BuildSettingInfo].value
-        if kernel_build_dir[0] != '/':
+        if kernel_build_dir[0] != "/":
             # When building against a local kernel we force the action to execute
             # locally but the rest of the build happens remotely. This leaves
             # a small chance for cache poisoning. Forcing the user to pass
@@ -346,6 +347,7 @@ def _normalize_kernel(kernel_tree_label):
     kernel_tree_string = kernel_tree_label.replace("@", "").replace("//:", "-").replace("/", "-")
 
     arch = "host"
+
     # this is janky, but if the label contains the string "arm64" or
     # "aarch64" force the architecture to aarch64.  Really at this
     # macro level we would like to peak inside the KernelTreeInfo
@@ -374,7 +376,7 @@ def _gen_module_rule(arch, *args, **kwargs):
     if arch != "aarch64":
         fail("Unknown architecture: " + arch)
 
-    kwargs["target_compatible_with"] =  kernel_aarch64_constraints
+    kwargs["target_compatible_with"] = kernel_aarch64_constraints
 
     # underlying module rule needs a different name as the top level
     # transition rule will use the original name.

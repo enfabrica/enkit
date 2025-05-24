@@ -27,6 +27,6 @@ json_to_yaml = rule(
             default = "@yq//file:file",
             executable = True,
             cfg = "exec",
-        )
-    }
+        ),
+    },
 )

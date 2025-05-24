@@ -12,13 +12,12 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-
 # zlib
 # The name of this rule is libz to avoid conflicts with the system `@zlib//:zlib`.
 # We cannot use @zlib//:zlib because the libraries that are generated are named
 # libzlib.(a|so), which is incompatible with other foreign_cc builds.
 cmake(
-    name = "libz", 
+    name = "libz",
     env = {},
     cache_entries = {
         "CMAKE_C_FLAGS": "${CMAKE_C_FLAGS:-} -fPIC",

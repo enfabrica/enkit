@@ -101,7 +101,7 @@ def expand_template_binary_impl(ctx):
         DefaultInfo(
             files = depset([output]),
             executable = output if ctx.attr.executable else None,
-        )
+        ),
     ]
 
 expand_template_binary = rule(
@@ -124,6 +124,5 @@ expand_template_binary = rule(
             doc = "Name of the output file",
             mandatory = True,
         ),
-    }
+    },
 )
-

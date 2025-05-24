@@ -1,5 +1,5 @@
-load("@rules_go//proto:def.bzl", "go_proto_library")
 load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//proto:def.bzl", "go_proto_library")
 
 # Don't let gazelle auto-remove proto and Go rules compiling this "generated"
 # proto.
