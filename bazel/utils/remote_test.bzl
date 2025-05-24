@@ -1,6 +1,6 @@
-load("//bazel/utils:remote.bzl", "remote_run")
-load("//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
 load("//bazel/utils:diff_test.bzl", "diff_test")
+load("//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
+load("//bazel/utils:remote.bzl", "remote_run")
 
 def remote_run_test(**remote_run_opts):
     name = remote_run_opts["name"]

@@ -15,4 +15,3 @@ filegroup(
         sha256 = "20a7966523a0905f950c4fbf26471734420d6788cfffcd4a8c4bc972fded3e96",
         url = "https://github.com/wagoodman/dive/releases/download/v0.12.0/dive_0.12.0_linux_amd64.tar.gz",
     )
-
