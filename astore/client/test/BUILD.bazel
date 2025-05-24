@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_test")
+load("@rules_go//go:def.bzl", "go_test")
 
 # This rule defines a full regression test:
 #  - it connects to a working astore server.

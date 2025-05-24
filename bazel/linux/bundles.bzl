@@ -1,9 +1,9 @@
-load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "RuntimeBundleInfo", "RuntimeInfo")
-load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible")
-load("//bazel/linux:runner.bzl", "get_prepare_run_check", "runtime_info_from_target")
-load("//bazel/utils:messaging.bzl", "location", "package")
-load("//bazel/utils:files.bzl", "files_to_dir")
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("//bazel/linux:providers.bzl", "KernelBundleInfo", "KernelImageInfo", "RuntimeBundleInfo", "RuntimeInfo")
+load("//bazel/linux:runner.bzl", "get_prepare_run_check", "runtime_info_from_target")
+load("//bazel/linux:utils.bzl", "expand_deps", "get_compatible")
+load("//bazel/utils:files.bzl", "files_to_dir")
+load("//bazel/utils:messaging.bzl", "location", "package")
 
 def _add_attr_bundle(ctx, bundle, name, merge = [], distribute = []):
     """Used by _vm_bundle, helper to parase its attributes"""
@@ -25,6 +25,7 @@ def _add_attr_bundle(ctx, bundle, name, merge = [], distribute = []):
         fail(location(ctx) + "has {name}_bin pointing to a vm_bundle and also defines {name}_args - which is not allowed".format(name = name))
 
     rtis = []
+
     # If abin has no arguments, it is allowed to be a bundle. Rely on expand_targets_and_bundles
     # to compute the actual RuntimeInfo to use.
     if abin and not aargs:
@@ -38,7 +39,7 @@ def _add_attr_bundle(ctx, bundle, name, merge = [], distribute = []):
         # need to be assigned to that specific step. Eg, if we're processing the "prepare"
         # actions, a binary outside a bundle should be considered a "prepare" command, not
         # a run command. And those binaries are allowed to appear anywhere.
-        bundles = get_prepare_run_check(ctx, abins, action=name)
+        bundles = get_prepare_run_check(ctx, abins, action = name)
         rtis.extend(getattr(bundles, name, []))
         for step in merge:
             rtis.extend(getattr(bundles, step, []))
@@ -156,7 +157,6 @@ To create "internal-test", you could use vm_bundle like this:
         "prepare_args": attr.string(
             doc = "Optional parameters to pass to the prepare_bin. Can use shell expansion.",
         ),
-
         "init": attr.label_list(
             doc = "List of binaries or bundles to run INSIDE THE VM to prepare the VM (cannot be combined with init_bin/_args - optional)",
             cfg = "target",
@@ -172,7 +172,6 @@ To create "internal-test", you could use vm_bundle like this:
         "init_args": attr.string(
             doc = "Optional parameters to pass to the init_bin. Can use shell expansion.",
         ),
-
         "run": attr.label_list(
             doc = "List of binaries to run INSIDE THE VM (cannot be combined with init_bin/_args - optional)",
             cfg = "target",
@@ -188,7 +187,6 @@ To create "internal-test", you could use vm_bundle like this:
         "run_args": attr.string(
             doc = "Optional parameters to pass to the run_bin. Can use shell expansion.",
         ),
-
         "cleanup": attr.label_list(
             doc = "List of binaries to run OUTSIDE the VM AFTER the RUN to clean up the environment (cannot be combined with cleanup_bin/_args - optional)",
             cfg = "exec",
@@ -204,7 +202,6 @@ To create "internal-test", you could use vm_bundle like this:
         "cleanup_args": attr.string(
             doc = "Optional parameters to pass to the cleanup_bin. Can use shell expansion.",
         ),
-
         "check": attr.label_list(
             doc = "List of binaries to run OUTSIDE the VM to check the environment (cannot be combined with check_bin/_args - optional)",
             cfg = "exec",

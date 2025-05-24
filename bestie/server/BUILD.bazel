@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//bazel/utils/container:container.bzl", "container_image", "container_push")
 
@@ -21,13 +21,13 @@ go_library(
         "//lib/server",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
         "@com_github_golang_glog//:glog",
-        "@com_github_golang_protobuf//ptypes:go_default_library_gen",
+        "@com_github_golang_protobuf//ptypes",
         "@com_github_prometheus_client_golang//prometheus",
         "@com_github_prometheus_client_golang//prometheus/promauto",
         "@com_github_xenking_zipstream//:zipstream",
         "@com_google_cloud_go_bigquery//:bigquery",
         "@org_golang_google_genproto//googleapis/devtools/build/v1:build",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
         "@org_golang_google_protobuf//encoding/prototext",
         "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//types/known/emptypb",
