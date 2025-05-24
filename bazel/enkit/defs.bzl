@@ -1,6 +1,5 @@
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
-
 load("@bazel_tools//tools/build_defs/hash:hash.bzl", "sha256", "tools")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//bazel/utils:template.bzl", "template_expand", "template_tool")
 load("//bazel/utils:validate.bzl", "validate_format", "validate_tool")
 

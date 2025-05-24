@@ -1,9 +1,9 @@
 """Set of rules and macros to start and push an appengine website"""
 
-load("//bazel/website:defs.bzl", "WebsiteRoot")
 load("//bazel/appengine:config.bzl", "appengine_config_index", "appengine_config_merge")
-load("//bazel/utils:messaging.bzl", "package")
 load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
+load("//bazel/utils:messaging.bzl", "package")
+load("//bazel/website:defs.bzl", "WebsiteRoot")
 
 APPENGINE_RUNNER_ATTRS = {
     "root": attr.label(

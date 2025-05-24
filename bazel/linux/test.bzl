@@ -1,12 +1,12 @@
-load("//bazel/linux:uml.bzl", "kernel_uml_run")
+load("@bazel_skylib//lib:shell.bzl", "shell")
+load("//bazel/linux:bundles.bzl", "kunit_bundle", "vm_bundle")
+load("//bazel/linux:providers.bzl", "RuntimeBundleInfo", "RuntimeInfo")
 load("//bazel/linux:qemu.bzl", "kernel_qemu_run")
+load("//bazel/linux:runner.bzl", "commands_and_runtime", "get_prepare_run_check")
+load("//bazel/linux:uml.bzl", "kernel_uml_run")
+load("//bazel/utils:exec_test.bzl", "exec_test")
 load("//bazel/utils:macro.bzl", "mconfig", "mcreate_rule")
 load("//bazel/utils:messaging.bzl", "package")
-load("//bazel/utils:exec_test.bzl", "exec_test")
-load("//bazel/linux:bundles.bzl", "kunit_bundle", "vm_bundle")
-load("//bazel/linux:runner.bzl", "get_prepare_run_check", "commands_and_runtime")
-load("//bazel/linux:providers.bzl", "RuntimeBundleInfo", "RuntimeInfo")
-load("@bazel_skylib//lib:shell.bzl", "shell")
 
 def _test_runner(ctx):
     script_begin = r"""#!/bin/bash
