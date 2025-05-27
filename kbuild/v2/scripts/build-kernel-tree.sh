@@ -202,7 +202,7 @@ echo "$kernel_version" > "${build_dir}/enf-kernel-version.txt"
 
 case "$RT_ARCH" in
     arm64)
-        arch_args="ARCH=$RT_ARCH CROSS_COMPILE=aarch64-linux-gnu-"
+        arch_args="ARCH=$RT_ARCH CROSS_COMPILE=aarch64-none-linux-gnu-"
         arch_image="Image"
         output_image="arch/arm64/boot/Image"
         ;;
