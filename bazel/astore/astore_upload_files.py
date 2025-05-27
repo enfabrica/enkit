@@ -150,7 +150,10 @@ def main(argv):
             # Print output based on format
             if FLAGS.output_format == "json":
                 data = json.loads(result.stdout)
-                data["Artifacts"][0]["Target"] = local_file
+                if FLAGS.astore_base_path.endswith("/"):
+                    data["Artifacts"][0]["AstorePath"] = FLAGS.astore_base_path + os.path.basename(local_file)
+                else:
+                    data["Artifacts"][0]["AstorePath"] = FLAGS.astore_base_path
                 if not json_data:
                     json_data = data
                 else:
