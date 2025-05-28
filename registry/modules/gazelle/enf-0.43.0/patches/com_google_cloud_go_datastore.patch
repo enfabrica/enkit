@@ -1,0 +1,36 @@
+diff --git internal/bzlmod/default_gazelle_overrides.bzl internal/bzlmod/default_gazelle_overrides.bzl
+index 5f568fc..a3f7967 100644
+--- internal/bzlmod/default_gazelle_overrides.bzl
++++ internal/bzlmod/default_gazelle_overrides.bzl
+@@ -152,4 +152,7 @@ DEFAULT_PATCHES = {
+     "google.golang.org/grpc": [
+         "//internal/bzlmod/patches:org_golang_google_grpc.patch",
+     ],
++    "cloud.google.com/go/datastore": [
++        "//internal/bzlmod/patches:com_google_cloud_go_datastore.patch",
++    ],
+ }
+\ No newline at end of file
+diff --git internal/bzlmod/patches/com_google_cloud_go_datastore.patch internal/bzlmod/patches/com_google_cloud_go_datastore.patch
+new file mode 100644
+index 0000000..8617a33
+--- /dev/null
++++ internal/bzlmod/patches/com_google_cloud_go_datastore.patch
+@@ -0,0 +1,17 @@
++diff --git query.go b/query.go
++index 0c3fe01db8..57f63f165a 100644
++--- query.go
+++++ query.go
++@@ -380,6 +380,12 @@ func (q *Query) toRunQueryRequest(req *pb.RunQueryRequest) error {
++ 	return nil
++ }
++ 
+++// ENFABRICA PATCH
+++// Export toProto for use in unit tests
+++func (q *Query) ToProto(req *pb.RunQueryRequest) error {
+++	return q.toRunQueryRequest(req)
+++}
+++
++ func (q *Query) toProto() (*pb.Query, error) {
++ 	if len(q.projection) != 0 && q.keysOnly {
++ 		return nil, errors.New("datastore: query cannot both project and be keys-only")

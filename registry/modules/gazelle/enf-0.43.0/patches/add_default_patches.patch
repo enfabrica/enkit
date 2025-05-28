@@ -1,0 +1,58 @@
+:100644 100644 ca2a406 3999e93 M	internal/bzlmod/default_gazelle_overrides.bzl
+:100644 100644 d22a6aa 7cf8c96 M	internal/bzlmod/go_deps.bzl
+:000000 100644 0000000 8b13789 A	internal/bzlmod/patches/BUILD.bazel
+:100644 100644 5f0c7f9 d94a414 M	internal/go_repository_tools_srcs.bzl
+
+diff --git internal/bzlmod/default_gazelle_overrides.bzl internal/bzlmod/default_gazelle_overrides.bzl
+index ca2a406..3999e93 100644
+--- internal/bzlmod/default_gazelle_overrides.bzl
++++ internal/bzlmod/default_gazelle_overrides.bzl
+@@ -147,3 +147,7 @@ DEFAULT_BUILD_EXTRA_ARGS_BY_PATH = {
+         "-exclude=arith_s390x_test.go",
+     ],
+ }
++
++DEFAULT_PATCHES = {
++    
++}
+\ No newline at end of file
+diff --git internal/bzlmod/go_deps.bzl internal/bzlmod/go_deps.bzl
+index d22a6aa..7cf8c96 100644
+--- internal/bzlmod/go_deps.bzl
++++ internal/bzlmod/go_deps.bzl
+@@ -18,6 +18,7 @@ load(
+     "DEFAULT_BUILD_EXTRA_ARGS_BY_PATH",
+     "DEFAULT_BUILD_FILE_GENERATION_BY_PATH",
+     "DEFAULT_DIRECTIVES_BY_PATH",
++    "DEFAULT_PATCHES",
+ )
+ load(":go_mod.bzl", "deps_from_go_mod", "go_work_from_label", "sums_from_go_mod", "sums_from_go_work")
+ load(":semver.bzl", "COMPARES_HIGHEST_SENTINEL", "semver")
+@@ -157,7 +158,7 @@ def _get_build_extra_args(path, gazelle_overrides, gazelle_default_attributes):
+     return _get_override_or_default(gazelle_overrides, gazelle_default_attributes, DEFAULT_BUILD_EXTRA_ARGS_BY_PATH, path, [], "build_extra_args")
+ 
+ def _get_patches(path, module_overrides):
+-    return _get_override_or_default(module_overrides, struct(), {}, path, [], "patches")
++    return _get_override_or_default(module_overrides, struct(), DEFAULT_PATCHES, path, [], "patches")
+ 
+ def _get_patch_args(path, module_overrides):
+     override = _get_override_or_default(module_overrides, struct(), {}, path, None, "patch_strip")
+diff --git internal/bzlmod/patches/BUILD.bazel internal/bzlmod/patches/BUILD.bazel
+new file mode 100644
+index 0000000..8b13789
+--- /dev/null
++++ internal/bzlmod/patches/BUILD.bazel
+@@ -0,0 +1 @@
++
+diff --git internal/go_repository_tools_srcs.bzl internal/go_repository_tools_srcs.bzl
+index 5f0c7f9..d94a414 100644
+--- internal/go_repository_tools_srcs.bzl
++++ internal/go_repository_tools_srcs.bzl
+@@ -37,6 +37,7 @@ GO_REPOSITORY_TOOLS_SRCS = [
+     Label("//flag:flag.go"),
+     Label("//internal:BUILD.bazel"),
+     Label("//internal/bzlmod:BUILD.bazel"),
++    Label("//internal/bzlmod/patches:BUILD.bazel"),
+     Label("//internal/gazellebinarytest:BUILD.bazel"),
+     Label("//internal/gazellebinarytest:xlang.go"),
+     Label("//internal/generationtest:BUILD.bazel"),

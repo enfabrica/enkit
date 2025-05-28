@@ -1,0 +1,14 @@
+{
+    "integrity": "sha256-fEC3Rjh80Mmk1bsLIDWr0TSz91EQFXEKXuXgdZEAjd4=",
+    "strip_prefix": "",
+    "url": "https://github.com/bazel-contrib/bazel-gazelle/releases/download/v0.43.0/bazel-gazelle-v0.43.0.tar.gz",
+    "patch_strip": 0,
+    "patches": {
+        "module_dot_bazel_version.patch": "sha256-PSy6MmC3Va4kZptFkEio8OpEvyDz1/ydCrQqJl1oHzY=",
+        "add_default_patches.patch": "sha256-qH9RxMY2crlPNxr9Jx0cgWHhqUnuv7TGpts33fW2DL4=",
+        "org_golang_google_grpc.patch": "sha256-qSUjnSRupiCmByi+hQypa6kyG5q12z94F5rZyUcPJsQ=",
+        "com_google_cloud_go_datastore.patch": "sha256-cY1VjXJmYUIQWIjs7Ncj+HCgRbw5O6tt0BUE1LRRfws=",
+        "com_github_envoyproxy_go_control_plane_envoy.patch": "sha256-cNwJoRXaKqXPro2sKujUqxXgl/upNG5NYYR8EMGveg0=",
+        "com_github_cloudflare_circl.patch": "sha256-kUD1RVCwj1B2Yp4bwbjX/lfWBrZ5XSbnjZUlhMUs6L4="
+    }
+}

@@ -11,7 +11,6 @@ go_library(
         "@com_github_evanphx_go_hclog_slog//hclogslog",
         "@com_github_hashicorp_go_hclog//:go-hclog",
         "@com_github_hashicorp_nomad//plugins",
-        "@org_golang_x_exp//slog",
     ],
 )
 
