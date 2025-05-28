@@ -1,0 +1,18 @@
+{
+    "homepage": "https://cel.dev",
+    "maintainers": [
+        {
+            "email": "gleb@enfabrica.net",
+            "github": "cel-expr",
+            "name": "Infra Team",
+            "github_user_id": 6427170
+        }
+    ],
+    "repository": [
+        "github:google/cel-spec"
+    ],
+    "versions": [
+        "enf-0.23.0"
+    ],
+    "yanked_versions": {}
+}

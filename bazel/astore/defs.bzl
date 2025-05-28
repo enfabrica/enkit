@@ -39,7 +39,7 @@ def _astore_url(package, uid, access_mod = "g", instance = "https://astore.corp.
         uid,
     )
 
-def astore_url(package, uid, instance  = "https://astore.corp.enfabrica.net"):
+def astore_url(package, uid, instance = "https://astore.corp.enfabrica.net"):
     _astore_url(package, uid, "d", instance)
 
 def _get_url_and_sha256(kwargs):
@@ -317,7 +317,7 @@ def astore_download_and_extract(repository_ctx, **kwargs):
     repository_ctx.download_and_extract(
         url = url,
         sha256 = sha256,
-        **kwargs,
+        **kwargs
     )
 
 def astore_package(**kwargs):
@@ -328,7 +328,7 @@ def astore_package(**kwargs):
         taking `path` and `uid` into account to substitute astore url,
         and considering 'digest' as alias to `sha256`, `build` to `build_file`.
     """
-    
+
     url, sha256 = _get_url_and_sha256(kwargs)
 
     build_file = kwargs.pop("build", None)
@@ -339,7 +339,7 @@ def astore_package(**kwargs):
         url = url,
         sha256 = sha256,
         build_file = build_file,
-        **kwargs,
+        **kwargs
     )
 
 def _astore_file_impl(rctx):
