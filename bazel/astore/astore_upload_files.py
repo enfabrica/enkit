@@ -94,8 +94,7 @@ def update_starlark_version_file(uidfile, fname, file_uid, file_sha):
 def main(argv):
     del argv
 
-    r = runfiles.Runfiles.Create()
-    astore_client = r.Rlocation("net_enfabrica_binary_astore/file/downloaded")
+    astore_client = os.getenv("ASTORE_CLIENT")
 
     if not FLAGS.upload_file:
         log.fatal("Error: no files to upload")
