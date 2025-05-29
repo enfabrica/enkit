@@ -1,4 +1,5 @@
 load("@bazel_tools//tools/build_defs/hash:hash.bzl", "sha256", "tools")
+load("@rules_multirun//:defs.bzl", _multirun = "multirun")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//bazel/utils:template.bzl", "template_expand", "template_tool")
 load("//bazel/utils:validate.bzl", "validate_format", "validate_tool")
@@ -117,3 +118,5 @@ def enkit_package(name, srcs, image = "", override = "", manifest = "maninfest.y
         **kwargs
     )
     enkit_package_definition(name = name, tarball = ":" + tarball, images = images, manifest = manifest, **kwargs)
+
+multirun = _multirun
