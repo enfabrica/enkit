@@ -7,6 +7,7 @@ module(
 bazel_dep(name = "platforms", version = "0.0.11")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "rules_multirun", version = "0.12.0")
 
 bazel_dep(
     name = "bazel_bats",
@@ -16,11 +17,6 @@ bazel_dep(
 bazel_dep(
     name = "buildifier_prebuilt",
     version = "8.0.3",
-    dev_dependency = True,
-)
-bazel_dep(
-    name = "rules_multirun",
-    version = "0.12.0",
     dev_dependency = True,
 )
 bazel_dep(
@@ -70,11 +66,7 @@ oci.pull(
 )
 use_repo(oci, "container_golang_base", "golang_base")
 
-bazel_dep(
-    name = "rules_python",
-    version = "1.4.1",
-    dev_dependency = True,
-)
+bazel_dep(name = "rules_python", version = "1.4.1")
 
 python = use_extension(
     "@rules_python//python/extensions:python.bzl",
@@ -92,7 +84,6 @@ python.toolchain(
 pip = use_extension(
     "@rules_python//python/extensions:pip.bzl",
     "pip",
-    dev_dependency = True,
 )
 pip.parse(
     extra_pip_args = [
