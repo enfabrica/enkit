@@ -94,7 +94,8 @@ def update_starlark_version_file(uidfile, fname, file_uid, file_sha):
 def main(argv):
     del argv
 
-    astore_client = os.getenv("ASTORE_CLIENT")
+    r = runfiles.Runfiles.Create()
+    astore_client = r.Rlocation("enkit/astore/client/astore_/astore")
 
     if not FLAGS.upload_file:
         log.fatal("Error: no files to upload")
@@ -188,7 +189,7 @@ def main(argv):
             os.unlink(temp_json)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     flags.mark_flags_as_required(["astore_base_path", "upload_file"])
 
     app.run(main)
