@@ -1,3 +1,4 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
 load("@rules_go//go:def.bzl", "go_binary", "go_library")
 load("//bazel/astore:defs.bzl", "astore_upload")
 
@@ -77,4 +78,10 @@ astore_upload(
         ":enkit-win-amd64",
     ],
     visibility = ["//:__pkg__"],
+)
+
+py_library(
+    name = "enkit_import_hack",
+    srcs = [ "__init__.py" ],
+    visibility = ["//visibility:public"],
 )
