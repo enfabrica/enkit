@@ -1,3 +1,4 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 load("//bazel/utils:diff_test.bzl", "diff_test")
 load("//tools/mdfmt:mdfmt.bzl", "mdfmt_filter")
@@ -5,8 +6,6 @@ load("//tools/mdfmt:mdfmt.bzl", "mdfmt_filter")
 py_binary(
     name = "mdfmt",
     srcs = ["mdfmt.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         requirement("absl-py"),
