@@ -1,7 +1,6 @@
 load("@enkit//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
-load("@rules_python//python:defs.bzl", "py_binary")
 load("//bazel/dive:dive.bzl", "oci_dive")
 load("//bazel/utils:files.bzl", "write_to_file")
 load("//bazel/utils:merge_kwargs.bzl", "add_tag")
