@@ -6,19 +6,12 @@ module(
 
 bazel_dep(name = "platforms", version = "0.0.11")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "aspect_bazel_lib", version = "2.17.1")
 bazel_dep(name = "rules_cc", version = "0.1.1")
 bazel_dep(name = "rules_multirun", version = "0.12.0")
+bazel_dep(name = "bazel_bats", version = "0.35.0")
+bazel_dep(name = "buildifier_prebuilt", version = "8.0.3")
 
-bazel_dep(
-    name = "bazel_bats",
-    version = "0.35.0",
-    dev_dependency = True,
-)
-bazel_dep(
-    name = "buildifier_prebuilt",
-    version = "8.0.3",
-    dev_dependency = True,
-)
 bazel_dep(
     name = "hermetic_cc_toolchain",
     version = "4.0.0",
@@ -196,4 +189,19 @@ inject_repo(
     protobuf = "protobuf",
     rules_go = "rules_go",
     xds = "xds",
+)
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "dive_x86_64",
+    build_file_content = """\
+filegroup(
+    name = "dive_x86_64",
+    srcs = ["dive"],
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "20a7966523a0905f950c4fbf26471734420d6788cfffcd4a8c4bc972fded3e96",
+    url = "https://github.com/wagoodman/dive/releases/download/v0.12.0/dive_0.12.0_linux_amd64.tar.gz",
 )
