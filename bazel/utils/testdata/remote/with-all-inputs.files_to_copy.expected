@@ -10,11 +10,9 @@ _main/../googletest~/libgtest.a
 _main/../googletest~/libgtest.so
 _main/tools/codegen/codegen
 _main/tools/codegen/codegen.py
-_main/../bazel_tools/tools/python/python_bootstrap_template.txt
-_main/../bazel_tools/tools/test/collect_cc_coverage.sh
-_main/../bazel_tools/src/tools/launcher/launcher_maker
-_main/../bazel_tools/src/tools/launcher/launcher_maker.cc
-_main/../bazel_tools/tools/zip/zipper/zipper
+_main/tools/codegen/codegen.venv.pth
+_main/../aspect_rules_py~/py/private/run.tmpl.sh
+_main/../bazel_tools/tools/bash/runfiles/runfiles.bash
 _main/tools/codegen/data_loader.py
 _main/../rules_python~~pip~enkit_pip_deps_312_absl_py/site-packages/__init__.py
 _main/../rules_python~~pip~enkit_pip_deps_312_absl_py/site-packages/absl/__init__.py
