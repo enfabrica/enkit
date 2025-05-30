@@ -11,12 +11,7 @@ bazel_dep(name = "rules_cc", version = "0.1.1")
 bazel_dep(name = "rules_multirun", version = "0.12.0")
 bazel_dep(name = "bazel_bats", version = "0.35.0")
 bazel_dep(name = "buildifier_prebuilt", version = "8.0.3")
-
-bazel_dep(
-    name = "hermetic_cc_toolchain",
-    version = "4.0.0",
-    dev_dependency = True,
-)
+bazel_dep(name = "hermetic_cc_toolchain", version = "4.0.0")
 
 toolchains = use_extension(
     "@hermetic_cc_toolchain//toolchain:ext.bzl",
