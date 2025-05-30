@@ -1,0 +1,17 @@
+{
+    "homepage": "https://docs.aspect.build/rules/aspect_rules_py",
+    "maintainers": [
+        {
+            "email": "gleb@enfabrica.net",
+            "github": "cel-expr",
+            "name": "Infra Team",
+            "github_user_id": 6427170
+        }
+    ],
+    "repository": [
+        "github:aspect-build/rules_py"
+    ],
+    "versions": [
+        "enf-1.5.1"
+    ]
+}
