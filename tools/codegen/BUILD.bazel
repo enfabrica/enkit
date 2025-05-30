@@ -1,6 +1,6 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_binary", "py_test")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 bzl_library(
     name = "codegen_bzl",
@@ -14,7 +14,6 @@ bzl_library(
 py_library(
     name = "data_loader",
     srcs = ["data_loader.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         requirement("absl-py"),
@@ -43,8 +42,6 @@ py_test(
 py_binary(
     name = "codegen",
     srcs = ["codegen.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         ":data_loader",
@@ -60,8 +57,6 @@ py_binary(
 py_binary(
     name = "jinjafmt",
     srcs = ["jinjafmt.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         requirement("absl-py"),
