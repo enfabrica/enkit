@@ -27,13 +27,13 @@ go_library(
 
 go_cross_binary(
     name = "enkit_credential_helper_arm64",
-    platform = "@io_bazel_rules_go//go/toolchain:linux_arm64",
+    platform = "@rules_go//go/toolchain:linux_arm64",
     target = ":enkit_credential_helper",
 )
 
 go_cross_binary(
     name = "enkit_credential_helper_amd64",
-    platform = "@io_bazel_rules_go//go/toolchain:linux_amd64",
+    platform = "@rules_go//go/toolchain:linux_amd64",
     target = ":enkit_credential_helper",
 )
 
