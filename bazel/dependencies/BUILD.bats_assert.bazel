@@ -1,5 +1,0 @@
-sh_library(
-    name = "bats_assert_lib",
-    srcs = ["load.bash"] + glob(["src/**"]),
-    visibility = ["//visibility:public"],
-)

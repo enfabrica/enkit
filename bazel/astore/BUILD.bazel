@@ -16,8 +16,11 @@ py_binary(
     name = "astore_upload_files",
     srcs = ["astore_upload_files.py"],
     data = [
-        "@net_enfabrica_binary_astore//file",
+        "//astore/client:astore",
     ],
+    env = {
+        "ASTORE_CLIENT": "$(location //astore/client:astore)",
+    },
     main = "astore_upload_files.py",
     deps = [
         "@rules_python//python/runfiles",

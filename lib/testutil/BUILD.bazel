@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "testutil",
@@ -13,8 +13,8 @@ go_library(
     deps = [
         "@com_github_google_go_cmp//cmp",
         "@com_github_psanford_memfs//:memfs",
-        "@io_bazel_rules_go//go/tools/bazel:go_default_library",
         "@org_golang_google_protobuf//testing/protocmp",
+        "@rules_go//go/tools/bazel",
     ],
 )
 

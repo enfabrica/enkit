@@ -239,7 +239,7 @@ def md5sum_diff_test(name, srcs, expected = None, **kwargs):
         name = name,
         actual = out,
         expected = expected,
-        **kwargs,
+        **kwargs
     )
 
 def diff_test_suite(name, files, subdir = "expected", **kwargs):
@@ -303,5 +303,5 @@ extract_file = rule(
             doc = "The path to the file to extract from the depset.",
             mandatory = True,
         ),
-    }
+    },
 )

@@ -1,10 +1,9 @@
-load("//bazel/utils:files.bzl", "write_to_file")
-load("//bazel/dive:dive.bzl", "oci_dive")
-load("//bazel/utils:merge_kwargs.bzl", "add_tag")
 load("@enkit//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
+load("//bazel/dive:dive.bzl", "oci_dive")
+load("//bazel/utils:files.bzl", "write_to_file")
+load("//bazel/utils:merge_kwargs.bzl", "add_tag")
 
 GCP_REGION = "us-docker"
 GCP_PROJECT = "enfabrica-container-images"

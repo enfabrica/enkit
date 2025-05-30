@@ -1,6 +1,7 @@
+load("@//bazel:shellutils.bzl", "shellcheck_test")
 load("@//bazel/astore:defs.bzl", "astore_upload")
-load("@//bazel:shellutils.bzl", "bats_test", "shellcheck_test")
 load("@//bazel/utils:diff_test.bzl", "diff_test")
+load("@bazel_bats//:rules.bzl", "bats_test")
 
 sh_library(
     name = "gee-lib",
@@ -10,6 +11,7 @@ sh_library(
 bats_test(
     name = "gee-bats",
     srcs = ["gee.bats"],
+    uses_bats_assert = True,
     deps = [":gee-lib"],
 )
 

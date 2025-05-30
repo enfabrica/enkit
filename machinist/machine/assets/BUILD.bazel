@@ -1,5 +1,5 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
+load("@rules_go//go:def.bzl", "go_library")
+load("//bazel/go_extras:embed_data.bzl", "go_embed_data")
 
 # Keep gazelle from overzealously removing the go_library below
 # (https://github.com/bazelbuild/bazel-gazelle/issues/646)

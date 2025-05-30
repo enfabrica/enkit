@@ -25,7 +25,7 @@ oci_dive = rule(
     attrs = {
         "src": attr.label(
             mandatory = True,
-            allow_single_file = [".tar"]
+            allow_single_file = [".tar"],
         ),
         "dive_bin": attr.label(
             default = "@dive_x86_64",
@@ -41,4 +41,3 @@ Analyze an OCI tar archive with dive
 """,
     executable = True,
 )
-
