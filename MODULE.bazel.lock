@@ -34,8 +34,6 @@
     "https://bcr.bazel.build/modules/aspect_rules_js/1.33.1/MODULE.bazel": "db3e7f16e471cf6827059d03af7c21859e7a0d2bc65429a3a11f005d46fc501b",
     "https://bcr.bazel.build/modules/aspect_rules_js/1.39.0/MODULE.bazel": "aece421d479e3c31dc3e5f6d49a12acc2700457c03c556650ec7a0ff23fc0d95",
     "https://bcr.bazel.build/modules/aspect_rules_lint/0.12.0/MODULE.bazel": "e767c5dbfeb254ec03275a7701b5cfde2c4d2873676804bc7cb27ddff3728fed",
-    "https://bcr.bazel.build/modules/aspect_rules_py/1.5.1/MODULE.bazel": "95b418eb6afe0d825c73ae599a6e3f5e8f1295f2b240b5088068df3554fb1d48",
-    "https://bcr.bazel.build/modules/aspect_rules_py/1.5.1/source.json": "066cad11ab3fd8b203d5e4a79b3d874cbee63a85a4235ca2f81deba3422eba18",
     "https://bcr.bazel.build/modules/bazel_bats/0.35.0/MODULE.bazel": "e118fcaa36e4f6b22ce17b6a904ec6410557ae3aa86bc36a3507895c4067e211",
     "https://bcr.bazel.build/modules/bazel_bats/0.35.0/source.json": "b1d7c2677cf3699ca985b1a6463bf0415dbe9663282a005a2a9e5f8648554469",
     "https://bcr.bazel.build/modules/bazel_features/0.1.0/MODULE.bazel": "47011d645b0f949f42ee67f2e8775188a9cf4a0a1528aa2fa4952f2fd00906fd",
