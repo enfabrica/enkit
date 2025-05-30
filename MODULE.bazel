@@ -92,6 +92,8 @@ pip.parse(
 )
 use_repo(pip, "enkit_pip_deps")
 
+bazel_dep(name = "aspect_rules_py", version = "1.5.1")
+
 bazel_dep(name = "protobuf", version = "enf-31.0")
 bazel_dep(name = "googleapis-cc", version = "1.0.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20241220-5e258e33.bcr.1")
