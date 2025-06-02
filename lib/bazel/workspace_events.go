@@ -77,7 +77,7 @@ func (w *Workspace) extractChecksums(events []*bpb.WorkspaceEvent) []string {
 		case *bpb.WorkspaceEvent_WhichEvent:
 		case *bpb.WorkspaceEvent_TemplateEvent:
 		case *bpb.WorkspaceEvent_SymlinkEvent:
-			// We have notjing to do with these events
+			// We have nothing to do with these events.
 			continue
 		default:
 			w.options.Log.Debugf("Unchecked workspace event type  type: %s", protojson.Format(event))
