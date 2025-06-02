@@ -36,7 +36,7 @@ func mustNewTarget(t *testing.T, target *bpb.Target) *Target {
 
 func mustNewPseudoTarget(t *testing.T, target *bpb.Target, events *WorkspaceEvents) *Target {
 	t.Helper()
-	newT, err := NewExternalPseudoTarget(nil, target, events)
+	newT, err := NewExternalPseudoTarget(testWorkspace(t), target, events)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create target: %v", err))
 	}
@@ -663,10 +663,10 @@ func TestCalculateAffected(t *testing.T) {
 						SourceFile: &bpb.SourceFile{
 							Name: proto.String("@third_party_dep//:some_file.txt"),
 						},
-					}, ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
+					}, testWorkspace(t).ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
 						"third_party_dep": {
 							{
-								Rule: "repository @@third_party_dep",
+								Context: "repository @@third_party_dep",
 								Event: &bpb.WorkspaceEvent_DownloadEvent{
 									DownloadEvent: &bpb.DownloadEvent{
 										Url:    []string{"https://example.com/some/url"},
@@ -686,10 +686,10 @@ func TestCalculateAffected(t *testing.T) {
 						SourceFile: &bpb.SourceFile{
 							Name: proto.String("@third_party_dep//:some_file.txt"),
 						},
-					}, ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
+					}, testWorkspace(t).ConstructWorkspaceEvents(map[string][]*bpb.WorkspaceEvent{
 						"third_party_dep": {
 							{
-								Rule: "repository @@third_party_dep",
+								Context: "repository @@third_party_dep",
 								Event: &bpb.WorkspaceEvent_DownloadEvent{
 									DownloadEvent: &bpb.DownloadEvent{
 										Url:    []string{"https://example.com/some/url"},

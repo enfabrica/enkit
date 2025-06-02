@@ -1,6 +1,6 @@
 // ********************************************************************************
 // DO NOT MODIFY - copied from:
-// https://cs.opensource.google/bazel/bazel/+/4442bb925b66ecb82865306976dcf32aab754dce:src/main/java/com/google/devtools/build/lib/bazel/debug/workspace_log.proto
+// https://github.com/bazelbuild/bazel/blob/467ea0cd6e6189e73991f3344d108883e0cf5dd3/src/main/java/com/google/devtools/build/lib/bazel/debug/workspace_log.proto
 // ********************************************************************************
 //
 // Copyright 2018 The Bazel Authors. All rights reserved.
@@ -18,7 +18,10 @@
 // limitations under the License.
 syntax = "proto3";
 
-package blaze_query;
+package workspace_log;
+
+option java_package = "com.google.devtools.build.lib.bazel.debug.proto";
+option java_outer_classname = "WorkspaceLogProtos";
 
 // Information on "Execute" event in repository_ctx.
 message ExecuteEvent {
@@ -61,6 +64,8 @@ message ExtractEvent {
   string output = 2;
   // A directory prefix to strip from extracted files.
   string strip_prefix = 3;
+  // Files to rename during extraction.
+  map<string, string> rename_files = 4;
 }
 
 message DownloadAndExtractEvent {
@@ -76,6 +81,8 @@ message DownloadAndExtractEvent {
   string strip_prefix = 5;
   // checksum in Subresource Integrity format, if specified
   string integrity = 6;
+  // Files to rename during extraction.
+  map<string, string> rename_files = 7;
 }
 
 // Information on "file" event in repository_ctx.
@@ -113,6 +120,14 @@ message OsEvent {
   // Takes no inputs
 }
 
+// Information on "rename" event in repository_ctx.
+message RenameEvent {
+  // The path of the existing file or directory to rename.
+  string src = 1;
+  // The new name of the file or directory.
+  string dst = 2;
+}
+
 // Information on "symlink" event in repository_ctx.
 message SymlinkEvent {
   // path to which the symlink will point to
@@ -143,8 +158,9 @@ message WorkspaceEvent {
   // Location in the code (.bzl file) where the event originates.
   string location = 1;
 
-  // Label of the rule whose evaluation caused this event.
-  string rule = 2;
+  // The context in which this event happened. Can be "repository @foo", or
+  // "module extension foo in @bar//:quux.bzl".
+  string context = 2;
 
   oneof event {
     ExecuteEvent execute_event = 3;
@@ -159,5 +175,6 @@ message WorkspaceEvent {
     ReadEvent read_event = 12;
     DeleteEvent delete_event = 13;
     PatchEvent patch_event = 14;
+    RenameEvent rename_event = 15;
   }
 }
