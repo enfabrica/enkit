@@ -1,0 +1,94 @@
+diff --git MODULE.bazel MODULE.bazel
+index c649896..a2e0fbe 100644
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -1,6 +1,6 @@
+ module(
+     name = "rules_python",
+-    version = "0.0.0",
++    version = "enf-1.4.1",
+     compatibility_level = 1,
+ )
+ 
+diff --git python/private/pypi/extension.bzl python/private/pypi/extension.bzl
+index 647407f..9e8a975 100644
+--- python/private/pypi/extension.bzl
++++ python/private/pypi/extension.bzl
+@@ -57,6 +57,7 @@ def _whl_mods_impl(whl_mods_dict):
+                 data = mods.data,
+                 data_exclude_glob = mods.data_exclude_glob,
+                 srcs_exclude_glob = mods.srcs_exclude_glob,
++                exclude_deps = mods.exclude_deps,
+             ))
+ 
+         _whl_mods_repo(
+@@ -398,6 +399,7 @@ You cannot use both the additive_build_content and additive_build_content_file a
+                 data = whl_mod.data,
+                 data_exclude_glob = whl_mod.data_exclude_glob,
+                 srcs_exclude_glob = whl_mod.srcs_exclude_glob,
++                exclude_deps = whl_mod.exclude_deps,
+             )
+ 
+     _overriden_whl_set = {}
+@@ -867,6 +869,11 @@ cannot have a child module that uses the same `hub_name`.
+         "srcs_exclude_glob": attr.string_list(
+             doc = """\
+ (list, optional): A list of labels to add as `srcs` to the generated
++`py_library` target.""",
++        ),
++        "exclude_deps": attr.string_list(
++            doc = """\
++(list, optional): A list of packages to exclude from `deps` of the generated
+ `py_library` target.""",
+         ),
+         "whl_name": attr.string(
+diff --git python/private/pypi/generate_whl_library_build_bazel.bzl python/private/pypi/generate_whl_library_build_bazel.bzl
+index 31c9d4d..d05d7f8 100644
+--- python/private/pypi/generate_whl_library_build_bazel.bzl
++++ python/private/pypi/generate_whl_library_build_bazel.bzl
+@@ -14,6 +14,7 @@
+ 
+ """Generate the BUILD.bazel contents for a repo defined by a whl_library."""
+ 
++load("//python/private:normalize_name.bzl", "normalize_name")
+ load("//python/private:text_util.bzl", "render")
+ 
+ _RENDER = {
+@@ -94,6 +95,16 @@ def generate_whl_library_build_bazel(
+         kwargs["srcs_exclude"] = annotation.srcs_exclude_glob
+         if annotation.additive_build_content:
+             additional_content.append(annotation.additive_build_content)
++
++        deps = []
++        exclude_deps = [normalize_name(d) for d in annotation.exclude_deps]
++        include_deps = [normalize_name(d) for d in kwargs["dependencies"]]
++        for d in include_deps:
++            if d not in exclude_deps:
++                deps.append(d)
++
++        kwargs["dependencies"] = deps
++
+     if default_python_version:
+         kwargs["default_python_version"] = default_python_version
+ 
+diff --git python/private/pypi/package_annotation.bzl python/private/pypi/package_annotation.bzl
+index 4a54703..692e19e 100644
+--- python/private/pypi/package_annotation.bzl
++++ python/private/pypi/package_annotation.bzl
+@@ -20,7 +20,9 @@ def package_annotation(
+         copy_executables = {},
+         data = [],
+         data_exclude_glob = [],
+-        srcs_exclude_glob = []):
++        srcs_exclude_glob = [],
++        exclude_deps = [],
++    ):
+     """Annotations to apply to the BUILD file content from package generated from a `pip_repository` rule.
+ 
+     [cf]: https://github.com/bazelbuild/bazel-skylib/blob/main/docs/copy_file_doc.md
+@@ -46,4 +48,5 @@ def package_annotation(
+         data = data,
+         data_exclude_glob = data_exclude_glob,
+         srcs_exclude_glob = srcs_exclude_glob,
++        exclude_deps = exclude_deps,
+     ))
