@@ -59,7 +59,7 @@ oci.pull(
 )
 use_repo(oci, "container_golang_base", "golang_base")
 
-bazel_dep(name = "rules_python", version = "1.4.1")
+bazel_dep(name = "rules_python", version = "enf-1.4.1")
 
 python = use_extension(
     "@rules_python//python/extensions:python.bzl",

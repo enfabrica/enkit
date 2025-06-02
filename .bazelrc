@@ -32,5 +32,5 @@ try-import %workspace%/.bazelrc.user
 common --credential_helper=us-docker.pkg.dev=%workspace%/tools/artifact_registry_auth.sh
 common --repo_env=OCI_GET_TOKEN_ALLOW_FAIL=1
 
-common --registry="file://%workspace%/registry"
 common --registry=https://bcr.bazel.build
+common --registry="file://%workspace%/registry"
