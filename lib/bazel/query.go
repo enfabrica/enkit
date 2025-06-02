@@ -13,8 +13,8 @@ import (
 )
 
 type QueryResult struct {
-	Targets         map[string]*Target
-	Events 			*WorkspaceEvents
+	Targets map[string]*Target
+	Events  *WorkspaceEvents
 
 	workspace *Workspace
 }
@@ -65,7 +65,7 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 
 	var workspaceEvents *WorkspaceEvents
 	if queryOpts.workspaceLog != nil {
-		workspaceEvents, err = ParseWorkspaceEvents(queryOpts.workspaceLog)
+		workspaceEvents, err = w.ParseWorkspaceEvents(queryOpts.workspaceLog)
 		if err != nil {
 			return nil, err
 		}
@@ -96,9 +96,9 @@ func (w *Workspace) Query(query string, options ...QueryOption) (*QueryResult, e
 	}
 
 	return &QueryResult{
-		Targets:         targets,
-		Events: workspaceEvents,
-		workspace:       w,
+		Targets:   targets,
+		Events:    workspaceEvents,
+		workspace: w,
 	}, nil
 }
 

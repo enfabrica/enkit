@@ -3,7 +3,6 @@ package bazel
 import (
 	"fmt"
 	"hash/fnv"
-	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -22,7 +21,7 @@ type WorkspaceEvents struct {
 
 // extractChecksums returns a sorted list of download hashes from a set of
 // relevant workspace events.
-func extractChecksums(events []*bpb.WorkspaceEvent) []string {
+func (w *Workspace) extractChecksums(events []*bpb.WorkspaceEvent) []string {
 	var checksums []string
 	for _, event := range events {
 		switch e := event.GetEvent().(type) {
@@ -69,19 +68,30 @@ func extractChecksums(events []*bpb.WorkspaceEvent) []string {
 					checksums = append(checksums, arguments[4])
 				}
 			}
+		case *bpb.WorkspaceEvent_OsEvent:
+		case *bpb.WorkspaceEvent_DeleteEvent:
+		case *bpb.WorkspaceEvent_RenameEvent:
+		case *bpb.WorkspaceEvent_FileEvent:
+		case *bpb.WorkspaceEvent_PatchEvent:
+		case *bpb.WorkspaceEvent_ReadEvent:
+		case *bpb.WorkspaceEvent_WhichEvent:
+		case *bpb.WorkspaceEvent_TemplateEvent:
+		case *bpb.WorkspaceEvent_SymlinkEvent:
+			// We have notjing to do with these events
+			continue
 		default:
-			slog.Debug("Unchecked workspace event type  type: %s", protojson.Format(event))
+			w.options.Log.Debugf("Unchecked workspace event type  type: %s", protojson.Format(event))
 		}
 	}
 	sort.Strings(checksums)
 	return checksums
 }
 
-func ConstructWorkspaceEvents(workspaceEvents map[string][]*bpb.WorkspaceEvent) *WorkspaceEvents {
+func (w *Workspace) ConstructWorkspaceEvents(workspaceEvents map[string][]*bpb.WorkspaceEvent) *WorkspaceEvents {
 	workspaceHashes := map[string]uint32{}
 
 	for workspaceName, events := range workspaceEvents {
-		checksums := extractChecksums(events)
+		checksums := w.extractChecksums(events)
 		if len(checksums) == 0 {
 			continue
 		}
@@ -97,7 +107,7 @@ func ConstructWorkspaceEvents(workspaceEvents map[string][]*bpb.WorkspaceEvent) 
 	}
 }
 
-func ParseWorkspaceEvents(workspaceLog *os.File) (*WorkspaceEvents, error) {
+func (w *Workspace) ParseWorkspaceEvents(workspaceLog *os.File) (*WorkspaceEvents, error) {
 	workspaceEvents := map[string][]*bpb.WorkspaceEvent{}
 	rdr := delimited.NewReader(workspaceLog)
 	for buf, err := rdr.Next(); err == nil; buf, err = rdr.Next() {
@@ -105,7 +115,7 @@ func ParseWorkspaceEvents(workspaceLog *os.File) (*WorkspaceEvents, error) {
 		if err := proto.Unmarshal(buf, &event); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal WorkspaceEvent message: %w", err)
 		}
-		context := event.GetRule()
+		context := event.GetContext()
 		var workspaceName string
 		if strings.HasPrefix(context, "repository @@") {
 			// Bazel 7 format
@@ -114,10 +124,11 @@ func ParseWorkspaceEvents(workspaceLog *os.File) (*WorkspaceEvents, error) {
 			// Bazel 6 format
 			workspaceName = context[len("repository @"):]
 		} else {
-			return nil, fmt.Errorf("Unknown workspace events context type: %s", context)
+			w.options.Log.Debugf("Unknown workspace event context type: %s", protojson.Format(&event))
+			continue
 		}
 
-		workspaceEvents[workspaceName] = append(workspaceEvents[event.GetRule()], &event)
+		workspaceEvents[workspaceName] = append(workspaceEvents[context], &event)
 	}
-	return ConstructWorkspaceEvents(workspaceEvents), nil
+	return w.ConstructWorkspaceEvents(workspaceEvents), nil
 }
