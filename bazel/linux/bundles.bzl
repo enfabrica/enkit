@@ -306,7 +306,7 @@ and an init script to run them as a kunit test.""",
             default = Label("//bazel/linux/kunit:kunit_zip"),
             doc = "KUnit TAP output parser.",
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
 )
