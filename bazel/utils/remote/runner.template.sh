@@ -8,6 +8,7 @@ ONLY_COPY={only_copy}
 NO_EXECUTE={no_execute}
 SSH_CMD={ssh_cmd}
 RSYNC_CMD={rsync_cmd}
+ENV="{env}"
 
 help() {
   test -z "$*" || {
@@ -130,7 +131,7 @@ done
 }
 
 # TODO(cccontavalli): better escaping, will fix it once we have more tests.
-command="cd $destrun; /bin/bash -c \"MACHINES='${DESTS[*]}' ./$executable ${TARGET_OPTS[*]}\""
+command="cd $destrun; /bin/bash -c \"MACHINES='${DESTS[*]}' ${ENV}${ENV:+ }./$executable ${TARGET_OPTS[*]}\""
 [ "$ONLY_COPY" != "true" ] || {
   echo "Copy only mode was requested - not running any command"
   echo "Would have run:"

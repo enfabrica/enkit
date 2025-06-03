@@ -105,6 +105,8 @@ def _run_cmd_from_action(action: mpb.Action, build_def: mpb.ImageBuild) -> str:
     # TODO: Replace with match/case after moving to Python 3.10+
     if action.WhichOneof("action") == "command":
         return f"RUN {action.command.command}\n"
+    elif action.WhichOneof("action") == "env":
+        return f"ENV {action.env.env} {action.env.value}\n"
     elif action.WhichOneof("action") == "apt_install":
         run_cmd = """\
 RUN DEBIAN_FRONTEND='noninteractive' TZ=UTC apt-get update && \\

@@ -345,6 +345,7 @@ def _export_and_run_impl(ctx):
         fail(location(ctx) + "A target must be supplied via flags - check '//" + ctx.build_file_path + "' for details")
 
     tdi = None
+    env = {}
     if ctx.attr.target and package(ctx.attr.target.label) != package(attrs.noop.label):
         if input_files:
             fail(location(ctx) + "Either a target or inputs must be supplied via flags - not both! Check '//" + ctx.build_file_path + "' for details")
@@ -352,6 +353,8 @@ def _export_and_run_impl(ctx):
         tdi = ctx.attr.target[DefaultInfo]
         target_label = ctx.attr.target.label
         input_files = tdi.files.to_list()
+        if RunEnvironmentInfo in ctx.attr.target:
+            env = ctx.attr.target[RunEnvironmentInfo].environment
 
     runfiles = ctx.runfiles()
     target_opts = attrs.target_opts
@@ -387,6 +390,7 @@ def _export_and_run_impl(ctx):
         target = shell.quote(package(target_label)),
         target_opts = shell.array_literal(target_opts),
         executable = shell.quote(target_exec),
+        env = " ".join(["{}={}".format(e, env[e]) for e in env]),
         no_execute = (no_execute and "true") or "",
         workspace = shell.quote(ctx.workspace_name),
         rsync_opts = shell.array_literal(attrs.rsync_opts),

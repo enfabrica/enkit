@@ -13,4 +13,12 @@
       command: cmd,
     },
   },
+
+  // Env shortens the spelling of environment somewhat
+  Env:: function(env, val) {
+    env: {
+      env: env,
+      value: val
+    }
+  },
 }
