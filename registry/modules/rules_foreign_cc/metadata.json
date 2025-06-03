@@ -1,17 +1,18 @@
 {
-    "homepage": "https://docs.aspect.build/rules/aspect_rules_py",
+    "homepage": "https://github.com/bazel-contrib/rules_foreign_cc",
     "maintainers": [
         {
             "email": "gleb@enfabrica.net",
-            "github": "gleyba",
+            "github": "cel-expr",
             "name": "Infra Team",
             "github_user_id": 6427170
         }
     ],
     "repository": [
-        "github:aspect-build/rules_py"
+        "github:bazel-contrib/rules_foreign_cc"
     ],
     "versions": [
-        "enf-1.5.1"
-    ]
+        "enf-0.14.0"
+    ],
+    "yanked_versions": {}
 }
