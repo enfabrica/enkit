@@ -2,7 +2,7 @@ def _json_to_yaml_impl(ctx):
     yq = ctx.toolchains["@aspect_bazel_lib//lib:yq_toolchain_type"].yqinfo.bin
     output = ctx.actions.declare_file(ctx.attr.output)
     ctx.actions.run_shell(
-        command = "{} -P -o yaml {} > {}".fpormat(ctx.executable._tool.path, ctx.file.src.path, output.path),
+        command = "{} -P -o yaml {} > {}".format(yq.path, ctx.file.src.path, output.path),
         progress_message = "Converting {} to yaml".format(ctx.file.src.basename),
         inputs = [ctx.file.src],
         tools = [yq],
