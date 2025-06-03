@@ -154,6 +154,7 @@ def main(argv):
                     data["Artifacts"][0]["AstorePath"] = FLAGS.astore_base_path + os.path.basename(local_file)
                 else:
                     data["Artifacts"][0]["AstorePath"] = FLAGS.astore_base_path
+                data["Artifacts"][0]["LocalPath"] = local_file
                 if not json_data:
                     json_data = data
                 else:
