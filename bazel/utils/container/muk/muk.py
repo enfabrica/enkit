@@ -1,9 +1,12 @@
 """Helper functions for muk tool"""
 
 # standard libraries
+import fnmatch
 import io
 import logging as log
+import os
 import pathlib
+import shutil
 import subprocess
 import textwrap
 
@@ -58,6 +61,16 @@ def download_astore_files(build_def: mpb.ImageBuild, build_dir: pathlib.Path) ->
             check=True,
         )
 
+def load_tars(build_dir: pathlib.Path) -> None:
+    tar_files = []
+    for root, _, files in os.walk(os.getcwd()):
+        for filename in fnmatch.filter(files, "*.tar"):
+            tar_files.append(os.path.join(root, filename))
+    for t in tar_files:
+        t = t.replace(os.getcwd() + "/", "")
+        targetpath = build_dir / t
+        targetpath.parent.mkdir(parents=True)
+        shutil.copy(t, build_dir / t)
 
 def generate_dockerfile(
     build_def: mpb.ImageBuild, buf: io.TextIOBase, labels=None
@@ -107,6 +120,11 @@ def _run_cmd_from_action(action: mpb.Action, build_def: mpb.ImageBuild) -> str:
         return f"RUN {action.command.command}\n"
     elif action.WhichOneof("action") == "env":
         return f"ENV {action.env.env} {action.env.value}\n"
+    elif action.WhichOneof("action") == "untar":
+        run_cmd = f"COPY {action.untar.sourcepath}/{action.untar.sourcefile} /tmp/{action.untar.sourcefile}\n"
+        run_cmd += f"RUN tar --overwrite -xf /tmp/{action.untar.sourcefile}\n"
+        run_cmd += f"RUN rm -f /tmp/{action.untar.sourcefile}\n"
+        return run_cmd
     elif action.WhichOneof("action") == "apt_install":
         run_cmd = """\
 RUN DEBIAN_FRONTEND='noninteractive' TZ=UTC apt-get update && \\
