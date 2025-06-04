@@ -393,6 +393,7 @@ def container_push(*args, **kwargs):
     project = kwargs.get("project", GCP_PROJECT)
     image_path = kwargs.get("image_path")
     tags = kwargs.get("tags", [])
+    visibility = kwargs.get("visibility", [])
 
     for repo in ["dev", "staging"]:
         container_repo(
@@ -431,6 +432,7 @@ def container_push(*args, **kwargs):
         namespace = namespace,
         image_path = image_path,
         tags = tags,
+        visibility = visibility,
     )
 
 def container_pusher_impl(ctx):
