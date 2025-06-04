@@ -12,6 +12,8 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/require"
 	dpb "google.golang.org/genproto/googleapis/datastore/v1"
+
+	"github.com/enfabrica/enkit/lib/logger"
 )
 
 // testDatastore is a mock Datastore object that captures queries made.
@@ -96,7 +98,7 @@ func serverForTest() (*Server, *testDatastore) {
 		gcs:     nil,
 		bkt:     nil,
 		ds:      ds,
-		options: Options{},
+		options: Options{logger: logger.Nil},
 	}, ds
 }
 

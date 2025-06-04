@@ -529,6 +529,15 @@ func TestServerDownloadArtifact(t *testing.T) {
 				Order: []*dpb.PropertyOrder{descendingBy("Created")},
 			}),
 		},
+		{
+			desc:   "path and uid using token auth with no token",
+			prefix: "/gt/",
+			auth:   AuthTypeToken,
+			req: &http.Request{
+				URL: mustParseURL(t, `https://astore.corp.enfabrica.net/gt/test/package?u=buhi7q8isp7ttm7q3h6qnhwwzm3tjqiw`),
+			},
+			wantErr: "missing required token in request parameters",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
