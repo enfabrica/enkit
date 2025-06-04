@@ -242,7 +242,7 @@ def nonhermetic_image_builder_impl(ctx):
         staging_repo = ctx.file.staging_repo.short_path,
         prod_repo = ctx.file.prod_repo.short_path,
     ))
-    direct_files = ctx.files.src + ctx.files.labels + ctx.files.dev_repo + ctx.files.staging_repo + ctx.files.prod_repo
+    direct_files = ctx.files.src + ctx.files.labels + ctx.files.dev_repo + ctx.files.staging_repo + ctx.files.prod_repo + ctx.files.tars
     runfiles = ctx.runfiles(
         files = ctx.attr._tool[DefaultInfo].files.to_list() + direct_files,
         transitive_files = ctx.attr._tool[DefaultInfo].default_runfiles.files,
@@ -283,6 +283,10 @@ _nonhermetic_image_builder = rule(
             default = "//bazel/utils/container/muk:muk",
             executable = True,
             cfg = "exec",
+        ),
+        "tars": attr.label_list(
+            doc = "List of tarballs to extract into the environment",
+            allow_files = [".tar", ".tar.gz"],
         ),
     },
     executable = True,

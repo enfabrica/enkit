@@ -58,6 +58,7 @@ def main(argv):
         build_dir = pathlib.Path(tempfile.mkdtemp(prefix="muk_build_"))
         log.info("Performing build in tmpdir: %s", build_dir)
 
+        muk.load_tars(build_dir)
         muk.download_astore_files(build_def, build_dir)
         log.info("Finished downloading files from astore")
 
