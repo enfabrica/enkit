@@ -69,7 +69,7 @@ def load_tars(build_dir: pathlib.Path) -> None:
     for t in tar_files:
         t = t.replace(os.getcwd() + "/", "")
         targetpath = build_dir / t
-        targetpath.parent.mkdir(parents=True)
+        targetpath.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(t, build_dir / t)
 
 def generate_dockerfile(
