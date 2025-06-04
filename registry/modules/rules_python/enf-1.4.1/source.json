@@ -3,6 +3,6 @@
     "strip_prefix": "rules_python-1.4.1",
     "url": "https://github.com/bazel-contrib/rules_python/releases/download/1.4.1/rules_python-1.4.1.tar.gz",
     "patches": {
-        "rules_python.patch": "sha256-5Ekt3pJHVd3/GfoExY7QXa6cW3AP+E8mdIJqKdesL4s="
+        "rules_python.patch": "sha256-vDsMKRYVI0jvfUZfYCWu3FMLXtyLnagmF+t5Ux94MwI="
     }
 }

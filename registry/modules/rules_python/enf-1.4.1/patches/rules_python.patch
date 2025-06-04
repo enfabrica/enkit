@@ -92,3 +92,39 @@ index 4a54703..692e19e 100644
          srcs_exclude_glob = srcs_exclude_glob,
 +        exclude_deps = exclude_deps,
      ))
+diff --git python/runfiles/BUILD.bazel python/runfiles/BUILD.bazel
+index 2040403..04eaa7e 100644
+--- python/runfiles/BUILD.bazel
++++ python/runfiles/BUILD.bazel
+@@ -29,6 +29,9 @@ py_library(
+         "runfiles.py",
+     ],
+     data = ["py.typed"],
++    deps = [
++        "//rules_python",
++    ],
+     imports = [
+         # Add the repo root so `import python.runfiles.runfiles` works. This makes it agnostic
+         # to the --experimental_python_import_all_repositories setting.
+diff --git rules_python/BUILD.bazel rules_python/BUILD.bazel
+new file mode 100644
+index 0000000..6a36436
+--- /dev/null
++++ rules_python/BUILD.bazel
+@@ -0,0 +1,5 @@
++py_library(
++    name = "rules_python",
++    srcs = [ "__init__.py" ],
++    visibility = ["//visibility:public"],
++)
+diff --git rules_python/__init__.py rules_python/__init__.py
+new file mode 100644
+index 0000000..1ac77c0
+--- /dev/null
++++ rules_python/__init__.py
+@@ -0,0 +1,5 @@
++# inspired by https://github.com/bazel-contrib/rules_python/issues/1679#issuecomment-2249536549
++
++import os
++
++__path__.append(os.path.abspath(__path__[0] + "/.."))
