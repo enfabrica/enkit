@@ -46,6 +46,7 @@ go_test(
         "//astore/client/astore",
         "//astore/rpc/astore",
         "//lib/errdiff",
+        "//lib/logger",
         "//lib/testutil",
         "@com_github_golang_jwt_jwt_v5//:jwt",
         "@com_github_golang_protobuf//ptypes/wrappers",

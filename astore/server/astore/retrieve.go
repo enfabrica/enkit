@@ -80,6 +80,10 @@ func (s *Server) DownloadArtifact(prefix string, ehandler DownloadHandler, auth 
 					return
 				}
 			}
+		} else {
+			s.options.logger.Errorf("Request for uid %q: no token on request requiring token auth", uid)
+			ehandler(upath, nil, status.Errorf(codes.Unauthenticated, "missing required token in request parameters"), w, r)
+			return
 		}
 	}
 
