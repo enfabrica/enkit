@@ -43,6 +43,65 @@ index 8ccad81..d8d4abb 100644
  )
  crate.from_cargo(
      name = "crate_index",
+diff --git py/private/py_pex_binary.bzl py/private/py_pex_binary.bzl
+index 9ee01fe..b939c58 100644
+--- py/private/py_pex_binary.bzl
++++ py/private/py_pex_binary.bzl
+@@ -123,11 +123,19 @@ def _py_python_pex_impl(ctx):
+     )
+ 
+     return [
++        binary[PyInfo],
++        binary[InstrumentedFilesInfo],
+         DefaultInfo(files = depset([output]), executable = output),
+     ]
+ 
+ _attrs = dict({
+-    "binary": attr.label(executable = True, cfg = "target", mandatory = True, doc = "A py_binary target"),
++    "binary": attr.label(
++        executable = True, 
++        cfg = "target", 
++        mandatory = True,
++        providers = [PyInfo],
++        doc = "A py_binary target",
++    ),
+     "inject_env": attr.string_dict(
+         doc = "Environment variables to set when running the pex binary.",
+         default = {},
+diff --git py/tools/pex/main.py py/tools/pex/main.py
+index 5c699fd..2fcdbd1 100644
+--- py/tools/pex/main.py
++++ py/tools/pex/main.py
+@@ -159,16 +159,19 @@ pex_info.interpreter_constraints = [
+ ]
+ 
+ for dep in options.dependencies:
+-    dist = Distribution.load(dep)
+-
+-    # TODO: explain which level of inferno is this!
+-    key = "%s-%s" % (dist.key, dist.version)
+-    dist_hash = pex_builder._add_dist(
+-        path= dist.location,
+-        dist_name = key
+-    )
+-    pex_info.add_distribution(key, dist_hash)
+-    pex_builder.add_requirement(dist.as_requirement())
++    try:
++        dist = Distribution.load(dep)
++
++        # TODO: explain which level of inferno is this!
++        key = "%s-%s" % (dist.key, dist.version)
++        dist_hash = pex_builder._add_dist(
++            path= dist.location,
++            dist_name = key
++        )
++        pex_info.add_distribution(key, dist_hash)
++        pex_builder.add_requirement(dist.as_requirement())
++    except:
++        print("Can't parse dist in " + dep) 
+ 
+ for source in options.sources:
+     src, dest = source.split("=", 1)
 diff --git py/tools/venv_bin/BUILD.bazel py/tools/venv_bin/BUILD.bazel
 index 7f3ee20..2dfd663 100644
 --- py/tools/venv_bin/BUILD.bazel
