@@ -78,3 +78,11 @@ RuntimeBundleInfo = provider(
         "check": "list of RuntimeInfo, executable (and its runfiles) to run OUTSIDE the VM AFTER the RUN to check if the run was successful",
     },
 )
+
+BootRamImageInfo = provider(
+    doc = """Maintains the information necessary to represent a BootRam image, needed for aarch64 qemu acf-machine boot.""",
+    fields = {
+        "arch": "Architecture this image was built for.",
+        "image": "Path of the image.",
+    },
+)
