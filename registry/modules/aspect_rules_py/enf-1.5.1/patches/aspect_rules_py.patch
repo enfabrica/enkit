@@ -44,10 +44,38 @@ index 8ccad81..d8d4abb 100644
  crate.from_cargo(
      name = "crate_index",
 diff --git py/private/py_pex_binary.bzl py/private/py_pex_binary.bzl
-index 9ee01fe..b939c58 100644
+index 9ee01fe..f8e6398 100644
 --- py/private/py_pex_binary.bzl
 +++ py/private/py_pex_binary.bzl
-@@ -123,11 +123,19 @@ def _py_python_pex_impl(ctx):
+@@ -18,6 +18,7 @@ py_pex_binary(
+ ```
+ """
+ 
++load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+ load("@rules_python//python:defs.bzl", "PyInfo")
+ load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
+ load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+@@ -67,7 +68,10 @@ def _map_srcs(f, workspace):
+     return ["--source={}={}".format(f.path, dest_path)]
+ 
+ def _py_python_pex_impl(ctx):
+-    py_toolchain = _py_semantics.resolve_toolchain(ctx)
++    py_toolchain = _py_semantics.resolve_toolchain_from_info(
++        ctx.attr._py[platform_common.ToolchainInfo],
++        ctx.attr._interpreter_version_flag[BuildSettingInfo].value,
++    )
+ 
+     binary = ctx.attr.binary
+     runfiles = binary[DefaultInfo].data_runfiles
+@@ -116,6 +120,7 @@ def _py_python_pex_impl(ctx):
+     ctx.actions.run(
+         executable = ctx.executable._pex,
+         inputs = runfiles.files,
++        tools = py_toolchain.files,
+         arguments = [args],
+         outputs = [output],
+         mnemonic = "PyPex",
+@@ -123,11 +128,19 @@ def _py_python_pex_impl(ctx):
      )
  
      return [
@@ -68,6 +96,76 @@ index 9ee01fe..b939c58 100644
      "inject_env": attr.string_dict(
          doc = "Environment variables to set when running the pex binary.",
          default = {},
+@@ -146,6 +159,7 @@ information from the hermetic python toolchain.
+         default = "//py:interpreter_version",
+     ),
+     "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex"),
++    "_py": attr.label(cfg = "exec", default = "@rules_python//python:current_py_toolchain"),
+ })
+ 
+ py_pex_binary = rule(
+diff --git py/private/py_semantics.bzl py/private/py_semantics.bzl
+index 2023076..606d238 100644
+--- py/private/py_semantics.bzl
++++ py/private/py_semantics.bzl
+@@ -51,18 +51,7 @@ For example:
+     )
+ """
+ 
+-def _resolve_toolchain(ctx):
+-    """Resolves the Python toolchain to a simple struct.
+-
+-    Args:
+-        ctx: Bazel rule context.
+-
+-    Returns:
+-        Struct describing the Python toolchain to use.
+-    """
+-
+-    toolchain_info = ctx.toolchains[PY_TOOLCHAIN]
+-
++def _resolve_toolchain_from_info(toolchain_info, interpreter_version):
+     if not toolchain_info.py3_runtime:
+         fail("A py3_runtime must be set on the Python toolchain")
+ 
+@@ -89,11 +78,11 @@ def _resolve_toolchain(ctx):
+             if not hasattr(py3_toolchain.interpreter_version_info, attr):
+                 fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
+         interpreter_version_info = py3_toolchain.interpreter_version_info
+-    elif ctx.attr._interpreter_version_flag[BuildSettingInfo].value:
++    elif interpreter_version:
+         # Back-compat for Bazel 6.
+         # Same code as rules_python:
+         # https://github.com/bazelbuild/rules_python/blob/76f1c76f60ccb536d3b3e2c9f023d8063f40bcd5/python/repositories.bzl#L109
+-        major, minor, micro = ctx.attr._interpreter_version_flag[BuildSettingInfo].value.split(".")
++        major, minor, micro = interpreter_version.split(".")
+         interpreter_version_info = struct(
+             major = major,
+             minor = minor,
+@@ -111,7 +100,23 @@ def _resolve_toolchain(ctx):
+         flags = _INTERPRETER_FLAGS,
+     )
+ 
++
++def _resolve_toolchain(ctx):
++    """Resolves the Python toolchain to a simple struct.
++
++    Args:
++        ctx: Bazel rule context.
++
++    Returns:
++        Struct describing the Python toolchain to use.
++    """
++    return _resolve_toolchain_from_info(
++        ctx.toolchains[PY_TOOLCHAIN],
++        ctx.attr._interpreter_version_flag[BuildSettingInfo].value,
++    )
++
+ semantics = struct(
+     interpreter_flags = _INTERPRETER_FLAGS,
+     resolve_toolchain = _resolve_toolchain,
++    resolve_toolchain_from_info = _resolve_toolchain_from_info,
+ )
 diff --git py/tools/pex/main.py py/tools/pex/main.py
 index 5c699fd..2fcdbd1 100644
 --- py/tools/pex/main.py
