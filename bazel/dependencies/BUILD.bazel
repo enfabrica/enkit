@@ -1,4 +1,0 @@
-exports_files(
-    ["*.patch"],
-    visibility = ["//visibility:public"],
-)

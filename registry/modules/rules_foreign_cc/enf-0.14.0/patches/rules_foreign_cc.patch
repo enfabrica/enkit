@@ -1,0 +1,29 @@
+diff --git MODULE.bazel MODULE.bazel
+index e120a40..fde886e 100644
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -2,7 +2,7 @@
+ 
+ module(
+     name = "rules_foreign_cc",
+-    version = "0.0.0",
++    version = "enf-0.14.0",
+     compatibility_level = 1,
+ )
+ 
+diff --git foreign_cc/meson.bzl foreign_cc/meson.bzl
+index 4ea9aca..ea0bff1 100644
+--- foreign_cc/meson.bzl
++++ foreign_cc/meson.bzl
+@@ -77,9 +77,9 @@ def _create_meson_script(configureParameters):
+     # https://github.com/mesonbuild/meson/issues/3565
+     # Skip setting them in this case.
+     if " " not in tools.cc:
+-        script.append("##export_var## CC {}".format(_absolutize(ctx.workspace_name, tools.cc)))
++        script.append("##export_var## CC {}".format(_absolutize(ctx.workspace_name, tools.cc, True)))
+     if " " not in tools.cxx:
+-        script.append("##export_var## CXX {}".format(_absolutize(ctx.workspace_name, tools.cxx)))
++        script.append("##export_var## CXX {}".format(_absolutize(ctx.workspace_name, tools.cxx, True)))
+ 
+     # set flags same as foreign_cc/private/cc_toolchain_util.bzl
+     # cannot use get_flags_info() because bazel adds additional flags that

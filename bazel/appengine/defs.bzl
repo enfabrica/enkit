@@ -3,7 +3,7 @@
 Forked from: https://github.com/ccontavalli/bazel-rules/blob/master/appengine/defs.bzl
 """
 
-load("@io_bazel_rules_go//go:def.bzl", "GoPath", "go_path")
+load("@rules_go//go:def.bzl", "GoPath", "go_path")
 
 def _go_appengine_deploy_path_impl(ctx):
     config = ctx.file.config
