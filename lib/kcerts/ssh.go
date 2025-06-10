@@ -4,15 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"github.com/enfabrica/enkit/lib/cache"
-	"github.com/enfabrica/enkit/lib/config/directory"
-	"github.com/enfabrica/enkit/lib/kflags"
-	"github.com/enfabrica/enkit/lib/logger"
-	"github.com/enfabrica/enkit/lib/multierror"
-	"github.com/enfabrica/enkit/lib/srand"
-	"github.com/mitchellh/go-homedir"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 	"io/ioutil"
 	mathrand "math/rand"
 	"os"
@@ -22,6 +13,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mitchellh/go-homedir"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
+
+	"github.com/enfabrica/enkit/lib/cache"
+	"github.com/enfabrica/enkit/lib/config/directory"
+	"github.com/enfabrica/enkit/lib/kflags"
+	"github.com/enfabrica/enkit/lib/logger"
+	"github.com/enfabrica/enkit/lib/multierror"
+	"github.com/enfabrica/enkit/lib/srand"
 )
 
 const (
@@ -410,7 +412,9 @@ func PrepareSSHAgent(store cache.Store, mods ...SSHAgentModifier) (*SSHAgent, er
 		return nil, err
 	}
 
-	agent.log.Infof("%s", WriteAgentToCache(store, agent))
+	if err := WriteAgentToCache(store, agent); err != nil {
+		agent.log.Errorf("Failed to write agent to cache: %v", err)
+	}
 	return agent, nil
 }
 

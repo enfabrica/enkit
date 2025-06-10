@@ -3,7 +3,17 @@ package commands
 import (
 	"context"
 	"fmt"
+	"log"
+	"math/rand"
+	"os"
+	"time"
+
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/metadata"
+
 	apb "github.com/enfabrica/enkit/auth/proto"
 	"github.com/enfabrica/enkit/lib/client"
 	"github.com/enfabrica/enkit/lib/config/identity"
@@ -12,14 +22,6 @@ import (
 	"github.com/enfabrica/enkit/lib/kflags"
 	"github.com/enfabrica/enkit/lib/kflags/kcobra"
 	"github.com/enfabrica/enkit/lib/retry"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/grpclog"
-	"google.golang.org/grpc/metadata"
-	"log"
-	"math/rand"
-	"os"
-	"time"
 )
 
 type Login struct {
@@ -139,7 +141,7 @@ func TokenAuthInterceptor(token string) grpc.UnaryClientInterceptor {
 // feature (or someone else does) then this code can be removed.
 //
 // The ticket for cred helper support in bb_clientd: ENGPROD-355
-func AuthenticateBbclientd(address string, token string, debug bool) {
+func (l *Login) AuthenticateBbclientd(address string, token string, debug bool) {
 	if debug {
 		grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
 		grpc.EnableTracing = true
@@ -167,9 +169,8 @@ func AuthenticateBbclientd(address string, token string, debug bool) {
 
 	client := remoteexecution.NewContentAddressableStorageClient(conn)
 	_, err = client.FindMissingBlobs(context.Background(), &remoteexecution.FindMissingBlobsRequest{BlobDigests: digests})
-
-	if err != nil && debug {
-		log.Fatal("bbclientd auth failed: %w", err)
+	if err != nil {
+		l.base.Log.Errorf("Failed to auth bbclientd daemon: %v", err)
 	}
 }
 
@@ -212,28 +213,29 @@ func (l *Login) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	l.base.Log.Infof("storing credentials in SSH agent...")
+	l.base.Log.Infof("Storing credentials in SSH agent...")
 	if err := kauth.SaveCredentials(enCreds, l.base.Local, kcerts.WithLogging(l.base.Log), kcerts.WithFlags(l.agent)); err != nil {
-		l.base.Log.Warnf("error saving credentials, err: %v", err)
+		l.base.Log.Errorf("Failed to save credentials: %v", err)
 		return err
 	}
 
 	// TODO(adam): delete below when we are comfortable migrating from the token to pure ssh certificates
-	l.base.Log.Infof("storing identity in HOME config...")
+	l.base.Log.Infof("Storing identity in $HOME config...")
 	userid := identity.Join(username, domain)
 	err = ids.Save(userid, enCreds.Token)
 	if err != nil {
-		return fmt.Errorf("could not store identity - %w", err)
+		return fmt.Errorf("could not store identity: %w", err)
 	}
 	if l.NoDefault == false {
 		err = ids.SetDefault(userid)
 		if err != nil {
-			return fmt.Errorf("could not mark identity as default - %w", err)
+			return fmt.Errorf("could not mark identity as default: %w", err)
 		}
 	}
+	l.base.Log.Infof("Stored identity in $HOME config")
 
-	// Reuse the token to authenticate our bbclientd CAS mounts
-	AuthenticateBbclientd(l.BbclientdAddress, enCreds.Token, l.Debug)
+	l.base.Log.Infof("Performing buildbarn request so that bb_clientd picks up credentials...")
+	l.AuthenticateBbclientd(l.BbclientdAddress, enCreds.Token, l.Debug)
 
 	return nil
 }
