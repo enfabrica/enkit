@@ -1,5 +1,5 @@
 diff --git MODULE.bazel MODULE.bazel
-index 44fcddd..5cb2a2c 100755
+index 44fcddd..5cb2a2c 100644
 --- MODULE.bazel
 +++ MODULE.bazel
 @@ -109,44 +109,14 @@ register_toolchains(
@@ -52,7 +52,7 @@ index 44fcddd..5cb2a2c 100755
  crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate", dev_dependency = True)
  crate.spec(
 diff --git protobuf.bzl protobuf.bzl
-index fdf09bd..9f90e44 100755
+index fdf09bd..9f90e44 100644
 --- protobuf.bzl
 +++ protobuf.bzl
 @@ -637,6 +637,8 @@ def internal_py_proto_library(
@@ -64,8 +64,21 @@ index fdf09bd..9f90e44 100755
  def _source_proto_library(
          name,
          srcs = [],
+diff --git protobuf_version.bzl protobuf_version.bzl
+index 1b62969..6c4ddc7 100644
+--- protobuf_version.bzl
++++ protobuf_version.bzl
+@@ -1,7 +1,7 @@
+ """ Contains version numbers to be used in other bzl files """
+ PROTOC_VERSION = "31.0"
+ PROTOBUF_JAVA_VERSION = "4.31.0"
+-PROTOBUF_PYTHON_VERSION = "6.31.0"
++PROTOBUF_PYTHON_VERSION = "5.29.3"
+ PROTOBUF_PHP_VERSION = "4.31.0"
+ PROTOBUF_RUBY_VERSION = "4.31.0"
+ PROTOBUF_RUST_VERSION = "4.31.0"
 diff --git python/dist/BUILD.bazel python/dist/BUILD.bazel
-index e7d32cb..ea36939 100755
+index e7d32cb..ea36939 100644
 --- python/dist/BUILD.bazel
 +++ python/dist/BUILD.bazel
 @@ -7,15 +7,17 @@
@@ -116,7 +129,7 @@ index e7d32cb..ea36939 100755
      name = "binary_wheel",
      abi = select({
 diff --git python/dist/dist.bzl python/dist/dist.bzl
-index 7c9095e..40db8fc 100755
+index 7c9095e..40db8fc 100644
 --- python/dist/dist.bzl
 +++ python/dist/dist.bzl
 @@ -1,7 +1,8 @@
@@ -129,8 +142,18 @@ index 7c9095e..40db8fc 100755
  
  def _get_suffix(limited_api, python_version, cpu):
      """Computes an ABI version tag for an extension module per PEP 3149."""
+diff --git python/google/protobuf/__init__.py python/google/protobuf/__init__.py
+index 38a0c6d..92052b2 100755
+--- python/google/protobuf/__init__.py
++++ python/google/protobuf/__init__.py
+@@ -7,4 +7,4 @@
+ 
+ # Copyright 2007 Google Inc. All Rights Reserved.
+ 
+-__version__ = '6.31.0'
++__version__ = '5.29.3'
 diff --git python/google/protobuf/internal/numpy/BUILD.bazel python/google/protobuf/internal/numpy/BUILD.bazel
-index 6799b79..4ae382a 100755
+index 6799b79..4ae382a 100644
 --- python/google/protobuf/internal/numpy/BUILD.bazel
 +++ python/google/protobuf/internal/numpy/BUILD.bazel
 @@ -1,8 +1,8 @@
@@ -168,3 +191,29 @@ index 6799b79..4ae382a 100755
 +#         requirement("numpy"),
 +#     ],
 +# )
+diff --git src/google/protobuf/compiler/versions.h src/google/protobuf/compiler/versions.h
+index 17f52e3..660363c 100644
+--- src/google/protobuf/compiler/versions.h
++++ src/google/protobuf/compiler/versions.h
+@@ -55,7 +55,7 @@
+ // by Protobuf release process.
+ #define PROTOBUF_CPP_VERSION_STRING "6.31.0"
+ #define PROTOBUF_JAVA_VERSION_STRING "4.31.0"
+-#define PROTOBUF_PYTHON_VERSION_STRING "6.31.0"
++#define PROTOBUF_PYTHON_VERSION_STRING "5.29.3"
+ #define PROTOBUF_RUST_VERSION_STRING "4.31.0"
+ 
+ 
+diff --git version.json version.json
+index c3425ad..2e71d19 100644
+--- version.json
++++ version.json
+@@ -10,7 +10,7 @@
+             "javascript": "3.31.0",
+             "objectivec": "4.31.0",
+             "php": "4.31.0",
+-            "python": "6.31.0",
++            "python": "5.29.0",
+             "ruby": "4.31.0",
+             "rust": "4.31.0"
+         }
