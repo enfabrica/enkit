@@ -4,6 +4,6 @@
     "url": "https://github.com/protocolbuffers/protobuf/releases/download/v31.0/protobuf-31.0.zip",
     "patch_strip": 0,
     "patches": {
-        "fix_protobuf_query_errors.patch": "sha256-8CxjCJJ7KgC9FWNejeIA8AURovxlSL5gIZpTJhutl+c="
+        "protobuf.patch": "sha256-h2uYC7YdMTOd+20cwSZYjqy3iKnBVBqbuVaabfKx67Q="
     }
 }
