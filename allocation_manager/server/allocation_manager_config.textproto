@@ -6,8 +6,6 @@ server {
   adoption_duration_seconds: 45
 }
 
-# CURRENTLY, ALL ENTRIES MUST BE ADDED/UPDATED MANUALLY. ABILITY TO AUTO-UPDATE VIA SERVER
-
 units {
 topology: {
   name: "a"
@@ -16,231 +14,36 @@ topology: {
 "nodes:\n"
 " node01:\n"
 "  hostname: nc-gpu-01.rdu\n"
+"GPUs:\n"
+" GPU0:\n"
+"  name: NVIDIA RTX A4000\n"
+"  vram: 16\n"
+"  busid: \"0:41:00.0\"\n"
+" GPU1:\n"
+"  name: Quadro RTX 4000\n"
+"  vram: 8\n"
+"  busid: \"0:81:00.0\"\n"
   }
 }
-
 units {
 topology: {
-  name: "nc-gpu-02.rdu"
+  name: "b"
   config:
-"name: nc-gpu-02.rdu\n"
+"name: b\n"
 "nodes:\n"
 " node01:\n"
 "  hostname: nc-gpu-02.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: Quadro RTX 4000\n"
-"    vram: 8\n"
-"    busid: \"0:46:00.0\"\n"
-"   GPU1:\n"
-"    name: NVIDIA RTX A4000\n"
-"    vram: 16\n"
-"    busid: \"0:C5:00.0\"\n"
+"GPUs:\n"
+" GPU0:\n"
+"  name: Quadro RTX 4000\n"
+"  vram: 8\n"
+"  busid: \"0:46:00.0\"\n"
+" GPU1:\n"
+"  name: NVIDIA RTX A4000\n"
+"  vram: 16\n"
+"  busid: \"0:C5:00.0\"\n"
   }
 }
-
-units {
-topology: {
-  name: "nc-gpu-17.rdu"
-  config:
-"name: nc-gpu-17.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-17.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:25:00.0\"\n"
-"   GPU1:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:28:00.0\"\n"
-"   GPU2:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:45:00.0\"\n"
-"   GPU3:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:48:00.0\"\n"
-"   GPU4:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:A5:00.0\"\n"
-"   GPU5:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:A8:00.0\"\n"
-"   GPU6:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:C5:00.0\"\n"
-"   GPU7:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:C8:00.0\"\n"
-  }
-}
-
-units {
-topology: {
-  name: "nc-gpu-22.rdu"
-  config:
-"name: nc-gpu-22.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-22.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:41:00.0\"\n"
-  }
-}
-
-units {
-topology: {
-  name: "nc-gpu-25.rdu"
-  config:
-"name: nc-gpu-25.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-25.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:41:00.0\"\n"
-  }
-}
-
-units {
-topology: {
-  name: "nc-gpu-26.rdu"
-  config:
-"name: nc-gpu-26.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-26.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:41:00.0\"\n"
-  }
-}
-
-units {
-topology: {
-  name: "nc-gpu-27.rdu"
-  config:
-"name: nc-gpu-27.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-27.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: L4\n"
-"    vram: 32\n"
-"    busid: \"0:41:00.0\"\n"
-  }
-}
-
-# nc-gpu-28 was not configured with enkit when inspected
-# nc-gpu-29 was not configured with enkit when inspected
-
-units {
-topology: {
-  name: "nc-gpu-33.rdu"
-  config:
-"name: nc-gpu-33.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-33.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: H100 PCIe\n"
-"    vram: 128\n"
-"    busid: \"0:CF:00.0\"\n"
-"   GPU1:\n"
-"    name: H100 PCIe\n"
-"    vram: 128\n"
-"    busid: \"0:E1:00.0\"\n"
-  }
-}
-
-units {
-topology: {
-  name: "nc-gpu-35.rdu"
-  config:
-"name: nc-gpu-35.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-35.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: H1H100L 94GB\n"
-"    vram: 128\n"
-"    busid: \"0:2A:00.0\"\n"
-"   GPU1:\n"
-"    name: H100L 94GB\n"
-"    vram: 128\n"
-"    busid: \"0:3D:00.0\"\n"
-  }
-}
-
-units {
-topology: {
-  name: "nc-gpu-36.rdu"
-  config:
-"name: nc-gpu-36.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-36.rdu\n"
-  }
-}
-
-units {
-topology: {
-  name: "nc-gpu-37.rdu"
-  config:
-"name: nc-gpu-37.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-37.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: H1H100L 94GB\n"
-"    vram: 128\n"
-"    busid: \"0:C3:00.0\"\n"
-"   GPU1:\n"
-"    name: H100L 94GB\n"
-"    vram: 128\n"
-"    busid: \"0:C4:00.0\"\n"
-  }
-}
-
-units {
-topology: {
-  name: "nc-gpu-38.rdu"
-  config:
-"name: nc-gpu-38.rdu\n"
-"nodes:\n"
-" node01:\n"
-"  hostname: nc-gpu-38.rdu\n"
-"  GPUs:\n"
-"   GPU0:\n"
-"    name: H1H100L 94GB\n"
-"    vram: 128\n"
-"    busid: \"0:C3:00.0\"\n"
-"   GPU1:\n"
-"    name: H100L 94GB\n"
-"    vram: 128\n"
-"    busid: \"0:C4:00.0\"\n"
-  }
-}
-
 units {  # from systest/config/topologies/back-to-back-nc-gpu-11-12.yaml
 topology: {
   name: "back-to-back-nc-gpu-11-12"

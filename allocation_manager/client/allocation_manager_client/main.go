@@ -14,7 +14,6 @@ import (
 
 	"github.com/enfabrica/enkit/allocation_manager/client"
 	apb "github.com/enfabrica/enkit/allocation_manager/proto"
-	"github.com/enfabrica/enkit/allocation_manager/topology"
 
 	//	"github.com/google/uuid"
 	"google.golang.org/grpc"

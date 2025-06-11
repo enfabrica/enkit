@@ -56,14 +56,88 @@ service AllocationManager {
   // SetStatus(SetStatusRequest) returns (SetStatusResponse);
 }
 
+message HostInventory {
+  map<string, HostInfo> hosts = 1;
+}
+
+message HostInfo {
+  string hostname = 1;
+
+  bool reachable = 2;
+
+  bool clientd_healthy = 3;
+
+  bool clientd_fuse_ok = 4;
+
+  repeated GpuInfo gpu_infos = 5;
+
+  repeated CpuInfo cpu_infos = 6;
+}
+
+message GpuInfo {
+  string bus_id = 1;
+
+  string gpu_model = 2;
+
+  string card_model = 3;
+
+  uint32 vram_mb = 4;
+}
+
+message CpuInfo {
+  uint32 cpu_idx = 1;
+
+  uint32 family = 2;
+
+  string model_name = 3;
+
+  float freq_mhz = 4;
+
+  uint32 num_cores = 5;
+
+  string cache = 6;
+}
+
+message AcfInfo {
+    // TODO: Fill in ACF fields
+}
+
+message UnitInfo {
+    oneof Info {
+      HostInfo HostInfo = 1;
+      GpuInfo GpuInfo = 2;
+      AcfInfo AcfInfo = 3;
+    }
+}
+
+// if no fields are provided (empty message), any host will match
+message HostRequest {
+    // if specified, you are requesting a specific host by hostname. Other fields will be ignored
+    optional string hostname = 1;
+
+    // if specified, return a host that has the given number of CPUs, or more
+    optional uint32 num_cpus = 2;
+
+    // if specified, return a host that has the given number of GPUs, or more
+    optional uint32 num_gpus = 3;
+}
+
+message TopologyRequest {
+    // if specified, you are requesting a known topology by name. Other fields will be ignored
+    optional string topology_name = 1;
+
+    // if specified, checks for hosts that match the given criteria
+    repeated HostRequest hosts = 2;
+}
+
 message Invocation {
   // Opaque identifier for this invocation, determined by the server. This id
   // should be used by the client in subsequent RefreshRequests for this
   // Unit.
   string id = 1;
 
-  // requested topology
-  repeated Topology topologies = 2;
+  // topology request
+  TopologyRequest request = 2;
 
   // Owning entity issuing the allocation request. Used for logging purposes
   // only. This could be the name of the user or system issuing the request.
@@ -113,8 +187,8 @@ message Allocated {
   // Unit.
   string id = 1;
 
-  // Actual Unit's topologies.
-  repeated Topology topologies = 3;
+  // Actual Units' info structs.
+  repeated UnitInfo unit_infos = 3;
 
   // Time at which the request license will be revoked. The client should issue
   // a RefreshRequest for this invocation_id before this time.
@@ -151,8 +225,8 @@ message RefreshRequest {
   // Invocation details for this allocation
   Invocation invocation = 1;
 
-  // Allocated Unit's topologies
-  repeated Topology allocated = 2;
+  // Allocated Unit's Unit Infos
+  Topology allocated = 2;
 }
 
 message RefreshResponse {
@@ -174,12 +248,13 @@ message ReleaseResponse {
 }
 
 message Topology {
-  // YAML string representing either the topology request (i.e. without IPs) or
-  // the topology of the actual hardware allocated (i.e. with IPs).
-  string config = 1;
-  // For units, unique name extracted from the config for speed/convenience.
-  // For requests, leave empty
-  string name = 2;
+  // Unique name extracted from the config for speed/convenience.
+  string name = 1;
+
+  // start with just hosts in the topology for first step
+  repeated HostInfo hosts = 2;
+  
+  // TODO: repeated AcfInfo acfs = 3;
 }
 
 enum Allocation {
@@ -210,8 +285,8 @@ message StatusResponse {
 }
 
 message Stats {
-  // Unit's topology
-  Topology topology = 1;
+  // Unit's info
+  UnitInfo info = 1;
 
   // Current state of the Unit
   Status status = 2;
