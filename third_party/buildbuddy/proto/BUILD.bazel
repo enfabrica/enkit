@@ -1,6 +1,6 @@
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@rules_go//proto:def.bzl", "go_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
-load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 # Keep gazelle from generating a go_library that includes the dummy source
 # (empty.go)
@@ -53,7 +53,7 @@ proto_library(
         ":context_proto",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_proto",
         "//third_party/bazel/src/main/protobuf:command_line_proto",
-        "@com_google_protobuf//:timestamp_proto",
+        "@protobuf//:timestamp_proto",
     ],
 )
 

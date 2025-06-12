@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "buildevent",
@@ -14,7 +14,7 @@ go_library(
         "//lib/multierror",
         "//third_party/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_go_proto",
         "@com_github_golang_glog//:glog",
-        "@com_github_golang_protobuf//ptypes:go_default_library_gen",
+        "@com_github_golang_protobuf//ptypes",
         "@com_github_prometheus_client_golang//prometheus",
         "@com_github_prometheus_client_golang//prometheus/promauto",
         "@com_google_cloud_go_pubsub//:pubsub",

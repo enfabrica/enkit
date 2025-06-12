@@ -1,0 +1,18 @@
+{
+    "homepage": "https://github.com/protocolbuffers/protobuf",
+    "maintainers": [
+        {
+            "email": "gleb@enfabrica.net",
+            "github": "gleyba",
+            "name": "Infra Team",
+            "github_user_id": 6427170
+        }
+    ],
+    "repository": [
+        "github:protocolbuffers/protobuf"
+    ],
+    "versions": [
+        "enf-31.0"
+    ],
+    "yanked_versions": {}
+}

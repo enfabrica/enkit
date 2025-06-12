@@ -151,7 +151,12 @@ func (c *LicenseClient) refresh(ctx context.Context) {
 			c.licenseErr <- fmt.Errorf("Refresh() failure: %w", err)
 		}
 
-		sleepTime := min(time.Until(res.GetLicenseRefreshDeadline().AsTime())*3/5, 5*time.Second)
+		sleepTime := time.Until(res.GetLicenseRefreshDeadline().AsTime())
+		if sleepTime < 0 {
+			sleepTime = 100 * time.Millisecond
+		} else {
+			sleepTime = min(sleepTime*3/5, 5*time.Second)
+		}
 
 		select {
 		case <-time.After(sleepTime):

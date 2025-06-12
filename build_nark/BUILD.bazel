@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
     name = "build_nark_lib",
@@ -7,7 +7,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//lib/logger",
-        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//proto",
         "@com_github_googlecloudplatform_cloud_build_notifiers//lib/notifiers",
         "@com_github_sirupsen_logrus//:logrus",
         "@com_google_cloud_go_cloudbuild//apiv1/v2/cloudbuildpb",

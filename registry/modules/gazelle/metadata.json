@@ -1,0 +1,17 @@
+{
+    "homepage": "https://github.com/bazel-contrib/bazel-gazelle",
+    "maintainers": [
+        {
+            "email": "gleb@enfabrica.net",
+            "github": "gleyba",
+            "name": "Infra Team",
+            "github_user_id": 6427170
+        }
+    ],
+    "repository": [
+        "github:bazel-contrib/bazel-gazelle"
+    ],
+    "versions": [
+        "enf-0.43.0"
+    ]
+}
