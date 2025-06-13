@@ -34,6 +34,7 @@ go_test(
         "queue_test.go",
         "service_test.go",
         "unit_test.go",
+        "query_test.go",
     ],
     embed = [":service"],
     deps = [

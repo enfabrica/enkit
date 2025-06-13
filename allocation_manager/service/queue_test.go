@@ -155,7 +155,7 @@ func TestPromote(t *testing.T) {
 	iq.Enqueue(invA)
 	iq.Enqueue(invB)
 	// test
-	iq.Promote(units)
+	iq.Promote(units, apb.Inventory{})
 	// verify
 	assert.Equal(t, 0, iq.Len(), "iq.Len()")
 	var invNil *invocation // assert.Equal tests type; this provides typing

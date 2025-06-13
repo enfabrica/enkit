@@ -10,8 +10,8 @@ go_library(
     deps = [
         "//allocation_manager/proto",
         "//allocation_manager/service",
-        "//allocation_manager/topology",
         "//lib/server",
+        "//lib/logger",
         "@com_github_prometheus_client_golang//prometheus/promhttp",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext",
