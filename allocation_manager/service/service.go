@@ -131,6 +131,23 @@ func New(config *apb.Config, inventory *apb.HostInventory) (*Service, error) {
 		return nil, err
 	}
 
+	// Print known topologies
+	logger.Go.Infof("Known Topologies")
+	if len(topologies) > 0 {
+		for _, topo := range topologies {
+			logger.Go.Infof(" - %s", topo.Name)
+			if len(topo.Units) > 0 {				
+				for _, unit := range topo.Units {
+					logger.Go.Infof("   - %s", unit.GetName())
+				}
+			} else {
+				logger.Go.Infof("   * no hosts *")
+			}
+		}
+	} else {
+		logger.Go.Infof(" * no topologies configured *")
+	}
+
 	service := &Service{
 		currentState:              stateStarting,
 		units:                     units,

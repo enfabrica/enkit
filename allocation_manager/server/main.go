@@ -23,7 +23,6 @@ import (
 	"github.com/enfabrica/enkit/lib/server"
 
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -58,7 +57,7 @@ func loadConfig(path string) (*apb.Config, error) {
 		return nil, fmt.Errorf("unable to read config %q: %w", path, err)
 	}
 	var config apb.Config
-	err = prototext.Unmarshal(contents, &config)
+	err = json.Unmarshal(contents, &config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse config %q: %w", path, err)
 	}
@@ -81,21 +80,7 @@ func loadInventory(path string) (*apb.HostInventory, error) {
 func printInventory(inventory *apb.HostInventory) {
 	logger.Go.Infof("Host Inventory")
 	for hostname, host := range inventory.GetHosts() {
-		logger.Go.Infof("  %s	", hostname)
-		
-		logger.Go.Infof("    %d GPU(s)", len(host.GetGpuInfos()))
-		if len(host.GetGpuInfos()) > 0 {
-			// for _, gpu := range host.GetGpuInfos() {
-			// 	logger.Go.Debugf("      %s => %s [%s]", gpu.GetBusId(), gpu.GetGpuModel(), gpu.GetCardModel(), )
-			// }
-		}
-
-		logger.Go.Infof("    %d CPU(s)", len(host.GetCpuInfos()))
-		if len(host.GetCpuInfos()) > 0 {
-			// for _, cpu := range host.GetCpuInfos() {
-			// 	logger.Go.Debugf("      %d => %fx%d [%s]", cpu.GetCpuIdx(), cpu.GetFreqMhz(), cpu.GetNumCores(), cpu.GetCache())
-			// }
-		}
+		logger.Go.Infof("  %s: [%d CPU(s), %d GPU(s)]", hostname, len(host.GetCpuInfos()), len(host.GetGpuInfos()))
 	}
 }
 
@@ -112,9 +97,6 @@ func main() {
 	exitIf(err)
 
 	printInventory(inventory)
-
-	//	template, err := template.ParseFS(templates, "**/*.tmpl")
-	//	exitIf(err)
 
 	grpcs := grpc.NewServer()
 	s, err := service.New(config, inventory)
