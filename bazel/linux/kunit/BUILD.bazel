@@ -45,8 +45,7 @@ py_pex_binary(
     name = "kunit_zip",
     binary = ":kunit",
     python_interpreter_constraints = [
-        "CPython=={major}.{minor}.*",
-        "CPython==3.8.*",
+        "CPython=={major}.*",
     ],
     visibility = ["//visibility:public"],
 )
