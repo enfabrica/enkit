@@ -13,6 +13,10 @@ from pathlib import Path
 import logging
 from dataclasses import dataclass, field
 
+
+# This module is used to collect information about host machines, currently any machines in the nc-gpu-XX pool
+# The resulting information is printed to the console, and optionally to a JSON file (path provided on cmd line)
+
   
 @dataclass
 class GpuInfo:

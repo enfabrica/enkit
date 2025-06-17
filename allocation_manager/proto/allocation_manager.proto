@@ -56,45 +56,71 @@ service AllocationManager {
   // SetStatus(SetStatusRequest) returns (SetStatusResponse);
 }
 
+// Contains the entire inventory of known hosts, along with information gathered about those hosts
+// Map is hostname -> HostInfo (below)
 message HostInventory {
   map<string, HostInfo> hosts = 1;
 }
 
+// Contains information about a single Host machine
 message HostInfo {
+
+  // hostname of the host (i.e. nc-gpu-17.rdu)
   string hostname = 1;
 
+  // TODO: Do we want the next three fields? Might not really be useful since they are stale by the time they
+  // are used by the AM server
+
+  // Indicates whether this host was reachable when the inventory was created
   bool reachable = 2;
 
+  // Indicates if the host's bb_clientd service was healthy at inventory creation time
   bool clientd_healthy = 3;
 
+  // Indicates if the host's bb_clientd_fuse service was healthy at inventory creation time
   bool clientd_fuse_ok = 4;
 
+  // A list of information about GPUs found on this host (GpuInfo below)
   repeated GpuInfo gpu_infos = 5;
 
+  // A list of information about CPUs found on this host (CpuInfo below)
   repeated CpuInfo cpu_infos = 6;
 }
 
+// Contains information about a single GPU on a host machine
 message GpuInfo {
+  // The bus_id of the GPU on the host (eg. 46:00.0)
   string bus_id = 1;
 
+  // The model string of the GPU (eg. NVIDIA Corporation GP104GL)
   string gpu_model = 2;
 
+  // The model string of the GPU's card (eg. Tesla P4)
   string card_model = 3;
 
+  // The amount of video memory available to the GPU, in megabytes
   uint32 vram_mb = 4;
 }
 
+// Contains information about a single CPU on a host machine
 message CpuInfo {
+  // The 0-based idx of the CPU, as seen in /proc/cpuinfo
   uint32 cpu_idx = 1;
 
+  // The family code for the CPU (eg. 25 for Zen)
   uint32 family = 2;
 
+  // The model string of the CPU (eg. AMD EPYC 7413 24-Core Processor)
   string model_name = 3;
 
+  // The speed of the CPU, in MHz (eg. 2650.0)
   float freq_mhz = 4;
 
+  // The number of cores had by the CPU (eg. 24)
   uint32 num_cores = 5;
 
+  // The amount of cache, represented by a string (eg. 512 KB)
+  // TODO: Parse the string properly, so we can have the cache size in int format
   string cache = 6;
 }
 
@@ -102,6 +128,7 @@ message AcfInfo {
     // TODO: Fill in ACF fields
 }
 
+// A "polymorphic" representation of the various types of info a Unit can hold
 message UnitInfo {
     oneof Info {
       HostInfo HostInfo = 1;
@@ -225,7 +252,7 @@ message RefreshRequest {
   // Invocation details for this allocation
   Invocation invocation = 1;
 
-  // Allocated Unit's Unit Infos
+  // Allocated Topology
   Topology allocated = 2;
 }
 
