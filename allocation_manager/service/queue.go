@@ -60,18 +60,8 @@ func (iq *invocationQueue) Enqueue(x *invocation) Position {
 	return position
 }
 
-func (topo *Topology) Allocate(inv *invocation) bool {
-	for _, unit := range topo.Units {
-		if !unit.Allocate(inv) {
-			logger.Go.Errorf("Unit Allocate not supposed to fail!")
-			return false
-		}
-	}
-	return true
-}
-
 // Promote tries to turn queued requests into allocations.
-func (iq *invocationQueue) Promote(units map[string]*Unit, inventory *apb.HostInventory, topologies []*Topology) {
+func (iq *invocationQueue) Promote(units map[string]*Unit, inventory *apb.HostInventory, topologies map[string]*Topology) {
 	// TODO: metrics
 	// defer iq.updateMetrics()
 	for _, inv := range *iq {

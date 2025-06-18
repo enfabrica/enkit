@@ -151,7 +151,7 @@ message HostRequest {
 
 message TopologyRequest {
     // if specified, you are requesting a known topology by name. Other fields will be ignored
-    optional string topology_name = 1;
+    optional string name = 1;
 
     // if specified, checks for hosts that match the given criteria
     repeated HostRequest hosts = 2;
@@ -163,8 +163,8 @@ message Invocation {
   // Unit.
   string id = 1;
 
-  // topology request
-  TopologyRequest request = 2;
+  // OBSOLETED: replaced with TopologyRequest, below
+  // repeated Topology topologies = 2;
 
   // Owning entity issuing the allocation request. Used for logging purposes
   // only. This could be the name of the user or system issuing the request.
@@ -185,6 +185,9 @@ message Invocation {
   // Refresh() call in case the server is restarted.
   string build_tag = 5; // required
   */
+
+  // topology request
+  TopologyRequest request = 6;
 }
 
 message AllocateRequest {
@@ -214,12 +217,15 @@ message Allocated {
   // Unit.
   string id = 1;
 
-  // Actual Units' info structs.
-  repeated UnitInfo unit_infos = 3;
-
   // Time at which the request license will be revoked. The client should issue
   // a RefreshRequest for this invocation_id before this time.
   google.protobuf.Timestamp refresh_deadline = 2;
+
+  // OBSOLETED: replaced with single, allocated Topology, below
+  // repeated Topology topologies = 3;
+
+  // Actual allocated topology
+  Topology topology = 4;
 }
 
 message Queued {
@@ -252,8 +258,11 @@ message RefreshRequest {
   // Invocation details for this allocation
   Invocation invocation = 1;
 
+  // OBSOLETED: replaced with single, allocated Topology, below
+  // repeated Topology allocated = 2;
+
   // Allocated Topology
-  Topology allocated = 2;
+  Topology allocated = 3;
 }
 
 message RefreshResponse {
@@ -275,13 +284,16 @@ message ReleaseResponse {
 }
 
 message Topology {
+  // OBSOLETED: replaced with list of HostInfo, etc
+  // string config = 1;
+
   // Unique name extracted from the config for speed/convenience.
-  string name = 1;
+  string name = 2;
 
   // start with just hosts in the topology for first step
-  repeated HostInfo hosts = 2;
+  repeated HostInfo hosts = 3;
   
-  // TODO: repeated AcfInfo acfs = 3;
+  // TODO: repeated AcfInfo acfs = 4;
 }
 
 enum Allocation {
@@ -312,13 +324,16 @@ message StatusResponse {
 }
 
 message Stats {
-  // Unit's info
-  UnitInfo info = 1;
+  // OBSOLETED: replaced with UnifInfo, below
+  // Topology topology = 1;
 
   // Current state of the Unit
   Status status = 2;
 
   //
   google.protobuf.Timestamp timestamp = 4;
+
+  // Unit's info
+  UnitInfo info = 5;
 
 }

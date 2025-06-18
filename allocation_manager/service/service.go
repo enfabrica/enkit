@@ -52,9 +52,9 @@ var (
 type Service struct {
 	mu                        sync.Mutex       		// Protects the following members from concurrent access
 	currentState              state            		// State of the server
-	units                     map[string]*Unit 		// Managed Units key=topology name (string) value=*unit
+	units                     map[string]*Unit 		// Managed Units key=hostname (string) value=*Unit
 	inventory				  *apb.HostInventory   	// Inventory of available hosts, loaded from provided file
-	topologies				  []*Topology	    	// Known topologies, stored server-side, referenced by request
+	topologies				  map[string]*Topology	// Known topologies, stored server-side, keyed by topology name
 	queueRefreshDuration      time.Duration    		// Queue entries not refreshed within this duration are expired
 	allocationRefreshDuration time.Duration    		// Allocations not refreshed within this duration are expired
 }
@@ -131,28 +131,16 @@ func New(config *apb.Config, inventory *apb.HostInventory) (*Service, error) {
 		return nil, err
 	}
 
-	// Print known topologies
-	logger.Go.Infof("Known Topologies")
-	if len(topologies) > 0 {
-		for _, topo := range topologies {
-			logger.Go.Infof(" - %s", topo.Name)
-			if len(topo.Units) > 0 {				
-				for _, unit := range topo.Units {
-					logger.Go.Infof("   - %s", unit.GetName())
-				}
-			} else {
-				logger.Go.Infof("   * no hosts *")
-			}
-		}
-	} else {
-		logger.Go.Infof(" * no topologies configured *")
+	topology_map := map[string]*Topology{}
+	for _, topo := range topologies {
+		topology_map[topo.Name] = topo
 	}
 
 	service := &Service{
 		currentState:              stateStarting,
 		units:                     units,
 		inventory:				   inventory,
-		topologies:				   topologies,
+		topologies:				   topology_map,
 		queueRefreshDuration:      time.Duration(queueRefreshSeconds) * time.Second,
 		allocationRefreshDuration: time.Duration(allocationRefreshSeconds) * time.Second,
 	}
@@ -270,32 +258,23 @@ type Match struct {
 // Matchmaker returns [n][_]*unit containing plausible matches
 // n: index corresponding to the invocation topologies
 // _: if all=false, len is 0 (nomatch) or 1 (match). if all=true, len is uint
-func Matchmaker(units map[string]*Unit, inventory *apb.HostInventory, topologies []*Topology, inv *invocation, all bool) ([]Match, error) {
+func Matchmaker(units map[string]*Unit, inventory *apb.HostInventory, topologies map[string]*Topology, inv *invocation, all bool) ([]Match, error) {
 	request := inv.TopologyRequest
 	matches := []Match{}
 
-	if request.GetTopologyName() != "" {
+	if request.GetName() != "" {
 		// operating off the name of a known topology. check to see if we have a match for this name in our known topologies
-		for _, topology := range topologies {
-			if topology.Name == request.GetTopologyName() {
+		for topology_name, topology := range topologies {
+			// is this topology even available to be allocated?
+			if all == false && !topology.CanBeAllocated() {
+				// nope, let's skip it
+				continue
+			}
+
+			if topology_name == request.GetName() {
 				matches = append(matches, Match{TopologyRequest: request, Topology: topology})
 			}
 		}
-
-		// for _, unit := range units {
-		// 	// if unit is taken, skip
-		// 	if false == all && unit.IsAllocated() {
-		// 		continue
-		// 	}
-
-		// 	if unit.GetName() == request.GetTopologyName() {
-		// 		// this unit's topology is a match for the request
-		// 		// matches = append(matches, Match{TopologyRequest: request, TopologyConfig: })
-		// 		if !all {
-		// 			break
-		// 		}
-		// 	}
-		// }
 	}
 
 	// maybe we need a matchmaker struct
@@ -312,7 +291,7 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 	invocationID := invMsg.GetId()
 	invRequest := invMsg.GetRequest()
 
-	if invRequest.GetTopologyName() == "" && len(invRequest.GetHosts()) == 0 {
+	if invRequest.GetName() == "" && len(invRequest.GetHosts()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "requests must provide either a topology_name, or one or more hosts")
 	}
 
@@ -331,7 +310,7 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 				" an availability failure.")
 		}
 		// This is the first AllocationRequest. Generate an ID and queue it.
-		invocationID, err := generateRandomID()
+		invocationID, err = generateRandomID()
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to generate invocation_id: %v", err)
 		}
@@ -348,25 +327,37 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 		}
 	}
 	// Update LastCheckin
-	unit_infos := []*apb.UnitInfo{}
+	host_infos := []*apb.HostInfo{}
 	for _, u := range s.units {
 		if inv := u.GetInvocation(invocationID); inv != nil {
 			inv.LastCheckin = timeNow()
-			unit_infos = append(unit_infos, &u.UnitInfo)
+			switch info := u.UnitInfo.Info.(type) {
+				case *apb.UnitInfo_HostInfo:
+					host_infos = append(host_infos, info.HostInfo)
+				// TODO: add cases for AcfInfo
+			}
+			
 			break // TODO: for bundles, remove this break
 		}
 	}
 	// Invocation was already allocated (i.e. by janitor())
-	if len(unit_infos) > 0 {
-		return &apb.AllocateResponse{
+	if len(host_infos) > 0 {
+		alloc_topo := &apb.Topology{
+			Name: invRequest.GetName(),
+			Hosts: host_infos,
+		}
+
+		alloc_response := apb.AllocateResponse{
 			ResponseType: &apb.AllocateResponse_Allocated{
 				Allocated: &apb.Allocated{
 					Id:              invocationID,
-					UnitInfos:       unit_infos,
+					Topology:        alloc_topo,
 					RefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),
 				},
 			},
-		}, nil
+		}
+
+		return &alloc_response, nil
 	}
 	// Invocation is queued
 	if inv, pos := InvocationQueue.Get(invocationID); inv != nil {
@@ -418,12 +409,11 @@ func (s *Service) Refresh(ctx context.Context, req *apb.RefreshRequest) (retRes 
 	reqInvoc := req.GetInvocation()
 	topoReq := reqInvoc.GetRequest()
 	
-	allocated := req.GetAllocated() // repeated Topology	
-	name := allocated.Name
-
-	u, ok := s.units[name]
-	if !ok {
-		return nil, status.Errorf(codes.NotFound, "unknown unit name: %s", name)
+	allocated := req.GetAllocated() // allocated Topology proto
+	allocated_topo := s.topologies[allocated.GetName()]
+	
+	if allocated_topo == nil {
+		return nil, status.Errorf(codes.NotFound, "unknown topology name: %s", allocated.Name)
 	}
 	// TODO: validate configs are the same, and name isn't just faked
 	// perhaps: if u.config == topo.config {
@@ -433,24 +423,30 @@ func (s *Service) Refresh(ctx context.Context, req *apb.RefreshRequest) (retRes 
 		return nil, status.Errorf(codes.InvalidArgument, "invocation.id must be set")
 	}
 	logger.Go.Infof("Refresh(%s)", invID)
-	unitInvoc := u.GetInvocation(invID)
-	if unitInvoc == nil {
-		if s.currentState == stateRunning {
-			return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not allocated: %q", invID)
+
+	// refresh each unit that is a part of this topology
+	for _, unit := range allocated_topo.Units {
+		unitInvoc := unit.GetInvocation(invID)
+		if unitInvoc == nil {
+			if s.currentState == stateRunning {
+				return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not allocated: %q", invID)
+			}
+			// else "Adopt" this invocation
+			inv := &invocation{
+				ID:         	 invID,
+				Owner:      	 reqInvoc.GetOwner(),
+				Purpose:    	 reqInvoc.GetPurpose(),
+				TopologyRequest: topoReq,
+				// LastCheckin: timeNow(), redundant
+			}
+			if ok := unit.Allocate(inv); !ok {
+				return nil, status.Errorf(codes.ResourceExhausted, "%s cannot be allocated (adopted)", allocated_topo.Name)
+			}
 		}
-		// else "Adopt" this invocation
-		inv := &invocation{
-			ID:         	 invID,
-			Owner:      	 reqInvoc.GetOwner(),
-			Purpose:    	 reqInvoc.GetPurpose(),
-			TopologyRequest: topoReq,
-			// LastCheckin: timeNow(), redundant
-		}
-		if ok := u.Allocate(inv); !ok {
-			return nil, status.Errorf(codes.ResourceExhausted, "%s cannot be allocated (adopted)", name)
-		}
+		unit.Invocation.LastCheckin = timeNow()
 	}
-	u.Invocation.LastCheckin = timeNow()
+
+	
 	return &apb.RefreshResponse{
 		Id:              invID,
 		RefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),

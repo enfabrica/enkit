@@ -6,9 +6,13 @@ option go_package = "github.com/enfabrica/enkit/allocation_manager/proto";
 
 // Message used for server config file
 message Config {
-  ServerConfig server = 1;
+  // OBSOLETED: Replaced with list of TopologyConfigs, below
+  // repeated UnitConfig units = 1;
 
-  repeated TopologyConfig topology_configs = 2;
+  ServerConfig server = 2;
+
+  // List of known Topology configurations
+  repeated TopologyConfig topology_configs = 3;
 }
 
 // Default prioritizer. Licenses are allocated in the order they are requested.

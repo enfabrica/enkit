@@ -9,35 +9,24 @@ import (
 	apb "github.com/enfabrica/enkit/allocation_manager/proto"
 )
 
-func unitA() unit {
-	return unit{
-		Health: apb.Health_HEALTH_READY,
-		Topology: apb.Topology{
-			Name: "Unit Name", Config: "Unit Config",
-		},
-		Invocation: nil,
-	}
-}
+func invX() *invocation {
+	topo_name := "nameX"
 
-func invX() ([]*apb.Topology, *invocation) {
-	topos := []*apb.Topology{}
-	topos = append(topos, &apb.Topology{
-		Name: "nameX", Config: "yamlX",
-	})
-	return topos, &invocation{
-		ID:          "idX",
-		Owner:       "ownerX",
-		Purpose:     "purposeX",
-		LastCheckin: time.Unix(1000, 0),
-		QueueID:     1,
-		Topologies:  topos,
+	return &invocation{
+		ID:          		"idX",
+		Owner:       		"ownerX",
+		Purpose:     		"purposeX",
+		LastCheckin: 		time.Unix(1000, 0),
+		QueueID:     		1,
+		TopologyRequest:  	&apb.TopologyRequest{Name: &topo_name},
 	}
 }
 
 func TestAllocate(t *testing.T) {
 	// setup
-	u := unitA()
-	topos, inv := invX()
+	u := getTestUnits()["nameA"]
+
+	inv := invX()
 	var iNil *invocation
 	// precondition
 	assert.Equal(t, iNil, u.Invocation, "u.Invocation before")
@@ -46,8 +35,11 @@ func TestAllocate(t *testing.T) {
 	// verify
 	assert.NotEqual(t, iNil, u.Invocation, "u.Invocation after")
 	assert.Equal(t, apb.Health_HEALTH_READY, u.Health, "u.Invocation.Topologies")
-	assert.Equal(t, "Unit Name", u.Topology.GetName(), "u.Topology.GetName()")
-	assert.Equal(t, "Unit Config", u.Topology.GetConfig(), "u.Topology.GetConfig()")
+	assert.Equal(t, "nameA", u.GetName(), "u.GetName")
+	switch info := u.UnitInfo.Info.(type) {
+		case *apb.UnitInfo_HostInfo:
+			assert.Equal(t, "nameA", info.HostInfo.GetHostname(), "info.HostInfo.GetName")
+	}	
 	inv = u.Invocation
 	if inv != nil {
 		assert.Equal(t, "idX", inv.ID, "u.Invocation.ID")
@@ -55,7 +47,6 @@ func TestAllocate(t *testing.T) {
 		assert.Equal(t, "purposeX", inv.Purpose, "u.Invocation.Purpose")
 		assert.Equal(t, time.Unix(1000, 0), inv.LastCheckin, "u.Invocation.LastCheckin")
 		assert.Equal(t, QueueID(1), inv.QueueID, "u.Invocation.QueueID")
-		assert.Equal(t, topos, inv.Topologies, "u.Invocation.Topologies")
 	}
 	// test re-add
 	assert.Equal(t, false, u.Allocate(inv), "u.Allocate(inv) second insert")
@@ -63,8 +54,8 @@ func TestAllocate(t *testing.T) {
 
 func TestIsAllocated(t *testing.T) {
 	// setup
-	u := unitA()
-	_, inv := invX()
+	u := getTestUnits()["nameA"]
+	inv := invX()
 	var iNil *invocation
 	// precondition
 	assert.Equal(t, iNil, u.Invocation, "u.Invocation before")
@@ -81,7 +72,7 @@ func TestIsAllocated(t *testing.T) {
 
 func TestIsHealthy(t *testing.T) {
 	// setup
-	u := unitA()
+	u := getTestUnits()["nameA"]
 	// test
 	u.Health = apb.Health_HEALTH_UNINITIALIZED
 	assert.Equal(t, false, u.IsHealthy(), "u(Health_HEALTH_UNINITIALIZED)")
@@ -97,8 +88,8 @@ func TestIsHealthy(t *testing.T) {
 
 func TestGetInvocation(t *testing.T) {
 	// setup
-	u := unitA()
-	_, inv := invX()
+	u := getTestUnits()["nameA"]
+	inv := invX()
 	var iNil *invocation
 	// precondition
 	assert.Equal(t, iNil, u.Invocation, "u.Invocation before")
@@ -113,8 +104,8 @@ func TestGetInvocation(t *testing.T) {
 
 func TestExpireAllocations(t *testing.T) {
 	// setup
-	u := unitA()
-	_, inv := invX()
+	u := getTestUnits()["nameA"]
+	inv := invX()
 	var iNil *invocation
 	u.Allocate(inv)
 	// precondition
@@ -130,8 +121,8 @@ func TestExpireAllocations(t *testing.T) {
 
 func TestForget(t *testing.T) {
 	// setup
-	u := unitA()
-	_, inv := invX()
+	u := getTestUnits()["nameA"]
+	inv := invX()
 	var iNil *invocation
 	u.Allocate(inv)
 	// precondition

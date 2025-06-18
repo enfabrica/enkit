@@ -55,11 +55,10 @@ type Unit struct { // store topologies describing actual hardware
 }
 
 func (unit *Unit) GetName() string {
-	// TODO: Add case for AcfInfo
-
 	switch info := unit.UnitInfo.Info.(type) {
 	case *apb.UnitInfo_HostInfo:
 		return info.HostInfo.GetHostname()
+	// TODO: Add case for AcfInfo
 	default:
 		return "N/A"
 	}
@@ -185,4 +184,23 @@ func (u *Unit) updateMetrics() {
 type Topology struct {
 	Name	string
 	Units	[]*Unit
+}
+
+func (topo *Topology) Allocate(inv *invocation) bool {
+	for _, unit := range topo.Units {
+		if !unit.Allocate(inv) {
+			logger.Go.Errorf("Unit Allocate not supposed to fail!")
+			return false
+		}
+	}
+	return true
+}
+
+func (topo *Topology) CanBeAllocated() bool {
+	for _, unit := range topo.Units {
+		if unit.IsAllocated() {
+			return false
+		}
+	}
+	return true
 }
