@@ -160,6 +160,24 @@ directory that a wrapper requires by default to be used.
     },
 )
 
+SuiteTests = provider(
+    doc = "Represents the tests in a test suite - generally provider by the suite_aspect",
+    fields = {
+        "tests": "List of tests in the suite",
+    },
+)
+
+def _suite_aspect(target, ctx):
+    if ctx.rule.kind == "test_suite":
+        return [SuiteTests(tests = ctx.rule.attr.tests)]
+    return []
+
+suite_aspect = aspect(
+    doc = """Detects whether a target is a test suite.""",
+    implementation = _suite_aspect,
+    attr_aspects = [],
+)
+
 InputFiles = provider(
     doc = "Represents the input files of a rule - generally provider by the inputs_aspect",
     fields = {
@@ -352,6 +370,8 @@ def _export_and_run_impl(ctx):
 
         tdi = ctx.attr.target[DefaultInfo]
         target_label = ctx.attr.target.label
+        if SuiteTests in ctx.attr.target:
+            fail("{} is a test suite.  It expands to the following tests: {}.  Use one of these targets instead.".format(target_label, ", ".join([str(t) for t in ctx.attr.target[SuiteTests].tests])))
         input_files = tdi.files.to_list()
         if RunEnvironmentInfo in ctx.attr.target:
             env = ctx.attr.target[RunEnvironmentInfo].environment
@@ -426,6 +446,7 @@ export_and_run_rule = rule(
         "target": attr.label(
             cfg = "target",
             doc = "Target to execute on the remote machine",
+            aspects = [suite_aspect],
         ),
         "inputs": attr.label(
             doc = "Target whose input files need copied or exported - only one of target = or inputs = is allowed",
