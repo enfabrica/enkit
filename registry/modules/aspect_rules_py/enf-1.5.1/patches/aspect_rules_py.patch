@@ -44,7 +44,7 @@ index 8ccad81..d8d4abb 100644
  crate.from_cargo(
      name = "crate_index",
 diff --git py/private/py_pex_binary.bzl py/private/py_pex_binary.bzl
-index 9ee01fe..3bbb97a 100644
+index 9ee01fe..2799af8 100644
 --- py/private/py_pex_binary.bzl
 +++ py/private/py_pex_binary.bzl
 @@ -18,6 +18,7 @@ py_pex_binary(
@@ -74,15 +74,27 @@ index 9ee01fe..3bbb97a 100644
  
      args = ctx.actions.args()
  
-@@ -116,6 +120,7 @@ def _py_python_pex_impl(ctx):
+@@ -100,6 +104,7 @@ def _py_python_pex_impl(ctx):
+         allow_closure = True,
+     )
+     args.add(binary[DefaultInfo].files_to_run.executable, format = "--executable=%s")
++    args.add(binary[DefaultInfo].files_to_run.repo_mapping_manifest, format = "--source=%s=_repo_mapping")
+     args.add(ctx.attr.python_shebang, format = "--python-shebang=%s")
+     args.add(py_toolchain.python, format = "--python=%s")
+ 
+@@ -115,7 +120,10 @@ def _py_python_pex_impl(ctx):
+ 
      ctx.actions.run(
          executable = ctx.executable._pex,
-         inputs = runfiles.files,
+-        inputs = runfiles.files,
++        inputs = runfiles.files.to_list() + [
++            binary[DefaultInfo].files_to_run.repo_mapping_manifest
++        ],
 +        tools = py_toolchain.files,
          arguments = [args],
          outputs = [output],
          mnemonic = "PyPex",
-@@ -123,11 +128,19 @@ def _py_python_pex_impl(ctx):
+@@ -123,11 +131,19 @@ def _py_python_pex_impl(ctx):
      )
  
      return [
@@ -103,7 +115,7 @@ index 9ee01fe..3bbb97a 100644
      "inject_env": attr.string_dict(
          doc = "Environment variables to set when running the pex binary.",
          default = {},
-@@ -146,6 +159,7 @@ information from the hermetic python toolchain.
+@@ -146,6 +162,7 @@ information from the hermetic python toolchain.
          default = "//py:interpreter_version",
      ),
      "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex"),
@@ -174,10 +186,10 @@ index 2023076..606d238 100644
 +    resolve_toolchain_from_info = _resolve_toolchain_from_info,
  )
 diff --git py/tools/pex/main.py py/tools/pex/main.py
-index 5c699fd..2fcdbd1 100644
+index 5c699fd..0a07f82 100644
 --- py/tools/pex/main.py
 +++ py/tools/pex/main.py
-@@ -159,16 +159,19 @@ pex_info.interpreter_constraints = [
+@@ -159,23 +159,26 @@ pex_info.interpreter_constraints = [
  ]
  
  for dep in options.dependencies:
@@ -207,6 +219,14 @@ index 5c699fd..2fcdbd1 100644
  
  for source in options.sources:
      src, dest = source.split("=", 1)
+ 
+     # if destination path matches the entrypoint script, then also set the executable.
+     if dest == executable:
+-        pex_builder.set_executable(src)
++        pex_builder.set_entry_point(src.replace(os.path.sep, ".").rpartition(".")[0])
+         executable_was_set = True
+ 
+     pex_builder.add_source(
 diff --git py/tools/venv_bin/BUILD.bazel py/tools/venv_bin/BUILD.bazel
 index 7f3ee20..2dfd663 100644
 --- py/tools/venv_bin/BUILD.bazel
