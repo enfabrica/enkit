@@ -6,7 +6,7 @@
  |___/
 ```
 
-gee version: 0.2.59
+gee version: 0.2.60
 
 gee is a user-friendly wrapper (aka "porcelain") around the "git" and "gh-cli"
 tools  gee is an opinionated tool that implements a specific, simple, powerful
@@ -581,6 +581,12 @@ Otherwise, the other user might accidentally lose your commits entirely if they
 force-push.  Remote users can integrate your changes using the `gee update`
 command, or `git rebase --autostash origin/<branch>` if they aren't a gee user.
 
+It is sometimes necessary to perform a force push to a remote user's branch
+(for example, after a rebase operation).  Use this with extreme caution,
+and coordinate directly with the PR owner before doing this.  Otherwise, you
+might accidentally destroy another user's work.  To enable force push,
+add `--force` to the `gee pr_push` command.
+
 See also:
 
 * commit
@@ -653,11 +659,18 @@ a set of presubmits that were triggered by a change to this branch.
 
 Aliases: pr_checks check_pr check checks
 
-Usage: `gee pr_check [--wait]`
+Usage: `gee pr_check [--wait] [<PR number>]`
 
-Returns the state of presubmit checks.  If the --wait option is provided,
-this command will continue to report check status until all pending
-checks have completed.
+Returns the state of presubmit checks.  If the --wait option is provided, this
+command will continue to report check status until all pending checks have
+completed.  This command will also parse the console output of any failed
+presubmit check, looking for anything that looks like a buildbuddy link.
+
+gee performs a few tricks to infer the PR number if one is not provided by the
+user.  If a branch was created with `gee pr_checkout` (if the branch has a name
+like pr_12345), gee will infer the PR number from the branch name.  Otherwise,
+gee will invoke `gh pr view` to ask github for the PR number associated with
+the branch.
 
 ### pr_rerun
 
