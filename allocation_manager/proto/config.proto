@@ -2,15 +2,17 @@ syntax = "proto3";
 
 package allocation_manager.proto;
 
-import "allocation_manager/proto/allocation_manager.proto";
-
 option go_package = "github.com/enfabrica/enkit/allocation_manager/proto";
 
 // Message used for server config file
 message Config {
-  repeated UnitConfig units = 1;
+  // OBSOLETED: Replaced with list of TopologyConfigs, below
+  // repeated UnitConfig units = 1;
 
   ServerConfig server = 2;
+
+  // List of known Topology configurations
+  repeated TopologyConfig topology_configs = 3;
 }
 
 // Default prioritizer. Licenses are allocated in the order they are requested.
@@ -21,18 +23,6 @@ message FIFOPrioritizer {}
 // This means that users can jump ahead of the line, or be bumped after new
 // requests.
 message EvenOwnersPrioritizer {}
-
-// One topology with unique name per Unit
-message UnitConfig {
-  // TODO(kjw): better; filename
-  allocation_manager.proto.Topology topology = 1;
-
-  // Strategy to distribute Units.
-  oneof prioritizer {
-    FIFOPrioritizer fifo = 3;
-    EvenOwnersPrioritizer even_owners = 4;
-  }
-}
 
 // General options for the entire instance
 message ServerConfig {
@@ -59,4 +49,19 @@ message ServerConfig {
   // operating state.
   // Default: 45s
   uint32 adoption_duration_seconds = 4;
+}
+
+message TopologyConfig {
+  string name = 1;
+
+  repeated string hosts = 2;
+
+  // TODO: Add entry for links
+  // TODO: Add entry for acfs
+
+  // Strategy to distribute Units.
+  oneof prioritizer {
+    FIFOPrioritizer fifo = 3;
+    EvenOwnersPrioritizer even_owners = 4;
+  }
 }

@@ -50,57 +50,59 @@ var (
 
 // Service implements the LicenseManager gRPC service.
 type Service struct {
-	mu                        sync.Mutex       // Protects the following members from concurrent access
-	currentState              state            // State of the server
-	units                     map[string]*unit // Managed Units key=topology name (string) value=*unit
-	queueRefreshDuration      time.Duration    // Queue entries not refreshed within this duration are expired
-	allocationRefreshDuration time.Duration    // Allocations not refreshed within this duration are expired
+	mu                        sync.Mutex       		// Protects the following members from concurrent access
+	currentState              state            		// State of the server
+	units                     map[string]*Unit 		// Managed Units key=hostname (string) value=*Unit
+	inventory				  *apb.HostInventory   	// Inventory of available hosts, loaded from provided file
+	topologies				  map[string]*Topology	// Known topologies, stored server-side, keyed by topology name
+	queueRefreshDuration      time.Duration    		// Queue entries not refreshed within this duration are expired
+	allocationRefreshDuration time.Duration    		// Allocations not refreshed within this duration are expired
 }
 
-// UnitsFromConfig given a Config proto during startup, store unit topologies
-func UnitsFromConfig(config *apb.Config) (map[string]*unit, error) {
-	failure := 0
-	names := map[string]bool{}
-	units := map[string]*unit{}
-	for _, uMsg := range config.GetUnits() {
-		// config := uMsg.GetTopology().GetConfig()
-		// TODO: parse yaml, pull unique name out of config
-		// parsed :=...
-		// name := parsed.name
-		// if name != parsed.name {
-		//  return units, fmt.Errorf("Error: topology name %s does not match config name %s", uMsg.GetName(), parsed.name)}
-		// until then, assume name is correct
-		name := uMsg.GetTopology().GetName()
-		/* TODO queue
-		var prioritizer Prioritizer
-		switch uMsg.Prioritizer.(type) {
-		case *apb.UnitConfig_Fifo:
-			prioritizer = &FIFOPrioritizer{}
-		case *apb.UnitConfig_EvenOwners:
-			prioritizer = NewEvenOwnersPrioritizer()
-		default:
-			prioritizer = &FIFOPrioritizer{}
-		}
-		*/
-		u := new(unit)
-		u.Health = apb.Health_HEALTH_UNKNOWN // janitor must mark machine as clean
-		u.Topology = *uMsg.Topology
-		// u.prioritizer = prioritizer
-		_, ok := names[name]
+func UnitsFromInventory(inventory *apb.HostInventory) (map[string]*Unit, error) {
+ 	hostnames := map[string]bool{}
+	units := map[string]*Unit{}
+
+	for hostname, inventoried_host := range inventory.GetHosts() {
+		unit := new(Unit)
+		unit.Health = apb.Health_HEALTH_UNKNOWN // janitor must mark machine as clean
+		unit.UnitInfo.Info = &apb.UnitInfo_HostInfo{HostInfo: inventoried_host} // this is the apb.HostInfo for this inventoried host
+
+		_, ok := hostnames[hostname]
 		if ok {
-			failure = failure + 1
-			logger.Go.Errorf("Duplicate Unit name: %s", name)
+			return units, fmt.Errorf("Duplicate hostname: %s", hostname)
 		} else {
-			names[name] = true
-			// Must turn units off before renaming them, or startup Adoption will fail
-			// TODO: document this procedure
-			units[name] = u
+			hostnames[hostname] = true
+			units[hostname] = unit
 		}
 	}
-	if failure > 0 {
-		return nil, fmt.Errorf("Error: %d Unit topology names not unique, expected 0", failure)
-	}
+
 	return units, nil
+}
+
+func TopologiesFromConfigAndUnits(config *apb.Config, units map[string]*Unit) ([]*Topology, error) {
+	topos := []*Topology{}
+
+	for _, topo_config := range config.GetTopologyConfigs() {
+		topo_units := []*Unit{}
+
+		for _, hostname := range topo_config.GetHosts() {
+			unit, ok := units[hostname]
+			if !ok {
+				return topos, fmt.Errorf("Hostname '%s' not found in unit inventory", hostname)
+			}
+			topo_units = append(topo_units, unit)
+		}
+
+		topo := &Topology{
+			Name: topo_config.GetName(),
+			Units: topo_units,
+		}
+
+		topos = append(topos, topo)
+	}
+
+	return topos, nil
 }
 
 func defaultUint32(v, d uint32) uint32 {
@@ -110,7 +112,7 @@ func defaultUint32(v, d uint32) uint32 {
 	return v
 }
 
-func New(config *apb.Config) (*Service, error) {
+func New(config *apb.Config, inventory *apb.HostInventory) (*Service, error) {
 	if config.GetServer() == nil {
 		return nil, fmt.Errorf("missing `server` section in config")
 	}
@@ -118,14 +120,27 @@ func New(config *apb.Config) (*Service, error) {
 	allocationRefreshSeconds := defaultUint32(config.GetServer().GetAllocationRefreshDurationSeconds(), 30)
 	janitorIntervalSeconds := defaultUint32(config.GetServer().GetJanitorIntervalSeconds(), 1)
 	adoptionDurationSeconds := defaultUint32(config.GetServer().GetAdoptionDurationSeconds(), 45)
-	units, err := UnitsFromConfig(config)
+	units, err := UnitsFromInventory(inventory)
 	if err != nil {
 		return nil, err
+	}
+
+	// TODO: Build topology objects from topology configs + units
+	topologies, err := TopologiesFromConfigAndUnits(config, units)
+	if err != nil {
+		return nil, err
+	}
+
+	topology_map := map[string]*Topology{}
+	for _, topo := range topologies {
+		topology_map[topo.Name] = topo
 	}
 
 	service := &Service{
 		currentState:              stateStarting,
 		units:                     units,
+		inventory:				   inventory,
+		topologies:				   topology_map,
 		queueRefreshDuration:      time.Duration(queueRefreshSeconds) * time.Second,
 		allocationRefreshDuration: time.Duration(allocationRefreshSeconds) * time.Second,
 	}
@@ -157,12 +172,12 @@ func New(config *apb.Config) (*Service, error) {
 */
 // invocation contains the original request and metadata/terms of the Allocation
 type invocation struct {
-	ID          string    // Server-generated unique ID
-	Owner       string    // Client-provided owner
-	Purpose     string    // Client-provided purpose (CI: send test target)
-	LastCheckin time.Time // Time the invocation last had its queue position/allocation refreshed.
-	QueueID     QueueID   // Position in the queue. 0 means the invocation has not been queued yet.
-	Topologies  []*apb.Topology
+	ID          	 string    // Server-generated unique ID
+	Owner       	 string    // Client-provided owner
+	Purpose     	 string    // Client-provided purpose (CI: send test target)
+	LastCheckin 	 time.Time // Time the invocation last had its queue position/allocation refreshed.
+	QueueID     	 QueueID   // Position in the queue. 0 means the invocation has not been queued yet.
+	TopologyRequest  *apb.TopologyRequest
 }
 
 func (i *invocation) ToProto() *apb.Invocation {
@@ -219,7 +234,7 @@ func (s *Service) janitor() {
 		// u.ExpireQueued(queueExpiry)  // TODO queue
 		// u.Promote()  // TODO queue
 	}
-	InvocationQueue.Promote(s.units)
+	InvocationQueue.Promote(s.units, s.inventory, s.topologies)
 }
 
 func updateJanitorMetrics(startTime time.Time) {
@@ -236,80 +251,34 @@ func updateMetrics(method string, err *error, startTime time.Time) {
 
 // TODO: move to topology.go
 type Match struct {
-	Topology *apb.Topology // yes, duplicate from invocation, but pointers are cheap. this makes iterating easier.
-	Units    []*unit
-	// bitmap bitmap.Bitmap
-}
-
-func (m *Match) Found() bool {
-	return len(m.Units) > 0
-}
-
-type Matched struct {
-	matches    []*Match // fixed size array; same size as invocation.Topologies
-	invocation *invocation
-}
-
-// TODO: feels not quite right style wise
-func NewMatched(inv *invocation) *Matched {
-	return &Matched{
-		invocation: inv,
-		matches:    make([]*Match, len(inv.Topologies)), // n.b. fixed size array
-	}
-}
-
-func (md *Matched) Found() bool {
-	count := 0
-	for _, match := range md.matches {
-		// TODO: use bitmaps
-		if match.Found() {
-			count += 1
-		}
-	}
-	return len(md.matches) == count
-}
-
-func (md *Matched) ToString(nu int) string {
-	details := []string{}
-	for _, m := range md.matches {
-		details = append(details, fmt.Sprintf("%d", len(m.Units)))
-	}
-	return fmt.Sprintf("%d topologies + %d units = %v matches", len(md.invocation.Topologies), nu, details)
+	TopologyRequest *apb.TopologyRequest  	// The request we recevied for matching a topology
+	Topology *Topology    			  		// The known topology that matched the request
 }
 
 // Matchmaker returns [n][_]*unit containing plausible matches
 // n: index corresponding to the invocation topologies
 // _: if all=false, len is 0 (nomatch) or 1 (match). if all=true, len is uint
-func Matchmaker(units map[string]*unit, inv *invocation, all bool) (*Matched, error) {
-	topos := inv.Topologies
-	md := NewMatched(inv)
-	matches := 0
-	for nt, t := range topos { // yes, premature bundle code, but doesn't seem to hurt
-		m := &Match{Topology: t, Units: []*unit{}}
-		md.matches[nt] = m
-		// newBitmap := bitmap.Bitmap{} probably https://github.com/RoaringBitmap/roaring
-		for _, u := range units {
-			// if unit is taken, skip
-			if false == all && u.IsAllocated() {
+func Matchmaker(units map[string]*Unit, inventory *apb.HostInventory, topologies map[string]*Topology, inv *invocation, all bool) ([]Match, error) {
+	request := inv.TopologyRequest
+	matches := []Match{}
+
+	if request.GetName() != "" {
+		// operating off the name of a known topology. check to see if we have a match for this name in our known topologies
+		for topology_name, topology := range topologies {
+			// is this topology even available to be allocated?
+			if all == false && !topology.CanBeAllocated() {
+				// nope, let's skip it
 				continue
 			}
-			// TODO: make the topology a struct so I can abstract matching away
-			if u.Topology.GetName() == t.GetName() { // PROTOTYPE ONLY
-				// set bit _ in the bitmap
-				m.Units = append(m.Units, u)
-				if !all { // simplify: first match for speed
-					break
-				}
+
+			if topology_name == request.GetName() {
+				matches = append(matches, Match{TopologyRequest: request, Topology: topology})
 			}
 		}
-		if len(m.Units) > 0 {
-			matches += 1
-		}
 	}
-	// units -> slice, not map
-	logger.Go.Infof("%v results: %s", inv.ID, md.ToString(len(units)))
+
 	// maybe we need a matchmaker struct
-	return md, nil
+	return matches, nil
 }
 
 // Allocate validates invocation request is satisfiable, then queues it.
@@ -319,23 +288,26 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	invMsg := req.GetInvocation()
-	if len(invMsg.GetTopologies()) != 1 {
-		return nil, status.Errorf(codes.InvalidArgument, "requests must have exactly one topology (for now)")
-	}
-	inv := &invocation{Topologies: req.Invocation.GetTopologies()} // Matchmaker only uses the topos
 	invocationID := invMsg.GetId()
+	invRequest := invMsg.GetRequest()
+
+	if invRequest.GetName() == "" && len(invRequest.GetHosts()) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "requests must provide either a topology_name, or one or more hosts")
+	}
+
+	inv := &invocation{TopologyRequest: invRequest} // Matchmaker only uses the topos
 	// Enqueue it
-	if invocationID == "" {
+	if invMsg.GetId() == "" {
 		// only check first time:
-		matches, err := Matchmaker(s.units, inv, true)
+		matches, err := Matchmaker(s.units, s.inventory, s.topologies, inv, true)
 		if err != nil {
 			return nil, err
 		}
-		if !matches.Found() {
+		if len(matches) == 0 {
 			// TODO make error more verbose
-			return nil, status.Errorf(codes.InvalidArgument, "results: %s . "+
+			return nil, status.Errorf(codes.InvalidArgument, "no results. "+
 				" impossible to match against inventory. This is a permanent failure, not"+
-				" an availability failure.", matches.ToString(len(s.units)))
+				" an availability failure.")
 		}
 		// This is the first AllocationRequest. Generate an ID and queue it.
 		invocationID, err = generateRandomID()
@@ -343,37 +315,49 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 			return nil, status.Errorf(codes.Internal, "failed to generate invocation_id: %v", err)
 		}
 		inv := &invocation{
-			ID:          invocationID,
-			Owner:       invMsg.GetOwner(),
-			Purpose:     invMsg.GetPurpose(),
-			LastCheckin: timeNow(),
-			Topologies:  invMsg.GetTopologies(),
+			ID:          		invocationID,
+			Owner:       		invMsg.GetOwner(),
+			Purpose:     		invMsg.GetPurpose(),
+			LastCheckin: 		timeNow(),
+			TopologyRequest:  	invRequest,
 		}
 		InvocationQueue.Enqueue(inv)
 		if s.currentState == stateRunning {
-			InvocationQueue.Promote(s.units) // run asap so we can tell the user whether they're allocated or queued below
+			InvocationQueue.Promote(s.units, s.inventory, s.topologies) // run asap so we can tell the user whether they're allocated or queued below
 		}
 	}
 	// Update LastCheckin
-	topos := []*apb.Topology{}
+	host_infos := []*apb.HostInfo{}
 	for _, u := range s.units {
 		if inv := u.GetInvocation(invocationID); inv != nil {
 			inv.LastCheckin = timeNow()
-			topos = append(topos, &u.Topology)
+			switch info := u.UnitInfo.Info.(type) {
+				case *apb.UnitInfo_HostInfo:
+					host_infos = append(host_infos, info.HostInfo)
+				// TODO: add cases for AcfInfo
+			}
+			
 			break // TODO: for bundles, remove this break
 		}
 	}
 	// Invocation was already allocated (i.e. by janitor())
-	if len(topos) > 0 {
-		return &apb.AllocateResponse{
+	if len(host_infos) > 0 {
+		alloc_topo := &apb.Topology{
+			Name: invRequest.GetName(),
+			Hosts: host_infos,
+		}
+
+		alloc_response := apb.AllocateResponse{
 			ResponseType: &apb.AllocateResponse_Allocated{
 				Allocated: &apb.Allocated{
 					Id:              invocationID,
-					Topologies:      topos,
+					Topology:        alloc_topo,
 					RefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),
 				},
 			},
-		}, nil
+		}
+
+		return &alloc_response, nil
 	}
 	// Invocation is queued
 	if inv, pos := InvocationQueue.Get(invocationID); inv != nil {
@@ -398,11 +382,11 @@ func (s *Service) Allocate(ctx context.Context, req *apb.AllocateRequest) (retRe
 	// back to the queue.
 	// TODO: add to front of queue
 	inv = &invocation{
-		ID:          invocationID,
-		Owner:       invMsg.GetOwner(),
-		Purpose:     invMsg.GetPurpose(),
-		LastCheckin: timeNow(),
-		Topologies:  invMsg.GetTopologies(),
+		ID:          		invocationID,
+		Owner:       		invMsg.GetOwner(),
+		Purpose:     		invMsg.GetPurpose(),
+		LastCheckin: 		timeNow(),
+		TopologyRequest:  	invRequest,
 	}
 	pos := InvocationQueue.Enqueue(inv)
 	return &apb.AllocateResponse{
@@ -423,23 +407,13 @@ func (s *Service) Refresh(ctx context.Context, req *apb.RefreshRequest) (retRes 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	reqInvoc := req.GetInvocation()
-	want := reqInvoc.GetTopologies() // repeated Topology, despite singular in name
-	if len(want) != 1 {
-		return nil, status.Errorf(codes.InvalidArgument, "request must have exactly one topology, got %d", len(want))
-	}
-	got := req.GetAllocated() // repeated Topology
-	if len(got) != 1 {
-		return nil, status.Errorf(codes.InvalidArgument, "allocations must have exactly one topology, got %d: %v", len(got), got)
-	}
-	// TODO: handle multiple topologies (bundles)
-	// i.e. replace above with a len(want) == len(got) ?
-	// for _, allocated := range(got) {
-	allocated := got[0]
-	name := allocated.Name
-
-	u, ok := s.units[name]
-	if !ok {
-		return nil, status.Errorf(codes.NotFound, "unknown unit name: %s", name)
+	topoReq := reqInvoc.GetRequest()
+	
+	allocated := req.GetAllocated() // allocated Topology proto
+	allocated_topo := s.topologies[allocated.GetName()]
+	
+	if allocated_topo == nil {
+		return nil, status.Errorf(codes.NotFound, "unknown topology name: %s", allocated.Name)
 	}
 	// TODO: validate configs are the same, and name isn't just faked
 	// perhaps: if u.config == topo.config {
@@ -449,24 +423,30 @@ func (s *Service) Refresh(ctx context.Context, req *apb.RefreshRequest) (retRes 
 		return nil, status.Errorf(codes.InvalidArgument, "invocation.id must be set")
 	}
 	logger.Go.Infof("Refresh(%s)", invID)
-	unitInvoc := u.GetInvocation(invID)
-	if unitInvoc == nil {
-		if s.currentState == stateRunning {
-			return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not allocated: %q", invID)
+
+	// refresh each unit that is a part of this topology
+	for _, unit := range allocated_topo.Units {
+		unitInvoc := unit.GetInvocation(invID)
+		if unitInvoc == nil {
+			if s.currentState == stateRunning {
+				return nil, status.Errorf(codes.FailedPrecondition, "invocation_id not allocated: %q", invID)
+			}
+			// else "Adopt" this invocation
+			inv := &invocation{
+				ID:         	 invID,
+				Owner:      	 reqInvoc.GetOwner(),
+				Purpose:    	 reqInvoc.GetPurpose(),
+				TopologyRequest: topoReq,
+				// LastCheckin: timeNow(), redundant
+			}
+			if ok := unit.Allocate(inv); !ok {
+				return nil, status.Errorf(codes.ResourceExhausted, "%s cannot be allocated (adopted)", allocated_topo.Name)
+			}
 		}
-		// else "Adopt" this invocation
-		inv := &invocation{
-			ID:         invID,
-			Owner:      reqInvoc.GetOwner(),
-			Purpose:    reqInvoc.GetPurpose(),
-			Topologies: reqInvoc.GetTopologies(),
-			// LastCheckin: timeNow(), redundant
-		}
-		if ok := u.Allocate(inv); !ok {
-			return nil, status.Errorf(codes.ResourceExhausted, "%s cannot be allocated (adopted)", name)
-		}
+		unit.Invocation.LastCheckin = timeNow()
 	}
-	u.Invocation.LastCheckin = timeNow()
+
+	
 	return &apb.RefreshResponse{
 		Id:              invID,
 		RefreshDeadline: timestamppb.New(timeNow().Add(s.allocationRefreshDuration)),

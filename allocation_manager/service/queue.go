@@ -4,6 +4,8 @@ import (
 	"sort"
 	"time"
 
+	apb "github.com/enfabrica/enkit/allocation_manager/proto"
+
 	"github.com/enfabrica/enkit/lib/logger"
 )
 
@@ -59,28 +61,28 @@ func (iq *invocationQueue) Enqueue(x *invocation) Position {
 }
 
 // Promote tries to turn queued requests into allocations.
-func (iq *invocationQueue) Promote(units map[string]*unit) {
+func (iq *invocationQueue) Promote(units map[string]*Unit, inventory *apb.HostInventory, topologies map[string]*Topology) {
 	// TODO: metrics
 	// defer iq.updateMetrics()
 	for _, inv := range *iq {
-		matched, err := Matchmaker(units, inv, false)
+		matches, err := Matchmaker(units, inventory, topologies, inv, false)
 		if err != nil {
 			logger.Go.Warnf("Promote() is ignoring Matchmaker err=%v\n", err)
 			continue // short circuit
 		}
 		// TODO: optimize across the matches x requests matrix after bitmap implemented
-		if matched.Found() {
+		if len(matches) > 0 {
 			iq.Forget(inv.ID) // dequeue
 			// associate units with invocation
-			for _, m := range matched.matches {
-				// Matchmaker should only give one one unit:
-				if len(m.Units) != 1 {
-					logger.Go.Errorf("Error: len(m) want 1, got %d", len(m.Units))
+			for _, match := range matches {
+				// Matchmaker should return one matching topology
+				if match.Topology == nil {
+					logger.Go.Errorf("Error: Match has no topology")
 					break
 				}
-				u := m.Units[0]
-				if !u.Allocate(inv) {
-					logger.Go.Errorf("Allocate not supposed to fail! u.Topology.name=%v\n", u.Topology.GetName())
+				
+				if !match.Topology.Allocate(inv) {
+					logger.Go.Errorf("Topology Allocate not supposed to fail! match=%v\n", match)
 				}
 			}
 		}

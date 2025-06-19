@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -23,13 +22,13 @@ var runCommand = func(ctx context.Context, result chan error, cmd string, args .
 type AllocationClient struct {
 	client        apb.AllocationManagerClient
 	invocation    *apb.Invocation // request
-	allocated     []*apb.Topology // assigned to us
+	allocated     *apb.Topology // assigned to us
 	allocationErr chan error
 }
 
 // New returns a AllocationClient that can be used to guard command invocations
 // with the specified Unit.
-func New(client apb.AllocationManagerClient, names, configs []string, username, purpose string) *AllocationClient {
+func New(client apb.AllocationManagerClient, topology_name string, username, purpose string) *AllocationClient {
 	// buildTag string) *AllocationClient {
 	a := &AllocationClient{
 		client: client,
@@ -41,11 +40,15 @@ func New(client apb.AllocationManagerClient, names, configs []string, username, 
 		allocationErr: make(chan error),
 	}
 	inv := a.invocation
-	for idx := range names {
-		t := apb.Topology{Name: names[idx], Config: configs[idx]}
-		inv.Topologies = append(inv.Topologies, &t)
-		break // TODO: remove to implement bundles
+
+	// if given a topology name, set that in the invocation
+	if topology_name != "" {
+		inv.Request = &apb.TopologyRequest{
+			Name: &topology_name,
+		}
 	}
+	// TODO: handle other ways of requesting an allocation (num hosts, etc)
+
 	return a
 }
 
@@ -60,25 +63,7 @@ func (c *AllocationClient) Guard(ctx context.Context, cmd string, args ...string
 	}
 	jobResult := make(chan error)
 	go c.refresh(ctx)
-	var tempfiles []string
-	for _, topo := range c.allocated {
-		fh, err := os.CreateTemp("", "topology-*.yaml")
-		if err != nil {
-			return fmt.Errorf("failed to create temp file: %v", err)
-		}
-		defer fh.Close()
-		// how to deal with multiple topology files?
-		bytes_written, err := fh.Write([]byte(topo.GetConfig()))
-		if err != nil {
-			return fmt.Errorf("failed Write() to temp file %s: %v", fh.Name(), err)
-		}
-		if bytes_written != len(topo.GetConfig()) {
-			return fmt.Errorf("failed to write to temp file; fh.Write()=%d want %d", fh.Name(), bytes_written, len(topo.GetConfig()))
-		}
-		tempfiles = append(tempfiles, fh.Name())
-	}
-	topologies := "--topologies=" + strings.Join(tempfiles, ",")
-	args = append([]string{topologies}, args...) // prepend --topologies=
+	
 	go runCommand(ctx, jobResult, cmd, args...)
 	defer c.release(3 * time.Second)
 	select {
@@ -98,10 +83,6 @@ func (c *AllocationClient) Guard(ctx context.Context, cmd string, args ...string
 		// Command has finished, either with success or error
 		if err != nil {
 			return fmt.Errorf("job failed: %w", err)
-		} else {
-			for _, fn := range tempfiles { // delete files if job succeeded
-				os.Remove(fn)
-			}
 		}
 		// Stop refreshing
 		cancel()
@@ -129,12 +110,10 @@ func (c *AllocationClient) allocate(ctx context.Context) error {
 		switch r := res.GetResponseType().(type) {
 		case *apb.AllocateResponse_Allocated:
 			id := res.GetAllocated().GetId()
-			c.allocated = r.Allocated.GetTopologies()
+			c.allocated = r.Allocated.GetTopology()
 			req.GetInvocation().Id = id
 			fmt.Fprintf(os.Stderr, "allocation_manager request: %s\n", id)
-			for _, t := range c.allocated {
-				fmt.Fprintf(os.Stderr, "allocation_manager reserved Unit: %s\n", t.GetName())
-			}
+			fmt.Fprintf(os.Stderr, "allocation_manager reserved Unit: %s\n", c.allocated.GetName())
 			return nil
 		case *apb.AllocateResponse_Queued:
 			id := res.GetQueued().GetId()

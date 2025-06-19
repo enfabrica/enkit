@@ -48,31 +48,41 @@ metricLicenseReleaseReason = promauto.NewCounterVec(prometheus.CounterOpts{
 */
 )
 
-type unit struct { // store topologies describing actual hardware
-	Health     apb.Health   // Health status of hardware
-	Topology   apb.Topology // hardware actual configuration
-	Invocation *invocation  // request for a Unit allocation
+type Unit struct { // store topologies describing actual hardware
+	Health     	apb.Health   // Health status of hardware
+	Invocation 	*invocation  // request for a Unit allocation
+	UnitInfo   	apb.UnitInfo
+}
+
+func (unit *Unit) GetName() string {
+	switch info := unit.UnitInfo.Info.(type) {
+	case *apb.UnitInfo_HostInfo:
+		return info.HostInfo.GetHostname()
+	// TODO: Add case for AcfInfo
+	default:
+		return "N/A"
+	}
 }
 
 // Allocate attempts to associate the supplied invocation with this Unit.
 // Returns whether this Unit was successfully allocated.
-func (u *unit) Allocate(inv *invocation) bool {
+func (u *Unit) Allocate(inv *invocation) bool {
 	defer u.updateMetrics()
 	if u.Invocation != nil && u.Invocation.ID == inv.ID {
 		return false
 	}
 	// u.prioritizer.OnAllocate(inv)
-	logger.Go.Infof("unit.Allocate %s to %s\n", u.Topology.Name, inv.ID)
+	logger.Go.Infof("unit.Allocate %s to %s\n", u.GetName(), inv.ID)
 	u.Invocation = inv
 	return true
 }
 
-func (u *unit) IsAllocated() bool {
+func (u *Unit) IsAllocated() bool {
 	return nil != u.Invocation
 }
 
 // TODO: decide actual values to go in here
-func (u *unit) IsHealthy() bool {
+func (u *Unit) IsHealthy() bool {
 	switch u.Health {
 	case apb.Health_HEALTH_BROKEN: // maybe later
 		return true
@@ -86,7 +96,7 @@ func (u *unit) IsHealthy() bool {
 
 // GetInvocation returns an invocation by ID if the invocation is allocated a
 // unit, or nil otherwise.
-func (u *unit) GetInvocation(invID string) *invocation {
+func (u *Unit) GetInvocation(invID string) *invocation {
 	if u.Invocation != nil && u.Invocation.ID == invID {
 		return u.Invocation
 	}
@@ -95,7 +105,7 @@ func (u *unit) GetInvocation(invID string) *invocation {
 
 // ExpireAllocations removes all allocations for invocations that have not
 // checked in since `expiry`.
-func (u *unit) ExpireAllocations(expiry time.Time) {
+func (u *Unit) ExpireAllocations(expiry time.Time) {
 	defer u.updateMetrics()
 	if u.Invocation != nil && !u.Invocation.LastCheckin.After(expiry) {
 		// u.prioritizer.OnRelease(v)
@@ -108,7 +118,7 @@ func (u *unit) ExpireAllocations(expiry time.Time) {
 
 // Forget removes invocations matching the specified ID from allocations and
 // the queue.
-func (u *unit) Forget(invID string) int {
+func (u *Unit) Forget(invID string) int {
 	defer u.updateMetrics()
 	/*
 		newAllocations := map[string]*invocation{}
@@ -135,10 +145,10 @@ func (u *unit) Forget(invID string) int {
 }
 
 // GetStats returns a Stats message for this Unit.
-func (u *unit) GetStats() *apb.Stats {
-	fields := strings.SplitN(u.Topology.GetName(), "::", 2)
+func (u *Unit) GetStats() *apb.Stats {
+	fields := strings.SplitN(u.GetName(), "::", 2)
 	if len(fields) != 2 {
-		fields = []string{"<UNKNOWN>", u.Topology.GetName()}
+		fields = []string{"<UNKNOWN>", u.GetName()}
 	}
 	/*
 		queued := []*apb.Invocation{}
@@ -157,14 +167,40 @@ func (u *unit) GetStats() *apb.Stats {
 		status.Allocation = apb.Allocation_ALLOCATION_AVAILABLE
 	}
 	return &apb.Stats{
-		Topology:  &u.Topology,
-		Status:    status,
-		Timestamp: timestamppb.New(timeNow()),
+		Info:  		&u.UnitInfo,
+		Status:    	status,
+		Timestamp: 	timestamppb.New(timeNow()),
 	}
 }
 
-func (u *unit) updateMetrics() {
+func (u *Unit) updateMetrics() {
 	// metricActiveCount.WithLabelValues(u.name).Set(float64(len(u.allocations)))
 	// metricQueueSize.WithLabelValues(u.name).Set(float64(u.queue.Len()))
 	// metricTotalLicenses.WithLabelValues(u.name).Set(float64(u.totalAvailable))
+}
+
+// a Topology is comprised of one or more units
+// TODO: Add links and acfs to Topology
+type Topology struct {
+	Name	string
+	Units	[]*Unit
+}
+
+func (topo *Topology) Allocate(inv *invocation) bool {
+	for _, unit := range topo.Units {
+		if !unit.Allocate(inv) {
+			logger.Go.Errorf("Unit Allocate not supposed to fail!")
+			return false
+		}
+	}
+	return true
+}
+
+func (topo *Topology) CanBeAllocated() bool {
+	for _, unit := range topo.Units {
+		if unit.IsAllocated() {
+			return false
+		}
+	}
+	return true
 }
