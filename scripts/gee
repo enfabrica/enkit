@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 # (due to https://github.com/koalaman/shellcheck/issues/817)
 
-readonly VERSION="0.2.59"
+readonly VERSION="0.2.60"
 
 if read -r -d '' USAGE <<'EOT'
 . __ _  ___  ___
@@ -3910,6 +3910,12 @@ Otherwise, the other user might accidentally lose your commits entirely if they
 force-push.  Remote users can integrate your changes using the `gee update`
 command, or `git rebase --autostash origin/<branch>` if they aren't a gee user.
 
+It is sometimes necessary to perform a force push to a remote user's branch
+(for example, after a rebase operation).  Use this with extreme caution,
+and coordinate directly with the PR owner before doing this.  Otherwise, you
+might accidentally destroy another user's work.  To enable force push,
+add `--force` to the `gee pr_push` command.
+
 See also:
 
 * commit
@@ -3932,6 +3938,13 @@ function gee__pr_push() {
     _fatal "This branch does not appear to have been made with \"gee pr_checkout\"."
   fi
   _info "This branch appears to be associated with PR #${PRNUM}."
+
+  local FORCE
+  FORCE=0
+  if [[ "$1" == "--force" ]]; then
+    FORCE=1
+    shift
+  fi
 
   # Identify remote branch
   local -a DATA=()
@@ -3967,11 +3980,19 @@ function gee__pr_push() {
   fi
   if [[ "${COUNTS[1]}" -gt 0 ]]; then
     _warn "Remote branch ${REMOTE_REPO_OWNER}/${REMOTE_BRANCH} is ${COUNTS[1]} commit(s) ahead of ${BRANCH}."
-    _fatal "You must run \"gee update\" and then try again."
+    if [[ $FORCE == 1 ]]; then
+      _warn "Force is enabled."
+    else
+      _fatal "You must run \"gee update\" and then try again."
+    fi
   fi
 
   # Push our changes to the remote branch
-  _git push "${GIT_AT_GITHUB}:${REMOTE_REPO_OWNER}/${REMOTE_REPO}" "HEAD:${REMOTE_BRANCH}"
+  local F=""
+  if [[ $FORCE == 1 ]]; then
+    F="-f"
+  fi
+  _git push $F "${GIT_AT_GITHUB}:${REMOTE_REPO_OWNER}/${REMOTE_REPO}" "HEAD:${REMOTE_BRANCH}"
   _info "Successfully pushed to PR#${PRNUM} (${REMOTE_REPO_OWNER}/${REMOTE_BRANCH})."
 
   _warn "Please notify ${REMOTE_USER} that they should pull from their remote branch, " \
@@ -4524,11 +4545,18 @@ function gee__pr_cancel() {
 _register_help "pr_check" \
   "Checks the status of presubmit tests for a PR." \
   "pr_checks" "check_pr" "check" "checks" <<'EOT'
-Usage: gee pr_check [--wait]
+Usage: gee pr_check [--wait] [<PR number>]
 
-Returns the state of presubmit checks.  If the --wait option is provided,
-this command will continue to report check status until all pending
-checks have completed.
+Returns the state of presubmit checks.  If the --wait option is provided, this
+command will continue to report check status until all pending checks have
+completed.  This command will also parse the console output of any failed
+presubmit check, looking for anything that looks like a buildbuddy link.
+
+gee performs a few tricks to infer the PR number if one is not provided by the
+user.  If a branch was created with `gee pr_checkout` (if the branch has a name
+like pr_12345), gee will infer the PR number from the branch name.  Otherwise,
+gee will invoke `gh pr view` to ask github for the PR number associated with
+the branch.
 EOT
 
 function _push_will_trigger_presubmit() {
@@ -4597,8 +4625,24 @@ function gee__pr_check() {
   _startup_checks "pr_check"
 
   local WAIT=0
-  if [[ " $* " == *" --wait "* ]]; then
-    WAIT=1
+  local PRNUM=0
+  local ARG
+  for ARG in "$@"; do
+    if [[ "${ARG}" == "--wait" ]]; then
+      WAIT=1
+    else
+      PRNUM="${ARG}"
+    fi
+  done
+
+  if [[ "${PRNUM}" == 0 ]]; then
+    local CURRENT_BRANCH
+    CURRENT_BRANCH="$(_get_current_branch)"
+    if [[ "${CURRENT_BRANCH}" == "pr_"* ]]; then
+      PRNUM="${CURRENT_BRANCH:3}"
+    else
+      PRNUM="$(gh pr view | grep number | awk '{print $2}'; exit "${PIPESTATUS[0]}")"
+    fi
   fi
 
   local PREV_CHECKS=""
@@ -4607,9 +4651,10 @@ function gee__pr_check() {
   local -a FAILED_BUILDS=()
   local PENDING=1
   local CHECKS_FAILED=0
-  printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" " ${GH} pr checks"  # show user what we're doing
+  local CMD
+  printf >&2 "${_COLOR_CMD}CMD:%-${C}s${_COLOR_RST}\n" " ${GH} pr checks ${PRNUM}"  # show user what we're doing
   while [[ "${PENDING}" -ne 0 ]]; do
-    if VERBOSE=0 DONT_WARN=1 GRAB_STDERR=1 _read_cmd CHECKS "${GH}" pr checks; then
+    if VERBOSE=0 DONT_WARN=1 GRAB_STDERR=1 _read_cmd CHECKS "${GH}" pr checks "${PRNUM}"; then
       printf "%s\n" "${CHECKS[@]}" | sed 's/(.*)//' | column -t >&2
       # no failures, nothing pending.
       _info "All checks successful."
