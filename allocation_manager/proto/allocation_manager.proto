@@ -324,7 +324,7 @@ message StatusResponse {
 }
 
 message Stats {
-  // OBSOLETED: replaced with UnifInfo, below
+  // OBSOLETED: replaced with UnitInfo, below
   // Topology topology = 1;
 
   // Current state of the Unit
