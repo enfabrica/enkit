@@ -3,6 +3,6 @@
     "strip_prefix": "rules_py-1.5.1",
     "url": "https://github.com/aspect-build/rules_py/releases/download/v1.5.1/rules_py-v1.5.1.tar.gz",
     "patches": {
-        "aspect_rules_py.patch": "sha256-7I4TYdgJc8GmnkwMwbrRkCINCM4spsP3Iu3qC53tW4E="
+        "aspect_rules_py.patch": "sha256-y1Ah1j2xFU2hlX0qNHSbth+vwVniaJwBzbEGmHViutg="
     }
 }

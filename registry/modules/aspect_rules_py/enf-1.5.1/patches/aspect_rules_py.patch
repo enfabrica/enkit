@@ -186,10 +186,10 @@ index 2023076..606d238 100644
 +    resolve_toolchain_from_info = _resolve_toolchain_from_info,
  )
 diff --git py/tools/pex/main.py py/tools/pex/main.py
-index 5c699fd..0a07f82 100644
+index 5c699fd..adfc194 100644
 --- py/tools/pex/main.py
 +++ py/tools/pex/main.py
-@@ -159,23 +159,26 @@ pex_info.interpreter_constraints = [
+@@ -159,23 +159,34 @@ pex_info.interpreter_constraints = [
  ]
  
  for dep in options.dependencies:
@@ -223,7 +223,15 @@ index 5c699fd..0a07f82 100644
      # if destination path matches the entrypoint script, then also set the executable.
      if dest == executable:
 -        pex_builder.set_executable(src)
-+        pex_builder.set_entry_point(src.replace(os.path.sep, ".").rpartition(".")[0])
++        src_parts = src.replace(os.path.sep, ".").split(".")
++        
++        if src_parts[0] == "external":
++            src_parts.pop(0)
++
++        if src_parts[-1] == "py":
++            src_parts.pop(-1)
++
++        pex_builder.set_entry_point(".".join(src_parts))
          executable_was_set = True
  
      pex_builder.add_source(
