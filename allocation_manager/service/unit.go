@@ -204,3 +204,14 @@ func (topo *Topology) CanBeAllocated() bool {
 	}
 	return true
 }
+
+func (topo *Topology) Print() {
+	logger.Go.Infof("  Name: %s", topo.Name)
+	if len(topo.Units) > 0 {
+		for _, unit := range topo.Units {
+			logger.Go.Infof("    - %s", unit.GetName())
+		}
+	} else {
+		logger.Go.Infof("    * no hosts *")
+	}
+}
