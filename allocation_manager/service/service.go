@@ -125,15 +125,18 @@ func New(config *apb.Config, inventory *apb.HostInventory) (*Service, error) {
 		return nil, err
 	}
 
-	// TODO: Build topology objects from topology configs + units
+	// Build topology objects from topology configs + units
 	topologies, err := TopologiesFromConfigAndUnits(config, units)
 	if err != nil {
 		return nil, err
 	}
 
 	topology_map := map[string]*Topology{}
+	logger.Go.Infof("----")
+	logger.Go.Infof("Known Topologies")
 	for _, topo := range topologies {
 		topology_map[topo.Name] = topo
+		topo.Print()
 	}
 
 	service := &Service{
