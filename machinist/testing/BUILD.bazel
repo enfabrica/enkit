@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_test")
+load("@rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "go_default_test",
@@ -29,7 +29,7 @@ go_test(
         "//machinist/mserver",
         "//machinist/state",
         "@com_github_stretchr_testify//assert",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//test/bufconn",
     ],
 )
