@@ -9,6 +9,7 @@
         "org_golang_google_grpc.patch": "sha256-qSUjnSRupiCmByi+hQypa6kyG5q12z94F5rZyUcPJsQ=",
         "com_google_cloud_go_datastore.patch": "sha256-cY1VjXJmYUIQWIjs7Ncj+HCgRbw5O6tt0BUE1LRRfws=",
         "com_github_envoyproxy_go_control_plane_envoy.patch": "sha256-cNwJoRXaKqXPro2sKujUqxXgl/upNG5NYYR8EMGveg0=",
-        "com_github_cloudflare_circl.patch": "sha256-kUD1RVCwj1B2Yp4bwbjX/lfWBrZ5XSbnjZUlhMUs6L4="
+        "com_github_cloudflare_circl.patch": "sha256-kUD1RVCwj1B2Yp4bwbjX/lfWBrZ5XSbnjZUlhMUs6L4=",
+        "fix_noop.patch": "sha256-XdIfkBWJDuv0rim54LPzBjuCvV07eLoOjziZ1ML4rUQ="
     }
 }
