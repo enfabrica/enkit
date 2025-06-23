@@ -1,0 +1,18 @@
+{
+    "homepage": "https://github.com/mkj/dropbear",
+    "maintainers": [
+        {
+            "email": "gleb@enfabrica.net",
+            "github": "gleyba",
+            "name": "Infra Team",
+            "github_user_id": 6427170
+        }
+    ],
+    "repository": [
+        "github:protocolbumkj/dropbear"
+    ],
+    "versions": [
+        "enf-2024.86"
+    ],
+    "yanked_versions": {}
+}

@@ -189,7 +189,7 @@ diff --git py/tools/pex/main.py py/tools/pex/main.py
 index 5c699fd..adfc194 100644
 --- py/tools/pex/main.py
 +++ py/tools/pex/main.py
-@@ -159,23 +159,34 @@ pex_info.interpreter_constraints = [
+@@ -159,23 +159,35 @@ pex_info.interpreter_constraints = [
  ]
  
  for dep in options.dependencies:
@@ -215,6 +215,7 @@ index 5c699fd..adfc194 100644
 +        pex_info.add_distribution(key, dist_hash)
 +        pex_builder.add_requirement(dist.as_requirement())
 +    except:
++        TODO(ENGPROD-1259): Investigate issues if not silence error
 +        print("Can't parse dist in " + dep) 
  
  for source in options.sources:

@@ -1,4 +1,3 @@
-load("@enkit//bazel/utils:binary.bzl", "declare_binary")
 load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
 
 filegroup(name = "all", srcs = glob(["**"]), visibility = ["//visibility:public"])
@@ -16,7 +15,7 @@ configure_make(
         "--disable-static",
         "--enable-bundled-libtom",
     ] + select({
-        "@//bazel/platforms:e1_gnu_build": [
+        "@platforms//cpu:aarch64": [
             "--host=aarch64-none-linux-gnu",
         ],
         "//conditions:default": [],
@@ -38,23 +37,7 @@ configure_make(
         "dropbearkey",
     ],
     visibility = ["//visibility:public"],
-    deps = select({
-        "@//bazel/platforms:e1_gnu_build": [
-            "@libz//:libz",
-        ],
-        # Use the system libz on other platforms.
-        "//conditions:default": [],
-    }),
-)
-
-declare_binary(
-    name = "dropbear",
-    path = "dropbear",
-    dep = ":binaries",
-)
-
-declare_binary(
-    name = "dropbearkey",
-    path = "dropbearkey",
-    dep = ":binaries",
+    deps = [
+        "@zlib//:zlib",
+    ],
 )
