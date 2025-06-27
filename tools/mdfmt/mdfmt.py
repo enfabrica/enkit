@@ -2,7 +2,24 @@
 """Reformat markdown.
 
 A simple wrapper for the mdformat library.
+
+Usage:
+
+    # stream stdin to stdout:
+    bazel run //tools/mdftm -- -
+
+    # operate on a set of files in place:
+    bazel run //tools/mdfmt -- <files>
+
+    # operate on a file with a different output file:
+    bazel run //tools/mdfmt -- <file_in> --output <file_output>
+
+    # check if files need to be reformatted
+    bazel run //tools/mdfmt -- --check <files>
+
 """
+
+import sys
 
 # third party libraries
 import mdformat
@@ -14,16 +31,23 @@ flags.DEFINE_string("output", None, "Write reformatted text here (instead of ope
 
 
 def format_file(in_fname, out_fname, check=False):
-    with open(in_fname, "r", encoding="utf-8") as fd:
-        unformatted = fd.read()
+    unformatted = None
+    if in_fname == "-":
+        unformatted = sys.stdin.read()
+    else:
+        with open(in_fname, "r", encoding="utf-8") as fd:
+            unformatted = fd.read()
     extensions = {"gfm", "tables"}
     options = {"wrap": 78}
     formatted = mdformat.text(unformatted, options=options, extensions=extensions)
     if check:
         return formatted == unformatted
     else:
-        with open(out_fname, "w", encoding="utf-8") as fd:
-            fd.write(formatted)
+        if out_fname == "-":
+            print(formatted)
+        else:
+            with open(out_fname, "w", encoding="utf-8") as fd:
+                fd.write(formatted)
         return True
 
 
