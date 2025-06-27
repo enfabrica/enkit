@@ -18,9 +18,6 @@ py_binary(
     data = [
         "//astore/client:astore",
     ],
-    env = {
-        "ASTORE_CLIENT": "$(location //astore/client:astore)",
-    },
     main = "astore_upload_files.py",
     deps = [
         "@rules_python//python/runfiles",

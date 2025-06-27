@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_binary", "py_pex_binary")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_pex_binary")
 
 py_binary(
     name = "kunit",

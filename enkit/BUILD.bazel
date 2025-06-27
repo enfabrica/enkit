@@ -82,6 +82,6 @@ astore_upload(
 
 py_library(
     name = "enkit_import_hack",
-    srcs = [ "__init__.py" ],
+    srcs = ["__init__.py"],
     visibility = ["//visibility:public"],
 )
