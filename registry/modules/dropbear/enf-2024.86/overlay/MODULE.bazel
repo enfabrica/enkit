@@ -1,0 +1,8 @@
+module(
+    name = "dropbear",
+    version = "enf-2024.86",
+)
+
+bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.6")
+bazel_dep(name = "rules_foreign_cc", version = "enf-0.14.0")

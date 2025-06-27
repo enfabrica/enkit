@@ -1,0 +1,289 @@
+diff --git MODULE.bazel MODULE.bazel
+index 8ccad81..d8d4abb 100644
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -2,7 +2,7 @@
+ 
+ module(
+     name = "aspect_rules_py",
+-    version = "0.0.0",
++    version = "enf-1.5.1",
+     compatibility_level = 1,
+ )
+ 
+@@ -48,13 +48,13 @@ register_toolchains(
+ bazel_dep(
+     name = "rules_rust",
+     version = "0.53.0",
+-    # In released versions: dev_dependency = True
++    dev_dependency = True,
+ )
+ 
+ rust = use_extension(
+     "@rules_rust//rust:extensions.bzl",
+     "rust",
+-    # In released versions: dev_dependency = True
++    dev_dependency = True,
+ )
+ rust.toolchain(
+     edition = "2021",
+@@ -64,13 +64,13 @@ use_repo(rust, "rust_toolchains")
+ 
+ register_toolchains(
+     "@rust_toolchains//:all",
+-    # In released versions: dev_dependency = True
++    dev_dependency = True,
+ )
+ 
+ crate = use_extension(
+     "@rules_rust//crate_universe:extension.bzl",
+     "crate",
+-    # In released versions: dev_dependency = True
++    dev_dependency = True,
+ )
+ crate.from_cargo(
+     name = "crate_index",
+diff --git py/private/py_pex_binary.bzl py/private/py_pex_binary.bzl
+index 9ee01fe..2799af8 100644
+--- py/private/py_pex_binary.bzl
++++ py/private/py_pex_binary.bzl
+@@ -18,6 +18,7 @@ py_pex_binary(
+ ```
+ """
+ 
++load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+ load("@rules_python//python:defs.bzl", "PyInfo")
+ load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
+ load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+@@ -67,12 +68,15 @@ def _map_srcs(f, workspace):
+     return ["--source={}={}".format(f.path, dest_path)]
+ 
+ def _py_python_pex_impl(ctx):
+-    py_toolchain = _py_semantics.resolve_toolchain(ctx)
++    py_toolchain = _py_semantics.resolve_toolchain_from_info(
++        ctx.attr._py[platform_common.ToolchainInfo],
++        ctx.attr._interpreter_version_flag[BuildSettingInfo].value,
++    )
+ 
+     binary = ctx.attr.binary
+-    runfiles = binary[DefaultInfo].data_runfiles
++    runfiles = binary[DefaultInfo].default_runfiles
+ 
+-    output = ctx.actions.declare_file(ctx.attr.name + ".pex")
++    output = ctx.actions.declare_file(ctx.attr.name)
+ 
+     args = ctx.actions.args()
+ 
+@@ -100,6 +104,7 @@ def _py_python_pex_impl(ctx):
+         allow_closure = True,
+     )
+     args.add(binary[DefaultInfo].files_to_run.executable, format = "--executable=%s")
++    args.add(binary[DefaultInfo].files_to_run.repo_mapping_manifest, format = "--source=%s=_repo_mapping")
+     args.add(ctx.attr.python_shebang, format = "--python-shebang=%s")
+     args.add(py_toolchain.python, format = "--python=%s")
+ 
+@@ -115,7 +120,10 @@ def _py_python_pex_impl(ctx):
+ 
+     ctx.actions.run(
+         executable = ctx.executable._pex,
+-        inputs = runfiles.files,
++        inputs = runfiles.files.to_list() + [
++            binary[DefaultInfo].files_to_run.repo_mapping_manifest
++        ],
++        tools = py_toolchain.files,
+         arguments = [args],
+         outputs = [output],
+         mnemonic = "PyPex",
+@@ -123,11 +131,19 @@ def _py_python_pex_impl(ctx):
+     )
+ 
+     return [
++        binary[PyInfo],
++        binary[InstrumentedFilesInfo],
+         DefaultInfo(files = depset([output]), executable = output),
+     ]
+ 
+ _attrs = dict({
+-    "binary": attr.label(executable = True, cfg = "target", mandatory = True, doc = "A py_binary target"),
++    "binary": attr.label(
++        executable = True, 
++        cfg = "target", 
++        mandatory = True,
++        providers = [PyInfo],
++        doc = "A py_binary target",
++    ),
+     "inject_env": attr.string_dict(
+         doc = "Environment variables to set when running the pex binary.",
+         default = {},
+@@ -146,6 +162,7 @@ information from the hermetic python toolchain.
+         default = "//py:interpreter_version",
+     ),
+     "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex"),
++    "_py": attr.label(cfg = "exec", default = "@rules_python//python:current_py_toolchain"),
+ })
+ 
+ py_pex_binary = rule(
+diff --git py/private/py_semantics.bzl py/private/py_semantics.bzl
+index 2023076..606d238 100644
+--- py/private/py_semantics.bzl
++++ py/private/py_semantics.bzl
+@@ -51,18 +51,7 @@ For example:
+     )
+ """
+ 
+-def _resolve_toolchain(ctx):
+-    """Resolves the Python toolchain to a simple struct.
+-
+-    Args:
+-        ctx: Bazel rule context.
+-
+-    Returns:
+-        Struct describing the Python toolchain to use.
+-    """
+-
+-    toolchain_info = ctx.toolchains[PY_TOOLCHAIN]
+-
++def _resolve_toolchain_from_info(toolchain_info, interpreter_version):
+     if not toolchain_info.py3_runtime:
+         fail("A py3_runtime must be set on the Python toolchain")
+ 
+@@ -89,11 +78,11 @@ def _resolve_toolchain(ctx):
+             if not hasattr(py3_toolchain.interpreter_version_info, attr):
+                 fail(_MUST_SET_TOOLCHAIN_INTERPRETER_VERSION_INFO)
+         interpreter_version_info = py3_toolchain.interpreter_version_info
+-    elif ctx.attr._interpreter_version_flag[BuildSettingInfo].value:
++    elif interpreter_version:
+         # Back-compat for Bazel 6.
+         # Same code as rules_python:
+         # https://github.com/bazelbuild/rules_python/blob/76f1c76f60ccb536d3b3e2c9f023d8063f40bcd5/python/repositories.bzl#L109
+-        major, minor, micro = ctx.attr._interpreter_version_flag[BuildSettingInfo].value.split(".")
++        major, minor, micro = interpreter_version.split(".")
+         interpreter_version_info = struct(
+             major = major,
+             minor = minor,
+@@ -111,7 +100,23 @@ def _resolve_toolchain(ctx):
+         flags = _INTERPRETER_FLAGS,
+     )
+ 
++
++def _resolve_toolchain(ctx):
++    """Resolves the Python toolchain to a simple struct.
++
++    Args:
++        ctx: Bazel rule context.
++
++    Returns:
++        Struct describing the Python toolchain to use.
++    """
++    return _resolve_toolchain_from_info(
++        ctx.toolchains[PY_TOOLCHAIN],
++        ctx.attr._interpreter_version_flag[BuildSettingInfo].value,
++    )
++
+ semantics = struct(
+     interpreter_flags = _INTERPRETER_FLAGS,
+     resolve_toolchain = _resolve_toolchain,
++    resolve_toolchain_from_info = _resolve_toolchain_from_info,
+ )
+diff --git py/tools/pex/main.py py/tools/pex/main.py
+index 5c699fd..adfc194 100644
+--- py/tools/pex/main.py
++++ py/tools/pex/main.py
+@@ -159,23 +159,35 @@ pex_info.interpreter_constraints = [
+ ]
+ 
+ for dep in options.dependencies:
+-    dist = Distribution.load(dep)
+-
+-    # TODO: explain which level of inferno is this!
+-    key = "%s-%s" % (dist.key, dist.version)
+-    dist_hash = pex_builder._add_dist(
+-        path= dist.location,
+-        dist_name = key
+-    )
+-    pex_info.add_distribution(key, dist_hash)
+-    pex_builder.add_requirement(dist.as_requirement())
++    try:
++        dist = Distribution.load(dep)
++
++        # TODO: explain which level of inferno is this!
++        key = "%s-%s" % (dist.key, dist.version)
++        dist_hash = pex_builder._add_dist(
++            path= dist.location,
++            dist_name = key
++        )
++        pex_info.add_distribution(key, dist_hash)
++        pex_builder.add_requirement(dist.as_requirement())
++    except:
++        # TODO(ENGPROD-1259): Investigate issues if not silence error
++        print("Can't parse dist in " + dep) 
+ 
+ for source in options.sources:
+     src, dest = source.split("=", 1)
+ 
+     # if destination path matches the entrypoint script, then also set the executable.
+     if dest == executable:
+-        pex_builder.set_executable(src)
++        src_parts = src.replace(os.path.sep, ".").split(".")
++        
++        if src_parts[0] == "external":
++            src_parts.pop(0)
++
++        if src_parts[-1] == "py":
++            src_parts.pop(-1)
++
++        pex_builder.set_entry_point(".".join(src_parts))
+         executable_was_set = True
+ 
+     pex_builder.add_source(
+diff --git py/tools/venv_bin/BUILD.bazel py/tools/venv_bin/BUILD.bazel
+index 7f3ee20..2dfd663 100644
+--- py/tools/venv_bin/BUILD.bazel
++++ py/tools/venv_bin/BUILD.bazel
+@@ -1,26 +1,26 @@
+ load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+-load("//tools/release:defs.bzl", "rust_binary")
++# load("//tools/release:defs.bzl", "rust_binary")
+ 
+-# TODO(#497): transition to --nocollect_code_coverage to avoid rules_rust trying to instrument this binary
+-rust_binary(
+-    name = "venv",
+-    srcs = [
+-        "src/main.rs",
+-    ],
+-    deps = [
+-        "//py/tools/py",
+-        "@crate_index//:clap",
+-        "@crate_index//:miette",
+-    ],
+-)
++# # TODO(#497): transition to --nocollect_code_coverage to avoid rules_rust trying to instrument this binary
++# rust_binary(
++#     name = "venv",
++#     srcs = [
++#         "src/main.rs",
++#     ],
++#     deps = [
++#         "//py/tools/py",
++#         "@crate_index//:clap",
++#         "@crate_index//:miette",
++#     ],
++# )
+ 
+-alias(
+-    name = "venv_bin",
+-    actual = ":venv",
+-    visibility = [
+-        "//visibility:public",
+-    ],
+-)
++# alias(
++#     name = "venv_bin",
++#     actual = ":venv",
++#     visibility = [
++#         "//visibility:public",
++#     ],
++# )
+ 
+ platform_transition_filegroup(
+     name = "local_venv_bin",

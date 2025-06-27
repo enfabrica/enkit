@@ -1,0 +1,295 @@
+diff --git MODULE.bazel MODULE.bazel
+index e120a40..e277aa0 100644
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -2,7 +2,7 @@
+ 
+ module(
+     name = "rules_foreign_cc",
+-    version = "0.0.0",
++    version = "enf-0.14.0",
+     compatibility_level = 1,
+ )
+ 
+@@ -26,15 +26,15 @@ tools = use_extension("@rules_foreign_cc//foreign_cc:extensions.bzl", "tools")
+ use_repo(
+     tools,
+     "cmake_3.23.2_toolchains",
+-    "cmake_src",
+-    "gettext_runtime",
+-    "glib_dev",
+-    "glib_src",
+-    "gnumake_src",
++    # "cmake_src",
++    # "gettext_runtime",
++    # "glib_dev",
++    # "glib_src",
++    # "gnumake_src",
+     "meson_src",
+     "ninja_1.12.1_toolchains",
+-    "ninja_build_src",
+-    "pkgconfig_src",
++    # "ninja_build_src",
++    # "pkgconfig_src",
+     "rules_foreign_cc_framework_toolchains",
+ )
+ 
+@@ -42,6 +42,7 @@ register_toolchains(
+     "@rules_foreign_cc_framework_toolchains//:all",
+     "@cmake_3.23.2_toolchains//:all",
+     "@ninja_1.12.1_toolchains//:all",
++    
+     "@python_3_12//:all",
+     "@rules_foreign_cc//toolchains:all",
+ )
+diff --git foreign_cc/extensions.bzl foreign_cc/extensions.bzl
+index f195d3a..0a1ab1b 100644
+--- foreign_cc/extensions.bzl
++++ foreign_cc/extensions.bzl
+@@ -20,7 +20,7 @@ def _init(module_ctx):
+         register_built_tools = True,
+         register_default_tools = False,
+         register_preinstalled_tools = False,
+-        register_built_pkgconfig_toolchain = True,
++        register_built_pkgconfig_toolchain = False,
+     )
+ 
+     versions = {
+diff --git foreign_cc/meson.bzl foreign_cc/meson.bzl
+index 4ea9aca..ea0bff1 100644
+--- foreign_cc/meson.bzl
++++ foreign_cc/meson.bzl
+@@ -77,9 +77,9 @@ def _create_meson_script(configureParameters):
+     # https://github.com/mesonbuild/meson/issues/3565
+     # Skip setting them in this case.
+     if " " not in tools.cc:
+-        script.append("##export_var## CC {}".format(_absolutize(ctx.workspace_name, tools.cc)))
++        script.append("##export_var## CC {}".format(_absolutize(ctx.workspace_name, tools.cc, True)))
+     if " " not in tools.cxx:
+-        script.append("##export_var## CXX {}".format(_absolutize(ctx.workspace_name, tools.cxx)))
++        script.append("##export_var## CXX {}".format(_absolutize(ctx.workspace_name, tools.cxx, True)))
+ 
+     # set flags same as foreign_cc/private/cc_toolchain_util.bzl
+     # cannot use get_flags_info() because bazel adds additional flags that
+diff --git toolchains/BUILD.bazel toolchains/BUILD.bazel
+index 69d5c14..0c465fa 100644
+--- toolchains/BUILD.bazel
++++ toolchains/BUILD.bazel
+@@ -67,23 +67,23 @@ current_autoconf_toolchain(
+     name = "current_autoconf_toolchain",
+ )
+ 
+-toolchain(
+-    name = "built_cmake_toolchain",
+-    toolchain = "//toolchains/private:built_cmake",
+-    toolchain_type = ":cmake_toolchain",
+-)
+-
+-toolchain(
+-    name = "built_ninja_toolchain",
+-    toolchain = "//toolchains/private:built_ninja",
+-    toolchain_type = ":ninja_toolchain",
+-)
+-
+-toolchain(
+-    name = "built_make_toolchain",
+-    toolchain = "//toolchains/private:built_make",
+-    toolchain_type = ":make_toolchain",
+-)
++# toolchain(
++#     name = "built_cmake_toolchain",
++#     toolchain = "//toolchains/private:built_cmake",
++#     toolchain_type = ":cmake_toolchain",
++# )
++
++# toolchain(
++#     name = "built_ninja_toolchain",
++#     toolchain = "//toolchains/private:built_ninja",
++#     toolchain_type = ":ninja_toolchain",
++# )
++
++# toolchain(
++#     name = "built_make_toolchain",
++#     toolchain = "//toolchains/private:built_make",
++#     toolchain_type = ":make_toolchain",
++# )
+ 
+ toolchain(
+     name = "built_meson_toolchain",
+@@ -91,11 +91,11 @@ toolchain(
+     toolchain_type = ":meson_toolchain",
+ )
+ 
+-toolchain(
+-    name = "built_pkgconfig_toolchain",
+-    toolchain = "//toolchains/private:built_pkgconfig",
+-    toolchain_type = ":pkgconfig_toolchain",
+-)
++# toolchain(
++#     name = "built_pkgconfig_toolchain",
++#     toolchain = "//toolchains/private:built_pkgconfig",
++#     toolchain_type = ":pkgconfig_toolchain",
++# )
+ 
+ # Preinstalled cmake will always be the default, if toolchain with more exact constraints
+ # is not defined before; registered from workspace_definitions.bzl#rules_foreign_cc_dependencies
+diff --git toolchains/private/BUILD.bazel toolchains/private/BUILD.bazel
+index 4ccdeef..dba26d8 100644
+--- toolchains/private/BUILD.bazel
++++ toolchains/private/BUILD.bazel
+@@ -20,24 +20,24 @@ native_tool_toolchain(
+     path = "nmake.exe",
+ )
+ 
+-make_tool(
+-    name = "make_tool",
+-    srcs = "@gnumake_src//:all_srcs",
+-    tags = ["manual"],
+-)
+-
+-native_tool_toolchain(
+-    name = "built_make",
+-    env = select({
+-        "@platforms//os:windows": {"MAKE": "$(execpath :make_tool)/bin/make.exe"},
+-        "//conditions:default": {"MAKE": "$(execpath :make_tool)/bin/make"},
+-    }),
+-    path = select({
+-        "@platforms//os:windows": "$(execpath :make_tool)/bin/make.exe",
+-        "//conditions:default": "$(execpath :make_tool)/bin/make",
+-    }),
+-    target = ":make_tool",
+-)
++# make_tool(
++#     name = "make_tool",
++#     srcs = "@gnumake_src//:all_srcs",
++#     tags = ["manual"],
++# )
++
++# native_tool_toolchain(
++#     name = "built_make",
++#     env = select({
++#         "@platforms//os:windows": {"MAKE": "$(execpath :make_tool)/bin/make.exe"},
++#         "//conditions:default": {"MAKE": "$(execpath :make_tool)/bin/make"},
++#     }),
++#     path = select({
++#         "@platforms//os:windows": "$(execpath :make_tool)/bin/make.exe",
++#         "//conditions:default": "$(execpath :make_tool)/bin/make",
++#     }),
++#     target = ":make_tool",
++# )
+ 
+ native_tool_toolchain(
+     name = "preinstalled_cmake",
+@@ -51,24 +51,24 @@ native_tool_toolchain(
+     }),
+ )
+ 
+-cmake_tool(
+-    name = "cmake_tool",
+-    srcs = "@cmake_src//:all_srcs",
+-    tags = ["manual"],
+-)
++# cmake_tool(
++#     name = "cmake_tool",
++#     srcs = "@cmake_src//:all_srcs",
++#     tags = ["manual"],
++# )
+ 
+-native_tool_toolchain(
+-    name = "built_cmake",
+-    env = select({
+-        "@platforms//os:windows": {"CMAKE": "$(execpath :cmake_tool)/bin/cmake.exe"},
+-        "//conditions:default": {"CMAKE": "$(execpath :cmake_tool)/bin/cmake"},
+-    }),
+-    path = select({
+-        "@platforms//os:windows": "$(execpath :cmake_tool)/bin/cmake.exe",
+-        "//conditions:default": "$(execpath :cmake_tool)/bin/cmake",
+-    }),
+-    target = ":cmake_tool",
+-)
++# native_tool_toolchain(
++#     name = "built_cmake",
++#     env = select({
++#         "@platforms//os:windows": {"CMAKE": "$(execpath :cmake_tool)/bin/cmake.exe"},
++#         "//conditions:default": {"CMAKE": "$(execpath :cmake_tool)/bin/cmake"},
++#     }),
++#     path = select({
++#         "@platforms//os:windows": "$(execpath :cmake_tool)/bin/cmake.exe",
++#         "//conditions:default": "$(execpath :cmake_tool)/bin/cmake",
++#     }),
++#     target = ":cmake_tool",
++# )
+ 
+ native_tool_toolchain(
+     name = "preinstalled_ninja",
+@@ -88,18 +88,18 @@ ninja_tool(
+     tags = ["manual"],
+ )
+ 
+-native_tool_toolchain(
+-    name = "built_ninja",
+-    env = select({
+-        "@platforms//os:windows": {"NINJA": "$(execpath :ninja_tool)/bin/ninja.exe"},
+-        "//conditions:default": {"NINJA": "$(execpath :ninja_tool)/bin/ninja"},
+-    }),
+-    path = select({
+-        "@platforms//os:windows": "$(execpath :ninja_tool)/bin/ninja.exe",
+-        "//conditions:default": "$(execpath :ninja_tool)/bin/ninja",
+-    }),
+-    target = ":ninja_tool",
+-)
++# native_tool_toolchain(
++#     name = "built_ninja",
++#     env = select({
++#         "@platforms//os:windows": {"NINJA": "$(execpath :ninja_tool)/bin/ninja.exe"},
++#         "//conditions:default": {"NINJA": "$(execpath :ninja_tool)/bin/ninja"},
++#     }),
++#     path = select({
++#         "@platforms//os:windows": "$(execpath :ninja_tool)/bin/ninja.exe",
++#         "//conditions:default": "$(execpath :ninja_tool)/bin/ninja",
++#     }),
++#     target = ":ninja_tool",
++# )
+ 
+ native_tool_toolchain(
+     name = "preinstalled_meson",
+@@ -155,21 +155,21 @@ native_tool_toolchain(
+     }),
+ )
+ 
+-pkgconfig_tool(
+-    name = "pkgconfig_tool",
+-    srcs = "@pkgconfig_src//:all_srcs",
+-    tags = ["manual"],
+-)
+-
+-native_tool_toolchain(
+-    name = "built_pkgconfig",
+-    env = select({
+-        "@platforms//os:windows": {"PKG_CONFIG": "$(execpath :pkgconfig_tool)"},
+-        "//conditions:default": {"PKG_CONFIG": "$(execpath :pkgconfig_tool)/bin/pkg-config"},
+-    }),
+-    path = select({
+-        "@platforms//os:windows": "$(execpath :pkgconfig_tool)",
+-        "//conditions:default": "$(execpath :pkgconfig_tool)/bin/pkg-config",
+-    }),
+-    target = ":pkgconfig_tool",
+-)
++# pkgconfig_tool(
++#     name = "pkgconfig_tool",
++#     srcs = "@pkgconfig_src//:all_srcs",
++#     tags = ["manual"],
++# )
++
++# native_tool_toolchain(
++#     name = "built_pkgconfig",
++#     env = select({
++#         "@platforms//os:windows": {"PKG_CONFIG": "$(execpath :pkgconfig_tool)"},
++#         "//conditions:default": {"PKG_CONFIG": "$(execpath :pkgconfig_tool)/bin/pkg-config"},
++#     }),
++#     path = select({
++#         "@platforms//os:windows": "$(execpath :pkgconfig_tool)",
++#         "//conditions:default": "$(execpath :pkgconfig_tool)/bin/pkg-config",
++#     }),
++#     target = ":pkgconfig_tool",
++# )

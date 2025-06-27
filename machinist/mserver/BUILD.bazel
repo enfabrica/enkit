@@ -1,5 +1,5 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
+load("@rules_go//go:def.bzl", "go_library")
+load("//bazel/go_extras:embed_data.bzl", "go_embed_data")
 
 go_library(
     name = "mserver",
@@ -22,7 +22,7 @@ go_library(
         "//machinist/state",
         "@com_github_miekg_dns//:dns",
         "@com_github_spf13_cobra//:cobra",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
     ],

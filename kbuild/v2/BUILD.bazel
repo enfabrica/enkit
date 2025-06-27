@@ -1,4 +1,4 @@
-load("@//bazel:shellutils.bzl", "shellcheck_test")
+load("//bazel:shellutils.bzl", "shellcheck_test")
 
 shellcheck_test(
     name = "shellcheck_test",
