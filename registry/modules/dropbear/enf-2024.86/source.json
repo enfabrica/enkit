@@ -10,6 +10,6 @@
     "patch_strip": 1,
     "overlay": {
         "BUILD.bazel": "sha256-Jsjm7RthnE/GfBxzwEPH3oxJ68Ptjt/MtnDZL1RZqWA=",
-        "MODULE.bazel": "sha256-10/59BMwueKBzvudva2DIF8cLCS1exfHSTepSoo2Z3A="
+        "MODULE.bazel": "sha256-pQWKeV2pumEsslvGLKFQRg92rSn2qFVSLqdcV1Ykxpo="
     }
 }
