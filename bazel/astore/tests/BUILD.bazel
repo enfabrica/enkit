@@ -1,4 +1,4 @@
-load("@//bazel/astore:defs.bzl", "astore_download", "astore_upload")
+load("//bazel/astore:defs.bzl", "astore_download", "astore_upload")
 
 # This target can be used to validate the "uidfile" functionality
 # of the astore_upload rule.  Running this rule will cause the
