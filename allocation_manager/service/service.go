@@ -89,7 +89,8 @@ func TopologiesFromConfigAndUnits(config *apb.Config, units map[string]*Unit) ([
 		for _, hostname := range topo_config.GetHosts() {
 			unit, ok := units[hostname]
 			if !ok {
-				return topos, fmt.Errorf("Hostname '%s' not found in unit inventory", hostname)
+				logger.Go.Errorf("Hostname '%s' not found in unit inventory", hostname)
+				continue
 			}
 			topo_units = append(topo_units, unit)
 		}
