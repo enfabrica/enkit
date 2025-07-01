@@ -1,0 +1,47 @@
+load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
+
+filegroup(
+    name = "all",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+
+configure_make(
+    name = "binaries",
+    configure_options = [
+        "--disable-lastlog",
+        "--disable-utmp",
+        "--disable-utmpx",
+        "--disable-wtmp",
+        "--disable-wtmpx",
+        "--disable-loginfunc",
+        "--disable-static",
+        "--enable-bundled-libtom",
+    ] + select({
+        "@platforms//cpu:aarch64": [
+            "--host=aarch64-none-linux-gnu",
+        ],
+        "//conditions:default": [],
+    }),
+    lib_source = ":all",
+    out_binaries = [
+        "dropbear",
+        "dropbearkey",
+    ],
+    postfix_script = "; ".join([
+        "mkdir -p ${INSTALLDIR}/bin",
+        "cp dropbear dropbearkey ${INSTALLDIR}/bin",
+    ]),
+    # By default `targets` would be ["", "install"], meaning it would run
+    # `make ""` and `make "install"`.
+    #
+    # Don't run "make install" as the dropbear makefile does things to
+    # setup the privileges correctly that don't work in an RBE environment.
+    # Instead, run the few commands in postfix_script to install the
+    # binaries correctly.
+    targets = [""],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@zlib",
+    ],
+)

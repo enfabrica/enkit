@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "nomad_license_plugin_lib",
@@ -11,7 +11,6 @@ go_library(
         "@com_github_evanphx_go_hclog_slog//hclogslog",
         "@com_github_hashicorp_go_hclog//:go-hclog",
         "@com_github_hashicorp_nomad//plugins",
-        "@org_golang_x_exp//slog",
     ],
 )
 

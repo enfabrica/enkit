@@ -2,8 +2,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
-load("//bazel/utils:messaging.bzl", "fileowner")
-load("//bazel/utils:messaging.bzl", "package")
+load("//bazel/utils:messaging.bzl", "fileowner", "package")
 
 def _dynamic_wrapper_impl(ctx):
     template = """#!/bin/bash

@@ -1,8 +1,8 @@
 """Rules and macros to deal with appengine configuration files."""
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
-load("//bazel/website:defs.bzl", "WebsiteRoot")
 load("//bazel/utils:files.bzl", "write_to_file")
+load("//bazel/website:defs.bzl", "WebsiteRoot")
 
 def appengine_config(name, config, **kwargs):
     """Creates an app.yaml config file from the config provided.
