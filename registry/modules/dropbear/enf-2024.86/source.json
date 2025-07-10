@@ -1,0 +1,15 @@
+{
+    "url": "https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2024.86.tar.gz",
+    "integrity": "sha256-0WKF8CM6JACoSv+gI140pxxmCQgHnGOf3viJwukMn18=",
+    "patches": {
+        "0001-allow-blank-password.patch": "sha256-OVweVC0gxAnfUZggUILCoxJEQMuvpXhmsz36PmkxqXw=",
+        "0002-override-authorized-keys.patch": "sha256-owNcV5V4TeNhBJFYl0zQ/voK6zNwofIoHFCg0mV8pwI=",
+        "0003-ignore-user-s-shell.patch": "sha256-hKQK5aJoLz5B+i2/yqJKzGpwBgU/lU0qZcQw1NTIJU4="
+    },
+    "strip_prefix": "dropbear-DROPBEAR_2024.86",
+    "patch_strip": 1,
+    "overlay": {
+        "BUILD.bazel": "sha256-Jsjm7RthnE/GfBxzwEPH3oxJ68Ptjt/MtnDZL1RZqWA=",
+        "MODULE.bazel": "sha256-pQWKeV2pumEsslvGLKFQRg92rSn2qFVSLqdcV1Ykxpo="
+    }
+}

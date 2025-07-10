@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//bazel/utils/container:container.bzl", "container_image", "container_push")
 
@@ -13,7 +13,7 @@ go_library(
         "//lib/server",
         "@com_github_buildbarn_bb_remote_execution//pkg/proto/completedactionlogger",
         "@com_github_golang_glog//:glog",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
     ],
 )
 

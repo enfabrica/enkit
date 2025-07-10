@@ -6,7 +6,7 @@ import pathlib
 from typing import Dict
 
 # third party libraries
-from rules_python.python.runfiles import runfiles
+from python.runfiles import runfiles
 
 
 def _load_stamp_file(path: pathlib.Path) -> Dict[str, str]:

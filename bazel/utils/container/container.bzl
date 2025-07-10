@@ -1,10 +1,9 @@
-load("//bazel/utils:files.bzl", "write_to_file")
-load("//bazel/dive:dive.bzl", "oci_dive")
-load("//bazel/utils:merge_kwargs.bzl", "add_tag")
 load("@enkit//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
+load("//bazel/dive:dive.bzl", "oci_dive")
+load("//bazel/utils:files.bzl", "write_to_file")
+load("//bazel/utils:merge_kwargs.bzl", "add_tag")
 
 GCP_REGION = "us-docker"
 GCP_PROJECT = "enfabrica-container-images"
@@ -394,6 +393,7 @@ def container_push(*args, **kwargs):
     project = kwargs.get("project", GCP_PROJECT)
     image_path = kwargs.get("image_path")
     tags = kwargs.get("tags", [])
+    visibility = kwargs.get("visibility", [])
 
     for repo in ["dev", "staging"]:
         container_repo(
@@ -432,6 +432,7 @@ def container_push(*args, **kwargs):
         namespace = namespace,
         image_path = image_path,
         tags = tags,
+        visibility = visibility,
     )
 
 def container_pusher_impl(ctx):
