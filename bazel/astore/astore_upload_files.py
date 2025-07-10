@@ -8,6 +8,7 @@ Original file will only have arguments parsing and passing them down to this scr
 import hashlib
 import json
 import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -30,7 +31,6 @@ flags.DEFINE_multi_string("tag", None, "Tags to add to the upload")
 # FIXME: technically it's just a switch, only json data will be updated with the local_file
 #        anything else just passed as is.
 flags.DEFINE_enum("output_format", "table", ["table", "json"], "Output format")
-
 
 
 def sha256sum(filename):
@@ -117,6 +117,7 @@ def main(argv):
         json_data = dict()
         # Process each local_file sequentially
         for local_file in FLAGS.upload_file:
+            local_path = pathlib.Path(local_file)
             cmd = astore_cmd.copy()
 
             if FLAGS.tag:
@@ -136,7 +137,7 @@ def main(argv):
                     temp_json,
                     "--console-format",
                     FLAGS.output_format,
-                    local_file,
+                    str(local_path),
                 ]
             )
             log.info("Running command: %s", " ".join(cmd))
@@ -144,17 +145,19 @@ def main(argv):
             # Run the upload command
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
-                log.error("Error uploading %s: %s", local_file, result.stderr)
+                log.error("Error uploading %s: %s", local_path, result.stderr)
                 sys.exit(1)
 
             # Print output based on format
             if FLAGS.output_format == "json":
                 data = json.loads(result.stdout)
                 if FLAGS.astore_base_path.endswith("/"):
-                    data["Artifacts"][0]["AstorePath"] = FLAGS.astore_base_path + os.path.basename(local_file)
+                    data["Artifacts"][0]["AstorePath"] = (
+                        pathlib.Path(FLAGS.astore_base_path) / local_path.name
+                    )
                 else:
                     data["Artifacts"][0]["AstorePath"] = FLAGS.astore_base_path
-                data["Artifacts"][0]["LocalPath"] = local_file
+                data["Artifacts"][0]["LocalPath"] = str(local_path.resolve())
                 if not json_data:
                     json_data = data
                 else:
@@ -172,7 +175,7 @@ def main(argv):
                 if not file_uid:
                     log.error(
                         "Error: no UID found for %s uploaded as %s",
-                        local_file,
+                        local_path,
                         FLAGS.file,
                     )
                     sys.exit(2)
