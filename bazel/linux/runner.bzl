@@ -1,11 +1,11 @@
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("//bazel/linux:providers.bzl", "KernelImageInfo", "RootfsImageInfo", "RuntimeBundleInfo", "RuntimeInfo")
+load("//bazel/utils:files.bzl", "files_to_dir")
 load("//bazel/utils:messaging.bzl", "location", "package")
 load("//bazel/utils:types.bzl", "escape_and_join")
-load("//bazel/utils:files.bzl", "files_to_dir")
-load("@bazel_skylib//lib:shell.bzl", "shell")
 
 def create_runner_attrs(template_init_default):
-    """Returns a dict of attributes common to all runners.""" 
+    """Returns a dict of attributes common to all runners."""
 
     return {
         "kernel_image": attr.label(
@@ -108,8 +108,7 @@ def runtime_info_from_target(ctx, target, **kwargs):
 
     return RuntimeInfo(**info)
 
-
-def get_prepare_run_check(ctx, run, action="run"):
+def get_prepare_run_check(ctx, run, action = "run"):
     """Returns a struct describing the RuntimeInfo for each bundle or bin in run.
 
     Args:
@@ -125,20 +124,19 @@ def get_prepare_run_check(ctx, run, action="run"):
         init = [],
         run = [],
         cleanup = [],
-        check = []
+        check = [],
     )
     for r in run:
         if RuntimeBundleInfo in r:
             rbi = r[RuntimeBundleInfo]
             for attr in ["prepare", "init", "run", "cleanup", "check"]:
-                 getattr(result, attr).extend(getattr(rbi, attr, []))
+                getattr(result, attr).extend(getattr(rbi, attr, []))
 
             continue
 
         getattr(result, action).append(runtime_info_from_target(ctx, r))
 
     return result
-
 
 def expand_targets_and_bundles(ctx, attr, verbose = True):
     """Returns the commands to run for the binaries or bundles supplied.
@@ -156,6 +154,7 @@ def expand_targets_and_bundles(ctx, attr, verbose = True):
 
     cprepares, rprepares = commands_and_runtime(ctx, "prepare", bundles.prepare)
     cchecks, rchecks = commands_and_runtime(ctx, "check", bundles.check)
+
     # Run cleanup RuntimeInfo (not the commands!) in the opposite order they were added.
     ccleanups, rcleanups = commands_and_runtime(ctx, "cleanup", list(reversed(bundles.cleanup)))
     outside_runfiles = ctx.runfiles().merge_all([rprepares, rchecks, rcleanups])
@@ -219,7 +218,7 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
     )
     outside_runfiles = torun.outside_runfiles.merge(ctx.runfiles([runtime_root, ki.image]))
     if runfiles:
-      outside_runfiles = outside_runfiles.merge(runfiles)
+        outside_runfiles = outside_runfiles.merge(runfiles)
 
     rootfs = ""
     if ctx.attr.rootfs_image:
@@ -235,7 +234,7 @@ def create_runner(ctx, archs, code, runfiles = None, extra = {}):
         "rootfs": rootfs,
         "init": init.short_path,
         "runtime": runtime_root.short_path,
-	"wrapper_flags": shell.array_literal(ctx.attr.wrapper_flags),
+        "wrapper_flags": shell.array_literal(ctx.attr.wrapper_flags),
     }, **extra)
 
     subs["code"] = code.format(**subs)

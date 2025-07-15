@@ -1,5 +1,5 @@
-load("//bazel/utils:match.bzl", "matchany", "to_glob")
 load("//bazel/utils:labels.bzl", "labelrelative")
+load("//bazel/utils:match.bzl", "matchany", "to_glob")
 
 def _message(ctx, ofile):
     """Commodity function to format a message with the file paths."""

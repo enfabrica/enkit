@@ -7,7 +7,7 @@ import json
 # third party libraries
 import docker
 from absl import app, flags
-from rules_python.python.runfiles import runfiles
+from python.runfiles import runfiles
 
 # enfabrica libraries
 from bazel.utils.container.exceptions import UnofficialBuildException

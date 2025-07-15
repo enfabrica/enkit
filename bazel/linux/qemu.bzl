@@ -1,5 +1,5 @@
-load("//bazel/linux:runner.bzl", "create_runner", "create_runner_attrs")
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("//bazel/linux:runner.bzl", "create_runner", "create_runner_attrs")
 
 DEFAULT_QEMU_FLAGS = [
     "-enable-kvm",

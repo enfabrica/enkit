@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_test")
+load("@rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "astore_test",
@@ -19,14 +19,14 @@ go_test(
     deps = [
         "//astore/atesting",
         "//astore/client/astore",
-        "//astore/rpc/astore",
+        "//astore/rpc/astore:go_default_library",
         "//astore/server/astore",
         "//lib/client/ccontext",
         "//lib/logger",
         "//lib/progress",
         "//lib/srand",
         "@com_github_stretchr_testify//assert",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//test/bufconn",
     ],
 )

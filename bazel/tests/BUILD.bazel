@@ -1,4 +1,4 @@
-load("@//bazel:shellutils.bzl", "bats_test")
+load("@bazel_bats//:rules.bzl", "bats_test")
 
 sh_binary(
     name = "example_sh",
@@ -8,5 +8,6 @@ sh_binary(
 bats_test(
     name = "bazel_bats_test",
     srcs = ["bazel_bats_test.bats"],
+    uses_bats_assert = True,
     deps = [":example_sh"],
 )

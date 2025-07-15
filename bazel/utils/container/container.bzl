@@ -1,10 +1,9 @@
-load("//bazel/utils:files.bzl", "write_to_file")
-load("//bazel/dive:dive.bzl", "oci_dive")
-load("//bazel/utils:merge_kwargs.bzl", "add_tag")
 load("@enkit//bazel/utils:merge_kwargs.bzl", "merge_kwargs")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
+load("//bazel/dive:dive.bzl", "oci_dive")
+load("//bazel/utils:files.bzl", "write_to_file")
+load("//bazel/utils:merge_kwargs.bzl", "add_tag")
 
 GCP_REGION = "us-docker"
 GCP_PROJECT = "enfabrica-container-images"
@@ -394,6 +393,7 @@ def container_push(*args, **kwargs):
     project = kwargs.get("project", GCP_PROJECT)
     image_path = kwargs.get("image_path")
     tags = kwargs.get("tags", [])
+    visibility = kwargs.get("visibility", [])
 
     for repo in ["dev", "staging"]:
         container_repo(
@@ -432,11 +432,13 @@ def container_push(*args, **kwargs):
         namespace = namespace,
         image_path = image_path,
         tags = tags,
+        visibility = visibility,
     )
 
 def container_pusher_impl(ctx):
     script = ctx.actions.declare_file("{}_push_script.sh".format(ctx.attr.name))
     body = """#!/bin/bash
+export RUNFILES_DIR="$(pwd)/external"
 {} \\
 --dev_script {} \\
 --staging_script {} \\
@@ -463,7 +465,8 @@ $@
     transitive_files = ctx.attr._tool[DefaultInfo].default_runfiles.files.to_list() + \
                        ctx.attr.dev_script[DefaultInfo].default_runfiles.files.to_list() + \
                        ctx.attr.staging_script[DefaultInfo].default_runfiles.files.to_list() + \
-                       ctx.attr.image_tarball[DefaultInfo].default_runfiles.files.to_list()
+                       ctx.attr.image_tarball[DefaultInfo].default_runfiles.files.to_list() + \
+                       ctx.attr._bash_runfiles[DefaultInfo].files.to_list()
     runfiles = ctx.runfiles(
         files = ctx.attr._tool[DefaultInfo].files.to_list() + direct_files,
         transitive_files = depset(transitive_files),
@@ -509,6 +512,10 @@ container_pusher = rule(
         "region": attr.string(
             doc = "GCP region name",
             default = GCP_REGION,
+        ),
+        "_bash_runfiles": attr.label(
+            doc = "Bash runfiles lib",
+            default = "@bazel_tools//tools/bash/runfiles:runfiles",
         ),
         "_tool": attr.label(
             doc = "Container pusher binary",

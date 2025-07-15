@@ -161,7 +161,7 @@ type eventFilter func(e events.Message) bool
 
 func typeFilter(t string) eventFilter {
 	return func(e events.Message) bool {
-		return t == e.Type
+		return t == string(e.Type)
 	}
 }
 

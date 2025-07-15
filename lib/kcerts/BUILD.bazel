@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "kcerts",
@@ -28,7 +28,7 @@ go_library(
         "@org_golang_x_crypto//ssh",
         "@org_golang_x_crypto//ssh/agent",
     ] + select({
-        "@io_bazel_rules_go//go/platform:windows": [
+        "@rules_go//go/platform:windows": [
             "@com_github_microsoft_go_winio//:go-winio",
         ],
         "//conditions:default": [],

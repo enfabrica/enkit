@@ -1,0 +1,13 @@
+diff --git internal/bzlmod/go_deps.bzl internal/bzlmod/go_deps.bzl
+index d22a6aa..f9e6cb8 100644
+--- internal/bzlmod/go_deps.bzl
++++ internal/bzlmod/go_deps.bzl
+@@ -318,7 +318,7 @@ def check_for_version_conflict(version, previous, module_tag, module_name_to_go_
+ 
+     conflict_printer(message)
+ 
+-def _noop(_):
++def _noop(*_):
+     pass
+ 
+ # These repos are shared between the isolated and non-isolated instances of go_deps as they are

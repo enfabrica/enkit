@@ -1,7 +1,7 @@
-load("//bazel/website:defs.bzl", "website_path", "website_tree")
+load("@enkit//bazel/utils:macro.bzl", "mconfig")
 load("//bazel/appengine:config.bzl", "appengine_config_index", "appengine_config_merge")
 load("//bazel/appengine:pywebsite.bzl", "appengine_website", "appengine_website_run")
-load("@enkit//bazel/utils:macro.bzl", "mconfig")
+load("//bazel/website:defs.bzl", "website_path", "website_tree")
 
 genrule(
     name = "subfile",

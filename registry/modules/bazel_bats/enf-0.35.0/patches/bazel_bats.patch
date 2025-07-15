@@ -1,0 +1,48 @@
+diff --git MODULE.bazel MODULE.bazel
+index 19ed661..c6dc676 100644
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -1,4 +1,4 @@
+-module(name = "bazel_bats", version="0.35.0")
++module(name = "bazel_bats", version="enf-0.35.0")
+ 
+ bazel_dep(name = "bazel_skylib", version = "1.7.1")
+ bazel_dep(name = "gazelle", version = "0.42.0")
+diff --git deps.bzl deps.bzl
+index dcd3dfd..e4ed0b5 100644
+--- deps.bzl
++++ deps.bzl
+@@ -4,14 +4,17 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+ BATS_CORE_BUILD_CONTENT = """
+ sh_library(
+     name = "bats_lib",
+-    srcs = glob(["libexec/**"]),
++    srcs = glob([
++        "libexec/**",
++        "lib/**",    
++    ]),
+ )
+ 
+-sh_binary(
++filegroup(
+     name = "bats",
+     srcs = ["bin/bats"],
+     visibility = ["//visibility:public"],
+-    deps = [":bats_lib"],
++    data = [":bats_lib"],
+ )
+ 
+ sh_library(
+diff --git rules.bzl rules.bzl
+index e79ead4..b60e446 100644
+--- rules.bzl
++++ rules.bzl
+@@ -56,7 +56,7 @@ def _bats_test_impl(ctx):
+         content = content,
+     )
+ 
+-    dep_transitive_files = []
++    dep_transitive_files = ctx.attr._bats[DefaultInfo].files.to_list()
+     for dep in ctx.attr.deps:
+         dep_transitive_files.extend(dep.default_runfiles.files.to_list())
+     runfiles = ctx.runfiles(

@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "bes_publisher_lib",
@@ -12,7 +12,7 @@ go_library(
         "@com_github_golang_glog//:glog",
         "@com_google_cloud_go_pubsub//:pubsub",
         "@org_golang_google_genproto//googleapis/devtools/build/v1:build",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
     ],
 )
 

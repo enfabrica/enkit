@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "commands",
@@ -16,7 +16,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//astore/client/astore",
-        "//astore/rpc/astore",
+        "//astore/rpc/astore:go_default_library",
         "//lib/client",
         "//lib/config",
         "//lib/config/defcon",
@@ -37,7 +37,7 @@ go_test(
     srcs = ["formatter_test.go"],
     embed = [":commands"],
     deps = [
-        "//astore/rpc/astore",
+        "//astore/rpc/astore:go_default_library",
         "@com_github_stretchr_testify//assert",
     ],
 )

@@ -27,7 +27,7 @@ def _cc_filter(ctx):
                     owner = src_linker_input.owner,
                     libraries = depset(direct = libraries),
                     user_link_flags = depset(direct = src_linker_input.user_link_flags),
-                )
+                ),
             )
 
     return [
@@ -93,8 +93,8 @@ def cc_filter(name, src, out_shared_libs, **kwargs):
     out_shared_libs = ["/".join([name, out_shared_lib]) for out_shared_lib in out_shared_libs]
 
     return _cc_filter_rule(
-        name=name,
-        src=src,
-        out_shared_libs=out_shared_libs,
-        **kwargs,
+        name = name,
+        src = src,
+        out_shared_libs = out_shared_libs,
+        **kwargs
     )

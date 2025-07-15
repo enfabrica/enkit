@@ -1,3 +1,4 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@enkit_pip_deps//:requirements.bzl", "requirement")
 load(
@@ -21,8 +22,6 @@ bzl_library(
 py_binary(
     name = "bzl2yaml",
     srcs = ["bzl2yaml.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         requirement("absl-py"),

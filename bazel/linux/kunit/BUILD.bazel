@@ -1,3 +1,5 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_pex_binary")
+
 py_binary(
     name = "kunit",
     srcs = ["kunit.py"],
@@ -39,9 +41,11 @@ py_library(
     srcs = ["kunit_config.py"],
 )
 
-filegroup(
+py_pex_binary(
     name = "kunit_zip",
-    srcs = [":kunit"],
-    output_group = "python_zip_file",
+    binary = ":kunit",
+    python_interpreter_constraints = [
+        "CPython=={major}.*",
+    ],
     visibility = ["//visibility:public"],
 )

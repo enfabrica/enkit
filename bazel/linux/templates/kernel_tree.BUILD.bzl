@@ -1,3 +1,5 @@
+load("{utils}", "kernel_tree")
+
 filegroup(
     name = "{name}-tree",
     # Why allow_empty = True? To support compatibility with different package formats,
@@ -7,8 +9,6 @@ filegroup(
         "//visibility:public",
     ],
 )
-
-load("{utils}", "kernel_tree")
 
 kernel_tree(
     name = "{name}",

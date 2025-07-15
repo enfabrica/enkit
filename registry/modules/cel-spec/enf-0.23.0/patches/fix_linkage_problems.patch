@@ -1,0 +1,75 @@
+diff --git proto/cel/expr/BUILD.bazel proto/cel/expr/BUILD.bazel
+index 588d711..d22e679 100644
+--- proto/cel/expr/BUILD.bazel
++++ proto/cel/expr/BUILD.bazel
+@@ -149,52 +149,40 @@ java_proto_library(
+ ## Go
+ ###############################################################################
+ 
+-load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+-
+-go_proto_library(
++alias(
+     name = "expr_go_proto",
+-    importpath = "cel.dev/expr",
+-    protos = [":expr_proto"],
+-    deps = [
+-        "@org_golang_google_genproto_googleapis_rpc//status:go_default_library",
+-    ],
++    actual = "//:expr",
++    visibility = ["//visibility:public"],
+ )
+ 
+-go_proto_library(
++alias(
+     name = "syntax_go_proto",
+-    importpath = "cel.dev/expr",
+-    protos = [":syntax_proto"],
++    actual = "//:expr",
++    visibility = ["//visibility:public"],
+ )
+ 
+-go_proto_library(
++alias(
+     name = "checked_go_proto",
+-    embed = [":syntax_go_proto"],
+-    importpath = "cel.dev/expr",
+-    protos = [":checked_proto"],
++    actual = "//:expr",
++    visibility = ["//visibility:public"],
+ )
+ 
+-go_proto_library(
++alias(
+     name = "value_go_proto",
+-    importpath = "cel.dev/expr",
+-    protos = [":value_proto"],
++    actual = "//:expr",
++    visibility = ["//visibility:public"],
+ )
+ 
+-go_proto_library(
++alias(
+     name = "eval_go_proto",
+-    embed = [":value_go_proto"],
+-    importpath = "cel.dev/expr",
+-    protos = [":eval_proto"],
+-    deps = [
+-        "@org_golang_google_genproto_googleapis_rpc//status:go_default_library",
+-    ],
++    actual = "//:expr",
++    visibility = ["//visibility:public"],
+ )
+ 
+-go_proto_library(
++alias(
+     name = "explain_go_proto",
+-    deprecation = "Use EvalState instead.",
+-    embed = [":value_go_proto"],
+-    importpath = "cel.dev/expr",
+-    protos = [":explain_proto"],
++    actual = "//:expr",
++    visibility = ["//visibility:public"],
+ )
+ 
+ ###############################################################################

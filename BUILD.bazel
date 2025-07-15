@@ -1,8 +1,8 @@
-load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
-load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier")
+load("@gazelle//:def.bzl", "gazelle")
+load("@rules_multirun//:defs.bzl", "multirun")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
-load("//bazel/enkit:defs.bzl", "multirun")
 
 # To update and generate the BUILD.bazel files, run:
 #     bazelisk run //:gazelle
@@ -43,15 +43,7 @@ gazelle(
     prefix = "github.com/enfabrica/enkit",
 )
 
-gazelle(
-    name = "gazelle_update_repos",
-    args = [
-        "-from_file=go.mod",
-        "-to_macro=bazel/go_repositories.bzl%go_repositories",
-        "-prune",
-    ],
-    command = "update-repos",
-)
+gazelle(name = "gazelle_update_repos")
 
 # Custom gazelle resolve mappings
 # Some third-party dependencies that are bazel-aware bamboozle gazelle running
@@ -59,7 +51,7 @@ gazelle(
 # These mappings keep gazelle from generating bogus dependency labels.
 #
 # gazelle:resolve go kythe.io/kythe/go/platform/delimited @io_kythe//kythe/go/platform/delimited
-# gazelle:resolve go github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2 @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:execution
+# gazelle:resolve go github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2 @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution_go_proto
 
 # Buildbarn gazelle resolve mappings
 # Buildbarn dependencies may need certain overrides; these mappings are copied
@@ -85,8 +77,15 @@ exports_files(
 
 # To automatically format all .bzl files and all BUILD.bzl files, run:
 #     bazelisk run //:buildifier
+buildifier(name = "buildifier")
+
 buildifier(
-    name = "buildifier",
+    name = "buildifier.check",
+    exclude_patterns = [
+        "./.git/*",
+    ],
+    lint_mode = "warn",
+    mode = "diff",
 )
 
 multirun(
