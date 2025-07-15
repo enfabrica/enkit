@@ -67,7 +67,6 @@ py_binary(
     ],
     deps = [
         "@enkit//bazel/utils/container:exceptions_lib",
-        "@rules_python//python/runfiles",
         requirement("absl-py"),
         requirement("docker"),
     ],
