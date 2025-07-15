@@ -438,6 +438,7 @@ def container_push(*args, **kwargs):
 def container_pusher_impl(ctx):
     script = ctx.actions.declare_file("{}_push_script.sh".format(ctx.attr.name))
     body = """#!/bin/bash
+export RUNFILES_DIR="$(pwd)/external"
 {} \\
 --dev_script {} \\
 --staging_script {} \\
@@ -464,7 +465,8 @@ $@
     transitive_files = ctx.attr._tool[DefaultInfo].default_runfiles.files.to_list() + \
                        ctx.attr.dev_script[DefaultInfo].default_runfiles.files.to_list() + \
                        ctx.attr.staging_script[DefaultInfo].default_runfiles.files.to_list() + \
-                       ctx.attr.image_tarball[DefaultInfo].default_runfiles.files.to_list()
+                       ctx.attr.image_tarball[DefaultInfo].default_runfiles.files.to_list() + \
+                       ctx.attr._bash_runfiles[DefaultInfo].files.to_list()
     runfiles = ctx.runfiles(
         files = ctx.attr._tool[DefaultInfo].files.to_list() + direct_files,
         transitive_files = depset(transitive_files),
@@ -510,6 +512,10 @@ container_pusher = rule(
         "region": attr.string(
             doc = "GCP region name",
             default = GCP_REGION,
+        ),
+        "_bash_runfiles": attr.label(
+            doc = "Bash runfiles lib",
+            default = "@bazel_tools//tools/bash/runfiles:runfiles",
         ),
         "_tool": attr.label(
             doc = "Container pusher binary",

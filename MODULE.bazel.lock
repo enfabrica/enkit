@@ -528,6 +528,60 @@
         ]
       }
     },
+    "@@bazel_bats~//:extensions.bzl%bazel_bats_deps": {
+      "general": {
+        "bzlTransitiveDigest": "rMPji/ntIDnb1MnAuW6Z9KJbtBrzP23/x52iXNE5h9s=",
+        "usagesDigest": "Jj8YvTJ+09bWsR5BJ4xEyByGMjGkShHKbN/vOQnUCx0=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "bats_core": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\nsh_library(\n    name = \"bats_lib\",\n    srcs = glob([\n        \"libexec/**\",\n        \"lib/**\",    \n    ]),\n)\n\nfilegroup(\n    name = \"bats\",\n    srcs = [\"bin/bats\"],\n    visibility = [\"//visibility:public\"],\n    data = [\":bats_lib\"],\n)\n\nsh_library(\n    name = \"file_setup_teardown_lib\",\n    srcs = [\"test/file_setup_teardown.bats\"],\n    visibility = [\"//visibility:public\"],\n    data = glob([\"test/fixtures/file_setup_teardown/**\"]),\n)\n\nsh_library(\n    name = \"junit_formatter_lib\",\n    srcs = [\"test/junit-formatter.bats\"],\n    visibility = [\"//visibility:public\"],\n    data = glob([\"test/fixtures/junit-formatter/**\"]),\n)\n\nsh_library(\n    name = \"parallel_lib\",\n    srcs = [\"test/parallel.bats\"],\n    visibility = [\"//visibility:public\"],\n    data = glob([\n        \"test/concurrent-coordination.bash\",\n        \"test/fixtures/parallel/**\",\n    ]),\n)\n\nsh_library(\n    name = \"run_lib\",\n    srcs = [\"test/run.bats\"],\n    visibility = [\"//visibility:public\"],\n    data = glob([\"test/fixtures/run/**\"]),\n)\n\nsh_library(\n    name = \"suite_lib\",\n    srcs = [\"test/suite.bats\"],\n    visibility = [\"//visibility:public\"],\n    data = glob([\"test/fixtures/suite/**\"]),\n)\n\nsh_library(\n    name = \"test_helper\",\n    srcs = [\"test/test_helper.bash\"],\n    visibility = [\"//visibility:public\"],\n)\n\nsh_library(\n    name = \"trace_lib\",\n    srcs = [\"test/trace.bats\"],\n    visibility = [\"//visibility:public\"],\n    data = glob([\"test/fixtures/trace/**\"]),\n)\n\nexports_files(glob([\"test/*.bats\"]))\n",
+              "urls": [
+                "https://github.com/bats-core/bats-core/archive/refs/tags/v1.7.0.tar.gz"
+              ],
+              "strip_prefix": "bats-core-1.7.0",
+              "sha256": "ac70c2a153f108b1ac549c2eaa4154dea4a7c1cc421e3352f0ce6ea49435454e"
+            }
+          },
+          "bats_assert": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\nfilegroup(\n    name = \"load_files\",\n    srcs = [\n        \"load.bash\",\n    ] + glob([\n        \"src/**/*.bash\",\n    ]),\n    visibility = [\"//visibility:public\"],\n)\n",
+              "sha256": "15dbf1abb98db785323b9327c86ee2b3114541fe5aa150c410a1632ec06d9903",
+              "strip_prefix": "bats-assert-2.0.0",
+              "urls": [
+                "https://github.com/bats-core/bats-assert/archive/refs/tags/v2.0.0.tar.gz"
+              ]
+            }
+          },
+          "bats_support": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\nfilegroup(\n    name = \"load_files\",\n    srcs = [\n        \"load.bash\",\n    ] + glob([\n        \"src/**/*.bash\",\n    ]),\n    visibility = [\"//visibility:public\"],\n)\n",
+              "sha256": "7815237aafeb42ddcc1b8c698fc5808026d33317d8701d5ec2396e9634e2918f",
+              "strip_prefix": "bats-support-0.3.0",
+              "urls": [
+                "https://github.com/bats-core/bats-support/archive/refs/tags/v0.3.0.tar.gz"
+              ]
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "bazel_bats~",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
     "@@buildifier_prebuilt~//:defs.bzl%buildifier_prebuilt_deps_extension": {
       "general": {
         "bzlTransitiveDigest": "iJF3Ti5GHJEiRxMrIeawImDqrsi/K3YJ2iOANQ9PgTY=",
