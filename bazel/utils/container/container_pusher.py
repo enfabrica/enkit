@@ -7,7 +7,6 @@ import json
 # third party libraries
 import docker
 from absl import app, flags
-from python.runfiles import runfiles
 
 # enfabrica libraries
 from bazel.utils.container.exceptions import UnofficialBuildException
@@ -62,10 +61,9 @@ def promote_image(docker_client, staging_image_path, region, project, namespace,
 
 
 def container_pusher(docker_client, official, clean_build_check, promote):
-    r = runfiles.Create()
-    dev_script = r.Rlocation(f"enfabrica/{FLAGS.dev_script}")
-    staging_script = r.Rlocation(f"enfabrica/{FLAGS.staging_script}")
-    tarball = r.Rlocation(f"enfabrica/{FLAGS.image_tarball}")
+    dev_script = FLAGS.dev_script
+    staging_script = FLAGS.staging_script
+    tarball = FLAGS.image_tarball
     region = FLAGS.region
     project = FLAGS.project
     namespace = FLAGS.namespace
