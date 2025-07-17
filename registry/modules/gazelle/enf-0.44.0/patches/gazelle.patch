@@ -1,5 +1,5 @@
 :100644 100644 86f4957 005fc6d M	MODULE.bazel
-:100644 100644 514a8de fd0933c M	internal/bzlmod/default_gazelle_overrides.bzl
+:100644 100644 514a8de dd901f3 M	internal/bzlmod/default_gazelle_overrides.bzl
 :100644 100644 f5b279d c504e5e M	internal/bzlmod/go_deps.bzl
 :000000 100644 0000000 8b13789 A	internal/bzlmod/patches/BUILD.bazel
 :000000 100644 0000000 6ecf4e3 A	internal/bzlmod/patches/com_google_cloud_go_datastore.patch
@@ -19,10 +19,20 @@ index 86f4957..005fc6d 100644
  )
  
 diff --git internal/bzlmod/default_gazelle_overrides.bzl internal/bzlmod/default_gazelle_overrides.bzl
-index 514a8de..fd0933c 100644
+index 514a8de..dd901f3 100644
 --- internal/bzlmod/default_gazelle_overrides.bzl
 +++ internal/bzlmod/default_gazelle_overrides.bzl
-@@ -154,3 +154,9 @@ DEFAULT_BUILD_EXTRA_ARGS_BY_PATH = {
+@@ -143,6 +143,9 @@ DEFAULT_DIRECTIVES_BY_PATH = {
+     "storj.io/picobuf": [
+         "gazelle:proto legacy",
+     ],
++    "github.com/hashicorp/nomad": [
++        "gazelle:proto disable",
++    ],
+ }
+ 
+ DEFAULT_BUILD_EXTRA_ARGS_BY_PATH = {
+@@ -154,3 +157,9 @@ DEFAULT_BUILD_EXTRA_ARGS_BY_PATH = {
          "-exclude=arith_s390x_test.go",
      ],
  }

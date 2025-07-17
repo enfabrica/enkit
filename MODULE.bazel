@@ -37,7 +37,7 @@ register_toolchains(
 
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_proto", version = "7.1.0")
-bazel_dep(name = "grpc", version = "1.72.0")
+bazel_dep(name = "grpc", version = "1.74.0-pre2")
 bazel_dep(name = "googletest", version = "1.17.0")
 bazel_dep(name = "google_benchmark", version = "1.9.2")
 bazel_dep(name = "rules_jsonnet", version = "0.7.2")
@@ -110,12 +110,6 @@ go_sdk.download(version = "1.24.4")
 
 go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
-go_deps.gazelle_override(
-    directives = [
-        "gazelle:proto disable",
-    ],
-    path = "github.com/hashicorp/nomad",
-)
 use_repo(
     go_deps,
     "com_github_bazelbuild_buildtools",

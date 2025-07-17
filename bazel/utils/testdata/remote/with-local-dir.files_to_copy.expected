@@ -2,6 +2,6 @@ _main/bazel/utils/hello-world
 _main/bazel/utils/testdata/remote/quote00.txt
 _main/bazel/utils/quote01.txt
 _main/tools/codegen/tests/gen-test.actual
-_main/../googletest~/libgtest.a
-_main/../googletest~/libgtest.so
-_main/_solib_k8/libexternal_Sgoogletest~_Slibgtest.so
+_main/../googletest+/libgtest.a
+_main/../googletest+/libgtest.so
+_main/_solib_k8/libexternal_Sgoogletest+_Slibgtest.so
