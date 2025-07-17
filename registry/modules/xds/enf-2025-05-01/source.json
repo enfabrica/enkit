@@ -1,0 +1,8 @@
+{
+    "integrity": "sha256-bwPg7hoWmzpu9Aw0Yf7R5bsQNvIC2xBDJ35OWBgwP9U=",
+    "strip_prefix": "xds-2ac532fd44436293585084f8d94c6bdb17835af0",
+    "url": "https://github.com/cncf/xds/archive/2ac532fd44436293585084f8d94c6bdb17835af0.zip",
+    "patches": {
+        "xds.patch": "sha256-VkjV6PDLAz9ptNinJfIveKRTwvebI9J8AyVdKV3+9SA="
+    }
+}

@@ -1,3 +1,3 @@
 _main/bazel/utils/wrapper
-_main/bazel/utils/testdata/remote/save-argv.sh
 _main/bazel/utils/testdata/remote/quote02.txt
+_main/bazel/utils/testdata/remote/save-argv.sh
