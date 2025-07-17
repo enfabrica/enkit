@@ -39,7 +39,5 @@ go_test(
     deps = [
         "//allocation_manager/proto:allocation_manager_go_proto",
         "@com_github_stretchr_testify//assert",
-        "@org_golang_google_grpc//codes",
-        "@org_golang_google_grpc//status",
     ],
 )

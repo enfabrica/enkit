@@ -4,6 +4,19 @@ load("@rules_go//proto:def.bzl", "go_proto_library")
 # Don't let gazelle auto-remove proto and Go rules compiling this "generated"
 # proto.
 # gazelle:ignore
+genrule(
+    name = "stardoc_output_proto_cp",
+    srcs = ["@bazel_tools//src/main/protobuf:stardoc_output.proto"],
+    outs = ["stardoc_output.proto"],
+    cmd = "cp $< $@",
+)
+
+proto_library(
+    name = "stardoc_output_proto",
+    srcs = [":stardoc_output_proto_cp"],
+    import_prefix = "src/main/protobuf",
+    strip_import_prefix = "/lib/bazel/proto",
+)
 
 genrule(
     name = "build_proto_cp",
@@ -15,12 +28,16 @@ genrule(
 proto_library(
     name = "build_proto",
     srcs = [":build_proto_cp"],
+    deps = [":stardoc_output_proto"],
 )
 
 go_proto_library(
     name = "build_go_proto",
     importpath = "github.com/enfabrica/enkit/lib/bazel/proto",
-    proto = ":build_proto",
+    protos = [
+        ":build_proto",
+        ":stardoc_output_proto",
+    ],
     visibility = ["//lib/bazel:__subpackages__"],
 )
 

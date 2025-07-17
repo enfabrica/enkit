@@ -4,7 +4,10 @@ load("//bazel/go_extras:embed_data.bzl", "go_embed_data")
 # Generate a .go file containing all the configs supplied during the build.
 go_embed_data(
     name = "embedded-configs",
-    srcs = glob(["**/*.config*"]),
+    srcs = glob(
+        ["**/*.config*"],
+        allow_empty = True,
+    ),
     flatten = True,
     package = "configs",
     visibility = ["//visibility:public"],
