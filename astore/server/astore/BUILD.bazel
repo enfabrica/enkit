@@ -39,7 +39,6 @@ go_test(
         "token_test.go",
         "util_test.go",
     ],
-    data = glob(["testdata/**"]),
     embed = [":astore"],
     local = True,
     deps = [
