@@ -10,6 +10,7 @@ go_library(
         "//allocation_manager/client",
         "//allocation_manager/proto:allocation_manager_go_proto",
         "@org_golang_google_grpc//:grpc",
+        "//allocation_manager/topology",
     ],
 )
 
