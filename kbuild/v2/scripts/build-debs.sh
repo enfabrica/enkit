@@ -59,6 +59,9 @@ fi
 
 abi_suffix="${kernel_version}${dirty}"
 
+# Add version info to kernel version string as reported by `uname -r`
+export DEBIAN_KERNEL_LOCALVERSION="${kernel_version}${dirty}"
+
 if [ "$RT_BUILD_CLEAN" = "yes" ] ; then
     fakeroot debian/rules distclean
 fi
