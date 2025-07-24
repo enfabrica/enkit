@@ -18,3 +18,9 @@ string_flag(
     build_setting_default = "",
     visibility = ["//bazel/astore:__pkg__"],
 )
+
+label_flag(
+    name = "uploader",
+    build_setting_default = "//bazel/astore:astore_upload_files",
+    visibility = ["//bazel/astore:__pkg__"],
+)
