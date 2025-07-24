@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("//bazel/astore:defs.bzl", "astore_output_format", "astore_tag")
 
 astore_tag(
@@ -9,5 +10,11 @@ astore_tag(
 astore_output_format(
     name = "output_format",
     build_setting_default = "table",
+    visibility = ["//bazel/astore:__pkg__"],
+)
+
+string_flag(
+    name = "path_prefix",
+    build_setting_default = "",
     visibility = ["//bazel/astore:__pkg__"],
 )

@@ -5,4 +5,5 @@ exec {wrapper} \
   {astore_path_flag} \
   {uidfile_flag} \
   {tag_flags} \
-  {output_format_flag}
+  {output_format_flag} \
+  {path_prefix}

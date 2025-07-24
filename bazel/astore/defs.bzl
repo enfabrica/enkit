@@ -1,4 +1,5 @@
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 AstoreMetadataProvider = provider(fields = ["tags", "output_format"])
 
@@ -96,6 +97,7 @@ def _astore_upload(ctx):
             "{uidfile_flag}": uidfile_flag,
             "{tag_flags}": " ".join(["--tag={}".format(tag) for tag in tags]),
             "{output_format_flag}": "--output_format=" + ctx.attr._cmdline_upload_output_format[AstoreMetadataProvider].output_format,
+            "{path_prefix}": "--path_prefix=" + ctx.attr._cmdline_path_prefix[BuildSettingInfo].value,
         },
         is_executable = True,
     )
@@ -137,6 +139,9 @@ astore_upload = rule(
         "_cmdline_upload_output_format": attr.label(
             providers = [[AstoreMetadataProvider]],
             default = "//f/astore:output_format",
+        ),
+        "_cmdline_path_prefix": attr.label(
+            default = "//f/astore:path_prefix",
         ),
         "_astore_upload_file": attr.label(
             default = Label("//bazel/astore:astore_upload_file.sh"),

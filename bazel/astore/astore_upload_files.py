@@ -31,6 +31,7 @@ flags.DEFINE_multi_string("tag", None, "Tags to add to the upload")
 # FIXME: technically it's just a switch, only json data will be updated with the local_file
 #        anything else just passed as is.
 flags.DEFINE_enum("output_format", "table", ["table", "json"], "Output format")
+flags.DEFINE_string("path_prefix", "", "Path segment to prepend to all astore paths")
 
 
 def sha256sum(filename):
@@ -123,7 +124,11 @@ def main(argv):
             if FLAGS.tag:
                 cmd.extend(f"--tag={t}" for t in FLAGS.tag)
 
-            if FLAGS.astore_base_path.endswith("/"):
+            astore_path = FLAGS.astore_base_path
+            if FLAGS.path_prefix:
+                astore_path = os.path.join(FLAGS.path_prefix, astore_path)
+
+            if astore_path.endswith("/"):
                 dest = "--directory"
             else:
                 dest = "--file"
@@ -132,7 +137,7 @@ def main(argv):
                 [
                     "--disable-git",
                     dest,
-                    FLAGS.astore_base_path,
+                    astore_path,
                     "--meta-file",
                     temp_json,
                     "--console-format",
