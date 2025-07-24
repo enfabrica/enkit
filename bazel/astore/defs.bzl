@@ -148,9 +148,7 @@ astore_upload = rule(
             allow_single_file = True,
         ),
         "_astore_wrapper": attr.label(
-            default = Label("//bazel/astore:astore_upload_files"),
-            # allow_single_file = True,
-            # allow_files = True,
+            default = "//f/astore:uploader",
             executable = True,
             cfg = "exec",
         ),
