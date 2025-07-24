@@ -156,12 +156,12 @@ def main(argv):
             # Print output based on format
             if FLAGS.output_format == "json":
                 data = json.loads(result.stdout)
-                if FLAGS.astore_base_path.endswith("/"):
+                if astore_path.endswith("/"):
                     data["Artifacts"][0]["AstorePath"] = (
-                        pathlib.Path(FLAGS.astore_base_path) / local_path.name
+                        pathlib.Path(astore_path) / local_path.name
                     )
                 else:
-                    data["Artifacts"][0]["AstorePath"] = FLAGS.astore_base_path
+                    data["Artifacts"][0]["AstorePath"] = astore_path
                 data["Artifacts"][0]["LocalPath"] = str(local_path.resolve())
                 if not json_data:
                     json_data = data
