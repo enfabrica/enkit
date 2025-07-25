@@ -203,7 +203,6 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 	result.StartQueryResult, err = startWorkspace.Query(
 		opt.Query,
 		WithUnorderedOutput(),
-		WithRepositoryCache(),
 		workspaceLogStart,
 	)
 	if err != nil {
@@ -214,10 +213,9 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 	}
 
 	log.Infof("Querying dependency graph for 'after' workspace...")
-	result.EndQueryResult, err = endWorkspace.Query(
+	result.EndQueryResult, err = endWorkspace.Queryp(
 		opt.Query,
 		WithUnorderedOutput(),
-		WithRepositoryCache(),
 		workspaceLogEnd,
 	)
 	if err != nil {
