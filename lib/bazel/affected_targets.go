@@ -203,7 +203,6 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 	result.StartQueryResult, err = startWorkspace.Query(
 		opt.Query,
 		WithUnorderedOutput(),
-		WithRepositoryCache(),
 		workspaceLogStart,
 	)
 	if err != nil {
@@ -217,7 +216,6 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 	result.EndQueryResult, err = endWorkspace.Query(
 		opt.Query,
 		WithUnorderedOutput(),
-		WithRepositoryCache(),
 		workspaceLogEnd,
 	)
 	if err != nil {
