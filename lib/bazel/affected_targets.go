@@ -213,7 +213,7 @@ func SerialQuery(opt GetModeOptions, log logger.Logger) (*GetResult, error) {
 	}
 
 	log.Infof("Querying dependency graph for 'after' workspace...")
-	result.EndQueryResult, err = endWorkspace.Queryp(
+	result.EndQueryResult, err = endWorkspace.Query(
 		opt.Query,
 		WithUnorderedOutput(),
 		workspaceLogEnd,
