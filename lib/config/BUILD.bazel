@@ -21,7 +21,6 @@ go_test(
         "multi_test.go",
         "store_test.go",
     ],
-    data = glob(["testdata/**"]),
     embed = [":config"],
     deps = [
         "//lib/config/directory",

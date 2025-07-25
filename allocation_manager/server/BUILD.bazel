@@ -14,7 +14,6 @@ go_library(
         "//lib/server",
         "@com_github_prometheus_client_golang//prometheus/promhttp",
         "@org_golang_google_grpc//:grpc",
-        "@org_golang_google_protobuf//encoding/prototext",
     ],
 )
 

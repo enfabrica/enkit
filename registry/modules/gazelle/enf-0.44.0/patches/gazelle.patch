@@ -1,0 +1,117 @@
+:100644 100644 86f4957 005fc6d M	MODULE.bazel
+:100644 100644 514a8de dd901f3 M	internal/bzlmod/default_gazelle_overrides.bzl
+:100644 100644 f5b279d c504e5e M	internal/bzlmod/go_deps.bzl
+:000000 100644 0000000 8b13789 A	internal/bzlmod/patches/BUILD.bazel
+:000000 100644 0000000 6ecf4e3 A	internal/bzlmod/patches/com_google_cloud_go_datastore.patch
+:100644 100644 f474ab3 1ea09df M	internal/go_repository_tools_srcs.bzl
+
+diff --git MODULE.bazel MODULE.bazel
+index 86f4957..005fc6d 100644
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -1,7 +1,7 @@
+ module(
+     name = "gazelle",
+     # Updated by the Publish to BCR app.
+-    version = "",
++    version = "enf-0.44.0",
+     repo_name = "bazel_gazelle",
+ )
+ 
+diff --git internal/bzlmod/default_gazelle_overrides.bzl internal/bzlmod/default_gazelle_overrides.bzl
+index 514a8de..dd901f3 100644
+--- internal/bzlmod/default_gazelle_overrides.bzl
++++ internal/bzlmod/default_gazelle_overrides.bzl
+@@ -143,6 +143,9 @@ DEFAULT_DIRECTIVES_BY_PATH = {
+     "storj.io/picobuf": [
+         "gazelle:proto legacy",
+     ],
++    "github.com/hashicorp/nomad": [
++        "gazelle:proto disable",
++    ],
+ }
+ 
+ DEFAULT_BUILD_EXTRA_ARGS_BY_PATH = {
+@@ -154,3 +157,9 @@ DEFAULT_BUILD_EXTRA_ARGS_BY_PATH = {
+         "-exclude=arith_s390x_test.go",
+     ],
+ }
++
++DEFAULT_PATCHES = {
++    "cloud.google.com/go/datastore": [
++        "//internal/bzlmod/patches:com_google_cloud_go_datastore.patch",
++    ],
++}
+diff --git internal/bzlmod/go_deps.bzl internal/bzlmod/go_deps.bzl
+index f5b279d..c504e5e 100644
+--- internal/bzlmod/go_deps.bzl
++++ internal/bzlmod/go_deps.bzl
+@@ -18,6 +18,7 @@ load(
+     "DEFAULT_BUILD_EXTRA_ARGS_BY_PATH",
+     "DEFAULT_BUILD_FILE_GENERATION_BY_PATH",
+     "DEFAULT_DIRECTIVES_BY_PATH",
++    "DEFAULT_PATCHES",
+ )
+ load(":go_mod.bzl", "deps_from_go_mod", "go_work_from_label", "sums_from_go_mod", "sums_from_go_work")
+ load(":semver.bzl", "COMPARES_HIGHEST_SENTINEL", "semver")
+@@ -157,7 +158,7 @@ def _get_build_extra_args(path, gazelle_overrides, gazelle_default_attributes):
+     return _get_override_or_default(gazelle_overrides, gazelle_default_attributes, DEFAULT_BUILD_EXTRA_ARGS_BY_PATH, path, [], "build_extra_args")
+ 
+ def _get_patches(path, module_overrides):
+-    return _get_override_or_default(module_overrides, struct(), {}, path, [], "patches")
++    return _get_override_or_default(module_overrides, struct(), DEFAULT_PATCHES, path, [], "patches")
+ 
+ def _get_patch_args(path, module_overrides):
+     override = _get_override_or_default(module_overrides, struct(), {}, path, None, "patch_strip")
+@@ -318,7 +319,7 @@ def check_for_version_conflict(version, previous, module_tag, module_name_to_go_
+ 
+     conflict_printer(message)
+ 
+-def _noop(_):
++def _noop(*_):
+     pass
+ 
+ # These repos are shared between the isolated and non-isolated instances of go_deps as they are
+diff --git internal/bzlmod/patches/BUILD.bazel internal/bzlmod/patches/BUILD.bazel
+new file mode 100644
+index 0000000..8b13789
+--- /dev/null
++++ internal/bzlmod/patches/BUILD.bazel
+@@ -0,0 +1 @@
++
+diff --git internal/bzlmod/patches/com_google_cloud_go_datastore.patch internal/bzlmod/patches/com_google_cloud_go_datastore.patch
+new file mode 100644
+index 0000000..6ecf4e3
+--- /dev/null
++++ internal/bzlmod/patches/com_google_cloud_go_datastore.patch
+@@ -0,0 +1,17 @@
++diff --git query.go query.go
++index 0c3fe01db8..57f63f165a 100644
++--- query.go
+++++ query.go
++@@ -380,6 +380,12 @@ func (q *Query) toRunQueryRequest(req *pb.RunQueryRequest) error {
++ 	return nil
++ }
++ 
+++// ENFABRICA PATCH
+++// Export toProto for use in unit tests
+++func (q *Query) ToProto(req *pb.RunQueryRequest) error {
+++	return q.toRunQueryRequest(req)
+++}
+++
++ func (q *Query) toProto() (*pb.Query, error) {
++ 	if len(q.projection) != 0 && q.keysOnly {
++ 		return nil, errors.New("datastore: query cannot both project and be keys-only")
+\ No newline at end of file
+diff --git internal/go_repository_tools_srcs.bzl internal/go_repository_tools_srcs.bzl
+index f474ab3..1ea09df 100644
+--- internal/go_repository_tools_srcs.bzl
++++ internal/go_repository_tools_srcs.bzl
+@@ -37,6 +37,7 @@ GO_REPOSITORY_TOOLS_SRCS = [
+     Label("//flag:flag.go"),
+     Label("//internal:BUILD.bazel"),
+     Label("//internal/bzlmod:BUILD.bazel"),
++    Label("//internal/bzlmod/patches:BUILD.bazel"),
+     Label("//internal/gazellebinarytest:BUILD.bazel"),
+     Label("//internal/gazellebinarytest:xlang.go"),
+     Label("//internal/generationtest:BUILD.bazel"),

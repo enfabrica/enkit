@@ -3,7 +3,10 @@ load("//bazel/go_extras:embed_data.bzl", "go_embed_data")
 
 go_embed_data(
     name = "embedded-assets",
-    srcs = glob(["assets/**"]),
+    srcs = glob(
+        ["assets/**"],
+        allow_empty = True,
+    ),
     flatten = True,
     package = "assets",
     visibility = ["//visibility:public"],

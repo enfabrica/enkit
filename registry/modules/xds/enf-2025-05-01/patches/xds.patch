@@ -1,0 +1,162 @@
+diff --git MODULE.bazel MODULE.bazel
+index 0ffcde2..24c56f7 100644
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -1,6 +1,6 @@
+ module(
+     name = "xds",
+-    version = "0.0.0",
++    version = "enf-2025-05-01",
+ )
+ 
+ bazel_dep(name = "bazel_skylib", version = "1.5.0")
+diff --git udpa/annotations/BUILD udpa/annotations/BUILD
+index 1e79479..b7c964e 100644
+--- udpa/annotations/BUILD
++++ udpa/annotations/BUILD
+@@ -1,5 +1,12 @@
+ load("//bazel:api_build_system.bzl", "xds_proto_package")
+ 
++package(default_visibility = [ "//visibility:public" ])
++
+ licenses(["notice"])  # Apache 2
+ 
+ xds_proto_package()
++
++alias(
++    name = "annotations",
++    actual = "pkg_go_proto",
++)
+diff --git udpa/type/v1/BUILD udpa/type/v1/BUILD
+index 1e79479..2a1ca5f 100644
+--- udpa/type/v1/BUILD
++++ udpa/type/v1/BUILD
+@@ -1,5 +1,12 @@
+ load("//bazel:api_build_system.bzl", "xds_proto_package")
+ 
++package(default_visibility = [ "//visibility:public" ])
++
+ licenses(["notice"])  # Apache 2
+ 
+ xds_proto_package()
++
++alias(
++    name = "type",
++    actual = "pkg_go_proto",
++)
+\ No newline at end of file
+diff --git xds/annotations/v3/BUILD xds/annotations/v3/BUILD
+index 1e79479..b7c964e 100644
+--- xds/annotations/v3/BUILD
++++ xds/annotations/v3/BUILD
+@@ -1,5 +1,12 @@
+ load("//bazel:api_build_system.bzl", "xds_proto_package")
+ 
++package(default_visibility = [ "//visibility:public" ])
++
+ licenses(["notice"])  # Apache 2
+ 
+ xds_proto_package()
++
++alias(
++    name = "annotations",
++    actual = "pkg_go_proto",
++)
+diff --git xds/core/v3/BUILD xds/core/v3/BUILD
+index c86df29..db62e3d 100644
+--- xds/core/v3/BUILD
++++ xds/core/v3/BUILD
+@@ -1,5 +1,12 @@
+ load("//bazel:api_build_system.bzl", "xds_proto_package")
+ 
++package(default_visibility = [ "//visibility:public" ])
++
+ licenses(["notice"])  # Apache 2
+ 
+ xds_proto_package(deps = ["//xds/annotations/v3:pkg"])
++
++alias(
++    name = "core",
++    actual = "pkg_go_proto",
++)
+diff --git xds/data/orca/v3/BUILD xds/data/orca/v3/BUILD
+index 1e79479..6bcb733 100644
+--- xds/data/orca/v3/BUILD
++++ xds/data/orca/v3/BUILD
+@@ -1,5 +1,12 @@
+ load("//bazel:api_build_system.bzl", "xds_proto_package")
+ 
++package(default_visibility = [ "//visibility:public" ])
++
+ licenses(["notice"])  # Apache 2
+ 
+ xds_proto_package()
++
++alias(
++    name = "orca",
++    actual = "pkg_go_proto",
++)
+\ No newline at end of file
+diff --git xds/service/orca/v3/BUILD xds/service/orca/v3/BUILD
+index 76250a1..d134b48 100644
+--- xds/service/orca/v3/BUILD
++++ xds/service/orca/v3/BUILD
+@@ -1,5 +1,7 @@
+ load("//bazel:api_build_system.bzl", "xds_proto_package")
+ 
++package(default_visibility = [ "//visibility:public" ])
++
+ licenses(["notice"])  # Apache 2
+ 
+ xds_proto_package(
+@@ -8,3 +10,8 @@ xds_proto_package(
+         "//xds/data/orca/v3:pkg",
+     ],
+ )
++
++alias(
++    name = "orca",
++    actual = "pkg_go_proto",
++)
+diff --git xds/type/matcher/v3/BUILD xds/type/matcher/v3/BUILD
+index 2ca6251..dbc3b7a 100644
+--- xds/type/matcher/v3/BUILD
++++ xds/type/matcher/v3/BUILD
+@@ -1,5 +1,7 @@
+ load("//bazel:api_build_system.bzl", "xds_proto_package")
+ 
++package(default_visibility = [ "//visibility:public" ])
++
+ licenses(["notice"])  # Apache 2
+ 
+ xds_proto_package(
+@@ -9,3 +11,8 @@ xds_proto_package(
+         "//xds/type/v3:pkg",
+     ],
+ )
++
++alias(
++    name = "matcher",
++    actual = "pkg_go_proto",
++)
+diff --git xds/type/v3/BUILD xds/type/v3/BUILD
+index 51b75ce..1882e38 100644
+--- xds/type/v3/BUILD
++++ xds/type/v3/BUILD
+@@ -1,5 +1,7 @@
+ load("//bazel:api_build_system.bzl", "xds_proto_package")
+ 
++package(default_visibility = [ "//visibility:public" ])
++
+ licenses(["notice"])  # Apache 2
+ 
+ xds_proto_package(
+@@ -11,3 +13,8 @@ xds_proto_package(
+         "@dev_cel//proto/cel/expr:syntax_proto",
+     ],
+ )
++
++alias(
++    name = "type",
++    actual = "pkg_go_proto",
++)

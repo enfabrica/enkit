@@ -1,5 +1,5 @@
 {
-    "homepage": "https://github.com/bazel-contrib/bazel-gazelle",
+    "homepage": "https://github.com/cncf/xds",
     "maintainers": [
         {
             "email": "gleb@enfabrica.net",
@@ -9,10 +9,10 @@
         }
     ],
     "repository": [
-        "github:bazel-contrib/bazel-gazelle"
+        "github:cncf/xds"
     ],
     "versions": [
-        "enf-0.43.0",
-        "enf-0.44.0"
-    ]
+        "enf-2025-05-01"
+    ],
+    "yanked_versions": {}
 }
