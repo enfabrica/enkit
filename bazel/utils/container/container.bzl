@@ -10,6 +10,9 @@ GCP_PROJECT = "enfabrica-container-images"
 
 _IMAGE_BUILDER_SH = """\
 #!/bin/bash
+
+export RUNFILES_DIR="$0.runfiles"
+
 {tool} \\
     --image_definition_json={image_def} \\
     --labels={labels} \\
@@ -244,8 +247,10 @@ def nonhermetic_image_builder_impl(ctx):
     direct_files = ctx.files.src + ctx.files.labels + ctx.files.dev_repo + ctx.files.staging_repo + ctx.files.prod_repo + ctx.files.tars
     runfiles = ctx.runfiles(
         files = ctx.attr._tool[DefaultInfo].files.to_list() + direct_files,
-        transitive_files = ctx.attr._tool[DefaultInfo].default_runfiles.files,
-    )
+    ).merge_all([
+        ctx.attr._tool[DefaultInfo].default_runfiles,
+        ctx.attr._runfiles[DefaultInfo].default_runfiles,
+    ])
     return [
         DefaultInfo(
             runfiles = runfiles,
@@ -282,6 +287,9 @@ _nonhermetic_image_builder = rule(
             default = "//bazel/utils/container/muk:muk",
             executable = True,
             cfg = "exec",
+        ),
+        "_runfiles": attr.label(
+            default = "@bazel_tools//tools/bash/runfiles",
         ),
         "tars": attr.label_list(
             doc = "List of tarballs to extract into the environment",
