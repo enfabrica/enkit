@@ -131,7 +131,7 @@ done
 }
 
 # TODO(cccontavalli): better escaping, will fix it once we have more tests.
-command="cd $destrun; /bin/bash -c \"MACHINES='${DESTS[*]}' ${ENV}${ENV:+ }./$executable ${TARGET_OPTS[*]}\""
+command="cd $destrun; /bin/bash -c \"MACHINES='${DESTS[*]}' RUNFILES_DIR='\$(pwd)/..'  ${ENV}${ENV:+ }./$executable ${TARGET_OPTS[*]}\""
 [ "$ONLY_COPY" != "true" ] || {
   echo "Copy only mode was requested - not running any command"
   echo "Would have run:"

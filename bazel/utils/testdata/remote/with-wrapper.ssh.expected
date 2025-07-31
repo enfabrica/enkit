@@ -1,1 +1,1 @@
-non-existant-machine-1.corp -- cd hw-dev-$USER/home/$USER/__bazel_utils_hello-world/_main; /bin/bash -c "MACHINES='non-existant-machine-1.corp non-existant-machine-2.corp' ./bazel/utils/wrapper --wrapper_opt1=foo -- bazel/utils/hello-world --target_opt1=foo"
+non-existant-machine-1.corp -- cd hw-dev-$USER/home/$USER/__bazel_utils_hello-world/_main; /bin/bash -c "MACHINES='non-existant-machine-1.corp non-existant-machine-2.corp' RUNFILES_DIR='$(pwd)/..'  ./bazel/utils/wrapper --wrapper_opt1=foo -- bazel/utils/hello-world --target_opt1=foo"
