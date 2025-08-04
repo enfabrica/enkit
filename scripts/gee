@@ -4641,7 +4641,7 @@ function gee__pr_check() {
     if [[ "${CURRENT_BRANCH}" == "pr_"* ]]; then
       PRNUM="${CURRENT_BRANCH:3}"
     else
-      PRNUM="$(gh pr view | grep number | awk '{print $2}'; exit "${PIPESTATUS[0]}")"
+      PRNUM="$(gh pr view | grep ^number: | awk '{print $2}'; exit "${PIPESTATUS[0]}")"
     fi
   fi
 
