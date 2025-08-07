@@ -1,0 +1,61 @@
+diff --git MODULE.bazel MODULE.bazel
+index be3a727..9e7e59e 100644
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -2,7 +2,7 @@
+ 
+ module(
+     name = "rules_foreign_cc",
+-    version = "0.0.0",
++    version = "enf-0.15.0",
+     compatibility_level = 1,
+ )
+ 
+@@ -18,31 +18,3 @@ bazel_dep(name = "gazelle", version = "0.41.0", dev_dependency = True, repo_name
+ bazel_dep(name = "bazel_skylib_gazelle_plugin", version = "1.7.1", dev_dependency = True)
+ bazel_dep(name = "bazel_ci_rules", version = "1.0.0", dev_dependency = True)
+ bazel_dep(name = "aspect_rules_lint", version = "1.2.2", dev_dependency = True)
+-
+-python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+-python.toolchain(python_version = "3.12")
+-use_repo(python, "python_3_12")
+-
+-tools = use_extension("@rules_foreign_cc//foreign_cc:extensions.bzl", "tools")
+-use_repo(
+-    tools,
+-    "cmake_3.31.7_toolchains",
+-    "cmake_src",
+-    "gettext_runtime",
+-    "glib_dev",
+-    "glib_src",
+-    "gnumake_src",
+-    "meson_src",
+-    "ninja_1.12.1_toolchains",
+-    "ninja_build_src",
+-    "pkgconfig_src",
+-    "rules_foreign_cc_framework_toolchains",
+-)
+-
+-register_toolchains(
+-    "@rules_foreign_cc_framework_toolchains//:all",
+-    "@cmake_3.31.7_toolchains//:all",
+-    "@ninja_1.12.1_toolchains//:all",
+-    "@python_3_12//:all",
+-    "@rules_foreign_cc//toolchains:all",
+-)
+diff --git foreign_cc/meson.bzl foreign_cc/meson.bzl
+index ed7ba72..74e7c59 100644
+--- foreign_cc/meson.bzl
++++ foreign_cc/meson.bzl
+@@ -78,9 +78,9 @@ def _create_meson_script(configureParameters):
+     # https://github.com/mesonbuild/meson/issues/3565
+     # Skip setting them in this case.
+     if " " not in tools.cc:
+-        script.append("##export_var## CC {}".format(_absolutize(ctx.workspace_name, tools.cc)))
++        script.append("##export_var## CC {}".format(_absolutize(ctx.workspace_name, tools.cc, True)))
+     if " " not in tools.cxx:
+-        script.append("##export_var## CXX {}".format(_absolutize(ctx.workspace_name, tools.cxx)))
++        script.append("##export_var## CXX {}".format(_absolutize(ctx.workspace_name, tools.cxx, True)))
+ 
+     copts = flags.cc
+     cxxopts = flags.cxx
