@@ -12,7 +12,8 @@
         "github:bazel-contrib/rules_foreign_cc"
     ],
     "versions": [
-        "enf-0.14.0"
+        "enf-0.14.0",
+        "enf-0.15.0"
     ],
     "yanked_versions": {}
 }
