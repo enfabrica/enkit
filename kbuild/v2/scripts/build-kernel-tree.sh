@@ -232,7 +232,7 @@ make $QUIET \
      $arch_args \
      KERNELRELEASE="$kernel_version" \
      prepare modules \
-     $arch_image
+     $arch_image tools/perf
 
 # make source symlink relative
 rm -f "${build_dir}/source"
