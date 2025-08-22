@@ -2,7 +2,7 @@
 
 # Build and publish arm64 kernel artifacts for a particular configuration
 
-set -e
+set -ex
 
 SCRIPT_PATH="$(dirname $(realpath $0))"
 
@@ -22,7 +22,8 @@ OUTPUT_REPO_DIR="$BUILD_ROOT/apt-repo/${TARGET}"
 OUTPUT_BAZEL_ARCHIVE_DIR="$BUILD_ROOT/bazel-archive/${TARGET}"
 OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive/${TARGET}"
 
-apt install -yV aarch64-linux-gnu-gcc
+apt update
+apt install -V gcc-aarch64-linux-gnu
 
 # Builds the .deb kernel packages for arch, flavour
 ${SCRIPT_PATH}/build-debs.sh "$KERNEL_SRC" "$KERNEL_VERSION" "$ARCH" "$FLAVOUR" "$BUILD_DEB_DIR" "$OUTPUT_DEB_DIR"
