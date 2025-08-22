@@ -24,6 +24,7 @@ OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive/${TARGET}"
 
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 
+apt update
 apt install -yV gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
 cat >> /etc/apt/sources.list << 'EOF'
