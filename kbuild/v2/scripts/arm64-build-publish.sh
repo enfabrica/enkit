@@ -22,8 +22,14 @@ OUTPUT_REPO_DIR="$BUILD_ROOT/apt-repo/${TARGET}"
 OUTPUT_BAZEL_ARCHIVE_DIR="$BUILD_ROOT/bazel-archive/${TARGET}"
 OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive/${TARGET}"
 
+echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+
 apt update
-apt install -yV gcc-aarch64-linux-gnu libpci-dev
+apt install -yV gcc-aarch64-linux-gnu \
+g++-aarch64-linux-gnu \
+libpci-dev
+
+# export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
 
 # Builds the .deb kernel packages for arch, flavour
 ${SCRIPT_PATH}/build-debs.sh "$KERNEL_SRC" "$KERNEL_VERSION" "$ARCH" "$FLAVOUR" "$BUILD_DEB_DIR" "$OUTPUT_DEB_DIR"
