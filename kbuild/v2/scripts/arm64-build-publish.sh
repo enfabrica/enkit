@@ -39,7 +39,8 @@ dpkg --print-foreign-architectures
 
 apt update || true
 
-apt install -yV libpci-dev
+apt install -yV libpci-dev:arm64
+dpkg -L libpci-dev:arm64
 
 export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
 ls -lh /usr/lib/aarch64-linux-gnu/pkgconfig
