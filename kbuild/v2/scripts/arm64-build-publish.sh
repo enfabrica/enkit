@@ -16,6 +16,18 @@ ASTORE_BASE="$7"
 ASTORE_META_DIR="$8"
 
 TARGET="${ARCH}-${FLAVOUR}"
+BUILD_DEB_DIR="$BUILD_ROOT/deb-build/${TARGET}"
+OUTPUT_DEB_DIR="$BUILD_ROOT/deb-out/${TARGET}"
+OUTPUT_REPO_DIR="$BUILD_ROOT/apt-repo/${TARGET}"
+OUTPUT_BAZEL_ARCHIVE_DIR="$BUILD_ROOT/bazel-archive/${TARGET}"
+OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive/${TARGET}"
+
+# Builds the .deb kernel packages for arch, flavour
+${SCRIPT_PATH}/build-debs.sh "$KERNEL_SRC" "$KERNEL_VERSION" "$ARCH" "$FLAVOUR" "$BUILD_DEB_DIR" "$OUTPUT_DEB_DIR"
+
+echo Done.
+exit 2
+
 KERNEL_BUILD_DIR="$BUILD_ROOT/kbuild/${TARGET}"
 OUTPUT_KRELEASE_DIR="$BUILD_ROOT/krelease/${TARGET}"
 
