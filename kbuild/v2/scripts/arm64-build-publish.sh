@@ -24,6 +24,8 @@ OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive/${TARGET}"
 
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 
+apt install -yV gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
 cat >> /etc/apt/sources.list << 'EOF'
 deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main restricted universe multiverse
 deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted universe multiverse
@@ -36,9 +38,7 @@ dpkg --print-foreign-architectures
 
 apt update || true
 
-apt install -yV gcc-aarch64-linux-gnu \
-g++-aarch64-linux-gnu \
-libpci-dev
+apt install -yV libpci-dev
 
 # export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
 
