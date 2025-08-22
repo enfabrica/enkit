@@ -39,9 +39,11 @@ dpkg --print-foreign-architectures
 
 apt update || true
 
-apt install -yV libgcc-s1:arm64 libcrypt1:arm64 linux-libc-dev:arm64 libcrypt-dev:arm64
-apt install -yV libc6:arm64 libc6-dev:arm64
-apt install -yV libpci-dev:arm64 libudev-dev:arm64 zlib1g-dev:arm64
+apt install -yV libgcc-s1:arm64 libcrypt1:arm64 \
+linux-libc-dev:arm64 libcrypt-dev:arm64 \
+libc6:arm64 libc6-dev:arm64 \
+libpci-dev:arm64 libudev-dev:arm64 zlib1g-dev:arm64
+
 dpkg -L libpci-dev:arm64
 
 export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
