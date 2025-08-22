@@ -22,11 +22,13 @@ OUTPUT_REPO_DIR="$BUILD_ROOT/apt-repo/${TARGET}"
 OUTPUT_BAZEL_ARCHIVE_DIR="$BUILD_ROOT/bazel-archive/${TARGET}"
 OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive/${TARGET}"
 
+apt install -yV aarch64-linux-gnu-gcc
+
 # Builds the .deb kernel packages for arch, flavour
 ${SCRIPT_PATH}/build-debs.sh "$KERNEL_SRC" "$KERNEL_VERSION" "$ARCH" "$FLAVOUR" "$BUILD_DEB_DIR" "$OUTPUT_DEB_DIR"
 
 echo Done.
-exit 2
+exit 1
 
 KERNEL_BUILD_DIR="$BUILD_ROOT/kbuild/${TARGET}"
 OUTPUT_KRELEASE_DIR="$BUILD_ROOT/krelease/${TARGET}"
