@@ -2,103 +2,202 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	pb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
+	"github.com/enfabrica/enkit/experimental/remote_asset_service/asset_service"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"log"
 	"net/http"
 	"os"
-	"github.com/enfabrica/enkit/experimental/remote_asset_service/asset_service"
 )
 
 type testCtx struct {
 	ctx             context.Context
+	urlFilter       asset_service.UrlFilter
+	metrics         asset_service.Metrics
 	proxyCache      asset_service.CacheProxy
 	assetDownloader asset_service.AssetDownloader
 }
 
-func (t *testCtx) checkContains(digest *pb.Digest) {
-	containsDigest, err := t.proxyCache.Contains(t.ctx, digest.Hash)
+func newTestCtx(configStr string) *testCtx {
+	config, err := asset_service.NewConfigFromData([]byte(configStr))
 	if err != nil {
 		panic(err)
 	}
 
-	if !proto.Equal(containsDigest, digest) {
-		panic(fmt.Sprintf("containsDigest: %s != digest: %s", containsDigest.String(), digest.String()))
-	}
-}
-
-func (t *testCtx) downloadAndCheck(expectedHash string) {
-	uuid := uuid.New().String()
-	file, err := t.proxyCache.GetToFile(t.ctx, uuid, expectedHash)
-	if file != nil {
-		os.Remove(file.Name())
-	} else {
-		panic("not found")
-	}
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (t *testCtx) runWithHash(uri string, expectedHash string) {
-	digest, err := t.assetDownloader.FetchItem(t.ctx, uri, http.Header{}, expectedHash)
+	proxyCache, err := asset_service.NewCacheProxy(config)
 	if err != nil {
 		panic(err)
 	}
 
-	if digest.Hash != expectedHash {
-		panic(fmt.Sprintf("digest.Hash: %s != expectedHash: %s", digest.Hash, expectedHash))
-	}
+	urlFilter := asset_service.NewUrlFilter(config)
+	metrics := asset_service.NewMetrics()
+	assetDownloader := asset_service.NewAssetDownloader(config, proxyCache, urlFilter, metrics)
 
-	t.checkContains(digest)
-	t.downloadAndCheck(expectedHash)
-}
-
-func (t *testCtx) runWithoutHash(uri string, expectedHash string) {
-	digest, err := t.assetDownloader.FetchItem(t.ctx, uri, http.Header{}, "")
-	if err != nil {
-		panic(err)
-	}
-
-	if digest.Hash != expectedHash {
-		panic(fmt.Sprintf("digest.Hash: %s != expectedHash: %s", digest.Hash, expectedHash))
-	}
-
-	t.checkContains(digest)
-	t.downloadAndCheck(expectedHash)
-}
-
-func run() error {
-	proxyCache, err := asset_service.NewCacheProxy("127.0.0.1:8982")
-	if err != nil {
-		panic(err)
-	}
-
-	accessLogger := log.New(os.Stdout, "", log.LstdFlags)
-	assetDownloader := asset_service.NewAssetDownloader(proxyCache, accessLogger)
-
-	tCtx := &testCtx{
+	return &testCtx{
 		ctx:             context.Background(),
+		urlFilter:       urlFilter,
+		metrics:         metrics,
 		proxyCache:      proxyCache,
 		assetDownloader: assetDownloader,
 	}
+}
 
-	tCtx.runWithHash(
+func (t *testCtx) checkContains(digest *pb.Digest) error {
+	containsDigest, err := t.proxyCache.Contains(t.ctx, digest.Hash)
+	if err != nil {
+		return err
+	}
+
+	if !proto.Equal(containsDigest, digest) {
+		return errors.New(fmt.Sprintf("containsDigest: %s != digest: %s", containsDigest.String(), digest.String()))
+	}
+
+	return nil
+}
+
+func (t *testCtx) downloadAndCheck(expectedHash string) error {
+	uuid := uuid.New().String()
+	file, err := t.proxyCache.GetToFile(t.ctx, uuid, expectedHash)
+	if err != nil {
+		return err
+	}
+	if file != nil {
+		os.Remove(file.Name())
+	} else {
+		return errors.New("not found")
+	}
+	return nil
+}
+
+func (t *testCtx) runWithHash(uri string, expectedHash string) error {
+	digest, err := t.assetDownloader.FetchItem(uri, http.Header{}, expectedHash)
+	if err != nil {
+		return err
+	}
+
+	if digest == nil {
+		return errors.New("not fetched")
+	}
+
+	if digest.Hash != expectedHash {
+		return errors.New(fmt.Sprintf("digest.Hash: %s != expectedHash: %s", digest.Hash, expectedHash))
+	}
+
+	err = t.checkContains(digest)
+	if err != nil {
+		return err
+	}
+
+	return t.downloadAndCheck(expectedHash)
+}
+
+func (t *testCtx) runWithoutHash(uri string, expectedHash string) error {
+	digest, err := t.assetDownloader.FetchItem(uri, http.Header{}, "")
+	if err != nil {
+		return err
+	}
+
+	if digest == nil {
+		return errors.New("not fetched")
+	}
+
+	if digest.Hash != expectedHash {
+		return errors.New(fmt.Sprintf("digest.Hash: %s != expectedHash: %s", digest.Hash, expectedHash))
+	}
+
+	err = t.checkContains(digest)
+	if err != nil {
+		return err
+	}
+
+	return t.downloadAndCheck(expectedHash)
+}
+
+const configRaw = `
+cache:
+  port: 8982
+  host: "127.0.0.1"
+`
+
+func run() error {
+	tCtx := newTestCtx(configRaw)
+
+	err := tCtx.runWithHash(
 		"https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
 		"bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
 	)
-	tCtx.runWithoutHash(
+
+	if err != nil {
+		return err
+	}
+
+	err = tCtx.runWithoutHash(
 		"https://github.com/bats-core/bats-support/archive/refs/tags/v0.3.0.tar.gz",
 		"7815237aafeb42ddcc1b8c698fc5808026d33317d8701d5ec2396e9634e2918f",
 	)
+
+	if err != nil {
+		return err
+	}
+
+	if tCtx.metrics.NumberOfFetches() != 2 {
+		return errors.New(fmt.Sprintf("NumberOfFetches %d != expected 2", tCtx.metrics.NumberOfFetches()))
+	}
+
+	if tCtx.metrics.NumberOfRequestedFetches() != 2 {
+		return errors.New(fmt.Sprintf("NumberOfRequestedFetches %d != expected 2", tCtx.metrics.NumberOfFetches()))
+	}
+
+	return nil
+}
+
+func runDeduplicationCheck() error {
+	tCtx := newTestCtx(configRaw)
+
+	wg := new(errgroup.Group)
+
+	for range 10 {
+		wg.Go(func() error {
+			return tCtx.runWithHash(
+				"https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
+				"bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
+			)
+		})
+		wg.Go(func() error {
+			return tCtx.runWithoutHash(
+				"https://github.com/bats-core/bats-support/archive/refs/tags/v0.3.0.tar.gz",
+				"7815237aafeb42ddcc1b8c698fc5808026d33317d8701d5ec2396e9634e2918f",
+			)
+		})
+	}
+
+	err := wg.Wait()
+	if err != nil {
+		return err
+	}
+
+	if tCtx.metrics.NumberOfFetches() != 2 {
+		return errors.New(fmt.Sprintf("NumberOfFetches %d != expected 2", tCtx.metrics.NumberOfFetches()))
+	}
+
+	if tCtx.metrics.NumberOfRequestedFetches() != 20 {
+		return errors.New(fmt.Sprintf("NumberOfRequestedFetches %d != expected 20", tCtx.metrics.NumberOfFetches()))
+	}
 
 	return nil
 }
 
 func main() {
 	err := run()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = runDeduplicationCheck()
 	if err != nil {
 		log.Fatal(err)
 	}

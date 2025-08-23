@@ -16,27 +16,60 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 const (
-	// The maximum chunk size to write back to the client in Send calls.
-	// Inspired by Goma's FileBlob.FILE_CHUNK maxium size.
-	maxChunkSize = 2 * 1024 * 1024 // 2M
+	fetchBufferSize = 64 * 1024 // 64Kb
 )
 
 type AssetDownloader interface {
-	FetchItem(ctx context.Context, uri string, headers http.Header, expectedHash string) (*pb.Digest, error)
+	FetchItem(uri string, headers http.Header, expectedHash string) (*pb.Digest, error)
+}
+
+type downloadResult struct {
+	digest *pb.Digest
+	err    error
+}
+
+type downloadItem struct {
+	uri          string
+	headers      http.Header
+	expectedHash string
+	mutex        sync.Mutex
+	finished     *downloadResult
+	observers    []chan *downloadResult
 }
 
 type assetDownloader struct {
-	cache        CacheProxy
-	accessLogger *log.Logger
+	cache             CacheProxy
+	filter            UrlFilter
+	metrics           Metrics
+	parallelDownloads int32
+	active            atomic.Int32
+	queued            atomic.Int64
+	currentMutex      sync.Mutex
+	currentDownloads  map[string]*downloadItem
+	downloadsQueue    chan *downloadItem
+	accessLogger      *log.Logger
+	errorLogger       *log.Logger
 }
 
-func NewAssetDownloader(cache CacheProxy, accessLogger *log.Logger) AssetDownloader {
+func NewAssetDownloader(config Config, cache CacheProxy, filter UrlFilter, metrics Metrics) AssetDownloader {
 	return &assetDownloader{
-		cache:        cache,
-		accessLogger: accessLogger,
+		cache:             cache,
+		filter:            filter,
+		metrics:           metrics,
+		parallelDownloads: config.ParallelDownloads(),
+		active:            atomic.Int32{},
+		queued:            atomic.Int64{},
+		currentMutex:      sync.Mutex{},
+		currentDownloads:  make(map[string]*downloadItem),
+		downloadsQueue:    make(chan *downloadItem),
+		accessLogger:      config.AccessLogger(),
+		errorLogger:       config.ErrorLogger(),
 	}
 }
 
@@ -54,7 +87,7 @@ func (ad *assetDownloader) fetchToTempFile(ctx context.Context, uuid string, uri
 	h := sha256.New()
 	{
 		defer rc.Close()
-		buf := make([]byte, maxChunkSize)
+		buf := make([]byte, fetchBufferSize)
 		for {
 			n, err := rc.Read(buf)
 			if err != nil && err != io.EOF {
@@ -92,19 +125,7 @@ func (ad *assetDownloader) fetchToTempFile(ctx context.Context, uuid string, uri
 	}, nil
 }
 
-func (ad *assetDownloader) FetchItem(ctx context.Context, uri string, headers http.Header, expectedHash string) (*pb.Digest, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "unable to parse URI: %s err: %v", uri, err)
-	}
-
-	if u.Scheme != "http" && u.Scheme != "https" {
-		if u.Scheme == "file" {
-			return nil, nil
-		}
-		return nil, status.Errorf(codes.Internal, "unsupported URI: %s", uri)
-	}
-
+func (ad *assetDownloader) fetchAsset(ctx context.Context, uri string, headers http.Header, expectedHash string) (*pb.Digest, error) {
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create http.Request: %s err: %v", uri, err)
@@ -142,4 +163,111 @@ func (ad *assetDownloader) FetchItem(ctx context.Context, uri string, headers ht
 			SizeBytes: expectedSize,
 		}, nil
 	}
+}
+
+func (ad *assetDownloader) addItemToQueue(item *downloadItem) {
+	ad.queued.Add(1)
+	if ad.active.Add(1) > ad.parallelDownloads {
+		ad.active.Add(-1)
+		ad.downloadsQueue <- item
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		defer ad.active.Add(-1)
+
+		for {
+			ad.queued.Add(-1)
+			ad.metrics.OnFetchStarted()
+			digest, err := ad.fetchAsset(ctx, item.uri, item.headers, item.expectedHash)
+			result := &downloadResult{
+				digest: digest,
+				err:    err,
+			}
+			{
+				item.mutex.Lock()
+				item.finished = result
+				item.mutex.Unlock()
+			}
+
+			for _, observer := range item.observers {
+				observer <- result
+			}
+
+			{
+				ad.currentMutex.Lock()
+				delete(ad.currentDownloads, item.uri)
+				ad.currentMutex.Unlock()
+			}
+
+			for {
+				select {
+				case item = <-ad.downloadsQueue:
+					break
+				case <-ctx.Done():
+					return
+				case <-time.After(100 * time.Millisecond):
+					if ad.queued.Load() == 0 {
+						return
+					}
+				}
+			}
+		}
+	}()
+}
+
+func (ad *assetDownloader) scheduleFetch(uri string, headers http.Header, expectedHash string) chan *downloadResult {
+	ad.metrics.OnFetchRequested()
+
+	result := make(chan *downloadResult, 1)
+	item := &downloadItem{
+		uri:          uri,
+		headers:      headers,
+		expectedHash: expectedHash,
+		mutex:        sync.Mutex{},
+		finished:     nil,
+		observers:    []chan *downloadResult{result},
+	}
+
+	ad.currentMutex.Lock()
+	defer ad.currentMutex.Unlock()
+
+	existingItem, ok := ad.currentDownloads[uri]
+	if ok && existingItem != nil {
+		existingItem.mutex.Lock()
+		existingItem.mutex.Unlock()
+
+		if existingItem.finished != nil {
+			result <- existingItem.finished
+		} else {
+			existingItem.observers = append(existingItem.observers, result)
+		}
+	} else {
+		ad.currentDownloads[uri] = item
+		defer ad.addItemToQueue(item)
+	}
+
+	return result
+}
+
+func (ad *assetDownloader) FetchItem(uri string, headers http.Header, expectedHash string) (*pb.Digest, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "unable to parse URI: %s err: %v", uri, err)
+	}
+
+	if !ad.filter.CanProceed(u) {
+		ad.accessLogger.Printf("GRPC ASSET %s FILTERED, SKIPPING", uri)
+		return nil, nil
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, status.Errorf(codes.Internal, "unsupported URI: %s", uri)
+	}
+
+	scheduleChan := ad.scheduleFetch(uri, headers, expectedHash)
+	result := <-scheduleChan
+	return result.digest, result.err
 }

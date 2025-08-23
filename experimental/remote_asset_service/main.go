@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -9,50 +10,36 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
 
 	"github.com/enfabrica/enkit/experimental/remote_asset_service/asset_service"
 )
 
-var (
-	port = flag.Int("port", 9092, "port")
-	host = flag.String("host", "127.0.0.1", "host")
-
-	proxyPort = flag.Int("proxy_port", 8982, "proxy_port")
-	proxyHost = flag.String("proxy_host", "127.0.0.1", "proxy_host")
-)
-
-type Config struct {
-	accessLogger *log.Logger
-	errorLogger  *log.Logger
-	grpcAddress  string
-	proxyAddress string
-}
-
-func run(c *Config) error {
-	proxyCache, err := asset_service.NewCacheProxy(c.proxyAddress)
+func run(config asset_service.Config) error {
+	proxyCache, err := asset_service.NewCacheProxy(config)
 	if err != nil {
 		return err
 	}
 
-	assetDownloader := asset_service.NewAssetDownloader(proxyCache, c.accessLogger)
+	urlFilter := asset_service.NewUrlFilter(config)
+	metrics := asset_service.NewMetrics()
+	assetDownloader := asset_service.NewAssetDownloader(config, proxyCache, urlFilter, metrics)
 
 	servers := new(errgroup.Group)
 	servers.Go(func() error {
-		grpcAddress := net.JoinHostPort(*host, strconv.Itoa(*port))
+		grpcAddress := config.GrpcAddress()
 
 		var opts []grpc.ServerOption
 
 		grpcServer := grpc.NewServer(opts...)
 
-		listener, err := net.Listen("tcp", c.grpcAddress)
+		listener, err := net.Listen("tcp", grpcAddress)
 		if err != nil {
 			return err
 		}
 
 		log.Println("Starting gRPC server on address", grpcAddress)
 
-		asset_service.RegisterAssetServer(grpcServer, proxyCache, assetDownloader, c.accessLogger, c.errorLogger)
+		asset_service.RegisterAssetServer(config, grpcServer, proxyCache, assetDownloader)
 
 		h := health.NewServer()
 		grpc_health_v1.RegisterHealthServer(grpcServer, h)
@@ -64,17 +51,26 @@ func run(c *Config) error {
 	return servers.Wait()
 }
 
-func main() {
-	flag.Parse()
+func usage() {
+	fmt.Fprintf(os.Stderr, "usage: asset_service [config.yaml]\n")
+	flag.PrintDefaults()
+	os.Exit(2)
+}
 
-	config := &Config{
-		accessLogger: log.New(os.Stdout, "", log.LstdFlags),
-		errorLogger:  log.New(os.Stderr, "", log.LstdFlags),
-		grpcAddress:  net.JoinHostPort(*host, strconv.Itoa(*port)),
-		proxyAddress: net.JoinHostPort(*proxyHost, strconv.Itoa(*proxyPort)),
+func main() {
+	flag.Usage = usage
+	flag.Parse()
+	args := flag.Args()
+	if len(args) < 1 {
+		log.Fatalf("Config file is missing.")
 	}
 
-	err := run(config)
+	config, err := asset_service.NewConfigFromPath(args[0])
+	if err != nil {
+		log.Fatalf("Parse config error: %v", err)
+	}
+
+	err = run(config)
 	if err != nil {
 		log.Fatalf("Run server error: %v", err)
 	}

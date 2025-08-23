@@ -16,6 +16,12 @@ import (
 	"os"
 )
 
+const (
+	// The maximum chunk size to write back to the client in Send calls.
+	// Inspired by Goma's FileBlob.FILE_CHUNK maxium size.
+	maxChunkSize = 2 * 1024 * 1024 // 2M
+)
+
 type CacheProxy interface {
 	Contains(ctx context.Context, hash string) (*pb.Digest, error)
 	Put(ctx context.Context, uuid string, hash string, size int64, rc io.ReadCloser) error
@@ -28,8 +34,8 @@ type cacheProxy struct {
 	bs  bs.ByteStreamClient
 }
 
-func NewCacheProxy(proxyAddress string) (CacheProxy, error) {
-	conn, err := grpc.NewClient(proxyAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func NewCacheProxy(config Config) (CacheProxy, error) {
+	conn, err := grpc.NewClient(config.ProxyAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -41,11 +47,11 @@ func NewCacheProxy(proxyAddress string) (CacheProxy, error) {
 	}, nil
 }
 
-func actionDigest(hassh string) *pb.Digest {
+func actionDigest(hash string) *pb.Digest {
 	h := sha256.New()
 
-	h.Write([]byte(hassh))
-	h.Write([]byte("AC"))
+	h.Write([]byte(hash))
+	h.Write([]byte("Action Cache Salt"))
 
 	hashBytes := h.Sum(nil)
 	hashStr := hex.EncodeToString(hashBytes[:])

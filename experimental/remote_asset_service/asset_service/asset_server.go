@@ -24,12 +24,12 @@ type assetServer struct {
 	errorLogger     *log.Logger
 }
 
-func RegisterAssetServer(server *grpc.Server, cache CacheProxy, assetDownloader AssetDownloader, accessLogger, errorLogger *log.Logger) {
+func RegisterAssetServer(config Config, server *grpc.Server, cache CacheProxy, assetDownloader AssetDownloader) {
 	asset.RegisterFetchServer(server, &assetServer{
 		cache:           cache,
 		assetDownloader: assetDownloader,
-		accessLogger:    accessLogger,
-		errorLogger:     errorLogger,
+		accessLogger:    config.AccessLogger(),
+		errorLogger:     config.ErrorLogger(),
 	})
 }
 
@@ -109,6 +109,7 @@ func (s *assetServer) FetchBlob(ctx context.Context, req *asset.FetchBlobRequest
 			if err != nil {
 				s.errorLogger.Printf("failed to query  cache.Contains: %s", err)
 			} else if found != nil {
+				s.accessLogger.Printf("CACHE HIT %s/%s", found.Hash, found.SizeBytes)
 				return &asset.FetchBlobResponse{
 					Status:     &status.Status{Code: int32(codes.OK)},
 					BlobDigest: found,
@@ -129,7 +130,7 @@ func (s *assetServer) FetchBlob(ctx context.Context, req *asset.FetchBlobRequest
 			}
 		}
 
-		digest, err := s.assetDownloader.FetchItem(ctx, uri, uriSpecificHeader, sha256Str)
+		digest, err := s.assetDownloader.FetchItem(uri, uriSpecificHeader, sha256Str)
 		if err != nil {
 			s.errorLogger.Printf("failed to fetch item \"%s\": %v", uri, err)
 		}
