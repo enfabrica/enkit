@@ -55,6 +55,7 @@ make_repo() {
     echo "KERNEL_BASE=$KERNEL_BASE"
     echo "DEB_VERSION=$DEB_VERSION"
     echo "ARCH=$ARCH"
+    echo "favour=$flavour"
     find ${INPUT_DEB_ROOT}/
 
     cp -a "${INPUT_DEB_ROOT}/"*_all.deb "$flavour_pool_dir"
@@ -63,8 +64,6 @@ make_repo() {
     echo "Done."
 
     cd "$flavour_repo"
-
-    exit 1
 
     echo -n "${flavour}: Processing repo *.deb files... "
     apt-ftparchive --arch "$ARCH" packages pool | \
