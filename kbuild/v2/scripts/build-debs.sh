@@ -95,3 +95,5 @@ fakeroot debian/rules binary-indep abi_suffix="$abi_suffix" arch="$ARCH" flavour
 
 # mv the resulting .debs
 mv ../linux-*deb "$OUTPUT_DEB_DIR"
+
+echo "Done building debs."

@@ -9,7 +9,7 @@
 # - kernel flavour
 # - an output directory to place the generated APT repo
 
-set -e
+set -ex
 
 LIB_SH="$(dirname $(realpath $0))/lib.sh"
 . $LIB_SH
