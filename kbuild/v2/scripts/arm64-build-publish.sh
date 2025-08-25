@@ -24,6 +24,16 @@ OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive/${TARGET}"
 
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 
+# BTF: .tmp_vmlinux.btf: pahole (pahole) is not available
+# Failed to generate BTF for vmlinux
+# Try to disable CONFIG_DEBUG_INFO_BTF
+# make[3]: *** [/builder/home/scratch-arm64/kernel-builder/deb-build/arm64-generic/source/scripts/Makefile.vmlinux:35: vmlinux] Error 1
+# make[2]: *** [/builder/home/scratch-arm64/kernel-builder/deb-build/arm64-generic/source/Makefile:1249: vmlinux] Error 2
+# make[2]: *** Waiting for unfinished jobs....
+
+apt update
+apt-get install -y dwarves
+
 cat >> /etc/apt/sources.list << 'EOF'
 apt update
 apt install -yV gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
