@@ -47,8 +47,11 @@ ksrc_dir="${BUILD_DIR}/source"
 rsync -a "${KERNEL_SRC_DIR}/" "$ksrc_dir"
 
 cd "$ksrc_dir"
-git grep "CONFIG_DEBUG_INFO_BTF"
-exit 1
+if [ "$ARCH" = "arm64" ]; then
+    git grep "CONFIG_DEBUG_INFO_BTF"
+    sed -i 's/CONFIG_DEBUG_INFO_BTF=y/# CONFIG_DEBUG_INFO_BTF is not set/' \
+    debian.master/config/arm64/config.common.arm64
+fi
 
 # If the git tree has any uncommitted modifications, mark the
 # version as dirty.
