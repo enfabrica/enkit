@@ -10,7 +10,7 @@
 # - a build directory
 # - an output directory to place the generated .debs
 
-set -e
+set -ex
 
 KERNEL_SRC_DIR="$(realpath $1)"
 KERNEL_VERSION="$(realpath $2)"
