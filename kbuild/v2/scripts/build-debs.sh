@@ -70,7 +70,9 @@ if [ "$ARCH" = "arm64" ]; then
     echo "DEB_HOST_ARCH=$DEB_HOST_ARCH"
     echo "DEB_BUILD_PROFILES=$DEB_BUILD_PROFILES"
 
-    export CROSS_COMPILE=aarch64-linux-gnu-
+    # export CROSS_COMPILE=aarch64-linux-gnu-
+    # in the top level script
+    export CROSS_COMPILE=aarch64-none-linux-gnu-
     export DEB_HOST_ARCH=arm64
     export DEB_BUILD_PROFILES="cross nocheck"
 
