@@ -31,8 +31,8 @@ echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 # make[2]: *** [/builder/home/scratch-arm64/kernel-builder/deb-build/arm64-generic/source/Makefile:1249: vmlinux] Error 2
 # make[2]: *** Waiting for unfinished jobs....
 
-apt update
-apt-get install -y dwarves
+# apt update
+# apt-get install -y dwarves
 
 cat >> /etc/apt/sources.list << 'EOF'
 apt update

@@ -47,6 +47,8 @@ ksrc_dir="${BUILD_DIR}/source"
 rsync -a "${KERNEL_SRC_DIR}/" "$ksrc_dir"
 
 cd "$ksrc_dir"
+git grep "CONFIG_DEBUG_INFO_BTF"
+exit 1
 
 # If the git tree has any uncommitted modifications, mark the
 # version as dirty.
