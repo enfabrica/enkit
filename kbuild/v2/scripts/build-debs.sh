@@ -64,6 +64,17 @@ if [ "$RT_BUILD_CLEAN" = "yes" ] ; then
 fi
 
 fakeroot debian/rules clean	   abi_suffix="$abi_suffix" arch="$ARCH" flavours="$FLAVOUR"
+# this step fails
+if [ "$ARCH" = "arm64" ]; then
+    echo "$CROSS_COMPILE=$CROSS_COMPILE"
+    echo "$DEB_HOST_ARCH=$DEB_HOST_ARCH"
+    echo "$DEB_BUILD_PROFILES=$DEB_BUILD_PROFILES"
+
+    # export CROSS_COMPILE=aarch64-linux-gnu-
+    # export DEB_HOST_ARCH=arm64
+    # export DEB_BUILD_PROFILES="cross nocheck"
+fi
+
 fakeroot debian/rules binary-debs  abi_suffix="$abi_suffix" arch="$ARCH" flavours="$FLAVOUR"
 fakeroot debian/rules binary-indep abi_suffix="$abi_suffix" arch="$ARCH" flavours="$FLAVOUR"
 
