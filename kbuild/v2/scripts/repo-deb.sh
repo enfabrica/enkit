@@ -64,6 +64,8 @@ make_repo() {
 
     cd "$flavour_repo"
 
+    exit 1
+
     echo -n "${flavour}: Processing repo *.deb files... "
     apt-ftparchive --arch "$ARCH" packages pool | \
         tee "${flavour_bin_dir}/Packages" | \
