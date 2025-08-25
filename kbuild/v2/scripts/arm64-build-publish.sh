@@ -24,14 +24,13 @@ OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive/${TARGET}"
 
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 
+cat >> /etc/apt/sources.list << 'EOF'
 apt update
 apt install -yV gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
-cat >> /etc/apt/sources.list << 'EOF'
 deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main restricted universe multiverse
 deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted universe multiverse
 deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-security main restricted universe multiverse
-EOF
 
 dpkg --add-architecture arm64
 dpkg --print-architecture
@@ -48,6 +47,7 @@ dpkg -L libpci-dev:arm64
 
 export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
 ls -lh /usr/lib/aarch64-linux-gnu/pkgconfig
+EOF
 
 # Builds the .deb kernel packages for arch, flavour
 ${SCRIPT_PATH}/build-debs.sh "$KERNEL_SRC" "$KERNEL_VERSION" "$ARCH" "$FLAVOUR" "$BUILD_DEB_DIR" "$OUTPUT_DEB_DIR"
