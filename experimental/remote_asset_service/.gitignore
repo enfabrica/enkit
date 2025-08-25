@@ -1,4 +1,2 @@
 config.jsonnet
 .env
-go.sum
-go.mod
