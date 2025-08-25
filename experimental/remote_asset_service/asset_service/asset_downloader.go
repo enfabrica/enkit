@@ -186,21 +186,18 @@ func (ad *assetDownloader) addItemToQueue(item *downloadItem) {
 				digest: digest,
 				err:    err,
 			}
-			{
-				item.mutex.Lock()
-				item.finished = result
-				item.mutex.Unlock()
-			}
+
+			item.mutex.Lock()
+			item.finished = result
+			item.mutex.Unlock()
 
 			for _, observer := range item.observers {
 				observer <- result
 			}
 
-			{
-				ad.currentMutex.Lock()
-				delete(ad.currentDownloads, item.uri)
-				ad.currentMutex.Unlock()
-			}
+			ad.currentMutex.Lock()
+			delete(ad.currentDownloads, item.uri)
+			ad.currentMutex.Unlock()
 
 			for {
 				select {

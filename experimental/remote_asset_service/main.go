@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -15,6 +16,8 @@ import (
 )
 
 func run(config asset_service.Config) error {
+	_ = godotenv.Load(".env")
+
 	proxyCache, err := asset_service.NewCacheProxy(config)
 	if err != nil {
 		return err

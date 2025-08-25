@@ -3,6 +3,7 @@ package asset_service
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,7 +11,9 @@ import (
 	bs "google.golang.org/genproto/googleapis/bytestream"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"io"
 	"os"
@@ -32,18 +35,76 @@ type cacheProxy struct {
 	ac  pb.ActionCacheClient
 	cas pb.ContentAddressableStorageClient
 	bs  bs.ByteStreamClient
+	cap pb.CapabilitiesClient
+}
+
+type ClientInterceptor struct {
+	headers map[string]string
+}
+
+func (client *ClientInterceptor) unaryInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	for header, value := range client.headers {
+		ctx = metadata.AppendToOutgoingContext(ctx, header, value)
+	}
+
+	return invoker(ctx, method, req, reply, cc, opts...)
+}
+
+func (client *ClientInterceptor) streamInterceptor(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	for header, value := range client.headers {
+		ctx = metadata.AppendToOutgoingContext(ctx, header, value)
+	}
+
+	return streamer(ctx, desc, cc, method, opts...)
 }
 
 func NewCacheProxy(config Config) (CacheProxy, error) {
-	conn, err := grpc.NewClient(config.ProxyAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	address := config.ProxyAddress()
+
+	var opts []grpc.DialOption
+	if address.Scheme == "grpcs" {
+		creds := credentials.NewTLS(&tls.Config{
+			InsecureSkipVerify: true,
+		})
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else if address.Scheme == "grpc" {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		return nil, status.Errorf(codes.InvalidArgument, "unknown address scheme: %s", address.Scheme)
+	}
+
+	headers := config.ProxyHeaders()
+	if len(headers) != 0 {
+		clientInterceptor := &ClientInterceptor{
+			headers: headers,
+		}
+
+		opts = append(opts, grpc.WithUnaryInterceptor(clientInterceptor.unaryInterceptor))
+		opts = append(opts, grpc.WithStreamInterceptor(clientInterceptor.streamInterceptor))
+	}
+
+	conn, err := grpc.NewClient(address.Host, opts...)
 	if err != nil {
 		return nil, err
+	}
+
+	caps := pb.NewCapabilitiesClient(conn)
+
+	// Query Capabilities to check this cache instance works
+	serverCaps, err := caps.GetCapabilities(context.Background(), &pb.GetCapabilitiesRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	if !serverCaps.CacheCapabilities.ActionCacheUpdateCapabilities.UpdateEnabled {
+		return nil, status.Errorf(codes.Unimplemented, "Cache update capabilities not enabled")
 	}
 
 	return &cacheProxy{
 		ac:  pb.NewActionCacheClient(conn),
 		cas: pb.NewContentAddressableStorageClient(conn),
 		bs:  bs.NewByteStreamClient(conn),
+		cap: caps,
 	}, nil
 }
 
@@ -80,7 +141,8 @@ func (cp *cacheProxy) Contains(ctx context.Context, hash string) (*pb.Digest, er
 	if assetDigest.Hash != hash {
 		return nil, status.Errorf(
 			codes.DataLoss,
-			"corrupted ActionResult: hash of output file differs output file, requested: %s, but got: %s",
+			"corrupted ActionResult: hash of output file differs output file, re"+
+				"quested: %s, but got: %s",
 			hash,
 			assetDigest.Hash,
 		)

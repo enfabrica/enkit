@@ -109,7 +109,7 @@ func (s *assetServer) FetchBlob(ctx context.Context, req *asset.FetchBlobRequest
 			if err != nil {
 				s.errorLogger.Printf("failed to query  cache.Contains: %s", err)
 			} else if found != nil {
-				s.accessLogger.Printf("CACHE HIT %s/%s", found.Hash, found.SizeBytes)
+				s.accessLogger.Printf("CACHE HIT %s/%d", found.Hash, found.SizeBytes)
 				return &asset.FetchBlobResponse{
 					Status:     &status.Status{Code: int32(codes.OK)},
 					BlobDigest: found,

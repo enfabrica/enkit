@@ -7,6 +7,7 @@ import (
 	pb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/enfabrica/enkit/experimental/remote_asset_service/asset_service"
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"log"
@@ -23,7 +24,7 @@ type testCtx struct {
 }
 
 func newTestCtx(configStr string) *testCtx {
-	config, err := asset_service.NewConfigFromData([]byte(configStr))
+	config, err := asset_service.NewConfigFromStr(configStr)
 	if err != nil {
 		panic(err)
 	}
@@ -117,11 +118,11 @@ func (t *testCtx) runWithoutHash(uri string, expectedHash string) error {
 	return t.downloadAndCheck(expectedHash)
 }
 
-const configRaw = `
-cache:
-  port: 8982
-  host: "127.0.0.1"
-`
+const configRaw = `{
+	cache: {
+		address: "grpc://127.0.0.1:8982"
+	},
+}`
 
 func run() error {
 	tCtx := newTestCtx(configRaw)
@@ -191,13 +192,68 @@ func runDeduplicationCheck() error {
 	return nil
 }
 
+const configWithFilterRaw = `{
+	cache: {
+		address: "grpc://127.0.0.1:8982"
+	},
+	url_filter: {
+		skip_hosts: [
+			"us-docker.pkg.dev",
+		],
+	},
+}`
+
+func runFilterUriCheck() error {
+	tCtx := newTestCtx(configWithFilterRaw)
+
+	err := tCtx.runWithHash(
+		"https://us-docker.pkg.dev/v2/enfabrica-container-images/third-party-prod/distroless/base/golang/manifests/sha256:a4eefd667af74c5a1c5efe895a42f7748808e7f5cbc284e0e5f1517b79721ccb",
+		"a4eefd667af74c5a1c5efe895a42f7748808e7f5cbc284e0e5f1517b79721ccb",
+	)
+
+	if err == nil {
+		return errors.New("no error on fetch for 'us-docker.pkg.dev', expected to be filtered out")
+	}
+
+	if err.Error() != "not fetched" {
+		return errors.New(fmt.Sprintf("expected 'not fetched' for 'us-docker.pkg.dev', got '%s'", err))
+	}
+
+	err = tCtx.runWithHash(
+		"file:/home/gleb/develop/enkit/registry/modules/rules_python/enf-1.4.1/patches/rules_python.patch",
+		"bc3b0c2916152348ef7d465f6025aedc530b5edc8b9da82617eb79531f783302",
+	)
+
+	if err == nil {
+		return errors.New("no error on fetch for 'file:' url scheme, expected to be filtered out")
+	}
+
+	if err.Error() != "not fetched" {
+		return errors.New(fmt.Sprintf("expected 'not fetched' for 'file:' url scheme, got '%s'", err))
+	}
+
+	return tCtx.runWithHash(
+		"https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
+		"bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
+	)
+}
+
 func main() {
-	err := run()
+	_ = godotenv.Load(".env")
+
+	var err error
+
+	err = run()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	err = runDeduplicationCheck()
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	err = runFilterUriCheck()
 	if err != nil {
 		log.Fatal(err)
 	}

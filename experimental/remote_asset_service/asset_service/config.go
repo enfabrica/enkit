@@ -1,16 +1,22 @@
 package asset_service
 
 import (
-	"gopkg.in/yaml.v2"
+	"encoding/json"
+	"github.com/google/go-jsonnet"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"log"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config interface {
 	GrpcAddress() string
-	ProxyAddress() string
+	ProxyAddress() *url.URL
+	ProxyHeaders() map[string]string
 	ParallelDownloads() int32
 	SkipSchemes() map[string]bool
 	SkipHosts() map[string]bool
@@ -18,29 +24,60 @@ type Config interface {
 	ErrorLogger() *log.Logger
 }
 
+type cacheConfig struct {
+	Address *url.URL          `json:"address"`
+	Headers map[string]string `json:"headers"`
+}
+
+func (cc *cacheConfig) UnmarshalJSON(data []byte) error {
+	type Doppelganger cacheConfig
+
+	tmp := struct {
+		Address string `json:"address"`
+		*Doppelganger
+	}{
+		Doppelganger: (*Doppelganger)(cc),
+	}
+
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+
+	address, err := url.Parse(tmp.Address)
+	if err != nil {
+		return err
+	}
+
+	cc.Address = address
+
+	return nil
+}
+
 type config struct {
 	Server struct {
-		Host string `yaml:"host"`
-		Port int    `yaml:"port"`
-	} `yaml:"server"`
-	Cache struct {
-		Host string `yaml:"host"`
-		Port int    `yaml:"port"`
-	} `yaml:"cache"`
+		Host string `json:"host"`
+		Port int    `json:"port"`
+	} `json:"server"`
+	Cache           cacheConfig `json:"cache"`
 	AssetDownloader struct {
-		QueueSize int32 `yaml:"queue_size"`
-	} `yaml:"asset_downloader"`
+		QueueSize int32 `json:"queue_size"`
+	} `json:"asset_downloader"`
 	UrlFilter struct {
-		SkipHosts []string `yaml:"skip_hosts"`
-	} `yaml:"url_filter"`
+		SkipHosts []string `json:"skip_hosts"`
+	} `json:"url_filter"`
 }
 
 func (cfg *config) GrpcAddress() string {
 	return net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 }
 
-func (cfg *config) ProxyAddress() string {
-	return net.JoinHostPort(cfg.Cache.Host, strconv.Itoa(cfg.Cache.Port))
+func (cfg *config) ProxyAddress() *url.URL {
+	return cfg.Cache.Address
+}
+
+func (cfg *config) ProxyHeaders() map[string]string {
+	return cfg.Cache.Headers
 }
 
 func (cfg *config) ParallelDownloads() int32 {
@@ -70,12 +107,26 @@ func (cfg *config) ErrorLogger() *log.Logger {
 	return log.New(os.Stderr, "", log.LstdFlags)
 }
 
-func NewConfigFromData(data []byte) (Config, error) {
+func NewConfigFromStr(data string) (Config, error) {
 	// Create config structure
 	config := &config{}
 
+	vm := jsonnet.MakeVM()
+	for _, env := range os.Environ() {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) != 2 {
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid environment variable: %#v", env)
+		}
+		vm.ExtVar(parts[0], parts[1])
+	}
+
+	jsonStr, err := vm.EvaluateAnonymousSnippet("config.jsonnet", data)
+	if err != nil {
+		return nil, err
+	}
+
 	// Init new YAML decode
-	err := yaml.Unmarshal(data, config)
+	err = json.Unmarshal([]byte(jsonStr), config)
 
 	// Start YAML decoding from file
 	if err != nil {
@@ -89,18 +140,17 @@ func NewConfigFromPath(configPath string) (Config, error) {
 	// Create config structure
 	config := &config{}
 
-	// Open config file
-	file, err := os.Open(configPath)
+	vm := jsonnet.MakeVM()
+	jsonStr, err := vm.EvaluateFile(configPath)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
 	// Init new YAML decode
-	d := yaml.NewDecoder(file)
+	err = json.Unmarshal([]byte(jsonStr), config)
 
 	// Start YAML decoding from file
-	if err := d.Decode(&config); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
