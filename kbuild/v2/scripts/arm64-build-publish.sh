@@ -31,36 +31,11 @@ echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 # make[2]: *** [/builder/home/scratch-arm64/kernel-builder/deb-build/arm64-generic/source/Makefile:1249: vmlinux] Error 2
 # make[2]: *** Waiting for unfinished jobs....
 
-# apt update
-# apt-get install -y dwarves
-
-cat >> /etc/apt/sources.list << 'EOF'
-apt update
-apt install -yV gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-security main restricted universe multiverse
-
-dpkg --add-architecture arm64
-dpkg --print-architecture
-dpkg --print-foreign-architectures
-
-apt update || true
-
-apt install -yV libgcc-s1:arm64 libcrypt1:arm64 \
-linux-libc-dev:arm64 libcrypt-dev:arm64 \
-libc6:arm64 libc6-dev:arm64 \
-libpci-dev:arm64 libudev-dev:arm64 zlib1g-dev:arm64
-
-dpkg -L libpci-dev:arm64
-
-export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
-ls -lh /usr/lib/aarch64-linux-gnu/pkgconfig
-EOF
-
 # Builds the .deb kernel packages for arch, flavour
 ${SCRIPT_PATH}/build-debs.sh "$KERNEL_SRC" "$KERNEL_VERSION" "$ARCH" "$FLAVOUR" "$BUILD_DEB_DIR" "$OUTPUT_DEB_DIR"
+
+# Creates a portable Debian APT repository for arch, flavour
+${SCRIPT_PATH}/repo-deb.sh "$OUTPUT_DEB_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_REPO_DIR"
 
 echo Done.
 exit 1

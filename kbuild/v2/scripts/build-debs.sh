@@ -48,6 +48,10 @@ rsync -a "${KERNEL_SRC_DIR}/" "$ksrc_dir"
 
 cd "$ksrc_dir"
 if [ "$ARCH" = "arm64" ]; then
+    # Didn't work:
+    # apt update
+    # apt-get install -y dwarves
+
     git grep "CONFIG_DEBUG_INFO_BTF"
     sed -i 's/CONFIG_DEBUG_INFO_BTF=y/# CONFIG_DEBUG_INFO_BTF is not set/' \
     debian.master/config/arm64/config.common.arm64
