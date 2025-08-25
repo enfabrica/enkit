@@ -52,8 +52,13 @@ make_repo() {
     mkdir -p "$flavour_bin_dir" "$flavour_pool_dir"
 
     echo -n "${flavour}: Copying input files... "
+    echo "KERNEL_BASE=$KERNEL_BASE"
+    echo "DEB_VERSION=$DEB_VERSION"
+    echo "ARCH=$ARCH"
+    find ${INPUT_DEB_ROOT}/
+
     cp -a "${INPUT_DEB_ROOT}/"*_all.deb "$flavour_pool_dir"
-    cp -a "${INPUT_DEB_ROOT}/"*-${KERNEL_BASE}_${DEB_VERSION}_${ARCH}.deb "$flavour_pool_dir"
+    cp -a "${INPUT_DEB_ROOT}/"*-${KERNEL_BASE}_${DEB_VERSION}_${ARCH}.deb "$flavour_pool_dir" || true
     cp -a "${INPUT_DEB_ROOT}/"*"-${flavour}"*deb "$flavour_pool_dir"
     echo "Done."
 
