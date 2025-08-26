@@ -22,8 +22,12 @@ ARCH="$4"
 FLAVOUR="$5"
 OUTPUT_KRELEASE_DIR="$(realpath -m $6)"
 
-echo "Not implemented: ARCH=$ARCH FLAVOUR=$FLAVOUR"
-exit 1
+if [ "$ARCH" = "arm64" -a "$FLAVOUR" = "emulator" ] ; then
+    : # continue
+else
+    echo "Not implemented: ARCH=$ARCH FLAVOUR=$FLAVOUR"
+    exit 1
+fi
 
 if [ ! -d "$KERNEL_SRC_DIR" ] ; then
     echo "ERROR: kernel source directory does not exist: $KERNEL_SRC_DIR"
