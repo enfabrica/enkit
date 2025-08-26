@@ -110,19 +110,30 @@ func (ad *assetDownloader) fetchToTempFile(ctx context.Context, uuid string, uri
 	hashBytes := h.Sum(nil)
 	hashStr := hex.EncodeToString(hashBytes[:])
 
+	digest := &pb.Digest{
+		Hash:      hashStr,
+		SizeBytes: read,
+	}
+
+	isMissing, err := ad.cache.IsMissing(ctx, digest)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	if !isMissing {
+		return digest, nil
+	}
+
 	tmpFile.Seek(0, 0)
 
-	err = ad.cache.Put(ctx, uuid, hashStr, read, tmpFile)
+	err = ad.cache.Put(ctx, uuid, digest, tmpFile)
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
 
 	ad.accessLogger.Printf("GRPC ASSET PUT TO PROXY CACHE SUCCESS %s %s/%d", uri, hashStr, read)
 
-	return &pb.Digest{
-		Hash:      hashStr,
-		SizeBytes: read,
-	}, nil
+	return digest, nil
 }
 
 func (ad *assetDownloader) fetchAsset(ctx context.Context, uri string, headers http.Header, expectedHash string) (*pb.Digest, error) {
@@ -151,7 +162,21 @@ func (ad *assetDownloader) fetchAsset(ctx context.Context, uri string, headers h
 		// We can't call Put until we know the hash and size.
 		return ad.fetchToTempFile(ctx, uuid, uri, rc)
 	} else {
-		err = ad.cache.Put(ctx, uuid, expectedHash, expectedSize, rc)
+		digest := &pb.Digest{
+			Hash:      expectedHash,
+			SizeBytes: expectedSize,
+		}
+
+		isMissing, err := ad.cache.IsMissing(ctx, digest)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+
+		if !isMissing {
+			return digest, nil
+		}
+
+		err = ad.cache.Put(ctx, uuid, digest, rc)
 		if err != nil {
 			return nil, err
 		}

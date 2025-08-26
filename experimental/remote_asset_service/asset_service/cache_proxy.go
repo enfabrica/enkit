@@ -26,8 +26,9 @@ const (
 )
 
 type CacheProxy interface {
+	IsMissing(ctx context.Context, digest *pb.Digest) (bool, error)
 	Contains(ctx context.Context, hash string) (*pb.Digest, error)
-	Put(ctx context.Context, uuid string, hash string, size int64, rc io.ReadCloser) error
+	Put(ctx context.Context, uuid string, digest *pb.Digest, rc io.ReadCloser) error
 	GetToFile(ctx context.Context, uuid string, hash string) (*os.File, error)
 }
 
@@ -119,6 +120,29 @@ func actionDigest(hash string) *pb.Digest {
 	return &pb.Digest{Hash: hashStr}
 }
 
+func (cp *cacheProxy) IsMissing(ctx context.Context, digest *pb.Digest) (bool, error) {
+	missingBlobs, err := cp.cas.FindMissingBlobs(ctx, &pb.FindMissingBlobsRequest{
+		BlobDigests: []*pb.Digest{digest},
+	})
+
+	if err != nil {
+		return true, status.Errorf(codes.Internal, "error on query FindMissingBlobs: %s", err)
+	}
+
+	switch len(missingBlobs.MissingBlobDigests) {
+	case 1:
+		return true, nil
+	case 0:
+		return false, nil
+	default:
+		return true, status.Errorf(
+			codes.DataLoss,
+			"mailformmedd FindMissingBlobs response: len is %d",
+			len(missingBlobs.MissingBlobDigests),
+		)
+	}
+}
+
 func (cp *cacheProxy) Contains(ctx context.Context, hash string) (*pb.Digest, error) {
 	actionResult, err := cp.ac.GetActionResult(ctx, &pb.GetActionResultRequest{
 		ActionDigest: actionDigest(hash),
@@ -148,25 +172,15 @@ func (cp *cacheProxy) Contains(ctx context.Context, hash string) (*pb.Digest, er
 		)
 	}
 
-	missingBlobs, err := cp.cas.FindMissingBlobs(ctx, &pb.FindMissingBlobsRequest{
-		BlobDigests: []*pb.Digest{assetDigest},
-	})
-
+	isMissing, err := cp.IsMissing(ctx, assetDigest)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "error on query FindMissingBlobs: %s", err)
+		return nil, err
 	}
 
-	switch len(missingBlobs.MissingBlobDigests) {
-	case 1:
+	if isMissing {
 		return nil, nil
-	case 0:
+	} else {
 		return assetDigest, nil
-	default:
-		return nil, status.Errorf(
-			codes.DataLoss,
-			"mailformmedd FindMissingBlobs response: len is %d",
-			len(missingBlobs.MissingBlobDigests),
-		)
 	}
 }
 
@@ -178,13 +192,13 @@ func streamError(stream bs.ByteStream_WriteClient, template string, err error) e
 	return status.Errorf(codes.Internal, template, err)
 }
 
-func (cp *cacheProxy) Put(ctx context.Context, uuid string, hash string, size int64, rc io.ReadCloser) error {
+func (cp *cacheProxy) Put(ctx context.Context, uuid string, digest *pb.Digest, rc io.ReadCloser) error {
 	stream, err := cp.bs.Write(ctx)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to initialize Write stream: %s", err)
 	}
 
-	bufSize := size
+	bufSize := digest.SizeBytes
 	if bufSize > maxChunkSize {
 		bufSize = maxChunkSize
 	}
@@ -192,7 +206,7 @@ func (cp *cacheProxy) Put(ctx context.Context, uuid string, hash string, size in
 	buf := make([]byte, bufSize)
 
 	template := "uploads/%s/blobs/%s/%d"
-	resourceName := fmt.Sprintf(template, uuid, hash, size)
+	resourceName := fmt.Sprintf(template, uuid, digest.Hash, digest.SizeBytes)
 	firstIteration := true
 
 	read := int64(0)
@@ -214,12 +228,12 @@ func (cp *cacheProxy) Put(ctx context.Context, uuid string, hash string, size in
 		if n > 0 {
 			offset = read
 			read += int64(n)
-			finishWrite := read == size
-			if read > size {
+			finishWrite := read == digest.SizeBytes
+			if read > digest.SizeBytes {
 				return streamError(
 					stream,
 					"read more bytes than expected: %s",
-					errors.New(fmt.Sprintf("expected: %d, got: %d", read, size)),
+					errors.New(fmt.Sprintf("expected: %d, got: %d", read, digest.SizeBytes)),
 				)
 			}
 
@@ -251,13 +265,10 @@ func (cp *cacheProxy) Put(ctx context.Context, uuid string, hash string, size in
 	}
 
 	_, err = cp.ac.UpdateActionResult(ctx, &pb.UpdateActionResultRequest{
-		ActionDigest: actionDigest(hash),
+		ActionDigest: actionDigest(digest.Hash),
 		ActionResult: &pb.ActionResult{
 			OutputFiles: []*pb.OutputFile{{
-				Digest: &pb.Digest{
-					Hash:      hash,
-					SizeBytes: size,
-				},
+				Digest: digest,
 			}},
 		},
 	})
