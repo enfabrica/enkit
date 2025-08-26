@@ -39,6 +39,8 @@ ${SCRIPT_PATH}/archive-bazel-deb.sh "$OUTPUT_DEB_DIR" "$ARCH" "$FLAVOUR" "$OUTPU
 # Creates a tarball of a Debian APT repository for arch, flavour
 ${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_APT_ARCHIVE_DIR"
 
+echo "Starting upload-deb.sh"
+
 # Uploads the bazel ready tarball for arch, flavour
 ${SCRIPT_PATH}/upload-deb.sh      \
      "$OUTPUT_DEB_DIR"            \
