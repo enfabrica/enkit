@@ -24,13 +24,6 @@ OUTPUT_APT_ARCHIVE_DIR="$BUILD_ROOT/deb-archive/${TARGET}"
 
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 
-# BTF: .tmp_vmlinux.btf: pahole (pahole) is not available
-# Failed to generate BTF for vmlinux
-# Try to disable CONFIG_DEBUG_INFO_BTF
-# make[3]: *** [/builder/home/scratch-arm64/kernel-builder/deb-build/arm64-generic/source/scripts/Makefile.vmlinux:35: vmlinux] Error 1
-# make[2]: *** [/builder/home/scratch-arm64/kernel-builder/deb-build/arm64-generic/source/Makefile:1249: vmlinux] Error 2
-# make[2]: *** Waiting for unfinished jobs....
-
 # Builds the .deb kernel packages for arch, flavour
 ${SCRIPT_PATH}/build-debs.sh "$KERNEL_SRC" "$KERNEL_VERSION" "$ARCH" "$FLAVOUR" "$BUILD_DEB_DIR" "$OUTPUT_DEB_DIR"
 
@@ -39,6 +32,9 @@ ${SCRIPT_PATH}/repo-deb.sh "$OUTPUT_DEB_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_REPO_DI
 
 # Creates a bazel ready tarball for building kernel modules
 ${SCRIPT_PATH}/archive-bazel-deb.sh "$OUTPUT_DEB_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_BAZEL_ARCHIVE_DIR"
+
+# Creates a tarball of a Debian APT repository for arch, flavour
+${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_APT_ARCHIVE_DIR"
 
 echo Done.
 exit 1
