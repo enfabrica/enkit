@@ -198,13 +198,23 @@ func (cp *cacheProxy) Put(ctx context.Context, uuid string, hash string, size in
 	read := int64(0)
 	offset := int64(0)
 	for {
-		n, err := rc.Read(buf)
-		if err != nil && err != io.EOF {
-			return streamError(stream, "failed to read asset data: %s", err)
+		n := 0
+		for int64(n) < bufSize {
+			nread, err := rc.Read(buf[n:])
+			if err != nil && err != io.EOF {
+				return streamError(stream, "failed to read asset data: %s", err)
+			}
+			if nread != 0 {
+				n += nread
+			} else {
+				break
+			}
 		}
+
 		if n > 0 {
 			offset = read
 			read += int64(n)
+			finishWrite := read == size
 			if read > size {
 				return streamError(
 					stream,
@@ -222,7 +232,7 @@ func (cp *cacheProxy) Put(ctx context.Context, uuid string, hash string, size in
 				ResourceName: rn,
 				Data:         buf[:n],
 				WriteOffset:  offset,
-				FinishWrite:  read == size,
+				FinishWrite:  finishWrite,
 			}
 			err := stream.Send(req)
 			if err != nil && err != io.EOF {

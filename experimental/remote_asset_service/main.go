@@ -61,6 +61,8 @@ func usage() {
 }
 
 func main() {
+	_ = godotenv.Load(".env")
+
 	flag.Usage = usage
 	flag.Parse()
 	args := flag.Args()

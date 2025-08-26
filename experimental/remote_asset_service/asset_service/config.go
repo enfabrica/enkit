@@ -107,17 +107,25 @@ func (cfg *config) ErrorLogger() *log.Logger {
 	return log.New(os.Stderr, "", log.LstdFlags)
 }
 
+func injectEnv(vm *jsonnet.VM) error {
+	for _, env := range os.Environ() {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) != 2 {
+			return status.Errorf(codes.InvalidArgument, "Invalid environment variable: %#v", env)
+		}
+		vm.ExtVar(parts[0], parts[1])
+	}
+	return nil
+}
+
 func NewConfigFromStr(data string) (Config, error) {
 	// Create config structure
 	config := &config{}
 
 	vm := jsonnet.MakeVM()
-	for _, env := range os.Environ() {
-		parts := strings.SplitN(env, "=", 2)
-		if len(parts) != 2 {
-			return nil, status.Errorf(codes.InvalidArgument, "Invalid environment variable: %#v", env)
-		}
-		vm.ExtVar(parts[0], parts[1])
+	err := injectEnv(vm)
+	if err != nil {
+		return nil, err
 	}
 
 	jsonStr, err := vm.EvaluateAnonymousSnippet("config.jsonnet", data)
@@ -141,6 +149,11 @@ func NewConfigFromPath(configPath string) (Config, error) {
 	config := &config{}
 
 	vm := jsonnet.MakeVM()
+	err := injectEnv(vm)
+	if err != nil {
+		return nil, err
+	}
+
 	jsonStr, err := vm.EvaluateFile(configPath)
 	if err != nil {
 		return nil, err
