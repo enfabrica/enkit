@@ -34,9 +34,6 @@ ${SCRIPT_PATH}/archive-bazel-deb.sh "$OUTPUT_DEB_DIR" "$ARCH" "$FLAVOUR" "$OUTPU
 # Creates a tarball of a Debian APT repository for arch, flavour
 ${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_APT_ARCHIVE_DIR"
 
-echo Done.
-exit 0
-
 # Uploads the bazel ready tarball for arch, flavour
 ${SCRIPT_PATH}/upload-deb.sh      \
      "$OUTPUT_DEB_DIR"            \
@@ -46,6 +43,9 @@ ${SCRIPT_PATH}/upload-deb.sh      \
      "$FLAVOUR"                   \
      "$ASTORE_BASE"               \
      "$ASTORE_META_DIR"
+
+echo Done.
+exit 0
 
 # Generate Bazel include file fragment from upload meta-data files
 ${SCRIPT_PATH}/gen-bazel-meta.sh \
