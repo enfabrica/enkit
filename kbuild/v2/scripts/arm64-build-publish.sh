@@ -16,6 +16,9 @@ ASTORE_BASE="$7"
 ASTORE_META_DIR="$8"
 
 TARGET="${ARCH}-${FLAVOUR}"
+
+if [ "$FLAVOUR" = "generic" ] ; then
+
 BUILD_DEB_DIR="$BUILD_ROOT/deb-build/${TARGET}"
 OUTPUT_DEB_DIR="$BUILD_ROOT/deb-out/${TARGET}"
 OUTPUT_REPO_DIR="$BUILD_ROOT/apt-repo/${TARGET}"
@@ -38,6 +41,8 @@ ${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$ARCH" "$FLA
 
 echo Done.
 exit 1
+
+fi
 
 KERNEL_BUILD_DIR="$BUILD_ROOT/kbuild/${TARGET}"
 OUTPUT_KRELEASE_DIR="$BUILD_ROOT/krelease/${TARGET}"
