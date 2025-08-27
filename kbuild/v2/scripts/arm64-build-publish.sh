@@ -31,7 +31,7 @@ echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 ${SCRIPT_PATH}/build-debs.sh "$KERNEL_SRC" "$KERNEL_VERSION" "$ARCH" "$FLAVOUR" "$BUILD_DEB_DIR" "$OUTPUT_DEB_DIR"
 
 find "$OUTPUT_DEB_DIR" >> /workspace/${TARGET}.done
-while [ $(ls /workspace/*done | wc -l) -lt 2 ] ; do
+while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
     sleep 10
 done
 echo "Done with build-debs.sh"
@@ -61,6 +61,10 @@ ${SCRIPT_PATH}/upload-deb.sh      \
 echo Done.
 exit 1
 
+else
+     touch /workspace/${TARGET}.done
+     echo "Done with build-debs.sh"
+     exit 0
 fi
 
 KERNEL_BUILD_DIR="$BUILD_ROOT/kbuild/${TARGET}"
