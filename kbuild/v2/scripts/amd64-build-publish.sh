@@ -31,16 +31,16 @@ ${SCRIPT_PATH}/repo-deb.sh "$OUTPUT_DEB_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_REPO_DI
 # Creates a bazel ready tarball for building kernel modules
 ${SCRIPT_PATH}/archive-bazel-deb.sh "$OUTPUT_DEB_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_BAZEL_ARCHIVE_DIR"
 
-(cd "$OUTPUT_BAZEL_ARCHIVE_DIR" && pwd && find . -type f | sort) > \
+# Creates a tarball of a Debian APT repository for arch, flavour
+${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_APT_ARCHIVE_DIR"
+
+(cd "$OUTPUT_APT_ARCHIVE_DIR" && pwd && find . -type f | sort) > \
 /workspace/${TARGET}.done
 while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
     sleep 10
 done
 echo "Done with repo-deb.sh"
 exit 0
-
-# Creates a tarball of a Debian APT repository for arch, flavour
-${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_APT_ARCHIVE_DIR"
 
 # Uploads the bazel ready tarball for arch, flavour
 ${SCRIPT_PATH}/upload-deb.sh      \
