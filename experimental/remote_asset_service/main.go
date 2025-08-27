@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"github.com/joho/godotenv"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -12,23 +12,41 @@ import (
 	"net"
 	"os"
 
+	"github.com/buildbarn/bb-storage/pkg/program"
 	"github.com/enfabrica/enkit/experimental/remote_asset_service/asset_service"
 )
 
-func run(config asset_service.Config) error {
+func usage() {
+	fmt.Fprintf(os.Stderr, "usage: asset_service [config.yaml]\n")
+	flag.PrintDefaults()
+	os.Exit(2)
+}
+
+func main() {
 	_ = godotenv.Load(".env")
 
-	proxyCache, err := asset_service.NewCacheProxy(config)
-	if err != nil {
-		return err
-	}
+	program.RunMain(func(ctx context.Context, siblingsGroup, dependenciesGroup program.Group) error {
+		flag.Usage = usage
+		flag.Parse()
+		args := flag.Args()
+		if len(args) < 1 {
+			log.Fatalf("Config file is missing.")
+		}
 
-	urlFilter := asset_service.NewUrlFilter(config)
-	metrics := asset_service.NewMetrics()
-	assetDownloader := asset_service.NewAssetDownloader(config, proxyCache, urlFilter, metrics)
+		config, err := asset_service.NewConfigFromPath(args[0])
+		if err != nil {
+			log.Fatalf("Parse config error: %v", err)
+		}
 
-	servers := new(errgroup.Group)
-	servers.Go(func() error {
+		proxyCache, err := asset_service.NewCacheProxy(config.CacheConfig(), dependenciesGroup)
+		if err != nil {
+			return err
+		}
+
+		urlFilter := asset_service.NewUrlFilter(config)
+		metrics := asset_service.NewMetrics()
+		assetDownloader := asset_service.NewAssetDownloader(config, proxyCache, urlFilter, metrics)
+
 		grpcAddress := config.GrpcAddress()
 
 		var opts []grpc.ServerOption
@@ -50,33 +68,4 @@ func run(config asset_service.Config) error {
 
 		return grpcServer.Serve(listener)
 	})
-
-	return servers.Wait()
-}
-
-func usage() {
-	fmt.Fprintf(os.Stderr, "usage: asset_service [config.yaml]\n")
-	flag.PrintDefaults()
-	os.Exit(2)
-}
-
-func main() {
-	_ = godotenv.Load(".env")
-
-	flag.Usage = usage
-	flag.Parse()
-	args := flag.Args()
-	if len(args) < 1 {
-		log.Fatalf("Config file is missing.")
-	}
-
-	config, err := asset_service.NewConfigFromPath(args[0])
-	if err != nil {
-		log.Fatalf("Parse config error: %v", err)
-	}
-
-	err = run(config)
-	if err != nil {
-		log.Fatalf("Run server error: %v", err)
-	}
 }

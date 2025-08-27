@@ -1,5 +1,7 @@
 package asset_service
 
+// Based on https://github.com/buildbarn/bb-storage/blob/master/pkg/grpc/base_client_factory.go
+
 import (
 	"context"
 	"crypto/sha256"
@@ -8,15 +10,23 @@ import (
 	"errors"
 	"fmt"
 	pb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
+	"github.com/buildbarn/bb-storage/pkg/clock"
+	"github.com/buildbarn/bb-storage/pkg/program"
+	"github.com/buildbarn/bb-storage/pkg/util"
 	bs "google.golang.org/genproto/googleapis/bytestream"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/security/advancedtls"
 	"google.golang.org/grpc/status"
 	"io"
+	"math"
 	"os"
+
+	bbgrpc "github.com/buildbarn/bb-storage/pkg/grpc"
+	"github.com/buildbarn/bb-storage/pkg/jmespath"
 )
 
 const (
@@ -40,44 +50,125 @@ type cacheProxy struct {
 }
 
 type ClientInterceptor struct {
-	headers map[string]string
+	metadataHeaderValues bbgrpc.MetadataHeaderValues
+	metadataExtractor    bbgrpc.MetadataExtractor
 }
 
 func (client *ClientInterceptor) unaryInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	for header, value := range client.headers {
-		ctx = metadata.AppendToOutgoingContext(ctx, header, value)
+	if client.metadataExtractor != nil {
+		extraMetadata, err := client.metadataExtractor(ctx)
+		if err != nil {
+			return util.StatusWrap(err, "Failed to extract metadata")
+		}
+		ctx = metadata.AppendToOutgoingContext(ctx, extraMetadata...)
 	}
+
+	ctx = metadata.AppendToOutgoingContext(ctx, client.metadataHeaderValues...)
 
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 
 func (client *ClientInterceptor) streamInterceptor(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	for header, value := range client.headers {
-		ctx = metadata.AppendToOutgoingContext(ctx, header, value)
+	if client.metadataExtractor != nil {
+		extraMetadata, err := client.metadataExtractor(ctx)
+		if err != nil {
+			return nil, util.StatusWrap(err, "Failed to extract metadata")
+		}
+		ctx = metadata.AppendToOutgoingContext(ctx, extraMetadata...)
 	}
+
+	ctx = metadata.AppendToOutgoingContext(ctx, client.metadataHeaderValues...)
 
 	return streamer(ctx, desc, cc, method, opts...)
 }
 
-func NewCacheProxy(config Config) (CacheProxy, error) {
+func newClientDialOptionsFromTLSConfig(tlsConfig *tls.Config) ([]grpc.DialOption, error) {
+	if tlsConfig == nil {
+		return []grpc.DialOption{grpc.WithInsecure()}, nil
+	}
+
+	opts := advancedtls.Options{
+		MinTLSVersion: tlsConfig.MinVersion,
+		MaxTLSVersion: tlsConfig.MaxVersion,
+		CipherSuites:  tlsConfig.CipherSuites,
+		IdentityOptions: advancedtls.IdentityCertificateOptions{
+			GetIdentityCertificatesForClient: tlsConfig.GetClientCertificate,
+		},
+		RootOptions: advancedtls.RootCertificateOptions{
+			RootCertificates: tlsConfig.RootCAs,
+		},
+	}
+	// advancedtls checks MinTLSVersion > MaxTLSVersion before applying
+	// defaults:
+	// https://github.com/grpc/grpc-go/blob/master/security/advancedtls/advancedtls.go#L243-L245
+	// If setting a default minimum, set math.MaxUint16 as the Max to get around
+	// this check.
+	if opts.MaxTLSVersion == 0 {
+		opts.MaxTLSVersion = math.MaxUint16
+	}
+
+	tc, err := advancedtls.NewClientCreds(&opts)
+	if err != nil {
+		return nil, util.StatusWrapWithCode(err, codes.InvalidArgument, "Failed to configure GRPC client TLS")
+	}
+	dialOptions := []grpc.DialOption{grpc.WithTransportCredentials(tc)}
+	if tlsConfig.ServerName != "" {
+		dialOptions = append(dialOptions, grpc.WithAuthority(tlsConfig.ServerName))
+	}
+
+	return dialOptions, nil
+}
+
+func NewCacheProxy(config CacheConfig, group program.Group) (CacheProxy, error) {
 	address := config.ProxyAddress()
 
 	var opts []grpc.DialOption
 	if address.Scheme == "grpcs" {
-		creds := credentials.NewTLS(&tls.Config{
-			InsecureSkipVerify: true,
-		})
-		opts = append(opts, grpc.WithTransportCredentials(creds))
+		tlsFromConfig := config.TlsConfig()
+		if tlsFromConfig != nil {
+			tlsCredentials := credentials.NewTLS(&tls.Config{
+				InsecureSkipVerify: true,
+			})
+			opts = append(opts, grpc.WithTransportCredentials(tlsCredentials))
+		} else {
+			tlsConfig, err := util.NewTLSConfigFromClientConfiguration(tlsFromConfig)
+			if err != nil {
+				return nil, util.StatusWrap(err, "Failed to create TLS configuration")
+			}
+			tlsDialOpts, err := newClientDialOptionsFromTLSConfig(tlsConfig)
+			if err != nil {
+				return nil, util.StatusWrap(err, "Failed to convert TLS configuration")
+			}
+			opts = append(opts, tlsDialOpts...)
+		}
+
 	} else if address.Scheme == "grpc" {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		return nil, status.Errorf(codes.InvalidArgument, "unknown address scheme: %s", address.Scheme)
 	}
 
-	headers := config.ProxyHeaders()
-	if len(headers) != 0 {
+	metadataDefs := config.Metadata()
+	jmesExpression := config.MetadataJmespathExpression()
+	if len(metadataDefs) != 0 || jmesExpression != nil {
+		var metadataHeaderValues bbgrpc.MetadataHeaderValues
+		for _, entry := range metadataDefs {
+			metadataHeaderValues.Add(entry.Header, entry.Values)
+		}
+
+		expr, err := jmespath.NewExpressionFromConfiguration(jmesExpression, group, clock.SystemClock)
+		if err != nil {
+			return nil, util.StatusWrap(err, "Failed to compile JMESPath expression")
+		}
+
+		metadataExtractor, err := bbgrpc.NewJMESPathMetadataExtractor(expr)
+		if err != nil {
+			return nil, util.StatusWrap(err, "Failed to create JMESPath extractor")
+		}
+
 		clientInterceptor := &ClientInterceptor{
-			headers: headers,
+			metadataHeaderValues: metadataHeaderValues,
+			metadataExtractor:    metadataExtractor,
 		}
 
 		opts = append(opts, grpc.WithUnaryInterceptor(clientInterceptor.unaryInterceptor))
@@ -89,23 +180,11 @@ func NewCacheProxy(config Config) (CacheProxy, error) {
 		return nil, err
 	}
 
-	caps := pb.NewCapabilitiesClient(conn)
-
-	// Query Capabilities to check this cache instance works
-	serverCaps, err := caps.GetCapabilities(context.Background(), &pb.GetCapabilitiesRequest{})
-	if err != nil {
-		return nil, err
-	}
-
-	if !serverCaps.CacheCapabilities.ActionCacheUpdateCapabilities.UpdateEnabled {
-		return nil, status.Errorf(codes.Unimplemented, "Cache update capabilities not enabled")
-	}
-
 	return &cacheProxy{
 		ac:  pb.NewActionCacheClient(conn),
 		cas: pb.NewContentAddressableStorageClient(conn),
 		bs:  bs.NewByteStreamClient(conn),
-		cap: caps,
+		cap: pb.NewCapabilitiesClient(conn),
 	}, nil
 }
 
@@ -193,6 +272,16 @@ func streamError(stream bs.ByteStream_WriteClient, template string, err error) e
 }
 
 func (cp *cacheProxy) Put(ctx context.Context, uuid string, digest *pb.Digest, rc io.ReadCloser) error {
+	// Query Capabilities to check this cache instance works
+	serverCaps, err := cp.cap.GetCapabilities(context.Background(), &pb.GetCapabilitiesRequest{})
+	if err != nil {
+		return err
+	}
+
+	if !serverCaps.CacheCapabilities.ActionCacheUpdateCapabilities.UpdateEnabled {
+		return status.Errorf(codes.PermissionDenied, "Cache update capabilities not enabled")
+	}
+
 	stream, err := cp.bs.Write(ctx)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to initialize Write stream: %s", err)

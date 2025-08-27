@@ -7,11 +7,11 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//experimental/remote_asset_service/asset_service",
+        "@com_github_buildbarn_bb_storage//pkg/program",
         "@com_github_joho_godotenv//:godotenv",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//health",
         "@org_golang_google_grpc//health/grpc_health_v1",
-        "@org_golang_x_sync//errgroup",
     ],
 )
 

@@ -2,6 +2,9 @@ package asset_service
 
 import (
 	"encoding/json"
+	bbconfig "github.com/buildbarn/bb-storage/pkg/proto/configuration/grpc"
+	"github.com/buildbarn/bb-storage/pkg/proto/configuration/jmespath"
+	"github.com/buildbarn/bb-storage/pkg/proto/configuration/tls"
 	"github.com/google/go-jsonnet"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -13,10 +16,18 @@ import (
 	"strings"
 )
 
+type CacheConfig interface {
+	ProxyAddress() *url.URL
+	TlsConfig() *tls.ClientConfiguration
+	MetadataJmespathExpression() *jmespath.Expression
+	Metadata() []*bbconfig.ClientConfiguration_HeaderValues
+}
+
 type Config interface {
 	GrpcAddress() string
-	ProxyAddress() *url.URL
-	ProxyHeaders() map[string]string
+
+	CacheConfig() CacheConfig
+
 	ParallelDownloads() int32
 	SkipSchemes() map[string]bool
 	SkipHosts() map[string]bool
@@ -25,8 +36,10 @@ type Config interface {
 }
 
 type cacheConfig struct {
-	Address *url.URL          `json:"address"`
-	Headers map[string]string `json:"headers"`
+	Address                       *url.URL                                     `json:"address"`
+	Tls                           *tls.ClientConfiguration                     `json:"tls,omitempty"`
+	AddMetadata                   []*bbconfig.ClientConfiguration_HeaderValues `json:"add_metadata,omitempty"`
+	AddMetadataJmespathExpression *jmespath.Expression                         `json:"add_metadata_jmespath_expression,omitempty"`
 }
 
 func (cc *cacheConfig) UnmarshalJSON(data []byte) error {
@@ -54,12 +67,28 @@ func (cc *cacheConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (cc *cacheConfig) ProxyAddress() *url.URL {
+	return cc.Address
+}
+
+func (cc *cacheConfig) TlsConfig() *tls.ClientConfiguration {
+	return cc.Tls
+}
+
+func (cc *cacheConfig) Metadata() []*bbconfig.ClientConfiguration_HeaderValues {
+	return cc.AddMetadata
+}
+
+func (cc *cacheConfig) MetadataJmespathExpression() *jmespath.Expression {
+	return cc.AddMetadataJmespathExpression
+}
+
 type config struct {
 	Server struct {
 		Host string `json:"host"`
 		Port int    `json:"port"`
 	} `json:"server"`
-	Cache           cacheConfig `json:"cache"`
+	Cache           *cacheConfig `json:"cache,omitempty"`
 	AssetDownloader struct {
 		QueueSize int32 `json:"queue_size"`
 	} `json:"asset_downloader"`
@@ -72,12 +101,8 @@ func (cfg *config) GrpcAddress() string {
 	return net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 }
 
-func (cfg *config) ProxyAddress() *url.URL {
-	return cfg.Cache.Address
-}
-
-func (cfg *config) ProxyHeaders() map[string]string {
-	return cfg.Cache.Headers
+func (cfg *config) CacheConfig() CacheConfig {
+	return cfg.Cache
 }
 
 func (cfg *config) ParallelDownloads() int32 {
