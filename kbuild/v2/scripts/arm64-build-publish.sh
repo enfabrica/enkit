@@ -30,9 +30,8 @@ echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 # Builds the .deb kernel packages for arch, flavour
 ${SCRIPT_PATH}/build-debs.sh "$KERNEL_SRC" "$KERNEL_VERSION" "$ARCH" "$FLAVOUR" "$BUILD_DEB_DIR" "$OUTPUT_DEB_DIR"
 
-find "$OUTPUT_DEB_DIR"
-touch "/workspace/${TARGET}.done"
-while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
+find "$OUTPUT_DEB_DIR" >> /workspace/${TARGET}.done
+while [ $(ls /workspace/*done | wc -l) -lt 2 ] ; do
     sleep 10
 done
 echo "Done with build-debs.sh"
