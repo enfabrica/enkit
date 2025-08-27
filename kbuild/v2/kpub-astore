@@ -235,6 +235,7 @@ for spec in $RT_KERNEL_SPECS ; do
                  "$RT_KERNEL_LABEL"  \
                  "$ASTORE_BASE"      \
                  "$ASTORE_META_DIR"
+            exit 0
             ;;
         *)
             echo "Error: unsupported architecture: $arch"

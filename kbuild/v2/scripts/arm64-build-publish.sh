@@ -35,7 +35,7 @@ while [ $(ls /workspace/*done | wc -l) -lt 2 ] ; do
     sleep 10
 done
 echo "Done with build-debs.sh"
-exit 1
+exit 0
 
 # Creates a portable Debian APT repository for arch, flavour
 ${SCRIPT_PATH}/repo-deb.sh "$OUTPUT_DEB_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_REPO_DIR"
