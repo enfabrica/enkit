@@ -10,7 +10,7 @@
 # - a build directory
 # - an output directory to place the generated .debs
 
-set -ex
+set -e
 
 KERNEL_SRC_DIR="$(realpath $1)"
 KERNEL_VERSION="$(realpath $2)"
@@ -63,28 +63,17 @@ if [ "$RT_BUILD_CLEAN" = "yes" ] ; then
     fakeroot debian/rules distclean
 fi
 
-fakeroot debian/rules clean	   abi_suffix="$abi_suffix" arch="$ARCH" flavours="$FLAVOUR"
-# this step fails
 if [ "$ARCH" = "arm64" ]; then
-    echo "CROSS_COMPILE=$CROSS_COMPILE"
-    echo "DEB_HOST_ARCH=$DEB_HOST_ARCH"
-    echo "DEB_BUILD_PROFILES=$DEB_BUILD_PROFILES"
-
     # export CROSS_COMPILE=aarch64-linux-gnu-
     # in the top level script
     export CROSS_COMPILE=aarch64-none-linux-gnu-
     export DEB_HOST_ARCH=arm64
     export DEB_BUILD_PROFILES="cross nocheck"
-
-    echo "CROSS_COMPILE=$CROSS_COMPILE"
-    echo "DEB_HOST_ARCH=$DEB_HOST_ARCH"
-    echo "DEB_BUILD_PROFILES=$DEB_BUILD_PROFILES"
 fi
 
+fakeroot debian/rules clean	   abi_suffix="$abi_suffix" arch="$ARCH" flavours="$FLAVOUR"
 fakeroot debian/rules binary-debs  abi_suffix="$abi_suffix" arch="$ARCH" flavours="$FLAVOUR"
 fakeroot debian/rules binary-indep abi_suffix="$abi_suffix" arch="$ARCH" flavours="$FLAVOUR"
 
 # mv the resulting .debs
 mv ../linux-*deb "$OUTPUT_DEB_DIR"
-
-echo "Done building debs."
