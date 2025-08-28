@@ -44,15 +44,6 @@ ${SCRIPT_PATH}/upload-deb.sh      \
      "$ASTORE_BASE"               \
      "$ASTORE_META_DIR"
 
-# (cd "$ASTORE_META_DIR" && pwd && find . -type f | sort) > \
-# /workspace/${TARGET}.done
-touch /workspace/${TARGET}.done
-while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
-    sleep 10
-done
-
-exit 0
-
 # Generate Bazel include file fragment from upload meta-data files
 ${SCRIPT_PATH}/gen-bazel-meta.sh \
      "$OUTPUT_DEB_DIR"           \
@@ -61,3 +52,12 @@ ${SCRIPT_PATH}/gen-bazel-meta.sh \
      "$ASTORE_BASE"              \
      "$ASTORE_META_DIR"          \
      "$ASTORE_LABEL"
+
+set -x
+cat ${ASTORE_META_DIR}/kernel-${ARCH}-${FLAVOUR}.version.bzl
+
+touch /workspace/${TARGET}.done
+
+while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
+    sleep 10
+done

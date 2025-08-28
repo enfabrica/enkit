@@ -49,7 +49,15 @@ ${SCRIPT_PATH}/upload-deb.sh      \
      "$ASTORE_BASE"               \
      "$ASTORE_META_DIR"
 
-     touch /workspace/${TARGET}.done
+# Generate Bazel include file fragment from upload meta-data files
+${SCRIPT_PATH}/gen-bazel-meta.sh \
+     "$OUTPUT_DEB_DIR"           \
+     "$ARCH"                     \
+     "$FLAVOUR"                  \
+     "$ASTORE_BASE"              \
+     "$ASTORE_META_DIR"          \
+     "$ASTORE_LABEL"
+
 else
 KERNEL_BUILD_DIR="$BUILD_ROOT/kbuild/${TARGET}"
 OUTPUT_KRELEASE_DIR="$BUILD_ROOT/krelease/${TARGET}"
@@ -76,14 +84,6 @@ ${SCRIPT_PATH}/upload-kernel-build.sh \
      "$ASTORE_BASE"               \
      "$ASTORE_META_DIR"
 
-     (cd "$ASTORE_META_DIR" && pwd && find . -type f | sort) > \
-     /workspace/${TARGET}.done
-fi
-
-while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
-    sleep 10
-done
-exit 0
 
 # Generate Bazel include file from upload meta-data files
 ${SCRIPT_PATH}/gen-bazel-meta2.sh \
@@ -94,3 +94,14 @@ ${SCRIPT_PATH}/gen-bazel-meta2.sh \
      "$ASTORE_BASE"               \
      "$ASTORE_META_DIR"           \
      "$ASTORE_LABEL"
+
+fi
+
+set -x
+cat ${ASTORE_META_DIR}/kernel-${ARCH}-${FLAVOUR}.version.bzl
+
+touch /workspace/${TARGET}.done
+
+while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
+    sleep 10
+done
