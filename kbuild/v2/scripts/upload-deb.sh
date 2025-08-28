@@ -90,6 +90,10 @@ upload_kernel_image_modules() {
 
     if [ ! -r "$kernel_deb" ] ; then
         echo "ERROR: Unable to find kernel .deb package: $kernel_deb"
+        if [ "$ARCH" = "arm64" ] && [ "$flavour" = "generic" ]; then
+            echo "WARNING: Skipping upload of kernel .deb package for arm64-generic"
+            exit 0
+        fi
         exit 1
     fi
 
