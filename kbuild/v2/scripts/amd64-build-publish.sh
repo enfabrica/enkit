@@ -44,10 +44,9 @@ ${SCRIPT_PATH}/upload-deb.sh      \
      "$ASTORE_BASE"               \
      "$ASTORE_META_DIR"
 
-# touch /workspace/${TARGET}.done
-
-(cd "$ASTORE_META_DIR" && pwd && find . -type f | sort) > \
-/workspace/${TARGET}.done
+# (cd "$ASTORE_META_DIR" && pwd && find . -type f | sort) > \
+# /workspace/${TARGET}.done
+touch /workspace/${TARGET}.done
 while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
     sleep 10
 done

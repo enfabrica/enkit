@@ -26,7 +26,7 @@ if [ "$ARCH" = "arm64" -a "$FLAVOUR" = "emulator" ] ; then
     : # continue
 else
     echo "Not implemented: ARCH=$ARCH FLAVOUR=$FLAVOUR"
-    exit 1
+    exit 0
 fi
 
 if [ ! -d "$KERNEL_SRC_DIR" ] ; then

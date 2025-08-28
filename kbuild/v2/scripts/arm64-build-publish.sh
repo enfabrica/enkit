@@ -49,17 +49,8 @@ ${SCRIPT_PATH}/upload-deb.sh      \
      "$ASTORE_BASE"               \
      "$ASTORE_META_DIR"
 
-     (cd "$ASTORE_META_DIR" && pwd && find . -type f | sort) > \
-     /workspace/${TARGET}.done
-else
      touch /workspace/${TARGET}.done
-fi
-
-while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
-    sleep 10
-done
-exit 0
-
+else
 KERNEL_BUILD_DIR="$BUILD_ROOT/kbuild/${TARGET}"
 OUTPUT_KRELEASE_DIR="$BUILD_ROOT/krelease/${TARGET}"
 
@@ -75,6 +66,15 @@ ${SCRIPT_PATH}/build-kernel-release.sh \
      "$ARCH"             \
      "$FLAVOUR"          \
      "$OUTPUT_KRELEASE_DIR"
+
+     (cd "$OUTPUT_KRELEASE_DIR" && pwd && find . -type f | sort) > \
+     /workspace/${TARGET}.done
+fi
+
+while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
+    sleep 10
+done
+exit 0
 
 # Uploads the bazel ready kernel build tarballs
 ${SCRIPT_PATH}/upload-kernel-build.sh \
