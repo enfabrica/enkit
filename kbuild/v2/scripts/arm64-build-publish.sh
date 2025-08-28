@@ -2,7 +2,7 @@
 
 # Build and publish arm64 kernel artifacts for a particular configuration
 
-set -ex
+set -e
 
 SCRIPT_PATH="$(dirname $(realpath $0))"
 
@@ -39,16 +39,6 @@ ${SCRIPT_PATH}/archive-bazel-deb.sh "$OUTPUT_DEB_DIR" "$ARCH" "$FLAVOUR" "$OUTPU
 # Creates a tarball of a Debian APT repository for arch, flavour
 ${SCRIPT_PATH}/archive-deb.sh "$OUTPUT_DEB_DIR" "$OUTPUT_REPO_DIR" "$ARCH" "$FLAVOUR" "$OUTPUT_APT_ARCHIVE_DIR"
 
-(cd "$OUTPUT_APT_ARCHIVE_DIR" && pwd && find . -type f | sort) > \
-/workspace/${TARGET}.done
-while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
-    sleep 10
-done
-echo "Done with repo-deb.sh"
-exit 0
-
-echo "Starting upload-deb.sh"
-
 # Uploads the bazel ready tarball for arch, flavour
 ${SCRIPT_PATH}/upload-deb.sh      \
      "$OUTPUT_DEB_DIR"            \
@@ -59,14 +49,16 @@ ${SCRIPT_PATH}/upload-deb.sh      \
      "$ASTORE_BASE"               \
      "$ASTORE_META_DIR"
 
-echo Done.
-exit 1
-
+     (cd "$ASTORE_META_DIR" && pwd && find . -type f | sort) > \
+     /workspace/${TARGET}.done
 else
      touch /workspace/${TARGET}.done
-     echo "Done with build-debs.sh"
-     exit 0
 fi
+
+while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
+    sleep 10
+done
+exit 0
 
 KERNEL_BUILD_DIR="$BUILD_ROOT/kbuild/${TARGET}"
 OUTPUT_KRELEASE_DIR="$BUILD_ROOT/krelease/${TARGET}"
