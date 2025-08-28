@@ -67,15 +67,6 @@ ${SCRIPT_PATH}/build-kernel-release.sh \
      "$FLAVOUR"          \
      "$OUTPUT_KRELEASE_DIR"
 
-     (cd "$OUTPUT_KRELEASE_DIR" && pwd && find . -type f | sort) > \
-     /workspace/${TARGET}.done
-fi
-
-while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
-    sleep 10
-done
-exit 0
-
 # Uploads the bazel ready kernel build tarballs
 ${SCRIPT_PATH}/upload-kernel-build.sh \
      "$KERNEL_BUILD_DIR"          \
@@ -84,6 +75,15 @@ ${SCRIPT_PATH}/upload-kernel-build.sh \
      "$FLAVOUR"                   \
      "$ASTORE_BASE"               \
      "$ASTORE_META_DIR"
+
+     (cd "$ASTORE_META_DIR" && pwd && find . -type f | sort) > \
+     /workspace/${TARGET}.done
+fi
+
+while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
+    sleep 10
+done
+exit 0
 
 # Generate Bazel include file from upload meta-data files
 ${SCRIPT_PATH}/gen-bazel-meta2.sh \
