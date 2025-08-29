@@ -19,6 +19,13 @@ FLAVOUR="$4"
 BUILD_DIR="$5"
 OUTPUT_DEB_DIR="$6"
 
+if [ "$FLAVOUR" = "generic" ] ; then
+    : # continue
+else
+    echo "Not implemented: FLAVOUR=$FLAVOUR"
+    exit 1
+fi
+
 if [ ! -d "$KERNEL_SRC_DIR" ] ; then
     echo "ERROR: kernel source directory does not exist: $KERNEL_SRC_DIR"
     exit 1
