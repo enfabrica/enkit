@@ -59,7 +59,7 @@ gazelle(name = "gazelle_update_repos")
 # from BUILD.bazel in github.com/buildbarn/bb-remote-execution so that libraries
 # from that repo can build.
 
-# gazelle:go_grpc_compilers	@rules_go//proto:go_grpc_v2
+# gazelle:go_grpc_compilers	@rules_go//proto:go_grpc
 # gazelle:resolve proto pkg/proto/configuration/cloud/aws/aws.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/cloud/aws:aws_proto
 # gazelle:resolve proto go pkg/proto/configuration/cloud/aws/aws.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/cloud/aws
 # gazelle:resolve proto proto google/rpc/code.proto @googleapis//google/rpc:code_proto

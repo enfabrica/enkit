@@ -10,7 +10,7 @@ proto_library(
 
 go_proto_library(
     name = "go_default_library",
-    compilers = ["@rules_go//proto:go_grpc_v2"],
+    compilers = ["@rules_go//proto:go_grpc"],
     importpath = "github.com/enfabrica/enkit/auth/proto",
     proto = ":auth_proto",
     visibility = ["//visibility:public"],
