@@ -11,7 +11,7 @@ qtpl_go_library(
     importpath = "github.com/enfabrica/enkit/auth/server/assets/templates",
     visibility = ["//visibility:public"],
     deps = [
-        "//astore/rpc/astore:go_default_library",
+        "//astore/rpc/astore",
         "@com_github_dustin_go_humanize//:go_default_library",
     ],
 )
