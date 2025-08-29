@@ -116,8 +116,6 @@ upload_kernel_image_modules() {
     upload_artifact "$tarball" "$astore_path" "$ARCH" "$tag" "$astore_meta"
 }
 
-echo "In upload.deb"
-
 for f in $KERNEL_FLAVOURS ; do
     kernel_version="$(deb_get_kernel_version $INPUT_DEB_ROOT $f)"
 
