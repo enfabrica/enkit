@@ -25,12 +25,12 @@ type testContext struct {
 }
 
 func newTestContext(ctx context.Context, group program.Group, configStr string) (*testContext, error) {
-	config, err := asset_service.NewConfigFromStr(configStr)
+	config, err := asset_service.NewConfigFromStr(configStr, group)
 	if err != nil {
 		return nil, err
 	}
 
-	proxyCache, err := asset_service.NewCacheProxy(config.CacheConfig(), group)
+	proxyCache, err := asset_service.NewCacheProxy(config)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (t *testContext) downloadAndCheck(expectedHash string) error {
 }
 
 func (t *testContext) runWithHash(uri string, expectedHash string) error {
-	digest, err := t.assetDownloader.FetchItem(uri, http.Header{}, expectedHash)
+	digest, err := t.assetDownloader.FetchItem(uri, http.Header{}, nil, expectedHash)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (t *testContext) runWithHash(uri string, expectedHash string) error {
 }
 
 func (t *testContext) runWithoutHash(uri string, expectedHash string) error {
-	digest, err := t.assetDownloader.FetchItem(uri, http.Header{}, "")
+	digest, err := t.assetDownloader.FetchItem(uri, http.Header{}, nil, "")
 	if err != nil {
 		return err
 	}

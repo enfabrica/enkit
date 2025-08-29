@@ -10,8 +10,6 @@ import (
 	"errors"
 	"fmt"
 	pb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
-	"github.com/buildbarn/bb-storage/pkg/clock"
-	"github.com/buildbarn/bb-storage/pkg/program"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	bs "google.golang.org/genproto/googleapis/bytestream"
 	"google.golang.org/grpc"
@@ -21,12 +19,12 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/security/advancedtls"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"io"
 	"math"
 	"os"
 
 	bbgrpc "github.com/buildbarn/bb-storage/pkg/grpc"
-	"github.com/buildbarn/bb-storage/pkg/jmespath"
 )
 
 const (
@@ -36,6 +34,7 @@ const (
 )
 
 type CacheProxy interface {
+	CheckUpdateCapabilities(ctx context.Context) error
 	IsMissing(ctx context.Context, digest *pb.Digest) (bool, error)
 	Contains(ctx context.Context, hash string) (*pb.Digest, error)
 	Put(ctx context.Context, uuid string, digest *pb.Digest, rc io.ReadCloser) error
@@ -50,8 +49,7 @@ type cacheProxy struct {
 }
 
 type ClientInterceptor struct {
-	metadataHeaderValues bbgrpc.MetadataHeaderValues
-	metadataExtractor    bbgrpc.MetadataExtractor
+	metadataExtractor bbgrpc.MetadataExtractor
 }
 
 func (client *ClientInterceptor) unaryInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
@@ -62,8 +60,6 @@ func (client *ClientInterceptor) unaryInterceptor(ctx context.Context, method st
 		}
 		ctx = metadata.AppendToOutgoingContext(ctx, extraMetadata...)
 	}
-
-	ctx = metadata.AppendToOutgoingContext(ctx, client.metadataHeaderValues...)
 
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
@@ -76,8 +72,6 @@ func (client *ClientInterceptor) streamInterceptor(ctx context.Context, desc *gr
 		}
 		ctx = metadata.AppendToOutgoingContext(ctx, extraMetadata...)
 	}
-
-	ctx = metadata.AppendToOutgoingContext(ctx, client.metadataHeaderValues...)
 
 	return streamer(ctx, desc, cc, method, opts...)
 }
@@ -119,13 +113,14 @@ func newClientDialOptionsFromTLSConfig(tlsConfig *tls.Config) ([]grpc.DialOption
 	return dialOptions, nil
 }
 
-func NewCacheProxy(config CacheConfig, group program.Group) (CacheProxy, error) {
-	address := config.ProxyAddress()
+func NewCacheProxy(config Config) (CacheProxy, error) {
+	cacheConfig := config.CacheConfig()
+	address := cacheConfig.ProxyAddress()
 
 	var opts []grpc.DialOption
 	if address.Scheme == "grpcs" {
-		tlsFromConfig := config.TlsConfig()
-		if tlsFromConfig != nil {
+		tlsFromConfig := cacheConfig.TlsConfig()
+		if tlsFromConfig == nil {
 			tlsCredentials := credentials.NewTLS(&tls.Config{
 				InsecureSkipVerify: true,
 			})
@@ -148,27 +143,10 @@ func NewCacheProxy(config CacheConfig, group program.Group) (CacheProxy, error) 
 		return nil, status.Errorf(codes.InvalidArgument, "unknown address scheme: %s", address.Scheme)
 	}
 
-	metadataDefs := config.Metadata()
-	jmesExpression := config.MetadataJmespathExpression()
-	if len(metadataDefs) != 0 || jmesExpression != nil {
-		var metadataHeaderValues bbgrpc.MetadataHeaderValues
-		for _, entry := range metadataDefs {
-			metadataHeaderValues.Add(entry.Header, entry.Values)
-		}
-
-		expr, err := jmespath.NewExpressionFromConfiguration(jmesExpression, group, clock.SystemClock)
-		if err != nil {
-			return nil, util.StatusWrap(err, "Failed to compile JMESPath expression")
-		}
-
-		metadataExtractor, err := bbgrpc.NewJMESPathMetadataExtractor(expr)
-		if err != nil {
-			return nil, util.StatusWrap(err, "Failed to create JMESPath extractor")
-		}
-
+	metadataExtractor := config.MetadataExtractor()
+	if metadataExtractor != nil {
 		clientInterceptor := &ClientInterceptor{
-			metadataHeaderValues: metadataHeaderValues,
-			metadataExtractor:    metadataExtractor,
+			metadataExtractor: metadataExtractor,
 		}
 
 		opts = append(opts, grpc.WithUnaryInterceptor(clientInterceptor.unaryInterceptor))
@@ -271,9 +249,9 @@ func streamError(stream bs.ByteStream_WriteClient, template string, err error) e
 	return status.Errorf(codes.Internal, template, err)
 }
 
-func (cp *cacheProxy) Put(ctx context.Context, uuid string, digest *pb.Digest, rc io.ReadCloser) error {
+func (cp *cacheProxy) CheckUpdateCapabilities(ctx context.Context) error {
 	// Query Capabilities to check this cache instance works
-	serverCaps, err := cp.cap.GetCapabilities(context.Background(), &pb.GetCapabilitiesRequest{})
+	serverCaps, err := cp.cap.GetCapabilities(ctx, &pb.GetCapabilitiesRequest{})
 	if err != nil {
 		return err
 	}
@@ -282,6 +260,10 @@ func (cp *cacheProxy) Put(ctx context.Context, uuid string, digest *pb.Digest, r
 		return status.Errorf(codes.PermissionDenied, "Cache update capabilities not enabled")
 	}
 
+	return nil
+}
+
+func (cp *cacheProxy) bsWrite(ctx context.Context, uuid string, digest *pb.Digest, rc io.ReadCloser) error {
 	stream, err := cp.bs.Write(ctx)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to initialize Write stream: %s", err)
@@ -352,6 +334,38 @@ func (cp *cacheProxy) Put(ctx context.Context, uuid string, digest *pb.Digest, r
 			break
 		}
 	}
+	return nil
+}
+
+func (cp *cacheProxy) Put(ctx context.Context, uuid string, digest *pb.Digest, rc io.ReadCloser) error {
+	isMissing, err := cp.IsMissing(ctx, digest)
+	if err != nil {
+		return err
+	}
+
+	if isMissing {
+		err := cp.bsWrite(ctx, uuid, digest, rc)
+		if err != nil && err != io.EOF {
+			se := status.Convert(err)
+			if se == nil || se.Message() != "EOF" {
+				return err
+			}
+		}
+	}
+
+	acDigest := actionDigest(digest.Hash)
+
+	actionResult, err := cp.ac.GetActionResult(ctx, &pb.GetActionResultRequest{
+		ActionDigest: acDigest,
+	})
+
+	if err != nil && status.Code(err) != codes.NotFound {
+		return status.Errorf(codes.Internal, "failed to query GetActionResult: %s", err)
+	}
+
+	if actionResult != nil && len(actionResult.OutputFiles) == 1 && proto.Equal(actionResult.OutputFiles[0].Digest, digest) {
+		return nil
+	}
 
 	_, err = cp.ac.UpdateActionResult(ctx, &pb.UpdateActionResultRequest{
 		ActionDigest: actionDigest(digest.Hash),
@@ -379,7 +393,7 @@ func (cp *cacheProxy) GetToFile(ctx context.Context, uuid string, hash string) (
 	req := bs.ReadRequest{
 		ResourceName: fmt.Sprintf(template, digest.Hash, digest.SizeBytes),
 	}
-
+	
 	stream, err := cp.bs.Read(ctx, &req)
 	if err != nil {
 		return nil, err

@@ -9,7 +9,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/enkit/machinecert",
     visibility = ["//visibility:public"],
     deps = [
-        "//auth/proto:go_default_library",
+        "//auth/proto",
         "//lib/client",
         "//lib/kcerts",
         "@com_github_spf13_cobra//:cobra",

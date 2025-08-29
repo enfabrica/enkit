@@ -10,6 +10,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	grpc_status "google.golang.org/grpc/status"
 	"log"
 	"net/http"
@@ -36,6 +37,7 @@ func RegisterAssetServer(config Config, server *grpc.Server, cache CacheProxy, a
 var errNilFetchBlobRequest = grpc_status.Error(codes.InvalidArgument, "expected a non-nil *FetchBlobRequest")
 
 func (s *assetServer) FetchBlob(ctx context.Context, req *asset.FetchBlobRequest) (*asset.FetchBlobResponse, error) {
+
 	if req == nil {
 		return nil, errNilFetchBlobRequest
 	}
@@ -106,6 +108,7 @@ func (s *assetServer) FetchBlob(ctx context.Context, req *asset.FetchBlobRequest
 			sha256Str = hex.EncodeToString(decoded)
 
 			found, err := s.cache.Contains(ctx, sha256Str)
+
 			if err != nil {
 				s.errorLogger.Printf("failed to query  cache.Contains: %s", err)
 			} else if found != nil {
@@ -119,8 +122,7 @@ func (s *assetServer) FetchBlob(ctx context.Context, req *asset.FetchBlobRequest
 	}
 
 	// Cache miss.
-
-	// See if we can download one of the URIs.
+	md, _ := metadata.FromIncomingContext(ctx)
 
 	for uriIndex, uri := range req.GetUris() {
 		uriSpecificHeader := globalHeader.Clone()
@@ -130,7 +132,7 @@ func (s *assetServer) FetchBlob(ctx context.Context, req *asset.FetchBlobRequest
 			}
 		}
 
-		digest, err := s.assetDownloader.FetchItem(uri, uriSpecificHeader, sha256Str)
+		digest, err := s.assetDownloader.FetchItem(uri, uriSpecificHeader, md, sha256Str)
 		if err != nil {
 			s.errorLogger.Printf("failed to fetch item \"%s\": %v", uri, err)
 		}

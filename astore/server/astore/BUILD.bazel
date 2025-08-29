@@ -15,7 +15,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/astore/server/astore",
     visibility = ["//visibility:public"],
     deps = [
-        "//astore/rpc/astore:go_default_library",
+        "//astore/rpc/astore",
         "//lib/kflags",
         "//lib/logger",
         "//lib/oauth",
@@ -43,7 +43,7 @@ go_test(
     local = True,
     deps = [
         "//astore/client/astore",
-        "//astore/rpc/astore:go_default_library",
+        "//astore/rpc/astore",
         "//lib/errdiff",
         "//lib/logger",
         "//lib/testutil",

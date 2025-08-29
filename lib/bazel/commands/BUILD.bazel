@@ -9,7 +9,6 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/bazel/commands",
     visibility = ["//visibility:public"],
     deps = [
-        "//enkit/proto:enkit_proto_go_proto",
         "//lib/bazel",
         "//lib/bes",
         "//lib/client",

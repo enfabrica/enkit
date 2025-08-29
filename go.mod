@@ -1,8 +1,6 @@
 module github.com/enfabrica/enkit
 
-go 1.24.5
-
-toolchain go1.24.6
+go 1.24.6
 
 replace (
 	github.com/GoogleCloudPlatform/cloud-build-notifiers => github.com/minor-fixes/cloud-build-notifiers v0.0.0-20230424124639-02281bcdd3d5
@@ -22,7 +20,7 @@ require (
 	github.com/bazelbuild/buildtools v0.0.0-20250715102656-62b9413b08bb
 	github.com/bazelbuild/remote-apis v0.0.0-20250728120203-e94a7ece2a1e
 	github.com/bazelbuild/rules_go v0.54.1
-	github.com/buildbarn/bb-remote-execution v0.0.0-20241030155505-8a43a7749390
+	github.com/buildbarn/bb-remote-execution v0.0.0-20250727072438-58b88e8adfbd
 	github.com/buildbarn/bb-storage v0.0.0-20250827121715-fbb7c11d3502
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -62,7 +60,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/soheilhy/cmux v0.1.5
 	github.com/spf13/cobra v1.8.1
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.7
 	github.com/stretchr/testify v1.10.0
 	github.com/tchap/zapext v1.0.0
 	github.com/ulikunitz/xz v0.5.10

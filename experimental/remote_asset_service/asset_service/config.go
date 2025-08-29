@@ -1,10 +1,16 @@
 package asset_service
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/buildbarn/bb-storage/pkg/clock"
+	bbgrpc "github.com/buildbarn/bb-storage/pkg/grpc"
+	"github.com/buildbarn/bb-storage/pkg/jmespath"
+	"github.com/buildbarn/bb-storage/pkg/program"
 	bbconfig "github.com/buildbarn/bb-storage/pkg/proto/configuration/grpc"
-	"github.com/buildbarn/bb-storage/pkg/proto/configuration/jmespath"
+	jmespathconfig "github.com/buildbarn/bb-storage/pkg/proto/configuration/jmespath"
 	"github.com/buildbarn/bb-storage/pkg/proto/configuration/tls"
+	"github.com/buildbarn/bb-storage/pkg/util"
 	"github.com/google/go-jsonnet"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,14 +25,13 @@ import (
 type CacheConfig interface {
 	ProxyAddress() *url.URL
 	TlsConfig() *tls.ClientConfiguration
-	MetadataJmespathExpression() *jmespath.Expression
-	Metadata() []*bbconfig.ClientConfiguration_HeaderValues
 }
 
 type Config interface {
 	GrpcAddress() string
 
 	CacheConfig() CacheConfig
+	MetadataExtractor() bbgrpc.MetadataExtractor
 
 	ParallelDownloads() int32
 	SkipSchemes() map[string]bool
@@ -36,10 +41,8 @@ type Config interface {
 }
 
 type cacheConfig struct {
-	Address                       *url.URL                                     `json:"address"`
-	Tls                           *tls.ClientConfiguration                     `json:"tls,omitempty"`
-	AddMetadata                   []*bbconfig.ClientConfiguration_HeaderValues `json:"add_metadata,omitempty"`
-	AddMetadataJmespathExpression *jmespath.Expression                         `json:"add_metadata_jmespath_expression,omitempty"`
+	Address *url.URL                 `json:"address"`
+	Tls     *tls.ClientConfiguration `json:"tls,omitempty"`
 }
 
 func (cc *cacheConfig) UnmarshalJSON(data []byte) error {
@@ -75,14 +78,6 @@ func (cc *cacheConfig) TlsConfig() *tls.ClientConfiguration {
 	return cc.Tls
 }
 
-func (cc *cacheConfig) Metadata() []*bbconfig.ClientConfiguration_HeaderValues {
-	return cc.AddMetadata
-}
-
-func (cc *cacheConfig) MetadataJmespathExpression() *jmespath.Expression {
-	return cc.AddMetadataJmespathExpression
-}
-
 type config struct {
 	Server struct {
 		Host string `json:"host"`
@@ -95,6 +90,60 @@ type config struct {
 	UrlFilter struct {
 		SkipHosts []string `json:"skip_hosts"`
 	} `json:"url_filter"`
+	Metadata struct {
+		AddMetadata                   []*bbconfig.ClientConfiguration_HeaderValues `json:"add_metadata,omitempty"`
+		AddMetadataJmespathExpression *jmespathconfig.Expression                   `json:"add_metadata_jmespath_expression,omitempty"`
+	} `json:"metadata"`
+	metadataExtractor bbgrpc.MetadataExtractor
+}
+
+type metadataExtractor struct {
+	jmespathMetadataExtractor bbgrpc.MetadataExtractor
+	addMetadata               bbgrpc.MetadataHeaderValues
+}
+
+func (m *metadataExtractor) extractMetadata(ctx context.Context) (bbgrpc.MetadataHeaderValues, error) {
+	extraMetadata := m.addMetadata
+
+	if m.jmespathMetadataExtractor != nil {
+		jmespathMetadata, err := m.jmespathMetadataExtractor(ctx)
+		if err != nil {
+			return nil, err
+		}
+		extraMetadata = append(extraMetadata, jmespathMetadata...)
+	}
+
+	return extraMetadata, nil
+}
+
+func (cfg *config) Init(group program.Group) error {
+	var metadataHeaderValues bbgrpc.MetadataHeaderValues
+	for _, entry := range cfg.Metadata.AddMetadata {
+		metadataHeaderValues.Add(entry.Header, entry.Values)
+	}
+
+	var jmespathMetadataExtractor bbgrpc.MetadataExtractor
+	if cfg.Metadata.AddMetadataJmespathExpression != nil {
+		expr, err := jmespath.NewExpressionFromConfiguration(cfg.Metadata.AddMetadataJmespathExpression, group, clock.SystemClock)
+		if err != nil {
+			return util.StatusWrap(err, "Failed to compile JMESPath expression")
+		}
+
+		jmespathMetadataExtractor, err = bbgrpc.NewJMESPathMetadataExtractor(expr)
+		if err != nil {
+			return util.StatusWrap(err, "Failed to create JMESPath extractor")
+		}
+	}
+
+	if len(metadataHeaderValues) > 0 || jmespathMetadataExtractor != nil {
+		metadataExtractor := &metadataExtractor{
+			jmespathMetadataExtractor: jmespathMetadataExtractor,
+			addMetadata:               metadataHeaderValues,
+		}
+		cfg.metadataExtractor = metadataExtractor.extractMetadata
+	}
+
+	return nil
 }
 
 func (cfg *config) GrpcAddress() string {
@@ -132,6 +181,10 @@ func (cfg *config) ErrorLogger() *log.Logger {
 	return log.New(os.Stderr, "", log.LstdFlags)
 }
 
+func (cfg *config) MetadataExtractor() bbgrpc.MetadataExtractor {
+	return cfg.metadataExtractor
+}
+
 func injectEnv(vm *jsonnet.VM) error {
 	for _, env := range os.Environ() {
 		parts := strings.SplitN(env, "=", 2)
@@ -143,7 +196,7 @@ func injectEnv(vm *jsonnet.VM) error {
 	return nil
 }
 
-func NewConfigFromStr(data string) (Config, error) {
+func NewConfigFromStr(data string, group program.Group) (Config, error) {
 	// Create config structure
 	config := &config{}
 
@@ -166,10 +219,15 @@ func NewConfigFromStr(data string) (Config, error) {
 		return nil, err
 	}
 
+	err = config.Init(group)
+	if err != nil {
+		return nil, err
+	}
+
 	return config, nil
 }
 
-func NewConfigFromPath(configPath string) (Config, error) {
+func NewConfigFromPath(configPath string, group program.Group) (Config, error) {
 	// Create config structure
 	config := &config{}
 
@@ -188,6 +246,11 @@ func NewConfigFromPath(configPath string) (Config, error) {
 	err = json.Unmarshal([]byte(jsonStr), config)
 
 	// Start YAML decoding from file
+	if err != nil {
+		return nil, err
+	}
+
+	err = config.Init(group)
 	if err != nil {
 		return nil, err
 	}

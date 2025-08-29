@@ -11,7 +11,7 @@ go_library(
     importpath = "github.com/enfabrica/enkit/machinist/machine",
     visibility = ["//visibility:public"],
     deps = [
-        "//auth/proto:go_default_library",
+        "//auth/proto",
         "//lib/client",
         "//lib/goroutine",
         "//lib/kcerts",

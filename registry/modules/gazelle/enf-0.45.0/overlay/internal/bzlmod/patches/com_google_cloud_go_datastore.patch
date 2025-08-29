@@ -1,0 +1,17 @@
+diff --git query.go query.go
+index 0c3fe01db8..57f63f165a 100644
+--- query.go
++++ query.go
+@@ -380,6 +380,12 @@ func (q *Query) toRunQueryRequest(req *pb.RunQueryRequest) error {
+ 	return nil
+ }
+ 
++// ENFABRICA PATCH
++// Export toProto for use in unit tests
++func (q *Query) ToProto(req *pb.RunQueryRequest) error {
++	return q.toRunQueryRequest(req)
++}
++
+ func (q *Query) toProto() (*pb.Query, error) {
+ 	if len(q.projection) != 0 && q.keysOnly {
+ 		return nil, errors.New("datastore: query cannot both project and be keys-only")

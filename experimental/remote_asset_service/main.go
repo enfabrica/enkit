@@ -22,50 +22,87 @@ func usage() {
 	os.Exit(2)
 }
 
+type prog struct {
+	configPath string
+}
+
+func (p *prog) run(ctx context.Context, siblingsGroup, dependenciesGroup program.Group) error {
+	config, err := asset_service.NewConfigFromPath(p.configPath, dependenciesGroup)
+	if err != nil {
+		log.Fatalf("Parse config error: %v", err)
+	}
+
+	proxyCache, err := asset_service.NewCacheProxy(config)
+	if err != nil {
+		return err
+	}
+
+	urlFilter := asset_service.NewUrlFilter(config)
+	metrics := asset_service.NewMetrics()
+	assetDownloader := asset_service.NewAssetDownloader(config, proxyCache, urlFilter, metrics)
+
+	grpcAddress := config.GrpcAddress()
+
+	var opts []grpc.ServerOption
+
+	grpcServer := grpc.NewServer(opts...)
+
+	listener, err := net.Listen("tcp", grpcAddress)
+	if err != nil {
+		return err
+	}
+
+	log.Println("Starting gRPC server on address", grpcAddress)
+
+	asset_service.RegisterAssetServer(config, grpcServer, proxyCache, assetDownloader)
+
+	h := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcServer, h)
+	h.SetServingStatus("/grpc.health.v1.Health/Check", grpc_health_v1.HealthCheckResponse_SERVING)
+
+	return grpcServer.Serve(listener)
+}
+
+func permutateArgs(args []string) int {
+	args = args[1:]
+	optind := 0
+
+	for i := range args {
+		if args[i][0] == '-' {
+			tmp := args[i]
+			args[i] = args[optind]
+			args[optind] = tmp
+			optind++
+		}
+	}
+
+	return optind + 1
+}
+
 func main() {
 	_ = godotenv.Load(".env")
 
-	program.RunMain(func(ctx context.Context, siblingsGroup, dependenciesGroup program.Group) error {
-		flag.Usage = usage
-		flag.Parse()
-		args := flag.Args()
-		if len(args) < 1 {
-			log.Fatalf("Config file is missing.")
-		}
+	flag.Usage = usage
 
-		config, err := asset_service.NewConfigFromPath(args[0])
+	local := flag.Bool("local", false, "Run in non daemon mode")
+
+	optind := permutateArgs(os.Args)
+	flag.Parse()
+	args := os.Args[optind:]
+
+	if len(args) != 1 {
+		log.Fatalf("Single config file argument required.")
+		return
+	}
+
+	p := &prog{configPath: args[0]}
+
+	if *local {
+		err := program.RunLocal(context.Background(), p.run)
 		if err != nil {
-			log.Fatalf("Parse config error: %v", err)
+			log.Fatal(err)
 		}
-
-		proxyCache, err := asset_service.NewCacheProxy(config.CacheConfig(), dependenciesGroup)
-		if err != nil {
-			return err
-		}
-
-		urlFilter := asset_service.NewUrlFilter(config)
-		metrics := asset_service.NewMetrics()
-		assetDownloader := asset_service.NewAssetDownloader(config, proxyCache, urlFilter, metrics)
-
-		grpcAddress := config.GrpcAddress()
-
-		var opts []grpc.ServerOption
-
-		grpcServer := grpc.NewServer(opts...)
-
-		listener, err := net.Listen("tcp", grpcAddress)
-		if err != nil {
-			return err
-		}
-
-		log.Println("Starting gRPC server on address", grpcAddress)
-
-		asset_service.RegisterAssetServer(config, grpcServer, proxyCache, assetDownloader)
-
-		h := health.NewServer()
-		grpc_health_v1.RegisterHealthServer(grpcServer, h)
-		h.SetServingStatus("/grpc.health.v1.Health/Check", grpc_health_v1.HealthCheckResponse_SERVING)
-
-		return grpcServer.Serve(listener)
-	})
+	} else {
+		program.RunMain(p.run)
+	}
 }

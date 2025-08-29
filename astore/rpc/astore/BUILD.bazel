@@ -1,3 +1,4 @@
+load("@rules_go//go:def.bzl", "go_library")
 load("@rules_go//proto:def.bzl", "go_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
@@ -12,8 +13,15 @@ proto_library(
 
 go_proto_library(
     name = "go_default_library",
-    compilers = ["@rules_go//proto:go_grpc"],
+    compilers = ["@io_bazel_rules_go//proto:go_grpc_v2"],
     importpath = "github.com/enfabrica/enkit/astore/rpc/astore",
     proto = ":astore_proto",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "astore",
+    embed = [":go_default_library"],
+    importpath = "github.com/enfabrica/enkit/astore/rpc/astore",
     visibility = ["//visibility:public"],
 )

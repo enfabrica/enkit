@@ -15,7 +15,6 @@ go_library(
     importpath = "github.com/enfabrica/enkit/lib/bazel",
     visibility = ["//visibility:public"],
     deps = [
-        "//enkit/proto:enkit_proto_go_proto",
         "//lib/bazel/proto:go_protos",
         "//lib/goroutine",
         "//lib/logger",
