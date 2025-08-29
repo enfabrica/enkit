@@ -13,7 +13,7 @@ proto_library(
 
 go_proto_library(
     name = "go_default_library",
-    compilers = ["@io_bazel_rules_go//proto:go_grpc_v2"],
+    compilers = ["@rules_go//proto:go_grpc_v2"],
     importpath = "github.com/enfabrica/enkit/astore/rpc/astore",
     proto = ":astore_proto",
     visibility = ["//visibility:public"],
