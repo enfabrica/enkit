@@ -9,7 +9,7 @@
 # - a directory to store astore meta data files
 # - kernel label for creating bazel variable names
 
-set -e
+set -ex
 
 LIB_SH="$(dirname $(realpath $0))/lib.sh"
 . $LIB_SH
@@ -62,6 +62,9 @@ gen_artifact_desc() {
         exit 1
     fi
 
+# /builder/home/scratch-arm64-generic/kernel-builder/astore-meta/
+# vmlinuz-modules.tar.gz-6.3.12-1-1-1756418585-gb1b37559cc40-generic.json
+
     # Upcase arch and flavour
     local arch="$(echo -n $ARCH | tr [:lower:] [:upper:])"
     local FLAVOUR="$(echo -n $flavour | tr [:lower:] [:upper:])"
@@ -90,9 +93,16 @@ gen_deb_flavours() {
         local astore_file="build-headers.tar.gz"
         gen_artifact_desc "KERNEL_TREE" $kernel_version $f $astore_file
 
+        if [ "$ARCH" = "amd64" ] && [ "$f" = "generic" ] ; then
+
         ## vmlinuz-modules.tar.gz
         local astore_file="vmlinuz-modules.tar.gz"
         gen_artifact_desc "KERNEL_BIN" $kernel_version $f $astore_file
+
+        else
+            echo "Skipping KERNEL_BIN for $ARCH-$f"
+
+        fi
 
         ## deb-artifacts.tar.gz
         local astore_file="deb-artifacts.tar.gz"

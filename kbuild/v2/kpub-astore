@@ -226,18 +226,8 @@ for spec in $RT_KERNEL_SPECS ; do
     flavour=$(get_flavour $spec)
 
     case "$arch" in
-        amd64)
-            $RUN ${SCRIPT_PATH}/amd64-build-publish.sh \
-                 "$arch" "$flavour"  \
-                 "$KERNEL_SRC_DIR"   \
-                 "$KERNEL_VERSION"   \
-                 "$RT_BUILD_ROOT"    \
-                 "$RT_KERNEL_LABEL"  \
-                 "$ASTORE_BASE"      \
-                 "$ASTORE_META_DIR"
-            ;;
-        arm64)
-            $RUN ${SCRIPT_PATH}/arm64-build-publish.sh \
+        amd64|arm64)
+            $RUN ${SCRIPT_PATH}/${arch}-build-publish.sh \
                  "$arch" "$flavour"  \
                  "$KERNEL_SRC_DIR"   \
                  "$KERNEL_VERSION"   \

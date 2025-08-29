@@ -52,3 +52,12 @@ ${SCRIPT_PATH}/gen-bazel-meta.sh \
      "$ASTORE_BASE"              \
      "$ASTORE_META_DIR"          \
      "$ASTORE_LABEL"
+
+set -x
+cat ${ASTORE_META_DIR}/kernel-${ARCH}-${FLAVOUR}.version.bzl
+
+touch /workspace/${TARGET}.done
+
+while [ $(ls /workspace/*done | wc -l) -lt 3 ] ; do
+    sleep 10
+done

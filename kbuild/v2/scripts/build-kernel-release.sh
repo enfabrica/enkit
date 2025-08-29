@@ -10,7 +10,7 @@
 # - kernel flavour
 # - an output directory to place the generated tarball
 
-set -e
+set -ex
 
 SCRIPT_PATH="$(dirname $(realpath $0))"
 . "${SCRIPT_PATH}/lib.sh"
@@ -21,6 +21,13 @@ KERNEL_SUFFIX="$(realpath $3)"
 ARCH="$4"
 FLAVOUR="$5"
 OUTPUT_KRELEASE_DIR="$(realpath -m $6)"
+
+if [ "$ARCH" = "arm64" -a "$FLAVOUR" = "emulator" ] ; then
+    : # continue
+else
+    echo "Not implemented: ARCH=$ARCH FLAVOUR=$FLAVOUR"
+    exit 0
+fi
 
 if [ ! -d "$KERNEL_SRC_DIR" ] ; then
     echo "ERROR: kernel source directory does not exist: $KERNEL_SRC_DIR"
