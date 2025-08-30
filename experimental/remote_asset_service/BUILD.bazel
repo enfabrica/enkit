@@ -18,5 +18,6 @@ go_library(
 go_binary(
     name = "remote_asset_service",
     embed = [":remote_asset_service_lib"],
+    pure = "on",
     visibility = ["//visibility:public"],
 )
