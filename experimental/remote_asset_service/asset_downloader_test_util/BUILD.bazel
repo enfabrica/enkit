@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "asset_downloader_test_util_lib",
+    srcs = ["asset_dowloader_test_util.go"],
+    importpath = "github.com/enfabrica/enkit/experimental/remote_asset_service/asset_downloader_test_util",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//experimental/remote_asset_service/asset_service",
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution_go_proto",
+        "@com_github_buildbarn_bb_storage//pkg/program",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_joho_godotenv//:godotenv",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_x_sync//errgroup",
+    ],
+)
+
+go_binary(
+    name = "asset_downloader_test_util",
+    embed = [":asset_downloader_test_util_lib"],
+    visibility = ["//visibility:public"],
+)

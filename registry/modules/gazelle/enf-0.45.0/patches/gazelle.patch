@@ -1,0 +1,72 @@
+diff --git MODULE.bazel MODULE.bazel
+index 6ee03a7..741eeb4 100644
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -1,7 +1,7 @@
+ module(
+     name = "gazelle",
+     # Updated by the Publish to BCR app.
+-    version = "",
++    version = "enf-0.45.0",
+     repo_name = "bazel_gazelle",
+ )
+ 
+diff --git internal/bzlmod/default_gazelle_overrides.bzl internal/bzlmod/default_gazelle_overrides.bzl
+index b6249d5..562c8ef 100644
+--- internal/bzlmod/default_gazelle_overrides.bzl
++++ internal/bzlmod/default_gazelle_overrides.bzl
+@@ -149,6 +149,9 @@ DEFAULT_DIRECTIVES_BY_PATH = {
+     "storj.io/picobuf": [
+         "gazelle:proto legacy",
+     ],
++    "github.com/hashicorp/nomad": [
++        "gazelle:proto disable",
++    ],
+ }
+ 
+ DEFAULT_BUILD_EXTRA_ARGS_BY_PATH = {
+diff --git internal/bzlmod/go_deps.bzl internal/bzlmod/go_deps.bzl
+index 13080fa..eb7f186 100644
+--- internal/bzlmod/go_deps.bzl
++++ internal/bzlmod/go_deps.bzl
+@@ -19,6 +19,10 @@ load(
+     "DEFAULT_BUILD_FILE_GENERATION_BY_PATH",
+     "DEFAULT_DIRECTIVES_BY_PATH",
+ )
++load(
++    "//internal/bzlmod/patches:default_patches.bzl",
++    "DEFAULT_PATCHES",
++)
+ load(":go_mod.bzl", "deps_from_go_mod", "go_work_from_label", "sums_from_go_mod", "sums_from_go_work")
+ load(":semver.bzl", "COMPARES_HIGHEST_SENTINEL", "semver")
+ load(
+@@ -157,7 +161,7 @@ def _get_build_extra_args(path, gazelle_overrides, gazelle_default_attributes):
+     return _get_override_or_default(gazelle_overrides, gazelle_default_attributes, DEFAULT_BUILD_EXTRA_ARGS_BY_PATH, path, [], "build_extra_args")
+ 
+ def _get_patches(path, module_overrides):
+-    return _get_override_or_default(module_overrides, struct(), {}, path, [], "patches")
++    return _get_override_or_default(module_overrides, struct(), DEFAULT_PATCHES, path, [], "patches")
+ 
+ def _get_patch_args(path, module_overrides):
+     override = _get_override_or_default(module_overrides, struct(), {}, path, None, "patch_strip")
+@@ -318,7 +322,7 @@ def check_for_version_conflict(version, previous, module_tag, module_name_to_go_
+ 
+     conflict_printer(message)
+ 
+-def _noop(_):
++def _noop(*_):
+     pass
+ 
+ # These repos are shared between the isolated and non-isolated instances of go_deps as they are
+diff --git internal/go_repository_tools_srcs.bzl internal/go_repository_tools_srcs.bzl
+index 5496a6c..ada75de 100644
+--- internal/go_repository_tools_srcs.bzl
++++ internal/go_repository_tools_srcs.bzl
+@@ -37,6 +37,7 @@ GO_REPOSITORY_TOOLS_SRCS = [
+     Label("//flag:flag.go"),
+     Label("//internal:BUILD.bazel"),
+     Label("//internal/bzlmod:BUILD.bazel"),
++    Label("//internal/bzlmod/patches:BUILD.bazel"),
+     Label("//internal/bzlmod/tools:BUILD.bazel"),
+     Label("//internal/bzlmod/tools:tools.go"),
+     Label("//internal/gazellebinarytest:BUILD.bazel"),

@@ -1,0 +1,45 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "asset_service",
+    srcs = [
+        "asset_downloader.go",
+        "asset_server.go",
+        "cache_proxy.go",
+        "config.go",
+        "metrics.go",
+        "url_filter.go",
+    ],
+    importpath = "github.com/enfabrica/enkit/experimental/remote_asset_service/asset_service",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:remote_asset_go_proto",
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution_go_proto",
+        "@com_github_buildbarn_bb_storage//pkg/clock",
+        "@com_github_buildbarn_bb_storage//pkg/grpc",
+        "@com_github_buildbarn_bb_storage//pkg/jmespath",
+        "@com_github_buildbarn_bb_storage//pkg/program",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/grpc",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/jmespath",
+        "@com_github_buildbarn_bb_storage//pkg/proto/configuration/tls",
+        "@com_github_buildbarn_bb_storage//pkg/util",
+        "@com_github_google_uuid//:uuid",
+        "@jsonnet_go//:go_default_library",
+        "@org_golang_google_genproto_googleapis_bytestream//:bytestream",
+        "@org_golang_google_genproto_googleapis_rpc//status",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//credentials",
+        "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_grpc_security_advancedtls//:advancedtls",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":asset_service",
+    visibility = ["//visibility:public"],
+)

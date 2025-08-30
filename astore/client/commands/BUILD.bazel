@@ -16,7 +16,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//astore/client/astore",
-        "//astore/rpc/astore:go_default_library",
+        "//astore/rpc/astore",
         "//lib/client",
         "//lib/config",
         "//lib/config/defcon",
@@ -37,7 +37,7 @@ go_test(
     srcs = ["formatter_test.go"],
     embed = [":commands"],
     deps = [
-        "//astore/rpc/astore:go_default_library",
+        "//astore/rpc/astore",
         "@com_github_stretchr_testify//assert",
     ],
 )

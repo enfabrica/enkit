@@ -52,12 +52,14 @@ gazelle(name = "gazelle_update_repos")
 #
 # gazelle:resolve go kythe.io/kythe/go/platform/delimited @io_kythe//kythe/go/platform/delimited
 # gazelle:resolve go github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2 @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution_go_proto
+# gazelle:resolve go github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1 @com_github_bazelbuild_remote_apis//build/bazel/remote/asset/v1:remote_asset_go_proto
 
 # Buildbarn gazelle resolve mappings
 # Buildbarn dependencies may need certain overrides; these mappings are copied
 # from BUILD.bazel in github.com/buildbarn/bb-remote-execution so that libraries
 # from that repo can build.
 
+# gazelle:go_grpc_compilers	@rules_go//proto:go_grpc
 # gazelle:resolve proto pkg/proto/configuration/cloud/aws/aws.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/cloud/aws:aws_proto
 # gazelle:resolve proto go pkg/proto/configuration/cloud/aws/aws.proto @com_github_buildbarn_bb_storage//pkg/proto/configuration/cloud/aws
 # gazelle:resolve proto proto google/rpc/code.proto @googleapis//google/rpc:code_proto

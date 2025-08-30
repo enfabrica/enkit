@@ -19,7 +19,7 @@ go_test(
     deps = [
         "//astore/atesting",
         "//astore/client/astore",
-        "//astore/rpc/astore:go_default_library",
+        "//astore/rpc/astore",
         "//astore/server/astore",
         "//lib/client/ccontext",
         "//lib/logger",

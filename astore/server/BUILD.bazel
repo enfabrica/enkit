@@ -8,11 +8,11 @@ go_library(
     importpath = "github.com/enfabrica/enkit/astore/server",
     visibility = ["//visibility:private"],
     deps = [
-        "//astore/rpc/astore:go_default_library",
+        "//astore/rpc/astore",
         "//astore/server/astore",
         "//astore/server/configs",
         "//auth/common",
-        "//auth/proto:go_default_library",
+        "//auth/proto",
         "//auth/server/assets",
         "//auth/server/assets/templates",
         "//auth/server/auth",
