@@ -51,8 +51,14 @@ func NewNative(server string, mods ...grpc.DialOption) (*Client, error) {
 	return New(conn), nil
 }
 
+type DownloadProcessor func(ctx *ccontext.Context, file FileToDownload, response *apb.RetrieveResponse, outputDir, outputFile string) error
+
 type DownloadOptions struct {
 	*ccontext.Context
+
+	// Function invoked to actually perform the download.
+	// If not specified, defaults to DefaultDownloadProcessor.
+	Processor DownloadProcessor
 }
 
 type FileToDownload struct {
@@ -159,8 +165,59 @@ func (c *Client) GetRetrieveResponse(name string, archs []string, defaultId Path
 	return response, req, id, nil
 }
 
+// DefaultDownloadProcessor is the default processor used to download files.
+//
+// It downloads the file to a temporary file with a simple get request (no multipart/parallel downloads)
+// and then moves it to the final location with an atomic move while printing a progress bar.
+func DefaultDownloadProcessor(ctx *ccontext.Context, file FileToDownload, response *apb.RetrieveResponse, outputDir, outputFile string) error {
+	output := filepath.Join(outputDir, outputFile)
+	shortpath := ctx.ShortPath(output)
+
+	// Yes, this is racy. Who knows if someone will create the file before the
+	// download is over, or if the file will be gone by then.
+	// However, it would be a shame if we spent 30 mins downloading a file to
+	// then discover that we cannot overwrite it.
+	// This is just to be nice to the user.
+	if !file.Overwrite {
+		if _, err := os.Stat(output); err == nil {
+			return os.ErrExist
+		}
+	}
+
+	p := ctx.Progress()
+	p.Step("%s: creating file", shortpath)
+	f, err := ioutil.TempFile(outputDir, "."+outputFile+".*")
+	if err != nil {
+		return err
+	}
+
+	p.Step("%s: downloading", shortpath)
+	if err := Download(context.TODO(), progress.WriterCreator(p, f), response.Url); err != nil {
+		os.Remove(f.Name())
+		return err
+	}
+
+	if err := os.Link(f.Name(), output); err != nil {
+		if !os.IsExist(err) || !file.Overwrite {
+			return fmt.Errorf("trying to store file as %s, failed with: %w", output, err)
+		}
+		if err := os.Rename(f.Name(), output); err != nil {
+			return err
+		}
+	}
+
+	os.Remove(f.Name())
+	p.Done()
+	return nil
+}
+
 func (c *Client) Download(files []FileToDownload, o DownloadOptions) ([]*apb.Artifact, error) {
 	arts := []*apb.Artifact{}
+	processor := o.Processor
+	if processor == nil {
+		processor = DefaultDownloadProcessor
+	}
+
 	for _, file := range files {
 		response, _, id, err := c.GetRetrieveResponse(file.Remote, file.Architecture, file.RemoteType, file.Tag)
 		if err != nil {
@@ -169,7 +226,6 @@ func (c *Client) Download(files []FileToDownload, o DownloadOptions) ([]*apb.Art
 
 		arts = append(arts, response.Artifact)
 
-		p := o.Progress()
 		if response.Url == "" {
 			return nil, fmt.Errorf("Invalid empty URL returned by server")
 		}
@@ -198,43 +254,9 @@ func (c *Client) Download(files []FileToDownload, o DownloadOptions) ([]*apb.Art
 			}
 		}
 
-		output := filepath.Join(outputDir, outputFile)
-		shortpath := o.ShortPath(output)
-
-		// Yes, this is racy. Who knows if someone will create the file before the
-		// download is over, or if the file will be gone by then.
-		// However, it would be a shame if we spent 30 mins downloading a file to
-		// then discover that we cannot overwrite it.
-		// This is just to be nice to the user.
-		if !file.Overwrite {
-			if _, err := os.Stat(output); err == nil {
-				return nil, os.ErrExist
-			}
-		}
-
-		p.Step("%s: creating file", shortpath)
-		f, err := ioutil.TempFile(outputDir, "."+outputFile+".*")
-		if err != nil {
+		if err := processor(o.Context, file, response, outputDir, outputFile); err != nil {
 			return nil, err
 		}
-
-		p.Step("%s: downloading", shortpath)
-		if err := Download(context.TODO(), progress.WriterCreator(p, f), response.Url); err != nil {
-			os.Remove(f.Name())
-			return nil, err
-		}
-
-		if err := os.Link(f.Name(), output); err != nil {
-			if !os.IsExist(err) || !file.Overwrite {
-				return nil, fmt.Errorf("trying to store file as %s, failed with: %w", output, err)
-			}
-			if err := os.Rename(f.Name(), output); err != nil {
-				return nil, err
-			}
-		}
-
-		os.Remove(f.Name())
-		p.Done()
 	}
 	return arts, nil
 }
