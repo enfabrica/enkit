@@ -8,6 +8,18 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type PrettyJsonEncoder struct{}
+
+func (j *PrettyJsonEncoder) Marshal(value interface{}) ([]byte, error) {
+	return json.MarshalIndent(value, "", "  ")
+}
+func (j *PrettyJsonEncoder) Unmarshal(data []byte, value interface{}) error {
+	return json.Unmarshal(data, value)
+}
+func (j *PrettyJsonEncoder) Extension() string {
+	return "json"
+}
+
 type JsonEncoder struct{}
 
 func (j *JsonEncoder) Marshal(value interface{}) ([]byte, error) {

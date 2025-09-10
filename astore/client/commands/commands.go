@@ -22,6 +22,7 @@ import (
 
 var (
 	formatterMap = map[string]castore.Formatter{
+		"pretty-json": NewStructuredStdout(&marshal.PrettyJsonEncoder{}),
 		"json": NewStructuredStdout(&marshal.JsonEncoder{}),
 		"toml": NewStructuredStdout(&marshal.TomlEncoder{}),
 		"yaml": NewStructuredStdout(&marshal.YamlEncoder{}),
