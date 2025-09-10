@@ -10,6 +10,7 @@ import (
 	castore "github.com/enfabrica/enkit/astore/client/astore"
 	arpc "github.com/enfabrica/enkit/astore/rpc/astore"
 	"github.com/enfabrica/enkit/lib/client"
+	"github.com/enfabrica/enkit/lib/client/ccontext"
 	"github.com/enfabrica/enkit/lib/config"
 	"github.com/enfabrica/enkit/lib/config/defcon"
 	"github.com/enfabrica/enkit/lib/config/marshal"
@@ -158,6 +159,7 @@ type Download struct {
 	*cobra.Command
 	root *Root
 
+	DryRun    bool
 	ForceUid  bool
 	ForcePath bool
 	Output    string
@@ -181,6 +183,7 @@ func NewDownload(root *Root) *Download {
 	}
 	command.Command.RunE = command.Run
 
+	command.Flags().BoolVarP(&command.DryRun, "dry-run", "d", false, "Don't actually download the file, just show what would be done")
 	command.Flags().BoolVarP(&command.ForceUid, "force-uid", "u", false, "The argument specified identifies an uid")
 	command.Flags().BoolVarP(&command.ForcePath, "force-path", "p", false, "The argument specified identifies a file path")
 	command.Flags().StringVarP(&command.Output, "output", "o", ".", "Where to output the downloaded files. If multiple files are supplied, a directory with this name will be created")
@@ -243,9 +246,17 @@ func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	arts, err := client.Download(ftd, astore.DownloadOptions{
+	options := astore.DownloadOptions{
 		Context: dc.root.BaseFlags.Context(),
-	})
+	}
+	if dc.DryRun {
+		dc.root.Log.Warnf("No file will actually be downloaded --dry-run was specified")
+		options.Processor = func(ctx *ccontext.Context, file astore.FileToDownload, response *arpc.RetrieveResponse, _, _ string) error {
+			return nil
+		}
+	}
+
+	arts, err := client.Download(ftd, options)
 	if err != nil && os.IsExist(err) {
 		return fmt.Errorf("file already exists? To overwrite, pass the -w or --overwrite flag - %s", err)
 	}

@@ -18,6 +18,7 @@ go_library(
         "//astore/client/astore",
         "//astore/rpc/astore",
         "//lib/client",
+        "//lib/client/ccontext",
         "//lib/config",
         "//lib/config/defcon",
         "//lib/config/marshal",
