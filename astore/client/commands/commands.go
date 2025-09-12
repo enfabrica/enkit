@@ -262,10 +262,7 @@ func (dc *Download) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("file already exists? To overwrite, pass the -w or --overwrite flag - %s", err)
 	}
 
-	formatter := dc.root.Formatter()
-	for _, art := range arts {
-		formatter.Artifact(art)
-	}
+	dc.root.OutputArtifacts(arts)
 	return err
 }
 
