@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/enfabrica/enkit/astore/rpc/astore"
+	"github.com/enfabrica/enkit/lib/oauth"
 
 	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/storage"
@@ -117,6 +118,10 @@ func (s *Server) DownloadArtifact(prefix string, ehandler DownloadHandler, auth 
 func (s *Server) Retrieve(ctx context.Context, req *astore.RetrieveRequest) (*astore.RetrieveResponse, error) {
 	if req.Uid == "" && req.Path == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request - no uid and no path")
+	}
+
+	if err := s.options.acls.IsAllowed(oauth.GetCredentials(ctx)); err != nil {
+		return nil, status.Errorf(codes.PermissionDenied, "request denied by ACL - %s", err)
 	}
 
 	reqarch := strings.TrimSpace(req.Architecture)

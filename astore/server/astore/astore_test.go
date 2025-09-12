@@ -26,4 +26,3 @@ func TestUid(t *testing.T) {
 		assert.True(t, astore.IsUid(value))
 	}
 }
-

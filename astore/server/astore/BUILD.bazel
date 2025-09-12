@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "astore",
     srcs = [
+        "acls.go",
         "astore.go",
         "delete.go",
         "factory.go",
@@ -34,6 +35,7 @@ go_library(
 go_test(
     name = "astore_test",
     srcs = [
+        "acls_test.go",
         "astore_test.go",
         "retrieve_test.go",
         "token_test.go",

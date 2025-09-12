@@ -67,6 +67,14 @@ func WithProjectIDFile(path string) Modifier {
 	}
 }
 
+func WithGlobalACL(acl ...string) Modifier {
+	return func(o *Options) error {
+		var err error
+		o.acls, err = NewACLList(acl)
+		return err
+	}
+}
+
 func WithSigningJSON(data []byte) Modifier {
 	return func(o *Options) error {
 		config, err := google.JWTConfigFromJSON(data)
@@ -147,6 +155,7 @@ type Flags struct {
 	SignatureValidity time.Duration
 	PublishBaseURL    string
 
+	GlobalACL           []string
 	ProjectIDJSON       []byte
 	SigningConfigJSON   []byte
 	CredentialsFileJSON []byte
@@ -189,6 +198,9 @@ func WithFlags(flags *Flags) Modifier {
 				return err
 			}
 		}
+		if err := WithGlobalACL(flags.GlobalACL...)(o); err != nil {
+			return err
+		}
 		return nil
 	}
 }
@@ -207,6 +219,7 @@ func (f *Flags) Register(set kflags.FlagSet, prefix string) *Flags {
 	set.StringVar(&f.ProjectID, prefix+"project-id", f.ProjectID, "Project id for datastore access")
 	set.StringVar(&f.PublishBaseURL, prefix+"publish-base-url", "", "URL prependend to published file paths, to turn them into downloadable URLs")
 	set.DurationVar(&f.SignatureValidity, prefix+"url-validity", f.SignatureValidity, "How long should the signed URL be valid for")
+	set.StringArrayVar(&f.GlobalACL, prefix+"global-acl", nil, "List of ACLs to determine who can or cannot download files from astore")
 	set.ByteFileVar(&f.ProjectIDJSON, prefix+"project-id-file", "",
 		"Rather than specify a project id directly, you can specify a json file containing a project_id value (credentials file, jwt, ...)")
 	set.ByteFileVar(&f.SigningConfigJSON, prefix+"signing-config", "",
@@ -222,6 +235,8 @@ type Options struct {
 	bucket    string
 
 	publishBaseURL string
+
+	acls ACLList
 
 	expires time.Duration
 	signing storage.SignedURLOptions
