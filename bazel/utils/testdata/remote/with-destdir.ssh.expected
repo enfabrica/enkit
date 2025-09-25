@@ -1,1 +1,1 @@
-non-existant-machine-1.corp -- cd hw-dev-$USER/home/$USER/__bazel_utils_hello-world/_main; /bin/bash -c "MACHINES='non-existant-machine-1.corp non-existant-machine-2.corp' ./bazel/utils/hello-world "
+non-existant-machine-1.corp -- cd hw-dev-$USER/home/$USER/__bazel_utils_hello-world/_main; /bin/bash -c "MACHINES='non-existant-machine-1.corp non-existant-machine-2.corp' RUNFILES_DIR='$(pwd)/..'  ./bazel/utils/hello-world "
