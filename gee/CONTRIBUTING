@@ -1,0 +1,62 @@
+# CONTRIBUTING
+
+This is an effort to re-implement the gee bash script in python.
+
+## Goals
+
+A few high level objectives:
+
+  * implement gee as a stand-alone python3 script that can be executed
+    directly from the command line, without using any python modules
+    that aren't part of the python standard library.  Gee shouldn't
+    need to be a pyzip file or be executed via `bazel run`.
+
+  * configure gee.py using a .gee.rc file.  geerc.default is a prototype.
+
+  * remove all enfabrica-isms from the gee.py script -- or, at least,
+    move them to the configuration file.
+
+  * be as backwards compatible with the previous workflow as possible.
+    gee.py should be a drop-in replacement for gee.
+
+  * clean up the logging.  Differential between "important" commands
+    (things we want gee to teach the user how to do), and "unimportant"
+    commands (diagnostic checks and other things that would distract
+    the user from seeing what's important).
+
+    This version of gee has the following logging levels:
+       DEBUG: shows everything
+       LOW_STDOUT: shows stdout for unimportant commands
+       LOW_STDERR: shows stderr for unimportant commands
+       LOW_COMMANDS: shows what unimportant commands are begin executed
+       INFO: informational messages
+       STDOUT: shows stdout for important commands
+       STDERR: shows stderr for important commands
+       COMMANDS: shows what important commands are being executed
+       WARNINGS: concerning conditions, not necessarily a failure.
+       ERRORS: error conditions, indicates that operations have failed.
+
+  * Make gee testable by adding mocks for subprocess calls to "git", "gh", and
+    other commands.
+
+## Caveats
+
+A few places where gee.py is already different from gee:
+
+* all references to enkit are removed
+* the parents file is now parents.json
+
+## Testing
+
+To get started running the python version of gee, first create a
+local copy of the .gee.rc file:
+
+    cp geerc.default ~/.gee.rc
+
+The run any gee command:
+
+    ./gee.py help
+
+A useful first command:
+
+    ./gee.py init org-64667743@github.com:enfabrica/internal.git

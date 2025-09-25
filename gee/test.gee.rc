@@ -1,0 +1,36 @@
+[gee]
+git = "git"
+gh = "gh"
+editor = "vim"
+pager = "less"
+gee_dir = "/home/jonathan/test_gee.foo"
+ghuser = "jonathan-enf"
+path = [ "/usr/enfabrica/bin", "/enf_mounts/bin", "$HOME/bin", "/usr/bin",]
+ssh_key = "$HOME/.ssh/id_ed25519"
+clone_depth_months = 3
+default_repo = "enkit"
+mergetool = "vim"
+
+[gee.colors]
+cmd_fg = 16
+cmd_bg = 12
+banner_fg = 15
+banner_bg = 21
+dbg_fg = 2
+dbg_bg = 0
+die_fg = 16
+die_bg = 9
+warn_fg = 11
+warn_bg = 0
+info_fg = 6
+info_bg = 0
+
+[repo.enkit]
+repo = "enkit"
+upstream = "enfabrica"
+dir = "enkit"
+gcloud_project = ""
+presubmit_cancel = true
+git_at_github = "org-64667743@github.com"
+clone_depth_months = 3
+main = "master"
