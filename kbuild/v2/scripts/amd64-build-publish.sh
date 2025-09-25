@@ -16,6 +16,13 @@ ASTORE_BASE="$7"
 ASTORE_META_DIR="$8"
 
 TARGET="${ARCH}-${FLAVOUR}"
+
+# detect cross-compile, we can only do arm64 on amd64, not vice versa
+if ! dpkg-architecture -e "$ARCH" ; then
+     echo "ERROR: Unsupported cross-compile architecture: $ARCH"
+     exit 1
+fi
+
 BUILD_DEB_DIR="$BUILD_ROOT/deb-build/${TARGET}"
 OUTPUT_DEB_DIR="$BUILD_ROOT/deb-out/${TARGET}"
 OUTPUT_REPO_DIR="$BUILD_ROOT/apt-repo/${TARGET}"

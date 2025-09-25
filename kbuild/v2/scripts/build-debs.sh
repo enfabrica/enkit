@@ -19,6 +19,13 @@ FLAVOUR="$4"
 BUILD_DIR="$5"
 OUTPUT_DEB_DIR="$6"
 
+if [ "$FLAVOUR" = "generic" ] ; then
+    : # continue
+else
+    echo "Not implemented: FLAVOUR=$FLAVOUR"
+    exit 1
+fi
+
 if [ ! -d "$KERNEL_SRC_DIR" ] ; then
     echo "ERROR: kernel source directory does not exist: $KERNEL_SRC_DIR"
     exit 1
@@ -62,6 +69,14 @@ abi_suffix="${kernel_version}${dirty}"
 if [ "$RT_BUILD_CLEAN" = "yes" ] ; then
     fakeroot debian/rules distclean
 fi
+
+# if [ "$ARCH" = "arm64" ] ; then
+if ! dpkg-architecture -e "$ARCH" ; then
+    echo "CROSS_COMPILE=${CROSS_COMPILE:?}"
+    echo "DEB_HOST_ARCH=${DEB_HOST_ARCH:?}"
+    echo "DEB_BUILD_PROFILES=${DEB_BUILD_PROFILES:?}"
+fi
+# fi
 
 fakeroot debian/rules clean	   abi_suffix="$abi_suffix" arch="$ARCH" flavours="$FLAVOUR"
 fakeroot debian/rules binary-debs  abi_suffix="$abi_suffix" arch="$ARCH" flavours="$FLAVOUR"

@@ -90,9 +90,15 @@ gen_deb_flavours() {
         local astore_file="build-headers.tar.gz"
         gen_artifact_desc "KERNEL_TREE" $kernel_version $f $astore_file
 
+        if [ "$ARCH" = "amd64" ] && [ "$f" = "generic" ] ; then
+
         ## vmlinuz-modules.tar.gz
         local astore_file="vmlinuz-modules.tar.gz"
         gen_artifact_desc "KERNEL_BIN" $kernel_version $f $astore_file
+
+        else
+            echo "Skipping KERNEL_BIN for $ARCH-$f"
+        fi
 
         ## deb-artifacts.tar.gz
         local astore_file="deb-artifacts.tar.gz"

@@ -9,7 +9,7 @@
 # - kernel flavour
 # - an output directory to place the generated APT repo
 
-set -e
+set -ex
 
 LIB_SH="$(dirname $(realpath $0))/lib.sh"
 . $LIB_SH
@@ -52,8 +52,18 @@ make_repo() {
     mkdir -p "$flavour_bin_dir" "$flavour_pool_dir"
 
     echo -n "${flavour}: Copying input files... "
+    echo "KERNEL_BASE=$KERNEL_BASE"
+    echo "DEB_VERSION=$DEB_VERSION"
+    echo "ARCH=$ARCH"
+    echo "favour=$flavour"
+    find ${INPUT_DEB_ROOT}/
+
     cp -a "${INPUT_DEB_ROOT}/"*_all.deb "$flavour_pool_dir"
-    cp -a "${INPUT_DEB_ROOT}/"*-${KERNEL_BASE}_${DEB_VERSION}_${ARCH}.deb "$flavour_pool_dir"
+    if [ "$ARCH" = "arm64" ] && [ "$flavour" = "generic" ]; then
+        cp -a "${INPUT_DEB_ROOT}/"*-${KERNEL_BASE}_${DEB_VERSION}_arm64.deb "$flavour_pool_dir" || true
+    else
+        cp -a "${INPUT_DEB_ROOT}/"*-${KERNEL_BASE}_${DEB_VERSION}_${ARCH}.deb "$flavour_pool_dir"
+    fi
     cp -a "${INPUT_DEB_ROOT}/"*"-${flavour}"*deb "$flavour_pool_dir"
     echo "Done."
 
